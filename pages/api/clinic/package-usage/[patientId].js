@@ -236,6 +236,29 @@ export default async function handler(req, res) {
       packageIdToNameMap[String(pkg._id)] = pkg.name;
     });
 
+    // Supplement packageDefMap with packageSnapshot data for deleted-master packages.
+    // When a package is deleted from the master catalogue AFTER being sold to a patient,
+    // Package.find() returns nothing for that ID — so packageDefMap has no entry.
+    // The snapshot stored at assignment time is the source of truth for sessions/treatments.
+    if (Array.isArray(patient?.packages)) {
+      patient.packages.forEach(p => {
+        const snap = p.packageSnapshot;
+        if (!snap || !snap.name) return;
+        // Only fill if this name is missing from the live master (i.e., package was deleted)
+        if (packageDefMap[snap.name]) return;
+        packageDefMap[snap.name] = {
+          treatments: Array.isArray(snap.treatments) ? snap.treatments : [],
+          totalSessions: snap.totalSessions || 0,
+          totalPrice: snap.totalPrice || 0,
+        };
+        // Also populate the id->name map so later lookups work
+        const pkgIdStr = String(p.packageId || '');
+        if (pkgIdStr && !packageIdToNameMap[pkgIdStr]) {
+          packageIdToNameMap[pkgIdStr] = snap.name;
+        }
+      });
+    }
+
     // Aggregate usage by package and treatment
     const packageUsage = {};
 

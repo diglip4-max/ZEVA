@@ -144,6 +144,29 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
         paymentMethod: { type: String, default: "" },
+        // --- Enterprise Package Snapshot ---
+        // Full copy of the Package master data at the time of assignment.
+        // Ensures all package benefits remain accessible even if the master Package
+        // is later deleted from the services_setup page.
+        packageSnapshot: {
+          name: { type: String, default: "" },
+          totalPrice: { type: Number, default: 0 },
+          totalSessions: { type: Number, default: 0 },
+          sessionPrice: { type: Number, default: 0 },
+          validityInMonths: { type: Number, default: 0 },
+          startDate: { type: Date },
+          endDate: { type: Date },
+          treatments: [
+            {
+              treatmentName: { type: String, default: "" },
+              treatmentSlug: { type: String, default: "" },
+              allocatedPrice: { type: Number, default: 0 },
+              sessions: { type: Number, default: 1 },
+              sessionPrice: { type: Number, default: 0 },
+            },
+          ],
+          snapshotCreatedAt: { type: Date, default: Date.now },
+        },
       },
     ],
     userPackages: [

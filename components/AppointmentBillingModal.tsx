@@ -77,6 +77,7 @@ interface Package {
   paymentStatus?: string;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  isDeletedMaster?: boolean;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -754,7 +755,83 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           headers,
         });
         if (packagesRes.data.success) {
-          setPackages(packagesRes.data.packages || []);
+          const masterPackages = packagesRes.data.packages || [];
+
+          // Enterprise resilience: reconstruct package data from patient-stored snapshots
+          // for any packages that were deleted from the master catalogue AFTER being sold
+          // to the patient. This ensures the patient can still consume all package benefits
+          // (select package in billing, view treatments, generate session invoices).
+          if (appointment?.patientId) {
+            try {
+              // Fetch patient data and billing history in parallel for robust snapshot reconstruction
+              const [patRes, billRes] = await Promise.all([
+                axios.get(`/api/clinic/patient-registration?id=${appointment.patientId}`, { headers }),
+                axios.get(`/api/clinic/billing-history/${appointment.patientId}`, { headers }).catch(() => ({ data: { success: false } })),
+              ]);
+              const patientPkgs: any[] = patRes.data?.patient?.packages || [];
+              const billings: any[] = (billRes as any).data?.success ? (billRes as any).data.billings || [] : [];
+              const masterIds = new Set(masterPackages.map((p: any) => String(p._id)));
+
+              const snapshotPackages: any[] = [];
+              patientPkgs.forEach((assigned: any) => {
+                const pkgIdStr = String(assigned.packageId || '');
+                if (!pkgIdStr || masterIds.has(pkgIdStr)) return;
+
+                const snap = assigned.packageSnapshot;
+
+                // Name resolution (4 levels): snapshot → packageName → billing history → last resort
+                const nameFromBilling = billings.find(
+                  (b: any) => b.service === 'Package' && b.package &&
+                    (String(b.packageId) === pkgIdStr || (b.notes && String(b.notes).includes(pkgIdStr)))
+                )?.package || null;
+                const resolvedName = snap?.name || assigned.packageName || nameFromBilling
+                  || (assigned.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+                if (!resolvedName) return;
+
+                // Treatment resolution: snapshot → billing history treatments
+                const resolvedTreatments = (Array.isArray(snap?.treatments) && snap.treatments.length > 0)
+                  ? snap.treatments
+                  : (() => {
+                      const pkgBill = billings.find(
+                        (b: any) => b.service === 'Package' && b.package === resolvedName
+                          && Array.isArray(b.treatments) && b.treatments.length > 0
+                      );
+                      return pkgBill?.treatments || [];
+                    })();
+
+                const resolvedTotalSessions = (snap?.totalSessions ?? 0)
+                  || resolvedTreatments.reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0);
+
+                snapshotPackages.push({
+                  _id: pkgIdStr,
+                  name: resolvedName,
+                  totalPrice: snap?.totalPrice ?? assigned.totalPrice ?? 0,
+                  totalSessions: resolvedTotalSessions,
+                  sessionPrice: snap?.sessionPrice ?? 0,
+                  validityInMonths: snap?.validityInMonths ?? assigned.validityInMonths ?? 0,
+                  startDate: snap?.startDate ?? assigned.startDate ?? null,
+                  endDate: snap?.endDate ?? assigned.endDate ?? null,
+                  treatments: resolvedTreatments,
+                  isDeletedMaster: true,
+                });
+              });
+
+              // Merge and deduplicate
+              const seen = new Set<string>();
+              const merged = [...masterPackages, ...snapshotPackages].filter((p: any) => {
+                const id = String(p._id);
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
+              });
+              setPackages(merged);
+            } catch (snapErr) {
+              console.warn('[BillingModal] Snapshot package reconstruction skipped:', snapErr);
+              setPackages(masterPackages);
+            }
+          } else {
+            setPackages(masterPackages);
+          }
         }
 
         // Fetch userPackages (packages created via public form) for this patient
@@ -4836,7 +4913,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       return false;
     });
     
-    if (!hasBillableTreatments) return false;
+    if (!hasBillableTreatments) {
+      // Enterprise resilience: still show deleted-master packages that belong to this patient
+      // even if treatments couldn't be recovered from snapshot/billing history.
+      // The patient paid for the package and must be able to use it in billing.
+      if (pkg.isDeletedMaster) return true;
+      return false;
+    }
 
     // If search query is empty, show all packages with billable treatments
     if (!packageSearchQuery.trim()) return true;
@@ -5254,7 +5337,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                             }`}
                                           >
                                             <div className="flex items-center justify-between">
-                                              <div className="font-medium">{pkg.name}</div>
+                                              <div className="font-medium flex items-center gap-1">
+                                                {pkg.name}
+                                                {pkg.isDeletedMaster && (
+                                                  <span className="px-1 py-0.5 rounded bg-orange-50 text-orange-600 text-[7px] font-bold uppercase border border-orange-200" title="This package was removed from the clinic catalogue but the patient retains full benefits">Catalogue Removed</span>
+                                                )}
+                                              </div>
                                               <div className="flex items-center gap-1 flex-wrap justify-end">
                                                 {pkg.isTransferred && (
                                                   <span className="px-1 py-0.5 rounded bg-blue-50 text-blue-600 text-[8px] font-bold uppercase border border-blue-100">Transferred</span>
@@ -6899,9 +6987,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           // Filter purchased packages: only remove if all sessions are transferred out
                           // Also exclude packages that already appear as transferred-in (to avoid duplicates)
                           const purchasedPackages = (patientDetails?.packages || []).filter((p: any) => {
-                            // Get package definition
-                            const packageDef = packages.find(pkg => pkg._id === p.packageId);
-                            const packageName = packageDef?.name || p.packageId;
+                            // Get package definition — use String comparison to handle ObjectId vs string
+                            const packageDef = packages.find((pkg: any) => String(pkg._id) === String(p.packageId));
+                            // Name: from master def, or snapshot, or stored packageName, or billing history fallback
+                            const snap = p.packageSnapshot;
+                            const nameFromBillingHist = (billingHistory || []).find(
+                              (b: any) => b.service === 'Package' && b.package &&
+                                (String(b.packageId) === String(p.packageId) || (b.notes && String(b.notes).includes(String(p.packageId))))
+                            )?.package || null;
+                            const packageName = packageDef?.name || snap?.name || p.packageName
+                              || nameFromBillingHist
+                              || (p.totalPrice > 0 ? `Package (${String(p.packageId).slice(-6)})` : String(p.packageId));
 
                             // Skip if this package already appears as transferred-in (will be shown with tag)
                             if (transferredInPackageNames.has(packageName)) {
@@ -6912,6 +7008,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
                             // Check if there are any remaining sessions (if we have usage data)
                             if (usageData && typeof usageData.remainingSessions === 'number') {
+                              // Only hide if sessions were actually consumed (totalSessions > 0 means billing happened)
+                              // If totalAllowedSessions === 0 AND totalSessions === 0, the API had no master definition
+                              // to compute from — don't hide the package in that case (patient paid for it).
+                              const hasBeenUsed = (usageData.totalSessions || 0) > 0;
+                              if (usageData.totalAllowedSessions === 0 && !hasBeenUsed) {
+                                // Broken usage data (deleted master with old snapshot): keep it visible
+                                return !patientDetails.packageTransfers?.some((t: any) => t.type === "out" && String(t.packageId) === String(p.packageId));
+                              }
                               return usageData.remainingSessions > 0;
                             }
 
@@ -6943,7 +7047,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             }));
                          
                           const allPackages = [
-                            ...purchasedPackages.map((p: any) => ({ ...p, isUserPackage: false })),
+                            ...purchasedPackages.map((p: any) => ({
+                              ...p,
+                              isUserPackage: false,
+                              // Flag as deleted master so the card can show the 'Catalogue Removed' badge
+                              isDeletedMaster: !packages.some((pkg: any) => String(pkg._id) === String(p.packageId)),
+                            })),
                             ...approvedUserPackages.map((p: any) => ({ ...p, isUserPackage: true })),
                             ...transferredInPackages
                           ];
@@ -6971,11 +7080,28 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               treatments = pkg.treatments || [];
                               totalSessions = pkg.totalSessions || 0;
                             } else {
-                              // Handle regular package
-                              packageDef = packages.find(p => p._id === pkg.packageId);
-                              packageName = packageDef?.name || pkg.packageId;
-                              treatments = packageDef?.treatments || [];
-                              totalSessions = packageDef?.treatments?.reduce((s: number, t: any) => s + (t.sessions || 0), 0) || 0;
+                              // Handle regular package — use String comparison to match both ObjectId and string _id
+                              packageDef = packages.find((p: any) => String(p._id) === String(pkg.packageId));
+                              if (packageDef) {
+                                packageName = packageDef.name;
+                                treatments = packageDef.treatments || [];
+                                totalSessions = packageDef.treatments?.reduce((s: number, t: any) => s + (parseInt(t.sessions) || t.sessions || 0), 0) || 0;
+                              } else {
+                                // Deleted master: resolve from the stored assignment data itself
+                                const pkgIdStr = String(pkg.packageId || '');
+                                const assignedSnap = pkg.packageSnapshot;
+                                const nameFromBillingHistory = (billingHistory || []).find(
+                                  (b: any) => b.service === 'Package' && b.package &&
+                                    (String(b.packageId) === pkgIdStr || (b.notes && String(b.notes).includes(pkgIdStr)))
+                                )?.package || null;
+                                packageName = assignedSnap?.name || pkg.packageName || nameFromBillingHistory
+                                  || (pkg.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : pkg.packageId);
+                                treatments = (Array.isArray(assignedSnap?.treatments) && assignedSnap.treatments.length > 0)
+                                  ? assignedSnap.treatments
+                                  : [];
+                                totalSessions = assignedSnap?.totalSessions
+                                  || treatments.reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0);
+                              }
                             }
                            
                             const usageData = usageMap.get(packageName);
@@ -7021,6 +7147,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 {isExpired && (
                                   <div className="absolute top-0 right-0 px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-tighter z-10 rounded-bl-lg shadow-sm">
                                     Expired
+                                  </div>
+                                )}
+                                {pkg.isDeletedMaster && !isExpired && (
+                                  <div className="absolute top-0 left-0 px-2 py-0.5 bg-orange-500 text-white text-[7px] font-black uppercase tracking-tighter z-10 rounded-br-lg shadow-sm" title="This package was removed from the clinic catalogue but the patient retains all purchased benefits.">
+                                    Catalogue Removed
                                   </div>
                                 )}
                                 {pkg.isTransferredIn && (

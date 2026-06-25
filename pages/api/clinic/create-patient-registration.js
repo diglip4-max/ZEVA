@@ -434,13 +434,32 @@ export default async function handler(req, res) {
         // console.log("Regular Package lookup result:", pkgDoc ? "Found" : "NOT FOUND");
       }
 
+      if (!pkgDoc && !isUserPackage) {
+        // Package not found in master catalogue — it may have been deleted AFTER being sold.
+        // Attempt to reconstruct a synthetic pkgDoc from the packageSnapshot stored in the
+        // patient's packages sub-document. This preserves full billing capability for patients
+        // who already hold the package.
+        const patientPkgEntry = (patientRegistration.packages || []).find(
+          (p) => (p.packageName === packageName) ||
+                 (p.packageSnapshot && p.packageSnapshot.name === packageName)
+        );
+        if (patientPkgEntry && patientPkgEntry.packageSnapshot && patientPkgEntry.packageSnapshot.name) {
+          const snap = patientPkgEntry.packageSnapshot;
+          pkgDoc = {
+            _id: patientPkgEntry.packageId,
+            name: snap.name,
+            totalPrice: snap.totalPrice || patientPkgEntry.totalPrice || 0,
+            totalSessions: snap.totalSessions || 0,
+            sessionPrice: snap.sessionPrice || 0,
+            validityInMonths: snap.validityInMonths || patientPkgEntry.validityInMonths || 0,
+            treatments: Array.isArray(snap.treatments) ? snap.treatments : [],
+            isDeletedMaster: true,
+          };
+          console.log(`[PKG_BILLING] Deleted-master package "${packageName}" reconstructed from snapshot for patient ${patientRegistration._id}`);
+        }
+      }
+
       if (!pkgDoc) {
-        // console.log("PACKAGE NOT FOUND - details:", {
-        //   packageName,
-        //   isUserPackage,
-        //   patientPackageId,
-        //   clinicId: clinic._id
-        // });
         // Only return error if !hasPendingAmount (since if hasPendingAmount, it's probably unpaid package payment)
         if (!hasPendingAmount) {
           return res.status(404).json({
@@ -1067,9 +1086,35 @@ export default async function handler(req, res) {
             pkgAssignPaymentStatus = "Partial";
           }
 
+          // Build package snapshot for resilience
+          const snapshotName = pkgDoc.name || packageName;
+          const snapshotTotalPrice = pkgTotalForAssignment;
+          const snapshotTotalSessions = pkgDoc.totalSessions || 0;
+          const snapshotSessionPrice = pkgDoc.sessionPrice || 0;
+          const snapshotValidity = pkgDoc.validityInMonths || 0;
+          const snapshotTreatments = Array.isArray(pkgDoc.treatments) ? pkgDoc.treatments.map((t) => ({
+            treatmentName: t.treatmentName || '',
+            treatmentSlug: t.treatmentSlug || '',
+            allocatedPrice: t.allocatedPrice || 0,
+            sessions: t.sessions || 1,
+            sessionPrice: t.sessionPrice || 0,
+          })) : [];
+
+          const packageSnapshot = {
+            name: snapshotName,
+            totalPrice: snapshotTotalPrice,
+            totalSessions: snapshotTotalSessions,
+            sessionPrice: snapshotSessionPrice,
+            validityInMonths: snapshotValidity,
+            startDate: pkgDoc.startDate ? new Date(pkgDoc.startDate) : new Date(),
+            endDate: pkgDoc.endDate ? new Date(pkgDoc.endDate) : null,
+            treatments: snapshotTreatments,
+            snapshotCreatedAt: new Date(),
+          };
+
           const newPackageEntry = {
             packageId: pkgDoc._id,
-            packageName: pkgDoc.name || packageName,
+            packageName: snapshotName,
             packageSoldBy: clinicUser.name || `${clinicUser.firstName || ''} ${clinicUser.lastName || ''}`.trim() || 'Unknown',
             packageSoldByUserId: clinicUser._id,
             assignedDate: new Date(),
@@ -1082,6 +1127,7 @@ export default async function handler(req, res) {
             paymentMethod: multiPayArr.length > 0 ? "Multiple Payments" : (paymentMethod || "Cash"),
             advanceBalanceUsed: advanceUsedNum,
             claimAmountUsed: claimAmountUsedNum,
+            packageSnapshot,
           };
 
           await PatientRegistration.findByIdAndUpdate(
