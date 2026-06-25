@@ -50,8 +50,6 @@ const MaterialConsumptionSchema = new mongoose.Schema(
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "StockItem",
-          required: true,
-          index: true,
         },
         code: {
           type: String,

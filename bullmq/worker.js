@@ -3081,7 +3081,7 @@ const listImapIncomingEmailWorker = new Worker(
               }
 
               // Get plain text body (fallback to HTML)
-              let body = parsed.text || parsed.htmlAsText || parsed.html || "";
+              let body = parsed.html || parsed.htmlAsText || parsed.text || "";
 
               // Determine if it's a reply
               const isReply = !!(inReplyTo || references);
