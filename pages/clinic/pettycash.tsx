@@ -142,6 +142,14 @@ const fmtDate = (d: string) =>
 const fmtDateTime = (d: string) =>
   new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
+const maskMobileNumber = (mobile: string) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 // Drawer component
 function Drawer({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   // Prevent body scroll when open
@@ -185,6 +193,7 @@ function PettyCashPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [currency, setCurrency] = useState('INR');
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // ── Permissions ──────────────────────────────────────────────
   const [permissions, setPermissions] = useState<Permissions>({
@@ -235,6 +244,12 @@ function PettyCashPage() {
 
   useEffect(() => {
     setToken(getAuthToken() || "");
+  }, []);
+
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
   }, []);
 
   // ── Fetch Permissions ─────────────────────────────────────────────────────────
@@ -870,7 +885,7 @@ function PettyCashPage() {
                       <td className="px-4 py-3">
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{record.patientName || "—"}</p>
                         {record.emrNumber && <p className="text-[10px] text-gray-400">EMR: {record.emrNumber}</p>}
-                        {record.mobileNumber && <p className="text-[10px] text-gray-400">{record.mobileNumber}</p>}
+                        {record.mobileNumber && <p className="text-[10px] text-gray-400">{userRole === "doctorStaff" ? maskMobileNumber(record.mobileNumber) : record.mobileNumber}</p>}
                       </td>
                       <td className="px-4 py-3 max-w-[200px]">
                         {renderServiceInfo(record)}

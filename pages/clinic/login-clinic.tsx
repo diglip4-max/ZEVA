@@ -78,12 +78,65 @@ export default function ClinicLogin() {
       }
 
       // Store token and user info
+      console.log("Full login response data:", JSON.stringify(data, null, 2)); // Log with indentation
+      console.log("data.user:", data.user);
+      console.log("data.clinic:", data.clinic);
       localStorage.setItem("clinicToken", data.token);
-      localStorage.setItem("clinicUser", JSON.stringify(data.user));
+      
+      // Decode JWT token to get userId (ownerId)
+      let userIdFromToken = null;
+      try {
+        const base64Url = data.token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        userIdFromToken = JSON.parse(jsonPayload).userId;
+        console.log("userId from token:", userIdFromToken);
+      } catch (e) {
+        console.error("Error decoding JWT token:", e);
+      }
+      
+      // Build user object with _id
+      const userToStore = {
+        ...data.user,
+        _id: data.user._id || userIdFromToken
+      };
+      localStorage.setItem("clinicUser", JSON.stringify(userToStore));
+      
+      // Store ownerId
+      const ownerIdToStore = data.user._id || userIdFromToken;
+      if (ownerIdToStore) {
+        localStorage.setItem("ownerId", ownerIdToStore);
+        console.log("ownerId stored successfully:", ownerIdToStore);
+      }
+      
+      // Store clinicId
+      if (data.clinic && data.clinic._id) {
+        localStorage.setItem("clinicId", data.clinic._id);
+        console.log("clinicId stored successfully:", data.clinic._id);
+      } else if (userIdFromToken) {
+        // Fallback: fetch clinic using userId from token via sidebar-permissions API
+        try {
+          console.log("Fetching clinic using sidebar-permissions API...");
+          const sidebarRes = await fetch("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${data.token}` }
+          });
+          const sidebarData = await sidebarRes.json();
+          if (sidebarData.success && sidebarData.clinicId) {
+            localStorage.setItem("clinicId", sidebarData.clinicId);
+            console.log("clinicId stored from sidebar API:", sidebarData.clinicId);
+          }
+        } catch (fetchErr) {
+          console.error("Error fetching clinic from sidebar API:", fetchErr);
+        }
+      }
 
-      console.log("clinicUser", localStorage.getItem("clinicUser"));
-      console.log("clinicToken", localStorage.getItem("clinicToken"));
-      console.log("Login successful:", data);
+      console.log("clinicUser in storage:", localStorage.getItem("clinicUser"));
+      console.log("clinicToken in storage:", localStorage.getItem("clinicToken"));
+      console.log("clinicId in storage:", localStorage.getItem("clinicId"));
+      console.log("ownerId in storage:", localStorage.getItem("ownerId"));
+      console.log("Login successful!");
 
       // Store trial info in sessionStorage for sidebar countdown timer
       if (data.trial) {

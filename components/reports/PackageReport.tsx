@@ -15,7 +15,7 @@ import {
   Cell,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
-import { formatCurrency } from "@/lib/currencyHelper";
+// import { formatCurrency } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -809,7 +809,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   />
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => `SAR ${(value / 1000).toFixed(0)}K`}
+                    formatter={(value) => typeof value === 'number' ? `SAR ${(value / 1000).toFixed(0)}K` : ''}
                   />
                   <Area 
                     type="monotone" 
@@ -919,7 +919,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     axisLine={false} 
                   />
                   <Tooltip 
-                    formatter={(value: number) => `SAR ${(value / 1000).toFixed(0)}K`}
+                    formatter={(value) => typeof value === 'number' ? `SAR ${(value / 1000).toFixed(0)}K` : ''}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="revenue" fill="#008891" radius={[0, 4, 4, 0]} barSize={16} />
@@ -1015,7 +1015,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   <XAxis dataKey="branch" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}K`} />
                   <Tooltip 
-                    formatter={(value: number) => `SAR ${(value / 1000).toFixed(0)}K`}
+                    formatter={(value) => typeof value === 'number' ? `SAR ${(value / 1000).toFixed(0)}K` : ''}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="revenue" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={24} />

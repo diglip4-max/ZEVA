@@ -50,6 +50,47 @@ import { getTokenByPath, handleUpload } from "@/lib/helper";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
 import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/stock-transfer-requests/_components/AddStockTransferRequestModal";
 
+// Helper function to get user role from token
+const getUserRole = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const isClinicPath = window.location.pathname.startsWith('/clinic/');
+    let tokenKeys;
+    if (isClinicPath) {
+      tokenKeys = ['clinicToken', 'doctorToken', 'agentToken', 'staffToken', 'userToken', 'adminToken'];
+    } else {
+      tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
+    }
+    
+    for (const key of tokenKeys) {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const role = payload.role || null;
+          
+          if (role && ['agent', 'doctorStaff', 'doctor', 'clinic', 'staff', 'admin'].includes(role)) {
+            return role;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting user role:', error);
+  }
+  return null;
+};
+
+const maskMobileNumber = (mobile: string) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 interface AppointmentLite {
   _id: string;
   patientName: string;
@@ -208,6 +249,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>("");
   const [currency, setCurrency] = useState('INR');
+  const [isSpecificClinic, setIsSpecificClinic] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
+  }, []);
   const [details, setDetails] = useState<AppointmentDetails | null>(null);
   const [report, setReport] = useState<SingleReport | null>(null);
   const [_patientReports, setPatientReports] = useState<
@@ -624,21 +673,28 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
   }, [pkgModalStartDate, pkgModalValidityInMonths]);
 
-  // Fetch clinic currency preference
+  // Fetch clinic currency preference and check if it's the specific clinic
   useEffect(() => {
-    const fetchClinicCurrency = async () => {
+    const fetchClinicData = async () => {
       try {
         const headers = getAuthHeaders();
         if (!headers?.Authorization) return;
         const res = await axios.get('/api/clinics/myallClinic', { headers });
-        if (res.data.success && res.data.clinic?.currency) {
-          setCurrency(res.data.clinic.currency);
+        if (res.data.success && res.data.clinic) {
+          if (res.data.clinic.currency) {
+            setCurrency(res.data.clinic.currency);
+          }
+          // Check if it's the specific clinic by clinic ID or owner ID
+          const isSpecific = 
+            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
+            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          setIsSpecificClinic(isSpecific);
         }
       } catch (e) {
         // Silently ignore - default to INR
       }
     };
-    fetchClinicCurrency();
+    fetchClinicData();
   }, []);
 
    // SEND CONSENT FORM MSG ON WHATSAPP
@@ -2520,7 +2576,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </span>
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-gray-400" />
-                          <span>{details.mobileNumber || ""}</span>
+                          <span>{userRole === "doctorStaff" ? (details.mobileNumber ? maskMobileNumber(details.mobileNumber) : "") : (details.mobileNumber || "")}</span>
                         </span>
                       </div>
                     </div>
@@ -3753,7 +3809,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
                             {/* Item selector */}
                             <div className="relative" ref={allocatedDropdownRef}>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Item <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Item {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
                               <div
                                 className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg flex items-center justify-between cursor-pointer bg-white h-10 hover:border-gray-400 transition-colors"
                                 onClick={() => setIsAllocatedDropdownOpen(!isAllocatedDropdownOpen)}
@@ -3807,7 +3863,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* Qty */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Qty {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
                               <input
                                 type="number"
                                 min={1}
@@ -3824,7 +3880,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* UOM */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">UOM <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">UOM {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
                               <select
                                 value={currentItem.uom || ""}
                                 onChange={(e) => handleCurrentItemChange("uom", e.target.value)}
@@ -5253,7 +5309,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     <div className="space-y-5">
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines <span className="text-red-500">*</span></h3>
+                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines </h3>
                           <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
                           >
