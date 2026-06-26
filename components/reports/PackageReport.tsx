@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -47,8 +47,11 @@ interface Props {
 export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [rows, setRows] = useState<PackageRow[]>([]);
   const [topPackagesSummary, setTopPackagesSummary] = useState<any>(null);
+  const [topPackagesPreviousSummary, setTopPackagesPreviousSummary] = useState<any>(null);
   const [soldRows, setSoldRows] = useState<any[]>([]);
   const [packagesSoldSummary, setPackagesSoldSummary] = useState<any>(null);
+  const [packagesSoldPreviousSummary, setPackagesSoldPreviousSummary] = useState<any>(null);
+  const [packages, setPackages] = useState<any[]>([]); // New state for packages from services setup
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
   const [detail, setDetail] = useState<{ open: boolean; patientId?: string; packageName?: string; data?: any }>(
@@ -57,15 +60,58 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
+  const [selectedSalesStaff, setSelectedSalesStaff] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [salesStaff, setSalesStaff] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDepartments();
     fetchDoctors();
     fetchTopPackages();
     fetchPackagesSold(1);
-  }, [startDate, endDate, selectedDepartment, selectedDoctor]);
+    fetchPackages(); // Fetch packages from services setup
+    fetchSalesStaff(); // Fetch all sales staff on initial load
+  }, [startDate, endDate, selectedDepartment, selectedDoctor, selectedSalesStaff]);
+
+  async function fetchSalesStaff() {
+    try {
+      // Fetch sales staff performance data
+      const params: any = { startDate, endDate, limit: "10" };
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/api/clinic/reports/sales-staff-performance?${qs}`, { headers });
+      const json = await res.json();
+      
+      // Fetch all agents for the clinic
+      const allAgentsRes = await fetch(`/api/lead-ms/get-agents-options?role=agent`, { headers });
+      const allAgentsJson = await allAgentsRes.json();
+      
+      if (res.ok && json.success && allAgentsRes.ok && allAgentsJson.success) {
+        const performanceData = json.data || [];
+        const allAgents = allAgentsJson.agents || [];
+        
+        // Combine both datasets: all agents, with performance data if available
+        const combinedData = allAgents.map((agent: any) => {
+          const performance = performanceData.find((p: any) => p.staffId === agent._id.toString());
+          return {
+            staffId: agent._id.toString(),
+            name: agent.name,
+            totalPackagesSold: performance?.totalPackagesSold || 0,
+            totalRevenue: performance?.totalRevenue || 0,
+            totalPaid: performance?.totalPaid || 0,
+            totalPending: performance?.totalPending || 0,
+            paidPackages: performance?.paidPackages || 0,
+            partiallyPaidPackages: performance?.partiallyPaidPackages || 0,
+            unpaidPackages: performance?.unpaidPackages || 0
+          };
+        });
+        
+        setSalesStaff(combinedData);
+      }
+    } catch (e) {
+      console.error("Error fetching sales staff:", e);
+    }
+  }
 
   async function fetchDepartments() {
     try {
@@ -103,10 +149,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     if (!res.ok || !json.success) {
       setRows([]);
       setTopPackagesSummary(null);
+      setTopPackagesPreviousSummary(null);
       return;
     }
     setRows(json.data || []);
     setTopPackagesSummary(json.summary || null);
+    setTopPackagesPreviousSummary(json.previousSummary || null);
   }
 
   async function fetchPackagesSold(p = 1) {
@@ -119,13 +167,27 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     if (!res.ok || !json.success) {
       setSoldRows([]);
       setPackagesSoldSummary(null);
+      setPackagesSoldPreviousSummary(null);
       setHasNext(false);
       return;
     }
     setSoldRows(json.data || []);
     setPackagesSoldSummary(json.summary || null);
+    setPackagesSoldPreviousSummary(json.previousSummary || null);
     setHasNext(Boolean(json.pagination?.hasNext));
     setPage(p);
+  }
+
+  async function fetchPackages() {
+    try {
+      const res = await fetch(`/api/clinic/packages`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setPackages(json.packages || []);
+      }
+    } catch (e) {
+      console.error("Error fetching packages:", e);
+    }
   }
 
   async function openUsage(patientId: string, packageName: string) {
@@ -144,54 +206,169 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     return amount.toLocaleString();
   };
 
+  // Helper to calculate trend percentage
+  const calculateTrend = (current: number, previous: number) => {
+    if (previous === 0 && current === 0) return { value: 0, up: true };
+    if (previous === 0) return { value: 100, up: current > 0 };
+    const change = ((current - previous) / previous) * 100;
+    return {
+      value: Math.round(change * 10) / 10,
+      up: change > 0
+    };
+  };
+
   // Calculate summary metrics
   const metrics = useMemo(() => {
     const summary = packagesSoldSummary;
+    const prevSummary = packagesSoldPreviousSummary;
+    const topSummary = topPackagesSummary;
+    const prevTopSummary = topPackagesPreviousSummary;
+
     const totalPackagesSold = summary?.totalPackagesSold ?? soldRows.length;
-    const totalRevenue = topPackagesSummary?.totalRevenue ?? rows.reduce((sum, r) => sum + (r.totalRevenue || 0), 0);
+    const prevTotalPackagesSold = prevSummary?.totalPackagesSold ?? 0;
+    const totalRevenue = topSummary?.totalRevenue ?? rows.reduce((sum, r) => sum + (r.totalRevenue || 0), 0);
+    const prevTotalRevenue = prevTopSummary?.totalRevenue ?? 0;
     
     // Calculate actual paid amounts from summary if available, else sold rows
     const totalPaid = summary?.totalPaid ?? soldRows.reduce((sum, r) => sum + (r.totalPaid || 0), 0);
+    const prevTotalPaid = prevSummary?.totalPaid ?? 0;
     const totalPending = summary?.totalPending ?? soldRows.reduce((sum, r) => sum + (r.totalPending || 0), 0);
+    const prevTotalPending = prevSummary?.totalPending ?? 0;
     
     // Calculate payment status counts from summary if available, else sold rows
     const paidPackages = summary?.paidPackages ?? soldRows.filter(r => (r.totalPending || 0) <= 0).length;
+    const prevPaidPackages = prevSummary?.paidPackages ?? 0;
     const partiallyPaid = summary?.partiallyPaid ?? soldRows.filter(r => (r.totalPending || 0) > 0 && (r.totalPaid || 0) > 0).length;
+    const prevPartiallyPaid = prevSummary?.partiallyPaid ?? 0;
     const unpaidPackages = summary?.unpaidPackages ?? soldRows.filter(r => (r.totalPaid || 0) <= 0).length;
+    const prevUnpaidPackages = prevSummary?.unpaidPackages ?? 0;
     
     // Calculate session-based metrics from summary if available, else sold rows
     const totalSessions = summary?.totalSessions ?? soldRows.reduce((sum, r) => sum + (r.totalSessions || 0), 0);
+    const prevTotalSessions = prevSummary?.totalSessions ?? 0;
     const usedSessions = summary?.totalUsedSessions ?? soldRows.reduce((sum, r) => sum + (r.sessionsUsed || 0), 0);
+    const prevUsedSessions = prevSummary?.totalUsedSessions ?? 0;
     const remainingSessions = Math.max(0, totalSessions - usedSessions);
     
     const activePackages = summary?.activePackages ?? soldRows.filter(r => (r.sessionsUsed || 0) > 0 && (r.sessionsUsed || 0) < (r.totalSessions || 1)).length;
+    const prevActivePackages = prevSummary?.activePackages ?? 0;
     const completedPackages = summary?.completedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) >= (r.totalSessions || 1)).length;
+    const prevCompletedPackages = prevSummary?.completedPackages ?? 0;
     const unusedPackages = summary?.unusedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) <= 0).length;
+    const prevUnusedPackages = prevSummary?.unusedPackages ?? 0;
     
-    // Use real expiration counts from API summary
-    const expiredPackages = summary?.expiredPackages ?? 0;
-    const expiring7Days = summary?.expiring7Days ?? 0;
-    const expiring30Days = summary?.expiring30Days ?? 0;
-    const renewalOpportunities = summary?.renewalOpportunities ?? 0;
-    
+    // Use packages from services setup to calculate expiration counts
+    function getPackageStatus(pkg: any) {
+      if (!pkg || !pkg.endDate) return "Active";
+      const endDate = new Date(pkg.endDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+
+      if (today > endDate) {
+        return "Expired";
+      }
+
+      const sevenDaysFromToday = new Date(today);
+      sevenDaysFromToday.setDate(today.getDate() + 7);
+
+      if (endDate <= sevenDaysFromToday) {
+        return "Expiring Soon";
+      }
+
+      return "Active";
+    }
+
+    let activeCount = 0;
+    let expiredCount = 0;
+    let expiring7DaysCount = 0;
+    let expiring30DaysCount = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDaysFromToday = new Date(today);
+    sevenDaysFromToday.setDate(today.getDate() + 7);
+    const thirtyDaysFromToday = new Date(today);
+    thirtyDaysFromToday.setDate(today.getDate() + 30);
+
+    packages.forEach((pkg) => {
+      const status = getPackageStatus(pkg);
+      if (status === "Active") activeCount++;
+      if (status === "Expired") expiredCount++;
+      if (status === "Expiring Soon") expiring7DaysCount++;
+      if (pkg.endDate) {
+        const endDate = new Date(pkg.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        if (endDate > sevenDaysFromToday && endDate <= thirtyDaysFromToday) {
+          expiring30DaysCount++;
+        }
+      }
+    });
+
     return {
       totalPackagesSold,
+      totalPackagesSoldTrend: calculateTrend(totalPackagesSold, prevTotalPackagesSold),
       totalRevenue,
+      totalRevenueTrend: calculateTrend(totalRevenue, prevTotalRevenue),
       paidRevenue: totalPaid,
+      paidRevenueTrend: calculateTrend(totalPaid, prevTotalPaid),
       outstanding: totalPending,
+      outstandingTrend: calculateTrend(totalPending, prevTotalPending),
       paidPackages,
+      paidPackagesTrend: calculateTrend(paidPackages, prevPaidPackages),
       partiallyPaid,
+      partiallyPaidTrend: calculateTrend(partiallyPaid, prevPartiallyPaid),
       unpaidPackages,
-      activePackages,
+      unpaidPackagesTrend: calculateTrend(unpaidPackages, prevUnpaidPackages),
+      activePackages: activeCount, // Update to use service setup count
+      activePackagesTrend: calculateTrend(activeCount, prevActivePackages),
       completedPackages,
-      expiredPackages,
-      expiring7Days,
-      expiring30Days,
+      completedPackagesTrend: calculateTrend(completedPackages, prevCompletedPackages),
+      expiredPackages: expiredCount, // Update to use service setup count
+      expiring7Days: expiring7DaysCount, // Update to use service setup count
+      expiring30Days: expiring30DaysCount, // Update to use service setup count
       unusedPackages,
-      renewalOpportunities,
+      unusedPackagesTrend: calculateTrend(unusedPackages, prevUnusedPackages),
+      renewalOpportunities: expiredCount + expiring7DaysCount + expiring30DaysCount, // Update
       avgPackageValue: totalPackagesSold > 0 ? totalRevenue / totalPackagesSold : 0,
     };
-  }, [rows, soldRows, topPackagesSummary, packagesSoldSummary]);
+  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages]);
+
+  // Calculate total sales staff KPIs
+  const salesStaffMetrics = useMemo(() => {
+    const filtered = selectedSalesStaff 
+      ? salesStaff.filter(s => s.staffId === selectedSalesStaff) 
+      : salesStaff;
+    const totals = filtered.reduce(
+      (acc, staff) => ({
+        totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
+        totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
+        totalPaid: acc.totalPaid + (staff.totalPaid || 0),
+        totalPending: acc.totalPending + (staff.totalPending || 0),
+        paidPackages: acc.paidPackages + (staff.paidPackages || 0),
+        partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
+        unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
+      }),
+      {
+        totalPackagesSold: 0,
+        totalRevenue: 0,
+        totalPaid: 0,
+        totalPending: 0,
+        paidPackages: 0,
+        partiallyPaidPackages: 0,
+        unpaidPackages: 0,
+      }
+    );
+
+    return {
+      totalPackagesSold: totals.totalPackagesSold,
+      totalRevenue: totals.totalRevenue,
+      paidRevenue: totals.totalPaid,
+      outstanding: totals.totalPending,
+      paidPackages: totals.paidPackages,
+      partiallyPaid: totals.partiallyPaidPackages,
+      unpaidPackages: totals.unpaidPackages,
+    };
+  }, [salesStaff, selectedSalesStaff]);
 
   // Mock data for charts (in real app, these would come from APIs)
   const monthlyRevenueData = [
@@ -286,22 +463,22 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { label: "Renewed", value: 198, color: "#8B5CF6", total: 412, percentage: 48 },
   ];
 
+  const isSalesStaffActive = activeFilter === "salesStaff";
+  const currentMetrics = isSalesStaffActive ? salesStaffMetrics : metrics;
+
   const kpiCards = [
-    { label: "Total Packages Sold", value: metrics.totalPackagesSold.toLocaleString(), trend: 14.2, trendUp: true, icon: "📦", subtitle: "All time" },
-    { label: "Total Revenue", value: formatCurrency(metrics.totalRevenue), trend: 22.8, trendUp: true, icon: "💲", subtitle: "This year" },
-    { label: "Paid Revenue", value: formatCurrency(metrics.paidRevenue), trend: 18.4, trendUp: true, icon: "✅", subtitle: "Collected" },
-    { label: "Outstanding", value: formatCurrency(metrics.outstanding), trend: 8.2, trendUp: false, icon: "⚠️", subtitle: "Pending collection" },
-    { label: "Paid Packages", value: metrics.paidPackages.toLocaleString(), trend: 11.6, trendUp: true, icon: "✅", subtitle: "Fully settled" },
-    { label: "Partially Paid", value: metrics.partiallyPaid.toLocaleString(), trend: 4.1, trendUp: false, icon: "⏳", subtitle: "Partial payment" },
-    { label: "Unpaid Packages", value: metrics.unpaidPackages.toLocaleString(), trend: 12.3, trendUp: false, icon: "🚫", subtitle: "No payment made" },
-    { label: "Active Packages", value: metrics.activePackages.toLocaleString(), trend: 8.9, trendUp: true, icon: "📈", subtitle: "In progress" },
-    // { label: "Completed", value: metrics.completedPackages.toLocaleString(), trend: 31.4, trendUp: true, icon: "✅", subtitle: "Sessions finished" },
-    { label: "Expired Packages", value: metrics.expiredPackages.toLocaleString(), trend: 5.2, trendUp: false, icon: "⏰", subtitle: "Past expiry date" },
-    { label: "Expiring in 7 Days", value: metrics.expiring7Days.toLocaleString(), trend: 42.1, trendUp: true, icon: "⏳", subtitle: "Urgent action needed" },
-    { label: "Expiring in 30 Days", value: metrics.expiring30Days.toLocaleString(), trend: 18.7, trendUp: true, icon: "📅", subtitle: "Upcoming expirations" },
-    // { label: "Unused Packages", value: metrics.unusedPackages.toLocaleString(), trend: 22.4, trendUp: false, icon: "📦", subtitle: "Zero sessions used" },
-    { label: "Renewal Opportunities", value: metrics.renewalOpportunities.toLocaleString(), trend: 34.2, trendUp: true, icon: "🔄", subtitle: "Ready to renew" },
-    // { label: "Avg Package Value", value: formatCurrency(metrics.avgPackageValue), trend: 7.3, trendUp: true, icon: "📊", subtitle: "Per package sold" },
+    { label: "Total Packages Sold", value: currentMetrics.totalPackagesSold.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.totalPackagesSoldTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalPackagesSoldTrend.up, icon: "📦", subtitle: isSalesStaffActive ? "Sales Staff" : "All time" },
+    { label: "Total Revenue", value: formatCurrency(currentMetrics.totalRevenue), trend: isSalesStaffActive ? 0 : metrics.totalRevenueTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalRevenueTrend.up, icon: "💲", subtitle: isSalesStaffActive ? "Sales Staff" : "This year" },
+    { label: "Paid Revenue", value: formatCurrency(currentMetrics.paidRevenue), trend: isSalesStaffActive ? 0 : metrics.paidRevenueTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidRevenueTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Collected" },
+    { label: "Outstanding", value: formatCurrency(currentMetrics.outstanding), trend: isSalesStaffActive ? 0 : (metrics.outstandingTrend ? (metrics.outstandingTrend.up ? metrics.outstandingTrend.value : -metrics.outstandingTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.outstandingTrend ? !metrics.outstandingTrend.up : false), icon: "⚠️", subtitle: isSalesStaffActive ? "Sales Staff" : "Pending collection" },
+    { label: "Paid Packages", value: currentMetrics.paidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.paidPackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidPackagesTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Fully settled" },
+    { label: "Partially Paid", value: currentMetrics.partiallyPaid.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.partiallyPaidTrend.value, trendUp: isSalesStaffActive ? false : metrics.partiallyPaidTrend.up, icon: "⏳", subtitle: isSalesStaffActive ? "Sales Staff" : "Partial payment" },
+    { label: "Unpaid Packages", value: currentMetrics.unpaidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : (metrics.unpaidPackagesTrend ? (metrics.unpaidPackagesTrend.up ? metrics.unpaidPackagesTrend.value : -metrics.unpaidPackagesTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.unpaidPackagesTrend ? !metrics.unpaidPackagesTrend.up : false), icon: "�", subtitle: isSalesStaffActive ? "Sales Staff" : "No payment made" },
+    { label: "Active Packages", value: metrics.activePackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.activePackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.activePackagesTrend.up, icon: "📈", subtitle: "In progress" },
+    { label: "Expired Packages", value: metrics.expiredPackages.toLocaleString(), trend: 0, trendUp: false, icon: "⏰", subtitle: "Past expiry date" },
+    { label: "Expiring in 7 Days", value: metrics.expiring7Days.toLocaleString(), trend: 0, trendUp: false, icon: "⏳", subtitle: "Urgent action needed" },
+    { label: "Expiring in 30 Days", value: metrics.expiring30Days.toLocaleString(), trend: 0, trendUp: false, icon: "📅", subtitle: "Upcoming expirations" },
+    { label: "Renewal Opportunities", value: metrics.renewalOpportunities.toLocaleString(), trend: 0, trendUp: true, icon: "🔄", subtitle: "Ready to renew" },
   ];
 
   const packageExportSections = useMemo(() => [
@@ -331,6 +508,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
   const toggleFilter = (filter: string) => {
     setActiveFilter(activeFilter === filter ? null : filter);
+    if (filter === "salesStaff") {
+      fetchSalesStaff();
+    }
   };
 
   return (
@@ -453,16 +633,49 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 )}
               </div>
 
-              <button
-                onClick={() => toggleFilter("salesStaff")}
-                className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
-                  activeFilter === "salesStaff"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Sales Staff
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilter("salesStaff")}
+                  className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
+                    activeFilter === "salesStaff" || selectedSalesStaff
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {selectedSalesStaff
+                    ? salesStaff.find(s => s.staffId === selectedSalesStaff)?.name || "Sales Staff"
+                    : "Sales Staff"}
+                </button>
+                {activeFilter === "salesStaff" && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-64 max-h-72 overflow-y-auto">
+                    <div className="p-1.5">
+                      <button
+                        onClick={() => {
+                          setSelectedSalesStaff(null);
+                          setActiveFilter(null);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
+                      >
+                        All Sales Staff
+                      </button>
+                      {salesStaff.map((staff) => (
+                        <button
+                          key={staff.staffId || staff._id || staff.name}
+                          onClick={() => {
+                            setSelectedSalesStaff(staff.staffId);
+                            setActiveFilter(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
+                            selectedSalesStaff === staff.staffId ? "bg-emerald-50 text-emerald-700" : ""
+                          }`}
+                        >
+                          {staff.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={() => toggleFilter("paymentStatus")}
@@ -497,11 +710,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 Expiry Status
               </button>
 
-              {(selectedDepartment || selectedDoctor) && (
+              {(selectedDepartment || selectedDoctor || selectedSalesStaff) && (
                 <button
                   onClick={() => {
                     setSelectedDepartment(null);
                     setSelectedDoctor(null);
+                    setSelectedSalesStaff(null);
                     setActiveFilter(null);
                   }}
                   className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
@@ -746,34 +960,45 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Sales Staff</h3>
-                <p className="text-xs text-gray-500">By revenue generated</p>
+                <p className="text-xs text-gray-500">By packages sold</p>
               </div>
               <button className="text-xs text-teal-600 font-medium">View all</button>
             </div>
             <div className="space-y-3">
-              {salesStaffData.map((staff, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <span className="text-xs font-semibold text-gray-400 w-4">{staff.rank}</span>
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-semibold">
-                    {staff.initials}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{staff.name}</p>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-emerald-500 rounded-full"
-                          style={{ width: `${staff.percentage}%` }}
-                        ></div>
+              {salesStaff.slice(0, 5).map((staff, index) => {
+                // Get initials from name
+                const initials = staff.name
+                  ? staff.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                  : 'SS';
+                // Calculate percentage of total revenue
+                const totalRevenue = salesStaff.reduce((sum: number, s: any) => sum + (s.totalRevenue || 0), 0);
+                const percentage = totalRevenue > 0 ? Math.round((staff.totalRevenue / totalRevenue) * 100) : 0;
+                
+                return (
+                  <div key={staff.staffId || index} className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-gray-400 w-4">{index + 1}</span>
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-semibold">
+                      {initials}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{staff.name || 'Unknown'}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-500 rounded-full"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-gray-500">{percentage}%</span>
                       </div>
-                      <span className="text-xs text-gray-500">{staff.percentage}%</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">{staff.totalPackagesSold}</p>
+                      <p className="text-xs text-gray-500">SAR {Math.round(staff.totalRevenue / 1000)}K</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">SAR {staff.revenue / 1000}K</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

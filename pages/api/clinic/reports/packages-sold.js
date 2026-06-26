@@ -291,162 +291,210 @@ export default async function handler(req, res) {
     const countAgg = await Billing.aggregate(countPipeline);
     const total = countAgg?.[0]?.count || 0;
 
-    // Calculate summary metrics across ALL matching packages
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
-    const sevenDaysFromNow = new Date(todayStart);
-    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
-    const thirtyDaysFromNow = new Date(todayStart);
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    // Calculate previous period dates
+    let previousStartAt = null;
+    let previousEndAt = null;
+    if (startAt && endAt) {
+      const durationMs = endAt.getTime() - startAt.getTime();
+      previousStartAt = new Date(startAt.getTime() - durationMs);
+      previousEndAt = new Date(startAt.getTime() - 1);
+    } else {
+      // Default: previous month if no date range selected
+      const now = new Date();
+      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      previousStartAt = previousMonthStart;
+      previousEndAt = previousMonthEnd;
+    }
 
-    const summaryPipeline = [
-      { $match: match },
-      {
-        $lookup: {
-          from: "appointments",
-          localField: "appointmentId",
-          foreignField: "_id",
-          as: "appointment",
-        },
-      },
-      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          effectiveDoctorId: {
-            $ifNull: ["$doctorId", "$appointment.doctorId"]
-          },
-          __usedSessions: {
-            $sum: {
-              $map: {
-                input: { $ifNull: ["$selectedPackageTreatments", []] },
-                as: "t",
-                in: { $ifNull: ["$$t.sessions", 0] },
-              },
-            },
-          },
-        }
-      },
-      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
-      ...(departmentId ? [
+    // Build match for previous period
+    const previousMatch = { ...match };
+    if (previousStartAt || previousEndAt) {
+      previousMatch.invoicedDate = {};
+      if (previousStartAt) previousMatch.invoicedDate.$gte = previousStartAt;
+      if (previousEndAt) previousMatch.invoicedDate.$lte = previousEndAt;
+      if (Object.keys(previousMatch.invoicedDate).length === 0) delete previousMatch.invoicedDate;
+    }
+
+    // Helper function to build summary pipeline for a given match
+    const buildSummaryPipeline = (matchObj) => {
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+      const sevenDaysFromNow = new Date(todayStart);
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      const thirtyDaysFromNow = new Date(todayStart);
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      return [
+        { $match: matchObj },
         {
           $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
+            from: "appointments",
+            localField: "appointmentId",
             foreignField: "_id",
-            as: "service",
+            as: "appointment",
           },
         },
-        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
         {
-          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-        }
-      ] : []),
-      {
-        $group: {
-          _id: { patientId: "$patientId", package: "$package" },
-          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
-          totalPending: { $sum: { $ifNull: ["$pending", 0] } },
-          sessionsUsed: { $sum: "$__usedSessions" },
-          firstPurchaseDate: { $min: "$createdAt" },
-        },
-      },
-      {
-        $lookup: {
-          from: "packages",
-          localField: "_id.package",
-          foreignField: "name",
-          as: "pkg",
-        },
-      },
-      {
-        $addFields: {
-          totalSessions: { $ifNull: [{ $arrayElemAt: ["$pkg.totalSessions", 0] }, 0] },
-          pkgData: { $arrayElemAt: ["$pkg", 0] },
-        }
-      },
-      {
-        $addFields: {
-          // Calculate expiration date
-          expirationDate: {
-            $switch: {
-              branches: [
-                // Case 1: Package has explicit endDate
-                {
-                  case: { $ne: ["$pkgData.endDate", null] },
-                  then: "$pkgData.endDate"
+          $addFields: {
+            effectiveDoctorId: {
+              $ifNull: ["$doctorId", "$appointment.doctorId"]
+            },
+            __usedSessions: {
+              $sum: {
+                $map: {
+                  input: { $ifNull: ["$selectedPackageTreatments", []] },
+                  as: "t",
+                  in: { $ifNull: ["$$t.sessions", 0] },
                 },
-                // Case 2: Package has validityInMonths, use firstPurchaseDate + validity
-                {
-                  case: { $gt: [{ $ifNull: ["$pkgData.validityInMonths", 0] }, 0] },
-                  then: {
-                    $dateAdd: {
-                      startDate: "$firstPurchaseDate",
-                      unit: "month",
-                      amount: "$pkgData.validityInMonths"
+              },
+            },
+          }
+        },
+        ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
+        ...(departmentId ? [
+          {
+            $lookup: {
+              from: "services",
+              localField: "appointment.serviceId",
+              foreignField: "_id",
+              as: "service",
+            },
+          },
+          { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+          {
+            $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+          }
+        ] : []),
+        {
+          $group: {
+            _id: { patientId: "$patientId", package: "$package" },
+            totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+            totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+            sessionsUsed: { $sum: "$__usedSessions" },
+            firstPurchaseDate: { $min: "$createdAt" },
+          },
+        },
+        {
+          $lookup: {
+            from: "packages",
+            localField: "_id.package",
+            foreignField: "name",
+            as: "pkg",
+          },
+        },
+        {
+          $addFields: {
+            totalSessions: { $ifNull: [{ $arrayElemAt: ["$pkg.totalSessions", 0] }, 0] },
+            pkgData: { $arrayElemAt: ["$pkg", 0] },
+          }
+        },
+        {
+          $addFields: {
+            // Calculate expiration date
+            expirationDate: {
+              $switch: {
+                branches: [
+                  // Case 1: Package has explicit endDate
+                  {
+                    case: { $ne: ["$pkgData.endDate", null] },
+                    then: "$pkgData.endDate"
+                  },
+                  // Case 2: Package has validityInMonths, use firstPurchaseDate + validity
+                  {
+                    case: { $gt: [{ $ifNull: ["$pkgData.validityInMonths", 0] }, 0] },
+                    then: {
+                      $dateAdd: {
+                        startDate: "$firstPurchaseDate",
+                        unit: "month",
+                        amount: "$pkgData.validityInMonths"
+                      }
                     }
                   }
-                }
-              ],
-              // Default: No expiration or 1 year default
-              default: {
-                $dateAdd: {
-                  startDate: "$firstPurchaseDate",
-                  unit: "year",
-                  amount: 1
+                ],
+                // Default: No expiration or 1 year default
+                default: {
+                  $dateAdd: {
+                    startDate: "$firstPurchaseDate",
+                    unit: "year",
+                    amount: 1
+                  }
                 }
               }
             }
           }
-        }
-      },
-      {
-        $addFields: {
-          isExpired: { $lt: ["$expirationDate", todayStart] },
-          isExpiringIn7Days: {
-            $and: [
-              { $gte: ["$expirationDate", todayStart] },
-              { $lte: ["$expirationDate", sevenDaysFromNow] }
-            ]
-          },
-          isExpiringIn30Days: {
-            $and: [
-              { $gt: ["$expirationDate", sevenDaysFromNow] },
-              { $lte: ["$expirationDate", thirtyDaysFromNow] }
-            ]
-          },
-          // Renewal opportunity: expired or expiring in 30 days
-          isRenewalOpportunity: {
-            $or: [
-              { $lt: ["$expirationDate", thirtyDaysFromNow] },
-              { $gte: ["$sessionsUsed", "$totalSessions"] }
-            ]
-          }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalPackagesSold: { $sum: 1 },
-          totalPaid: { $sum: "$totalPaid" },
-          totalPending: { $sum: "$totalPending" },
-          totalSessions: { $sum: "$totalSessions" },
-          totalUsedSessions: { $sum: "$sessionsUsed" },
-          paidPackages: { $sum: { $cond: [{ $lte: ["$totalPending", 0] }, 1, 0] } },
-          partiallyPaid: { $sum: { $cond: [{ $and: [{ $gt: ["$totalPending", 0] }, { $gt: ["$totalPaid", 0] }] }, 1, 0] } },
-          unpaidPackages: { $sum: { $cond: [{ $lte: ["$totalPaid", 0] }, 1, 0] } },
-          activePackages: { $sum: { $cond: [{ $and: [{ $gt: ["$sessionsUsed", 0] }, { $lt: ["$sessionsUsed", "$totalSessions"] }] }, 1, 0] } },
-          completedPackages: { $sum: { $cond: [{ $gte: ["$sessionsUsed", "$totalSessions"] }, 1, 0] } },
-          unusedPackages: { $sum: { $cond: [{ $lte: ["$sessionsUsed", 0] }, 1, 0] } },
-          expiredPackages: { $sum: { $cond: ["$isExpired", 1, 0] } },
-          expiring7Days: { $sum: { $cond: ["$isExpiringIn7Days", 1, 0] } },
-          expiring30Days: { $sum: { $cond: ["$isExpiringIn30Days", 1, 0] } },
-          renewalOpportunities: { $sum: { $cond: ["$isRenewalOpportunity", 1, 0] } },
         },
-      },
-    ];
+        {
+          $addFields: {
+            isExpired: { $lt: ["$expirationDate", todayStart] },
+            isExpiringIn7Days: {
+              $and: [
+                { $gte: ["$expirationDate", todayStart] },
+                { $lte: ["$expirationDate", sevenDaysFromNow] }
+              ]
+            },
+            isExpiringIn30Days: {
+              $and: [
+                { $gt: ["$expirationDate", sevenDaysFromNow] },
+                { $lte: ["$expirationDate", thirtyDaysFromNow] }
+              ]
+            },
+            // Renewal opportunity: expired or expiring in 30 days
+            isRenewalOpportunity: {
+              $or: [
+                { $lt: ["$expirationDate", thirtyDaysFromNow] },
+                { $gte: ["$sessionsUsed", "$totalSessions"] }
+              ]
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalPackagesSold: { $sum: 1 },
+            totalPaid: { $sum: "$totalPaid" },
+            totalPending: { $sum: "$totalPending" },
+            totalSessions: { $sum: "$totalSessions" },
+            totalUsedSessions: { $sum: "$sessionsUsed" },
+            paidPackages: { $sum: { $cond: [{ $lte: ["$totalPending", 0] }, 1, 0] } },
+            partiallyPaid: { $sum: { $cond: [{ $and: [{ $gt: ["$totalPending", 0] }, { $gt: ["$totalPaid", 0] }] }, 1, 0] } },
+            unpaidPackages: { $sum: { $cond: [{ $lte: ["$totalPaid", 0] }, 1, 0] } },
+            activePackages: { $sum: { $cond: [{ $and: [{ $gt: ["$sessionsUsed", 0] }, { $lt: ["$sessionsUsed", "$totalSessions"] }] }, 1, 0] } },
+            completedPackages: { $sum: { $cond: [{ $gte: ["$sessionsUsed", "$totalSessions"] }, 1, 0] } },
+            unusedPackages: { $sum: { $cond: [{ $lte: ["$sessionsUsed", 0] }, 1, 0] } },
+            expiredPackages: { $sum: { $cond: ["$isExpired", 1, 0] } },
+            expiring7Days: { $sum: { $cond: ["$isExpiringIn7Days", 1, 0] } },
+            expiring30Days: { $sum: { $cond: ["$isExpiringIn30Days", 1, 0] } },
+            renewalOpportunities: { $sum: { $cond: ["$isRenewalOpportunity", 1, 0] } },
+          },
+        },
+      ];
+    };
+
+    const summaryPipeline = buildSummaryPipeline(match);
+    const previousSummaryPipeline = buildSummaryPipeline(previousMatch);
 
     const summaryAgg = await Billing.aggregate(summaryPipeline);
+    const previousSummaryAgg = await Billing.aggregate(previousSummaryPipeline);
     const summary = summaryAgg?.[0] || {
+      totalPackagesSold: 0,
+      totalPaid: 0,
+      totalPending: 0,
+      totalSessions: 0,
+      totalUsedSessions: 0,
+      paidPackages: 0,
+      partiallyPaid: 0,
+      unpaidPackages: 0,
+      activePackages: 0,
+      completedPackages: 0,
+      unusedPackages: 0,
+      expiredPackages: 0,
+      expiring7Days: 0,
+      expiring30Days: 0,
+      renewalOpportunities: 0,
+    };
+    const previousSummary = previousSummaryAgg?.[0] || {
       totalPackagesSold: 0,
       totalPaid: 0,
       totalPending: 0,
@@ -468,6 +516,7 @@ export default async function handler(req, res) {
       success: true,
       data: rows,
       summary,
+      previousSummary,
       pagination: { page: pageNum, pageSize, total, hasNext: skip + rows.length < total },
     });
   } catch (e) {

@@ -62,17 +62,46 @@ function currency(n: number) {
 
 export default function DoctorStaffReport({ startDate, endDate, headers }: Props) {
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'doctor' | 'sales'>('doctor');
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
   const [details, setDetails] = useState<DetailRow[]>([]);
   const [topDoctorStaffCommission, setTopDoctorStaffCommission] = useState<CommissionRow[]>([]);
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
   const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
   const [topMembershipBilling, setTopMembershipBilling] = useState<BillingRow[]>([]);
+  const [salesStaff, setSalesStaff] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchData();
+    if (activeTab === 'doctor') {
+      fetchData();
+    } else {
+      fetchSalesStaff();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  }, [startDate, endDate, activeTab]);
+
+  async function fetchSalesStaff() {
+    setLoading(true);
+    try {
+      const params: any = { startDate, endDate, limit: "10" };
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/api/clinic/reports/sales-staff-performance?${qs}`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setSalesStaff(json.data || []);
+        setRevenues([]);
+        setDetails([]);
+        setTopDoctorStaffCommission([]);
+        setTopAgentCommission([]);
+        setTopPackageBilling([]);
+        setTopMembershipBilling([]);
+      }
+    } catch (e) {
+      console.error("Error fetching sales staff:", e);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchData() {
     setLoading(true);
@@ -189,276 +218,342 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
-        <ExportButtons
-          sections={doctorStaffExportSections}
-          filename={`doctor_staff_report_${startDate}_to_${endDate}`}
-          title="Doctor Staff Performance Report"
-        />
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('doctor')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'doctor' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          Doctor
+        </button>
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'sales' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          Sales Staff
+        </button>
       </div>
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Doctor Staff by Bookings</h3>
-          {loading && <span className="text-sm text-gray-500">Loading…</span>}
-        </div>
-        <div className="w-full" style={{ height: 320 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartBookings} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip />
-              <Bar dataKey="bookings" fill="#2D9AA5" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Top 5 Doctor Staff Revenue</h3>
-        </div>
-        <div className="grid grid-cols-1 gap-6">
-          <div className="w-full" style={{ height: 320 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartRevenue} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-                <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-                <Legend verticalAlign="top" height={36}/>
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  name="Revenue (AED)" 
-                  stroke="#0EA5E9" 
-                  strokeWidth={3} 
-                  dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
-                  activeDot={{ r: 6, strokeWidth: 0 }} 
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="normalizedRevenue" 
-                  name="Normalized Revenue (%)" 
-                  stroke="#8884d8" 
-                  strokeWidth={2} 
-                  strokeDasharray="5 5"
-                  dot={{ r: 3, fill: "#8884d8" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      {activeTab === 'doctor' && (
+        <>
+          <div className="flex justify-end">
+            <ExportButtons
+              sections={doctorStaffExportSections}
+              filename={`doctor_staff_report_${startDate}_to_${endDate}`}
+              title="Doctor Staff Performance Report"
+            />
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {revenues.map((r) => (
-                  <tr key={r.staffId}>
-                    <td className="px-4 py-2 text-sm">{r.staffName}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(r.revenue)}</td>
-                    <td className="px-4 py-2 text-sm">{r.invoices}</td>
-                  </tr>
-                ))}
-                {!revenues.length && (
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-800">Doctor Staff by Bookings</h3>
+              {loading && <span className="text-sm text-gray-500">Loading…</span>}
+            </div>
+            <div className="w-full" style={{ height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartBookings} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                  <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+                  <Tooltip />
+                  <Bar dataKey="bookings" fill="#2D9AA5" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-800">Top 5 Doctor Staff Revenue</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-6">
+              <div className="w-full" style={{ height: 320 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartRevenue} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                    <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+                    <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+                    <Legend verticalAlign="top" height={36}/>
+                    <Line 
+                      type="monotone" 
+                      dataKey="revenue" 
+                      name="Revenue (AED)" 
+                      stroke="#0EA5E9" 
+                      strokeWidth={3} 
+                      dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
+                      activeDot={{ r: 6, strokeWidth: 0 }} 
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="normalizedRevenue" 
+                      name="Normalized Revenue (%)" 
+                      stroke="#8884d8" 
+                      strokeWidth={2} 
+                      strokeDasharray="5 5"
+                      dot={{ r: 3, fill: "#8884d8" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {revenues.map((r) => (
+                      <tr key={r.staffId}>
+                        <td className="px-4 py-2 text-sm">{r.staffName}</td>
+                        <td className="px-4 py-2 text-sm font-medium">{currency(r.revenue)}</td>
+                        <td className="px-4 py-2 text-sm">{r.invoices}</td>
+                      </tr>
+                    ))}
+                    {!revenues.length && (
+                      <tr>
+                        <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                          No data for selected period
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Packages</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                      No data for selected period
-                    </td>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Revenue</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {topPackageBilling.map((r) => (
+                    <tr key={r.staffId}>
+                      <td className="px-4 py-2 text-sm">{r.name}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                      <td className="px-4 py-2 text-sm">{r.count}</td>
+                    </tr>
+                  ))}
+                  {!topPackageBilling.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                        No package billing data for selected period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Packages</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {topPackageBilling.map((r) => (
-                <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">{r.count}</td>
-                </tr>
-              ))}
-              {!topPackageBilling.length && (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                    No package billing data for selected period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Memberships</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Membership Revenue</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {topMembershipBilling.map((r) => (
+                    <tr key={r.staffId}>
+                      <td className="px-4 py-2 text-sm">{r.name}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                      <td className="px-4 py-2 text-sm">{r.count}</td>
+                    </tr>
+                  ))}
+                  {!topMembershipBilling.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                        No membership billing data for selected period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Memberships</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Membership Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {topMembershipBilling.map((r) => (
-                <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">{r.count}</td>
-                </tr>
-              ))}
-              {!topMembershipBilling.length && (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                    No membership billing data for selected period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Top Doctor Staff Details</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Appointments</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Booked</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Cancelled</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Completed</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoiced</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Rescheduled</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Patients</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {details.map((d) => (
+                    <tr key={d.staffId}>
+                      <td className="px-4 py-2 text-sm">{d.staffName}</td>
+                      <td className="px-4 py-2 text-sm">{d.totalAppointments}</td>
+                      <td className="px-4 py-2 text-sm">{d.booked}</td>
+                      <td className="px-4 py-2 text-sm">{d.cancelled}</td>
+                      <td className="px-4 py-2 text-sm">{d.completed}</td>
+                      <td className="px-4 py-2 text-sm">{d.invoiced}</td>
+                      <td className="px-4 py-2 text-sm">{d.rescheduled}</td>
+                      <td className="px-4 py-2 text-sm">{d.totalPatients}</td>
+                    </tr>
+                  ))}
+                  {!details.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
+                        No staff found for selected period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Top Doctor Staff Details</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Appointments</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Booked</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Cancelled</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Completed</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoiced</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Rescheduled</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Patients</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {details.map((d) => (
-                <tr key={d.staffId}>
-                  <td className="px-4 py-2 text-sm">{d.staffName}</td>
-                  <td className="px-4 py-2 text-sm">{d.totalAppointments}</td>
-                  <td className="px-4 py-2 text-sm">{d.booked}</td>
-                  <td className="px-4 py-2 text-sm">{d.cancelled}</td>
-                  <td className="px-4 py-2 text-sm">{d.completed}</td>
-                  <td className="px-4 py-2 text-sm">{d.invoiced}</td>
-                  <td className="px-4 py-2 text-sm">{d.rescheduled}</td>
-                  <td className="px-4 py-2 text-sm">{d.totalPatients}</td>
-                </tr>
-              ))}
-              {!details.length && (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
-                    No staff found for selected period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-800">Total Patients Treated (Top 5)</h3>
+            </div>
+            <div className="w-full" style={{ height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartPatients} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
+                  <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
+                  <Tooltip />
+                  <Bar dataKey="patients" fill="#F59E0B" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Total Patients Treated (Top 5)</h3>
-        </div>
-        <div className="w-full" style={{ height: 320 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartPatients} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip />
-              <Bar dataKey="patients" fill="#F59E0B" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Top 5 Doctor Staff Commission</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {topDoctorStaffCommission.map((r) => (
+                    <tr key={r.staffId}>
+                      <td className="px-4 py-2 text-sm">{r.name}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
+                      <td className="px-4 py-2 text-sm">{r.entries}</td>
+                    </tr>
+                  ))}
+                  {!topDoctorStaffCommission.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                        No commission data for selected period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Top 5 Doctor Staff Commission</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {topDoctorStaffCommission.map((r) => (
-                <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
-                  <td className="px-4 py-2 text-sm">{r.entries}</td>
-                </tr>
-              ))}
-              {!topDoctorStaffCommission.length && (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                    No commission data for selected period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Top 5 Agents Commission</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Agent</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {topAgentCommission.map((r) => (
-                <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
-                  <td className="px-4 py-2 text-sm">{r.entries}</td>
-                </tr>
-              ))}
-              {!topAgentCommission.length && (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                    No commission data for selected period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">Top 5 Agents Commission</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Agent</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {topAgentCommission.map((r) => (
+                    <tr key={r.staffId}>
+                      <td className="px-4 py-2 text-sm">{r.name}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
+                      <td className="px-4 py-2 text-sm">{r.entries}</td>
+                    </tr>
+                  ))}
+                  {!topAgentCommission.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                        No commission data for selected period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+      {activeTab === 'sales' && (
+        <>
+          <div className="flex justify-end">
+            <ExportButtons
+              sections={[]}
+              filename={`sales_staff_report_${startDate}_to_${endDate}`}
+              title="Sales Staff Performance Report"
+            />
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-800">Sales Staff Leaderboard</h3>
+              {loading && <span className="text-sm text-gray-500">Loading…</span>}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Sales Staff</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Packages Sold</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Revenue</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Pending</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {salesStaff.map((staff, index) => (
+                    <tr key={staff.staffId || index}>
+                      <td className="px-4 py-2 text-sm">{staff.name}</td>
+                      <td className="px-4 py-2 text-sm">{staff.totalPackagesSold}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(staff.totalRevenue)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(staff.totalPaid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{currency(staff.totalPending)}</td>
+                    </tr>
+                  ))}
+                  {!salesStaff.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={5}>
+                        No data for selected period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
