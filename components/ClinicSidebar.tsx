@@ -516,6 +516,8 @@ const renderIcon = (key: string, isActive: boolean = false) => {
       node = <Percent className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🗃️") || key.includes("archive") || key.includes("stock")) {
       node = <Archive className="w-4 h-4 text-[#6B7280]" />;
+    } else if (key.includes("boxes")) {
+      node = <Package className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🌍") || key.includes("globe2")) {
       node = <Globe2 className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🤑") || key.includes("deals")) {
@@ -825,6 +827,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Transfer Stock On Request": "clinic_stock_transfer_on_request",
     "Transfer Stock": "clinic_stock_transfer_on_request",
     "Allocated Stock Items": "clinic_stock_allocated_stock_items",
+    "Custom Stock Items": "custom_stock_items",
     
     "Policy & Compliance": "clinic_compliance",
     "Authentication": "clinic_authentication",
@@ -1131,14 +1134,14 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               'clinic_stock_qty_adjustment', 'clinic_stock_material_consumptions',
               'clinic_stock_direct_transfer', 'clinic_stock_transfer_requests',
               'clinic_stock_transfer_on_request', 'clinic_stock_allocated_stock_items',
-              'clinic_stock_purchase_return'
+              'clinic_stock_purchase_return', 'custom_stock_items'
             ].includes(moduleKey) || 
             // Also check by label if moduleKey not set
             label.includes('uom') || label.includes('location') || label.includes('supplier') || 
             label.includes('purchase') || label.includes('grn') || label.includes('invoice') || 
             label.includes('return') || label.includes('stock') || 
             label.includes('transfer') || label.includes('material') || 
-            label.includes('allocated');
+            label.includes('allocated') || label.includes('custom');
 
             if (isStockSubmodule || label.includes('stock')) {
               // console.log('[localShouldShowItem] Checking stock parent permission');
@@ -1382,6 +1385,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Material Activity Consumption", "/clinic/stocks/material-consumptions", "⚡"),
                 createItem("Material Consumptions", "/clinic/stocks/material-consumptions", "⚡"),
                 createItem("Allocated Stock Items", "/clinic/stocks/allocated-stock-items", "package"),
+                createItem("Custom Stock Items", "/clinic/stocks/custom-stock-items", "boxes"),
               ),
               order: 135,
             },

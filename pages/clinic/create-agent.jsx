@@ -129,6 +129,8 @@ const ManageAgentsPage = () => {
   const [commissionPercent, setCommissionPercent] = useState(null);
   const [currency, setCurrency] = useState('INR');
   const [clinicBankDetails, setClinicBankDetails] = useState(null);
+  const [staffTips, setStaffTips] = useState([]);
+  const [showTipsBreakdown, setShowTipsBreakdown] = useState(false);
 
   // Get the appropriate token based on what's available (clinic > doctor > admin)
   // This ensures we use the correct token for the logged-in user
@@ -635,6 +637,7 @@ const ManageAgentsPage = () => {
     if (!authHeaders) return;
     setViewAgent(agent);
     setViewLoading(true);
+    setStaffTips([]);
     try {
       const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
       if (res.data.success) {
@@ -755,7 +758,16 @@ const ManageAgentsPage = () => {
         } catch {
           setActivity(null);
         }
-       
+        // Fetch staff tips
+        try {
+          const tipsRes = await axios.get(`/api/clinic/staff-tips?staffId=${agent._id}`, { headers: authHeaders });
+          if (tipsRes.data?.success) {
+            setStaffTips(tipsRes.data.tips || []);
+          }
+        } catch {
+          setStaffTips([]);
+        }
+        
         // Start periodic activity refresh
         startActivityRefresh(agent);
       } else {
@@ -2918,6 +2930,41 @@ const ManageAgentsPage = () => {
                     )}
                   </div>
 
+                  {/* Staff Tips Section */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-5">
+                    <div className="text-base font-semibold text-teal-900 mb-4">Staff Tips</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          Total Tips
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">
+                          {getCurrencySymbol(currency)}
+                          {staffTips.reduce((sum, tip) => sum + (Number(tip.amount) || 0), 0)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="text-xs text-teal-700 inline-flex items-center gap-2">
+                          Number of Tips
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-teal-900">
+                          {staffTips.length}
+                        </div>
+                      </div>
+                    </div>
+                    {staffTips.length > 0 && (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowTipsBreakdown(true)}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md text-sm font-medium"
+                        >
+                          View Breakdown
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
@@ -2981,6 +3028,68 @@ const ManageAgentsPage = () => {
                   Delete {deleteAgent.role === 'doctorStaff' ? 'Doctor' : 'Agent'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Tips Breakdown Modal */}
+      {showTipsBreakdown && viewAgent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowTipsBreakdown(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-xl border border-gray-200 shadow-2xl max-h-[80vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 rounded-t-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-teal-900 dark:text-teal-100">Staff Tips Breakdown</h3>
+                  <p className="text-xs text-teal-700 dark:text-teal-400 mt-0.5">{viewAgent.name}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTipsBreakdown(false)}
+                  className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              {staffTips.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No tips found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 font-semibold text-teal-900 dark:text-teal-100">Date</th>
+                        <th className="text-left py-3 px-4 font-semibold text-teal-900 dark:text-teal-100">Amount</th>
+                        <th className="text-left py-3 px-4 font-semibold text-teal-900 dark:text-teal-100">Payment Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffTips.map((tip, index) => (
+                        <tr key={tip._id || index} className="border-b border-gray-100 dark:border-gray-800">
+                          <td className="py-3 px-4 text-teal-700 dark:text-teal-300">
+                            {tip.createdAt ? new Date(tip.createdAt).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="py-3 px-4 text-teal-700 dark:text-teal-300">
+                            {getCurrencySymbol(currency)}{Number(tip.amount) || 0}
+                          </td>
+                          <td className="py-3 px-4 text-teal-700 dark:text-teal-300">
+                            {tip.paymentMethod || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

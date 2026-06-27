@@ -9,6 +9,7 @@ import Commission from "../../../models/Commission";
 import AgentProfile from "../../../models/AgentProfile";
 import InsuranceClaim from "../../../models/InsuranceClaim";
 import PettyCash from "../../../models/PettyCash";
+import StaffTip from "../../../models/StaffTip";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
@@ -243,6 +244,8 @@ export default async function handler(req, res) {
         cashbackWalletUsed,
         // Unpaid packages being paid in this billing
         unpaidPackagesPaid,
+        // Staff tips
+        staffTips,
       } = req.body;
 
     console.log({ bmModify: req.body });
@@ -1018,6 +1021,33 @@ export default async function handler(req, res) {
     // console.log('[BundleAPI] billingData.usedFreeSessionCount:', billingData.usedFreeSessionCount);
 
     const billing = await Billing.create(billingData);
+
+    // Handle staff tips
+    let createdStaffTips = [];
+    if (staffTips && Array.isArray(staffTips) && staffTips.length > 0) {
+      for (const tip of staffTips) {
+        try {
+          const createdTip = await StaffTip.create({
+            clinicId: clinic._id,
+            billingId: billing._id,
+            appointmentId: appointment._id,
+            patientId: patientRegistration._id,
+            staffId: tip.staffId,
+            staffName: tip.staffName,
+            staffRole: tip.staffRole,
+            amount: tip.amount,
+            paymentMethod: tip.paymentMethod,
+            notes: tip.notes || "",
+            createdBy: clinicUser._id,
+            createdByName: clinicUser.name || `${clinicUser.firstName || ''} ${clinicUser.lastName || ''}`.trim() || 'Unknown',
+          });
+          createdStaffTips.push(createdTip);
+        } catch (tipError) {
+          console.error('[CreatePatientRegistration] Error creating staff tip:', tipError);
+          // Don't fail the billing if tip creation fails
+        }
+      }
+    }
    
 
     // ============================================================
@@ -2588,6 +2618,7 @@ export default async function handler(req, res) {
         billingForResponse && typeof billingForResponse.toObject === "function"
           ? billingForResponse.toObject()
           : billingForResponse,
+      staffTips: createdStaffTips,
       data: {
         _id: billing._id,
         invoiceNumber: billing.invoiceNumber,

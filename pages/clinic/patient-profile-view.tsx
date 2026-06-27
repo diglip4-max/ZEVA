@@ -10781,17 +10781,75 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                       <div className="space-y-2">
                         {(() => {
                           // Extract unique bundle offers from billing history
+                          
+                          // First, build used and restored session maps
+                          const usedSessionsMap = new Map<string, number>();
+                          const restoredSessionsMap = new Map<string, number>();
+                          
+                          (billingHistory || []).forEach((billing: any) => {
+                            if (billing.usedFreeSessions && Array.isArray(billing.usedFreeSessions)) {
+                              billing.usedFreeSessions.forEach((session: string) => {
+                                const sessionKey = session.toLowerCase();
+                                usedSessionsMap.set(
+                                  sessionKey,
+                                  (usedSessionsMap.get(sessionKey) || 0) + 1
+                                );
+                              });
+                            }
+                            
+                            if (billing.refundedOffers && Array.isArray(billing.refundedOffers)) {
+                              billing.refundedOffers.forEach((refund: any) => {
+                                if (refund.freeSessionsRestored && Array.isArray(refund.freeSessionsRestored)) {
+                                  refund.freeSessionsRestored.forEach((session: string) => {
+                                    const sessionKey = session.toLowerCase();
+                                    restoredSessionsMap.set(
+                                      sessionKey,
+                                      (restoredSessionsMap.get(sessionKey) || 0) + 1
+                                    );
+                                  });
+                                }
+                              });
+                            }
+                          });
+                          
                           const bundleOffers = (billingHistory || [])
                             .filter((b: any) => b.offerType === 'bundle' && b.offerFreeSession && b.offerFreeSession.length > 0)
-                            .map((b: any) => ({
-                              offerName: b.offerName || b.offerTitle || 'Bundle Offer',
-                              offerFreeSession: b.offerFreeSession || [],
-                              freeOfferSessionCount: b.freeOfferSessionCount || 0,
-                              invoiceNumber: b.invoiceNumber,
-                              invoicedDate: b.invoicedDate,
-                              treatment: b.treatment,
-                              amount: b.amount
-                            }));
+                            .map((b: any) => {
+                              const offeredSessions = b.offerFreeSession || [];
+                              const offeredCount = b.freeOfferSessionCount || 0;
+                              
+                              // Calculate used count (adjusted by restored)
+                              let usedCount = 0;
+                              offeredSessions.forEach((session: string) => {
+                                const sessionKey = session.toLowerCase();
+                                const totalUsed = usedSessionsMap.get(sessionKey) || 0;
+                                const totalRestored = restoredSessionsMap.get(sessionKey) || 0;
+                                usedCount += Math.max(0, totalUsed - totalRestored);
+                              });
+                              
+                              const remainingCount = Math.max(0, offeredCount - usedCount);
+                              
+                              // Build remaining sessions list
+                              const remainingSessions: string[] = [];
+                              let count = 0;
+                              offeredSessions.forEach((session: string) => {
+                                if (count < remainingCount) {
+                                  remainingSessions.push(session);
+                                  count++;
+                                }
+                              });
+                              
+                              return {
+                                offerName: b.offerName || b.offerTitle || 'Bundle Offer',
+                                offerFreeSession: remainingSessions,
+                                freeOfferSessionCount: remainingCount,
+                                invoiceNumber: b.invoiceNumber,
+                                invoicedDate: b.invoicedDate,
+                                treatment: b.treatment,
+                                amount: b.amount
+                              };
+                            })
+                            .filter((offer: any) => offer.freeOfferSessionCount > 0);
 
                           if (bundleOffers.length === 0) {
                             return (
