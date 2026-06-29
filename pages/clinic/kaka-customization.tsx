@@ -16,7 +16,7 @@ import {
   SCENARIO_GROUPS,
   scenarioLabel,
   BEHAVIOR_STYLE_OPTIONS,
-} from "./scenarioLabels";
+} from "@/lib/scenarioLabels";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "../_app";
