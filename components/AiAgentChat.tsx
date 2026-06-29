@@ -16,6 +16,7 @@ import {
   CreditCard,
   Phone,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import ReactMarkdown from "react-markdown";
@@ -36,7 +37,40 @@ interface AiAgentChatProps {
   conversationId: string | null;
 }
 
-// ─── Utility: parse markdown table into rows ─────────────────────────────────
+// ─── DESIGN TOKENS — mirrors the ZEVA Clinic Panel dashboard ─────────────────
+// Deepened vs. the dashboard's own off-white so the floating widget reads as
+// a distinct surface against arbitrary host pages, with stronger borders/text
+// contrast throughout (per feedback: previous pass was too washed out).
+const T = {
+  bg: "#eef2f6", // widget shell background — a clear step darker than card white
+  panel: "#ffffff",
+  panelAlt: "#f1f5f9", // zebra striping / sunken rows, darker than before
+  border: "#cbd5e1", // stronger border than the dashboard's hairline — needed at small chat scale
+  borderSoft: "rgba(15,23,42,0.10)",
+  text: "#0f172a",
+  textSoft: "#334155",
+  textMute: "#64748b",
+  teal: "#0d9488",
+  tealDark: "#0f766e",
+  tealSoft: "#14b8a6",
+  tealBg: "rgba(13,148,136,0.14)",
+  tealBorder: "rgba(13,148,136,0.38)",
+  indigo: "#4f46e5",
+  indigoBg: "rgba(79,70,229,0.13)",
+  indigoBorder: "rgba(79,70,229,0.32)",
+  amber: "#d97706",
+  amberBg: "rgba(217,119,6,0.14)",
+  amberBorder: "rgba(217,119,6,0.35)",
+  red: "#dc2626",
+  redBg: "rgba(220,38,38,0.10)",
+  redBorder: "rgba(220,38,38,0.30)",
+  green: "#059669",
+  greenBg: "rgba(5,150,105,0.13)",
+  greenBorder: "rgba(5,150,105,0.32)",
+  shadow: "0 2px 4px rgba(15,23,42,0.08), 0 16px 40px rgba(15,23,42,0.18)",
+  shadowSm: "0 1px 2px rgba(15,23,42,0.06), 0 2px 8px rgba(15,23,42,0.08)",
+};
+
 function parseMarkdownTable(
   content: string,
 ): { headers: string[]; rows: string[][] } | null {
@@ -56,7 +90,6 @@ function parseMarkdownTable(
   return { headers, rows };
 }
 
-// ─── Content detectors ────────────────────────────────────────────────────────
 const SCHEDULER_LINK_TOKEN = "🔗 SCHEDULER_LINK:";
 
 const hasSchedulerLink = (c: string) => c.includes(SCHEDULER_LINK_TOKEN);
@@ -72,7 +105,6 @@ function extractSchedulerLink(c: string): { text: string; link: string } {
     .split("\n")[0]
     .trim();
 
-  // Markdown link: [Text](URL)
   const markdownMatch = raw.match(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/);
 
   const link = markdownMatch ? markdownMatch[1] : raw;
@@ -88,7 +120,8 @@ const isBookingConfirmation = (c: string) =>
   (c.toLowerCase().includes("confirm") ||
     c.toLowerCase().includes("summary") ||
     c.toLowerCase().includes("appointment"));
-
+const isAppointmentDetails = (c: string) =>
+  c.includes("APT_DETAILS") && !isRescheduleConfirmation(c);
 const isDateTimePicker = (c: string) =>
   c.toLowerCase().includes("please select a new date and time");
 const isTimings = (c: string) =>
@@ -109,7 +142,6 @@ const isErrorBanner = (c: string) =>
   c.toLowerCase().includes("didn't go through") ||
   c.toLowerCase().includes("didn't go through") ||
   c.toLowerCase().includes("failed");
-// ─── Detectors ────────────────────────────────────────────────────────────────
 const isServicesSummary = (c: string) =>
   c.includes("SERVICES_SUMMARY_START") && c.includes("SERVICES_SUMMARY_END");
 
@@ -137,13 +169,12 @@ const isFaqAnswer = (c: string) =>
   !isBookingConfirmation(c) &&
   !isRescheduleConfirmation(c) &&
   !isDateTimePicker(c) &&
-  !isServicesSummary(c) && // ← add these two
+  !isServicesSummary(c) &&
   !isServicesDetail(c);
 
-// ─── Doctor avatar colors ─────────────────────────────────────────────────────
 const avatarPalette = [
+  { bg: "#ccfbf1", text: "#0f766e", glow: "#14b8a6" },
   { bg: "#e0e7ff", text: "#4338ca", glow: "#6366f1" },
-  { bg: "#d1fae5", text: "#065f46", glow: "#10b981" },
   { bg: "#fce7f3", text: "#9d174d", glow: "#ec4899" },
   { bg: "#fef3c7", text: "#92400e", glow: "#f59e0b" },
   { bg: "#dbeafe", text: "#1e40af", glow: "#3b82f6" },
@@ -160,7 +191,6 @@ function initials(name: string): string {
     .slice(0, 2);
 }
 
-// ─── FAQ icon map ─────────────────────────────────────────────────────────────
 function faqIcon(title: string) {
   const t = title.toLowerCase();
   if (t.includes("hour") || t.includes("time")) return <Clock size={15} />;
@@ -180,7 +210,6 @@ function faqIcon(title: string) {
   return <ChevronRight size={15} />;
 }
 
-// ─── Markdown Components (defined first — referenced by BookingLinkCard below) ─
 const MarkdownComponents: React.ComponentProps<
   typeof ReactMarkdown
 >["components"] = {
@@ -189,7 +218,7 @@ const MarkdownComponents: React.ComponentProps<
       style={{
         fontSize: 14,
         fontWeight: 700,
-        color: "#e0e7ff",
+        color: T.text,
         margin: "10px 0 5px",
       }}
     >
@@ -201,7 +230,7 @@ const MarkdownComponents: React.ComponentProps<
       style={{
         fontSize: 13,
         fontWeight: 700,
-        color: "#c7d2fe",
+        color: T.text,
         margin: "8px 0 4px",
       }}
     >
@@ -213,7 +242,7 @@ const MarkdownComponents: React.ComponentProps<
       style={{
         fontSize: 12,
         fontWeight: 700,
-        color: "#a5b4fc",
+        color: T.teal,
         margin: "6px 0 3px",
         textTransform: "uppercase",
         letterSpacing: "0.5px",
@@ -228,20 +257,20 @@ const MarkdownComponents: React.ComponentProps<
         margin: "0 0 5px",
         fontSize: 13,
         lineHeight: 1.65,
-        color: "#cbd5e1",
+        color: T.textSoft,
       }}
     >
       {children}
     </p>
   ),
   strong: ({ children }) => (
-    <strong style={{ fontWeight: 700, color: "#e0e7ff" }}>{children}</strong>
+    <strong style={{ fontWeight: 700, color: T.text }}>{children}</strong>
   ),
   hr: () => (
     <hr
       style={{
         border: "none",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        borderTop: `1px solid ${T.border}`,
         margin: "8px 0",
       }}
     />
@@ -262,7 +291,7 @@ const MarkdownComponents: React.ComponentProps<
         gap: 7,
         marginBottom: 4,
         fontSize: 13,
-        color: "#94a3b8",
+        color: T.textSoft,
         lineHeight: 1.6,
       }}
     >
@@ -273,7 +302,7 @@ const MarkdownComponents: React.ComponentProps<
           width: 5,
           height: 5,
           borderRadius: "50%",
-          background: "#6366f1",
+          background: T.tealSoft,
           display: "inline-block",
         }}
       />
@@ -287,7 +316,7 @@ const MarkdownComponents: React.ComponentProps<
           width: "100%",
           borderCollapse: "collapse",
           fontSize: 12,
-          border: "1px solid rgba(99,102,241,0.2)",
+          border: `1px solid ${T.border}`,
           borderRadius: 8,
           overflow: "hidden",
         }}
@@ -297,13 +326,11 @@ const MarkdownComponents: React.ComponentProps<
     </div>
   ),
   thead: ({ children }) => (
-    <thead style={{ background: "rgba(99,102,241,0.12)" }}>{children}</thead>
+    <thead style={{ background: T.tealBg }}>{children}</thead>
   ),
   tbody: ({ children }) => <tbody>{children}</tbody>,
   tr: ({ children }) => (
-    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-      {children}
-    </tr>
+    <tr style={{ borderBottom: `1px solid ${T.borderSoft}` }}>{children}</tr>
   ),
   th: ({ children }) => (
     <th
@@ -312,7 +339,7 @@ const MarkdownComponents: React.ComponentProps<
         textAlign: "left",
         fontWeight: 700,
         fontSize: 10,
-        color: "#818cf8",
+        color: T.teal,
         textTransform: "uppercase",
         letterSpacing: "0.5px",
       }}
@@ -324,7 +351,7 @@ const MarkdownComponents: React.ComponentProps<
     <td
       style={{
         padding: "7px 10px",
-        color: "#cbd5e1",
+        color: T.textSoft,
         fontSize: 12,
         lineHeight: 1.5,
       }}
@@ -335,12 +362,12 @@ const MarkdownComponents: React.ComponentProps<
   blockquote: ({ children }) => (
     <div
       style={{
-        background: "rgba(56,189,248,0.06)",
-        borderLeft: "3px solid #38bdf8",
+        background: T.indigoBg,
+        borderLeft: `3px solid ${T.indigo}`,
         borderRadius: "0 8px 8px 0",
         padding: "7px 12px",
         margin: "5px 0",
-        color: "#7dd3fc",
+        color: "#4338ca",
         fontSize: 12,
       }}
     >
@@ -352,7 +379,7 @@ const MarkdownComponents: React.ComponentProps<
     return isBlock ? (
       <pre
         style={{
-          background: "#020617",
+          background: "#0f172a",
           color: "#e2e8f0",
           borderRadius: 8,
           padding: "9px 12px",
@@ -367,8 +394,8 @@ const MarkdownComponents: React.ComponentProps<
     ) : (
       <code
         style={{
-          background: "rgba(124,58,237,0.15)",
-          color: "#c4b5fd",
+          background: T.indigoBg,
+          color: "#4f46e5",
           fontSize: 12,
           padding: "1px 5px",
           borderRadius: 4,
@@ -380,7 +407,360 @@ const MarkdownComponents: React.ComponentProps<
   },
 };
 
-// ─── SERVICES SUMMARY CARD ────────────────────────────────────────────────────
+// Wraps plain assistant markdown text in an actual bubble container, so
+// follow-up lines and plain replies read as chat messages, not floating text.
+const TextBubble: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div
+    style={{
+      background: T.panel,
+      border: `1px solid ${T.border}`,
+      borderRadius: "4px 14px 14px 14px",
+      padding: "10px 13px",
+      boxShadow: T.shadowSm,
+    }}
+  >
+    {children}
+  </div>
+);
+
+// Small reusable card header used across cards to keep visual rhythm consistent
+const CardHeader: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  badge?: { label: string; tone: "amber" | "green" | "red" | "teal" };
+  accent?: string;
+}> = ({ icon, title, subtitle, badge, accent = T.teal }) => {
+  const toneMap: Record<string, { bg: string; border: string; color: string }> =
+    {
+      amber: { bg: T.amberBg, border: T.amberBorder, color: "#b45309" },
+      green: { bg: T.greenBg, border: T.greenBorder, color: "#047857" },
+      red: { bg: T.redBg, border: T.redBorder, color: "#b91c1c" },
+      teal: { bg: T.tealBg, border: T.tealBorder, color: T.teal },
+    };
+  return (
+    <div
+      style={{
+        padding: "12px 14px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 10,
+        background: T.panel,
+        borderBottom: `1px solid ${T.border}`,
+      }}
+    >
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}
+      >
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 9,
+            background: `${accent}14`,
+            border: `1px solid ${accent}33`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            color: accent,
+          }}
+        >
+          {icon}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12.5,
+              fontWeight: 700,
+              color: T.text,
+              letterSpacing: "0.1px",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {title}
+          </p>
+          {subtitle && (
+            <p
+              style={{
+                margin: 0,
+                fontSize: 10.5,
+                color: T.textMute,
+              }}
+            >
+              {subtitle}
+            </p>
+          )}
+        </div>
+      </div>
+      {badge && (
+        <span
+          style={{
+            flexShrink: 0,
+            fontSize: 9.5,
+            padding: "3px 9px",
+            borderRadius: 20,
+            background: toneMap[badge.tone].bg,
+            border: `1px solid ${toneMap[badge.tone].border}`,
+            color: toneMap[badge.tone].color,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.4px",
+          }}
+        >
+          {badge.label}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ─── APPOINTMENT DETAILS — attractive, read-only (no action buttons) ─────────
+const AppointmentDetailsCard: React.FC<{
+  content: string;
+  onSend: (msg: string) => void;
+}> = ({ content }) => {
+  const start = content.indexOf("APT_DETAILS");
+  const tableSlice = start >= 0 ? content.slice(start) : content;
+  const parsed = parseMarkdownTable(tableSlice);
+  const rows = parsed?.rows ?? [];
+
+  const followUp = parsed
+    ? tableSlice
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("|") && l.trim() !== "APT_DETAILS")
+        .join("\n")
+        .trim()
+    : "";
+
+  const fieldMap: Record<string, { icon: React.ReactNode; color: string }> = {
+    patient: { icon: <User size={14} />, color: T.indigo },
+    doctor: { icon: <UserCircle size={14} />, color: "#3b82f6" },
+    treatment: { icon: <Stethoscope size={14} />, color: T.teal },
+    date: { icon: <Calendar size={14} />, color: "#ec4899" },
+    time: { icon: <Clock size={14} />, color: T.amber },
+    status: { icon: <CheckCircle size={14} />, color: T.indigo },
+  };
+
+  const getField = (key: string) =>
+    fieldMap[key.toLowerCase().replace(/\*\*/g, "").trim()] ?? {
+      icon: <ChevronRight size={14} />,
+      color: T.indigo,
+    };
+
+  const statusValue =
+    rows.find(([f]) => f.toLowerCase() === "status")?.[1]?.toLowerCase() ?? "";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        width: "100%",
+      }}
+    >
+      <div
+        style={{
+          borderRadius: 16,
+          overflow: "hidden",
+          border: `1px solid ${T.border}`,
+          background: T.panel,
+          boxShadow: T.shadowSm,
+        }}
+      >
+        {/* Banner header — teal gradient to signal "this is live data", distinct from booking flow cards */}
+        <div
+          style={{
+            background:
+              "linear-gradient(120deg, #0d9488 0%, #14b8a6 55%, #2dd4bf 100%)",
+            padding: "16px 18px",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              right: -24,
+              top: -28,
+              width: 110,
+              height: 110,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.10)",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              right: 30,
+              bottom: -30,
+              width: 60,
+              height: 60,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.08)",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              position: "relative",
+              zIndex: 1,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.18)",
+                  border: "1px solid rgba(255,255,255,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ClipboardList size={16} color="#ffffff" />
+              </div>
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    letterSpacing: "0.3px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Your Appointment
+                </p>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 10.5,
+                    color: "rgba(255,255,255,0.85)",
+                  }}
+                >
+                  Current booking on file
+                </p>
+              </div>
+            </div>
+            {statusValue && (
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: "4px 11px",
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.92)",
+                  color: statusValue === "booked" ? "#0d9488" : "#b45309",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.4px",
+                }}
+              >
+                {statusValue}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Rows */}
+        <div style={{ background: T.panel, padding: "6px 6px" }}>
+          {rows.map(([field, value], i) => {
+            if (field.toLowerCase() === "status") return null;
+            const { icon, color } = getField(field);
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  margin: "2px 4px",
+                  borderRadius: 10,
+                  background: i % 2 === 0 ? "transparent" : T.panelAlt,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 8,
+                      background: `${color}14`,
+                      border: `1px solid ${color}33`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {icon}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: T.textMute,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {field.replace(/\*\*/g, "")}
+                  </span>
+                </div>
+                <span style={{ fontSize: 13, color: T.text, fontWeight: 700 }}>
+                  {value}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Quiet footer strip — informational only, no actions per design intent */}
+        <div
+          style={{
+            padding: "9px 16px",
+            background: T.panelAlt,
+            borderTop: `1px solid ${T.border}`,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 10.5,
+              color: T.textMute,
+              textAlign: "center",
+            }}
+          >
+            Need a change? Just tell me — I can reschedule it for you.
+          </p>
+        </div>
+      </div>
+
+      {followUp && (
+        <TextBubble>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={MarkdownComponents}
+          >
+            {followUp}
+          </ReactMarkdown>
+        </TextBubble>
+      )}
+    </div>
+  );
+};
+
 const ServicesSummaryCard: React.FC<{
   content: string;
   onSend: (msg: string) => void;
@@ -392,35 +772,23 @@ const ServicesSummaryCard: React.FC<{
     .trim();
 
   const deptColors = [
-    {
-      bg: "rgba(99,102,241,0.08)",
-      border: "rgba(99,102,241,0.2)",
-      color: "#818cf8",
-    },
-    {
-      bg: "rgba(16,185,129,0.08)",
-      border: "rgba(16,185,129,0.2)",
-      color: "#34d399",
-    },
-    {
-      bg: "rgba(245,158,11,0.08)",
-      border: "rgba(245,158,11,0.2)",
-      color: "#fbbf24",
-    },
+    { bg: T.tealBg, border: T.tealBorder, color: T.teal },
+    { bg: T.indigoBg, border: T.indigoBorder, color: T.indigo },
+    { bg: T.amberBg, border: T.amberBorder, color: "#b45309" },
     {
       bg: "rgba(236,72,153,0.08)",
-      border: "rgba(236,72,153,0.2)",
-      color: "#f472b6",
+      border: "rgba(236,72,153,0.22)",
+      color: "#db2777",
     },
     {
       bg: "rgba(56,189,248,0.08)",
-      border: "rgba(56,189,248,0.2)",
-      color: "#38bdf8",
+      border: "rgba(56,189,248,0.22)",
+      color: "#0284c7",
     },
     {
       bg: "rgba(167,139,250,0.08)",
-      border: "rgba(167,139,250,0.2)",
-      color: "#a78bfa",
+      border: "rgba(167,139,250,0.22)",
+      color: "#7c3aed",
     },
   ];
 
@@ -436,64 +804,25 @@ const ServicesSummaryCard: React.FC<{
       style={{
         borderRadius: 16,
         overflow: "hidden",
-        border: "1px solid rgba(99,102,241,0.2)",
-        background: "#0f0f23",
+        border: `1px solid ${T.border}`,
+        background: T.panel,
+        boxShadow: T.shadowSm,
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-          padding: "14px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            background: "rgba(129,140,248,0.2)",
-            border: "1px solid rgba(129,140,248,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Stethoscope size={15} color="#a5b4fc" />
-        </div>
-        <div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#e0e7ff",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-            }}
-          >
-            Our Services
-          </p>
-          <p
-            style={{ margin: 0, fontSize: 10, color: "rgba(165,180,252,0.7)" }}
-          >
-            {departments.reduce((a, d) => a + d.count, 0)} treatments across{" "}
-            {departments.length} departments
-          </p>
-        </div>
-      </div>
+      <CardHeader
+        icon={<Stethoscope size={15} />}
+        title="Our Services"
+        subtitle={`${departments.reduce((a, d) => a + d.count, 0)} treatments across ${departments.length} departments`}
+        accent={T.teal}
+      />
 
-      {/* Department tiles */}
       <div
         style={{
           padding: 12,
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
           gap: 8,
-          background: "#0f0f23",
+          background: T.panel,
         }}
       >
         {departments.map((dept, i) => {
@@ -533,7 +862,7 @@ const ServicesSummaryCard: React.FC<{
                 style={{
                   margin: 0,
                   fontSize: 10,
-                  color: "rgba(148,163,184,0.7)",
+                  color: T.textMute,
                 }}
               >
                 {dept.count} treatment{dept.count !== 1 ? "s" : ""}
@@ -546,15 +875,15 @@ const ServicesSummaryCard: React.FC<{
       <div
         style={{
           padding: "10px 16px 12px",
-          borderTop: "1px solid rgba(99,102,241,0.1)",
-          background: "rgba(99,102,241,0.04)",
+          borderTop: `1px solid ${T.border}`,
+          background: T.panelAlt,
         }}
       >
         <p
           style={{
             margin: 0,
             fontSize: 11,
-            color: "rgba(148,163,184,0.6)",
+            color: T.textMute,
             textAlign: "center",
           }}
         >
@@ -565,7 +894,6 @@ const ServicesSummaryCard: React.FC<{
   );
 };
 
-// ─── SERVICES DETAIL CARD ─────────────────────────────────────────────────────
 const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
   const start = content.indexOf("SERVICES_DETAIL_START");
   const end = content.indexOf("SERVICES_DETAIL_END");
@@ -600,57 +928,25 @@ const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
         style={{
           borderRadius: 16,
           overflow: "hidden",
-          border: "1px solid rgba(99,102,241,0.2)",
-          background: "#0f0f23",
+          border: `1px solid ${T.border}`,
+          background: T.panel,
+          boxShadow: T.shadowSm,
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "rgba(129,140,248,0.2)",
-              border: "1px solid rgba(129,140,248,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Stethoscope size={13} color="#a5b4fc" />
-          </div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#e0e7ff",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-            }}
-          >
-            {headerLine}
-          </p>
-        </div>
+        <CardHeader
+          icon={<Stethoscope size={14} />}
+          title={headerLine}
+          accent={T.teal}
+        />
 
-        {/* Column headers */}
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "1fr auto auto",
             padding: "8px 14px",
             gap: 12,
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
-            background: "rgba(99,102,241,0.06)",
+            borderBottom: `1px solid ${T.border}`,
+            background: T.panelAlt,
           }}
         >
           {["Treatment", "Price", "Duration"].map((h) => (
@@ -659,7 +955,7 @@ const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
               style={{
                 fontSize: 10,
                 fontWeight: 700,
-                color: "#818cf8",
+                color: T.teal,
                 textTransform: "uppercase",
                 letterSpacing: "0.5px",
               }}
@@ -669,7 +965,6 @@ const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
           ))}
         </div>
 
-        {/* Rows */}
         {services.map((svc, i) => (
           <div
             key={i}
@@ -680,20 +975,17 @@ const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
               gap: 12,
               alignItems: "center",
               borderBottom:
-                i < services.length - 1
-                  ? "1px solid rgba(255,255,255,0.04)"
-                  : "none",
-              background:
-                i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
+                i < services.length - 1 ? `1px solid ${T.borderSoft}` : "none",
+              background: i % 2 === 0 ? "transparent" : T.panelAlt,
             }}
           >
-            <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 500 }}>
+            <span style={{ fontSize: 12, color: T.text, fontWeight: 500 }}>
               {svc.name}
             </span>
             <span
               style={{
                 fontSize: 12,
-                color: "#34d399",
+                color: T.teal,
                 fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
@@ -703,7 +995,7 @@ const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
             <span
               style={{
                 fontSize: 11,
-                color: "rgba(148,163,184,0.7)",
+                color: T.textMute,
                 whiteSpace: "nowrap",
               }}
             >
@@ -714,35 +1006,34 @@ const ServicesDetailCard: React.FC<{ content: string }> = ({ content }) => {
       </div>
 
       {followUp && (
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={MarkdownComponents}
-        >
-          {followUp}
-        </ReactMarkdown>
+        <TextBubble>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={MarkdownComponents}
+          >
+            {followUp}
+          </ReactMarkdown>
+        </TextBubble>
       )}
     </div>
   );
 };
 
-// ─── BOOKING LINK CARD ────────────────────────────────────────────────────────
-// NOTE: defined AFTER MarkdownComponents to avoid reference-before-definition
 const BookingLinkCard: React.FC<{ content: string }> = ({ content }) => {
   const { text, link } = extractSchedulerLink(content);
   const [hovered, setHovered] = useState(false);
-  console.log("Extracted Link:", link);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {/* Regular message text rendered as markdown */}
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={MarkdownComponents}
-      >
-        {text}
-      </ReactMarkdown>
+      <TextBubble>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={MarkdownComponents}
+        >
+          {text}
+        </ReactMarkdown>
+      </TextBubble>
 
-      {/* Scheduler link pill */}
       <a
         href={link}
         target="_blank"
@@ -756,10 +1047,8 @@ const BookingLinkCard: React.FC<{ content: string }> = ({ content }) => {
           gap: 10,
           padding: "11px 14px",
           borderRadius: 13,
-          background: hovered
-            ? "linear-gradient(135deg, rgba(99,102,241,0.22), rgba(139,92,246,0.18))"
-            : "linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.10))",
-          border: "1px solid rgba(99,102,241,0.3)",
+          background: hovered ? "#0d9488" : T.tealBg,
+          border: `1px solid ${T.tealBorder}`,
           textDecoration: "none",
           transition: "background 0.15s, transform 0.15s",
           transform: hovered ? "translateY(-1px)" : "translateY(0)",
@@ -772,15 +1061,17 @@ const BookingLinkCard: React.FC<{ content: string }> = ({ content }) => {
               width: 32,
               height: 32,
               borderRadius: 9,
-              background: "rgba(99,102,241,0.2)",
-              border: "1px solid rgba(129,140,248,0.35)",
+              background: hovered
+                ? "rgba(255,255,255,0.2)"
+                : "rgba(13,148,136,0.14)",
+              border: `1px solid ${hovered ? "rgba(255,255,255,0.4)" : T.tealBorder}`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <Calendar size={14} color="#a5b4fc" />
+            <Calendar size={14} color={hovered ? "#ffffff" : T.teal} />
           </div>
           <div>
             <p
@@ -788,7 +1079,7 @@ const BookingLinkCard: React.FC<{ content: string }> = ({ content }) => {
                 margin: 0,
                 fontSize: 12,
                 fontWeight: 700,
-                color: "#e0e7ff",
+                color: hovered ? "#ffffff" : T.text,
               }}
             >
               Book Online
@@ -797,7 +1088,7 @@ const BookingLinkCard: React.FC<{ content: string }> = ({ content }) => {
               style={{
                 margin: 0,
                 fontSize: 10,
-                color: "rgba(165,180,252,0.6)",
+                color: hovered ? "rgba(255,255,255,0.8)" : T.textMute,
                 marginTop: 1,
               }}
             >
@@ -805,11 +1096,12 @@ const BookingLinkCard: React.FC<{ content: string }> = ({ content }) => {
             </p>
           </div>
         </div>
-        <ChevronRight size={14} color="rgba(165,180,252,0.5)" />
+        <ChevronRight size={14} color={hovered ? "#ffffff" : T.textMute} />
       </a>
     </div>
   );
 };
+
 const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
   const start = content.indexOf("TIMINGS_START");
   const end = content.indexOf("TIMINGS_END");
@@ -824,8 +1116,8 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
       .map((c) => c.trim())
       .filter(Boolean);
     if (cells.length < 2) return;
-    if (cells[0].toLowerCase() === "day") return; // skip header
-    if (/^[-:]+$/.test(cells[0])) return; // skip separator
+    if (cells[0].toLowerCase() === "day") return;
+    if (/^[-:]+$/.test(cells[0])) return;
     rows.push({
       day: cells[0],
       status: cells[1],
@@ -840,46 +1132,16 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
         style={{
           borderRadius: 16,
           overflow: "hidden",
-          border: "1px solid rgba(99,102,241,0.2)",
-          background: "#0f0f23",
+          border: `1px solid ${T.border}`,
+          background: T.panel,
+          boxShadow: T.shadowSm,
         }}
       >
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "rgba(129,140,248,0.2)",
-              border: "1px solid rgba(129,140,248,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Clock size={13} color="#a5b4fc" />
-          </div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#e0e7ff",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-            }}
-          >
-            Clinic Hours
-          </p>
-        </div>
+        <CardHeader
+          icon={<Clock size={14} />}
+          title="Clinic Hours"
+          accent={T.teal}
+        />
 
         {rows.map((row, i) => {
           const isOpen = row.status.toLowerCase() === "open";
@@ -893,14 +1155,11 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
                 gap: 10,
                 alignItems: "center",
                 borderBottom:
-                  i < rows.length - 1
-                    ? "1px solid rgba(255,255,255,0.04)"
-                    : "none",
-                background:
-                  i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
+                  i < rows.length - 1 ? `1px solid ${T.borderSoft}` : "none",
+                background: i % 2 === 0 ? "transparent" : T.panelAlt,
               }}
             >
-              <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>
+              <span style={{ fontSize: 12, color: T.text, fontWeight: 600 }}>
                 {row.day}
               </span>
               <span
@@ -909,13 +1168,11 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
                   fontWeight: 700,
                   padding: "2px 8px",
                   borderRadius: 8,
-                  background: isOpen
-                    ? "rgba(52,211,153,0.15)"
-                    : "rgba(239,68,68,0.15)",
+                  background: isOpen ? T.greenBg : T.redBg,
                   border: isOpen
-                    ? "1px solid rgba(52,211,153,0.3)"
-                    : "1px solid rgba(239,68,68,0.3)",
-                  color: isOpen ? "#34d399" : "#f87171",
+                    ? `1px solid ${T.greenBorder}`
+                    : `1px solid ${T.redBorder}`,
+                  color: isOpen ? "#047857" : "#b91c1c",
                   textAlign: "center",
                   whiteSpace: "nowrap",
                 }}
@@ -925,7 +1182,7 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
               <span
                 style={{
                   fontSize: 11,
-                  color: "rgba(148,163,184,0.85)",
+                  color: T.textSoft,
                   whiteSpace: "nowrap",
                 }}
               >
@@ -934,7 +1191,7 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
               <span
                 style={{
                   fontSize: 11,
-                  color: "rgba(148,163,184,0.85)",
+                  color: T.textSoft,
                   whiteSpace: "nowrap",
                 }}
               >
@@ -946,18 +1203,20 @@ const TimingsCard: React.FC<{ content: string }> = ({ content }) => {
       </div>
 
       {followUp && (
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={MarkdownComponents}
-        >
-          {followUp}
-        </ReactMarkdown>
+        <TextBubble>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={MarkdownComponents}
+          >
+            {followUp}
+          </ReactMarkdown>
+        </TextBubble>
       )}
     </div>
   );
 };
 
-// ─── BOOKING CONFIRMATION CARD ────────────────────────────────────────────────
+// ─── BOOKING SUMMARY — keeps Confirm / Cancel (this is the booking flow) ─────
 const BookingCard: React.FC<{
   content: string;
   onSend: (msg: string) => void;
@@ -966,17 +1225,17 @@ const BookingCard: React.FC<{
   const rows = parsed?.rows ?? [];
 
   const fieldMap: Record<string, { icon: React.ReactNode; color: string }> = {
-    patient: { icon: <User size={13} />, color: "#818cf8" },
-    treatment: { icon: <Stethoscope size={13} />, color: "#34d399" },
-    doctor: { icon: <UserCircle size={13} />, color: "#60a5fa" },
-    date: { icon: <Calendar size={13} />, color: "#f472b6" },
-    time: { icon: <Clock size={13} />, color: "#fb923c" },
+    patient: { icon: <User size={13} />, color: T.indigo },
+    treatment: { icon: <Stethoscope size={13} />, color: T.teal },
+    doctor: { icon: <UserCircle size={13} />, color: "#3b82f6" },
+    date: { icon: <Calendar size={13} />, color: "#ec4899" },
+    time: { icon: <Clock size={13} />, color: T.amber },
   };
 
   const getField = (key: string) =>
     fieldMap[key.toLowerCase().replace(/\*\*/g, "").trim()] ?? {
       icon: <ChevronRight size={13} />,
-      color: "#a78bfa",
+      color: T.indigo,
     };
 
   return (
@@ -984,105 +1243,21 @@ const BookingCard: React.FC<{
       style={{
         borderRadius: 16,
         overflow: "hidden",
-        border: "1px solid rgba(99,102,241,0.25)",
-        background: "#0f0f23",
+        border: `1px solid ${T.border}`,
+        background: T.panel,
+        boxShadow: T.shadowSm,
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          background:
-            "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%)",
-          padding: "14px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            right: -20,
-            top: -20,
-            width: 80,
-            height: 80,
-            borderRadius: "50%",
-            background: "rgba(129,140,248,0.15)",
-            border: "1px solid rgba(129,140,248,0.2)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            right: 10,
-            top: 10,
-            width: 40,
-            height: 40,
-            borderRadius: "50%",
-            background: "rgba(167,139,250,0.12)",
-          }}
-        />
-        <div
-          style={{ display: "flex", alignItems: "center", gap: 10, zIndex: 1 }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              background: "rgba(129,140,248,0.2)",
-              border: "1px solid rgba(129,140,248,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Calendar size={15} color="#a5b4fc" />
-          </div>
-          <div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                fontWeight: 700,
-                color: "#e0e7ff",
-                letterSpacing: "0.5px",
-                textTransform: "uppercase",
-              }}
-            >
-              Appointment Summary
-            </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 10,
-                color: "rgba(165,180,252,0.7)",
-              }}
-            >
-              Review before confirming
-            </p>
-          </div>
-        </div>
-        <span
-          style={{
-            zIndex: 1,
-            fontSize: 10,
-            padding: "3px 10px",
-            borderRadius: 20,
-            background: "rgba(234,179,8,0.15)",
-            border: "1px solid rgba(234,179,8,0.3)",
-            color: "#fde68a",
-            fontWeight: 600,
-          }}
-        >
-          PENDING
-        </span>
-      </div>
+      <CardHeader
+        icon={<Calendar size={15} />}
+        title="Appointment Summary"
+        subtitle="Review before confirming"
+        badge={{ label: "Pending", tone: "amber" }}
+        accent={T.indigo}
+      />
 
       {/* Rows */}
-      <div style={{ background: "#0f0f23", padding: "4px 0" }}>
+      <div style={{ background: T.panel, padding: "6px 6px" }}>
         {rows.map(([field, value], i) => {
           const { icon, color } = getField(field);
           return (
@@ -1092,27 +1267,25 @@ const BookingCard: React.FC<{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "10px 16px",
-                borderBottom:
-                  i < rows.length - 1
-                    ? "1px solid rgba(255,255,255,0.05)"
-                    : "none",
-                background:
-                  i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)",
+                padding: "10px 12px",
+                margin: "2px 4px",
+                borderRadius: 10,
+                background: i % 2 === 0 ? "transparent" : T.panelAlt,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                 <div
                   style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 6,
-                    background: `${color}18`,
+                    width: 26,
+                    height: 26,
+                    borderRadius: 8,
+                    background: `${color}14`,
                     border: `1px solid ${color}33`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color,
+                    flexShrink: 0,
                   }}
                 >
                   {icon}
@@ -1120,14 +1293,14 @@ const BookingCard: React.FC<{
                 <span
                   style={{
                     fontSize: 12,
-                    color: "rgba(148,163,184,0.9)",
-                    fontWeight: 500,
+                    color: T.textMute,
+                    fontWeight: 600,
                   }}
                 >
                   {field.replace(/\*\*/g, "")}
                 </span>
               </div>
-              <span style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 600 }}>
+              <span style={{ fontSize: 13, color: T.text, fontWeight: 700 }}>
                 {value}
               </span>
             </div>
@@ -1135,12 +1308,12 @@ const BookingCard: React.FC<{
         })}
       </div>
 
-      {/* Footer */}
+      {/* Footer actions — booking flow needs explicit confirmation */}
       <div
         style={{
-          background: "rgba(99,102,241,0.06)",
-          borderTop: "1px solid rgba(99,102,241,0.15)",
-          padding: "12px 16px",
+          background: T.panelAlt,
+          borderTop: `1px solid ${T.border}`,
+          padding: "12px 14px",
         }}
       >
         <div style={{ display: "flex", gap: 8 }}>
@@ -1148,17 +1321,16 @@ const BookingCard: React.FC<{
             onClick={() => onSend("Confirm")}
             style={{
               flex: 1,
-              padding: "9px 0",
+              padding: "10px 0",
               borderRadius: 10,
               border: "none",
               cursor: "pointer",
               fontWeight: 700,
               fontSize: 12,
               letterSpacing: "0.3px",
-              background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+              background: "linear-gradient(135deg, #0d9488, #14b8a6)",
               color: "#fff",
-              boxShadow:
-                "0 4px 14px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.1)",
+              boxShadow: "0 4px 14px rgba(13,148,136,0.3)",
             }}
           >
             ✓ Confirm Booking
@@ -1166,14 +1338,14 @@ const BookingCard: React.FC<{
           <button
             onClick={() => onSend("Cancel")}
             style={{
-              padding: "9px 16px",
+              padding: "10px 16px",
               borderRadius: 10,
               cursor: "pointer",
               fontWeight: 600,
               fontSize: 12,
-              background: "transparent",
-              border: "1px solid rgba(148,163,184,0.2)",
-              color: "rgba(148,163,184,0.7)",
+              background: "#ffffff",
+              border: `1px solid ${T.border}`,
+              color: T.textSoft,
             }}
           >
             Cancel
@@ -1224,78 +1396,26 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
       style={{
         borderRadius: 16,
         overflow: "hidden",
-        border: "1px solid rgba(99,102,241,0.25)",
-        background: "#0f0f23",
+        border: `1px solid ${T.border}`,
+        background: T.panel,
+        boxShadow: T.shadowSm,
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          background:
-            "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%)",
-          padding: "14px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            right: -20,
-            top: -20,
-            width: 80,
-            height: 80,
-            borderRadius: "50%",
-            background: "rgba(129,140,248,0.15)",
-          }}
-        />
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            background: "rgba(129,140,248,0.2)",
-            border: "1px solid rgba(129,140,248,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1,
-          }}
-        >
-          <Calendar size={15} color="#a5b4fc" />
-        </div>
-        <div style={{ zIndex: 1 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#e0e7ff",
-              letterSpacing: "0.5px",
-              textTransform: "uppercase",
-            }}
-          >
-            Pick New Date & Time
-          </p>
-          <p
-            style={{ margin: 0, fontSize: 10, color: "rgba(165,180,252,0.7)" }}
-          >
-            Choose your preferred slot
-          </p>
-        </div>
-      </div>
+      <CardHeader
+        icon={<Calendar size={15} />}
+        title="Pick New Date & Time"
+        subtitle="Choose your preferred slot"
+        accent={T.indigo}
+      />
 
       {/* Date picker */}
-      <div style={{ padding: "14px 16px 0", background: "#0f0f23" }}>
+      <div style={{ padding: "14px 16px 0", background: T.panel }}>
         <p
           style={{
             margin: "0 0 7px",
             fontSize: 10,
             fontWeight: 700,
-            color: "rgba(148,163,184,0.7)",
+            color: T.textMute,
             textTransform: "uppercase",
             letterSpacing: "0.6px",
           }}
@@ -1311,26 +1431,25 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
             width: "100%",
             padding: "9px 12px",
             borderRadius: 10,
-            border: "1px solid rgba(99,102,241,0.25)",
-            background: "rgba(99,102,241,0.08)",
-            color: selectedDate ? "#e2e8f0" : "rgba(148,163,184,0.5)",
+            border: `1px solid ${T.border}`,
+            background: T.panelAlt,
+            color: selectedDate ? T.text : T.textMute,
             fontSize: 13,
             fontFamily: "inherit",
             outline: "none",
             boxSizing: "border-box",
-            colorScheme: "dark",
           }}
         />
       </div>
 
       {/* Time slots */}
-      <div style={{ padding: "14px 16px", background: "#0f0f23" }}>
+      <div style={{ padding: "14px 16px", background: T.panel }}>
         <p
           style={{
             margin: "0 0 8px",
             fontSize: 10,
             fontWeight: 700,
-            color: "rgba(148,163,184,0.7)",
+            color: T.textMute,
             textTransform: "uppercase",
             letterSpacing: "0.6px",
           }}
@@ -1353,14 +1472,10 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
                 borderRadius: 8,
                 border:
                   selectedTime === slot
-                    ? "1px solid rgba(99,102,241,0.7)"
-                    : "1px solid rgba(255,255,255,0.07)",
-                background:
-                  selectedTime === slot
-                    ? "rgba(99,102,241,0.25)"
-                    : "rgba(255,255,255,0.03)",
-                color:
-                  selectedTime === slot ? "#a5b4fc" : "rgba(148,163,184,0.7)",
+                    ? `1px solid ${T.indigo}`
+                    : `1px solid ${T.border}`,
+                background: selectedTime === slot ? T.indigoBg : T.panelAlt,
+                color: selectedTime === slot ? T.indigo : T.textSoft,
                 fontSize: 11,
                 fontWeight: selectedTime === slot ? 700 : 500,
                 cursor: "pointer",
@@ -1377,8 +1492,8 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
       {/* Footer */}
       <div
         style={{
-          background: "rgba(99,102,241,0.06)",
-          borderTop: "1px solid rgba(99,102,241,0.15)",
+          background: T.panelAlt,
+          borderTop: `1px solid ${T.border}`,
           padding: "12px 16px",
         }}
       >
@@ -1387,7 +1502,7 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
           disabled={!selectedDate || !selectedTime}
           style={{
             width: "100%",
-            padding: "9px 0",
+            padding: "10px 0",
             borderRadius: 10,
             border: "none",
             cursor: !selectedDate || !selectedTime ? "not-allowed" : "pointer",
@@ -1396,14 +1511,13 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
             letterSpacing: "0.3px",
             background:
               !selectedDate || !selectedTime
-                ? "rgba(99,102,241,0.15)"
-                : "linear-gradient(135deg, #4f46e5, #7c3aed)",
-            color:
-              !selectedDate || !selectedTime ? "rgba(165,180,252,0.4)" : "#fff",
+                ? "#e2e8f0"
+                : "linear-gradient(135deg, #4f46e5, #6366f1)",
+            color: !selectedDate || !selectedTime ? T.textMute : "#fff",
             boxShadow:
               !selectedDate || !selectedTime
                 ? "none"
-                : "0 4px 14px rgba(99,102,241,0.4)",
+                : "0 4px 14px rgba(99,102,241,0.3)",
             transition: "all 0.2s",
             fontFamily: "inherit",
           }}
@@ -1417,7 +1531,7 @@ const DateTimePicker: React.FC<{ onSend: (msg: string) => void }> = ({
   );
 };
 
-// ─── RESCHEDULE TIMELINE CARD ─────────────────────────────────────────────────
+// ─── RESCHEDULE TIMELINE CARD — keeps Confirm / Cancel (pending change) ──────
 const RescheduleCard: React.FC<{
   content: string;
   onSend: (msg: string) => void;
@@ -1441,85 +1555,21 @@ const RescheduleCard: React.FC<{
       style={{
         borderRadius: 16,
         overflow: "hidden",
-        border: "1px solid rgba(99,102,241,0.2)",
-        background: "#0f0f23",
+        border: `1px solid ${T.border}`,
+        background: T.panel,
+        boxShadow: T.shadowSm,
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-          padding: "14px 16px",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            position: "absolute",
-            right: -10,
-            top: -10,
-            width: 60,
-            height: 60,
-            borderRadius: "50%",
-            background: "rgba(167,139,250,0.12)",
-          }}
-        />
-        <div
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            background: "rgba(129,140,248,0.2)",
-            border: "1px solid rgba(129,140,248,0.3)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Calendar size={15} color="#a5b4fc" />
-        </div>
-        <div style={{ zIndex: 1 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#e0e7ff",
-              letterSpacing: "0.5px",
-              textTransform: "uppercase",
-            }}
-          >
-            Reschedule Request
-          </p>
-          <p
-            style={{ margin: 0, fontSize: 10, color: "rgba(165,180,252,0.7)" }}
-          >
-            Dr. {doctor.replace("Dr.", "").trim()}
-          </p>
-        </div>
-        <span
-          style={{
-            marginLeft: "auto",
-            zIndex: 1,
-            fontSize: 10,
-            padding: "3px 10px",
-            borderRadius: 20,
-            background: "rgba(251,191,36,0.12)",
-            border: "1px solid rgba(251,191,36,0.25)",
-            color: "#fde68a",
-            fontWeight: 600,
-          }}
-        >
-          UPDATE PENDING
-        </span>
-      </div>
+      <CardHeader
+        icon={<Calendar size={15} />}
+        title="Reschedule Request"
+        subtitle={`Dr. ${doctor.replace("Dr.", "").trim()}`}
+        badge={{ label: "Update Pending", tone: "amber" }}
+        accent={T.indigo}
+      />
 
       {/* Timeline */}
-      <div style={{ padding: "20px 20px 16px", background: "#0f0f23" }}>
+      <div style={{ padding: "20px 20px 16px", background: T.panel }}>
         {/* Old slot */}
         <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
           <div
@@ -1534,21 +1584,21 @@ const RescheduleCard: React.FC<{
                 width: 36,
                 height: 36,
                 borderRadius: "50%",
-                background: "rgba(239,68,68,0.12)",
-                border: "1.5px solid rgba(239,68,68,0.3)",
+                background: T.redBg,
+                border: `1.5px solid ${T.redBorder}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <CalendarX size={15} color="#f87171" />
+              <CalendarX size={15} color={T.red} />
             </div>
             <div
               style={{
                 width: 1.5,
                 height: 28,
                 background:
-                  "linear-gradient(to bottom, rgba(239,68,68,0.3), rgba(99,102,241,0.3))",
+                  "linear-gradient(to bottom, rgba(239,68,68,0.3), rgba(13,148,136,0.3))",
                 margin: "4px 0",
               }}
             />
@@ -1559,7 +1609,7 @@ const RescheduleCard: React.FC<{
                 margin: "0 0 2px",
                 fontSize: 10,
                 fontWeight: 700,
-                color: "#f87171",
+                color: T.red,
                 textTransform: "uppercase",
                 letterSpacing: "0.6px",
               }}
@@ -1571,18 +1621,12 @@ const RescheduleCard: React.FC<{
                 margin: "0 0 1px",
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#fca5a5",
+                color: "#b91c1c",
               }}
             >
               {origDate}
             </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12,
-                color: "rgba(248,113,113,0.7)",
-              }}
-            >
+            <p style={{ margin: 0, fontSize: 12, color: "#dc2626" }}>
               {origTime}
             </p>
           </div>
@@ -1602,14 +1646,14 @@ const RescheduleCard: React.FC<{
                 width: 36,
                 height: 36,
                 borderRadius: "50%",
-                background: "rgba(52,211,153,0.12)",
-                border: "1.5px solid rgba(52,211,153,0.3)",
+                background: T.greenBg,
+                border: `1.5px solid ${T.greenBorder}`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              <CalendarCheck size={15} color="#34d399" />
+              <CalendarCheck size={15} color={T.green} />
             </div>
           </div>
           <div style={{ paddingTop: 6 }}>
@@ -1618,7 +1662,7 @@ const RescheduleCard: React.FC<{
                 margin: "0 0 2px",
                 fontSize: 10,
                 fontWeight: 700,
-                color: "#34d399",
+                color: "#047857",
                 textTransform: "uppercase",
                 letterSpacing: "0.6px",
               }}
@@ -1630,14 +1674,12 @@ const RescheduleCard: React.FC<{
                 margin: "0 0 1px",
                 fontSize: 14,
                 fontWeight: 700,
-                color: "#6ee7b7",
+                color: "#047857",
               }}
             >
               {newDate}
             </p>
-            <p
-              style={{ margin: 0, fontSize: 12, color: "rgba(52,211,153,0.7)" }}
-            >
+            <p style={{ margin: 0, fontSize: 12, color: "#059669" }}>
               {newTime}
             </p>
           </div>
@@ -1647,9 +1689,9 @@ const RescheduleCard: React.FC<{
       {/* Footer */}
       <div
         style={{
-          background: "rgba(99,102,241,0.06)",
-          borderTop: "1px solid rgba(99,102,241,0.15)",
-          padding: "12px 16px",
+          background: T.panelAlt,
+          borderTop: `1px solid ${T.border}`,
+          padding: "12px 14px",
         }}
       >
         <div style={{ display: "flex", gap: 8 }}>
@@ -1657,7 +1699,7 @@ const RescheduleCard: React.FC<{
             onClick={() => onSend("Confirm")}
             style={{
               flex: 1,
-              padding: "9px 0",
+              padding: "10px 0",
               borderRadius: 10,
               border: "none",
               cursor: "pointer",
@@ -1665,8 +1707,7 @@ const RescheduleCard: React.FC<{
               fontSize: 12,
               background: "linear-gradient(135deg, #059669, #10b981)",
               color: "#fff",
-              boxShadow:
-                "0 4px 14px rgba(16,185,129,0.35), inset 0 1px 0 rgba(255,255,255,0.1)",
+              boxShadow: "0 4px 14px rgba(16,185,129,0.3)",
             }}
           >
             ✓ Confirm Reschedule
@@ -1674,14 +1715,14 @@ const RescheduleCard: React.FC<{
           <button
             onClick={() => onSend("Cancel")}
             style={{
-              padding: "9px 16px",
+              padding: "10px 16px",
               borderRadius: 10,
               cursor: "pointer",
               fontWeight: 600,
               fontSize: 12,
-              background: "transparent",
-              border: "1px solid rgba(148,163,184,0.2)",
-              color: "rgba(148,163,184,0.7)",
+              background: "#ffffff",
+              border: `1px solid ${T.border}`,
+              color: T.textSoft,
             }}
           >
             Cancel
@@ -1700,13 +1741,14 @@ const SuccessBanner: React.FC<{ content: string }> = ({ content }) => {
       style={{
         borderRadius: 14,
         overflow: "hidden",
-        border: "1px solid rgba(52,211,153,0.25)",
-        background: "#0f0f23",
+        border: `1px solid ${T.greenBorder}`,
+        background: T.panel,
+        boxShadow: T.shadowSm,
       }}
     >
       <div
         style={{
-          background: "linear-gradient(135deg, #064e3b, #065f46, #047857)",
+          background: "linear-gradient(135deg, #059669, #10b981)",
           padding: "14px 16px",
           display: "flex",
           alignItems: "center",
@@ -1723,7 +1765,7 @@ const SuccessBanner: React.FC<{ content: string }> = ({ content }) => {
             width: 70,
             height: 70,
             borderRadius: "50%",
-            background: "rgba(52,211,153,0.1)",
+            background: "rgba(255,255,255,0.12)",
           }}
         />
         <div
@@ -1731,8 +1773,8 @@ const SuccessBanner: React.FC<{ content: string }> = ({ content }) => {
             width: 32,
             height: 32,
             borderRadius: "50%",
-            background: "rgba(52,211,153,0.2)",
-            border: "1.5px solid rgba(52,211,153,0.4)",
+            background: "rgba(255,255,255,0.2)",
+            border: "1.5px solid rgba(255,255,255,0.4)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1740,7 +1782,7 @@ const SuccessBanner: React.FC<{ content: string }> = ({ content }) => {
             flexShrink: 0,
           }}
         >
-          <CheckCircle size={16} color="#34d399" />
+          <CheckCircle size={16} color="#ffffff" />
         </div>
         <div style={{ zIndex: 1 }}>
           <p
@@ -1748,16 +1790,14 @@ const SuccessBanner: React.FC<{ content: string }> = ({ content }) => {
               margin: 0,
               fontSize: 13,
               fontWeight: 700,
-              color: "#6ee7b7",
+              color: "#ffffff",
             }}
           >
             Appointment Confirmed! 🎉
           </p>
         </div>
       </div>
-      <div
-        style={{ padding: "12px 16px", background: "rgba(52,211,153,0.04)" }}
-      >
+      <div style={{ padding: "12px 16px", background: T.greenBg }}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
@@ -1767,14 +1807,14 @@ const SuccessBanner: React.FC<{ content: string }> = ({ content }) => {
                   margin: "0 0 4px",
                   fontSize: 12,
                   lineHeight: 1.7,
-                  color: "rgba(110,231,183,0.9)",
+                  color: "#047857",
                 }}
               >
                 {children}
               </p>
             ),
             strong: ({ children }) => (
-              <strong style={{ color: "#6ee7b7", fontWeight: 700 }}>
+              <strong style={{ color: "#047857", fontWeight: 700 }}>
                 {children}
               </strong>
             ),
@@ -1793,13 +1833,14 @@ const ErrorBanner: React.FC<{ content: string }> = ({ content }) => (
     style={{
       borderRadius: 14,
       overflow: "hidden",
-      border: "1px solid rgba(239,68,68,0.2)",
-      background: "#0f0f23",
+      border: `1px solid ${T.redBorder}`,
+      background: T.panel,
+      boxShadow: T.shadowSm,
     }}
   >
     <div
       style={{
-        background: "linear-gradient(135deg, #450a0a, #7f1d1d, #991b1b)",
+        background: "linear-gradient(135deg, #dc2626, #ef4444)",
         padding: "14px 16px",
         display: "flex",
         alignItems: "center",
@@ -1811,27 +1852,27 @@ const ErrorBanner: React.FC<{ content: string }> = ({ content }) => (
           width: 32,
           height: 32,
           borderRadius: "50%",
-          background: "rgba(239,68,68,0.18)",
-          border: "1.5px solid rgba(239,68,68,0.35)",
+          background: "rgba(255,255,255,0.2)",
+          border: "1.5px solid rgba(255,255,255,0.4)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
         }}
       >
-        <AlertCircle size={16} color="#f87171" />
+        <AlertCircle size={16} color="#ffffff" />
       </div>
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#fca5a5" }}>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#ffffff" }}>
         Something went wrong
       </p>
     </div>
-    <div style={{ padding: "12px 16px", background: "rgba(239,68,68,0.04)" }}>
+    <div style={{ padding: "12px 16px", background: T.redBg }}>
       <p
         style={{
           margin: 0,
           fontSize: 12,
           lineHeight: 1.7,
-          color: "rgba(252,165,165,0.85)",
+          color: "#b91c1c",
         }}
       >
         {content.replace(/\*\*/g, "").trim()}
@@ -1842,12 +1883,9 @@ const ErrorBanner: React.FC<{ content: string }> = ({ content }) => (
 
 // ─── DOCTOR GRID ──────────────────────────────────────────────────────────────
 const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
-  // Extract only the content between sentinel tags
   const start = content.indexOf("DOCTORS_LIST_START");
   const end = content.indexOf("DOCTORS_LIST_END");
   const inner = content.slice(start + "DOCTORS_LIST_START".length, end).trim();
-
-  // Extract the follow-up text after DOCTORS_LIST_END
   const followUp = content.slice(end + "DOCTORS_LIST_END".length).trim();
 
   const lines = inner.split("\n");
@@ -1870,55 +1908,22 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
       ?.replace(/\*\*/g, "")
       .trim() ?? "Available Doctors";
 
-  // rest of your existing DoctorGrid JSX unchanged,
-  // just add followUp text below the grid:
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div
         style={{
           borderRadius: 14,
           overflow: "hidden",
-          border: "1px solid rgba(99,102,241,0.2)",
-          background: "#0f0f23",
+          border: `1px solid ${T.border}`,
+          background: T.panel,
+          boxShadow: T.shadowSm,
         }}
       >
-        {/* Header */}
-        <div
-          style={{
-            background: "linear-gradient(135deg, #1e1b4b, #312e81)",
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "rgba(129,140,248,0.2)",
-              border: "1px solid rgba(129,140,248,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Stethoscope size={13} color="#a5b4fc" />
-          </div>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#e0e7ff",
-              letterSpacing: "0.5px",
-              textTransform: "uppercase",
-            }}
-          >
-            {headerLine}
-          </p>
-        </div>
+        <CardHeader
+          icon={<Stethoscope size={13} />}
+          title={headerLine}
+          accent={T.teal}
+        />
 
         {/* Doctor grid */}
         <div
@@ -1927,7 +1932,7 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: 8,
-            background: "#0f0f23",
+            background: T.panel,
           }}
         >
           {doctors.map((doc, i) => {
@@ -1936,8 +1941,8 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
               <div
                 key={i}
                 style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.07)",
+                  background: T.panelAlt,
+                  border: `1px solid ${T.border}`,
                   borderRadius: 12,
                   padding: "10px 12px",
                   display: "flex",
@@ -1969,7 +1974,7 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
                       margin: "0 0 1px",
                       fontSize: 12,
                       fontWeight: 700,
-                      color: "#e2e8f0",
+                      color: T.text,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -1981,7 +1986,7 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
                     style={{
                       margin: 0,
                       fontSize: 10,
-                      color: "rgba(148,163,184,0.7)",
+                      color: T.textMute,
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -1996,14 +2001,15 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
         </div>
       </div>
 
-      {/* Follow-up question rendered as plain markdown */}
       {followUp && (
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={MarkdownComponents}
-        >
-          {followUp}
-        </ReactMarkdown>
+        <TextBubble>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={MarkdownComponents}
+          >
+            {followUp}
+          </ReactMarkdown>
+        </TextBubble>
       )}
     </div>
   );
@@ -2013,28 +2019,28 @@ const DoctorGrid: React.FC<{ content: string }> = ({ content }) => {
 const FaqCard: React.FC<{ content: string }> = ({ content }) => {
   const faqColors = [
     {
-      bg: "rgba(99,102,241,0.08)",
-      border: "rgba(99,102,241,0.2)",
-      icon: "rgba(129,140,248,0.2)",
-      iconColor: "#818cf8",
+      bg: T.tealBg,
+      border: T.tealBorder,
+      icon: "rgba(13,148,136,0.14)",
+      iconColor: T.teal,
     },
     {
-      bg: "rgba(16,185,129,0.06)",
-      border: "rgba(16,185,129,0.18)",
-      icon: "rgba(52,211,153,0.15)",
-      iconColor: "#34d399",
+      bg: T.indigoBg,
+      border: T.indigoBorder,
+      icon: "rgba(99,102,241,0.16)",
+      iconColor: T.indigo,
     },
     {
-      bg: "rgba(245,158,11,0.06)",
-      border: "rgba(245,158,11,0.18)",
-      icon: "rgba(251,191,36,0.15)",
-      iconColor: "#fbbf24",
+      bg: T.amberBg,
+      border: T.amberBorder,
+      icon: "rgba(245,158,11,0.16)",
+      iconColor: "#b45309",
     },
     {
       bg: "rgba(236,72,153,0.06)",
-      border: "rgba(236,72,153,0.18)",
-      icon: "rgba(244,114,182,0.15)",
-      iconColor: "#f472b6",
+      border: "rgba(236,72,153,0.2)",
+      icon: "rgba(236,72,153,0.14)",
+      iconColor: "#db2777",
     },
   ];
 
@@ -2063,9 +2069,10 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
       <div
         style={{
           padding: "10px 14px",
-          background: "#0f0f23",
+          background: T.panel,
           borderRadius: 14,
-          border: "1px solid rgba(99,102,241,0.2)",
+          border: `1px solid ${T.border}`,
+          boxShadow: T.shadowSm,
         }}
       >
         <ReactMarkdown
@@ -2076,7 +2083,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                 style={{
                   margin: "0 0 6px",
                   fontSize: 13,
-                  color: "#cbd5e1",
+                  color: T.textSoft,
                   lineHeight: 1.65,
                 }}
               >
@@ -2084,7 +2091,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
               </p>
             ),
             strong: ({ children }) => (
-              <strong style={{ color: "#e0e7ff", fontWeight: 600 }}>
+              <strong style={{ color: T.text, fontWeight: 600 }}>
                 {children}
               </strong>
             ),
@@ -2095,7 +2102,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                   gap: 6,
                   marginBottom: 4,
                   fontSize: 13,
-                  color: "#94a3b8",
+                  color: T.textSoft,
                   alignItems: "flex-start",
                 }}
               >
@@ -2106,7 +2113,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                     width: 5,
                     height: 5,
                     borderRadius: "50%",
-                    background: "#6366f1",
+                    background: T.tealSoft,
                     display: "inline-block",
                   }}
                 />
@@ -2137,7 +2144,8 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
               borderRadius: 13,
               overflow: "hidden",
               border: `1px solid ${col.border}`,
-              background: "#0f0f23",
+              background: T.panel,
+              boxShadow: T.shadowSm,
             }}
           >
             <div
@@ -2187,7 +2195,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                       style={{
                         margin: "0 0 4px",
                         fontSize: 12,
-                        color: "rgba(148,163,184,0.9)",
+                        color: T.textSoft,
                         lineHeight: 1.7,
                       }}
                     >
@@ -2195,7 +2203,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                     </p>
                   ),
                   strong: ({ children }) => (
-                    <strong style={{ color: "#e2e8f0", fontWeight: 600 }}>
+                    <strong style={{ color: T.text, fontWeight: 600 }}>
                       {children}
                     </strong>
                   ),
@@ -2230,8 +2238,8 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                     <td
                       style={{
                         padding: "5px 0",
-                        color: "rgba(148,163,184,0.85)",
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        color: T.textSoft,
+                        borderBottom: `1px solid ${T.borderSoft}`,
                         fontSize: 12,
                       }}
                     >
@@ -2246,7 +2254,7 @@ const FaqCard: React.FC<{ content: string }> = ({ content }) => {
                         gap: 6,
                         marginBottom: 3,
                         fontSize: 12,
-                        color: "rgba(148,163,184,0.85)",
+                        color: T.textSoft,
                         alignItems: "flex-start",
                       }}
                     >
@@ -2288,13 +2296,14 @@ const SmartRenderer: React.FC<{
   content: string;
   onSend: (msg: string) => void;
 }> = ({ content, onSend }) => {
-  // Scheduler link check MUST come first — it can co-exist with other keywords
   if (hasSchedulerLink(content)) return <BookingLinkCard content={content} />;
   if (isDateTimePicker(content)) return <DateTimePicker onSend={onSend} />;
   if (isSuccessBanner(content)) return <SuccessBanner content={content} />;
   if (isErrorBanner(content)) return <ErrorBanner content={content} />;
   if (isServicesSummary(content))
     return <ServicesSummaryCard content={content} onSend={onSend} />;
+  if (isAppointmentDetails(content))
+    return <AppointmentDetailsCard content={content} onSend={onSend} />;
   if (isServicesDetail(content))
     return <ServicesDetailCard content={content} />;
   if (isBookingConfirmation(content))
@@ -2305,9 +2314,14 @@ const SmartRenderer: React.FC<{
   if (isTimings(content)) return <TimingsCard content={content} />;
   if (isFaqAnswer(content)) return <FaqCard content={content} />;
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownComponents}>
-      {content}
-    </ReactMarkdown>
+    <TextBubble>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={MarkdownComponents}
+      >
+        {content}
+      </ReactMarkdown>
+    </TextBubble>
   );
 };
 
@@ -2352,16 +2366,6 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
     ta.style.height = "auto";
     ta.style.height = Math.min(ta.scrollHeight, 96) + "px";
   }, [input]);
-  useEffect(() => {
-    setMessages([
-      {
-        role: "assistant",
-        content:
-          "Welcome to **ZEVA Clinic** ✨\n\nI'm KAKA, your appointment agent. I can help you:\n- Book or reschedule an appointment\n- Answer any clinic questions\n\nWhat can I help you with today?",
-      },
-    ]);
-    setInput("");
-  }, [conversationId]);
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
@@ -2419,9 +2423,9 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
           40% { transform: translateY(-5px); opacity: 1; }
         }
         @keyframes pulseRing {
-          0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
-          70%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
-          100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+          0%   { box-shadow: 0 0 0 0 rgba(13,148,136,0.35); }
+          70%  { box-shadow: 0 0 0 8px rgba(13,148,136,0); }
+          100% { box-shadow: 0 0 0 0 rgba(13,148,136,0); }
         }
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(12px); }
@@ -2430,11 +2434,12 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
         .kaka-msg-in { animation: slideUp 0.25s ease forwards; }
         .kaka-scroll::-webkit-scrollbar { width: 4px; }
         .kaka-scroll::-webkit-scrollbar-track { background: transparent; }
-        .kaka-scroll::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
-        .kaka-quick-btn:hover { background: rgba(99,102,241,0.18) !important; border-color: rgba(99,102,241,0.5) !important; transform: translateY(-1px); }
+        .kaka-scroll::-webkit-scrollbar-thumb { background: rgba(13,148,136,0.25); border-radius: 4px; }
+        .kaka-quick-btn:hover { background: rgba(13,148,136,0.14) !important; border-color: rgba(13,148,136,0.4) !important; transform: translateY(-1px); }
         .kaka-quick-btn { transition: all 0.15s ease; }
         .kaka-send:hover:not(:disabled) { transform: scale(1.05); }
         .kaka-send { transition: all 0.15s ease; }
+        .kaka-close:hover { background: rgba(255,255,255,0.16) !important; }
       `}</style>
 
       <div
@@ -2444,11 +2449,10 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
           left: 16,
           zIndex: 50,
           width: "clamp(320px, 90vw, 400px)",
-          background: "#080818",
+          background: T.bg,
           borderRadius: 22,
-          boxShadow:
-            "0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2), 0 0 80px rgba(99,102,241,0.06)",
-          border: "1px solid rgba(99,102,241,0.18)",
+          boxShadow: T.shadow,
+          border: `1px solid ${T.border}`,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -2460,7 +2464,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
         <div
           style={{
             background:
-              "linear-gradient(135deg, #0d0d2b 0%, #1a1050 40%, #231175 75%, #2d1a8a 100%)",
+              "linear-gradient(120deg, #0d9488 0%, #14b8a6 60%, #2dd4bf 100%)",
             padding: "14px 16px",
             display: "flex",
             alignItems: "center",
@@ -2468,7 +2472,6 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
             flexShrink: 0,
             position: "relative",
             overflow: "hidden",
-            borderBottom: "1px solid rgba(99,102,241,0.2)",
           }}
         >
           <div
@@ -2479,7 +2482,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
               width: 100,
               height: 100,
               borderRadius: "50%",
-              background: "rgba(99,102,241,0.12)",
+              background: "rgba(255,255,255,0.10)",
               filter: "blur(20px)",
               pointerEvents: "none",
             }}
@@ -2492,7 +2495,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
               width: 80,
               height: 80,
               borderRadius: "50%",
-              background: "rgba(139,92,246,0.1)",
+              background: "rgba(255,255,255,0.08)",
               filter: "blur(16px)",
               pointerEvents: "none",
             }}
@@ -2512,16 +2515,15 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   width: 38,
                   height: 38,
                   borderRadius: 12,
-                  background:
-                    "linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.25))",
-                  border: "1.5px solid rgba(129,140,248,0.4)",
+                  background: "rgba(255,255,255,0.2)",
+                  border: "1.5px solid rgba(255,255,255,0.4)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   animation: "pulseRing 3s infinite",
                 }}
               >
-                <Sparkles size={17} color="#a5b4fc" />
+                <Sparkles size={17} color="#ffffff" />
               </div>
               <span
                 style={{
@@ -2532,7 +2534,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   height: 9,
                   borderRadius: "50%",
                   background: "#4ade80",
-                  border: "2px solid #1a1050",
+                  border: "2px solid #0d9488",
                   display: "block",
                 }}
               />
@@ -2543,7 +2545,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   margin: 0,
                   fontSize: 14,
                   fontWeight: 700,
-                  color: "#e0e7ff",
+                  color: "#ffffff",
                   letterSpacing: "-0.2px",
                 }}
               >
@@ -2553,7 +2555,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                 style={{
                   margin: 0,
                   fontSize: 10.5,
-                  color: "rgba(165,180,252,0.65)",
+                  color: "rgba(255,255,255,0.85)",
                   letterSpacing: "0.2px",
                 }}
               >
@@ -2564,16 +2566,17 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
 
           <button
             onClick={onClose}
+            className="kaka-close"
             style={{
               zIndex: 1,
-              background: "rgba(255,255,255,0.07)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.18)",
+              border: "1px solid rgba(255,255,255,0.3)",
               borderRadius: 9,
               padding: "5px 7px",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              color: "rgba(165,180,252,0.8)",
+              color: "#ffffff",
               transition: "background 0.15s",
             }}
           >
@@ -2588,7 +2591,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
             height: 400,
             overflowY: "auto",
             padding: "14px 12px",
-            background: "#080818",
+            background: T.bg,
             display: "flex",
             flexDirection: "column",
             gap: 12,
@@ -2612,24 +2615,23 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   width: 28,
                   height: 28,
                   borderRadius: "50%",
-                  background:
-                    msg.role === "user"
-                      ? "linear-gradient(135deg, #4f46e5, #7c3aed)"
-                      : "rgba(99,102,241,0.1)",
+                  background: msg.role === "user" ? "#0d9488" : "#ffffff",
                   border:
-                    msg.role === "assistant"
-                      ? "1px solid rgba(99,102,241,0.25)"
-                      : "none",
+                    msg.role === "assistant" ? `1px solid ${T.border}` : "none",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   marginBottom: 2,
+                  boxShadow:
+                    msg.role === "user"
+                      ? "0 2px 6px rgba(13,148,136,0.3)"
+                      : T.shadowSm,
                 }}
               >
                 {msg.role === "user" ? (
                   <User size={12} color="#fff" />
                 ) : (
-                  <Sparkles size={12} color="#818cf8" />
+                  <Sparkles size={12} color={T.teal} />
                 )}
               </div>
 
@@ -2645,11 +2647,11 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   overflow: "hidden",
                   background:
                     msg.role === "user"
-                      ? "linear-gradient(135deg, #3730a3, #4f46e5, #6366f1)"
+                      ? "linear-gradient(135deg, #0d9488, #14b8a6)"
                       : "transparent",
                   boxShadow:
                     msg.role === "user"
-                      ? "0 4px 16px rgba(79,70,229,0.3), inset 0 1px 0 rgba(255,255,255,0.08)"
+                      ? "0 4px 16px rgba(13,148,136,0.25)"
                       : "none",
                 }}
               >
@@ -2659,7 +2661,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                       style={{
                         fontSize: 13,
                         lineHeight: 1.6,
-                        color: "#e0e7ff",
+                        color: "#ffffff",
                       }}
                     >
                       {msg.content}
@@ -2683,25 +2685,27 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   width: 28,
                   height: 28,
                   borderRadius: "50%",
-                  background: "rgba(99,102,241,0.1)",
-                  border: "1px solid rgba(99,102,241,0.25)",
+                  background: "#ffffff",
+                  border: `1px solid ${T.border}`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
+                  boxShadow: T.shadowSm,
                 }}
               >
-                <Sparkles size={12} color="#818cf8" />
+                <Sparkles size={12} color={T.teal} />
               </div>
               <div
                 style={{
-                  background: "rgba(99,102,241,0.08)",
-                  border: "1px solid rgba(99,102,241,0.15)",
+                  background: "#ffffff",
+                  border: `1px solid ${T.border}`,
                   borderRadius: "4px 16px 16px 16px",
                   padding: "11px 16px",
                   display: "flex",
                   alignItems: "center",
                   gap: 5,
+                  boxShadow: T.shadowSm,
                 }}
               >
                 {[0, 150, 300].map((delay) => (
@@ -2711,7 +2715,7 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                       width: 6,
                       height: 6,
                       borderRadius: "50%",
-                      background: "#6366f1",
+                      background: T.tealSoft,
                       display: "inline-block",
                       animation: `bounce 1.2s ${delay}ms infinite`,
                     }}
@@ -2728,14 +2732,14 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
         <div
           style={{
             padding: "8px 12px 4px",
-            background: "#0a0a1e",
+            background: "#ffffff",
             display: "flex",
             gap: 6,
             flexWrap: "wrap",
-            borderTop: "1px solid rgba(99,102,241,0.1)",
+            borderTop: `1px solid ${T.border}`,
           }}
         >
-          {["📅 Book appointment", "🔄 Reschedule", "❓ Clinic FAQs"].map(
+          {["📅 Book appointment", "🔄 Reschedule", "🔎 Appointment details"].map(
             (label) => (
               <button
                 key={label}
@@ -2745,9 +2749,9 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                   fontSize: 11,
                   padding: "4px 10px",
                   borderRadius: 20,
-                  border: "1px solid rgba(99,102,241,0.25)",
-                  background: "rgba(99,102,241,0.08)",
-                  color: "#a5b4fc",
+                  border: `1px solid ${T.tealBorder}`,
+                  background: T.tealBg,
+                  color: T.teal,
                   cursor: "pointer",
                   fontWeight: 600,
                 }}
@@ -2763,11 +2767,11 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
           onSubmit={handleSubmit}
           style={{
             padding: "10px 12px 13px",
-            background: "#0a0a1e",
+            background: "#ffffff",
             display: "flex",
             alignItems: "flex-end",
             gap: 8,
-            borderTop: "1px solid rgba(99,102,241,0.1)",
+            borderTop: `1px solid ${T.border}`,
             flexShrink: 0,
           }}
         >
@@ -2786,25 +2790,21 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
             style={{
               flex: 1,
               fontSize: 13,
-              border: "1.5px solid rgba(99,102,241,0.2)",
+              border: `1.5px solid ${T.border}`,
               borderRadius: 12,
               padding: "9px 12px",
               resize: "none",
               outline: "none",
               fontFamily: "inherit",
-              color: "#e2e8f0",
-              background: "rgba(255,255,255,0.04)",
+              color: T.text,
+              background: T.panelAlt,
               lineHeight: 1.5,
               maxHeight: 96,
               overflowY: "auto",
               transition: "border-color 0.15s",
             }}
-            onFocus={(e) =>
-              (e.target.style.borderColor = "rgba(99,102,241,0.55)")
-            }
-            onBlur={(e) =>
-              (e.target.style.borderColor = "rgba(99,102,241,0.2)")
-            }
+            onFocus={(e) => (e.target.style.borderColor = T.tealSoft)}
+            onBlur={(e) => (e.target.style.borderColor = T.border)}
           />
           <button
             type="submit"
@@ -2817,8 +2817,8 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                 borderRadius: 11,
                 background:
                   !input.trim() || isLoading
-                    ? "rgba(99,102,241,0.08)"
-                    : "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                    ? "#e2e8f0"
+                    : "linear-gradient(135deg, #0d9488, #14b8a6)",
                 cursor: !input.trim() || isLoading ? "not-allowed" : "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -2827,19 +2827,14 @@ const AiAgentChat: React.FC<AiAgentChatProps> = ({
                 boxShadow:
                   !input.trim() || isLoading
                     ? "none"
-                    : "0 4px 14px rgba(99,102,241,0.4)",
-                border:
-                  !input.trim() || isLoading
-                    ? "1px solid rgba(99,102,241,0.15)"
-                    : "none",
+                    : "0 4px 14px rgba(13,148,136,0.35)",
+                border: "none",
               } as React.CSSProperties
             }
           >
             <Send
               size={14}
-              color={
-                !input.trim() || isLoading ? "rgba(99,102,241,0.35)" : "#fff"
-              }
+              color={!input.trim() || isLoading ? T.textMute : "#fff"}
             />
           </button>
         </form>
