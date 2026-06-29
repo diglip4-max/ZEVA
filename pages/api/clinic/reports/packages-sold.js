@@ -40,7 +40,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId } = req.query;
+    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod } = req.query;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = (pageNum - 1) * pageSize;
@@ -48,8 +48,11 @@ export default async function handler(req, res) {
     const match = { service: "Package" };
     if (user.role !== "admin") {
       match.clinicId = new mongoose.Types.ObjectId(String(clinicId));
-    } else if (req.query.clinicId) {
-      match.clinicId = new mongoose.Types.ObjectId(String(req.query.clinicId));
+    } else if (selectedClinicId) {
+      match.clinicId = new mongoose.Types.ObjectId(String(selectedClinicId));
+    }
+    if (paymentMethod) {
+      match.paymentMethod = paymentMethod;
     }
     // Normalize dates to local start-of-day / end-of-day so billings made later
     // in the day are still included (matches revenue.js behavior)
@@ -108,6 +111,12 @@ export default async function handler(req, res) {
           $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
         }
       );
+    }
+
+    if (salesStaffId) {
+      pipeline.push({
+        $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+      });
     }
 
     pipeline.push(
@@ -279,6 +288,12 @@ export default async function handler(req, res) {
       );
     }
 
+    if (salesStaffId) {
+      countPipeline.push({
+        $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+      });
+    }
+
     countPipeline.push(
       {
         $group: {
@@ -367,6 +382,7 @@ export default async function handler(req, res) {
             $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
           }
         ] : []),
+        ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
         {
           $group: {
             _id: { patientId: "$patientId", package: "$package" },

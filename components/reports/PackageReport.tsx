@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -15,6 +15,7 @@ import {
   Cell,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import usePaymentMethod from "../../hooks/usePaymentMethod";
 // import { formatCurrency } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
@@ -36,6 +37,11 @@ interface Doctor {
   name: string;
   firstName?: string;
   lastName?: string;
+}
+
+interface Clinic {
+  _id: string;
+  name: string;
 }
 
 interface Props {
@@ -61,18 +67,38 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
   const [selectedSalesStaff, setSelectedSalesStaff] = useState<string | null>(null);
+  const [selectedClinic, setSelectedClinic] = useState<string | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [salesStaff, setSalesStaff] = useState<any[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
+  const [combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
+  const [doctorLeaderboard, setDoctorLeaderboard] = useState<any[]>([]);
+  const [departmentRevenueData, setDepartmentRevenueData] = useState<any[]>([]);
+  // Default selected month to the month of startDate
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const date = new Date(startDate);
+    return date.toLocaleString('default', { month: 'short' });
+  });
+  const { paymentMethods } = usePaymentMethod();
+
+  // Update selectedMonth when startDate changes
+  useEffect(() => {
+    const date = new Date(startDate);
+    setSelectedMonth(date.toLocaleString('default', { month: 'short' }));
+  }, [startDate]);
 
   useEffect(() => {
     fetchDepartments();
     fetchDoctors();
+    fetchClinics();
     fetchTopPackages();
     fetchPackagesSold(1);
     fetchPackages(); // Fetch packages from services setup
     fetchSalesStaff(); // Fetch all sales staff on initial load
-  }, [startDate, endDate, selectedDepartment, selectedDoctor, selectedSalesStaff]);
+  }, [startDate, endDate, selectedDepartment, selectedDoctor, selectedSalesStaff, selectedClinic, selectedPaymentMethod]);
 
   async function fetchSalesStaff() {
     try {
@@ -113,6 +139,18 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
   }
 
+  async function fetchClinics() {
+    try {
+      const res = await fetch(`/api/clinic/list`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setClinics(json.clinics || []);
+      }
+    } catch (e) {
+      console.error("Error fetching clinics:", e);
+    }
+  }
+
   async function fetchDepartments() {
     try {
       const res = await fetch(`/api/clinic/departments?module=clinic_view_doctor`, { headers });
@@ -141,6 +179,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     const params: any = { startDate, endDate, limit: "10" };
     if (selectedDepartment) params.departmentId = selectedDepartment;
     if (selectedDoctor) params.doctorId = selectedDoctor;
+    if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
+    if (selectedClinic) params.clinicId = selectedClinic;
+    if (selectedPaymentMethod) params.paymentMethod = selectedPaymentMethod;
     const qs = new URLSearchParams(params).toString();
     const res = await fetch(`/api/clinic/reports/package-performance?${qs}`, {
       headers,
@@ -150,17 +191,30 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       setRows([]);
       setTopPackagesSummary(null);
       setTopPackagesPreviousSummary(null);
+      setMonthlyRevenue([]);
+      setCombinedSummary(null);
+      setDoctorLeaderboard([]);
+      setDepartmentRevenueData([]);
+      setSalesStaff([]);
       return;
     }
     setRows(json.data || []);
     setTopPackagesSummary(json.summary || null);
     setTopPackagesPreviousSummary(json.previousSummary || null);
+    setMonthlyRevenue(json.monthlyRevenue || []);
+    setCombinedSummary(json.combinedSummary || null);
+    setDoctorLeaderboard(json.doctorLeaderboard || []);
+    setDepartmentRevenueData(json.departmentRevenueData || []);
+    setSalesStaff(json.salesStaffLeaderboard || []);
   }
 
   async function fetchPackagesSold(p = 1) {
     const params: any = { startDate, endDate, page: String(p), limit: "20" };
     if (selectedDepartment) params.departmentId = selectedDepartment;
     if (selectedDoctor) params.doctorId = selectedDoctor;
+    if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
+    if (selectedClinic) params.clinicId = selectedClinic;
+    if (selectedPaymentMethod) params.paymentMethod = selectedPaymentMethod;
     const qs = new URLSearchParams(params).toString();
     const res = await fetch(`/api/clinic/reports/packages-sold?${qs}`, { headers });
     const json = await res.json();
@@ -243,14 +297,6 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     const unpaidPackages = summary?.unpaidPackages ?? soldRows.filter(r => (r.totalPaid || 0) <= 0).length;
     const prevUnpaidPackages = prevSummary?.unpaidPackages ?? 0;
     
-    // Calculate session-based metrics from summary if available, else sold rows
-    const totalSessions = summary?.totalSessions ?? soldRows.reduce((sum, r) => sum + (r.totalSessions || 0), 0);
-    const prevTotalSessions = prevSummary?.totalSessions ?? 0;
-    const usedSessions = summary?.totalUsedSessions ?? soldRows.reduce((sum, r) => sum + (r.sessionsUsed || 0), 0);
-    const prevUsedSessions = prevSummary?.totalUsedSessions ?? 0;
-    const remainingSessions = Math.max(0, totalSessions - usedSessions);
-    
-    const activePackages = summary?.activePackages ?? soldRows.filter(r => (r.sessionsUsed || 0) > 0 && (r.sessionsUsed || 0) < (r.totalSessions || 1)).length;
     const prevActivePackages = prevSummary?.activePackages ?? 0;
     const completedPackages = summary?.completedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) >= (r.totalSessions || 1)).length;
     const prevCompletedPackages = prevSummary?.completedPackages ?? 0;
@@ -386,22 +432,33 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { month: "Dec", actual: 290000, target: 200000 },
   ];
 
-  const paymentStatusData = [
-    { name: "Paid", value: 847, color: "#00B42A" },
-    { name: "Partial", value: 312, color: "#F7BA1E" },
-    { name: "Unpaid", value: 189, color: "#F53F3F" },
-  ];
+  // Get selected month's data from monthlyRevenue
+  const selectedMonthData = useMemo(() => {
+    return monthlyRevenue.find(m => m.month === selectedMonth) || {
+      totalPackages: 0,
+      paidPackages: 0,
+      partiallyPaidPackages: 0,
+      unpaidPackages: 0,
+      totalRevenue: 0,
+      totalPaidRevenue: 0,
+      totalOutstanding: 0,
+    };
+  }, [monthlyRevenue, selectedMonth]);
 
-  const departmentRevenueData = [
-    { department: "Dermatology", revenue: 275000 },
-    { department: "Aesthetics", revenue: 220000 },
-    { department: "Orthopedics", revenue: 180000 },
-    { department: "Dental", revenue: 145000 },
-    { department: "Ophthalmology", revenue: 120000 },
-    { department: "Cardiology", revenue: 95000 },
-  ];
+  // Dynamic payment status data from selected month's data
+  const paymentStatusData = useMemo(() => {
+    const paid = selectedMonthData.paidPackages ?? 0;
+    const partial = selectedMonthData.partiallyPaidPackages ?? 0;
+    const unpaid = selectedMonthData.unpaidPackages ?? 0;
+    return [
+      { name: "Paid", value: paid, color: "#00B42A" },
+      { name: "Partial", value: partial, color: "#F7BA1E" },
+      { name: "Unpaid", value: unpaid, color: "#F53F3F" },
+    ];
+  }, [selectedMonthData]);
 
-  const doctorLeaderboardData = [
+  // Use real data from API, fall back to static data if empty
+  const doctorLeaderboardData = doctorLeaderboard.length > 0 ? doctorLeaderboard : [
     { rank: 1, initials: "SA", name: "Dr. Sara Al-Rashid", packages: 142, revenue: 198000 },
     { rank: 2, initials: "OH", name: "Dr. Omar Hassan", packages: 118, revenue: 165000 },
     { rank: 3, initials: "LK", name: "Dr. Layla Khalid", packages: 96, revenue: 134000 },
@@ -409,12 +466,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { rank: 5, initials: "FS", name: "Dr. Fatima Saeed", packages: 71, revenue: 99000 },
   ];
 
-  const salesStaffData = [
-    { rank: 1, initials: "NA", name: "Nadia Al-Amin", revenue: 218000, percentage: 78 },
-    { rank: 2, initials: "KM", name: "Khalid Mansour", revenue: 188000, percentage: 72 },
-    { rank: 3, initials: "SY", name: "Sara Yousef", revenue: 165000, percentage: 68 },
-    { rank: 4, initials: "HI", name: "Hassan Ibrahim", revenue: 143000, percentage: 65 },
-    { rank: 5, initials: "MQ", name: "Maha Qasim", revenue: 125000, percentage: 61 },
+  // Use real department revenue data from API, fall back to static data if empty
+  const finalDepartmentRevenueData = departmentRevenueData.length > 0 ? departmentRevenueData : [
+    { department: "Dermatology", revenue: 275000 },
+    { department: "Aesthetics", revenue: 220000 },
+    { department: "Orthopedics", revenue: 180000 },
+    { department: "Dental", revenue: 145000 },
+    { department: "Ophthalmology", revenue: 120000 },
+    { department: "Cardiology", revenue: 95000 },
   ];
 
   const branchData = [
@@ -484,11 +543,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const packageExportSections = useMemo(() => [
     {
       title: "Top Packages by Revenue",
-      headers: ["Package Name", "Total Bookings", "Total Revenue (SAR)"],
+      headers: ["Package Name", "Total Bookings", "Total Revenue (Rs)"],
       data: rows.map(r => ({
         "Package Name": r.packageName || "Unnamed",
         "Total Bookings": r.totalBookings || 0,
-        "Total Revenue (SAR)": Math.round(r.totalRevenue || 0),
+        "Total Revenue (Rs)": Math.round(r.totalRevenue || 0),
       })),
     },
     {
@@ -542,6 +601,42 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <span className="text-xs font-medium text-gray-500">🔽 Filters</span>
             </div>
             <div className="flex flex-wrap gap-2">
+              {/* <div className="relative">
+                <button
+                  onClick={() => toggleFilter("clinic")}
+                  className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
+                    activeFilter === "clinic" || selectedClinic
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {selectedClinic
+                    ? clinics.find(c => c._id === selectedClinic)?.name || "Clinic"
+                    : "Clinic"}
+                </button>
+                {activeFilter === "clinic" && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-56 max-h-64 overflow-y-auto">
+                    <div className="p-1.5">
+                     
+                      {clinics.map((clinic) => (
+                        <button
+                          key={clinic._id}
+                          onClick={() => {
+                            setSelectedClinic(clinic._id);
+                            setActiveFilter(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
+                            selectedClinic === clinic._id ? "bg-emerald-50 text-emerald-700" : ""
+                          }`}
+                        >
+                          {clinic.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div> */}
+
               <div className="relative">
                 <button
                   onClick={() => toggleFilter("department")}
@@ -677,45 +772,60 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 )}
               </div>
 
-              <button
-                onClick={() => toggleFilter("paymentStatus")}
-                className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
-                  activeFilter === "paymentStatus"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Payment Status
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => toggleFilter("paymentMethod")}
+                  className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
+                    activeFilter === "paymentMethod" || selectedPaymentMethod
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {selectedPaymentMethod
+                    ? paymentMethods.find(pm => pm.name === selectedPaymentMethod)?.name || "Payment Status"
+                    : "Payment Status"}
+                </button>
+                {activeFilter === "paymentMethod" && (
+                  <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 w-56 max-h-64 overflow-y-auto">
+                    <div className="p-1.5">
+                      <button
+                        onClick={() => {
+                          setSelectedPaymentMethod(null);
+                          setActiveFilter(null);
+                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
+                      >
+                        All Payment Statuses
+                      </button>
+                      {paymentMethods.map((pm) => (
+                        <button
+                          key={pm._id}
+                          onClick={() => {
+                            setSelectedPaymentMethod(pm.name);
+                            setActiveFilter(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
+                            selectedPaymentMethod === pm.name ? "bg-emerald-50 text-emerald-700" : ""
+                          }`}
+                        >
+                          {pm.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-              <button
-                onClick={() => toggleFilter("packageStatus")}
-                className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
-                  activeFilter === "packageStatus"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Package Status
-              </button>
+              
 
-              <button
-                onClick={() => toggleFilter("expiryStatus")}
-                className={`px-3 py-1.5 border rounded-lg text-sm transition-all ${
-                  activeFilter === "expiryStatus"
-                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                Expiry Status
-              </button>
-
-              {(selectedDepartment || selectedDoctor || selectedSalesStaff) && (
+              {(selectedClinic || selectedDepartment || selectedDoctor || selectedSalesStaff || selectedPaymentMethod) && (
                 <button
                   onClick={() => {
+                    setSelectedClinic(null);
                     setSelectedDepartment(null);
                     setSelectedDoctor(null);
                     setSelectedSalesStaff(null);
+                    setSelectedPaymentMethod(null);
                     setActiveFilter(null);
                   }}
                   className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
@@ -777,7 +887,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Revenue Trend</h3>
-                <p className="text-xs text-gray-500">Monthly actual vs. target · 2024</p>
+                <p className="text-xs text-gray-500">Monthly actual vs. target · {new Date(startDate).getFullYear()}</p>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1">
@@ -792,7 +902,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyRevenueData}>
+                <AreaChart data={monthlyRevenue}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#00B42A" stopOpacity="0.2"/>
@@ -809,7 +919,20 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   />
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value) => typeof value === 'number' ? `SAR ${(value / 1000).toFixed(0)}K` : ''}
+                    formatter={(value, name) => {
+                      const numValue = Number(value);
+                      if (name === 'actual') {
+                        return [`Rs ${(numValue / 1000).toFixed(0)}K`, 'Actual Revenue'];
+                      }
+                      if (name === 'target') {
+                        return [`Rs ${(numValue / 1000).toFixed(0)}K`, 'Target Revenue'];
+                      }
+                      return value;
+                    }}
+                    labelFormatter={(label) => {
+                      const data = monthlyRevenue.find((d) => d.month === label);
+                      return `${label} · ${data?.packageCount || 0} packages`;
+                    }}
                   />
                   <Area 
                     type="monotone" 
@@ -833,7 +956,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-2">Payment Status</h3>
-            <p className="text-xs text-gray-500 mb-4">1,348 total packages</p>
+            <p className="text-xs text-gray-500 mb-4">{selectedMonthData.totalPackages.toLocaleString()} total packages</p>
             <div className="h-48 flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -861,7 +984,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     <span className="text-sm text-gray-700">{item.name}</span>
                   </div>
                   <span className="text-sm font-semibold text-gray-900">
-                    {item.value} ({Math.round((item.value / 1348) * 100)}%)
+                    {item.value} ({Math.round((item.value / (selectedMonthData.totalPackages || 1)) * 100)}%)
                   </span>
                 </div>
               ))}
@@ -906,7 +1029,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <p className="text-xs text-gray-500 mb-4">Top performing departments</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={departmentRevenueData} layout="vertical">
+                <BarChart data={finalDepartmentRevenueData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
                   <XAxis type="number" hide />
                   <YAxis 
@@ -919,7 +1042,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     axisLine={false} 
                   />
                   <Tooltip 
-                    formatter={(value) => typeof value === 'number' ? `SAR ${(value / 1000).toFixed(0)}K` : ''}
+                    formatter={(value) => typeof value === 'number' ? `Rs ${(value / 1000).toFixed(0)}K` : ''}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="revenue" fill="#008891" radius={[0, 4, 4, 0]} barSize={16} />
@@ -934,7 +1057,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 <h3 className="text-base font-semibold text-gray-900">Doctor Leaderboard</h3>
                 <p className="text-xs text-gray-500">By packages sold</p>
               </div>
-              <button className="text-xs text-teal-600 font-medium">View all</button>
+              {/* <button className="text-xs text-teal-600 font-medium">View all</button> */}
             </div>
             <div className="space-y-3">
               {doctorLeaderboardData.map((doc, index) => (
@@ -945,11 +1068,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                    <p className="text-xs text-gray-500">Dermatology</p>
+                    <p className="text-xs text-gray-500">{doc.department || "Other"}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-gray-900">{doc.packages}</p>
-                    <p className="text-xs text-gray-500">SAR {doc.revenue / 1000}K</p>
+                    <p className="text-xs text-gray-500">Rs {doc.revenue / 1000}K</p>
                   </div>
                 </div>
               ))}
@@ -962,7 +1085,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 <h3 className="text-base font-semibold text-gray-900">Sales Staff</h3>
                 <p className="text-xs text-gray-500">By packages sold</p>
               </div>
-              <button className="text-xs text-teal-600 font-medium">View all</button>
+              {/* <button className="text-xs text-teal-600 font-medium">View all</button> */}
             </div>
             <div className="space-y-3">
               {salesStaff.slice(0, 5).map((staff, index) => {
@@ -994,7 +1117,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">{staff.totalPackagesSold}</p>
-                      <p className="text-xs text-gray-500">SAR {Math.round(staff.totalRevenue / 1000)}K</p>
+                      <p className="text-xs text-gray-500">Rs {Math.round(staff.totalRevenue / 1000)}K</p>
                     </div>
                   </div>
                 );
@@ -1004,7 +1127,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         </div>
 
         {/* Next Row: Branch Comparison, Top Packages, Outstanding by Aging */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+        {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Branch Comparison</h3>
             <p className="text-xs text-gray-500 mb-4">Revenue vs. target by location</p>
@@ -1015,7 +1138,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   <XAxis dataKey="branch" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}K`} />
                   <Tooltip 
-                    formatter={(value) => typeof value === 'number' ? `SAR ${(value / 1000).toFixed(0)}K` : ''}
+                    formatter={(value) => typeof value === 'number' ? `Rs ${(value / 1000).toFixed(0)}K` : ''}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="revenue" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={24} />
@@ -1035,7 +1158,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     <div>
                       <p className="text-sm font-medium text-gray-900">{pkg.packageName}</p>
                       <p className="text-xs text-gray-500">
-                        {pkg.totalBookings} sold · SAR {(pkg.totalRevenue / 1000).toFixed(0)}K
+                        {pkg.totalBookings} sold · Rs {(pkg.totalRevenue / 1000).toFixed(0)}K
                       </p>
                     </div>
                   </div>
@@ -1047,14 +1170,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Outstanding by Aging</h3>
-            <p className="text-xs text-gray-500 mb-4">SAR 198K total outstanding</p>
+            <p className="text-xs text-gray-500 mb-4">Rs 198K total outstanding</p>
             <div className="space-y-4">
               {outstandingAgingData.map((item, index) => (
                 <div key={index}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-medium text-gray-700">{item.period}</span>
                     <div className="text-right">
-                      <span className="text-sm font-semibold text-gray-900">SAR {item.amount / 1000}K</span>
+                      <span className="text-sm font-semibold text-gray-900">Rs {item.amount / 1000}K</span>
                       <span className="text-xs text-gray-500 ml-2">{item.accounts} accts</span>
                     </div>
                   </div>
@@ -1071,7 +1194,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               ))}
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Expiring Packages Timeline & Quick Metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
@@ -1136,7 +1259,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-gray-600">Avg Package Value</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-emerald-600">SAR 1,834</span>
+                  <span className="text-sm font-semibold text-emerald-600">Rs 1,834</span>
                   <span className="text-xs text-emerald-600 ml-2">+7.3%</span>
                 </div>
               </div>
@@ -1349,9 +1472,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">DERM</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">Nadia Al-Amin</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">SAR 1,500</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">SAR 1,500</td>
-                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">SAR 0</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">Rs 1,500</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">Rs 1,500</td>
+                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">Rs 0</td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">
                       Paid
