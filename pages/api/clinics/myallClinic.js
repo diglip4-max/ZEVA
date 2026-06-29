@@ -50,24 +50,6 @@ export default async function handler(req, res) {
       clinicId = me.clinicId;
     }
 
-    // ✅ Check permission for reading clinic (only for agent, doctorStaff roles)
-    // Clinic, doctor, and staff roles have full access by default, admin bypasses
-    if (me.role !== "admin" && clinicId && ["agent", "doctorStaff"].includes(me.role)) {
-      const { checkAgentPermission } = await import("../agent/permissions-helper");
-      const result = await checkAgentPermission(
-        me._id,
-        "clinic_health_center",
-        "read"
-      );
-
-      if (!result.hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: result.error || "You do not have permission to view clinic information"
-        });
-      }
-    }
-
     // Fetch clinic data
     if (!clinic) {
       if (me.role === "clinic") {

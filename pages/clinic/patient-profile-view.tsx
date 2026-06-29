@@ -8,7 +8,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check,  Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus, Calculator, Info
+  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -17,6 +17,7 @@ import AddPatientPastAdvancePaymentModal from '@/components/patient/AddPatientPa
 import PayPendingBalanceModal from '@/components/patient/PayPendingBalanceModal';
 import { getCurrencySymbol } from '@/lib/currencyHelper';
 import { useAgentPermissions } from "@/hooks/useAgentPermissions";
+import { useCurrency } from '@/context/CurrencyContext';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -708,7 +709,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
   const [activeTab, setActiveTab] = useState('overview');
   const [isSpecificClinic, setIsSpecificClinic] = useState(false);
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
-  const [currency, setCurrency] = useState('INR');
+  const { currency } = useCurrency();
   const [appointments, setAppointments] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const [appointmentFilter, setAppointmentFilter] = useState('all');
@@ -1291,27 +1292,56 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
       try {
         const headers = getAuthHeaders();
         if (!headers) return;
-        const res = await axios.get('/api/clinics/myallClinic', { headers });
-        if (res.data.success && res.data.clinic) {
-          if (res.data.clinic.currency) {
-            setCurrency(res.data.clinic.currency);
-          }
-          // Check if it's the specific clinic by clinicId or ownerId
-          const isSpecific = 
-            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
-            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
-          setIsSpecificClinic(isSpecific);
+
+        let isSpecific = false;
+
+        // First check: if patientData has clinicId, check if it's the specific clinic directly
+        if (patientData?.clinicId) {
+          isSpecific = patientData.clinicId === '6a2fb50be9a7bb7a2aaba72c';
         }
+
+        // Now try to fetch clinic data to get currency (for all clinics, all user roles)
+        let clinicData = null;
+        
+        try {
+          const res = await axios.get('/api/clinics/myallClinic', { headers });
+          if (res.data.success && res.data.clinic) {
+            clinicData = res.data.clinic;
+          }
+        } catch (e) {
+          // If myallClinic fails, try fetching by clinicId if we have it
+          if (patientData?.clinicId) {
+            try {
+              const clinicRes = await axios.get(`/api/clinics/${patientData.clinicId}`, { headers });
+              if (clinicRes.data.success && clinicRes.data.clinic) {
+                clinicData = clinicRes.data.clinic;
+              }
+            } catch (e2) {
+              // Ignore errors
+            }
+          }
+        }
+
+        if (clinicData) {
+          // Also check clinic data for specific clinic (in case clinicId check missed it)
+          if (!isSpecific) {
+            isSpecific = 
+              clinicData._id === '6a2fb50be9a7bb7a2aaba72c' || 
+              clinicData.owner === '6a2fb50ae9a7bb7a2aaba728';
+          }
+        }
+
+        setIsSpecificClinic(isSpecific);
       } catch (e: any) {
-        // Silently ignore 403 permission errors and other failures
-        // User may not have permission to access clinic_health_center module
+        // Silently ignore errors
         if (e?.response?.status !== 403) {
           console.error('Error fetching clinic data:', e);
         }
       }
     };
+    
     fetchClinicData();
-  }, []);
+  }, [patientData?.clinicId]);
 
   // Sync editFormData when patientData._id changes (initial load)
   useEffect(() => {
@@ -4323,6 +4353,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                     <User className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="text-gray-500 font-medium flex-shrink-0">Gender:</span>
                     <span className="text-gray-800">{patientData.gender || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 font-medium flex-shrink-0">City:</span>
+                    <span className="text-gray-800 truncate">{patientData.city || 'N/A'}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <FileText className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -9487,14 +9522,28 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                               </div>
                               {item.beforeImage ? (
                                 <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
-                                  <img
-                                    src={item.beforeImage}
-                                    alt="Before"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                                  />
+                                  {item.beforeImage.toLowerCase().endsWith('.pdf') ? (
+                                    <div className="flex flex-col items-center justify-center w-full h-full p-4 text-center">
+                                      <FileText className="w-12 h-12 text-gray-400 mb-2" />
+                                      <a
+                                        href={item.beforeImage}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-600 hover:underline"
+                                      >
+                                        View PDF
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <img
+                                      src={item.beforeImage}
+                                      alt="Before"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                    />
+                                  )}
                                   <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
-                                    Image not available
+                                    File not available
                                   </div>
                                   <a
                                     href={item.beforeImage}
@@ -9502,14 +9551,14 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                     rel="noopener noreferrer"
                                     className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
                                   >
-                                    View Full
+                                    {item.beforeImage.toLowerCase().endsWith('.pdf') ? 'Open PDF' : 'View Full'}
                                   </a>
                                 </div>
                               ) : (
                                 <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
                                   <div className="text-center">
                                     <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
-                                    <span className="text-xs text-gray-400">No before image</span>
+                                    <span className="text-xs text-gray-400">No before file</span>
                                   </div>
                                 </div>
                               )}
@@ -9522,14 +9571,28 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                               </div>
                               {item.afterImage ? (
                                 <div className="relative rounded-xl overflow-hidden bg-gray-100 aspect-video group">
-                                  <img
-                                    src={item.afterImage}
-                                    alt="After"
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                                  />
+                                  {item.afterImage.toLowerCase().endsWith('.pdf') ? (
+                                    <div className="flex flex-col items-center justify-center w-full h-full p-4 text-center">
+                                      <FileText className="w-12 h-12 text-gray-400 mb-2" />
+                                      <a
+                                        href={item.afterImage}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-600 hover:underline"
+                                      >
+                                        View PDF
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <img
+                                      src={item.afterImage}
+                                      alt="After"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                      onError={(e: any) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                    />
+                                  )}
                                   <div className="hidden absolute inset-0 items-center justify-center bg-gray-100 text-gray-400 text-xs">
-                                    Image not available
+                                    File not available
                                   </div>
                                   <a
                                     href={item.afterImage}
@@ -9537,14 +9600,14 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                     rel="noopener noreferrer"
                                     className="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2.5 py-1 rounded-full hover:bg-opacity-80 transition-all"
                                   >
-                                    View Full
+                                    {item.afterImage.toLowerCase().endsWith('.pdf') ? 'Open PDF' : 'View Full'}
                                   </a>
                                 </div>
                               ) : (
                                 <div className="aspect-video rounded-xl bg-gray-50 border-2 border-dashed border-gray-200 flex items-center justify-center">
                                   <div className="text-center">
                                     <FileImage className="w-8 h-8 text-gray-300 mx-auto mb-1" />
-                                    <span className="text-xs text-gray-400">No after image</span>
+                                    <span className="text-xs text-gray-400">No after file</span>
                                   </div>
                                 </div>
                               )}

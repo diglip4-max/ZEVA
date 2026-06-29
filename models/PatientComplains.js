@@ -29,7 +29,6 @@ const PatientComplainsSchema = new mongoose.Schema(
     appointmentReportId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "AppointmentReport",
-      required: true,
       index: true,
     },
     complaints: {

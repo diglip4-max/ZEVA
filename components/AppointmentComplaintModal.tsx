@@ -42,6 +42,7 @@ import {
   AlertCircle,
   Wrench,
   Camera,
+  Download,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import useStockItems from "@/hooks/useStockItems";
@@ -220,6 +221,8 @@ interface PreviousComplaint {
     [key: string]: any;
   }>;
   visitDate?: string;
+  checklist?: Record<string, boolean>;
+  createdPackage?: any;
 }
 
 interface AppointmentComplaintModalProps {
@@ -628,7 +631,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [pkgError, setPkgError] = useState("");
   const [pkgSuccess, setPkgSuccess] = useState("");
   const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
-  const [showVitalsWarning, setShowVitalsWarning] = useState(false);
   const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
   // Track added services per patient (key format: "patientId_serviceId")
   const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
@@ -1056,8 +1058,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         } else {
           setReport(null);
           setComplaints("");
-          // Show vitals warning immediately when modal loads and no report exists
-          setShowVitalsWarning(true);
         }
 
         setPatientReports(
@@ -1181,7 +1181,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         });
       } else {
         setReport(null);
-        setShowVitalsWarning(true);
       }
 
       setPatientReports(
@@ -1787,16 +1786,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             }
             
             setPkgSuccess("Package created and added to patient profile!");
-            setCreatedPackage(createdPkgData);
+            setCreatedPackage({ ...createdPkgData, treatments: pkgSelectedTreatments });
           } catch {
             setPkgSuccess("Package created. (Could not add to patient profile)");
-            setCreatedPackage(createdPkgData);
+            setCreatedPackage({ ...createdPkgData, treatments: pkgSelectedTreatments });
           } finally {
             setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
-          setCreatedPackage(createdPkgData);
+          setCreatedPackage({ ...createdPkgData, treatments: pkgSelectedTreatments });
         }
         setPkgModalName("");
         setPkgModalPrice("");
@@ -1877,6 +1876,332 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     return d.toLocaleString();
   };
 
+  const handleDownloadPDF = async () => {
+    console.log("Download PDF button clicked!");
+    if (!details) {
+      console.log("No details available!");
+      toast.error("Patient details not available for download!");
+      return;
+    }
+    toast.loading("Generating PDF report...");
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let y = 20;
+
+    // === HEADER WITH COLORED BACKGROUND ===
+    doc.setFillColor(25, 118, 210);
+    doc.roundedRect(0, 0, pageWidth, 35, 0, 0, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("APPOINTMENT COMPLAINT REPORT", pageWidth / 2, 22, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    y = 45;
+
+    // === PATIENT INFO ===
+    doc.setFillColor(248, 249, 250);
+    doc.roundedRect(margin - 5, y - 5, pageWidth - 2 * (margin - 5), 50, 3, 3, "F");
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(33, 37, 41);
+    doc.text("Patient Information", margin, y);
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(73, 80, 87);
+    doc.text(`Patient Name: ${details.patientName || "N/A"}`, margin, y);
+    y += 6;
+    doc.text(`EMR Number: ${details.emrNumber || details.patientId.slice(-8)}`, margin, y);
+    y += 6;
+    doc.text(`Gender: ${details.gender || "N/A"}`, margin, y);
+    y += 6;
+    doc.text(`Mobile: ${userRole === "doctorStaff" ? (details.mobileNumber ? maskMobileNumber(details.mobileNumber) : "") : (details.mobileNumber || "N/A")}`, margin, y);
+    y += 6;
+    doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, margin, y);
+    y += 6;
+    const apptDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+    const apptTime = details.fromTime || "N/A";
+    doc.text(`Appointment Date & Time: ${apptDate} at ${apptTime}`, margin, y);
+    y += 6;
+    doc.text(`Status: ${details.status || "in-progress"}`, margin, y);
+    doc.setTextColor(0, 0, 0);
+    y += 15;
+
+    // === DIVIDER ===
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(222, 226, 230);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 10;
+
+    // === COMPLAINT SECTION ===
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Complaint Notes", margin, y);
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    if (complaints) {
+      const splitComplaint = doc.splitTextToSize(complaints, pageWidth - margin * 2);
+      doc.text(splitComplaint, margin, y);
+      y += splitComplaint.length * 6 + 5;
+    } else {
+      doc.text("No complaint notes added.", margin, y);
+      y += 11;
+    }
+
+    // Helper function to extract filename from URL
+    const getFileNameFromUrl = (url: string): string => {
+      try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        return decodeURIComponent(fileName.split('?')[0]);
+      } catch {
+        return url;
+      }
+    };
+
+    // === BEFORE/AFTER MEDIA ===
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Before/After Media", margin, y);
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    if (beforeImage) {
+      doc.text(`Before File: ${getFileNameFromUrl(beforeImage)}`, margin, y);
+      y += 6;
+    }
+    if (afterImage) {
+      doc.text(`After File: ${getFileNameFromUrl(afterImage)}`, margin, y);
+      y += 6;
+    }
+    if (!beforeImage && !afterImage) {
+      doc.text("No before/after media added.", margin, y);
+      y += 6;
+    }
+    y += 5;
+    // === SELECTED TREATMENTS ===
+    if (selectedServices.length > 0) {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Selected Treatments", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+
+      selectedServices.forEach((svc, i) => {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i + 1}. ${svc.name}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        const price = svc.clinicPrice != null ? svc.clinicPrice : svc.price;
+        const qty = svc.quantity || 1;
+        const total = (price * qty).toFixed(2);
+        doc.text(`   Price: ${currency} ${price.toFixed(2)}, Quantity: ${qty}, Total: ${currency} ${total}`, margin + 5, y);
+        y += 8;
+      });
+      y += 5;
+    }
+
+    // === ADDED PACKAGE ===
+    if (createdPackage && createdPackage.name) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Added Package", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`1. ${createdPackage.name}`, margin, y);
+      y += 6;
+      doc.setFont("helvetica", "normal");
+      const pkgPrice = parseFloat(createdPackage.totalPrice || 0);
+      doc.text(`   Price: ${currency} ${pkgPrice.toFixed(2)}`, margin + 5, y);
+      y += 8;
+      
+      // Show package treatments if available
+      if (createdPackage.treatments && createdPackage.treatments.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("   Included Treatments:", margin + 5, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        createdPackage.treatments.forEach((treatment: any, i: number) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(`      ${i + 1}. ${treatment.treatmentName} - Sessions: ${treatment.sessions}, Price: ${currency} ${treatment.allocatedPrice.toFixed(2)}`, margin + 5, y);
+          y += 6;
+        });
+      }
+      y += 5;
+    }
+
+    // === TOTAL BILL ===
+    if (selectedServices.length > 0 || createdPackage) {
+      doc.setFillColor(240, 248, 255);
+      doc.roundedRect(margin - 2, y - 6, pageWidth - 2 * (margin - 2), 22, 3, 3, "F");
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(25, 118, 210);
+      doc.text(`Total Bill: ${currency} ${totalBill.toFixed(2)}`, margin, y + 4);
+      doc.setTextColor(0, 0, 0);
+      y += 25;
+    }
+
+    // === CLINICAL CHECKLIST ===
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Clinical Checklist", margin, y);
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    CHECKLIST_ITEMS.forEach((item) => {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      const status = checklist[item] ? "[X] Completed" : "[ ] Pending";
+      doc.text(`${item}: ${status}`, margin, y);
+      y += 6;
+    });
+    y += 6;
+
+    // === PROGRESS NOTES ===
+    if (progressNotes.length > 0) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Progress Notes", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+
+      progressNotes.forEach((note, i) => {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i + 1}. Note Date: ${note.noteDate || "N/A"}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        const splitNote = doc.splitTextToSize(note.note, pageWidth - margin * 2);
+        doc.text(splitNote, margin, y);
+        y += splitNote.length * 6 + 6;
+      });
+    }
+
+    // === PRESCRIPTION ===
+      const validMeds = medicines.filter((med) => med && med.medicineName && med.medicineName.trim() !== "");
+    if (validMeds.length > 0) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Prescription", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+
+      validMeds.forEach((med, i) => {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i + 1}. ${med.medicineName}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        doc.text(`   Dosage: ${med.dosage || "N/A"}`, margin + 5, y);
+        y += 5;
+        doc.text(`   Duration: ${med.duration || "N/A"}`, margin + 5, y);
+        y += 5;
+        doc.text(`   Notes: ${med.notes || "N/A"}`, margin + 5, y);
+        y += 8;
+      });
+    }
+
+    // === AFTERCARE INSTRUCTIONS ===
+    if (aftercareInstructions.trim()) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Aftercare Instructions", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const splitAftercare = doc.splitTextToSize(aftercareInstructions, pageWidth - margin * 2);
+      doc.text(splitAftercare, margin, y);
+      y += splitAftercare.length * 6 + 6;
+    }
+
+    // === STOCK/ITEMS USED ===
+    if (items.length > 0) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Items/Stock Used", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+
+      items.forEach((item, i) => {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i + 1}. ${item.name}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        doc.text(`   Quantity: ${item.quantity}, UOM: ${item.uom || "N/A"}`, margin + 5, y);
+        y += 8;
+      });
+    }
+
+    // === FOOTER ===
+      const date = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text(`Generated on: ${date}`, margin, doc.internal.pageSize.getHeight() - 10);
+
+      // === DOWNLOAD ===
+      const fileName = `Complaint_Report_${details.patientName.replace(/ /g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      console.log("Saving PDF:", fileName);
+      doc.save(fileName);
+      toast.dismiss();
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.dismiss();
+      toast.error("Failed to generate PDF: " + (error as Error).message);
+    }
+  };
+
   const handleSaveComplaints = async () => {
     if (!appointment || !details) return;
 
@@ -1915,32 +2240,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       return;
     }
 
-    if (!report || !report.reportId) {
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold"> Vitals Report Required</span>
-          <span className="text-xs opacity-80">Please fill the appointment report first, then add complaints.</span>
-        </div>,
-        {
-          duration: 4000,
-          position: 'top-right',
-          style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            zIndex: 9999,
-            maxWidth: '500px',
-          },
-          iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
-          },
-        }
-      );
-      return;
-    }
+
 
     if (!complaints.trim()) {
       toast.error(
@@ -1969,37 +2269,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       return;
     }
 
-    // Validate clinical checklist
-    const unchecked = CHECKLIST_ITEMS.filter((item) => !checklist[item]);
-    if (unchecked.length > 0) {
-      setChecklistError(`Please tick all checklist items before saving: ${unchecked.join(", ")}`);
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold"> Incomplete Checklist</span>
-          <span className="text-xs opacity-80">Please tick all checklist items before saving: {unchecked.join(", ")}</span>
-        </div>,
-        {
-          duration: 5000,
-          position: 'top-right',
-          style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            zIndex: 9999,
-            maxWidth: '600px',
-          },
-          iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
-          },
-        }
-      );
-      return;
-    }
-    setChecklistError("");
-
     setSaving(true);
     setError("");
     try {
@@ -2010,7 +2279,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         "/api/clinic/patient-complaints",
         {
           appointmentId: details.appointmentId,
-          appointmentReportId: report.reportId,
+          ...(report?.reportId ? { appointmentReportId: report.reportId } : {}),
           complaints: complaints.trim(),
           items: items || [],
           beforeImage: beforeImage || null,
@@ -2019,6 +2288,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           doctorDiscountType: isDoctorDiscountApplied ? doctorDiscount?.discountType : null,
           doctorDiscountAmount: isDoctorDiscountApplied ? doctorDiscount?.discountAmount : 0,
           consentLogIds: sentConsentLogIds, // Pass the sent consent log IDs
+          checklist: checklist || {}, // Save clinical checklist
+          createdPackage: createdPackage || null, // Save package with treatments
         },
         { headers },
       );
@@ -2545,7 +2816,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             {loading ? (
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-400">Loading patient details...</div>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                <div className="flex items-center gap-2">
+                  <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                </div>
               </div>
             ) : details ? (
               <div className="flex flex-col gap-2">
@@ -2600,6 +2873,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                   {/* Right: date + time + status + action buttons */}
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-shrink-0 w-full sm:w-auto justify-center sm:justify-end">
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="flex items-center gap-1.5 rounded-md sm:rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-2.5 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                    >
+                      <Download size={12} />
+                      Download PDF
+                    </button>
                     <div className="flex items-center gap-1 sm:gap-1.5 border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs text-gray-500 bg-gray-50">
                       <Calendar size={10} className="sm:w-[11px] sm:h-[11px]" /> {formatDate(details.startDate)}
                     </div>
@@ -2673,57 +2953,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               </div>
             ) : null}
           </div>
-{/* Vitals Warning Banner - Show at TOP of modal when no report exists */}
 
-          {showVitalsWarning && !report && (
-
-            <div className="mb-4 mx-4 p-4 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
-
-              <div className="flex items-start gap-3">
-
-                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-
-                </div>
-
-                <div className="flex-1">
-
-                  <h4 className="text-sm font-bold text-amber-800 mb-1">Vitals Report Required</h4>
-
-                  <p className="text-xs text-amber-700 mb-2">
-
-                    Please fill the appointment report first, then add complaints.
-
-                  </p>
-
-                  <p className="text-xs text-amber-600">
-
-                    No vitals have been recorded for this appointment yet.
-
-                  </p>
-
-                </div>
-
-                <button
-
-                  type="button"
-
-                  onClick={() => setShowVitalsWarning(false)}
-
-                  className="text-amber-400 hover:text-amber-600 transition-colors"
-
-                >
-
-                  <XIcon size={16} />
-
-                </button>
-
-              </div>
-
-            </div>
-
-          )}
 
 
           <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
@@ -2793,32 +3023,41 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-400"
                             placeholder="Document chief complaints, presenting symptoms, and patient history..."
                           />
-                          {/* Image Upload */}
+                          {/* Image/PDF Upload */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                             <div>
-                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{isSpecificClinic ? "Static Scan (Image/PDF)" : "Before (Image/PDF)"}</p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                <div className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}>
                                   {beforeImage && (
                                     <button
                                       onClick={() => setBeforeImage("")}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                                      title="Remove image"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                                      title="Remove file"
                                     >
                                       <X size={14} />
                                     </button>
                                   )}
                                   {beforeImage ? (
-                                    <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                                    beforeImage.toLowerCase().endsWith('.pdf') ? (
+                                      <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                                        <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                                        <a href={beforeImage} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20">
+                                          View PDF
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <img src={beforeImage} alt={isSpecificClinic ? "Static Scan" : "Before"} className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`} />
+                                    )
                                   ) : (
                                     <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                                   )}
                                   {uploadingBefore && (
-                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                                       <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                                     </div>
                                   )}
-                                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                                  <input type="file" accept="image/*,application/pdf" className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (!file) return;
@@ -2832,29 +3071,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
                             </div>
                             <div>
-                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{isSpecificClinic ? "Dynamic Scan (Image/PDF)" : "After (Image/PDF)"}</p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                <div className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}>
                                   {afterImage && (
                                     <button
                                       onClick={() => setAfterImage("")}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                                      title="Remove image"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                                      title="Remove file"
                                     >
                                       <X size={14} />
                                     </button>
                                   )}
                                   {afterImage ? (
-                                    <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+                                    afterImage.toLowerCase().endsWith('.pdf') ? (
+                                      <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                                        <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                                        <a href={afterImage} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20">
+                                          View PDF
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <img src={afterImage} alt={isSpecificClinic ? "Dynamic Scan" : "After"} className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`} />
+                                    )
                                   ) : (
                                     <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                                   )}
                                   {uploadingAfter && (
-                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                                       <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                                     </div>
                                   )}
-                                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                                  <input type="file" accept="image/*,application/pdf" className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (!file) return;
@@ -4094,11 +4342,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <div className="flex gap-2 mt-2">
                                             {complaint.beforeImage && (() => {
                                               const cleanUrl = complaint.beforeImage.trim().replace(/^`|`$/g, "");
-                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={cleanUrl} alt="Before" className="w-full h-full object-cover" /></a>
+                                              const isPdf = cleanUrl.toLowerCase().endsWith('.pdf');
+                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50">
+                                                {isPdf ? <FileText className="w-5 h-5 text-gray-400" /> : <img src={cleanUrl} alt="Before" className="w-full h-full object-cover" />}
+                                              </a>
                                             })()}
                                             {complaint.afterImage && (() => {
                                               const cleanUrl = complaint.afterImage.trim().replace(/^`|`$/g, "");
-                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={cleanUrl} alt="After" className="w-full h-full object-cover" /></a>
+                                              const isPdf = cleanUrl.toLowerCase().endsWith('.pdf');
+                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50">
+                                                {isPdf ? <FileText className="w-5 h-5 text-gray-400" /> : <img src={cleanUrl} alt="After" className="w-full h-full object-cover" />}
+                                              </a>
                                             })()}
                                           </div>
                                         )}
@@ -7546,6 +7800,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   beforeImage: (updated.beforeImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
                   afterImage: (updated.afterImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
                   consentLogs: updated.consentLogs || pc.consentLogs || [],
+                  checklist: updated.checklist || pc.checklist || {},
+                  createdPackage: updated.createdPackage || pc.createdPackage || null,
                 } : pc));
                 setIsEditModalOpen(false); setEditingComplaint(null);
               }}
@@ -7557,6 +7813,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                 }
               }}
               getAuthHeaders={getAuthHeaders}
+              isSpecificClinic={isSpecificClinic}
             />
           )}
         </div>
@@ -7573,7 +7830,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         cancelText="No, Keep"
       />
       {isOpenViewComplaintModal && (
-        <ComplaintDetailModal onClose={() => setIsOpenViewComplaintModal(false)} complaint={selectedComplaint} />
+        <ComplaintDetailModal onClose={() => setIsOpenViewComplaintModal(false)} complaint={selectedComplaint} isSpecificClinic={isSpecificClinic} />
       )}
       <AddStockTransferRequestModal
         isOpen={isOpenStockTransferModal}
@@ -7590,7 +7847,8 @@ const EditComplaintModal: React.FC<{
   onSaved: (updated: PreviousComplaint) => void;
   getAuthHeaders: () => Record<string, string>;
   onConsentSent?: () => void; // Optional callback when consent is sent
-}> = ({ complaint, onClose, onSaved, getAuthHeaders, onConsentSent }) => {
+  isSpecificClinic: boolean;
+}> = ({ complaint, onClose, onSaved, getAuthHeaders, onConsentSent, isSpecificClinic }) => {
   const token = getTokenByPath() || "";
   const { stockItems } = useStockItems();
   const { uoms, loading: uomsLoading } = useUoms({ token });
@@ -7610,6 +7868,15 @@ const EditComplaintModal: React.FC<{
   const [afterImage, setAfterImage] = useState<string>(complaint.afterImage || "");
   const [uploadingBefore, setUploadingBefore] = useState<boolean>(false);
   const [uploadingAfter, setUploadingAfter] = useState<boolean>(false);
+  const CHECKLIST_ITEMS = ["Consent Signed", "Allergy Checked", "Photos Uploaded", "Notes Completed"] as const;
+  const [checklist, setChecklist] = useState<Record<string, boolean>>(
+    (complaint as any).checklist || {
+      "Consent Signed": false,
+      "Allergy Checked": false,
+      "Photos Uploaded": false,
+      "Notes Completed": false,
+    }
+  );
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
     code: "",
@@ -8018,6 +8285,8 @@ const EditComplaintModal: React.FC<{
           items,
           beforeImage,
           afterImage,
+          checklist: checklist || {}, // Save clinical checklist
+          createdPackage: complaint.createdPackage || null, // Preserve existing package
         },
         { headers },
       );
@@ -8219,33 +8488,42 @@ const EditComplaintModal: React.FC<{
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-bold text-gray-900">
-              Before/After Images
+              {isSpecificClinic ? "Static/Dynamic Scans (Images/PDFs)" : "Before/After Images/PDFs"}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{isSpecificClinic ? "Static Scan (Image/PDF)" : "Before (Image/PDF)"}</p>
                 <div className="relative flex items-center gap-2">
-                  <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                  <div className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}>
                     {beforeImage && (
                       <button
                         onClick={() => setBeforeImage("")}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                        title="Remove image"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                        title="Remove file"
                       >
                         <X size={14} />
                       </button>
                     )}
                     {beforeImage ? (
-                      <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                      beforeImage.toLowerCase().endsWith('.pdf') ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                          <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                          <a href={beforeImage} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20">
+                            View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img src={beforeImage} alt={isSpecificClinic ? "Static Scan" : "Before"} className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`} />
+                      )
                     ) : (
                       <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                     )}
                     {uploadingBefore && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                         <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                       </div>
                     )}
-                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                    <input type="file" accept="image/*,application/pdf" className="absolute inset-0 opacity-0 cursor-pointer z-10"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
@@ -8259,29 +8537,38 @@ const EditComplaintModal: React.FC<{
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{isSpecificClinic ? "Dynamic Scan (Image/PDF)" : "After (Image/PDF)"}</p>
                 <div className="relative flex items-center gap-2">
-                  <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                  <div className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}>
                     {afterImage && (
                       <button
                         onClick={() => setAfterImage("")}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                        title="Remove image"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                        title="Remove file"
                       >
                         <X size={14} />
                       </button>
                     )}
                     {afterImage ? (
-                      <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+                      afterImage.toLowerCase().endsWith('.pdf') ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                          <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                          <a href={afterImage} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20">
+                            View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img src={afterImage} alt={isSpecificClinic ? "Dynamic Scan" : "After"} className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`} />
+                      )
                     ) : (
                       <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                     )}
                     {uploadingAfter && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                         <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                       </div>
                     )}
-                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                    <input type="file" accept="image/*,application/pdf" className="absolute inset-0 opacity-0 cursor-pointer z-10"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
@@ -8294,6 +8581,28 @@ const EditComplaintModal: React.FC<{
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          {/* Clinical Checklist */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-blue-500" />
+              Clinical Checklist
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {CHECKLIST_ITEMS.map((item) => (
+                <label key={item} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={checklist[item]}
+                    onChange={(e) =>
+                      setChecklist((prev) => ({ ...prev, [item]: e.target.checked }))
+                    }
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">{item}</span>
+                </label>
+              ))}
             </div>
           </div>
           <div className="space-y-2">
@@ -8924,13 +9233,214 @@ const DeleteConfirmationModal: React.FC<{
 const ComplaintDetailModal: React.FC<{
   complaint: any;
   onClose: () => void;
-}> = ({ complaint, onClose }) => {
+  isSpecificClinic: boolean;
+}> = ({ complaint, onClose, isSpecificClinic }) => {
   if (!complaint) return null;
+  
   const formatDate = (date: string) => {
     return new Date(date).toLocaleString("en-US", {
       dateStyle: "full",
       timeStyle: "short",
     });
+  };
+
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let y = 20;
+
+      // Helper function to extract filename from URL
+      const getFileNameFromUrl = (url: string): string => {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split('/');
+          const fileName = pathParts[pathParts.length - 1];
+          return decodeURIComponent(fileName.split('?')[0]);
+        } catch {
+          return url;
+        }
+      };
+
+      // === HEADER WITH COLORED BACKGROUND ===
+      doc.setFillColor(25, 118, 210);
+      doc.roundedRect(0, 0, pageWidth, 35, 0, 0, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("APPOINTMENT COMPLAINT REPORT", pageWidth / 2, 22, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      y = 45;
+
+      // === PATIENT INFO ===
+      doc.setFillColor(248, 249, 250);
+      doc.roundedRect(margin - 5, y - 5, pageWidth - 2 * (margin - 5), 50, 3, 3, "F");
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 37, 41);
+      doc.text("Patient Information", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(73, 80, 87);
+      const patientName = complaint.patientId 
+        ? `${complaint.patientId.firstName || ""} ${complaint.patientId.lastName || ""}`.trim() 
+        : "N/A";
+      doc.text(`Patient Name: ${patientName}`, margin, y);
+      y += 6;
+      doc.text(`EMR Number: ${complaint.patientId?.emrNumber || "N/A"}`, margin, y);
+      y += 6;
+      const doctorName = complaint.doctorId?.name || "N/A";
+      doc.text(`Doctor: Dr. ${doctorName}`, margin, y);
+      y += 6;
+      const apptDate = complaint.createdAt ? new Date(complaint.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+      doc.text(`Date: ${apptDate}`, margin, y);
+      doc.setTextColor(0, 0, 0);
+      y += 15;
+
+      // === DIVIDER ===
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(222, 226, 230);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 10;
+
+      // === COMPLAINT SECTION ===
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Complaint Notes", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      if (complaint.complaints) {
+        const splitComplaint = doc.splitTextToSize(complaint.complaints, pageWidth - margin * 2);
+        doc.text(splitComplaint, margin, y);
+        y += splitComplaint.length * 6 + 5;
+      } else {
+        doc.text("No complaint notes added.", margin, y);
+        y += 11;
+      }
+
+      // === BEFORE/AFTER MEDIA ===
+      if (complaint.beforeImage || complaint.afterImage) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Documents", margin, y);
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        if (complaint.beforeImage) {
+          doc.text(`Before File: ${getFileNameFromUrl(complaint.beforeImage)}`, margin, y);
+          y += 6;
+        }
+        if (complaint.afterImage) {
+          doc.text(`After File: ${getFileNameFromUrl(complaint.afterImage)}`, margin, y);
+          y += 6;
+        }
+        y += 5;
+      }
+
+      // === CLINICAL CHECKLIST ===
+      if (complaint.checklist && Object.keys(complaint.checklist).length > 0) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Clinical Checklist", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        Object.entries(complaint.checklist).forEach(([item, checked]) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          const status = checked ? "[X] Completed" : "[ ] Pending";
+          doc.text(`${item}: ${status}`, margin, y);
+          y += 6;
+        });
+        y += 6;
+      }
+
+      // === ADDED PACKAGE ===
+      if (complaint.createdPackage && complaint.createdPackage.name) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Added Package", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(`1. ${complaint.createdPackage.name}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        const pkgPrice = parseFloat(complaint.createdPackage.totalPrice || 0);
+        const currency = "INR"; // Default to INR as fallback
+        doc.text(`   Price: ${currency} ${pkgPrice.toFixed(2)}`, margin + 5, y);
+        y += 8;
+        
+        // Show package treatments if available
+        if (complaint.createdPackage.treatments && complaint.createdPackage.treatments.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text("   Included Treatments:", margin + 5, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          complaint.createdPackage.treatments.forEach((treatment: any, i: number) => {
+            if (y > doc.internal.pageSize.getHeight() - 20) {
+              doc.addPage();
+              y = 20;
+            }
+            doc.text(`      ${i + 1}. ${treatment.treatmentName} - Sessions: ${treatment.sessions}, Price: ${currency} ${treatment.allocatedPrice.toFixed(2)}`, margin + 5, y);
+            y += 6;
+          });
+        }
+        y += 5;
+      }
+
+      // === ITEMS USED ===
+      if (complaint.items && complaint.items.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Items/Stock Used", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        complaint.items.forEach((item: any, i: number) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. ${item.name}`, margin, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          doc.text(`   Quantity: ${item.quantity}, UOM: ${item.uom || "N/A"}`, margin + 5, y);
+          y += 8;
+        });
+      }
+
+      // === FOOTER ===
+      const date = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text(`Generated on: ${date}`, margin, doc.internal.pageSize.getHeight() - 10);
+
+      // === DOWNLOAD ===
+      const fileName = `Complaint_Report_${patientName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      doc.save(fileName);
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
   };
 
   const getTimeAgo = (date: string) => {
@@ -9099,34 +9609,50 @@ const ComplaintDetailModal: React.FC<{
             </div>
           </div>
 
-          {/* Before/After Images */}
+          {/* Before/After Images/PDFs or Static/Dynamic Scans */}
           {(complaint.beforeImage || complaint.afterImage) && (
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center">
                   <Camera className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-900">Before/After Images</h3>
+                <h3 className="font-semibold text-gray-900">{isSpecificClinic ? "Static/Dynamic Scans (Images/PDFs)" : "Before/After Images/PDFs"}</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {complaint.beforeImage && (() => {
                   const cleanUrl = complaint.beforeImage.trim().replace(/^`|`$/g, "");
+                  const isPdf = cleanUrl.toLowerCase().endsWith('.pdf');
                   return (
                     <div className="bg-white rounded-xl border border-gray-200 p-4">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Before</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{isSpecificClinic ? "Static Scan" : "Before"}</p>
                       <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={cleanUrl} alt="Before" className="w-full h-64 object-cover rounded-lg" />
+                        {isPdf ? (
+                          <div className="w-full h-64 bg-gray-100 rounded-lg flex flex-col items-center justify-center gap-2">
+                            <FileText className="w-12 h-12 text-gray-400" />
+                            <span className="text-sm text-blue-600 hover:underline">View PDF</span>
+                          </div>
+                        ) : (
+                          <img src={cleanUrl} alt={isSpecificClinic ? "Static Scan" : "Before"} className={`w-full h-64 ${isSpecificClinic ? "object-contain" : "object-cover"} rounded-lg`} />
+                        )}
                       </a>
                     </div>
                   );
                 })()}
                 {complaint.afterImage && (() => {
                   const cleanUrl = complaint.afterImage.trim().replace(/^`|`$/g, "");
+                  const isPdf = cleanUrl.toLowerCase().endsWith('.pdf');
                   return (
                     <div className="bg-white rounded-xl border border-gray-200 p-4">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">After</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{isSpecificClinic ? "Dynamic Scan" : "After"}</p>
                       <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={cleanUrl} alt="After" className="w-full h-64 object-cover rounded-lg" />
+                        {isPdf ? (
+                          <div className="w-full h-64 bg-gray-100 rounded-lg flex flex-col items-center justify-center gap-2">
+                            <FileText className="w-12 h-12 text-gray-400" />
+                            <span className="text-sm text-blue-600 hover:underline">View PDF</span>
+                          </div>
+                        ) : (
+                          <img src={cleanUrl} alt={isSpecificClinic ? "Dynamic Scan" : "After"} className={`w-full h-64 ${isSpecificClinic ? "object-contain" : "object-cover"} rounded-lg`} />
+                        )}
                       </a>
                     </div>
                   );
@@ -9243,12 +9769,21 @@ const ComplaintDetailModal: React.FC<{
                 </span>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Close
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Download size={16} />
+                Download PDF
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -9257,3 +9792,4 @@ const ComplaintDetailModal: React.FC<{
 };
 
 export default AppointmentComplaintModal;
+                                                                                                                                                                      
