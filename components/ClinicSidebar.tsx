@@ -369,50 +369,112 @@ const iconMap: { [key: string]: React.ReactNode } = {
 
 const renderIcon = (key: string, isActive: boolean = false) => {
   let node = iconMap[key];
-  
+
   // Fallback icons if key not found
   if (!node) {
-    if (key.includes("📊") || key.includes("dashboard") || key.includes("analytics")) {
+    if (
+      key.includes("📊") ||
+      key.includes("dashboard") ||
+      key.includes("analytics")
+    ) {
       node = <BarChart3 className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("👥") || key.includes("users") || key.includes("staff")) {
+    } else if (
+      key.includes("👥") ||
+      key.includes("users") ||
+      key.includes("staff")
+    ) {
       node = <Users className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📝") || key.includes("file") || key.includes("text")) {
+    } else if (
+      key.includes("📝") ||
+      key.includes("file") ||
+      key.includes("text")
+    ) {
       node = <FileText className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("💼") || key.includes("business")) {
       node = <Briefcase className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("💬") || key.includes("message")) {
       node = <MessageSquare className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📅") || key.includes("calendar") || key.includes("appointment")) {
+    } else if (
+      key.includes("📅") ||
+      key.includes("calendar") ||
+      key.includes("appointment")
+    ) {
       node = <Calendar className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("💳") || key.includes("credit") || key.includes("payment")) {
+    } else if (
+      key.includes("💳") ||
+      key.includes("credit") ||
+      key.includes("payment")
+    ) {
       node = <CreditCard className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("⭐") || key.includes("star") || key.includes("review")) {
+    } else if (
+      key.includes("⭐") ||
+      key.includes("star") ||
+      key.includes("review")
+    ) {
       node = <Star className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("📧") || key.includes("mail")) {
       node = <Mail className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("📈") || key.includes("trending")) {
       node = <TrendingUp className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🔒") || key.includes("lock") || key.includes("security")) {
+    } else if (
+      key.includes("🔒") ||
+      key.includes("lock") ||
+      key.includes("security")
+    ) {
       node = <Lock className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🏠") || key.includes("home")) {
       node = <LayoutDashboard className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🩺") || key.includes("stethoscope") || key.includes("doctor") || key.includes("medical")) {
+    } else if (
+      key.includes("🩺") ||
+      key.includes("stethoscope") ||
+      key.includes("doctor") ||
+      key.includes("medical")
+    ) {
       node = <Stethoscope className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🏢") || key.includes("building") || key.includes("clinic")) {
+    } else if (
+      key.includes("🏢") ||
+      key.includes("building") ||
+      key.includes("clinic")
+    ) {
       node = <Building2 className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("👤") || key.includes("user") || key.includes("patient")) {
+    } else if (
+      key.includes("👤") ||
+      key.includes("user") ||
+      key.includes("patient")
+    ) {
       node = <UserCircle className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("📨") || key.includes("inbox")) {
       node = <Inbox className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("➕") || key.includes("plus") || key.includes("create") || key.includes("add")) {
+    } else if (
+      key.includes("➕") ||
+      key.includes("plus") ||
+      key.includes("create") ||
+      key.includes("add")
+    ) {
       node = <Plus className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📋") || key.includes("clipboard") || key.includes("list")) {
+    } else if (
+      key.includes("📋") ||
+      key.includes("clipboard") ||
+      key.includes("list")
+    ) {
       node = <ClipboardList className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🎁") || key.includes("gift") || key.includes("offer")) {
+    } else if (
+      key.includes("🎁") ||
+      key.includes("gift") ||
+      key.includes("offer")
+    ) {
       node = <Gift className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("⚙️") || key.includes("settings") || key.includes("cog")) {
+    } else if (
+      key.includes("⚙️") ||
+      key.includes("settings") ||
+      key.includes("cog")
+    ) {
       node = <UserCog className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("✍️") || key.includes("pen") || key.includes("edit")) {
+    } else if (
+      key.includes("✍️") ||
+      key.includes("pen") ||
+      key.includes("edit")
+    ) {
       node = <PenTool className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("👁️") || key.includes("eye")) {
       node = <Eye className="w-4 h-4 text-[#6B7280]" />;
@@ -426,35 +488,80 @@ const renderIcon = (key: string, isActive: boolean = false) => {
       node = <FileEdit className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("❓") || key.includes("help")) {
       node = <HelpCircle className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🔔") || key.includes("bell") || key.includes("notification")) {
+    } else if (
+      key.includes("🔔") ||
+      key.includes("bell") ||
+      key.includes("notification")
+    ) {
       node = <Bell className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📅✅") || key.includes("calendar-check") || key.includes("booking")) {
+    } else if (
+      key.includes("📅✅") ||
+      key.includes("calendar-check") ||
+      key.includes("booking")
+    ) {
       node = <CalendarCheck className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("📆") || key.includes("calendar-days")) {
       node = <CalendarDays className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("⏰") || key.includes("clock") || key.includes("time")) {
+    } else if (
+      key.includes("⏰") ||
+      key.includes("clock") ||
+      key.includes("time")
+    ) {
       node = <Clock className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("💰") || key.includes("dollar") || key.includes("finance")) {
+    } else if (
+      key.includes("💰") ||
+      key.includes("dollar") ||
+      key.includes("finance")
+    ) {
       node = <DollarSign className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📦") || key.includes("package") || key.includes("box")) {
+    } else if (
+      key.includes("📦") ||
+      key.includes("package") ||
+      key.includes("box")
+    ) {
       node = <Package className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🛍️") || key.includes("shopping-bag")) {
       node = <ShoppingBag className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("❤️") || key.includes("heart") || key.includes("health")) {
+    } else if (
+      key.includes("❤️") ||
+      key.includes("heart") ||
+      key.includes("health")
+    ) {
       node = <Heart className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("📉") || key.includes("activity")) {
       node = <Activity className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("⚡") || key.includes("zap") || key.includes("automation")) {
+    } else if (
+      key.includes("⚡") ||
+      key.includes("zap") ||
+      key.includes("automation")
+    ) {
       node = <Zap className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🎯") || key.includes("target") || key.includes("marketing")) {
+    } else if (
+      key.includes("🎯") ||
+      key.includes("target") ||
+      key.includes("marketing")
+    ) {
       node = <Target className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🏆") || key.includes("award")) {
       node = <Award className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🛡️") || key.includes("shield") || key.includes("policy")) {
+    } else if (
+      key.includes("🛡️") ||
+      key.includes("shield") ||
+      key.includes("policy")
+    ) {
       node = <Shield className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📚") || key.includes("book-open") || key.includes("guide") || key.includes("workflow")) {
+    } else if (
+      key.includes("📚") ||
+      key.includes("book-open") ||
+      key.includes("guide") ||
+      key.includes("workflow")
+    ) {
       node = <BookOpen className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📰") || key.includes("newspaper") || key.includes("blog")) {
+    } else if (
+      key.includes("📰") ||
+      key.includes("newspaper") ||
+      key.includes("blog")
+    ) {
       node = <Newspaper className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🖼️") || key.includes("image")) {
       node = <Image className="w-4 h-4 text-[#6B7280]" />;
@@ -466,7 +573,11 @@ const renderIcon = (key: string, isActive: boolean = false) => {
       node = <Folder className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("📄") || key.includes("file")) {
       node = <File className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🗄️") || key.includes("database") || key.includes("storage")) {
+    } else if (
+      key.includes("🗄️") ||
+      key.includes("database") ||
+      key.includes("storage")
+    ) {
       node = <Database className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🖥️") || key.includes("server")) {
       node = <Server className="w-4 h-4 text-[#6B7280]" />;
@@ -496,25 +607,45 @@ const renderIcon = (key: string, isActive: boolean = false) => {
       node = <Minus className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("✏️") || key.includes("edit")) {
       node = <Edit className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🗑️") || key.includes("trash") || key.includes("delete")) {
+    } else if (
+      key.includes("🗑️") ||
+      key.includes("trash") ||
+      key.includes("delete")
+    ) {
       node = <Trash2 className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("💾") || key.includes("save")) {
       node = <Save className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("❌") || key.includes("x-circle")) {
       node = <XCircle className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("⚠️") || key.includes("alert-triangle") || key.includes("warning")) {
+    } else if (
+      key.includes("⚠️") ||
+      key.includes("alert-triangle") ||
+      key.includes("warning")
+    ) {
       node = <AlertTriangle className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("ℹ️") || key.includes("info")) {
       node = <Info className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("✅") || key.includes("check-circle")) {
       node = <CheckCircle className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("📢") || key.includes("megaphone") || key.includes("campaign")) {
+    } else if (
+      key.includes("📢") ||
+      key.includes("megaphone") ||
+      key.includes("campaign")
+    ) {
       node = <Megaphone className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🏷️") || key.includes("tag") || key.includes("services")) {
+    } else if (
+      key.includes("🏷️") ||
+      key.includes("tag") ||
+      key.includes("services")
+    ) {
       node = <Tag className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("%") || key.includes("percent")) {
       node = <Percent className="w-4 h-4 text-[#6B7280]" />;
-    } else if (key.includes("🗃️") || key.includes("archive") || key.includes("stock")) {
+    } else if (
+      key.includes("🗃️") ||
+      key.includes("archive") ||
+      key.includes("stock")
+    ) {
       node = <Archive className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("boxes")) {
       node = <Package className="w-4 h-4 text-[#6B7280]" />;
@@ -531,7 +662,7 @@ const renderIcon = (key: string, isActive: boolean = false) => {
 
   if (React.isValidElement(node)) {
     return React.cloneElement(node as React.ReactElement<any>, {
-      className: `w-4 h-4 ${isActive ? 'text-white' : 'text-[#6B7280]'}`
+      className: `w-4 h-4 ${isActive ? "text-white" : "text-[#6B7280]"}`,
     });
   }
   return node;
@@ -616,10 +747,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   useEffect(() => {
     const calculateTrialTime = () => {
       // Get trial info from login response stored in sessionStorage
-      const trialData = typeof window !== 'undefined' ? sessionStorage.getItem('clinicTrialInfo') : null;
-     
+      const trialData =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("clinicTrialInfo")
+          : null;
+
       // console.log('Sidebar - Trial Data from sessionStorage:', trialData);
-     
+
       if (!trialData) {
         // console.log('Sidebar - No trial data found in sessionStorage');
         setTrialInfo(null);
@@ -629,25 +763,25 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       try {
         const trial = JSON.parse(trialData);
         // console.log('Sidebar - Parsed trial data:', trial);
-       
+
         // Check if this is a legacy user (no trial restriction)
         if (trial.isLegacyUser) {
           // console.log('Sidebar - Legacy user detected, hiding trial countdown');
           setTrialInfo(null);
           return;
         }
-       
+
         // Handle case where trialEndDate might be null
         if (!trial.trialEndDate) {
           // console.log('Sidebar - No trial end date, hiding countdown');
           setTrialInfo(null);
           return;
         }
-       
+
         const trialEndDate = new Date(trial.trialEndDate);
         const now = new Date();
         const difference = trialEndDate.getTime() - now.getTime();
-       
+
         // console.log('Sidebar - Trial calculation:', {
         //   trialEndDate,
         //   now,
@@ -659,38 +793,42 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           // Trial has expired - show warning but don't auto-logout
           // The verify-token API or page navigation will handle authentication
           // console.log('Sidebar - Trial expired! Showing warning...');
-         
+
           // Show trial expired popup
           setShowTrialExpiredPopup(true);
-         
+
           setTrialInfo({
             days: 0,
             hours: 0,
             minutes: 0,
             seconds: 0,
             isExpired: true,
-            trialEndDate: trial.trialEndDate
+            trialEndDate: trial.trialEndDate,
           });
           return;
         }
 
         const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+        const hours = Math.floor(
+          (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+        );
+        const minutes = Math.floor(
+          (difference % (1000 * 60 * 60)) / (1000 * 60),
+        );
         const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
         // console.log('Sidebar - Setting trial info:', { days, hours, minutes, seconds });
-       
+
         setTrialInfo({
           days,
           hours,
           minutes,
           seconds,
           isExpired: false,
-          trialEndDate: trial.trialEndDate
+          trialEndDate: trial.trialEndDate,
         });
       } catch (error) {
-        console.error('Sidebar - Error parsing trial info:', error);
+        console.error("Sidebar - Error parsing trial info:", error);
         setTrialInfo(null);
       }
     };
@@ -706,8 +844,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
   // Helper to check if an action is true (handles both boolean and string values)
   // const isActionTrue = (action: any): boolean => {
-  //   return action === true || 
-  //          action === "true" || 
+  //   return action === true ||
+  //          action === "true" ||
   //          String(action).toLowerCase() === "true";
   // };
 
@@ -715,7 +853,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   // const hasModulePermission = (moduleKey: string): boolean => {
   //   console.log('[hasModulePermission] Checking moduleKey:', moduleKey);
   //   console.log('[hasModulePermission] permissions array:', permissions);
-    
+
   //   if (!permissions || permissions.length === 0) {
   //     console.log('[hasModulePermission] No permissions set, returning true');
   //     return true; // No permissions set, show all
@@ -785,35 +923,37 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Setup & Operation": "clinic_addRoom",
     "Consent Form": "Clinic_consent_Form",
     "Job Posting": "clinic_job_posting",
-    "Commission": "clinic_commission",
-    "Claims": "claims",
+    Commission: "clinic_commission",
+    Claims: "claims",
     "Pass By Doctor": "pass_by_doctor",
     "Release Requested": "release_requested",
     "Doctor's Claim": "doctor_claim",
     "Assigned Leads": "assignedLead",
-    "Referral": "clinic_referal",
-    "Referal": "clinic_referal",
+    Referral: "clinic_referal",
+    Referal: "clinic_referal",
     "Track-Members": "clinic_Track",
     "Track Members": "clinic_Track",
     "Create Agent": "clinic_create_agent",
     "Create Lead": "clinic_create_lead",
-    "Inbox": "clinic_inbox",
-    "Templates": "clinic_templates",
-    "Providers": "clinic_providers",
-    "Reviews": "clinic_review",
-    "Enquiry": "clinic_enquiry",
-    "Campaigns": "Clinic_Campaigns",
-    "Automation": "Clinic_Automation",
+    Inbox: "clinic_inbox",
+    "KAKA Customization": "clinic_kaka_customization",
+
+    Templates: "clinic_templates",
+    Providers: "clinic_providers",
+    Reviews: "clinic_review",
+    Enquiry: "clinic_enquiry",
+    Campaigns: "Clinic_Campaigns",
+    Automation: "Clinic_Automation",
     "Write Blog": "clinic_write_blog",
-    
+
     // Stock submodules
-    "Locations": "clinic_stock_locations",
+    Locations: "clinic_stock_locations",
     "Stock Locations": "clinic_stock_locations",
-    "Suppliers": "clinic_stock_suppliers",
-    "UOM": "clinic_stock_uom",
+    Suppliers: "clinic_stock_suppliers",
+    UOM: "clinic_stock_uom",
     "Purchase Requests": "clinic_stock_purchase_requests",
     "Purchase Orders": "clinic_stock_purchase_orders",
-    "GRN": "clinic_stock_grn",
+    GRN: "clinic_stock_grn",
     "Good Receive Note": "clinic_stock_grn",
     "Purchase Invoices": "clinic_stock_purchase_invoices",
     "Purchase Returns": "clinic_stock_purchase_return",
@@ -830,16 +970,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Custom Stock Items": "custom_stock_items",
     
     "Policy & Compliance": "clinic_compliance",
-    "Authentication": "clinic_authentication",
+    Authentication: "clinic_authentication",
     "Book Appointments": "clinic_Appointment",
     "Scheduled Appointments": "clinic_ScheduledAppointment",
     "Patient Registration": "clinic_patient_registration",
     "Patient Information": "patient_information",
     "Add Expense": "add_expense",
     "Petty Cash": "clinic_pettycash",
-    "Reports": "clinic_report",
+    Reports: "clinic_report",
+    "KAKA Analytics": "clinic_kaka_analytics",
     "Workflow Guide": "workflow_guide",
-    "Membership": "membership"
+    Membership: "membership",
   };
 
   // Check if item should be shown
@@ -860,7 +1001,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
   //   // Special cases
   //   const label = item.label.toLowerCase();
-    
+
   //   // Stock modules: check parent first
   //   const isStockSubmodule = [
   //     'clinic_stock_uom', 'clinic_stock_locations', 'clinic_stock_suppliers',
@@ -996,12 +1137,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           
           // Create local versions of permission check functions using localPermissions
           const localIsActionTrue = (action: any): boolean => {
-            return action === true || 
-                   action === "true" || 
-                   String(action).toLowerCase() === "true";
+            return (
+              action === true ||
+              action === "true" ||
+              String(action).toLowerCase() === "true"
+            );
           };
 
-          const localHasModulePermission = (moduleKey: string, label?: string): boolean => {
+          const localHasModulePermission = (
+            moduleKey: string,
+            label?: string,
+          ): boolean => {
             // console.log('[localHasModulePermission] Checking moduleKey:', moduleKey, 'label:', label, 'localPermissions:', localPermissions);
             if (!localPermissions || localPermissions.length === 0) {
               // console.log('[localHasModulePermission] No localPermissions set, returning true');
@@ -1009,31 +1155,44 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             }
 
             let keysToCheck = [moduleKey];
-            if (moduleKey.includes('referral')) {
-              keysToCheck.push(moduleKey.replace('referral', 'referal'));
+            if (moduleKey.includes("referral")) {
+              keysToCheck.push(moduleKey.replace("referral", "referal"));
             }
-            if (moduleKey.includes('referal')) {
-              keysToCheck.push(moduleKey.replace('referal', 'referral'));
+            if (moduleKey.includes("referal")) {
+              keysToCheck.push(moduleKey.replace("referal", "referral"));
             }
 
             const moduleCandidates = Array.from(
               new Set(
-                keysToCheck.flatMap(key => [
-                  key,
-                  key?.replace(/^(admin|clinic|doctor)_/, ''),
-                  key ? `admin_${key.replace(/^(admin|clinic|doctor)_/, '')}` : null,
-                  key ? `clinic_${key.replace(/^(admin|clinic|doctor)_/, '')}` : null,
-                  key ? `doctor_${key.replace(/^(admin|clinic|doctor)_/, '')}` : null,
-                ]).filter(Boolean)
-              )
+                keysToCheck
+                  .flatMap((key) => [
+                    key,
+                    key?.replace(/^(admin|clinic|doctor)_/, ""),
+                    key
+                      ? `admin_${key.replace(/^(admin|clinic|doctor)_/, "")}`
+                      : null,
+                    key
+                      ? `clinic_${key.replace(/^(admin|clinic|doctor)_/, "")}`
+                      : null,
+                    key
+                      ? `doctor_${key.replace(/^(admin|clinic|doctor)_/, "")}`
+                      : null,
+                  ])
+                  .filter(Boolean),
+              ),
             );
             // console.log('[localHasModulePermission] moduleCandidates:', moduleCandidates);
 
-            const modulePerm = localPermissions.find(p => {
-              const permModule = p.module || '';
-              const found = moduleCandidates.some(candidate =>
-                permModule === candidate ||
-                permModule.replace(/^(admin|clinic|doctor)_/, '') === (candidate as string).replace(/^(admin|clinic|doctor)_/, '')
+            const modulePerm = localPermissions.find((p) => {
+              const permModule = p.module || "";
+              const found = moduleCandidates.some(
+                (candidate) =>
+                  permModule === candidate ||
+                  permModule.replace(/^(admin|clinic|doctor)_/, "") ===
+                    (candidate as string).replace(
+                      /^(admin|clinic|doctor)_/,
+                      "",
+                    ),
               );
               // console.log('[localHasModulePermission] Checking permModule:', permModule, 'found:', found);
               return found;
@@ -1042,7 +1201,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
             if (modulePerm) {
               const actions = modulePerm.actions || {};
-              const hasPermission = (
+              const hasPermission =
                 localIsActionTrue(actions.all) ||
                 localIsActionTrue(actions.create) ||
                 localIsActionTrue(actions.read) ||
@@ -1050,8 +1209,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 localIsActionTrue(actions.delete) ||
                 localIsActionTrue(actions.print) ||
                 localIsActionTrue(actions.export) ||
-                localIsActionTrue(actions.approve)
-              );
+                localIsActionTrue(actions.approve);
               // console.log('[localHasModulePermission] actions:', actions, 'hasPermission:', hasPermission);
               return hasPermission;
             }
@@ -1059,35 +1217,57 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             // If no top-level module found, check parent module's subModules (stock, marketing, and claims)
             if (label) {
               // console.log('[localHasModulePermission] Checking parent subModules for label:', label);
-              const parentModulesToCheck = ['clinic_stock', 'clinic_marketing', 'claims'];
+              const parentModulesToCheck = [
+                "clinic_stock",
+                "clinic_marketing",
+                "claims",
+              ];
               for (const parentModuleKey of parentModulesToCheck) {
-                const parentPerm = localPermissions.find(p => p.module === parentModuleKey);
+                const parentPerm = localPermissions.find(
+                  (p) => p.module === parentModuleKey,
+                );
                 // console.log('[localHasModulePermission] Checking parentModuleKey:', parentModuleKey, 'parentPerm:', parentPerm);
                 if (parentPerm) {
                   // console.log('[localHasModulePermission] parentPerm.subModules:', parentPerm.subModules);
-                  if (parentPerm.subModules && Array.isArray(parentPerm.subModules)) {
-                    const subModule = parentPerm.subModules.find((sm: { name?: string; actions?: Record<string, boolean> }) => {
-                      const smNameTrimmed = sm.name?.trim().toLowerCase() || '';
-                      const labelTrimmed = label.trim().toLowerCase();
-                      // console.log('[localHasModulePermission] Comparing: smNameTrimmed:', smNameTrimmed, 'labelTrimmed:', labelTrimmed);
-                      return (
-                        smNameTrimmed === labelTrimmed ||
-                        smNameTrimmed.includes(labelTrimmed) ||
-                        labelTrimmed.includes(smNameTrimmed) ||
-                        // Special cases
-                        (labelTrimmed === 'grn' && smNameTrimmed === 'good receive note') ||
-                        (labelTrimmed === 'locations' && smNameTrimmed === 'stock locations') ||
-                        (labelTrimmed === 'templates' && smNameTrimmed === 'template') ||
-                        (labelTrimmed === 'reviews' && smNameTrimmed === 'review') ||
-                        (labelTrimmed === 'inbox' && smNameTrimmed === 'inbox') ||
-                        // Claims submodules special cases
-                        (labelTrimmed === 'pass by doctor' && smNameTrimmed === 'pass by doctor') ||
-                        (labelTrimmed === 'release requested' && smNameTrimmed === 'release requested')
-                      );
-                    });
+                  if (
+                    parentPerm.subModules &&
+                    Array.isArray(parentPerm.subModules)
+                  ) {
+                    const subModule = parentPerm.subModules.find(
+                      (sm: {
+                        name?: string;
+                        actions?: Record<string, boolean>;
+                      }) => {
+                        const smNameTrimmed =
+                          sm.name?.trim().toLowerCase() || "";
+                        const labelTrimmed = label.trim().toLowerCase();
+                        // console.log('[localHasModulePermission] Comparing: smNameTrimmed:', smNameTrimmed, 'labelTrimmed:', labelTrimmed);
+                        return (
+                          smNameTrimmed === labelTrimmed ||
+                          smNameTrimmed.includes(labelTrimmed) ||
+                          labelTrimmed.includes(smNameTrimmed) ||
+                          // Special cases
+                          (labelTrimmed === "grn" &&
+                            smNameTrimmed === "good receive note") ||
+                          (labelTrimmed === "locations" &&
+                            smNameTrimmed === "stock locations") ||
+                          (labelTrimmed === "templates" &&
+                            smNameTrimmed === "template") ||
+                          (labelTrimmed === "reviews" &&
+                            smNameTrimmed === "review") ||
+                          (labelTrimmed === "inbox" &&
+                            smNameTrimmed === "inbox") ||
+                          // Claims submodules special cases
+                          (labelTrimmed === "pass by doctor" &&
+                            smNameTrimmed === "pass by doctor") ||
+                          (labelTrimmed === "release requested" &&
+                            smNameTrimmed === "release requested")
+                        );
+                      },
+                    );
                     // console.log('[localHasModulePermission] Found subModule:', subModule);
                     if (subModule && subModule.actions) {
-                      const hasSubPermission = (
+                      const hasSubPermission =
                         localIsActionTrue(subModule.actions.all) ||
                         localIsActionTrue(subModule.actions.create) ||
                         localIsActionTrue(subModule.actions.read) ||
@@ -1095,8 +1275,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         localIsActionTrue(subModule.actions.delete) ||
                         localIsActionTrue(subModule.actions.print) ||
                         localIsActionTrue(subModule.actions.export) ||
-                        localIsActionTrue(subModule.actions.approve)
-                      );
+                        localIsActionTrue(subModule.actions.approve);
                       // console.log('[localHasModulePermission] Found subModule in', parentModuleKey, ':', subModule.name, 'actions:', subModule.actions, 'hasSubPermission:', hasSubPermission);
                       return hasSubPermission;
                     }
@@ -1109,10 +1288,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             return false;
           };
 
-          const localShouldShowItem = (item: NavItemChild | NavItem): boolean => {
+          const localShouldShowItem = (
+            item: NavItemChild | NavItem,
+          ): boolean => {
             // console.log('[localShouldShowItem] Checking item:', item);
             let moduleKey: string | undefined;
-            if ('moduleKey' in item) {
+            if ("moduleKey" in item) {
               moduleKey = item.moduleKey;
             } else if (item.label in labelToModuleKey) {
               moduleKey = labelToModuleKey[item.label];
@@ -1127,98 +1308,145 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             const label = item.label.toLowerCase();
             
             // Update stock submodule list to include all possible keys
-            const isStockSubmodule = [
-              'clinic_stock_uom', 'clinic_stock_locations', 'clinic_stock_suppliers',
-              'clinic_stock_purchase_requests', 'clinic_stock_purchase_orders',
-              'clinic_stock_grn', 'clinic_stock_purchase_invoices',
-              'clinic_stock_qty_adjustment', 'clinic_stock_material_consumptions',
-              'clinic_stock_direct_transfer', 'clinic_stock_transfer_requests',
-              'clinic_stock_transfer_on_request', 'clinic_stock_allocated_stock_items',
-              'clinic_stock_purchase_return', 'custom_stock_items'
-            ].includes(moduleKey) || 
-            // Also check by label if moduleKey not set
-            label.includes('uom') || label.includes('location') || label.includes('supplier') || 
-            label.includes('purchase') || label.includes('grn') || label.includes('invoice') || 
-            label.includes('return') || label.includes('stock') || 
-            label.includes('transfer') || label.includes('material') || 
-            label.includes('allocated') || label.includes('custom');
+            // const isStockSubmodule = [
+            //   'clinic_stock_uom', 'clinic_stock_locations', 'clinic_stock_suppliers',
+            //   'clinic_stock_purchase_requests', 'clinic_stock_purchase_orders',
+            //   'clinic_stock_grn', 'clinic_stock_purchase_invoices',
+            //   'clinic_stock_qty_adjustment', 'clinic_stock_material_consumptions',
+            //   'clinic_stock_direct_transfer', 'clinic_stock_transfer_requests',
+            //   'clinic_stock_transfer_on_request', 'clinic_stock_allocated_stock_items',
+            //   'clinic_stock_purchase_return', 'custom_stock_items'
+            // ].includes(moduleKey) || 
+            // // Also check by label if moduleKey not set
+            // label.includes('uom') || label.includes('location') || label.includes('supplier') || 
+            // label.includes('purchase') || label.includes('grn') || label.includes('invoice') || 
+            // label.includes('return') || label.includes('stock') || 
+            // label.includes('transfer') || label.includes('material') || 
+            // label.includes('allocated') || label.includes('custom');
 
-            if (isStockSubmodule || label.includes('stock')) {
+            // Update stock submodule list to include all possible keys
+            const isStockSubmodule =
+              [
+                "clinic_stock_uom",
+                "clinic_stock_locations",
+                "clinic_stock_suppliers",
+                "clinic_stock_purchase_requests",
+                "clinic_stock_purchase_orders",
+                "clinic_stock_grn",
+                "clinic_stock_purchase_invoices",
+                "clinic_stock_qty_adjustment",
+                "clinic_stock_material_consumptions",
+                "clinic_stock_direct_transfer",
+                "clinic_stock_transfer_requests",
+                "clinic_stock_transfer_on_request",
+                "clinic_stock_allocated_stock_items",
+                "clinic_stock_purchase_return",
+              ].includes(moduleKey) ||
+              // Also check by label if moduleKey not set
+              label.includes("uom") ||
+              label.includes("location") ||
+              label.includes("supplier") ||
+              label.includes("purchase") ||
+              label.includes("grn") ||
+              label.includes("invoice") ||
+              label.includes("return") ||
+              label.includes("stock") ||
+              label.includes("transfer") ||
+              label.includes("material") ||
+              label.includes("allocated");
+
+            if (isStockSubmodule || label.includes("stock")) {
               // console.log('[localShouldShowItem] Checking stock parent permission');
-              const parentAllowed = localHasModulePermission('clinic_stock');
+              const parentAllowed = localHasModulePermission("clinic_stock");
               // console.log('[localShouldShowItem] clinic_stock parent allowed:', parentAllowed);
               if (!parentAllowed) {
                 return false;
               }
               // Check if this specific stock submodule has permission
-              return localHasModulePermission(moduleKey || '', item.label);
+              return localHasModulePermission(moduleKey || "", item.label);
             }
 
-            const marketingModulesWithParentCheck = ['clinic_inbox', 'clinic_templates', 'clinic_providers', 'clinic_review', 'clinic_enquiry'];
-            if (marketingModulesWithParentCheck.includes(moduleKey) || 
-                label.includes('inbox') || label.includes('template') || 
-                label.includes('provider') || label.includes('review') || 
-                label.includes('enquiry')) {
+            const marketingModulesWithParentCheck = [
+              "clinic_inbox",
+              "clinic_templates",
+              "clinic_providers",
+              "clinic_review",
+              "clinic_enquiry",
+              "clinic_kaka_customization",
+            ];
+            if (
+              marketingModulesWithParentCheck.includes(moduleKey) ||
+              label.includes("inbox") ||
+              label.includes("template") ||
+              label.includes("provider") ||
+              label.includes("review") ||
+              label.includes("enquiry")
+            ) {
               // console.log('[localShouldShowItem] Checking marketing parent permission');
-              const parentAllowed = localHasModulePermission('clinic_marketing');
+              const parentAllowed =
+                localHasModulePermission("clinic_marketing");
               // console.log('[localShouldShowItem] clinic_marketing parent allowed:', parentAllowed);
               if (!parentAllowed) {
                 return false;
               }
               // Check if this specific marketing submodule has permission
-              return localHasModulePermission(moduleKey || '', item.label);
+              return localHasModulePermission(moduleKey || "", item.label);
             }
 
             // Check claims submodules (pass_by_doctor, release_requested, doctor_claim)
-            const claimsSubmodules = ['pass_by_doctor', 'release_requested', 'doctor_claim'];
-            if (claimsSubmodules.includes(moduleKey || '')) {
+            const claimsSubmodules = [
+              "pass_by_doctor",
+              "release_requested",
+              "doctor_claim",
+            ];
+            if (claimsSubmodules.includes(moduleKey || "")) {
               // First check if parent claims module has any permission
-              const claimsParentAllowed = localHasModulePermission('claims');
+              const claimsParentAllowed = localHasModulePermission("claims");
               if (!claimsParentAllowed) {
                 return false;
               }
               // Check if this specific claims submodule has permission
-              return localHasModulePermission(moduleKey || '', item.label);
+              return localHasModulePermission(moduleKey || "", item.label);
             }
 
             const result = localHasModulePermission(moduleKey);
             // console.log('[localShouldShowItem] Result for', item.label, ':', result);
             return result;
           };
-          
+
           // Convert API navigation items to NavItem format
-          const convertedItems: NavItem[] = (
-            res.data.navigationItems || []
-          ).map((item: NavigationItemFromAPI): NavItem => {
-            const navItem: NavItem = {
-              label: item.label,
-              path: item.path,
-              icon: item.icon,
-              description: item.description,
-              moduleKey: item.moduleKey,
-              order: item.order,
-            };
+          const convertedItems: NavItem[] = (res.data.navigationItems || [])
+            .map((item: NavigationItemFromAPI): NavItem => {
+              const navItem: NavItem = {
+                label: item.label,
+                path: item.path,
+                icon: item.icon,
+                description: item.description,
+                moduleKey: item.moduleKey,
+                order: item.order,
+              };
 
-            // Convert subModules to children
-            if (item.subModules && item.subModules.length > 0) {
-              navItem.children = item.subModules.map(
-                (subModule: {
-                  name: string;
-                  path?: string;
-                  icon: string;
-                  order: number;
-                }): NavItemChild => ({
-                  label: subModule.name,
-                  path: subModule.path,
-                  icon: subModule.icon,
-                  description: subModule.name,
-                  order: subModule.order,
-                }),
-              );
-            }
+              // Convert subModules to children
+              if (item.subModules && item.subModules.length > 0) {
+                navItem.children = item.subModules.map(
+                  (subModule: {
+                    name: string;
+                    path?: string;
+                    icon: string;
+                    order: number;
+                  }): NavItemChild => ({
+                    label: subModule.name,
+                    path: subModule.path,
+                    icon: subModule.icon,
+                    description: subModule.name,
+                    order: subModule.order,
+                  }),
+                );
+              }
 
-            return navItem;
-          }).filter((item: NavItem) => localShouldShowItem(item));
+              return navItem;
+            })
+            .filter((item: NavItem) => localShouldShowItem(item));
 
           // Sort by order
           convertedItems.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -1229,7 +1457,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           });
 
           // Build grouped sections using only existing sidebar items
-          const toKey = (s: string) => (s || '').trim().toLowerCase();
+          const toKey = (s: string) => (s || "").trim().toLowerCase();
           const byLabel: Record<string, NavItem> = {};
           const childByLabel: Record<string, NavItemChild> = {};
           convertedItems.forEach((i) => {
@@ -1276,7 +1504,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           };
 
           // Helper to create item and check permission
-          const createItem = (label: string, path: string, icon: string): NavItemChild | null => {
+          const createItem = (
+            label: string,
+            path: string,
+            icon: string,
+          ): NavItemChild | null => {
             const item = { label, path, icon };
             // console.log('[createItem] Creating item:', label);
             const shouldShow = localShouldShowItem(item);
@@ -1303,7 +1535,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickTop("Manage Health Center"),
                 createItem("Create Offers", "/clinic/create-offer", "🎁"),
                 createItem("User Package", "/clinic/userpackages", "package"),
-                createItem("Service Setup", "/clinic/services_setup", "services"),
+                createItem(
+                  "Service Setup",
+                  "/clinic/services_setup",
+                  "services",
+                ),
                 createItem("Setup & Operation", "/clinic/add-room", "clinic"),
                 pickChild("Membership"),
               ),
@@ -1327,6 +1563,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               ),
               order: 110,
             },
+
             {
               label: "Marketing",
               icon: "🎯",
@@ -1338,6 +1575,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Reviews", "/clinic/getAllReview", "⭐"),
                 createItem("Enquiry", "/clinic/get-Enquiry", "❓"),
                 createItem("Campaigns", "/clinic/campaigns", "campaigns"),
+                {
+                  label: "KAKA Customization",
+                  path: "/clinic/kaka-customization",
+                  icon: "settings",
+                },
               ),
               order: 120,
             },
@@ -1346,7 +1588,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               icon: "file-text",
               children: nonNull(
                 createItem("Pass By Doctor", "/clinic/pass-claims", "✅"),
-                createItem("Release Requested", "/clinic/release-requested-claims", "🚀"),
+                createItem(
+                  "Release Requested",
+                  "/clinic/release-requested-claims",
+                  "🚀",
+                ),
                 createItem("Doctor's Claim", "/clinic/all-claims", "👨‍⚕️"),
               ),
               order: 125,
@@ -1354,7 +1600,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {
               label: "Automation",
               icon: "⚡",
-              children: nonNull(createItem("Automation", "/clinic/automation", "⚡")),
+              children: nonNull(
+                createItem("Automation", "/clinic/automation", "⚡"),
+              ),
               order: 120,
             },
             {
@@ -1370,8 +1618,16 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Locations", "/clinic/stocks/locations", "storage"),
                 createItem("Suppliers", "/clinic/stocks/suppliers", "archive"),
                 createItem("UOM", "/clinic/stocks/uom", "database"),
-                createItem("Purchase Requests", "/clinic/stocks/purchase-requests", "reports"),
-                createItem("Purchase Orders", "/clinic/stocks/purchase-orders", "deals"),
+                createItem(
+                  "Purchase Requests",
+                  "/clinic/stocks/purchase-requests",
+                  "reports",
+                ),
+                createItem(
+                  "Purchase Orders",
+                  "/clinic/stocks/purchase-orders",
+                  "deals",
+                ),
                 createItem("GRN", "/clinic/stocks/grn", "billing"),
                 createItem("Purchase Invoices", "/clinic/stocks/purchase-invoices", "billing"),
                 createItem("Purchase Returns", "/clinic/stocks/purchase-returns", "billing"),
@@ -1392,22 +1648,42 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {
               label: "Policy & Compliance",
               icon: "🛡️",
-              children: nonNull(createItem("Policy & Compliance", "/clinic/policy_compliance", "🛡️")),
+              children: nonNull(
+                createItem(
+                  "Policy & Compliance",
+                  "/clinic/policy_compliance",
+                  "🛡️",
+                ),
+              ),
               order: 136,
             },
             {
               label: "Security & Privacy",
               icon: "security",
-              children: nonNull(createItem("Authentication", "/clinic/authentication", "🔒")),
+              children: nonNull(
+                createItem("Authentication", "/clinic/authentication", "🔒"),
+              ),
               order: 170,
             },
             {
               label: "Patients & Appointments",
               icon: "appointments",
               children: nonNull(
-                createItem("Book Appointments", "/clinic/appointment", "booking"),
-                createItem("Scheduled Appointments", "/clinic/all-appointment", "calendar"),
-                createItem("Patient Registration", "/clinic/patient-registration", "👤"),
+                createItem(
+                  "Book Appointments",
+                  "/clinic/appointment",
+                  "booking",
+                ),
+                createItem(
+                  "Scheduled Appointments",
+                  "/clinic/all-appointment",
+                  "calendar",
+                ),
+                createItem(
+                  "Patient Registration",
+                  "/clinic/patient-registration",
+                  "👤",
+                ),
                 pickChild("Patient Information"),
               ),
               order: 160,
@@ -1422,9 +1698,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickChild("Petty Cash"),
                 createItem("Petty Cash", "/clinic/pettycash", "dollar-sign"),
                 createItem("Reports", "/clinic/report", "reports"),
+                {
+                  label: "KAKA Analytics",
+                  path: "/clinic/kaka-analytics",
+                  icon: "analytics",
+                },
               ),
               order: 180,
             },
+
             {
               label: "Workflow Guide",
               path: "/clinic/workflow-guide",
@@ -1488,7 +1770,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         }
       } catch (err: any) {
         // Only log non-401/403/404 errors to avoid console spam
-        if (err.response?.status !== 401 && err.response?.status !== 403 && err.response?.status !== 404) {
+        if (
+          err.response?.status !== 401 &&
+          err.response?.status !== 403 &&
+          err.response?.status !== 404
+        ) {
           console.error(
             "Error fetching navigation items and permissions:",
             err,
