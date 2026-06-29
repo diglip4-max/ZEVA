@@ -644,23 +644,24 @@ function PatientImportModal({ onClose, onSuccess, routeContext }) {
   const [showErrorModal, setShowErrorModal] = useState(false);
 
   const fieldLabels = {
-    invoiceNumber: "Invoice Number (Auto-generated - will be ignored)",
-    firstName: "First Name *",
-    lastName: "Last Name",
-    gender: "Gender",
-    email: "Email",
-    mobileNumber: "Mobile Number *",
-    emrNumber: "EMR Number (Auto-generated - will be ignored)",
-    referredBy: "Referred By",
-    patientType: "Patient Type (New/Old)",
-    insurance: "Insurance (Yes/No)",
-    insuranceType: "Insurance Type (Paid/Advance)",
-    advanceGivenAmount: "Advance Given Amount",
-    coPayPercent: "Co-Pay Percent",
-    advanceClaimStatus: "Advance Claim Status",
-    advanceClaimReleasedBy: "Advance Claim Released By",
-    notes: "Notes",
-  };
+      invoiceNumber: "Invoice Number (Auto-generated - will be ignored)",
+      firstName: "First Name *",
+      lastName: "Last Name",
+      gender: "Gender",
+      email: "Email",
+      mobileNumber: "Mobile Number *",
+      city: "City",
+      emrNumber: "EMR Number (Auto-generated - will be ignored)",
+      referredBy: "Referred By",
+      patientType: "Patient Type (New/Old)",
+      insurance: "Insurance (Yes/No)",
+      insuranceType: "Insurance Type (Paid/Advance)",
+      advanceGivenAmount: "Advance Given Amount",
+      coPayPercent: "Co-Pay Percent",
+      advanceClaimStatus: "Advance Claim Status",
+      advanceClaimReleasedBy: "Advance Claim Released By",
+      notes: "Notes",
+    };
 
   const handleFileSelect = async (e) => {
     const selectedFile = e.target.files[0];

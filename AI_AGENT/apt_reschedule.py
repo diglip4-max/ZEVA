@@ -1,3 +1,8 @@
+import asyncio
+import math
+
+from langsmith import traceable
+
 from cache import get_cache, set_cache, redis_client
 import httpx
 from datetime import datetime, timedelta
@@ -21,69 +26,132 @@ async def find_lead_id(conversation_id: str, clinicToken: str):
         return cached
 
     headers = get_header(clinicToken)
+
     async with httpx.AsyncClient() as client:
-        page = 1
-        while True:
-            url = (
-                f"{AGENT_URL}/api/messages/get-messages/"
-                f"{conversation_id}?page={page}&limit=50"
-            )
-            resp = await client.get(url, headers=headers)
-            data = resp.json()
-            for day in data["data"]:
-                for message in day["messages"]:
+        # Page 1 first — most conversations find leadId on page 1
+        resp = await client.get(
+            f"{AGENT_URL}/api/messages/get-messages/{conversation_id}?page=1&limit=50",
+            headers=headers,
+        )
+        data = resp.json()
+
+        def extract_lead_id(data: dict) -> str | None:
+            for day in data.get("data", []):
+                for message in day.get("messages", []):
                     if "leadId" in message:
-                        result = {"leadId": message["leadId"]}
-                        await set_cache(cache_key, result, LEAD_CACHE_TTL)
-                        return result
-            if not data["pagination"]["hasMore"]:
-                break
-            page += 1
+                        return message["leadId"]
+            return None
+
+        lead_id = extract_lead_id(data)
+        if lead_id:
+            result = {"leadId": lead_id}
+            await set_cache(cache_key, result, LEAD_CACHE_TTL)
+            return result
+
+        if not data.get("pagination", {}).get("hasMore"):
+            return {"Status": "Error", "Message": "No leadId found in any page."}
+
+        total = data.get("pagination", {}).get("total", 0)
+        total_pages = math.ceil(total / 50) if total else 10  # limit=50 here
+
+        # Fire remaining pages in parallel, return as soon as any finds it
+        async def fetch_page_for_lead(page: int) -> str | None:
+            try:
+                r = await client.get(
+                    f"{AGENT_URL}/api/messages/get-messages/{conversation_id}"
+                    f"?page={page}&limit=50",
+                    headers=headers,
+                )
+                return extract_lead_id(r.json())
+            except Exception:
+                return None
+
+        tasks = {
+            asyncio.create_task(fetch_page_for_lead(p)): p
+            for p in range(2, total_pages + 1)
+        }
+
+        pending = set(tasks)
+        found_lead_id = None
+
+        while pending:
+            done, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                result = task.result()
+                if result:
+                    found_lead_id = result
+                    # Cancel remaining in-flight requests
+                    for t in pending:
+                        t.cancel()
+                    pending = set()
+                    break
+
+        if found_lead_id:
+            result = {"leadId": found_lead_id}
+            await set_cache(cache_key, result, LEAD_CACHE_TTL)
+            return result
 
     return {"Status": "Error", "Message": "No leadId found in any page."}
 
 
+# AFTER — parallel pages
 async def find_patient_number(leadId: str, clinicToken: str):
+    cache_key = f"patient_phone:{leadId}"
+    cached = await get_cache(cache_key)
+    if cached:
+        return cached
+
     headers = get_header(clinicToken)
 
     async with httpx.AsyncClient() as client:
-        try:
-            page = 1
+        resp = await client.get(
+            f"{AGENT_URL}/api/lead-ms/leadFilter?page=1&limit=20&name=",
+            headers=headers,
+        )
+        data = resp.json()
+        leads = data.get("leads", [])
 
-            while True:
-                url = (
-                    f"{AGENT_URL}/api/lead-ms/leadFilter"
-                    f"?page={page}&limit=20&name="
-                )
+        for lead in leads:
+            if lead["_id"] == leadId:
+                phone = lead.get("phone")
+                if not phone:
+                    return {"Status": "Error", "Message": "No phone found."}
+                result = {"patient_number": phone}
+                await set_cache(cache_key, result, LEAD_CACHE_TTL)  # ← cache page-1 hit
+                return result
 
-                resp = await client.get(url, headers=headers)
-                data = resp.json()
-
-                for d in data["leads"]:
-                    if d["_id"] == leadId:
-                        print("FOUND LEAD")
-                        patient_number = d.get("phone")
-
-                        if patient_number:
-                            return {"patient_number": patient_number}
-                        else:
-                            return {
-                                "Status": "Error",
-                                "Message": "There are no bookings yet.",
-                            }
-
-                if not data["pagination"]["hasMore"]:
-                    break
-
-                page += 1
-
+        if not data.get("pagination", {}).get("hasMore"):
             return {"Status": "Error", "Message": "No Lead Id Found"}
 
-        except Exception as e:
-            return {
-                "Status": "Error",
-                "Message": f"Failed to fetch booking details: {e}",
-            }
+        total = data.get("pagination", {}).get("total", 0)
+        total_pages = math.ceil(total / 20) if total else 10
+
+        async def fetch_page(page: int) -> list:
+            r = await client.get(
+                f"{AGENT_URL}/api/lead-ms/leadFilter?page={page}&limit=20&name=",
+                headers=headers,
+            )
+            return r.json().get("leads", [])
+
+        pages = await asyncio.gather(
+            *[fetch_page(p) for p in range(2, total_pages + 1)]
+        )
+
+        for page_leads in pages:
+            for lead in page_leads:
+                if lead["_id"] == leadId:
+                    phone = lead.get("phone")
+                    if not phone:
+                        return {"Status": "Error", "Message": "No phone found."}
+                    result = {"patient_number": phone}
+                    await set_cache(
+                        cache_key, result, LEAD_CACHE_TTL
+                    )  # ← cache parallel hit
+                    return result
+
+    return {"Status": "Error", "Message": "No Lead Id Found"}
 
 
 def extract_appointment_details(appointment: dict) -> dict:
@@ -100,6 +168,7 @@ def extract_appointment_details(appointment: dict) -> dict:
     }
 
 
+@traceable
 async def find_latest_appointment(conversation_id: str, clinicToken: str):
     headers = get_header(clinicToken)
 
@@ -110,7 +179,7 @@ async def find_latest_appointment(conversation_id: str, clinicToken: str):
     if "Status" in lead_result and lead_result["Status"] == "Error":
         return lead_result  # Bubble up: "No leadId found" etc.
 
-    # Step 2: Get patient ID
+    # Step 2: Get patient numb
     patient_result = await find_patient_number(
         leadId=lead_result["leadId"], clinicToken=clinicToken
     )
@@ -135,7 +204,6 @@ async def find_latest_appointment(conversation_id: str, clinicToken: str):
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-            print(data)
 
             appointments = data.get("appointments", [])
             if not appointments:
@@ -168,7 +236,6 @@ async def reschedule_apt(
     apt = await find_latest_appointment(
         conversation_id=conversation_id, clinicToken=clinicToken
     )
-    print(apt)
     # Check for any error bubbled up from lead/patient/appointment lookup
     if "Status" in apt and apt["Status"] == "Error":
         return apt  # Bubble up: agent will receive and relay the message
@@ -189,8 +256,6 @@ async def reschedule_apt(
             "Message": f"Invalid date format received: {startDate}",
         }
 
-    print(existing["fromTime"])
-
     existing["startDate"] = converted_date
     existing["fromTime"] = fromTime
     existing["toTime"] = toTime
@@ -208,9 +273,7 @@ async def reschedule_apt(
                 headers=headers,
                 timeout=10.0,
             )
-            print(put_resp)
         put_data = put_resp.json()
-        print(put_data)
     except Exception as e:
         return {"Status": "Error", "Message": f"Failed to update appointment: {e}"}
 
@@ -225,6 +288,16 @@ async def reschedule_apt(
             "Message": put_data.get("message", "Appointment rescheduled successfully."),
             "newDate": startDate,
             "newTime": fromTime,
+            "scenario_key": "reschedule_success",
+            "placeholders": {
+                "newDate": startDate,
+                "newTime": fromTime,
+                "patient_name": f"{put_data.get("appointment").get("patientId").get("firstName")} {put_data.get("appointment").get("patientId").get("lastName")}",
+                "doctor_name": put_data.get("appointment").get("doctorId").get("name"),
+                "service_name": put_data.get("appointment")
+                .get("serviceId")
+                .get("name"),
+            },
         }
     else:
         return {

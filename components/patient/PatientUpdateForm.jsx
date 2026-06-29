@@ -903,6 +903,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       gender: formData.gender,
       email: formData.email,
       mobileNumber: formData.mobileNumber,
+      city: formData.city,
       referredBy: formData.referredBy,
       patientType: formData.patientType,
       insurance: formData.insurance,
@@ -1294,6 +1295,13 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       onChange={handleFieldChange}
                       options={genderOptions}
                       placeholder="Select Gender"
+                    />
+                    <EditableField
+                      label="City"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleFieldChange}
+                      placeholder="Enter city"
                     />
                     <EditableField
                       label="Patient Type"

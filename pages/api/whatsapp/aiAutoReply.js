@@ -55,7 +55,7 @@ export async function scheduleAIReply({
     "reply",
     { conversationId, messageContent, clinicId, providerPhone, customerPhone },
     {
-      delay: 1000,
+      delay: 200,
       jobId: `ai-${conversationId}`,
       removeOnComplete: true,
       removeOnFail: 100,
@@ -144,7 +144,12 @@ async function triggerAIReply({
 
     const { response: aiReply } = await chatRes.json();
     console.log(`[AI] Reply for ${conversationId}:`, aiReply);
-
+    if (!aiReply || !aiReply.trim()) {
+      console.log(
+        `[AI] Empty reply for ${conversationId} — template disabled, skipping send`,
+      );
+      return;
+    }
     // ─── 4. Save outgoing AI message ──────────────────────────────────────
     const newMessage = new Message({
       clinicId: conversation.clinicId,
