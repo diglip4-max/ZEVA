@@ -142,6 +142,14 @@ const parsePermissionActions = (actions = {}) => {
   };
 };
 
+const maskMobileNumber = (mobile) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 const ITEMS_PER_PAGE = 10;
 
 function AllClaimsPage() {
@@ -171,7 +179,14 @@ function AllClaimsPage() {
   const [consentStatus, setConsentStatus] = useState(null);
   const [addTreatmentPlan, setAddTreatmentPlan] = useState(false);
   const [treatmentPlanText, setTreatmentPlanText] = useState("");
+  const [userRole, setUserRole] = useState(null);
   
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
+  }, []);
+
   // Permission state
   const [permissions, setPermissions] = useState({
     canRead: false,
@@ -1083,7 +1098,11 @@ function AllClaimsPage() {
                     <p className="text-sm font-medium text-gray-900">
                       {claim.patientFirstName} {claim.patientLastName}
                     </p>
-                    <p className="text-xs text-gray-500">{claim.patientMobileNumber}</p>
+                    <p className="text-xs text-gray-500">
+                      {userRole === "doctorStaff" 
+                        ? (claim.patientMobileNumber ? maskMobileNumber(claim.patientMobileNumber) : "") 
+                        : claim.patientMobileNumber}
+                    </p>
                   </div>
 
                   {/* Doctor Info */}
@@ -1596,7 +1615,11 @@ function AllClaimsPage() {
                     <h3 className="text-sm font-semibold text-gray-800 mb-2">Patient Information</h3>
                     <div className="space-y-1.5 text-sm">
                       <p><span className="text-gray-500">Name:</span> <span className="font-medium">{viewModal.patientFirstName} {viewModal.patientLastName}</span></p>
-                      <p><span className="text-gray-500">Mobile:</span> <span className="font-medium">{viewModal.patientMobileNumber}</span></p>
+                      <p><span className="text-gray-500">Mobile:</span> <span className="font-medium">
+                        {userRole === "doctorStaff" 
+                          ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-") 
+                          : viewModal.patientMobileNumber}
+                      </span></p>
                     </div>
                   </div>
                   <div>

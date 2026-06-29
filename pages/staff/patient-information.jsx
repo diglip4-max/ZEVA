@@ -504,7 +504,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Full Name</span> <span className="font-medium text-gray-900 text-sm">{patient.firstName} {patient.lastName}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Gender</span> <span className="font-medium text-gray-900 text-sm">{patient.gender || '-'}</span></div>
-                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Email</span> <span className="font-medium text-blue-600 text-sm">{patient.email}</span></div>
+                <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Email</span> <span className="font-medium text-blue-600 text-sm">{isDoctorStaff ? maskPhoneNumber(patient.email) : patient.email}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Mobile</span> <span className="font-medium text-gray-900 text-sm">{isDoctorStaff ? maskPhoneNumber(patient.mobileNumber) : patient.mobileNumber}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Patient Type</span> <span className="font-medium text-gray-900 text-sm">{patient.patientType}</span></div>
                 <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Referred By</span> <span className="font-medium text-gray-900 text-sm">{patient.referredBy || 'N/A'}</span></div>
@@ -1133,7 +1133,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true, isDoc
       <div className="flex-1 min-w-0">
         <h3 className="text-base font-semibold text-gray-900 truncate">{patient.firstName} {patient.lastName}</h3>
         <p className="text-sm text-gray-700">{isDoctorStaff ? maskPhoneNumber(patient.mobileNumber) : patient.mobileNumber}</p>
-        <p className="text-xs text-gray-700">{patient.email}</p>
+        <p className="text-xs text-gray-700">{isDoctorStaff ? maskPhoneNumber(patient.email) : patient.email}</p>
       </div>
       <div className="flex flex-col gap-1 ml-2">
         {patient.advanceClaimStatus && (
@@ -1546,7 +1546,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           const apiEndpoint = "/api/clinic/patient-information";
           const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
           setPatients(data.success ? data.data : []);
-          setPage(1);
+          // Stay on current page after deletion; if page is now empty, go to previous page
+          const newTotalPages = Math.ceil((data.success ? data.data : []).length / pageSize);
+          if (newTotalPages > 0 && page > newTotalPages) {
+            setPage(newTotalPages);
+          }
           // Changed message to show patient deletion success
           addToast("Patient deleted successfully", "success");
         } catch (err) {
@@ -1828,7 +1832,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                               <p className="text-xs text-gray-900">{patient.gender || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
-                              <p className="text-xs text-gray-900">{patient.email || '-'}</p>
+                              <p className="text-xs text-gray-900">{isDoctorStaff ? maskPhoneNumber(patient.email) : (patient.email || '-')}</p>
                             </td>
                             <td className="py-3 px-3">
                               <p className="text-xs text-gray-900">{isDoctorStaff ? maskPhoneNumber(patient.mobileNumber) : (patient.mobileNumber || '-')}</p>

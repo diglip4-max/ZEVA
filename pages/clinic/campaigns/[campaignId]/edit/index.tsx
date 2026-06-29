@@ -678,9 +678,13 @@ const CampaignEditPage: NextPageWithLayout = () => {
     if (selectedTemplate && selectedTemplate?.headerFileUrl) {
       setMediaUrl(selectedTemplate?.headerFileUrl || "");
       setMediaType(selectedTemplate?.headerType || "");
+      setSubject(selectedTemplate?.subject || "");
+      setPreheader(selectedTemplate?.preheader || "");
     } else {
       setMediaUrl("");
       setMediaType("");
+      setSubject("");
+      setPreheader("");
     }
 
     // Reset variable mappings when template changes

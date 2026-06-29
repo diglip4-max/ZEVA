@@ -4,7 +4,6 @@ const multiplePaymentSchema = new mongoose.Schema(
   {
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },
@@ -12,9 +11,15 @@ const multiplePaymentSchema = new mongoose.Schema(
     paidBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     transactionType: {
       type: String,
-      enum: ["PAYMENT", "ADVANCE_USAGE", "CLAIM_USAGE", "PENDING_CLEARANCE", "CASHBACK_USAGE"]
+      enum: [
+        "PAYMENT",
+        "ADVANCE_USAGE",
+        "CLAIM_USAGE",
+        "PENDING_CLEARANCE",
+        "CASHBACK_USAGE",
+      ],
     },
-    notes: { type: String }
+    notes: { type: String },
   },
   { _id: false },
 );
@@ -26,24 +31,38 @@ const paymentHistorySchema = new mongoose.Schema(
     pending: { type: Number, required: true, min: 0 },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
     },
     multiplePayments: [multiplePaymentSchema],
     status: {
       type: String,
-      enum: ["Active", "Cancelled", "Completed", "Rejected", "Released", "Partial"],
+      enum: [
+        "Active",
+        "Cancelled",
+        "Completed",
+        "Rejected",
+        "Released",
+        "Partial",
+      ],
     },
     updatedAt: { type: Date, default: Date.now },
     // Enterprise-grade audit trail fields
     transactionType: {
       type: String,
-      enum: ["PAYMENT", "PENDING_CLEARANCE", "REGULAR_PAYMENT", "ADVANCE_USAGE", "CLAIM_USAGE", "FULL_PAYMENT", "PARTIAL_PAYMENT"]
+      enum: [
+        "PAYMENT",
+        "PENDING_CLEARANCE",
+        "REGULAR_PAYMENT",
+        "ADVANCE_USAGE",
+        "CLAIM_USAGE",
+        "FULL_PAYMENT",
+        "PARTIAL_PAYMENT",
+      ],
     },
     amountPaid: { type: Number, default: 0 },
     advanceAmountUsed: { type: Number, default: 0 },
     paidBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     paidByName: { type: String },
-    remainingPending: { type: Number, default: 0 }
+    remainingPending: { type: Number, default: 0 },
   },
   { _id: false },
 );
@@ -247,7 +266,6 @@ const billingSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Package Full Paid"],
       required: false,
     },
     // Multiple payment methods for split payments
@@ -314,168 +332,170 @@ const billingSchema = new mongoose.Schema(
       default: [],
     },
     offerApplied: {
-  type: Boolean,
-  default: false
-},
+      type: Boolean,
+      default: false,
+    },
 
-offerId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Offer"
-},
+    offerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Offer",
+    },
 
-offerName: String,
+    offerName: String,
 
-offerType: {
-  type: String,
-  enum: ["instant_discount", "cashback", "bundle"]
-},
+    offerType: {
+      type: String,
+      enum: ["instant_discount", "cashback", "bundle"],
+    },
 
-offerDiscountAmount: {
-  type: Number,
-  default: 0
-},
+    offerDiscountAmount: {
+      type: Number,
+      default: 0,
+    },
 
-cashbackEarned: {
-  type: Number,
-  default: 0
-},
+    cashbackEarned: {
+      type: Number,
+      default: 0,
+    },
 
-// Detailed cashback offer tracking fields
-isCashbackApplied: {
-  type: Boolean,
-  default: false
-},
+    // Detailed cashback offer tracking fields
+    isCashbackApplied: {
+      type: Boolean,
+      default: false,
+    },
 
-cashbackOfferId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Offer",
-  default: null
-},
+    cashbackOfferId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Offer",
+      default: null,
+    },
 
-cashbackOfferName: {
-  type: String,
-  default: null
-},
+    cashbackOfferName: {
+      type: String,
+      default: null,
+    },
 
-cashbackAmount: {
-  type: Number,
-  default: 0,
-  min: 0
-},
+    cashbackAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
-// Cashback validity period
-cashbackStartDate: {
-  type: Date,
-  default: null
-},
+    // Cashback validity period
+    cashbackStartDate: {
+      type: Date,
+      default: null,
+    },
 
-cashbackEndDate: {
-  type: Date,
-  default: null
-},
+    cashbackEndDate: {
+      type: Date,
+      default: null,
+    },
 
-// Cashback WALLET usage (when patient uses previously earned cashback)
-cashbackWalletUsed: {
-  type: Number,
-  default: 0,
-  min: 0
-},
+    // Cashback WALLET usage (when patient uses previously earned cashback)
+    cashbackWalletUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
-bundleSessionsAdded: {
-  type: Number,
-  default: 0
-},
+    bundleSessionsAdded: {
+      type: Number,
+      default: 0,
+    },
 
-offerOverrideUsed: {
-  type: Boolean,
-  default: false
-},
+    offerOverrideUsed: {
+      type: Boolean,
+      default: false,
+    },
 
-offerOverrideReason: String,
+    offerOverrideReason: String,
 
-offerFreeSession: {
-  type: [String],
-  default: []
-},
+    offerFreeSession: {
+      type: [String],
+      default: [],
+    },
 
-freeOfferSessionCount: {
-  type: Number,
-  default: 0,
-  min: 0
-},
+    freeOfferSessionCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
-// Free sessions consumed in this billing (redemptions from previous bundle offers)
-usedFreeSessions: {
-  type: [String],
-  default: []
-},
+    // Free sessions consumed in this billing (redemptions from previous bundle offers)
+    usedFreeSessions: {
+      type: [String],
+      default: [],
+    },
 
-usedFreeSessionCount: {
-  type: Number,
-  default: 0,
-  min: 0
-},
+    usedFreeSessionCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
-// Offer refund tracking fields
-isOfferRefunded: {
-  type: Boolean,
-  default: false
-},
+    // Offer refund tracking fields
+    isOfferRefunded: {
+      type: Boolean,
+      default: false,
+    },
 
-refundedAt: {
-  type: Date,
-  default: null
-},
+    refundedAt: {
+      type: Date,
+      default: null,
+    },
 
-refundedBy: {
-  type: String,
-  trim: true,
-  default: null
-},
+    refundedBy: {
+      type: String,
+      trim: true,
+      default: null,
+    },
 
-refundedAmount: {
-  type: Number,
-  default: 0,
-  min: 0
-},
+    refundedAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
 
-// Track what offers were refunded
-refundedOffers: [{
-  offerType: {
-    type: String,
-    enum: ['instant_discount', 'cashback', 'bundle'],
-    required: true
-  },
-  offerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Offer',
-    default: null
-  },
-  offerName: {
-    type: String,
-    default: null
-  },
-  amount: {
-    type: Number,
-    default: 0
-  },
-  freeSessionsRefunded: {
-    type: [String],
-    default: []
-  },
-  freeSessionsRestored: {
-    type: [String],
-    default: []
-  },
-  cashbackRefunded: {
-    type: Number,
-    default: 0
-  },
-  cashbackWalletUsageReversed: {
-    type: Number,
-    default: 0
-  }
-}]
+    // Track what offers were refunded
+    refundedOffers: [
+      {
+        offerType: {
+          type: String,
+          enum: ["instant_discount", "cashback", "bundle"],
+          required: true,
+        },
+        offerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Offer",
+          default: null,
+        },
+        offerName: {
+          type: String,
+          default: null,
+        },
+        amount: {
+          type: Number,
+          default: 0,
+        },
+        freeSessionsRefunded: {
+          type: [String],
+          default: [],
+        },
+        freeSessionsRestored: {
+          type: [String],
+          default: [],
+        },
+        cashbackRefunded: {
+          type: Number,
+          default: 0,
+        },
+        cashbackWalletUsageReversed: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
   },
   { timestamps: true },
 );
@@ -495,29 +515,29 @@ billingSchema.pre("save", function (next) {
   if (this.pendingUsed < 0) this.pendingUsed = 0;
   if (this.pendingClaimUsed < 0) this.pendingClaimUsed = 0;
 
-  // Check if pending was directly modified, if so skip calculation
+  // For NEW documents, calculate advance without subtracting pendingUsed/pendingClaimUsed
+  // because the amount field already includes the pending being cleared.
+  // Example: amount=400 (100 current + 300 pending), paid=900, pendingUsed=300
+  // Correct: advance = 900 - 400 = 500 (NOT 900 - 400 - 300 = 200)
+  if (this.isNew) {
+    const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
+    const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
+    this.advance = Math.max(0, this.paid - effectiveDue);
+    return next();
+  }
+
+  // Check if pending was directly modified (for existing documents), if so skip other calculations
   // This allows explicit pending updates from APIs like pay-invoice-pending
-  if (this.isModified('pending')) {
+  if (this.isModified("pending")) {
     // Only recalculate advance based on paid and pendingUsed/pendingClaimUsed
     const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
     const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
     // New advance generated if paid exceeds effective due (minus pending cleared)
     // pendingClaimUsed is subtracted because clearing insurance pending claim is past debt, not new advance
-    this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
-    return next();
-  }
-
-  // For new documents (isNew), use the provided pending value if it's a partial payment
-  // This prevents recalculation when creating billing records with explicit pending amounts
-  if (this.isNew) {
-    // For partial payments, the pending was already set correctly
-    // We still need to ensure paid, advanceUsed, etc. are properly reflected
-    const totalCreditsUsed = this.advanceUsed + this.claimAmountUsed;
-    const effectiveDue = Math.max(0, this.amount - totalCreditsUsed);
-    // Only recalculate pending if it wasn't explicitly set (i.e., equals effectiveDue - paid)
-    // For package billing with partial payment, pending is already set correctly
-    // Calculate advance: new advance generated if paid exceeds effective due
-    this.advance = Math.max(0, this.paid - effectiveDue);
+    this.advance = Math.max(
+      0,
+      this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed,
+    );
     return next();
   }
 
@@ -529,7 +549,10 @@ billingSchema.pre("save", function (next) {
   // New advance generated if paid exceeds effective due
   // If pendingUsed/pendingClaimUsed is provided, it reduces the amount that can be converted to advance
   // Both represent past debt being cleared (not new revenue), so they reduce advance generation
-  this.advance = Math.max(0, this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed);
+  this.advance = Math.max(
+    0,
+    this.paid - effectiveDue - this.pendingUsed - this.pendingClaimUsed,
+  );
 
   next();
 });

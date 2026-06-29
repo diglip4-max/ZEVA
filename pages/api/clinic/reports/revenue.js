@@ -355,19 +355,73 @@ export default async function handler(req, res) {
       amount: Math.round(Number(d.amount || 0)),
     }));
 
-    // revenue by payment method (respect multiplePayments)
+    // revenue by payment method (respect multiplePayments) – ALL billings, not just those with appointments
     const paymentsAgg = await Billing.aggregate([
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       {
         $project: {
+          // Calculate all amounts that should be considered "paid" for revenue
+          paid: { $ifNull: ["$paid", 0] },
+          advanceUsed: { $ifNull: ["$advanceUsed", 0] },
+          claimAmountUsed: { $ifNull: ["$claimAmountUsed", 0] },
+          cashbackWalletUsed: { $ifNull: ["$cashbackWalletUsed", 0] },
+          pendingUsed: { $ifNull: ["$pendingUsed", 0] },
+          paymentMethod: { $ifNull: ["$paymentMethod", "Cash"] },
+          multiplePayments: { $ifNull: ["$multiplePayments", []] }
+        }
+      },
+      {
+        $project: {
+          // Calculate total of existing payments
+          totalFromPayments: {
+            $reduce: {
+              input: "$multiplePayments",
+              initialValue: 0,
+              in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+            }
+          },
+          // Calculate total expected paid amount (all credits included)
+          totalExpected: {
+            $add: [
+              "$paid",
+              "$advanceUsed",
+              "$claimAmountUsed",
+              "$cashbackWalletUsed"
+            ]
+          },
+          paymentMethod: 1,
+          multiplePayments: 1
+        }
+      },
+      {
+        $project: {
+          // Determine if there's a difference to add
+          difference: { $max: [0, { $subtract: ["$totalExpected", "$totalFromPayments"] }] },
+          paymentMethod: 1,
+          multiplePayments: 1
+        }
+      },
+      {
+        $project: {
+          // Build the payments array: existing payments + difference if any
           payments: {
             $cond: [
-              { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-              "$multiplePayments",
-              [{ paymentMethod: "$paymentMethod", amount: "$paid" }],
-            ],
-          },
-        },
+              { $gt: ["$difference", 0] },
+              {
+                $concatArrays: [
+                  "$multiplePayments",
+                  [
+                    {
+                      paymentMethod: "$paymentMethod",
+                      amount: "$difference"
+                    }
+                  ]
+                ]
+              },
+              "$multiplePayments"
+            ]
+          }
+        }
       },
       { $unwind: "$payments" },
       {
@@ -388,8 +442,17 @@ export default async function handler(req, res) {
     const pPageSizeNum = Math.max(1, parseInt(pendingPageSize || "10", 10));
     const pSkipNum = (pPageNum - 1) * pPageSizeNum;
     const pendingPipelineBase = [
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       { $match: pendingType === "advance" ? { advance: { $gt: 0 } } : { pending: { $gt: 0 } } },
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "patientregistrations",
@@ -585,14 +648,95 @@ export default async function handler(req, res) {
           packageName: "$package",
           treatmentName: "$treatment",
           appointmentId: "$appointmentId",
+          advanceUsed: { $ifNull: ["$advanceUsed", 0] },
+          claimAmountUsed: { $ifNull: ["$claimAmountUsed", 0] },
+          cashbackWalletUsed: { $ifNull: ["$cashbackWalletUsed", 0] },
+          paymentMethod: { $ifNull: ["$paymentMethod", "Cash"] },
+          multiplePayments: { $ifNull: ["$multiplePayments", []] },
+        },
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          invoicedDate: 1,
+          paid: 1,
+          pending: 1,
+          patientId: 1,
+          serviceType: 1,
+          packageName: 1,
+          treatmentName: 1,
+          appointmentId: 1,
+          totalFromPayments: {
+            $reduce: {
+              input: "$multiplePayments",
+              initialValue: 0,
+              in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+            }
+          },
+          totalExpected: {
+            $add: [
+              "$paid",
+              "$advanceUsed",
+              "$claimAmountUsed",
+              "$cashbackWalletUsed"
+            ]
+          },
+          paymentMethod: 1,
+          multiplePayments: 1
+        }
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          invoicedDate: 1,
+          paid: 1,
+          pending: 1,
+          patientId: 1,
+          serviceType: 1,
+          packageName: 1,
+          treatmentName: 1,
+          appointmentId: 1,
+          difference: { $max: [0, { $subtract: ["$totalExpected", "$totalFromPayments"] }] },
+          paymentMethod: 1,
+          multiplePayments: 1
+        }
+      },
+      {
+        $project: {
+          invoiceNumber: 1,
+          invoicedDate: 1,
+          paid: 1,
+          pending: 1,
+          patientId: 1,
+          serviceType: 1,
+          packageName: 1,
+          treatmentName: 1,
+          appointmentId: 1,
           payments: {
             $cond: [
-              { $gt: [{ $size: { $ifNull: ["$multiplePayments", [] ] } }, 0] },
-              "$multiplePayments",
-              [{ paymentMethod: "$paymentMethod", amount: "$paid", transactionType: "PAYMENT" }],
-            ],
-          },
-        },
+              { $gt: ["$difference", 0] },
+              {
+                $concatArrays: [
+                  "$multiplePayments",
+                  [
+                    {
+                      paymentMethod: "$paymentMethod",
+                      amount: "$difference",
+                      transactionType: "PAYMENT"
+                    }
+                  ]
+                ]
+              },
+              {
+                $cond: [
+                  { $gt: [{ $size: "$multiplePayments" }, 0] },
+                  "$multiplePayments",
+                  [{ paymentMethod: "$paymentMethod", amount: "$paid", transactionType: "PAYMENT" }]
+                ]
+              }
+            ]
+          }
+        }
       },
       { $unwind: "$payments" },
       {
@@ -685,10 +829,10 @@ export default async function handler(req, res) {
       };
     });
 
-    // views: daily/weekly/monthly/yearly
+    // views: daily/weekly/monthly/yearly – ALL billings, not just those with appointments
     const views = {};
     const dailyAgg = await Billing.aggregate([
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$invoicedDate" } },
@@ -700,7 +844,7 @@ export default async function handler(req, res) {
     views.daily = dailyAgg.map((d) => ({ label: d._id, amount: Math.round(Number(d.amount || 0)) }));
 
     const weeklyAgg = await Billing.aggregate([
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       {
         $group: {
           _id: {
@@ -718,7 +862,7 @@ export default async function handler(req, res) {
     }));
 
     const monthlyAgg = await Billing.aggregate([
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m", date: "$invoicedDate" } },
@@ -730,7 +874,7 @@ export default async function handler(req, res) {
     views.monthly = monthlyAgg.map((m) => ({ label: m._id, amount: Math.round(Number(m.amount || 0)) }));
 
     const yearlyAgg = await Billing.aggregate([
-      ...basePipeline,
+      { $match: { ...clinicMatch, ...dateMatch } },
       {
         $group: {
           _id: { $dateToString: { format: "%Y", date: "$invoicedDate" } },

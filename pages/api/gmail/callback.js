@@ -1,7 +1,11 @@
 import { google } from "googleapis";
 import dbConnect from "../../../lib/database";
 import Provider from "../../../models/Provider";
-import { encodeMessage } from "../../../services/gmail";
+import {
+  encodeMessage,
+  RENEWAL_GMAIL_WATCH_INTERVAL,
+} from "../../../services/gmail";
+import { gmailWatchRenewalQueue } from "../../../bullmq/queue";
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -121,7 +125,6 @@ export default async function handler(req, res) {
         console.log("Expiration Time:", expirationTime);
         console.log("Rewatch Time:", rewatchTime);
 
-        /*
         const jobId = `rewatch-${provider._id}`;
         const gmailRewatchJob = await gmailWatchRenewalQueue.add(
           "rewatch-gmail",
@@ -136,11 +139,13 @@ export default async function handler(req, res) {
             removeOnComplete: true,
           },
         );
+        console.log({ gmailRewatchJob });
         if (gmailRewatchJob) {
           provider.gmailWatchJobId = gmailRewatchJob.id;
           provider.gmailWatchJobKey = gmailRewatchJob.repeatJobKey;
+          provider.gmailWatchExpirationTime = expirationTime;
+          await provider.save();
         }
-        */
       } catch (watchErr) {
         console.error("Error setting up Gmail watch:", watchErr);
       }

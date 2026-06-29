@@ -616,6 +616,8 @@ const RegisterClinic = (): React.ReactNode => {
           // Store token in localStorage
           localStorage.setItem("clinicToken", loginResponse.data.token);
           localStorage.setItem("clinicUser", JSON.stringify(loginResponse.data.user));
+          localStorage.setItem("clinicId", loginResponse.data.clinic._id);
+          localStorage.setItem("ownerId", loginResponse.data.user._id);
           
           // Store trial info in sessionStorage for sidebar countdown timer
           if (loginResponse.data.trial) {

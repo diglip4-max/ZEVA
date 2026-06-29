@@ -58,7 +58,7 @@ const CommissionSchema = new mongoose.Schema(
     isSubmitted: { type: Boolean, default: false }, // Clinic marks individual commission as submitted/selected (tick in detail modal)
     isApproved: { type: Boolean, default: false },  // Clinic approves the batch after submitting (approve button on summary row)
     // Payment method and bank deduction details
-    paymentMethod: { type: String, enum: ["Cash", "Card", "BT", "Tabby", "Tamara"] },
+    paymentMethod: { type: String, enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"] },
     multiplePayments: [multiplePaymentSchema],
     bankDeduction: { 
       enabled: Boolean,

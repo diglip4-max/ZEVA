@@ -1,9 +1,5 @@
 import React, { useState } from "react";
-import {
-  X,
-  Megaphone,
-  // Mail
-} from "lucide-react";
+import { X, Megaphone, Mail } from "lucide-react";
 import {
   // FaSms,
   FaWhatsapp,
@@ -104,12 +100,12 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
                   //   icon: <FaSms className="w-5 h-5" />,
                   //   activeClass: "border-blue-500 bg-blue-50 text-blue-700",
                   // },
-                  // {
-                  //   value: "email" as const,
-                  //   label: "Email",
-                  //   icon: <Mail className="w-5 h-5" />,
-                  //   activeClass: "border-red-500 bg-red-50 text-red-700",
-                  // },
+                  {
+                    value: "email" as const,
+                    label: "Email",
+                    icon: <Mail className="w-5 h-5" />,
+                    activeClass: "border-red-500 bg-red-50 text-red-700",
+                  },
                 ].map((type) => (
                   <button
                     key={type.value}

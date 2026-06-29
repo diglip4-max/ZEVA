@@ -2,6 +2,7 @@ import {
   formatScheduledTime,
   getChannelTitle,
   getFormatedTime,
+  getTokenByPath,
 } from "@/lib/helper";
 import { MessageType } from "@/types/conversations";
 import React, { useState } from "react";
@@ -15,10 +16,68 @@ import {
   FileText,
   File,
   Download,
+  Image,
+  Video,
+  Music,
+  FileArchive,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import LocationMessage from "./LocationMessage";
+
+const getAttachmentIcon = (mimeType?: string, mediaType?: string) => {
+  const mime = mimeType?.toLowerCase() || "";
+  const type = mediaType?.toLowerCase() || "";
+
+  if (type === "image" || mime.startsWith("image/")) {
+    return <Image size={20} className="text-blue-600" />;
+  }
+  if (type === "video" || mime.startsWith("video/")) {
+    return <Video size={20} className="text-purple-600" />;
+  }
+  if (type === "audio" || mime.startsWith("audio/")) {
+    return <Music size={20} className="text-green-600" />;
+  }
+  if (/pdf|word|msword|officedocument|text|sheet|presentation/i.test(mime)) {
+    return <FileText size={20} className="text-orange-600" />;
+  }
+  if (/zip|rar|tar|7z|archive/i.test(mime)) {
+    return <FileArchive size={20} className="text-pink-600" />;
+  }
+  return <File size={20} className="text-gray-600" />;
+};
+
+const formatFileSize = (fileSize?: string | number) => {
+  if (!fileSize) return "Document";
+  const size = Number(fileSize);
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+};
+
+const getAttachments = (message: MessageType) => {
+  const attachments: Array<{
+    fileName?: string;
+    fileSize?: string;
+    mimeType?: string;
+    mediaUrl?: string;
+    mediaType?: string;
+  }> = [];
+
+  if (message.attachments && message.attachments.length > 0) {
+    attachments.push(...message.attachments);
+  } else if (message.mediaUrl) {
+    attachments.push({
+      fileName: message.mediaUrl.split("/").pop()?.split("?")[0] || "file",
+      fileSize: message.attachments?.[0]?.fileSize,
+      mimeType: message.attachments?.[0]?.mimeType,
+      mediaUrl: message.mediaUrl,
+      mediaType: message.mediaType,
+    });
+  }
+
+  return attachments;
+};
 
 interface IProps {
   message: MessageType;
@@ -31,6 +90,156 @@ const Message: React.FC<IProps> = ({
   onSelectMessage,
   onMessageUpdate,
 }) => {
+  const renderAttachments = () => {
+    const attachments = getAttachments(message);
+    if (attachments.length === 0) return null;
+
+    // Separate attachments by type
+    const imageAttachments = attachments.filter(
+      (a) => a.mediaType === "image" || a.mimeType?.startsWith("image/"),
+    );
+    const videoAttachments = attachments.filter(
+      (a) => a.mediaType === "video" || a.mimeType?.startsWith("video/"),
+    );
+    const audioAttachments = attachments.filter(
+      (a) => a.mediaType === "audio" || a.mimeType?.startsWith("audio/"),
+    );
+    const otherAttachments = attachments.filter(
+      (a) =>
+        !(
+          a.mediaType === "image" ||
+          a.mimeType?.startsWith("image/") ||
+          a.mediaType === "video" ||
+          a.mimeType?.startsWith("video/") ||
+          a.mediaType === "audio" ||
+          a.mimeType?.startsWith("audio/")
+        ),
+    );
+
+    return (
+      <div className="mb-3 space-y-2">
+        {/* Image attachments */}
+        {imageAttachments.length > 0 && (
+          <div className="grid gap-2">
+            {imageAttachments.length === 1 ? (
+              <div className="rounded-lg overflow-hidden">
+                <img
+                  src={imageAttachments[0].mediaUrl}
+                  alt={imageAttachments[0].fileName || "Image"}
+                  className="max-w-full max-h-64 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                  onClick={() =>
+                    window.open(imageAttachments[0].mediaUrl, "_blank")
+                  }
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {imageAttachments.slice(0, 4).map((attachment, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg overflow-hidden border border-gray-100"
+                  >
+                    <img
+                      src={attachment.mediaUrl}
+                      alt={attachment.fileName || "Image"}
+                      className="w-full h-32 object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                      onClick={() => window.open(attachment.mediaUrl, "_blank")}
+                    />
+                  </div>
+                ))}
+                {imageAttachments.length > 4 && (
+                  <div
+                    className="relative rounded-lg overflow-hidden h-32 bg-gray-100 flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() =>
+                      window.open(imageAttachments[4].mediaUrl, "_blank")
+                    }
+                  >
+                    <div className="text-2xl font-bold text-gray-700">
+                      +{imageAttachments.length - 4}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Video attachments */}
+        {videoAttachments.length > 0 && (
+          <div className="space-y-2">
+            {videoAttachments.map((attachment, index) => (
+              <div key={index} className="rounded-lg overflow-hidden">
+                <video
+                  controls
+                  className="max-w-full"
+                  src={attachment.mediaUrl}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Audio attachments */}
+        {audioAttachments.length > 0 && (
+          <div className="space-y-2">
+            {audioAttachments.map((attachment, index) => (
+              <div
+                key={index}
+                className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-100"
+              >
+                <div className="p-2 rounded-md bg-gray-100 flex items-center justify-center">
+                  {getAttachmentIcon(attachment.mimeType, attachment.mediaType)}
+                </div>
+                <div className="flex-1">
+                  <audio
+                    controls
+                    className="w-full"
+                    src={attachment.mediaUrl}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Other attachments */}
+        {otherAttachments.length > 0 && (
+          <div className="space-y-2">
+            {otherAttachments.map((attachment, index) => (
+              <a
+                key={index}
+                href={attachment.mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center space-x-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100"
+              >
+                <div className="p-2 rounded-md bg-gray-100 flex items-center justify-center">
+                  {getAttachmentIcon(attachment.mimeType, attachment.mediaType)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-gray-800 truncate">
+                    {attachment.fileName ||
+                      (attachment.mediaUrl || "file")
+                        .split("/")
+                        .pop()
+                        ?.split("?")[0]
+                        ?.slice(0, 60)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {formatFileSize(attachment.fileSize)}
+                  </div>
+                </div>
+                <div className="flex-shrink-0 ml-3">
+                  <Download size={16} className="text-gray-500" />
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Function to check if content is HTML
   const isHtmlContent = (content: string): boolean => {
     if (!content) return false;
@@ -95,8 +304,7 @@ const Message: React.FC<IProps> = ({
     return null;
   };
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  const token = getTokenByPath();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
@@ -340,80 +548,8 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
-              {/* Media Content */}
-              {message?.mediaUrl && (
-                <div className="mb-3 rounded-lg overflow-hidden">
-                  {message.mediaType === "image" ? (
-                    <img
-                      src={message.mediaUrl}
-                      alt="Attachment"
-                      className="max-w-full max-h-64 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
-                      onClick={() => window.open(message.mediaUrl, "_blank")}
-                    />
-                  ) : message.mediaType === "video" ? (
-                    <video
-                      controls
-                      className="max-w-full rounded-lg"
-                      src={message.mediaUrl}
-                    />
-                  ) : message.mediaType === "audio" ? (
-                    <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 text-sm">🎵</span>
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        Audio message
-                      </span>
-                    </div>
-                  ) : (
-                    <a
-                      href={message.mediaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100"
-                    >
-                      <div className="p-2 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center">
-                        {(() => {
-                          const mime =
-                            message?.attachments?.[0]?.mimeType || "";
-                          const isDoc =
-                            /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
-                              mime,
-                            ) ||
-                            /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
-                              message?.mediaUrl || "",
-                            );
-                          return isDoc ? (
-                            <FileText size={20} />
-                          ) : (
-                            <File size={20} />
-                          );
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">
-                          {message.attachments?.[0]?.fileName ||
-                            (message.mediaUrl || "file")
-                              .split("/")
-                              .pop()
-                              ?.split("?")[0]
-                              ?.slice(0, 60)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {message.attachments?.[0]?.fileSize
-                            ? `${(
-                                Number(message.attachments[0].fileSize) / 1024
-                              ).toFixed(2)} KB`
-                            : "Document"}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 ml-3">
-                        <Download size={16} className="text-gray-500" />
-                      </div>
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Attachments */}
+              {renderAttachments()}
 
               {/* Email Metadata */}
               {message?.channel === "email" && (
@@ -663,78 +799,8 @@ const Message: React.FC<IProps> = ({
                 </div>
               )}
 
-              {/* Media Content */}
-              {message?.mediaUrl && (
-                <div className="mb-3 rounded-lg overflow-hidden">
-                  {message.mediaType === "image" ? (
-                    <img
-                      src={message.mediaUrl}
-                      alt="Attachment"
-                      className="max-w-full max-h-64 object-cover rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
-                      onClick={() => window.open(message.mediaUrl, "_blank")}
-                    />
-                  ) : message.mediaType === "video" ? (
-                    <video
-                      controls
-                      className="max-w-full rounded-lg"
-                      src={message.mediaUrl}
-                    />
-                  ) : message.mediaType === "audio" ? (
-                    <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 text-sm">🎵</span>
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        Audio message
-                      </span>
-                    </div>
-                  ) : (
-                    <a
-                      href={message.mediaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-3 p-3 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
-                    >
-                      <div className="p-2 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center">
-                        {(() => {
-                          const mime =
-                            message?.attachments?.[0]?.mimeType || "";
-                          const isDoc =
-                            /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
-                              mime,
-                            ) ||
-                            /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
-                              message?.mediaUrl || "",
-                            );
-                          return isDoc ? (
-                            <FileText size={20} />
-                          ) : (
-                            <File size={20} />
-                          );
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">
-                          {message.attachments?.[0]?.fileName?.length > 30
-                            ? message.attachments?.[0]?.fileName?.slice(0, 30) +
-                              "..."
-                            : (message.mediaUrl || "file")
-                                .split("/")
-                                .pop()
-                                ?.split("?")[0]
-                                ?.slice(0, 60)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {message.attachments?.[0]?.fileSize}
-                        </div>
-                      </div>
-                      <div className="flex-shrink-0 ml-3">
-                        <Download size={16} className="text-gray-500" />
-                      </div>
-                    </a>
-                  )}
-                </div>
-              )}
+              {/* Attachments */}
+              {renderAttachments()}
 
               {/* Email Metadata */}
               {message?.channel === "email" && (

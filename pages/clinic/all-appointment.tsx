@@ -101,6 +101,7 @@
     const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
       (contextOverride || "clinic") as "clinic" | "agent"
     );
+    const [userRole, setUserRole] = useState<string | null>(null);
     const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
     useEffect(() => {
       if (contextOverride) {
@@ -117,6 +118,53 @@
       const today = new Date();
       return today.toISOString().split('T')[0];
     };
+
+    const getAuthHeaders = useCallback((): Record<string, string> => {
+      if (typeof window === "undefined") return {};
+      let token = null;
+      if (routeContext === "agent") {
+        // Prefer explicit agent tokens; fall back to user tokens
+        token =
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken");
+      } else {
+        token =
+          localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken") ||
+          localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken") ||
+          localStorage.getItem("adminToken") ||
+          sessionStorage.getItem("adminToken") ||
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken") ||
+          localStorage.getItem("staffToken") ||
+          sessionStorage.getItem("staffToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken");
+      }
+      if (!token) return {};
+      return { Authorization: `Bearer ${token}` };
+    }, [routeContext]);
+
+    const getUserRole = useCallback((): string | null => {
+      const headers = getAuthHeaders();
+      const token = headers.Authorization?.replace("Bearer ", "");
+      if (!token) return null;
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.role || null;
+      } catch {
+        return null;
+      }
+    }, [getAuthHeaders]);
+
+    // Set user role on component mount
+    useEffect(() => {
+      const role = getUserRole();
+      setUserRole(role);
+    }, [getUserRole]);
 
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -304,47 +352,6 @@
         }
       };
     }, []);
-
-    const getAuthHeaders = useCallback((): Record<string, string> => {
-      if (typeof window === "undefined") return {};
-      let token = null;
-      if (routeContext === "agent") {
-        // Prefer explicit agent tokens; fall back to user tokens
-        token =
-          localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken") ||
-          localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken");
-      } else {
-        token =
-          localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken") ||
-          localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken") ||
-          localStorage.getItem("adminToken") ||
-          sessionStorage.getItem("adminToken") ||
-          localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken") ||
-          localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken") ||
-          localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken");
-      }
-      if (!token) return {};
-      return { Authorization: `Bearer ${token}` };
-    }, [routeContext]);
-
-    const getUserRole = useCallback((): string | null => {
-      const headers = getAuthHeaders();
-      const token = headers.Authorization?.replace("Bearer ", "");
-      if (!token) return null;
-      try {
-        const payload = JSON.parse(atob(token.split(".")[1]));
-        return payload.role || null;
-      } catch {
-        return null;
-      }
-    }, [getAuthHeaders]);
 
     // Fetch permissions - clinic/doctor fetch from admin-level permissions; agent/doctorStaff use agent permissions
     useEffect(() => {
@@ -1189,7 +1196,9 @@
                                   <span className="px-0.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[7px] sm:text-[8px]">
                                     ID: {apt.patientId.slice(-4) || "N/A"}
                                   </span>
-                                  <span className="text-teal-700 text-[7px] sm:text-[8px]">{apt.patientNumber}</span>
+                                  {userRole !== "doctorStaff" && (
+                                    <span className="text-teal-700 text-[7px] sm:text-[8px]">{apt.patientNumber}</span>
+                                  )}
                                   {apt.gender && (
                                     <span className="px-0.5 py-0.5 bg-gray-100 text-teal-800 rounded text-[7px] sm:text-[8px] flex items-center gap-0.5">
                                       {getGenderIcon(apt.gender)} {apt.gender}

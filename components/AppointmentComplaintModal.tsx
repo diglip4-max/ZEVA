@@ -50,6 +50,47 @@ import { getTokenByPath, handleUpload } from "@/lib/helper";
 import useAllocatedItems from "@/hooks/useAllocatedItems";
 import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/stock-transfer-requests/_components/AddStockTransferRequestModal";
 
+// Helper function to get user role from token
+const getUserRole = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const isClinicPath = window.location.pathname.startsWith('/clinic/');
+    let tokenKeys;
+    if (isClinicPath) {
+      tokenKeys = ['clinicToken', 'doctorToken', 'agentToken', 'staffToken', 'userToken', 'adminToken'];
+    } else {
+      tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
+    }
+    
+    for (const key of tokenKeys) {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const role = payload.role || null;
+          
+          if (role && ['agent', 'doctorStaff', 'doctor', 'clinic', 'staff', 'admin'].includes(role)) {
+            return role;
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting user role:', error);
+  }
+  return null;
+};
+
+const maskMobileNumber = (mobile: string) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 interface AppointmentLite {
   _id: string;
   patientName: string;
@@ -205,8 +246,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     uom?: string;
   };
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>("");
   const [currency, setCurrency] = useState('INR');
+  const [isSpecificClinic, setIsSpecificClinic] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
+  }, []);
   const [details, setDetails] = useState<AppointmentDetails | null>(null);
   const [report, setReport] = useState<SingleReport | null>(null);
   const [_patientReports, setPatientReports] = useState<
@@ -549,6 +599,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [servicesSaved, setServicesSaved] = useState(false);
   const [servicesError, setServicesError] = useState("");
   const [loadingServices, setLoadingServices] = useState(false);
+  const [deletingTreatmentId, setDeletingTreatmentId] = useState<string | null>(null);
 
   // Custom Service Add state
   const [showAddCustomService, setShowAddCustomService] = useState(false);
@@ -622,21 +673,28 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
   }, [pkgModalStartDate, pkgModalValidityInMonths]);
 
-  // Fetch clinic currency preference
+  // Fetch clinic currency preference and check if it's the specific clinic
   useEffect(() => {
-    const fetchClinicCurrency = async () => {
+    const fetchClinicData = async () => {
       try {
         const headers = getAuthHeaders();
         if (!headers?.Authorization) return;
         const res = await axios.get('/api/clinics/myallClinic', { headers });
-        if (res.data.success && res.data.clinic?.currency) {
-          setCurrency(res.data.clinic.currency);
+        if (res.data.success && res.data.clinic) {
+          if (res.data.clinic.currency) {
+            setCurrency(res.data.clinic.currency);
+          }
+          // Check if it's the specific clinic by clinic ID or owner ID
+          const isSpecific = 
+            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
+            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          setIsSpecificClinic(isSpecific);
         }
       } catch (e) {
         // Silently ignore - default to INR
       }
     };
-    fetchClinicCurrency();
+    fetchClinicData();
   }, []);
 
    // SEND CONSENT FORM MSG ON WHATSAPP
@@ -1044,6 +1102,270 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
     fetchDetails();
   }, [isOpen, appointment, getAuthHeaders]);
+
+  // Refresh all server-side data while preserving user-entered (unsaved) inputs
+  // in complaint, progress, and prescription sections.
+  const handleRefresh = async () => {
+    if (!appointment || !details) return;
+
+    // Snapshot user-entered data so it survives the re-fetch
+    const preserved = {
+      complaints,
+      beforeImage,
+      afterImage,
+      items,
+      currentItem,
+      selectedServices,
+      newEntryText,
+      newEntryDate,
+      medicines,
+      aftercareInstructions,
+      includeInPdf,
+      checklist,
+      isDoctorDiscountApplied,
+      activeTab,
+      selectedConsentId,
+      nextSessionDate,
+      nextSessionTime,
+      nextSessionRoom,
+      addingNewEntry,
+      customServiceName,
+      customServicePrice,
+      customServiceClinicPrice,
+      customServiceDuration,
+      customServiceDepartment,
+      pkgModalName,
+      pkgModalPrice,
+      pkgModalValidityInMonths,
+      pkgModalStartDate,
+      pkgModalEndDate,
+      pkgSelectedTreatments,
+    };
+
+    setRefreshing(true);
+    setError("");
+    try {
+      const headers = getAuthHeaders();
+      const response = await axios.get("/api/clinic/appointment-reports", {
+        headers,
+        params: { appointmentId: appointment._id },
+      });
+
+      if (!response.data?.success) {
+        setError(response.data?.message || "Failed to refresh data");
+        return;
+      }
+
+      setDetails(response.data.appointment || null);
+
+      if (response.data.report) {
+        const r = response.data.report;
+        setReport({
+          reportId: r.reportId,
+          temperatureCelsius: r.temperatureCelsius,
+          pulseBpm: r.pulseBpm,
+          systolicBp: r.systolicBp,
+          diastolicBp: r.diastolicBp,
+          heightCm: r.heightCm,
+          weightKg: r.weightKg,
+          waistCm: r.waistCm,
+          respiratoryRate: r.respiratoryRate,
+          spo2Percent: r.spo2Percent,
+          hipCircumference: r.hipCircumference,
+          headCircumference: r.headCircumference,
+          bmi: r.bmi,
+          sugar: r.sugar,
+          urinalysis: r.urinalysis,
+          otherDetails: r.otherDetails,
+          updatedAt: r.updatedAt,
+        });
+      } else {
+        setReport(null);
+        setShowVitalsWarning(true);
+      }
+
+      setPatientReports(
+        Array.isArray(response.data.patientReports)
+          ? response.data.patientReports
+          : [],
+      );
+
+      // Re-fetch related data in parallel
+      if (response.data.appointment?.patientId) {
+        const patientId = response.data.appointment.patientId;
+        await Promise.allSettled([
+          fetchPreviousComplaints(patientId),
+          fetchPatientStats(patientId),
+          fetchPatientBalance(patientId),
+          fetchUpcomingAppointments(patientId),
+          fetchConsentStatuses(patientId),
+        ]);
+
+        // Refresh progress notes if the progress tab is active
+        if (preserved.activeTab === "progress") {
+          try {
+            setLoadingProgressNotes(true);
+            const res = await axios.get("/api/clinic/progress-notes", {
+              headers,
+              params: { patientId },
+            });
+            if (res.data?.success) {
+              setProgressNotes(res.data.notes || []);
+            }
+          } catch {
+            // ignore
+          } finally {
+            setLoadingProgressNotes(false);
+          }
+        }
+
+        // Refresh prescription history if the prescription tab is active
+        if (preserved.activeTab === "prescription") {
+          try {
+            setLoadingPrescriptionHistory(true);
+            const res = await axios.get("/api/clinic/prescriptions", {
+              headers,
+              params: { patientId },
+            });
+            if (res.data?.success) {
+              setPrescriptionHistory(res.data.prescriptions || []);
+            }
+          } catch {
+            // ignore
+          } finally {
+            setLoadingPrescriptionHistory(false);
+          }
+        }
+      }
+
+      // Re-fetch smart recommendations + doctor discount
+      if (response.data.appointment?.doctorId) {
+        const docId =
+          typeof response.data.appointment.doctorId === "object"
+            ? response.data.appointment.doctorId._id
+            : response.data.appointment.doctorId;
+
+        if (docId) {
+          await Promise.allSettled([
+            fetchSmartRecommendations(docId, headers),
+            fetchDoctorDiscount(docId, headers),
+          ]);
+        }
+      }
+
+      // Restore all user-entered data so nothing the user typed is lost
+      setComplaints(preserved.complaints);
+      setBeforeImage(preserved.beforeImage);
+      setAfterImage(preserved.afterImage);
+      setItems(preserved.items);
+      setCurrentItem(preserved.currentItem);
+      setSelectedServices(preserved.selectedServices);
+      setNewEntryText(preserved.newEntryText);
+      setNewEntryDate(preserved.newEntryDate);
+      setMedicines(preserved.medicines);
+      setAftercareInstructions(preserved.aftercareInstructions);
+      setIncludeInPdf(preserved.includeInPdf);
+      setChecklist(preserved.checklist);
+      setIsDoctorDiscountApplied(preserved.isDoctorDiscountApplied);
+      setActiveTab(preserved.activeTab);
+      setSelectedConsentId(preserved.selectedConsentId);
+      setNextSessionDate(preserved.nextSessionDate);
+      setNextSessionTime(preserved.nextSessionTime);
+      setNextSessionRoom(preserved.nextSessionRoom);
+      setAddingNewEntry(preserved.addingNewEntry);
+      setCustomServiceName(preserved.customServiceName);
+      setCustomServicePrice(preserved.customServicePrice);
+      setCustomServiceClinicPrice(preserved.customServiceClinicPrice);
+      setCustomServiceDuration(preserved.customServiceDuration);
+      setCustomServiceDepartment(preserved.customServiceDepartment);
+      setPkgModalName(preserved.pkgModalName);
+      setPkgModalPrice(preserved.pkgModalPrice);
+      setPkgModalValidityInMonths(preserved.pkgModalValidityInMonths);
+      setPkgModalStartDate(preserved.pkgModalStartDate);
+      setPkgModalEndDate(preserved.pkgModalEndDate);
+      setPkgSelectedTreatments(preserved.pkgSelectedTreatments);
+
+      toast.success("Data refreshed");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to refresh data");
+      toast.error("Failed to refresh data");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Delete a treatment from the appointment
+  const handleDeleteTreatment = async (treatmentIndex: number) => {
+    if (!details?.appointmentId) {
+      toast.error("Appointment ID not found");
+      return;
+    }
+
+    // Get the service ID to remove
+    const serviceIds = Array.isArray(details.serviceIds) ? [...details.serviceIds] : [];
+    const serviceIdToRemove = serviceIds[treatmentIndex];
+
+    if (!serviceIdToRemove) {
+      toast.error("Service ID not found for this treatment");
+      return;
+    }
+
+    setDeletingTreatmentId(serviceIdToRemove);
+
+    try {
+      const headers = getAuthHeaders();
+
+      // Remove the service ID from the array
+      const updatedServiceIds = serviceIds.filter((_, idx) => idx !== treatmentIndex);
+
+      // Call the update appointment API
+      const response = await axios.put(
+        `/api/clinic/update-appointment/${details.appointmentId}`,
+        {
+          patientId: details.patientId,
+          doctorId: details.doctorId,
+          roomId: details.roomId || "",
+          status: details.status || "in-progress",
+          followType: "follow up",
+          startDate: details.startDate,
+          fromTime: details.fromTime || "",
+          toTime: details.toTime || "",
+          referral: "direct",
+          emergency: "no",
+          notes: "",
+          serviceId: updatedServiceIds.length > 0 ? updatedServiceIds[0] : "",
+          serviceIds: updatedServiceIds,
+        },
+        { headers }
+      );
+
+      if (response.data?.success) {
+        // Update local state
+        setDetails(prev => {
+          if (!prev) return prev;
+          const newServiceNames = prev.serviceNames?.filter((_, idx) => idx !== treatmentIndex) || [];
+          const newServiceIds = prev.serviceIds?.filter((_, idx) => idx !== treatmentIndex) || [];
+          return {
+            ...prev,
+            serviceNames: newServiceNames,
+            serviceIds: newServiceIds,
+            serviceId: newServiceIds.length > 0 ? newServiceIds[0] : undefined,
+          };
+        });
+
+        // Also remove from selectedServices if present
+        setSelectedServices(prev => prev.filter(svc => svc._id !== serviceIdToRemove));
+
+        toast.success("Treatment removed successfully");
+      } else {
+        toast.error(response.data?.message || "Failed to remove treatment");
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to remove treatment");
+    } finally {
+      setDeletingTreatmentId(null);
+    }
+  };
 
   // Fetch doctor departments + services for smart recommendations
   const fetchSmartRecommendations = async (doctorStaffId: string, headers: Record<string, string>) => {
@@ -1557,6 +1879,41 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   const handleSaveComplaints = async () => {
     if (!appointment || !details) return;
+
+    // Check if a complaint already exists for this appointment
+    const existingComplaint = previousComplaints.find((c) => {
+      const complaintApptId = typeof c.appointmentId === 'object'
+        ? c.appointmentId?._id?.toString()
+        : c.appointmentId?.toString();
+      return complaintApptId === details.appointmentId?.toString();
+    });
+
+    if (existingComplaint) {
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">Complaint Already Exists</span>
+          <span className="text-xs opacity-80">A complaint has already been created for this appointment. You cannot create another complaint for the same appointment.</span>
+        </div>,
+        {
+          duration: 5000,
+          position: 'top-right',
+          style: {
+            background: '#ef4444',
+            color: '#fff',
+            padding: '16px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 9999,
+            maxWidth: '500px',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#ef4444',
+          },
+        }
+      );
+      return;
+    }
 
     if (!report || !report.reportId) {
       toast.error(
@@ -2219,7 +2576,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </span>
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-gray-400" />
-                          <span>{details.mobileNumber || ""}</span>
+                          <span>{userRole === "doctorStaff" ? (details.mobileNumber ? maskMobileNumber(details.mobileNumber) : "") : (details.mobileNumber || "")}</span>
                         </span>
                       </div>
                     </div>
@@ -2276,6 +2633,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       onClick={() => { if (activeTab !== "complaint") setActiveTab("complaint"); setTimeout(() => { previousComplaintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }}
                       className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">
                       <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> History {previousComplaints.length > 0 && `(${previousComplaints.length})`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRefresh}
+                      disabled={refreshing || loading}
+                      title="Refresh data (keeps unsaved entries)"
+                      className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      <RefreshCw size={10} className={`sm:w-[11px] sm:h-[11px] ${refreshing ? "animate-spin" : ""}`} />
+                      {refreshing ? "Refreshing..." : "Refresh"}
                     </button>
                     <button onClick={onClose} className="ml-1 text-gray-400 hover:text-gray-600 p-1 sm:p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">
                       <X className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -3442,7 +3809,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
                             {/* Item selector */}
                             <div className="relative" ref={allocatedDropdownRef}>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Item <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Item {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
                               <div
                                 className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg flex items-center justify-between cursor-pointer bg-white h-10 hover:border-gray-400 transition-colors"
                                 onClick={() => setIsAllocatedDropdownOpen(!isAllocatedDropdownOpen)}
@@ -3496,7 +3863,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* Qty */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">Qty {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
                               <input
                                 type="number"
                                 min={1}
@@ -3513,7 +3880,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* UOM */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">UOM <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">UOM {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
                               <select
                                 value={currentItem.uom || ""}
                                 onChange={(e) => handleCurrentItemChange("uom", e.target.value)}
@@ -4942,7 +5309,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     <div className="space-y-5">
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines <span className="text-red-500">*</span></h3>
+                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines </h3>
                           <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
                           >
@@ -6916,12 +7283,31 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     {details?.serviceNames && details.serviceNames.length > 0 && (
                       <div>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Active Treatments</p>
-                        {details.serviceNames.map((name, i) => (
-                          <div key={i} className="flex items-center gap-2 py-1">
-                            <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                            <span className="text-xs text-gray-700 truncate">{name}</span>
-                          </div>
-                        ))}
+                        {details.serviceNames.map((name, i) => {
+                          const serviceId = details.serviceIds?.[i];
+                          const isDeleting = deletingTreatmentId === serviceId;
+                          return (
+                            <div key={i} className="flex items-center justify-between gap-2 py-1 group">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                                <span className="text-xs text-gray-700 truncate">{name}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTreatment(i)}
+                                disabled={isDeleting}
+                                title="Remove treatment"
+                                className="text-red-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                {isDeleting ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Trash2 size={14} />
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                    

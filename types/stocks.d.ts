@@ -122,6 +122,48 @@ export type PurchaseRecord = {
   updatedAt: string;
 };
 
+export type CustomStockItem = {
+  _id: string;
+  clinicId: string;
+  name: string;
+  code?: string;
+  status: "New" | "Allocated" | "Expired";
+  description?: string;
+  expiryDate?: Date | string;
+  quantity: number;
+  uom?: string;
+  unitPrice: number;
+  totalPrice: number;
+  discount?: number;
+  discountType?: "Fixed" | "Percentage";
+  discountAmount?: number;
+  netPrice: number;
+  vatAmount?: number;
+  vatType?: "Exclusive" | "Inclusive";
+  vatPercentage?: number;
+  netPlusVat?: number;
+  freeQuantity?: number;
+  freeQuantityExpiryDate?: Date | string;
+  level0?: {
+    price?: number;
+    uom?: string;
+  };
+  packagingStructure?: {
+    level1?: {
+      quantity?: number;
+      price?: number;
+      uom?: string;
+    };
+    level2?: {
+      quantity?: number;
+      price?: number;
+      uom?: string;
+    };
+  };
+  createdAt: Date | string;
+  updatedAt: Date | string;
+};
+
 export type Supplier = {
   _id: string;
   code: string;
@@ -146,4 +188,17 @@ export type Supplier = {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type PaymentMethodStatus = "active" | "inactive";
+
+export type PaymentMethod = {
+  _id: string;
+  clinicId: string;
+  name: string;
+  uniqueName: string;
+  status: PaymentMethodStatus;
+  createdBy: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 };

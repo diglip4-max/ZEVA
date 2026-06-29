@@ -9,6 +9,7 @@ import Commission from "../../../models/Commission";
 import AgentProfile from "../../../models/AgentProfile";
 import InsuranceClaim from "../../../models/InsuranceClaim";
 import PettyCash from "../../../models/PettyCash";
+import StaffTip from "../../../models/StaffTip";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
@@ -243,6 +244,8 @@ export default async function handler(req, res) {
         cashbackWalletUsed,
         // Unpaid packages being paid in this billing
         unpaidPackagesPaid,
+        // Staff tips
+        staffTips,
       } = req.body;
 
     console.log({ bmModify: req.body });
@@ -380,9 +383,10 @@ export default async function handler(req, res) {
                               (unpaidPackagesPaid && Array.isArray(unpaidPackagesPaid) && unpaidPackagesPaid.length > 0);
 
     // NOTE: Treatments and a Package can now be billed in the same invoice.
-    // Run package validation whenever a packageName + selectedPackageTreatments are present,
-    // regardless of whether `service` is set to "Package" or "Treatment".
-    const hasPackagePayload = !!packageName && Array.isArray(selectedPackageTreatments) && selectedPackageTreatments.length > 0;
+    // Run package validation whenever a packageName is present.
+    // For NEW packages being purchased (without consuming sessions), selectedPackageTreatments may be empty.
+    // For EXISTING packages, selectedPackageTreatments will have the sessions being consumed.
+    const hasPackagePayload = !!packageName;
     
     // Declare package-related variables outside the block so they are accessible later
     let pkgDoc = null;
@@ -433,13 +437,32 @@ export default async function handler(req, res) {
         // console.log("Regular Package lookup result:", pkgDoc ? "Found" : "NOT FOUND");
       }
 
+      if (!pkgDoc && !isUserPackage) {
+        // Package not found in master catalogue — it may have been deleted AFTER being sold.
+        // Attempt to reconstruct a synthetic pkgDoc from the packageSnapshot stored in the
+        // patient's packages sub-document. This preserves full billing capability for patients
+        // who already hold the package.
+        const patientPkgEntry = (patientRegistration.packages || []).find(
+          (p) => (p.packageName === packageName) ||
+                 (p.packageSnapshot && p.packageSnapshot.name === packageName)
+        );
+        if (patientPkgEntry && patientPkgEntry.packageSnapshot && patientPkgEntry.packageSnapshot.name) {
+          const snap = patientPkgEntry.packageSnapshot;
+          pkgDoc = {
+            _id: patientPkgEntry.packageId,
+            name: snap.name,
+            totalPrice: snap.totalPrice || patientPkgEntry.totalPrice || 0,
+            totalSessions: snap.totalSessions || 0,
+            sessionPrice: snap.sessionPrice || 0,
+            validityInMonths: snap.validityInMonths || patientPkgEntry.validityInMonths || 0,
+            treatments: Array.isArray(snap.treatments) ? snap.treatments : [],
+            isDeletedMaster: true,
+          };
+          console.log(`[PKG_BILLING] Deleted-master package "${packageName}" reconstructed from snapshot for patient ${patientRegistration._id}`);
+        }
+      }
+
       if (!pkgDoc) {
-        // console.log("PACKAGE NOT FOUND - details:", {
-        //   packageName,
-        //   isUserPackage,
-        //   patientPackageId,
-        //   clinicId: clinic._id
-        // });
         // Only return error if !hasPendingAmount (since if hasPendingAmount, it's probably unpaid package payment)
         if (!hasPendingAmount) {
           return res.status(404).json({
@@ -555,15 +578,33 @@ export default async function handler(req, res) {
       
       if (!hasPendingAmount) {
         // Only run the validation if !hasPendingAmount
-        if (
-          !packageName ||
-          !Array.isArray(selectedPackageTreatments) ||
-          selectedPackageTreatments.length === 0
-        ) {
+        // For NEW packages being purchased (without consuming sessions), selectedPackageTreatments can be empty
+        // For EXISTING packages, at least one treatment must be selected
+        const hasSelectedTreatments = Array.isArray(selectedPackageTreatments) && selectedPackageTreatments.length > 0;
+        
+        if (!packageName) {
           return res.status(400).json({
             success: false,
-            message: "Please select a package and at least one treatment",
+            message: "Please select a package",
           });
+        }
+        
+        // If no treatments selected, check if this is a new package purchase (allowed) or existing package (not allowed)
+        if (!hasSelectedTreatments) {
+          // Check if package already exists in patient's profile (existing package)
+          const existingPkgCheck = (patientRegistration.packages || []).find(
+            (p) => String(p.packageId) === String(pkgDoc._id)
+          );
+          const isMainPkgCheck = String(patientRegistration.packageId) === String(pkgDoc._id);
+          
+          // If package exists in patient profile, require treatment selection
+          if (existingPkgCheck || isMainPkgCheck) {
+            return res.status(400).json({
+              success: false,
+              message: "Please select at least one treatment from the package",
+            });
+          }
+          // New package purchase without treatments is allowed - skip session validation
         }
         
         const maxSessionsMap = new Map();
@@ -572,6 +613,37 @@ export default async function handler(req, res) {
             maxSessionsMap.set(t.treatmentSlug, parseInt(t.sessions) || 0);
           }
         });
+        console.log(`[BILLING_DEBUG] Step 1 - maxSessionsMap from pkgDef:`, Object.fromEntries(maxSessionsMap));
+
+        // For transferred packages, scale down max sessions proportionally to the transferred amount.
+        const transferredInRecord = (patientRegistration.packageTransfers || []).find(
+          (t) => t.type === "in" && t.packageName === packageName
+        );
+        console.log(`[BILLING_DEBUG] Step 2 - transferredInRecord:`, transferredInRecord ? { packageName: transferredInRecord.packageName, transferredSessions: transferredInRecord.transferredSessions, type: transferredInRecord.type } : 'NOT FOUND');
+        if (transferredInRecord) {
+          const totalPkgSessions = (pkgDoc.treatments || []).reduce(
+            (sum, t) => sum + (parseInt(t.sessions) || 0), 0
+          );
+          const transferredSessions = transferredInRecord.transferredSessions || 0;
+          console.log(`[BILLING_DEBUG] Step 2b - totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}`);
+          if (totalPkgSessions > 0 && transferredSessions < totalPkgSessions) {
+            const scale = transferredSessions / totalPkgSessions;
+            console.log(`[BILLING_DEBUG] Step 2c - Scaling by factor ${scale.toFixed(4)}`);
+            maxSessionsMap.forEach((sessions, slug) => {
+              const scaled = Math.max(0, Math.round(sessions * scale));
+              console.log(`[BILLING_DEBUG]   treatment ${slug}: ${sessions} -> ${scaled}`);
+              maxSessionsMap.set(slug, scaled);
+            });
+          } else if (totalPkgSessions > 0 && transferredSessions >= totalPkgSessions) {
+            console.log(`[BILLING_DEBUG] Step 2c - transferredSessions >= totalPkgSessions, no scaling needed`);
+          } else if (totalPkgSessions === 0) {
+            console.log(`[BILLING_DEBUG] Step 2c - totalPkgSessions=0, setting each treatment to ${transferredSessions}`);
+            maxSessionsMap.forEach((_, slug) => {
+              maxSessionsMap.set(slug, transferredSessions);
+            });
+          }
+        }
+        console.log(`[BILLING_DEBUG] Step 3 - Final maxSessionsMap:`, Object.fromEntries(maxSessionsMap));
 
         // Previous billings that consumed this package's sessions.
         // Treatments and a Package can now coexist on a single billing, so we no longer
@@ -604,10 +676,13 @@ export default async function handler(req, res) {
             );
           });
         });
+        console.log(`[BILLING_DEBUG] Step 4 - previousBillings count: ${previousBillings.length}, previouslyUsedMap:`, Object.fromEntries(previouslyUsedMap));
+        console.log(`[BILLING_DEBUG] Step 5 - selectedPackageTreatments:`, selectedPackageTreatments.map(t => ({ name: t.treatmentName, slug: t.treatmentSlug, sessions: t.sessions })));
         for (const t of selectedPackageTreatments) {
           const slug = t.treatmentSlug;
           const newSessions = parseInt(t.sessions) || 0;
           const maxSessions = maxSessionsMap.get(slug);
+          console.log(`[BILLING_DEBUG] Step 5b - Validating "${t.treatmentName}": maxSessions=${maxSessions}, previouslyUsed=${previouslyUsedMap.get(slug) || 0}, newSessions=${newSessions}`);
           if (maxSessions === undefined) {
             return res.status(400).json({
               success: false,
@@ -644,6 +719,29 @@ export default async function handler(req, res) {
             });
           }
         }
+
+        // For transferred packages, also enforce a total sessions cap across all treatments.
+        // Per-treatment scaling with rounding could allow more total sessions than transferred.
+        if (transferredInRecord) {
+          const transferredSessions = transferredInRecord.transferredSessions || 0;
+          const totalPreviouslyUsed = Array.from(previouslyUsedMap.values()).reduce((sum, v) => sum + v, 0);
+          const totalRequested = selectedPackageTreatments.reduce((sum, it) => sum + (parseInt(it.sessions) || 0), 0);
+          const totalRemaining = Math.max(0, transferredSessions - totalPreviouslyUsed);
+          console.log(`[BILLING_DEBUG] Step 6 - Total cap check: transferredSessions=${transferredSessions}, totalPreviouslyUsed=${totalPreviouslyUsed}, totalRequested=${totalRequested}, totalRemaining=${totalRemaining}`);
+          if (totalRemaining <= 0) {
+            return res.status(400).json({
+              success: false,
+              message: `All ${transferredSessions} transferred session(s) of "${packageName}" have already been used.`,
+            });
+          }
+          if (totalRequested > totalRemaining) {
+            return res.status(400).json({
+              success: false,
+              message: `Invalid total session count. You can bill at most ${totalRemaining} more session(s) out of ${transferredSessions} transferred.`,
+            });
+          }
+        }
+
         const sumSessions = selectedPackageTreatments.reduce(
           (sum, it) => sum + (parseInt(it.sessions) || 0),
           0,
@@ -711,10 +809,22 @@ export default async function handler(req, res) {
     // 4. Final Pending = Net Due - Paid (if Net Due > Paid)
     // 5. Final Advance = Paid - Net Due (if Paid > Net Due)
 
+    console.log('[AdvanceDebug] Input values:', {
+      amountNum,
+      paidNum,
+      advanceUsedNum,
+      claimAmountUsedNum,
+      totalPastAdvanceUsed,
+      pendingUsedNum,
+      frontendAdvance: parseFloat(advance) || 0
+    });
+
     const netDue = Math.max(
       0,
       amountNum - advanceUsedNum - claimAmountUsedNum - totalPastAdvanceUsed,
     );
+
+    console.log('[AdvanceDebug] Calculated netDue:', netDue);
 
     if (paidNum > netDue) {
       finalAdvance = paidNum - netDue;
@@ -723,6 +833,13 @@ export default async function handler(req, res) {
       finalPending = netDue - paidNum;
       finalAdvance = 0;
     }
+
+    console.log('[AdvanceDebug] Final calculated values:', {
+      finalAdvance,
+      finalPending,
+      paidNum,
+      netDue
+    });
 
     // Use the calculated final values for storage
     const pendingToStore = finalPending;
@@ -754,6 +871,45 @@ export default async function handler(req, res) {
         calculation: `Start Date + ${cashbackExpiryDays} days = End Date`
       });
     }
+
+    // Build multiplePayments array: include user-provided payments plus advance, claim, pending, cashback usage
+    const finalMultiPayArr = [
+      ...multiPayArr.map((mp) => ({
+        paymentMethod: mp.paymentMethod,
+        amount: parseFloat(mp.amount) || 0,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "PAYMENT"
+      })),
+      ...(advanceUsedNum > 0 ? [{
+        paymentMethod: "Advance Balance",
+        amount: advanceUsedNum,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "ADVANCE_USAGE"
+      }] : []),
+      ...(claimAmountUsedNum > 0 ? [{
+        paymentMethod: "Insurance Claim",
+        amount: claimAmountUsedNum,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "CLAIM_USAGE"
+      }] : []),
+      ...(pendingUsedNum > 0 ? [{
+        paymentMethod: paymentMethod || "Cash",
+        amount: pendingUsedNum,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "PENDING_CLEARANCE"
+      }] : []),
+      ...(cashbackWalletUsed > 0 ? [{
+        paymentMethod: "Cashback Wallet",
+        amount: cashbackWalletUsed,
+        paidAt: new Date(),
+        paidBy: clinicUser._id,
+        transactionType: "CASHBACK_USAGE"
+      }] : [])
+    ];
 
     // Create billing record
     const billingData = {
@@ -797,19 +953,13 @@ export default async function handler(req, res) {
       pending: pendingToStore,
       advance: advanceToStore,
       pastAdvance: finalPastAdvance,
-      multiplePayments: multiPayArr.map((mp) => ({
-        paymentMethod: mp.paymentMethod,
-        amount: parseFloat(mp.amount) || 0,
-      })),
+      multiplePayments: finalMultiPayArr,
       paymentHistory: [
         {
           amount: amountNum,
           paid: paidNum,
           pending: finalPending,
-          multiplePayments: multiPayArr.map((mp) => ({
-            paymentMethod: mp.paymentMethod,
-            amount: parseFloat(mp.amount) || 0,
-          })),
+          multiplePayments: finalMultiPayArr,
           status: "Active",
           updatedAt: new Date(),
         },
@@ -871,6 +1021,33 @@ export default async function handler(req, res) {
     // console.log('[BundleAPI] billingData.usedFreeSessionCount:', billingData.usedFreeSessionCount);
 
     const billing = await Billing.create(billingData);
+
+    // Handle staff tips
+    let createdStaffTips = [];
+    if (staffTips && Array.isArray(staffTips) && staffTips.length > 0) {
+      for (const tip of staffTips) {
+        try {
+          const createdTip = await StaffTip.create({
+            clinicId: clinic._id,
+            billingId: billing._id,
+            appointmentId: appointment._id,
+            patientId: patientRegistration._id,
+            staffId: tip.staffId,
+            staffName: tip.staffName,
+            staffRole: tip.staffRole,
+            amount: tip.amount,
+            paymentMethod: tip.paymentMethod,
+            notes: tip.notes || "",
+            createdBy: clinicUser._id,
+            createdByName: clinicUser.name || `${clinicUser.firstName || ''} ${clinicUser.lastName || ''}`.trim() || 'Unknown',
+          });
+          createdStaffTips.push(createdTip);
+        } catch (tipError) {
+          console.error('[CreatePatientRegistration] Error creating staff tip:', tipError);
+          // Don't fail the billing if tip creation fails
+        }
+      }
+    }
    
 
     // ============================================================
@@ -932,6 +1109,111 @@ export default async function handler(req, res) {
       // Never fail the billing because the ledger write failed;
       // log and continue. A backfill migration can repair this.
      
+    }
+
+    // ============================================================
+    // NEW PACKAGE ASSIGNMENT: If a package is being billed that does
+    // NOT yet exist in the patient's packages array, assign it now.
+    // This handles the scenario where a patient purchases a new
+    // package through billing (same as assign-package-to-patient +
+    // package-billing combined).
+    // ============================================================
+    try {
+      if (hasPackagePayload && pkgDoc && !isUserPackage) {
+        // Check if this package is already assigned to the patient
+        const existingPkgInPatient = (patientRegistration.packages || []).find(
+          (p) => String(p.packageId) === String(pkgDoc._id)
+        );
+
+        if (!existingPkgInPatient) {
+          console.log(`[NewPackageAssign] Package "${packageName}" not in patient packages — assigning now.`);
+
+          // Calculate paid amount for the package portion.
+          // When billing treatments + package together, use totalPackageSessionValue
+          // as the package's total; otherwise use pkgDoc.totalPrice.
+          const pkgTotalForAssignment = totalPackageSessionValue > 0 ? totalPackageSessionValue : (pkgDoc.totalPrice || 0);
+
+          // Determine how much of the total paid amount applies to the package.
+          // Proportional split: if total billing = 100 and package = 40, then 40% of paid goes to package.
+          let pkgPaidAmount = 0;
+          if (amountNum > 0 && pkgTotalForAssignment > 0) {
+            const pkgRatio = pkgTotalForAssignment / amountNum;
+            pkgPaidAmount = Number((paidNum * pkgRatio).toFixed(2));
+          }
+
+          // Determine payment status for the package assignment
+          let pkgAssignPaymentStatus = "Unpaid";
+          if (pkgPaidAmount >= pkgTotalForAssignment && pkgTotalForAssignment > 0) {
+            pkgAssignPaymentStatus = "Full";
+          } else if (pkgPaidAmount > 0) {
+            pkgAssignPaymentStatus = "Partial";
+          }
+
+          // Build package snapshot for resilience
+          const snapshotName = pkgDoc.name || packageName;
+          const snapshotTotalPrice = pkgTotalForAssignment;
+          const snapshotTotalSessions = pkgDoc.totalSessions || 0;
+          const snapshotSessionPrice = pkgDoc.sessionPrice || 0;
+          const snapshotValidity = pkgDoc.validityInMonths || 0;
+          const snapshotTreatments = Array.isArray(pkgDoc.treatments) ? pkgDoc.treatments.map((t) => ({
+            treatmentName: t.treatmentName || '',
+            treatmentSlug: t.treatmentSlug || '',
+            allocatedPrice: t.allocatedPrice || 0,
+            sessions: t.sessions || 1,
+            sessionPrice: t.sessionPrice || 0,
+          })) : [];
+
+          const packageSnapshot = {
+            name: snapshotName,
+            totalPrice: snapshotTotalPrice,
+            totalSessions: snapshotTotalSessions,
+            sessionPrice: snapshotSessionPrice,
+            validityInMonths: snapshotValidity,
+            startDate: pkgDoc.startDate ? new Date(pkgDoc.startDate) : new Date(),
+            endDate: pkgDoc.endDate ? new Date(pkgDoc.endDate) : null,
+            treatments: snapshotTreatments,
+            snapshotCreatedAt: new Date(),
+          };
+
+          const newPackageEntry = {
+            packageId: pkgDoc._id,
+            packageName: snapshotName,
+            packageSoldBy: clinicUser.name || `${clinicUser.firstName || ''} ${clinicUser.lastName || ''}`.trim() || 'Unknown',
+            packageSoldByUserId: clinicUser._id,
+            assignedDate: new Date(),
+            validityInMonths: pkgDoc.validityInMonths || 0,
+            startDate: pkgDoc.startDate ? new Date(pkgDoc.startDate) : new Date(),
+            endDate: pkgDoc.endDate ? new Date(pkgDoc.endDate) : null,
+            totalPrice: pkgTotalForAssignment,
+            paidAmount: pkgPaidAmount,
+            paymentStatus: pkgAssignPaymentStatus,
+            paymentMethod: multiPayArr.length > 0 ? "Multiple Payments" : (paymentMethod || "Cash"),
+            advanceBalanceUsed: advanceUsedNum,
+            claimAmountUsed: claimAmountUsedNum,
+            packageSnapshot,
+          };
+
+          await PatientRegistration.findByIdAndUpdate(
+            patientRegistration._id,
+            {
+              $push: { packages: newPackageEntry },
+              $set: { package: "Yes" },
+            }
+          );
+
+          console.log(`[NewPackageAssign] ✓ Package "${packageName}" assigned to patient ${patientRegistration._id}`, {
+            totalPrice: pkgTotalForAssignment,
+            paidAmount: pkgPaidAmount,
+            paymentStatus: pkgAssignPaymentStatus,
+          });
+        } else {
+          console.log(`[NewPackageAssign] Package "${packageName}" already in patient packages — skipping assignment.`);
+        }
+      }
+    } catch (pkgAssignErr) {
+      // Never fail the billing because the package assignment failed;
+      // log and continue. The billing record is already created.
+      console.error("[NewPackageAssign] ✗ Failed to assign new package to patient:", pkgAssignErr.message);
     }
 
     // Calculate cash amount (handle single and multiple payments)
@@ -1283,8 +1565,27 @@ export default async function handler(req, res) {
     
     // Calculate package and service parts
     const hasPackageTreatments = hasPackagePayload && selectedPackageTreatments.length > 0;
-    const serviceAmount = hasPackageTreatments ? Math.max(0, amountNum - totalPackageSessionValue) : amountNum;
-    const packageAmount = hasPackageTreatments ? totalPackageSessionValue : 0;
+    
+    // For NEW package purchases without treatments (package-only billing):
+    // - totalPackageSessionValue = 0 (no treatments consumed)
+    // - The entire amountNum is for the package purchase
+    // For EXISTING package billing with treatments:
+    // - totalPackageSessionValue > 0 (sessions consumed)
+    // - Split between service and package amounts
+    let serviceAmount, packageAmount;
+    if (hasPackageTreatments) {
+      // Has selected treatments - split between service and package
+      serviceAmount = Math.max(0, amountNum - totalPackageSessionValue);
+      packageAmount = totalPackageSessionValue;
+    } else if (hasPackagePayload && totalPackageSessionValue === 0) {
+      // New package purchase without treatments - entire amount is for package
+      serviceAmount = 0;
+      packageAmount = amountNum;
+    } else {
+      // No package - entire amount is for service
+      serviceAmount = amountNum;
+      packageAmount = 0;
+    }
     
     console.log("hasPackageTreatments:", hasPackageTreatments);
     console.log("serviceAmount:", serviceAmount);
@@ -2136,10 +2437,16 @@ export default async function handler(req, res) {
     try {
       console.log("=== Package Sold By Person Commission Start ===");
       console.log("hasPackageTreatments:", hasPackageTreatments);
+      console.log("hasPackagePayload:", hasPackagePayload);
       console.log("packageSoldByUserId:", packageSoldByUserId);
       console.log("packagePaymentStatus:", packagePaymentStatus);
       
-      if (hasPackageTreatments && packageSoldByUserId && (packagePaymentStatus === 'Full' || packagePaymentStatus === 'Partial' || packagePaymentStatus === 'paid')) {
+      // For package sold by person commission:
+      // - hasPackageTreatments: billing sessions from existing package (totalPackageSessionValue > 0)
+      // - hasPackagePayload && !hasPackageTreatments: new package purchase without consuming sessions (packageAmount > 0)
+      const shouldCalculatePackageCommission = (hasPackageTreatments || (hasPackagePayload && packageAmount > 0)) && packageSoldByUserId && (packagePaymentStatus === 'Full' || packagePaymentStatus === 'Partial' || packagePaymentStatus === 'paid');
+      
+      if (shouldCalculatePackageCommission) {
         console.log("Conditions met, checking AgentProfile for packageSoldByUserId:", packageSoldByUserId);
         // Check if packageSoldByUser has commission configured
         const soldByAgentProfile = await AgentProfile.findOne({ userId: packageSoldByUserId });
@@ -2154,11 +2461,15 @@ export default async function handler(req, res) {
           // Check if we need to apply bank deduction before or after commission
           const applyDeductionAfterCommission = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "earned";
           
+          // For package commission base amount:
+          // - If hasPackageTreatments: use totalPackageSessionValue (session-based billing)
+          // - If new package purchase: use packageAmount (full package price)
+          const commissionBaseAmount = hasPackageTreatments ? totalPackageSessionValue : packageAmount;
+          console.log("commissionBaseAmount:", commissionBaseAmount);
           console.log("totalPackageSessionValue:", totalPackageSessionValue);
+          console.log("packageAmount:", packageAmount);
           
-          // For package sold by person commission, use totalPackageSessionValue as the base
-          // (because even if current billing paid amount is 0, we still calculate based on session value)
-          let baseAmount = totalPackageSessionValue;
+          let baseAmount = commissionBaseAmount;
           let adjustedAmount = baseAmount;
           let bankDeductionResult = {
         enabled: false,
@@ -2166,8 +2477,8 @@ export default async function handler(req, res) {
         value: null,
         applyOn: null,
         deductionAmount: 0,
-        finalEarnedAmount: totalPackageSessionValue,
-        finalPaidAmount: totalPackageSessionValue,
+        finalEarnedAmount: commissionBaseAmount,
+        finalPaidAmount: commissionBaseAmount,
         deductionApplied: false
       };
 
@@ -2178,7 +2489,7 @@ export default async function handler(req, res) {
             // Apply bank deduction first (applyOn: paid)
             console.log("Applying bank deduction BEFORE commission (applyOn: paid)");
             bankDeductionResult = calculateBankDeduction({
-              earnedAmount: totalPackageSessionValue,
+              earnedAmount: commissionBaseAmount,
               paidAmount: baseAmount,
               bankPaymentDetails: selectedBankPaymentDetails
             });
@@ -2217,15 +2528,15 @@ export default async function handler(req, res) {
               value: selectedBankPaymentDetails.value,
               applyOn: selectedBankPaymentDetails.applyOn,
               deductionAmount: Number(deductionAmount.toFixed(2)),
-              finalEarnedAmount: totalPackageSessionValue,
+              finalEarnedAmount: commissionBaseAmount,
               finalPaidAmount: packageCommissionablePaidAmount,
               deductionApplied: true
             };
           }
 
-          // Set commission base amount
-          const commissionBaseAmount = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "paid" ? adjustedAmount : baseAmount;
-          console.log("commissionBaseAmount:", commissionBaseAmount);
+          // Set commission base amount (for logging purposes, already defined above)
+          const finalCommissionBaseAmount = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "paid" ? adjustedAmount : baseAmount;
+          console.log("finalCommissionBaseAmount:", finalCommissionBaseAmount);
           
           // Create commission entry
           console.log("Creating Commission entry with amount:", commissionAmount);
@@ -2307,6 +2618,7 @@ export default async function handler(req, res) {
         billingForResponse && typeof billingForResponse.toObject === "function"
           ? billingForResponse.toObject()
           : billingForResponse,
+      staffTips: createdStaffTips,
       data: {
         _id: billing._id,
         invoiceNumber: billing.invoiceNumber,

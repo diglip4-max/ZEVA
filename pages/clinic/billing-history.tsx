@@ -929,7 +929,10 @@ const BillingHistoryPage = () => {
                                       <span className="font-medium">{offer.offerName || offer.offerType}</span>
                                       <span className="text-[8px] text-gray-500">
                                         {offer.offerType === 'bundle' && offer.freeSessionsRefunded?.length > 0 && (
-                                          <span>Free Sessions: {offer.freeSessionsRefunded.join(', ')}</span>
+                                          <span>Free Sessions Removed: {offer.freeSessionsRefunded.join(', ')}</span>
+                                        )}
+                                        {offer.offerType === 'bundle' && offer.freeSessionsRestored?.length > 0 && (
+                                          <span>Free Sessions Restored: {offer.freeSessionsRestored.join(', ')}</span>
                                         )}
                                         {offer.cashbackRefunded > 0 && (
                                           <span>Cashback: {getCurrencySymbol(clinicCurrency)}{offer.cashbackRefunded.toFixed(2)}</span>

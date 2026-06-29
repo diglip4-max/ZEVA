@@ -30,6 +30,7 @@ import {
   Mailbox,
   Trash2,
   Calendar,
+  Users,
 } from "lucide-react";
 import axios from "axios";
 import { Provider } from "@/types/conversations";
@@ -42,6 +43,7 @@ import Loader from "@/components/Loader";
 import { useAgentPermissions } from "@/hooks/useAgentPermissions";
 import AddEmailProvider from "./_components/AddEmailProvider";
 import EditEmailProviderModal from "./_components/EditEmailProviderModal";
+import AssignProviderModal from "./_components/AssignProviderModal";
 
 const PROVIDER_MODULE_KEY = "clinic_providers";
 
@@ -66,6 +68,7 @@ const ProvidersPage: NextPageWithLayout = () => {
   const [isOpenEditEmailModal, setIsOpenEditEmailModal] =
     useState<boolean>(false);
   const [isOpenDeleteModal, setIsOpenDeleteModal] = useState<boolean>(false);
+  const [isOpenAssignModal, setIsOpenAssignModal] = useState<boolean>(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
     null,
   );
@@ -667,6 +670,18 @@ const ProvidersPage: NextPageWithLayout = () => {
     }
   };
 
+  const getOwnerName = (owner: any) => {
+    if (typeof owner === "object" && owner.name) {
+      return owner.name;
+    }
+    return "Owner";
+  };
+
+  const getOwnerInitial = (owner: any) => {
+    const name = getOwnerName(owner);
+    return name.charAt(0).toUpperCase();
+  };
+
   const stats = {
     total: providers.length,
     active: providers.filter((p) => p.isActive).length,
@@ -889,103 +904,136 @@ const ProvidersPage: NextPageWithLayout = () => {
               return (
                 <div
                   key={provider._id}
-                  className="group bg-white rounded-2xl border border-gray-200 hover:border-blue-300 transition-all duration-300 hover:shadow-xl overflow-hidden"
+                  className="group bg-white rounded-2xl border border-gray-200 hover:border-blue-300 transition-all duration-300 hover:shadow-xl overflow-hidden flex flex-col justify-between"
                 >
-                  {/* Card Header */}
-                  <div className="p-6 border-b border-gray-100">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl group-hover:from-blue-100 group-hover:to-blue-200 transition-colors duration-300">
-                          {getTypeIcon(provider.type)}
+                  <div>
+                    {/* Card Header */}
+                    <div className="p-6 border-b border-gray-100">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl group-hover:from-blue-100 group-hover:to-blue-200 transition-colors duration-300">
+                            {getTypeIcon(provider.type)}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900 text-lg">
+                              {provider.label}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                {provider.name}
+                              </code>
+                              {provider.country && (
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <GlobeIcon className="w-3 h-3" />
+                                  {provider.countryCode || provider.country}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-bold text-gray-900 text-lg">
-                            {provider.label}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                              {provider.name}
-                            </code>
-                            {provider.country && (
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {provider.type.includes("email") &&
+                            provider.emailProviderType && (
                               <div className="flex items-center gap-1 text-xs text-gray-500">
-                                <GlobeIcon className="w-3 h-3" />
-                                {provider.countryCode || provider.country}
+                                {getEmailProviderIcon(
+                                  provider.emailProviderType,
+                                )}
+                                <span>{provider.emailProviderType}</span>
+                              </div>
+                            )}
+                          {provider.type.includes("sms") &&
+                            provider.numberType && (
+                              <div className="flex items-center gap-1 text-xs text-gray-500">
+                                <Hash className="w-3 h-3" />
+                                <span>{provider.numberType}</span>
+                              </div>
+                            )}
+                        </div>
+                        {provider.inboxAutomation && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
+                            <Bell className="w-3 h-3" />
+                            Auto-Inbox
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="p-6">
+                      {/* Status Row */}
+                      <div className="flex items-center justify-between mb-6">
+                        <span className="text-gray-500">Status</span>
+                        {getStatusBadge(provider.status)}
+                      </div>
+
+                      {/* Contact Info */}
+                      <div className="space-y-3 mb-6">
+                        {provider.phone && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Phone</span>
+                            <span className="font-medium text-gray-900">
+                              {provider.phone}
+                            </span>
+                          </div>
+                        )}
+                        {provider.email && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">Email</span>
+                            <span className="font-medium text-gray-900">
+                              {provider.email}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Owners */}
+                      {provider.owners && provider.owners.length > 0 && (
+                        <div className="mb-6">
+                          <span className="text-gray-500 text-sm mb-2 block">
+                            Owners
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {provider.owners.slice(0, 4).map((owner, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700"
+                              >
+                                <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold">
+                                  {getOwnerInitial(owner)}
+                                </div>
+                                <span className="truncate max-w-[80px]">
+                                  {getOwnerName(owner)}
+                                </span>
+                              </div>
+                            ))}
+                            {provider.owners.length > 4 && (
+                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold">
+                                +{provider.owners.length - 4}
                               </div>
                             )}
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {provider.type.includes("email") &&
-                          provider.emailProviderType && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500">
-                              {getEmailProviderIcon(provider.emailProviderType)}
-                              <span>{provider.emailProviderType}</span>
-                            </div>
-                          )}
-                        {provider.type.includes("sms") &&
-                          provider.numberType && (
-                            <div className="flex items-center gap-1 text-xs text-gray-500">
-                              <Hash className="w-3 h-3" />
-                              <span>{provider.numberType}</span>
-                            </div>
-                          )}
-                      </div>
-                      {provider.inboxAutomation && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
-                          <Bell className="w-3 h-3" />
-                          Auto-Inbox
-                        </span>
                       )}
-                    </div>
-                  </div>
 
-                  {/* Card Body */}
-                  <div className="p-6">
-                    {/* Status Row */}
-                    <div className="flex items-center justify-between mb-6">
-                      <span className="text-gray-500">Status</span>
-                      {getStatusBadge(provider.status)}
-                    </div>
-
-                    {/* Contact Info */}
-                    <div className="space-y-3 mb-6">
-                      {provider.phone && (
+                      {/* Details */}
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Phone</span>
+                          <span className="text-gray-500">Last Synced</span>
                           <span className="font-medium text-gray-900">
-                            {provider.phone}
+                            {provider.lastSyncedAt
+                              ? formatDate(provider.lastSyncedAt)
+                              : "Never"}
                           </span>
                         </div>
-                      )}
-                      {provider.email && (
+
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Email</span>
-                          <span className="font-medium text-gray-900">
-                            {provider.email}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Details */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Last Synced</span>
-                        <span className="font-medium text-gray-900">
-                          {provider.lastSyncedAt
-                            ? formatDate(provider.lastSyncedAt)
-                            : "Never"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Type</span>
-                        <div className="flex gap-1">
-                          {getTypeBadge(provider.type)}
+                          <span className="text-gray-500">Type</span>
+                          <div className="flex gap-1">
+                            {getTypeBadge(provider.type)}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -998,6 +1046,18 @@ const ProvidersPage: NextPageWithLayout = () => {
                         Created {formatDate(provider.createdAt)}
                       </div>
                       <div className="flex items-center gap-2">
+                        {permissions.canAssign && (
+                          <button
+                            className="cursor-pointer p-2 border border-inherit hover:bg-white hover:border hover:border-gray-300 rounded-lg transition-colors"
+                            title="Assign"
+                            onClick={() => {
+                              setIsOpenAssignModal(true);
+                              setSelectedProvider(provider);
+                            }}
+                          >
+                            <Users className="w-4 h-4 text-gray-500" />
+                          </button>
+                        )}
                         {permissions.canUpdate && (
                           <button
                             className="cursor-pointer p-2 border border-inherit hover:bg-white hover:border hover:border-gray-300 rounded-lg transition-colors"
@@ -1050,7 +1110,9 @@ const ProvidersPage: NextPageWithLayout = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
-
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      Owners
+                    </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Contact
                     </th>
@@ -1108,6 +1170,33 @@ const ProvidersPage: NextPageWithLayout = () => {
                         </td>
 
                         <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            {provider.owners && provider.owners.length > 0 ? (
+                              <div className="flex -space-x-2">
+                                {provider.owners
+                                  .slice(0, 3)
+                                  .map((owner, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold border-2 border-white"
+                                      title={getOwnerName(owner)}
+                                    >
+                                      {getOwnerInitial(owner)}
+                                    </div>
+                                  ))}
+                                {provider.owners.length > 3 && (
+                                  <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-semibold border-2 border-white">
+                                    +{provider.owners.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-xs">—</span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-6 py-4">
                           <div className="text-sm">
                             {provider.phone && (
                               <div className="text-gray-900">
@@ -1139,6 +1228,18 @@ const ProvidersPage: NextPageWithLayout = () => {
                             >
                               <Eye className="w-4 h-4 text-gray-500" />
                             </button>
+                            {permissions.canAssign && (
+                              <button
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Assign"
+                                onClick={() => {
+                                  setIsOpenAssignModal(true);
+                                  setSelectedProvider(provider);
+                                }}
+                              >
+                                <Users className="w-4 h-4 text-blue-500" />
+                              </button>
+                            )}
                             {permissions.canUpdate && (
                               <button
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -1401,6 +1502,15 @@ const ProvidersPage: NextPageWithLayout = () => {
           selectedProvider?.email
         }
         loading={isDeleting}
+      />
+      {/* Assign Provider Modal */}
+      <AssignProviderModal
+        isOpen={isOpenAssignModal}
+        onClose={() => setIsOpenAssignModal(false)}
+        provider={selectedProvider}
+        onSuccess={() => {
+          fetchAllProviders();
+        }}
       />
     </div>
   );

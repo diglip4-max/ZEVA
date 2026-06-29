@@ -5,6 +5,7 @@ import Provider from "../../../../models/Provider";
 import Template from "../../../../models/Template";
 import Message from "../../../../models/Message";
 import dbConnect from "../../../../lib/database";
+import { gmailWatchRenewalQueue } from "../../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -131,11 +132,36 @@ export default async function handler(req, res) {
           { session },
         );
 
-        // 3. Delete the provider
+        // 3. Delete Gmail watch job if it exists
+        if (
+          provider.gmailWatchJobId &&
+          provider.gmailWatchJobKey &&
+          provider.emailProviderType === "gmail"
+        ) {
+          // find job
+          const repeatableJobs =
+            await gmailWatchRenewalQueue.getRepeatableJobs();
+          console.log({ repeatableJobs });
+          const job = repeatableJobs.find(
+            (item) => item.key === provider.gmailWatchJobKey,
+          );
+          if (job) {
+            await gmailWatchRenewalQueue.removeRepeatableByKey(
+              provider.gmailWatchJobKey,
+            );
+            console.log(
+              "Gmail watch job deleted successfully for providerId: ",
+              providerId,
+            );
+          }
+        }
+
+        // 4. Delete the provider
         const providerResult = await Provider.deleteOne(
           { _id: providerId, clinicId },
           { session },
         );
+        console.log({ providerResult });
 
         if (providerResult.deletedCount === 0) {
           throw new Error("Failed to delete provider");

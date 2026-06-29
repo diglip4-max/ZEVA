@@ -4,6 +4,7 @@ import Clinic from "../../../models/Clinic";
 import Provider from "../../../models/Provider";
 import dbConnect from "../../../lib/database";
 import { sendTestEmailBySmtp } from "../../../services/smtp";
+import { listImapIncomingEmailQueue } from "../../../bullmq/queue";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -110,6 +111,8 @@ export default async function handler(req, res) {
       smtpPassword,
     });
 
+    console.log("isValidSmtp:", isValidSmtp);
+
     if (!isValidSmtp) {
       return res.status(400).json({
         success: false,
@@ -147,6 +150,18 @@ export default async function handler(req, res) {
     });
     await newProvider.save();
 
+    // Add job to refresh email conversations
+    const job = await listImapIncomingEmailQueue.add(
+      "listImapIncomingEmailJob",
+      {
+        providerIds: [newProvider._id],
+      },
+    );
+    console.log(
+      "SMTP Email conversations refresh job added to queue. Job ID:",
+      job.id,
+    );
+
     const findProvider = await Provider.findById(newProvider._id)
       .select("-secrets -_ac -_ct")
       .lean();
@@ -157,7 +172,7 @@ export default async function handler(req, res) {
       data: findProvider,
     });
   } catch (err) {
-    // console.error("Error adding provider:", err);
+    console.error("Error adding email provider:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({

@@ -20,10 +20,10 @@ interface AppointmentLite {
 interface PatientReportSummary {
   reportId?: string;
   appointmentId: string;
-  temperatureCelsius: number;
-  pulseBpm: number;
-  systolicBp: number;
-  diastolicBp: number;
+  temperatureCelsius?: number;
+  pulseBpm?: number;
+  systolicBp?: number;
+  diastolicBp?: number;
   heightCm?: number;
   weightKg?: number;
   waistCm?: number;
@@ -92,10 +92,10 @@ const fieldGroups = [
   {
     title: "Vital Signs",
     fields: [
-      { name: "temperatureCelsius", label: "Temperature (°C)", type: "number", required: true },
-      { name: "pulseBpm", label: "Pulse (BPM)", type: "number", required: true },
-      { name: "systolicBp", label: "BP Systolic (mmHg)", type: "number", required: true },
-      { name: "diastolicBp", label: "BP Diastolic (mmHg)", type: "number", required: true },
+      { name: "temperatureCelsius", label: "Temperature (°C)", type: "number", required: false },
+      { name: "pulseBpm", label: "Pulse (BPM)", type: "number", required: false },
+      { name: "systolicBp", label: "BP Systolic (mmHg)", type: "number", required: false },
+      { name: "diastolicBp", label: "BP Diastolic (mmHg)", type: "number", required: false },
     ],
   },
   {
@@ -294,16 +294,6 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
     event.preventDefault();
     if (!appointment) return;
 
-    if (
-      reportValues.temperatureCelsius === "" ||
-      reportValues.pulseBpm === "" ||
-      reportValues.systolicBp === "" ||
-      reportValues.diastolicBp === ""
-    ) {
-      setError("Temperature, pulse, and blood pressure fields are mandatory.");
-      return;
-    }
-
     setSubmitting(true);
     setError("");
     try {
@@ -312,10 +302,10 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
         "/api/clinic/appointment-reports",
         {
           appointmentId: appointment._id,
-          temperatureCelsius: reportValues.temperatureCelsius,
-          pulseBpm: reportValues.pulseBpm,
-          systolicBp: reportValues.systolicBp,
-          diastolicBp: reportValues.diastolicBp,
+          temperatureCelsius: reportValues.temperatureCelsius === "" ? undefined : reportValues.temperatureCelsius,
+          pulseBpm: reportValues.pulseBpm === "" ? undefined : reportValues.pulseBpm,
+          systolicBp: reportValues.systolicBp === "" ? undefined : reportValues.systolicBp,
+          diastolicBp: reportValues.diastolicBp === "" ? undefined : reportValues.diastolicBp,
           heightCm: reportValues.heightCm === "" ? undefined : reportValues.heightCm,
           weightKg: reportValues.weightKg === "" ? undefined : reportValues.weightKg,
           waistCm: reportValues.waistCm === "" ? undefined : reportValues.waistCm,

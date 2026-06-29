@@ -12,8 +12,10 @@ const AllocatedStockItemSchema = new mongoose.Schema(
       itemId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "StockItem",
-        required: true,
-        index: true,
+      },
+      customStockItemId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "CustomStockItem",
       },
       code: {
         type: String,
@@ -179,7 +181,7 @@ const AllocatedStockItemSchema = new mongoose.Schema(
     allocatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true, // Should probably be required
+      required: true,
     },
   },
   {
@@ -199,8 +201,10 @@ const AllocatedStockItemDetailsSchema = new mongoose.Schema(
     purchaseRecord: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PurchaseRecord",
-      required: true,
-      index: true,
+    },
+    customStockItem: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CustomStockItem",
     },
     allocatedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -223,6 +227,9 @@ const AllocatedStockItemDetailsSchema = new mongoose.Schema(
 if (mongoose.models.AllocatedStockItem) {
   delete mongoose.models.AllocatedStockItem;
 }
+if (mongoose.modelSchemas && mongoose.modelSchemas.AllocatedStockItem) {
+  delete mongoose.modelSchemas.AllocatedStockItem;
+}
 const AllocatedStockItem = mongoose.model(
   "AllocatedStockItem",
   AllocatedStockItemSchema,
@@ -230,6 +237,9 @@ const AllocatedStockItem = mongoose.model(
 
 if (mongoose.models.AllocatedStockItemDetails) {
   delete mongoose.models.AllocatedStockItemDetails;
+}
+if (mongoose.modelSchemas && mongoose.modelSchemas.AllocatedStockItemDetails) {
+  delete mongoose.modelSchemas.AllocatedStockItemDetails;
 }
 const AllocatedStockItemDetails = mongoose.model(
   "AllocatedStockItemDetails",

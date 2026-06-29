@@ -61,6 +61,14 @@ const getUserInfo = () => {
 
 const getUserRole = () => getUserInfo().role;
 
+const maskMobileNumber = (mobile) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 const isTruthy = (val) =>
   val === true || val === "true" || String(val || "").toLowerCase() === "true";
 
@@ -114,6 +122,13 @@ function PassClaimsPage() {
   const [previewFile, setPreviewFile] = useState(null);
   const [approvedNotifications, setApprovedNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
+  }, []);
 
   // Clinic-level (sidebar-permissions) + agent/doctorStaff-level (get-module-permissions)
   useEffect(() => {
@@ -1091,7 +1106,11 @@ function PassClaimsPage() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Mobile:</span>
-                            <span className="font-medium text-gray-900">{viewModal.patientMobileNumber || "-"}</span>
+                            <span className="font-medium text-gray-900">
+                              {userRole === "doctorStaff" 
+                                ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-") 
+                                : (viewModal.patientMobileNumber || "-")}
+                            </span>
                           </div>
                         </div>
                       </div>

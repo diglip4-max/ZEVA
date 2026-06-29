@@ -7,6 +7,9 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI,
 );
 
+// export const RENEWAL_GMAIL_WATCH_INTERVAL = 6 * 24 * 60 * 60 * 1000; // 6 days in milliseconds
+export const RENEWAL_GMAIL_WATCH_INTERVAL = 3 * 60 * 1000; // 3 minutes in milliseconds
+
 export const sendEmailViaGmailMultiple = async ({
   providerId,
   to, // array of emails
@@ -111,7 +114,6 @@ export const getGmailClientForUser = async (providerId) => {
 
   const secrets = provider.secrets || {};
   const { access_token, refresh_token } = secrets;
-  console.log({ access_token, refresh_token });
   oauth2Client.setCredentials({
     access_token,
     refresh_token,
@@ -188,8 +190,6 @@ export const encodeMessage = async ({
   // Join all parts to form the complete email message
   const emailString = emailParts.join("\n");
 
-  console.log({ emailString });
-
   // Encode the email in base64 and make it URL-safe
   return Buffer.from(emailString)
     .toString("base64")
@@ -225,15 +225,15 @@ export const getIncomingGmailBody = (payload) => {
   const extractBodyFromParts = (parts) => {
     if (!parts) return "";
 
-    // First, look for text/plain or text/html in the immediate parts
+    // First, look for text/html or text/plain in the immediate parts
     for (const part of parts) {
-      if (part.mimeType === "text/plain" && part.body?.data) {
+      if (part.mimeType === "text/html" && part.body?.data) {
         return Buffer.from(part.body.data, "base64").toString("utf-8");
       }
     }
 
     for (const part of parts) {
-      if (part.mimeType === "text/html" && part.body?.data) {
+      if (part.mimeType === "text/plain" && part.body?.data) {
         return Buffer.from(part.body.data, "base64").toString("utf-8");
       }
     }

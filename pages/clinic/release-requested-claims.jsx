@@ -84,6 +84,14 @@ const parsePermissionActions = (actions = {}) => {
   };
 };
 
+const maskMobileNumber = (mobile) => {
+  if (!mobile || mobile.length < 4) return mobile;
+  const firstTwo = mobile.slice(0, 2);
+  const lastTwo = mobile.slice(-2);
+  const middleLength = mobile.length - 4;
+  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+};
+
 const ITEMS_PER_PAGE = 12;
 
 function ReleaseRequestedClaimsPage() {
@@ -111,6 +119,13 @@ function ReleaseRequestedClaimsPage() {
   const [progressStatus, setProgressStatus] = useState(null);
   const [consentStatus, setConsentStatus] = useState(null);
   const [verificationLoading, setVerificationLoading] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+
+  // Set user role on mount
+  useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
+  }, []);
 
   // Permission loading
   useEffect(() => {
@@ -1080,7 +1095,11 @@ function ReleaseRequestedClaimsPage() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Mobile:</span>
-                          <span className="font-medium text-gray-900">{viewModal.patientMobileNumber || "-"}</span>
+                          <span className="font-medium text-gray-900">
+                            {userRole === "doctorStaff" 
+                              ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-") 
+                              : (viewModal.patientMobileNumber || "-")}
+                          </span>
                         </div>
                       </div>
                     </div>

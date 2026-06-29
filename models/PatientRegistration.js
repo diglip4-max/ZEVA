@@ -11,7 +11,7 @@ const paymentHistorySchema = new mongoose.Schema({
   paying: { type: Number, default: 0, min: 0 },
   paymentMethod: {
     type: String,
-    enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+    enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
     required: true,
   },
   status: {
@@ -144,6 +144,29 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
         paymentMethod: { type: String, default: "" },
+        // --- Enterprise Package Snapshot ---
+        // Full copy of the Package master data at the time of assignment.
+        // Ensures all package benefits remain accessible even if the master Package
+        // is later deleted from the services_setup page.
+        packageSnapshot: {
+          name: { type: String, default: "" },
+          totalPrice: { type: Number, default: 0 },
+          totalSessions: { type: Number, default: 0 },
+          sessionPrice: { type: Number, default: 0 },
+          validityInMonths: { type: Number, default: 0 },
+          startDate: { type: Date },
+          endDate: { type: Date },
+          treatments: [
+            {
+              treatmentName: { type: String, default: "" },
+              treatmentSlug: { type: String, default: "" },
+              allocatedPrice: { type: Number, default: 0 },
+              sessions: { type: Number, default: 1 },
+              sessionPrice: { type: Number, default: 0 },
+            },
+          ],
+          snapshotCreatedAt: { type: Date, default: Date.now },
+        },
       },
     ],
     userPackages: [
@@ -189,6 +212,8 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
+        transferredByName: { type: String, default: "" },
+        transferredByRole: { type: String, default: "" },
       },
     ],
     packageTransfers: [
@@ -213,6 +238,8 @@ const patientRegistrationSchema = new mongoose.Schema(
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
+        transferredByName: { type: String, default: "" },
+        transferredByRole: { type: String, default: "" },
       },
     ],
     hasTransferredOut: { type: Boolean, default: false },

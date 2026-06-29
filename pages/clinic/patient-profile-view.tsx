@@ -120,6 +120,57 @@ const getCurrentUserName = () => {
   }
 };
 
+/**
+ * Enterprise Package Resilience Helper
+ *
+ * Merges master packages (from API) with snapshot-reconstructed entries for any
+ * patient-assigned packages whose master has since been deleted from services_setup.
+ * This guarantees patients always retain full access to package benefits (treatments,
+ * sessions, pricing) regardless of whether the clinic deletes the master package.
+ *
+ * @param masterPackages   - Packages returned by /api/clinic/packages
+ * @param patientPackages  - patientData.packages array (contains packageSnapshot sub-docs)
+ * @returns Merged array — master packages first, then snapshots for orphaned assignments
+ */
+const buildEffectivePackageList = (masterPackages: any[], patientPackages: any[]): any[] => {
+  const masterIds = new Set(masterPackages.map((p: any) => String(p._id)));
+  const snapshotPackages: any[] = [];
+
+  if (Array.isArray(patientPackages)) {
+    patientPackages.forEach((assigned: any) => {
+      const pkgIdStr = String(assigned.packageId || '');
+      if (!pkgIdStr || masterIds.has(pkgIdStr)) return; // master still exists, no need
+
+      // Use snapshot if available (new assignments), else fall back to stored fields
+      const snap = assigned.packageSnapshot;
+      const name = snap?.name || assigned.packageName;
+      if (!name) return; // cannot reconstruct without a name
+
+      snapshotPackages.push({
+        _id: pkgIdStr,
+        name,
+        totalPrice: snap?.totalPrice ?? assigned.totalPrice ?? 0,
+        totalSessions: snap?.totalSessions ?? 0,
+        sessionPrice: snap?.sessionPrice ?? 0,
+        validityInMonths: snap?.validityInMonths ?? assigned.validityInMonths ?? 0,
+        startDate: snap?.startDate ?? assigned.startDate ?? null,
+        endDate: snap?.endDate ?? assigned.endDate ?? null,
+        treatments: snap?.treatments ?? [],
+        isDeletedMaster: true, // UI flag — package was deleted from master catalogue
+      });
+    });
+  }
+
+  // Deduplicate by _id in case same packageId appears twice in patient packages
+  const seen = new Set<string>();
+  return [...masterPackages, ...snapshotPackages].filter((p: any) => {
+    const id = String(p._id);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
+
 // Transfer Section Component - Updated to use parent patientData and trigger refresh
 const TransferSection = ({ patientId, patientData, onTransferComplete }: { patientId: string; patientData: any; onTransferComplete?: () => void }) => {
   const [showTransfer, setShowTransfer] = useState(false);
@@ -155,7 +206,10 @@ const TransferSection = ({ patientId, patientData, onTransferComplete }: { patie
         // Fetch packages
         const packagesRes = await axios.get('/api/clinic/packages', { headers });
         if (packagesRes.data.success) {
-          setLocalPackages(packagesRes.data.packages || []);
+          const masterPackages: any[] = packagesRes.data.packages || [];
+          // Enterprise resilience: include snapshot-reconstructed entries for packages
+          // that were deleted from the master catalogue but still assigned to this patient.
+          setLocalPackages(buildEffectivePackageList(masterPackages, patientData?.packages || []));
         }
 
         // Fetch public packages - COMMENTED OUT: Only fetch patient packages now
@@ -652,6 +706,7 @@ const formatPmDate = (d: Date) => {
 // Modern Patient Profile Dashboard Component
 const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permissions }: { patientData: any; onClose: () => void; onPatientUpdated?: (updatedData: any) => void; permissions: any }) => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [isSpecificClinic, setIsSpecificClinic] = useState(false);
   const [showBeforeAfterModal, setShowBeforeAfterModal] = useState(false);
   const [currency, setCurrency] = useState('INR');
   const [appointments, setAppointments] = useState([]);
@@ -697,7 +752,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     { key: 'Rejected',     label: 'Rejected' },
     { key: 'No Show',      label: 'No Show' },
   ];
-    const [packages, setPackages] = useState([]);
+    const [packages, setPackages] = useState<any[]>([]);
   const [userPackages, setUserPackages] = useState<any[]>([]);
   const [memberships, setMemberships] = useState([]);
   const [transferredInPackages, setTransferredInPackages] = useState<any[]>([]);
@@ -720,6 +775,20 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     // Return from cache if available
     if (packageNameCache[packageId]) {
       return packageNameCache[packageId];
+    }
+
+    // Check patient's own package list (snapshot fallback for deleted master packages)
+    if (Array.isArray(patientData?.packages)) {
+      const assigned = patientData.packages.find(
+        (p: any) => String(p.packageId) === String(packageId)
+      );
+      if (assigned) {
+        const name = assigned.packageSnapshot?.name || assigned.packageName;
+        if (name) {
+          setPackageNameCache((prev: Record<string, string>) => ({ ...prev, [packageId]: name }));
+          return name;
+        }
+      }
     }
 
     // If we haven't loaded all packages yet, load them now
@@ -1124,6 +1193,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
    
     // If adding to patient, open payment modal first
     setPkgTotalAmount(packagePrice);
+    setPkgEnteredAmount(packagePrice);
     setPkgPaidAmount(packagePrice);
     setPkgPaymentType("Full");
     setPkgPaymentMethod("Cash");
@@ -1203,32 +1273,44 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           axios.get('/api/clinic/packages', { headers }),
         ]);
         if (mRes.data.success) setAllAvailableMemberships(mRes.data.memberships || []);
-        if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+        if (pRes.data.success) {
+          // Enterprise resilience: include snapshot-reconstructed entries for packages
+          // deleted from master catalogue but already sold/assigned to this patient.
+          setAllAvailablePackages(
+            buildEffectivePackageList(pRes.data.packages || [], patientData?.packages || [])
+          );
+        }
       } catch (e) { console.error('Error fetching available memberships/packages:', e); }
     };
     fetchAvailable();
   }, []);
 
-  // Fetch clinic currency preference
+  // Fetch clinic currency preference and check if it's the specific clinic
   useEffect(() => {
-    const fetchClinicCurrency = async () => {
+    const fetchClinicData = async () => {
       try {
         const headers = getAuthHeaders();
         if (!headers) return;
         const res = await axios.get('/api/clinics/myallClinic', { headers });
-        if (res.data.success && res.data.clinic?.currency) {
-          setCurrency(res.data.clinic.currency);
+        if (res.data.success && res.data.clinic) {
+          if (res.data.clinic.currency) {
+            setCurrency(res.data.clinic.currency);
+          }
+          // Check if it's the specific clinic by clinicId or ownerId
+          const isSpecific = 
+            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
+            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          setIsSpecificClinic(isSpecific);
         }
       } catch (e: any) {
         // Silently ignore 403 permission errors and other failures
         // User may not have permission to access clinic_health_center module
         if (e?.response?.status !== 403) {
-          console.error('Error fetching clinic currency:', e);
+          console.error('Error fetching clinic data:', e);
         }
-        // Default currency will be used if fetch fails
       }
     };
-    fetchClinicCurrency();
+    fetchClinicData();
   }, []);
 
   // Sync editFormData when patientData._id changes (initial load)
@@ -1410,7 +1492,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
 
           const realPackageId = createRes.data.package?._id || createRes.data.packageId;
          
-          // Step 2: Assign the package to patient
+          // Step 2: Assign the package to patient (pass full package data for snapshot)
           await axios.post("/api/clinic/assign-package-to-patient", {
             patientId: patientData._id,
             packageId: realPackageId,
@@ -1423,6 +1505,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
             paymentMethod: paymentMethod,
             advanceBalanceUsed: pkgAdvanceUsedAmount,
             claimAmountUsed: pkgClaimUsedAmount,
+            // Snapshot fields — ensures correct data even if DB read races with write
+            packageName: pkgPendingToCreate.name,
+            packageTotalSessions: pkgPendingToCreate.totalSessions ||
+              (pkgPendingToCreate.treatments || []).reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0),
+            packageSessionPrice: pkgPendingToCreate.sessionPrice || 0,
+            packageTreatments: pkgPendingToCreate.treatments || [],
           }, { headers });
 
           // Step 3: Create billing record if balance was used or payment was made
@@ -1525,7 +1613,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
            
             // Also refresh the available packages list
             const pRes = await axios.get('/api/clinic/packages', { headers });
-            if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+            if (pRes.data.success) {
+              setAllAvailablePackages(
+                buildEffectivePackageList(pRes.data.packages || [], patientData?.packages || [])
+              );
+            }
           } catch (err) {
             console.error('Error refreshing data:', err);
           }
@@ -1611,6 +1703,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         ...(prev.packages || []),
         {
           packageId: pkgPendingToAssign._id,
+          packageName: pkgPendingToAssign.name || '',
           packageSoldBy: getCurrentUserName(),
           assignedDate: new Date().toISOString(),
           validityInMonths: validity,
@@ -1623,6 +1716,22 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           // Track balance usage
           advanceBalanceUsed: pkgAdvanceUsedAmount,
           claimAmountUsed: pkgClaimUsedAmount,
+          // Pass snapshot data so server can persist it even if master is later deleted
+          packageSnapshot: {
+            name: pkgPendingToAssign.name || '',
+            totalPrice: pkgPendingToAssign.totalPrice || 0,
+            totalSessions: pkgPendingToAssign.totalSessions ||
+              (pkgPendingToAssign.treatments || []).reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0),
+            sessionPrice: pkgPendingToAssign.sessionPrice || 0,
+            validityInMonths: validity,
+            treatments: (pkgPendingToAssign.treatments || []).map((t: any) => ({
+              treatmentName: t.treatmentName || '',
+              treatmentSlug: t.treatmentSlug || '',
+              allocatedPrice: t.allocatedPrice || 0,
+              sessions: t.sessions || 1,
+              sessionPrice: t.sessionPrice || 0,
+            })),
+          },
         }
       ],
     }));
@@ -1758,6 +1867,12 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   paidAmount: newPkg.paidAmount,
                   paymentStatus: newPkg.paymentStatus,
                   paymentMethod: newPkg.paymentMethod,
+                  // Snapshot fields — ensures correct data even if DB read races with write
+                  packageName: newPkg.packageName || newPkg.name,
+                  packageTotalSessions: newPkg.totalSessions ||
+                    (newPkg.treatments || []).reduce((s: number, t: any) => s + (parseInt(t.sessions) || 0), 0),
+                  packageSessionPrice: newPkg.sessionPrice || 0,
+                  packageTreatments: newPkg.treatments || [],
                 }, { headers });
 
                 // Create billing record if balance was used or payment was made
@@ -1982,7 +2097,11 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         // Refresh available packages list
         try {
           const pRes = await axios.get('/api/clinic/packages', { headers });
-          if (pRes.data.success) setAllAvailablePackages(pRes.data.packages || []);
+          if (pRes.data.success) {
+            setAllAvailablePackages(
+              buildEffectivePackageList(pRes.data.packages || [], patientData?.packages || [])
+            );
+          }
         } catch (err) {
           console.error('Error refreshing packages:', err);
         }
@@ -1999,6 +2118,13 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     }
   };
 
+  // Switch active tab to overview if current tab is hidden
+  useEffect(() => {
+    if (isSpecificClinic && (activeTab === 'insurance' || activeTab === 'communication')) {
+      setActiveTab('overview');
+    }
+  }, [isSpecificClinic, activeTab]);
+
   if (!patientData) return null;
 
   const tabs = [
@@ -2007,9 +2133,9 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
     { id: 'billing', label: 'Billing' },
     { id: 'appointments', label: 'Appointments' },
     { id: 'packages-memberships', label: 'Packages & Memberships' },
-    { id: 'insurance', label: 'Insurance' },
+    ...(isSpecificClinic ? [] : [{ id: 'insurance', label: 'Insurance' }]),
     { id: 'media', label: 'Media & Documents' },
-    { id: 'communication', label: 'Communication Log' },
+    ...(isSpecificClinic ? [] : [{ id: 'communication', label: 'Communication Log' }]),
     { id: 'advance', label: 'Advance & Pending Balance' }
   ];
 
@@ -2407,9 +2533,95 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         return transferredOut < totalSessions;
       });
      
-      const patientPackages = allPackages.filter((pkg: any) =>
-        patientPackageIds.includes(pkg._id)
-      ).map((pkg: any) => {
+      // -----------------------------------------------------------------------
+      // Enterprise resilience: build master-match packages + snapshot fallbacks
+      // For any patient package whose master was deleted from services_setup,
+      // reconstruct the package data from the stored snapshot (or stored fields).
+      // -----------------------------------------------------------------------
+      const currentPackagesForBuild = freshPatientData?.packages || patientData?.packages || [];
+      const masterPackageIds = new Set(allPackages.map((p: any) => String(p._id)));
+
+      // Reconstruct snapshot-based packages for deleted masters
+      const snapshotReconstructed: any[] = [];
+      currentPackagesForBuild.forEach((assigned: any) => {
+        const pkgIdStr = String(assigned.packageId || '');
+        if (!pkgIdStr || masterPackageIds.has(pkgIdStr)) return;
+
+        const snap = assigned.packageSnapshot;
+        // Use snapshot if available, otherwise fall back to the stored assignment fields.
+        // For old records that predate the snapshot feature, try to recover the name from
+        // the billing history (billing records always store the package name at invoice time).
+        const nameFromBill = (() => {
+          const match = billings.find((b: any) =>
+            b.service === 'Package' && b.package &&
+            (String(b.packageId) === pkgIdStr || (b.notes && b.notes.includes(pkgIdStr)))
+          );
+          return match?.package || null;
+        })();
+        const name = snap?.name || assigned.packageName || nameFromBill
+          // Last resort: if no name at all but we have a price/ID, still show the package
+          || (assigned.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+        if (!name) return; // cannot reconstruct without any identifying data
+
+        const usage = packageUsageData.find((u: any) => u.packageName === name);
+        const packageBillingsForPkg = billings.filter((b: any) =>
+          b.service === "Package" && b.package === name
+        );
+        const totalAdvanceUsed = packageBillingsForPkg.reduce((sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0);
+        const totalCashPaid = packageBillingsForPkg.reduce((sum: number, b: any) => sum + (Number(b.paid) || 0), 0);
+        const totalPrice = snap?.totalPrice ?? assigned.totalPrice ?? 0;
+        const totalPaidIncl = (assigned.paidAmount || 0) + totalAdvanceUsed;
+        let calcStatus = assigned.paymentStatus || 'Unpaid';
+        if (totalPrice > 0 && totalPaidIncl >= totalPrice) calcStatus = 'Full';
+        else if (totalPaidIncl > 0) calcStatus = 'Partial';
+
+        const totalSessions = snap?.totalSessions ?? 0;
+        const usedSessions = usage?.totalSessions ?? 0;
+        const remainingSessions = usage?.remainingSessions ?? Math.max(0, totalSessions - usedSessions);
+
+        snapshotReconstructed.push({
+          _id: pkgIdStr,
+          packageId: pkgIdStr,
+          name,
+          packageName: name,
+          totalPrice,
+          totalSessions,
+          sessionPrice: snap?.sessionPrice ?? 0,
+          validityInMonths: snap?.validityInMonths ?? assigned.validityInMonths ?? 0,
+          startDate: assigned.startDate ?? snap?.startDate ?? null,
+          endDate: assigned.endDate ?? snap?.endDate ?? null,
+          treatments: (snap?.treatments ?? []).map((t: any) => {
+            const tUsage = usage?.treatments?.find((ut: any) => ut.treatmentSlug === t.treatmentSlug);
+            return {
+              ...t,
+              usedSessions: tUsage?.totalUsedSessions ?? 0,
+              maxSessions: tUsage?.maxSessions ?? t.sessions ?? 0,
+              usageDetails: tUsage?.usageDetails ?? [],
+            };
+          }),
+          usedSessions,
+          remainingSessions,
+          totalAllowedSessions: usage?.totalAllowedSessions ?? totalSessions,
+          status: 'active',
+          assignedDate: assigned.assignedDate ?? null,
+          paymentStatus: calcStatus,
+          paidAmount: totalCashPaid || assigned.paidAmount || 0,
+          advanceUsed: totalAdvanceUsed,
+          totalPaid: totalPaidIncl,
+          paymentMethod: assigned.paymentMethod || '',
+          packageSoldBy: assigned.packageSoldBy || '',
+          billingHistory: usage?.billingHistory ?? [],
+          isTransferred: usage?.isTransferred ?? false,
+          transferredFrom: usage?.transferredFrom ?? null,
+          transferredFromName: usage?.transferredFromName ?? null,
+          isDeletedMaster: true, // flag for "Catalogue Removed" badge
+        });
+      });
+
+      const patientPackages = [
+        ...allPackages.filter((pkg: any) =>
+          patientPackageIds.includes(pkg._id)
+        ).map((pkg: any) => {
         const calculatedTotalSessions = pkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
        
         // Find the patient's package assignment to get assigned date
@@ -2496,7 +2708,10 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
           remainingSessions: effectiveRemainingSessions,
           packageSoldBy: patientPackage?.packageSoldBy // <-- Include packageSoldBy!
         };
-      });
+      }),
+        // Append snapshot-reconstructed entries for packages deleted from master catalogue
+        ...snapshotReconstructed,
+      ];
      
       // Separate transferred-in packages from usage data
       const transferredInPkgs = packageUsageData
@@ -2504,6 +2719,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
         .map((u: any) => ({
           packageName: u.packageName,
           transferredFromName: u.transferredFromName,
+          transferredByName: u.transferredByName || "",
           transferredSessions: u.transferredSessions || 0,
           totalAllowedSessions: u.totalAllowedSessions || 0,
           remainingSessions: u.remainingSessions || 0,
@@ -4096,7 +4312,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Mail className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="text-gray-500 font-medium flex-shrink-0">Email:</span>
-                    <span className="text-gray-800 truncate">{patientData.email || 'N/A'}</span>
+                    <span className="text-gray-800 truncate">{getUserRole() === 'doctorStaff' ? maskPhoneNumber(patientData.email) : (patientData.email || 'N/A')}</span>
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -4930,10 +5146,31 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             .filter(({ p }: any) => {
                               const pkgIdStr = String(p.packageId);
                               const pkg = allAvailablePackages.find((x: any) => String(x._id) === pkgIdStr);
-                              if (!pkg) return true; // if we can't find the package, show it
+
+                              // Resolve effective package data: master first, then snapshot fallback,
+                              // then packages state (which includes snapshot-reconstructed entries),
+                              // for backward-compat with old records that predate snapshot feature.
+                              const effectivePkg = pkg || (() => {
+                                const snap = p.packageSnapshot;
+                                const pkgIdStr2 = String(p.packageId);
+                                const nameFromPkgsState = packages.find((x: any) => String(x._id) === pkgIdStr2 || String(x.packageId) === pkgIdStr2);
+                                const resolvedName = snap?.name || p.packageName || nameFromPkgsState?.name
+                                  // Last resort: still show if we have a price
+                                  || (p.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+                                if (!resolvedName) return null;
+                                return {
+                                  _id: pkgIdStr,
+                                  name: resolvedName,
+                                  totalSessions: snap?.totalSessions ?? nameFromPkgsState?.totalSessions ?? 0,
+                                  treatments: snap?.treatments ?? [],
+                                  isDeletedMaster: true,
+                                };
+                              })();
+
+                              if (!effectivePkg) return true; // cannot determine, show it
                               
-                              const totalSessions = pkg.totalSessions || 
-                                                   pkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
+                              const totalSessions = effectivePkg.totalSessions || 
+                                                   effectivePkg.treatments?.reduce((sum: number, t: any) => sum + (parseInt(t.sessions) || 0), 0) || 0;
                               const transferredOut = txOutSessionsByPackageId.get(pkgIdStr) || 0;
                               
                               // Only hide if ALL sessions are transferred out
@@ -4949,7 +5186,47 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                               <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
                               <div className={shouldScroll ? "space-y-1 max-h-[350px] overflow-y-auto pr-1" : "space-y-1"}>
                                 {visiblePackages.map(({ p, originalIdx }: any) => {
-                                  const pkg = allAvailablePackages.find((x: any) => x._id === p.packageId);
+                                  // Resolve effective package: master from allAvailablePackages first,
+                                  // then fall back to packageSnapshot if the master was deleted.
+                                  const masterPkg = allAvailablePackages.find((x: any) => String(x._id) === String(p.packageId));
+                                  const snap = p.packageSnapshot;
+
+                                  // For old records that predate the snapshot feature, try to recover
+                                  // the package name from:
+                                  // 1. packageSnapshot.name  (new records)
+                                  // 2. p.packageName         (stored on assignment — sometimes blank for old records)
+                                  // 3. billing history       (billing was recorded with the package name)
+                                  // 4. "packages" state      (populated by fetchPackagesAndMemberships, includes snapshot-reconstructed)
+                                  const pkgIdStr = String(p.packageId);
+                                  const nameFromBilling = (() => {
+                                    if (!billingHistory) return null;
+                                    const match = billingHistory.find((b: any) =>
+                                      b.service === 'Package' &&
+                                      b.package &&
+                                      (String(b.packageId) === pkgIdStr || (b.notes && b.notes.includes(pkgIdStr)))
+                                    );
+                                    return match?.package || null;
+                                  })();
+                                  const nameFromPackagesState = packages.find((x: any) => String(x._id) === pkgIdStr || String(x.packageId) === pkgIdStr)?.name;
+
+                                  const resolvedName = snap?.name || p.packageName || nameFromBilling || nameFromPackagesState
+                                    // Last resort: still display a package card if we have price/ID
+                                    || (p.totalPrice > 0 ? `Package (${pkgIdStr.slice(-6)})` : null);
+                                  const pkg = masterPkg || (resolvedName
+                                    ? {
+                                        _id: pkgIdStr,
+                                        name: resolvedName,
+                                        totalPrice: snap?.totalPrice ?? p.totalPrice ?? 0,
+                                        totalSessions: snap?.totalSessions ?? 0,
+                                        sessionPrice: snap?.sessionPrice ?? 0,
+                                        validityInMonths: snap?.validityInMonths ?? p.validityInMonths ?? 0,
+                                        startDate: snap?.startDate ?? p.startDate ?? null,
+                                        endDate: snap?.endDate ?? p.endDate ?? null,
+                                        treatments: snap?.treatments ?? [],
+                                        isDeletedMaster: true, // visual indicator — master was deleted
+                                      }
+                                    : null);
+
                                   const validity = p.validityInMonths || pkg?.validityInMonths;
                                   const startDate = p.startDate || pkg?.startDate;
                                   const endDate = p.endDate || pkg?.endDate;
@@ -4989,8 +5266,15 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                           Expired
                                         </div>
                                       )}
+                                      {/* Badge shown when the master package was deleted from services_setup
+                                          but the patient retains all benefits via the stored snapshot */}
+                                      {pkg?.isDeletedMaster && !isExpired && (
+                                        <div className="absolute top-0 left-0 px-2 py-0.5 bg-orange-500 text-white text-[7px] font-black uppercase tracking-tighter z-10 rounded-br-lg shadow-sm">
+                                          Catalogue Removed
+                                        </div>
+                                      )}
                                       <div className="flex items-center justify-between">
-                                        <div className={`font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-800'} flex items-center gap-1.5`}>
+                                        <div className={`font-bold ${isExpired ? 'text-red-900 line-through' : 'text-gray-800'} flex items-center gap-1.5 ${pkg?.isDeletedMaster ? 'mt-3' : ''}`}>
                                           {pkg?.name || p.packageId} • {getCurrencySymbol(currency)}{pkg?.totalPrice}
                                           {paymentStatus === 'Full' && <span className="px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[7px] font-black uppercase">Full Paid</span>}
                                           {paymentStatus === 'Partial' && <span className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[7px] font-black uppercase">Partial ({getCurrencySymbol(currency)}{totalPaidFromBillings})</span>}
@@ -5529,6 +5813,14 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                             <div className="absolute top-0 right-0 z-10">
                               <div className="bg-red-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 shadow-md transform translate-x-1 translate-y-0 rounded-bl-lg border-l border-b border-red-700">
                                 Expired
+                              </div>
+                            </div>
+                          )}
+                          {/* Badge: package was deleted from services_setup but patient retains all benefits */}
+                          {pkg.isDeletedMaster && !isExpired && (
+                            <div className="absolute top-0 left-0 z-10">
+                              <div className="bg-orange-500 text-white text-[7px] font-black uppercase tracking-widest px-2 py-0.5 shadow-md rounded-br-lg border-r border-b border-orange-600" title="This package was removed from the clinic catalogue. The patient retains all purchased benefits.">
+                                Catalogue Removed
                               </div>
                             </div>
                           )}
@@ -6267,6 +6559,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     </div>
                                   </div>
                                 )}
+                                {pkg.transferredByName && (
+                                  <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred By</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-green-600" />
+                                      <span className="text-xs font-bold text-green-900">
+                                        {pkg.transferredByName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
                                 {pkg.transferredSessions > 0 && (
                                   <div className="bg-white border border-green-200 rounded-lg px-3 py-2">
                                     <div className="text-[10px] text-gray-500 mb-0.5">Transferred Sessions</div>
@@ -6359,6 +6662,17 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                       <User className="w-3.5 h-3.5 text-amber-600" />
                                       <span className="text-xs font-bold text-amber-900">
                                         {pkg.transferredToName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {pkg.transferredByName && (
+                                  <div className="bg-white border border-amber-200 rounded-lg px-3 py-2">
+                                    <div className="text-[10px] text-gray-500 mb-0.5">Transferred By</div>
+                                    <div className="flex items-center gap-1.5">
+                                      <User className="w-3.5 h-3.5 text-amber-600" />
+                                      <span className="text-xs font-bold text-amber-900">
+                                        {pkg.transferredByName}
                                       </span>
                                     </div>
                                   </div>
@@ -7535,10 +7849,10 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                             </div>
                         </div>
 
-                        {/* Summary Section - Total Billed, Total Paid, Outstanding */}
+                        {/* Summary Section - Total Billed, Total Paid, Outstanding, Advance */}
                         {(billingHistory || []).filter((b: any) => !b.isAdvanceOnly && b.treatment !== "Historical Advance Balance").length > 0 && (
                           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                               {/* Total Billed */}
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                 <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
@@ -7564,6 +7878,13 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                 <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
                                 <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
                                   {formatAED(balance.pendingBalance)}
+                                </div>
+                              </div>
+                              {/* Advance Balance */}
+                              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-center">
+                                <div className="text-[10px] sm:text-xs text-teal-600 mb-1">Advance Balance</div>
+                                <div className="text-lg sm:text-xl md:text-2xl font-bold text-teal-800">
+                                  {formatAED(balance.advanceBalance)}
                                 </div>
                               </div>
                             </div>
@@ -10460,17 +10781,75 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                       <div className="space-y-2">
                         {(() => {
                           // Extract unique bundle offers from billing history
+                          
+                          // First, build used and restored session maps
+                          const usedSessionsMap = new Map<string, number>();
+                          const restoredSessionsMap = new Map<string, number>();
+                          
+                          (billingHistory || []).forEach((billing: any) => {
+                            if (billing.usedFreeSessions && Array.isArray(billing.usedFreeSessions)) {
+                              billing.usedFreeSessions.forEach((session: string) => {
+                                const sessionKey = session.toLowerCase();
+                                usedSessionsMap.set(
+                                  sessionKey,
+                                  (usedSessionsMap.get(sessionKey) || 0) + 1
+                                );
+                              });
+                            }
+                            
+                            if (billing.refundedOffers && Array.isArray(billing.refundedOffers)) {
+                              billing.refundedOffers.forEach((refund: any) => {
+                                if (refund.freeSessionsRestored && Array.isArray(refund.freeSessionsRestored)) {
+                                  refund.freeSessionsRestored.forEach((session: string) => {
+                                    const sessionKey = session.toLowerCase();
+                                    restoredSessionsMap.set(
+                                      sessionKey,
+                                      (restoredSessionsMap.get(sessionKey) || 0) + 1
+                                    );
+                                  });
+                                }
+                              });
+                            }
+                          });
+                          
                           const bundleOffers = (billingHistory || [])
                             .filter((b: any) => b.offerType === 'bundle' && b.offerFreeSession && b.offerFreeSession.length > 0)
-                            .map((b: any) => ({
-                              offerName: b.offerName || b.offerTitle || 'Bundle Offer',
-                              offerFreeSession: b.offerFreeSession || [],
-                              freeOfferSessionCount: b.freeOfferSessionCount || 0,
-                              invoiceNumber: b.invoiceNumber,
-                              invoicedDate: b.invoicedDate,
-                              treatment: b.treatment,
-                              amount: b.amount
-                            }));
+                            .map((b: any) => {
+                              const offeredSessions = b.offerFreeSession || [];
+                              const offeredCount = b.freeOfferSessionCount || 0;
+                              
+                              // Calculate used count (adjusted by restored)
+                              let usedCount = 0;
+                              offeredSessions.forEach((session: string) => {
+                                const sessionKey = session.toLowerCase();
+                                const totalUsed = usedSessionsMap.get(sessionKey) || 0;
+                                const totalRestored = restoredSessionsMap.get(sessionKey) || 0;
+                                usedCount += Math.max(0, totalUsed - totalRestored);
+                              });
+                              
+                              const remainingCount = Math.max(0, offeredCount - usedCount);
+                              
+                              // Build remaining sessions list
+                              const remainingSessions: string[] = [];
+                              let count = 0;
+                              offeredSessions.forEach((session: string) => {
+                                if (count < remainingCount) {
+                                  remainingSessions.push(session);
+                                  count++;
+                                }
+                              });
+                              
+                              return {
+                                offerName: b.offerName || b.offerTitle || 'Bundle Offer',
+                                offerFreeSession: remainingSessions,
+                                freeOfferSessionCount: remainingCount,
+                                invoiceNumber: b.invoiceNumber,
+                                invoicedDate: b.invoicedDate,
+                                treatment: b.treatment,
+                                amount: b.amount
+                              };
+                            })
+                            .filter((offer: any) => offer.freeOfferSessionCount > 0);
 
                           if (bundleOffers.length === 0) {
                             return (
@@ -10896,7 +11275,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
         {showPaymentHistoryModal && selectedPaymentHistoryBilling && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-md" onClick={() => setShowPaymentHistoryModal(false)} />
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex items-center justify-between">
                 <div>
@@ -10911,8 +11290,10 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                 </button>
               </div>
 
-              {/* Invoice Summary Card */}
-              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto">
+                {/* Invoice Summary Card */}
+                <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
                 {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Amount</p>
@@ -11022,7 +11403,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
               </div>
 
               {/* Payment Details Section */}
-              <div className="px-6 py-4 overflow-y-auto max-h-[calc(90vh-300px)]">
+              <div className="px-6 py-4">
                 {/* Build complete payment timeline from paymentHistory */}
                 {(() => {
                   const billing = selectedPaymentHistoryBilling;
@@ -11183,71 +11564,72 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                     </div>
                   );
                 })()}
-              </div>
-              {/* Pending Cleared Breakdown - from PatientPendingLedger */}
-              {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
-                <div className="px-6 py-4 border-t border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <div className="p-1.5 bg-emerald-100 rounded-full">
-                      <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    Pending Cleared Breakdown ({selectedPaymentHistoryBilling.pendingClearedBreakdown.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => (
-                      <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">
-                              {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
-                            </span>
-                            <div>
-                              <p className="text-xs font-bold text-gray-800">
-                                {item.treatmentName || item.packageName || item.service || 'N/A'}
-                              </p>
-                              <p className="text-[10px] text-gray-500">
-                                {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
-                              </p>
+                {/* Pending Cleared Breakdown - from PatientPendingLedger */}
+                {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <div className="p-1.5 bg-emerald-100 rounded-full">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      Pending Cleared Breakdown ({selectedPaymentHistoryBilling.pendingClearedBreakdown.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg">
+                                {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
+                              </span>
+                              <div>
+                                <p className="text-xs font-bold text-gray-800">
+                                  {item.treatmentName || item.packageName || item.service || 'N/A'}
+                                </p>
+                                <p className="text-[10px] text-gray-500">
+                                  {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                item.newStatus === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
+                              </span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              item.newStatus === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
-                            </span>
-                          </div>
+                          {item.newRemaining > 0 && (
+                            <div className="mt-2 pt-2 border-t border-emerald-200/50">
+                              <p className="text-[10px] text-gray-500">Remaining: <span className="font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
+                            </div>
+                          )}
+                          {item.paymentMethod && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[10px]">
+                                {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-600">Paid via {item.paymentMethod}</span>
+                            </div>
+                          )}
+                          {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              <span className="text-[10px]">
+                                {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
+                              </span>
+                              <span className="text-[10px] font-semibold text-gray-600">Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
+                            </div>
+                          )}
                         </div>
-                        {item.newRemaining > 0 && (
-                          <div className="mt-2 pt-2 border-t border-emerald-200/50">
-                            <p className="text-[10px] text-gray-500">Remaining: <span className="font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
-                          </div>
-                        )}
-                        {item.paymentMethod && (
-                          <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="text-[10px]">
-                              {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
-                            </span>
-                            <span className="text-[10px] font-semibold text-gray-600">Paid via {item.paymentMethod}</span>
-                          </div>
-                        )}
-                        {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
-                          <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="text-[10px]">
-                              {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
-                            </span>
-                            <span className="text-[10px] font-semibold text-gray-600">Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-xs text-gray-500">
                   <p>Invoice: {selectedPaymentHistoryBilling.invoiceNumber}</p>
                   <p>Created: {selectedPaymentHistoryBilling.createdAt ? new Date(selectedPaymentHistoryBilling.createdAt).toLocaleString() : 'N/A'}</p>
