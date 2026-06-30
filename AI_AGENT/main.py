@@ -45,7 +45,6 @@ from response_resolver import (
 )
 import templates_db as db
 from scenario_keys import BEHAVIOR_STYLES, DEFAULT_BEHAVIOR_STYLE
-from fastapi.responses import Response as TwiMLResponse
 
 load_dotenv()
 
@@ -1536,83 +1535,3 @@ async def analytics_day_detail(date: str, clinicToken: str = Depends(get_clinic_
         "scenario_breakdown": scenario_breakdown,
     }
 
-
-@app.post("/twilio/escalation-answer")
-@traceable
-async def twilio_escalation_answer(
-    conversation_id: str,
-    clinic_token: str,
-    clinic_name: str,
-    reason: str,
-):
-    """Staff just answered the initial call. Announce + gather 'press 1'."""
-    # Same rule as the initial call URL: encode every dynamic value, or a
-    # clinic_token / clinic_name / reason containing special characters
-    # will break this URL the same way it broke the first one.
-    query = urlencode(
-        {"conversation_id": conversation_id, "clinic_token": clinic_token}
-    )
-    gather_action_url = (
-        f"{os.getenv('SERVICE_PUBLIC_URL')}/twilio/escalation-gather?{query}"
-    )
-    print(f"[escalation-answer] gather_action_url={gather_action_url}")  # <-- add this
-
-    twiml = build_initial_answer_twiml(clinic_name, reason, gather_action_url)
-    print(f"[escalation-answer] twiml={twiml}")  # <-- and this
-
-    return TwiMLResponse(content=twiml, media_type="application/xml")
-
-
-@app.post("/twilio/escalation-gather")
-@traceable
-async def twilio_escalation_gather(
-    request: Request,
-    conversation_id: str,  # still from query string — this is fine
-    clinic_token: str,  # still from query string — this is fine
-):
-    # Read Digits from POST body (Twilio sends application/x-www-form-urlencoded)
-    form = await request.form()
-    digits = form.get("Digits", "")
-
-    print(f"[escalation-gather] digits='{digits}' conversation_id={conversation_id}")
-
-    if digits != "1":
-        return TwiMLResponse(
-            content=build_no_digit_pressed_twiml(), media_type="application/xml"
-        )
-
-    try:
-        patient_phone = await fetch_patient_MobNumber(
-            conversation_id=conversation_id, clinicToken=clinic_token
-        )
-    except Exception as e:
-        print(f"[escalation-gather] fetch_patient_MobNumber failed: {e}")
-        return TwiMLResponse(
-            content=build_missing_patient_number_twiml(),
-            media_type="application/xml",
-        )
-
-    if not patient_phone:
-        return TwiMLResponse(
-            content=build_missing_patient_number_twiml(),
-            media_type="application/xml",
-        )
-
-    dial_status_url = f"{os.getenv('SERVICE_PUBLIC_URL')}/twilio/escalation-dial-status"
-    twiml = build_bridge_twiml(patient_phone, dial_status_url)
-    return TwiMLResponse(content=twiml, media_type="application/xml")
-
-
-@app.post("/twilio/escalation-dial-status")
-async def twilio_escalation_dial_status(request: Request):
-    form = await request.form()
-    dial_call_status = form.get("DialCallStatus", "")
-    print(f"[escalation-dial-status] DialCallStatus='{dial_call_status}'")
-
-    if dial_call_status == "completed":
-        return TwiMLResponse(
-            content=build_call_ended_twiml(), media_type="application/xml"
-        )
-    return TwiMLResponse(
-        content=build_patient_unreachable_twiml(), media_type="application/xml"
-    )
