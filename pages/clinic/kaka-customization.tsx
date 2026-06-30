@@ -39,6 +39,9 @@ function getClinicToken(): string | null {
     localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken")
   );
 }
+function authHeaders(token: string | null) {
+  return { headers: { Authorization: `Bearer ${token}` } };
+}
 
 const KakaCustomizationPage: NextPageWithLayout = () => {
   const [token, setToken] = useState<string | null>(null);
@@ -94,12 +97,8 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     setLoadError(null);
     try {
       const [scenarioRes, styleRes] = await Promise.all([
-        axios.get(`${API_BASE}/dashboard/scenarios`, {
-          params: { clinicToken: token },
-        }),
-        axios.get(`${API_BASE}/dashboard/behavior-style`, {
-          params: { clinicToken: token },
-        }),
+        axios.get(`${API_BASE}/dashboard/scenarios`, authHeaders(token)),
+        axios.get(`${API_BASE}/dashboard/behavior-style`, authHeaders(token)),
       ]);
       setScenarios(scenarioRes.data.scenarios || []);
       setBehaviorStyle(styleRes.data.behavior_style || "default");
@@ -166,10 +165,11 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     setBehaviorStyle(value);
     setSavingStyle(true);
     try {
-      await axios.post(`${API_BASE}/dashboard/behavior-style`, {
-        clinicToken: token,
-        behavior_style: value,
-      });
+      await axios.post(
+        `${API_BASE}/dashboard/behavior-style`,
+        { behavior_style: value },
+        authHeaders(token),
+      );
       showToast("success", "Behavior style updated.");
     } catch (err: any) {
       showToast(
@@ -189,12 +189,15 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     }
     setSaving(true);
     try {
-      await axios.post(`${API_BASE}/dashboard/templates`, {
-        clinicToken: token,
-        scenario_key: activeKey,
-        template_text: draftText,
-        is_enabled: draftEnabled,
-      });
+      await axios.post(
+        `${API_BASE}/dashboard/templates`,
+        {
+          scenario_key: activeKey,
+          template_text: draftText,
+          is_enabled: draftEnabled,
+        },
+        authHeaders(token),
+      );
       showToast("success", "Template saved.");
       await loadAll();
       closeEditor();
@@ -207,12 +210,12 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
       setSaving(false);
     }
   }
-
   async function toggleEnabled(scenarioKey: string, nextEnabled: boolean) {
     try {
       await axios.patch(
         `${API_BASE}/dashboard/templates/${scenarioKey}/enable`,
-        { clinicToken: token, is_enabled: nextEnabled },
+        { is_enabled: nextEnabled },
+        authHeaders(token),
       );
       setScenarios((prev) =>
         prev.map((s) =>
@@ -232,14 +235,14 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
       );
     }
   }
-
   async function deleteTemplate() {
     if (!activeKey) return;
     setDeleting(true);
     try {
-      await axios.delete(`${API_BASE}/dashboard/templates/${activeKey}`, {
-        params: { clinicToken: token },
-      });
+      await axios.delete(
+        `${API_BASE}/dashboard/templates/${activeKey}`,
+        authHeaders(token),
+      );
       showToast(
         "success",
         "Template removed. KAKA's default reply will be used.",
@@ -266,9 +269,10 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     try {
       await Promise.all(
         addedScenarios.map((s) =>
-          axios.delete(`${API_BASE}/dashboard/templates/${s.scenario_key}`, {
-            params: { clinicToken: token },
-          }),
+          axios.delete(
+            `${API_BASE}/dashboard/templates/${s.scenario_key}`,
+            authHeaders(token),
+          ),
         ),
       );
       showToast("success", "All templates removed.");
@@ -293,12 +297,15 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     setPreviewError(null);
     setPreviewResult(null);
     try {
-      const res = await axios.post(`${API_BASE}/dashboard/templates/preview`, {
-        clinicToken: token,
-        scenario_key: activeKey,
-        template_text: draftText,
-        behavior_style: behaviorStyle,
-      });
+      const res = await axios.post(
+        `${API_BASE}/dashboard/templates/preview`,
+        {
+          scenario_key: activeKey,
+          template_text: draftText,
+          behavior_style: behaviorStyle,
+        },
+        authHeaders(token),
+      );
       setPreviewResult(res.data.preview_message);
     } catch (err: any) {
       setPreviewError(err?.response?.data?.detail || "Preview failed.");
@@ -312,11 +319,14 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     setStylePreviewError(null);
     setStylePreviewResult(null);
     try {
-      const res = await axios.post(`${API_BASE}/dashboard/templates/preview`, {
-        clinicToken: token,
-        scenario_key: "greeting",
-        behavior_style: behaviorStyle,
-      });
+      const res = await axios.post(
+        `${API_BASE}/dashboard/templates/preview`,
+        {
+          scenario_key: "greeting",
+          behavior_style: behaviorStyle,
+        },
+        authHeaders(token),
+      );
       setStylePreviewResult(res.data.preview_message);
     } catch (err: any) {
       setStylePreviewError(err?.response?.data?.detail || "Preview failed.");
