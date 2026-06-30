@@ -4,7 +4,7 @@ import re
 from typing import Annotated, Literal, TypedDict
 import httpx
 from langchain_openai import ChatOpenAI
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import Depends, FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph, add_messages
@@ -18,6 +18,8 @@ from langchain_core.messages import (
     ToolMessage,
     trim_messages,
 )
+from fastapi import Header
+from urllib.parse import urlencode
 import asyncio
 from psycopg.rows import dict_row
 from langchain_core.runnables import RunnableConfig
@@ -43,6 +45,7 @@ from response_resolver import (
 )
 import templates_db as db
 from scenario_keys import BEHAVIOR_STYLES, DEFAULT_BEHAVIOR_STYLE
+from fastapi.responses import Response as TwiMLResponse
 
 load_dotenv()
 
@@ -112,7 +115,7 @@ app.add_middleware(
 )
 
 
-# ────────────────────────── State & Request Models ─────────────────────────── 
+# ────────────────────────── State & Request Models ───────────────────────────
 
 
 class ChatState(TypedDict):
@@ -152,7 +155,6 @@ class GetTokenRequest(BaseModel):
 
 
 class TemplateUpsertRequest(BaseModel):
-    clinicToken: str
     scenario_key: str
     template_text: str
     is_enabled: bool = True
@@ -160,19 +162,16 @@ class TemplateUpsertRequest(BaseModel):
 
 
 class TemplateEnableRequest(BaseModel):
-    clinicToken: str
     is_enabled: bool
     updated_by: str | None = None
 
 
 class BehaviorStyleRequest(BaseModel):
-    clinicToken: str
     behavior_style: str
     updated_by: str | None = None
 
 
 class TemplatePreviewRequest(BaseModel):
-    clinicToken: str
     scenario_key: str
     template_text: str | None = None
     behavior_style: str
@@ -215,7 +214,6 @@ def format_for_whatsapp(text: str) -> str:
     ]:
         text = text.replace(marker, "")
 
-   
     SCHEDULER_LINK_RE = re.compile(
         r"🔗\s*(?:"
         r"SCHEDULER_LINK:\s*(?:\[.*?\]\((\S+?)\)|(\S+))"
@@ -834,6 +832,9 @@ async def get_clinic_timings_tool(config: RunnableConfig) -> dict:
     return result
 
 
+
+
+
 tools = [
     book_appointment,
     reschedule_appointment,
@@ -846,7 +847,7 @@ tools = [
 ]
 agent = llm.bind_tools(tools)
 
-MAX_TOKENS = 8000
+MAX_TOKENS = 2000
 
 
 def build_workflow(checkpointer):
@@ -951,6 +952,21 @@ async def get_clinic_id_cached(clinicToken: str) -> str | None:
     return clinic_id
 
 
+async def get_clinic_token(authorization: str = Header(...)) -> str:
+    """Extracts the bearer token from the Authorization header.
+    Replaces the old `clinicToken` query param everywhere on the dashboard
+    and analytics routes."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or malformed Authorization header. Expected 'Bearer <clinicToken>'.",
+        )
+    token = authorization[len("Bearer ") :].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Empty clinic token.")
+    return token
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
     clinic_token_var.set(req.clinicToken)
@@ -1046,7 +1062,7 @@ async def get_token(req: GetTokenRequest, request: Request):
 
 
 @app.get("/dashboard/scenarios")
-async def list_scenarios(clinicToken: str):
+async def list_scenarios(clinicToken: str = Depends(get_clinic_token)):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     saved = await db.list_templates(app.state.db_conn, clinic_id)
     saved_by_key = {t.scenario_key: t.to_dict() for t in saved}
@@ -1068,8 +1084,10 @@ async def list_scenarios(clinicToken: str):
 
 
 @app.post("/dashboard/templates")
-async def upsert_template_endpoint(req: TemplateUpsertRequest):
-    clinic_id = await resolve_clinic_id_or_401(req.clinicToken)
+async def upsert_template_endpoint(
+    req: TemplateUpsertRequest, clinicToken: str = Depends(get_clinic_token)
+):
+    clinic_id = await resolve_clinic_id_or_401(clinicToken)
     if req.scenario_key not in SCENARIO_KEYS:
         raise HTTPException(
             status_code=400, detail=f"Unknown scenario_key: {req.scenario_key}"
@@ -1086,8 +1104,12 @@ async def upsert_template_endpoint(req: TemplateUpsertRequest):
 
 
 @app.patch("/dashboard/templates/{scenario_key}/enable")
-async def set_template_enabled_endpoint(scenario_key: str, req: TemplateEnableRequest):
-    clinic_id = await resolve_clinic_id_or_401(req.clinicToken)
+async def set_template_enabled_endpoint(
+    scenario_key: str,
+    req: TemplateEnableRequest,
+    clinicToken: str = Depends(get_clinic_token),
+):
+    clinic_id = await resolve_clinic_id_or_401(clinicToken)
     if scenario_key not in SCENARIO_KEYS:
         raise HTTPException(
             status_code=400, detail=f"Unknown scenario_key: {scenario_key}"
@@ -1108,7 +1130,9 @@ async def set_template_enabled_endpoint(scenario_key: str, req: TemplateEnableRe
 
 
 @app.delete("/dashboard/templates/{scenario_key}")
-async def delete_template_endpoint(scenario_key: str, clinicToken: str):
+async def delete_template_endpoint(
+    scenario_key: str, clinicToken: str = Depends(get_clinic_token)
+):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     deleted = await db.delete_template(app.state.db_conn, clinic_id, scenario_key)
     if not deleted:
@@ -1117,15 +1141,17 @@ async def delete_template_endpoint(scenario_key: str, clinicToken: str):
 
 
 @app.get("/dashboard/behavior-style")
-async def get_behavior_style_endpoint(clinicToken: str):
+async def get_behavior_style_endpoint(clinicToken: str = Depends(get_clinic_token)):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     style = await db.get_behavior_style(app.state.db_conn, clinic_id)
     return {"clinic_id": clinic_id, "behavior_style": style}
 
 
 @app.post("/dashboard/behavior-style")
-async def set_behavior_style_endpoint(req: BehaviorStyleRequest):
-    clinic_id = await resolve_clinic_id_or_401(req.clinicToken)
+async def set_behavior_style_endpoint(
+    req: BehaviorStyleRequest, clinicToken: str = Depends(get_clinic_token)
+):
+    clinic_id = await resolve_clinic_id_or_401(clinicToken)
     if req.behavior_style not in BEHAVIOR_STYLES:
         raise HTTPException(
             status_code=400, detail=f"Unknown behavior_style: {req.behavior_style}"
@@ -1140,8 +1166,10 @@ async def set_behavior_style_endpoint(req: BehaviorStyleRequest):
 
 
 @app.post("/dashboard/templates/preview")
-async def preview_template_endpoint(req: TemplatePreviewRequest):
-    await resolve_clinic_id_or_401(req.clinicToken)
+async def preview_template_endpoint(
+    req: TemplatePreviewRequest, clinicToken: str = Depends(get_clinic_token)
+):
+    await resolve_clinic_id_or_401(clinicToken)
     if req.scenario_key not in SCENARIO_KEYS:
         raise HTTPException(
             status_code=400, detail=f"Unknown scenario_key: {req.scenario_key}"
@@ -1199,12 +1227,15 @@ def range_to_since_sql(range: str) -> str:
 
 
 @app.get("/analytics/summary")
-async def analytics_summary(clinicToken: str, range: str = "30d"):
+async def analytics_summary(
+    range: str = "30d",
+    clinicToken: str = Depends(get_clinic_token),
+):
     """
     Returns KPI counters:
       total_conversations, patients_addressed,
       bookings_completed, reschedules_completed,
-     channel_web, channel_whatsapp
+      escalations_to_staff, channel_web, channel_whatsapp
     """
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
@@ -1241,7 +1272,9 @@ async def analytics_summary(clinicToken: str, range: str = "30d"):
 
 
 @app.get("/analytics/daily")
-async def analytics_daily(clinicToken: str, range: str = "30d"):
+async def analytics_daily(
+    range: str = "30d", clinicToken: str = Depends(get_clinic_token)
+):
     """
     Returns daily time-series for the conversations line chart.
     Each row: { date, conversations, bookings, reschedules, escalations }
@@ -1283,7 +1316,9 @@ async def analytics_daily(clinicToken: str, range: str = "30d"):
 
 
 @app.get("/analytics/query-mix")
-async def analytics_query_mix(clinicToken: str, range: str = "30d"):
+async def analytics_query_mix(
+    clinicToken: str = Depends(get_clinic_token), range: str = "30d"
+):
     """
     Returns share of each scenario_key as percentage for the donut chart.
     """
@@ -1322,7 +1357,9 @@ HOURS_IN_DAY = list(range(24))
 
 
 @app.get("/analytics/peak-hours")
-async def analytics_peak_hours(clinicToken: str, range: str = "30d"):
+async def analytics_peak_hours(
+    clinicToken: str = Depends(get_clinic_token), range: str = "30d"
+):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
 
@@ -1347,7 +1384,9 @@ async def analytics_peak_hours(clinicToken: str, range: str = "30d"):
 
 
 @app.get("/analytics/weekly")
-async def analytics_weekly(clinicToken: str, range: str = "30d"):
+async def analytics_weekly(
+    clinicToken: str = Depends(get_clinic_token), range: str = "30d"
+):
     """
     Returns weekly aggregates for the bookings/reschedules bar chart.
     """
@@ -1384,7 +1423,7 @@ async def analytics_weekly(clinicToken: str, range: str = "30d"):
 
 
 @app.get("/analytics/day-detail")
-async def analytics_day_detail(clinicToken: str, date: str):
+async def analytics_day_detail(date: str, clinicToken: str = Depends(get_clinic_token)):
     """
     Returns full detail for a single IST calendar day.
     `date` must be in 'YYYY-MM-DD' format (e.g. '2026-06-25').
@@ -1496,3 +1535,84 @@ async def analytics_day_detail(clinicToken: str, date: str):
         "hourly": hourly,
         "scenario_breakdown": scenario_breakdown,
     }
+
+
+@app.post("/twilio/escalation-answer")
+@traceable
+async def twilio_escalation_answer(
+    conversation_id: str,
+    clinic_token: str,
+    clinic_name: str,
+    reason: str,
+):
+    """Staff just answered the initial call. Announce + gather 'press 1'."""
+    # Same rule as the initial call URL: encode every dynamic value, or a
+    # clinic_token / clinic_name / reason containing special characters
+    # will break this URL the same way it broke the first one.
+    query = urlencode(
+        {"conversation_id": conversation_id, "clinic_token": clinic_token}
+    )
+    gather_action_url = (
+        f"{os.getenv('SERVICE_PUBLIC_URL')}/twilio/escalation-gather?{query}"
+    )
+    print(f"[escalation-answer] gather_action_url={gather_action_url}")  # <-- add this
+
+    twiml = build_initial_answer_twiml(clinic_name, reason, gather_action_url)
+    print(f"[escalation-answer] twiml={twiml}")  # <-- and this
+
+    return TwiMLResponse(content=twiml, media_type="application/xml")
+
+
+@app.post("/twilio/escalation-gather")
+@traceable
+async def twilio_escalation_gather(
+    request: Request,
+    conversation_id: str,  # still from query string — this is fine
+    clinic_token: str,  # still from query string — this is fine
+):
+    # Read Digits from POST body (Twilio sends application/x-www-form-urlencoded)
+    form = await request.form()
+    digits = form.get("Digits", "")
+
+    print(f"[escalation-gather] digits='{digits}' conversation_id={conversation_id}")
+
+    if digits != "1":
+        return TwiMLResponse(
+            content=build_no_digit_pressed_twiml(), media_type="application/xml"
+        )
+
+    try:
+        patient_phone = await fetch_patient_MobNumber(
+            conversation_id=conversation_id, clinicToken=clinic_token
+        )
+    except Exception as e:
+        print(f"[escalation-gather] fetch_patient_MobNumber failed: {e}")
+        return TwiMLResponse(
+            content=build_missing_patient_number_twiml(),
+            media_type="application/xml",
+        )
+
+    if not patient_phone:
+        return TwiMLResponse(
+            content=build_missing_patient_number_twiml(),
+            media_type="application/xml",
+        )
+
+    dial_status_url = f"{os.getenv('SERVICE_PUBLIC_URL')}/twilio/escalation-dial-status"
+    twiml = build_bridge_twiml(patient_phone, dial_status_url)
+    return TwiMLResponse(content=twiml, media_type="application/xml")
+
+
+@app.post("/twilio/escalation-dial-status")
+async def twilio_escalation_dial_status(request: Request):
+    form = await request.form()
+    dial_call_status = form.get("DialCallStatus", "")
+    print(f"[escalation-dial-status] DialCallStatus='{dial_call_status}'")
+
+    if dial_call_status == "completed":
+        return TwiMLResponse(
+            content=build_call_ended_twiml(), media_type="application/xml"
+        )
+    return TwiMLResponse(
+        content=build_patient_unreachable_twiml(), media_type="application/xml"
+    )
