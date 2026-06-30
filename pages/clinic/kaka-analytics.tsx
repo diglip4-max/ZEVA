@@ -518,13 +518,24 @@ const KakaAnalyticsPage: NextPageWithLayout = function KakaAnalyticsPage() {
     }, 700);
 
     try {
-      const qs = `clinicToken=${clinicToken}&range=${range}`;
+      const qs = `range=${range}`;
+      const authHeaders = { Authorization: `Bearer ${clinicToken}` };
       const [s, d, q, h, w] = await Promise.all([
-        fetch(`${BASE}/analytics/summary?${qs}`).then((r) => r.json()),
-        fetch(`${BASE}/analytics/daily?${qs}`).then((r) => r.json()),
-        fetch(`${BASE}/analytics/query-mix?${qs}`).then((r) => r.json()),
-        fetch(`${BASE}/analytics/peak-hours?${qs}`).then((r) => r.json()),
-        fetch(`${BASE}/analytics/weekly?${qs}`).then((r) => r.json()),
+        fetch(`${BASE}/analytics/summary?${qs}`, { headers: authHeaders }).then(
+          (r) => r.json(),
+        ),
+        fetch(`${BASE}/analytics/daily?${qs}`, { headers: authHeaders }).then(
+          (r) => r.json(),
+        ),
+        fetch(`${BASE}/analytics/query-mix?${qs}`, {
+          headers: authHeaders,
+        }).then((r) => r.json()),
+        fetch(`${BASE}/analytics/peak-hours?${qs}`, {
+          headers: authHeaders,
+        }).then((r) => r.json()),
+        fetch(`${BASE}/analytics/weekly?${qs}`, { headers: authHeaders }).then(
+          (r) => r.json(),
+        ),
       ]);
       setSummary(s);
       setDaily(d.data ?? []);
@@ -552,8 +563,10 @@ const KakaAnalyticsPage: NextPageWithLayout = function KakaAnalyticsPage() {
       setLoadingLabel(`Loading ${fmtDate(date)}…`);
 
       try {
-        const qs = `clinicToken=${clinicToken}&date=${date}`;
-        const res = await fetch(`${BASE}/analytics/day-detail?${qs}`);
+        const qs = `date=${date}`;
+        const res = await fetch(`${BASE}/analytics/day-detail?${qs}`, {
+          headers: { Authorization: `Bearer ${clinicToken}` },
+        });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body.detail || `Request failed (${res.status})`);

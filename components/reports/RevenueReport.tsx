@@ -9,6 +9,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -26,6 +28,7 @@ type PaymentRow = { method: string; amount: number };
 type ViewRow = { label: string; amount: number };
 
 export default function RevenueReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [treatmentRevenue, setTreatmentRevenue] = useState(0);
@@ -53,6 +56,13 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   type TopPatientRow = { patientId: string; name: string; amount: number };
   const [topPendingPatients, setTopPendingPatients] = useState<TopPatientRow[]>([]);
   const [topAdvancePatients, setTopAdvancePatients] = useState<TopPatientRow[]>([]);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const fmtCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -149,103 +159,105 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   };
   const [pendingPayments, setPendingPayments] = useState<PendingItem[]>([]);
 
-  const revenueExportSections = useMemo(() => [
+  const revenueExportSections = useMemo(() => {
+    const currencyLabel = currency;
+    return [
     {
       title: "Revenue Summary",
-      headers: ["Metric", "Amount (AED)"],
+      headers: ["Metric", `Amount (${currencyLabel})`],
       data: [
-        { "Metric": "Total Revenue", "Amount (AED)": Math.round(totalRevenue || 0) },
-        { "Metric": "Treatment / Service Revenue", "Amount (AED)": Math.round(treatmentRevenue || 0) },
-        { "Metric": "Package Billing Revenue", "Amount (AED)": Math.round(packageRevenue || 0) },
-        { "Metric": "Advance Payment Revenue", "Amount (AED)": Math.round(advanceRevenue || 0) },
-        { "Metric": "Pending Cleared", "Amount (AED)": Math.round(pendingCleared || 0) },
+        { "Metric": "Total Revenue", [`Amount (${currencyLabel})`]: Math.round(totalRevenue || 0) },
+        { "Metric": "Treatment / Service Revenue", [`Amount (${currencyLabel})`]: Math.round(treatmentRevenue || 0) },
+        { "Metric": "Package Billing Revenue", [`Amount (${currencyLabel})`]: Math.round(packageRevenue || 0) },
+        { "Metric": "Advance Payment Revenue", [`Amount (${currencyLabel})`]: Math.round(advanceRevenue || 0) },
+        { "Metric": "Pending Cleared", [`Amount (${currencyLabel})`]: Math.round(pendingCleared || 0) },
       ],
     },
     {
       title: "Revenue by Doctor",
-      headers: ["Doctor", "Revenue (AED)"],
+      headers: ["Doctor", `Revenue (${currencyLabel})`],
       data: revenueByDoctor.map(r => ({
         "Doctor": r.name || "Unknown",
-        "Revenue (AED)": Math.round(r.amount || 0),
+        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
       })),
     },
     {
       title: "Revenue by Service",
-      headers: ["Service", "Revenue (AED)"],
+      headers: ["Service", `Revenue (${currencyLabel})`],
       data: revenueByService.map(r => ({
         "Service": r.name || "Unknown",
-        "Revenue (AED)": Math.round(r.amount || 0),
+        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
       })),
     },
     {
       title: "Revenue by Package",
-      headers: ["Package", "Revenue (AED)"],
+      headers: ["Package", `Revenue (${currencyLabel})`],
       data: revenueByPackage.map(r => ({
         "Package": r.packageName || "Unknown",
-        "Revenue (AED)": Math.round(r.amount || 0),
+        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
       })),
     },
     {
       title: "Revenue by Department",
-      headers: ["Department", "Revenue (AED)"],
+      headers: ["Department", `Revenue (${currencyLabel})`],
       data: revenueByDepartment.map(r => ({
         "Department": r.name || "Unknown",
-        "Revenue (AED)": Math.round(r.amount || 0),
+        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
       })),
     },
     {
       title: "Revenue by Payment Method",
-      headers: ["Payment Method", "Revenue (AED)"],
+      headers: ["Payment Method", `Revenue (${currencyLabel})`],
       data: revenueByPaymentMethod.map(r => ({
         "Payment Method": r.method || "Unknown",
-        "Revenue (AED)": Math.round(r.amount || 0),
+        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
       })),
     },
     {
       title: "Top Pending Patients",
-      headers: ["Patient Name", "Pending Amount (AED)"],
+      headers: ["Patient Name", `Pending Amount (${currencyLabel})`],
       data: topPendingPatients.map(p => ({
         "Patient Name": p.name || "Unknown",
-        "Pending Amount (AED)": Math.round(p.amount || 0),
+        [`Pending Amount (${currencyLabel})`]: Math.round(p.amount || 0),
       })),
     },
     {
       title: "Top Advance Patients",
-      headers: ["Patient Name", "Advance Amount (AED)"],
+      headers: ["Patient Name", `Advance Amount (${currencyLabel})`],
       data: topAdvancePatients.map(p => ({
         "Patient Name": p.name || "Unknown",
-        "Advance Amount (AED)": Math.round(p.amount || 0),
+        [`Advance Amount (${currencyLabel})`]: Math.round(p.amount || 0),
       })),
     },
     {
       title: "Pending / Advance Payment Report",
-      headers: ["Patient Name", "Invoice Number", "Service", "Total Amount (AED)", "Paid Amount (AED)", "Pending Amount (AED)", "Advance Amount (AED)", "Due Date"],
+      headers: ["Patient Name", "Invoice Number", "Service", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, `Pending Amount (${currencyLabel})`, `Advance Amount (${currencyLabel})`, "Due Date"],
       data: pendingPayments.map(pp => ({
         "Patient Name": pp.patientName || "Unknown",
         "Invoice Number": pp.invoiceNumber || "-",
         "Service": pp.serviceName || "Unknown",
-        "Total Amount (AED)": Math.round(pp.totalAmount || 0),
-        "Paid Amount (AED)": Math.round(pp.paidAmount || 0),
-        "Pending Amount (AED)": Math.round(pp.pendingAmount || 0),
-        "Advance Amount (AED)": Math.round(pp.advanceAmount || 0),
+        [`Total Amount (${currencyLabel})`]: Math.round(pp.totalAmount || 0),
+        [`Paid Amount (${currencyLabel})`]: Math.round(pp.paidAmount || 0),
+        [`Pending Amount (${currencyLabel})`]: Math.round(pp.pendingAmount || 0),
+        [`Advance Amount (${currencyLabel})`]: Math.round(pp.advanceAmount || 0),
         "Due Date": pp.dueDate ? new Date(pp.dueDate).toLocaleDateString() : "-",
       })),
     },
     {
       title: "Payment Reports",
-      headers: ["Invoice Number", "Patient Name", "Service", "Amount (AED)", "Payment Method", "Transaction Type", "Payment Status", "Payment Date"],
+      headers: ["Invoice Number", "Patient Name", "Service", `Amount (${currencyLabel})`, "Payment Method", "Transaction Type", "Payment Status", "Payment Date"],
       data: payments.map(p => ({
         "Invoice Number": p.invoiceNumber || "-",
         "Patient Name": p.patientName || "Unknown",
         "Service": p.service || "Unknown",
-        "Amount (AED)": Math.round(p.amount || 0),
+        [`Amount (${currencyLabel})`]: Math.round(p.amount || 0),
         "Payment Method": p.paymentMethod || "-",
         "Transaction Type": p.transactionType || "Payment",
         "Payment Status": p.paymentStatus || "-",
         "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-",
       })),
     },
-  ], [totalRevenue, treatmentRevenue, packageRevenue, advanceRevenue, pendingCleared, revenueByDoctor, revenueByService, revenueByPackage, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments]);
+  ]}, [totalRevenue, treatmentRevenue, packageRevenue, advanceRevenue, pendingCleared, revenueByDoctor, revenueByService, revenueByPackage, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments, currency]);
 
   return (
     <div className="space-y-8">
@@ -264,23 +276,23 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Revenue</div>
-            <div className="text-2xl font-bold text-[#2D9AA5]">{Math.round(totalRevenue)}</div>
+            <div className="text-2xl font-bold text-[#2D9AA5]">{fmtCurrency(totalRevenue)}</div>
           </div>
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Treatment / Service</div>
-            <div className="text-2xl font-bold text-blue-600">{Math.round(treatmentRevenue)}</div>
+            <div className="text-2xl font-bold text-blue-600">{fmtCurrency(treatmentRevenue)}</div>
           </div>
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Package Billing</div>
-            <div className="text-2xl font-bold text-purple-600">{Math.round(packageRevenue)}</div>
+            <div className="text-2xl font-bold text-purple-600">{fmtCurrency(packageRevenue)}</div>
           </div>
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Advance Payments</div>
-            <div className="text-2xl font-bold text-emerald-600">{Math.round(advanceRevenue)}</div>
+            <div className="text-2xl font-bold text-emerald-600">{fmtCurrency(advanceRevenue)}</div>
           </div>
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Pending Cleared</div>
-            <div className="text-2xl font-bold text-amber-600">{Math.round(pendingCleared)}</div>
+            <div className="text-2xl font-bold text-amber-600">{fmtCurrency(pendingCleared)}</div>
           </div>
         </div>
       </div>
@@ -335,7 +347,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               {revenueByDoctor.map((r) => (
                 <tr key={r.doctorId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
                 </tr>
               ))}
               {!revenueByDoctor.length && (
@@ -388,7 +400,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               {revenueByService.map((r) => (
                 <tr key={r.serviceId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
                 </tr>
               ))}
               {!revenueByService.length && (
@@ -413,7 +425,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               {revenueByPackage.map((r) => (
                 <tr key={r.packageName}>
                   <td className="px-4 py-2 text-sm">{r.packageName}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
                 </tr>
               ))}
               {!revenueByPackage.length && (
@@ -438,7 +450,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               {revenueByDepartment.map((r) => (
                 <tr key={r.departmentId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
                 </tr>
               ))}
               {!revenueByDepartment.length && (
@@ -463,7 +475,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               {revenueByPaymentMethod.map((r) => (
                 <tr key={r.method}>
                   <td className="px-4 py-2 text-sm">{r.method}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
                 </tr>
               ))}
               {!revenueByPaymentMethod.length && (
@@ -557,10 +569,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   <td className="px-4 py-2 text-sm">{pp.patientName || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{pp.invoiceNumber}</td>
                   <td className="px-4 py-2 text-sm">{pp.serviceName || "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(pp.totalAmount)}</td>
-                  <td className="px-4 py-2 text-sm">{Math.round(pp.paidAmount)}</td>
-                  <td className="px-4 py-2 text-sm text-red-600 font-semibold">{Math.round(pp.pendingAmount)}</td>
-                  <td className="px-4 py-2 text-sm text-green-700 font-semibold">{Math.round(pp.advanceAmount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(pp.totalAmount)}</td>
+                  <td className="px-4 py-2 text-sm">{fmtCurrency(pp.paidAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-red-600 font-semibold">{fmtCurrency(pp.pendingAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-green-700 font-semibold">{fmtCurrency(pp.advanceAmount)}</td>
                   <td className="px-4 py-2 text-sm">
                     {pp.dueDate ? new Date(pp.dueDate).toLocaleDateString() : "-"}
                   </td>
@@ -600,7 +612,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   <td className="px-4 py-2 text-sm">{p.invoiceNumber}</td>
                   <td className="px-4 py-2 text-sm">{p.patientName || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{p.service || "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{Math.round(p.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(p.amount)}</td>
                   <td className="px-4 py-2 text-sm">{p.paymentMethod}</td>
                   <td className="px-4 py-2 text-sm">
                     <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${

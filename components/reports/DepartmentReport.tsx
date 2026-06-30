@@ -13,6 +13,10 @@ import {
   Legend,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+
+type HeadersRecord = Record<string, string>;
 
 type DepartmentRow = {
   departmentId: string | null;
@@ -31,20 +35,6 @@ type ServiceRow = {
 
 type TopServicesMap = Record<string, ServiceRow[]>;
 
-type HeadersRecord = Record<string, string>;
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
-
 interface Props {
   startDate: string;
   endDate: string;
@@ -52,6 +42,7 @@ interface Props {
 }
 
 export default function DepartmentReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [deptData, setDeptData] = useState<DepartmentRow[]>([]);
   const [appointmentsByDept, setAppointmentsByDept] = useState<{ departmentName: string; totalAppointments: number }[]>([]);
@@ -60,6 +51,13 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
   const [selectedDeptId, setSelectedDeptId] = useState<string | "all" | null>(null);
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [serviceSort, setServiceSort] = useState<"revenue" | "bookings">("revenue");
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchDepartmentPerformance();
@@ -135,9 +133,10 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
   );
 
   const exportSections = useMemo(() => {
+    const currencyLabel = currency;
     const deptSection = {
       title: "Department Performance",
-      headers: ["Department Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)", "Total Appointments", "Top Services"],
+      headers: ["Department Name", "Total Bookings", `Total Revenue (${currencyLabel})`, `Average Price (${currencyLabel})`, "Total Appointments", "Top Services"],
       data: deptData.map(d => {
         const deptId = d.departmentId ? String(d.departmentId) : "";
         const topSvcs = topServices[deptId] || [];
@@ -146,8 +145,8 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
         return {
           "Department Name": d.departmentName || "Unassigned",
           "Total Bookings": d.totalBookings || 0,
-          "Total Revenue (AED)": Math.round(d.totalRevenue || 0),
-          "Average Price (AED)": Math.round(d.avgPrice || 0),
+          [`Total Revenue (${currencyLabel})`]: Math.round(d.totalRevenue || 0),
+          [`Average Price (${currencyLabel})`]: Math.round(d.avgPrice || 0),
           "Total Appointments": apptData?.totalAppointments || 0,
           "Top Services": topSvcNames || "None",
         };
@@ -156,28 +155,28 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
 
     const serviceSection = {
       title: "Service Performance",
-      headers: ["Service Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)"],
+      headers: ["Service Name", "Total Bookings", `Total Revenue (${currencyLabel})`, `Average Price (${currencyLabel})`],
       data: services.map(s => ({
         "Service Name": s.serviceName,
         "Total Bookings": s.totalBookings,
-        "Total Revenue (AED)": Math.round(s.totalRevenue || 0),
-        "Average Price (AED)": Math.round(s.averagePrice || 0),
+        [`Total Revenue (${currencyLabel})`]: Math.round(s.totalRevenue || 0),
+        [`Average Price (${currencyLabel})`]: Math.round(s.averagePrice || 0),
       })),
     };
 
     const top5AllSection = {
       title: "Top 5 Services by Revenue (All Departments)",
-      headers: ["Service Name", "Total Bookings", "Total Revenue (AED)", "Average Price (AED)"],
+      headers: ["Service Name", "Total Bookings", `Total Revenue (${currencyLabel})`, `Average Price (${currencyLabel})`],
       data: topServicesAll.map(s => ({
         "Service Name": s.serviceName,
         "Total Bookings": s.totalBookings,
-        "Total Revenue (AED)": Math.round(s.totalRevenue || 0),
-        "Average Price (AED)": Math.round(s.averagePrice || 0),
+        [`Total Revenue (${currencyLabel})`]: Math.round(s.totalRevenue || 0),
+        [`Average Price (${currencyLabel})`]: Math.round(s.averagePrice || 0),
       })),
     };
 
     return [deptSection, serviceSection, top5AllSection];
-  }, [deptData, topServices, services, topServicesAll]);
+  }, [deptData, topServices, services, topServicesAll, currency]);
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
 
@@ -212,7 +211,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                 tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} 
                 tick={{ fontSize: 10 }}
               />
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>
           </ResponsiveContainer>
@@ -262,7 +261,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                     <div className="font-semibold text-sm sm:text-base">{d.departmentName}</div>
                     <div className="text-xs sm:text-sm text-gray-600">{d.totalBookings} bookings</div>
                   </div>
-                  <div className="text-right text-xs sm:text-sm font-semibold">{currency(d.totalRevenue)}</div>
+                  <div className="text-right text-xs sm:text-sm font-semibold">{formatCurrency(d.totalRevenue)}</div>
                 </div>
                 <div className="mt-2 sm:mt-3">
                   <div className="text-xs text-gray-500 mb-1">Top services</div>
@@ -270,7 +269,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                     {svc.slice(0, 5).map((s) => (
                       <li key={`${deptId}-${s.serviceName}`} className="flex items-center justify-between text-xs sm:text-sm">
                         <span className="text-gray-700 truncate">{s.serviceName}</span>
-                        <span className="text-gray-900 font-medium whitespace-nowrap">{currency(s.totalRevenue)}</span>
+                        <span className="text-gray-900 font-medium whitespace-nowrap">{formatCurrency(s.totalRevenue)}</span>
                       </li>
                     ))}
                     {!svc.length && <li className="text-xs sm:text-sm text-gray-500">No services found</li>}
@@ -311,7 +310,7 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
               <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: 10 }} />
             </PieChart>
           </ResponsiveContainer>
@@ -378,8 +377,8 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
                 <tr key={s.serviceName}>
                   <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[150px] sm:max-w-none truncate">{s.serviceName}</td>
                   <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{s.totalBookings}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{currency(s.totalRevenue)}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{currency(s.averagePrice)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{formatCurrency(s.totalRevenue)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{formatCurrency(s.averagePrice)}</td>
                 </tr>
               ))}
               {!services.length && (
