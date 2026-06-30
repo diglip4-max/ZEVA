@@ -96,16 +96,26 @@ const billingSchema = new mongoose.Schema(
       default: Date.now,
     },
     invoicedBy: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    // ID of the user who created the billing (agent / doctorStaff / clinic owner)
-    invoicedById: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      index: true,
-    },
+        type: String,
+        required: true,
+        trim: true,
+      },
+      // ID of the user who created the billing (agent / doctorStaff / clinic owner)
+      invoicedById: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        index: true,
+      },
+      // Role of the user who created the billing
+      invoicedByRole: {
+        type: String,
+        trim: true,
+      },
+      // Rate/commission percentage of the user who created the billing
+      invoicedByRate: {
+        type: Number,
+        default: 0,
+      },
     // Doctor (doctorStaff) assigned to the appointment
     doctorId: {
       type: mongoose.Schema.Types.ObjectId,

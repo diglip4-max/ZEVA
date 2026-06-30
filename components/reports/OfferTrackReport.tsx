@@ -10,23 +10,13 @@ import {
   PieChart,
   Pie,
   Cell,
- 
+
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
 
 interface OfferTrackItem {
   _id: string;
@@ -102,6 +92,7 @@ const OFFER_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function OfferTrackReport({ startDate, endDate, headers, canUpdate = false }: Props) {
+  const { currency } = useCurrency();
   const [data, setData] = useState<OfferTrackItem[]>([]);
   const [summary, setSummary] = useState<Summary>({
     totalBillings: 0,
@@ -125,6 +116,13 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
   const [processingRefund, setProcessingRefund] = useState(false);
   const [refundSuccess, setRefundSuccess] = useState<string | null>(null);
   const [refundError, setRefundError] = useState<string | null>(null);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   const fetchData = async () => {
     setLoading(true);
@@ -233,9 +231,9 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
         
         if (summary) {
           if (summary.cashbackAction === 'REVOKED') {
-            successMsg += ` ${currency(summary.cashbackAmount)} cashback revoked from wallet.`;
+            successMsg += ` ${formatCurrency(summary.cashbackAmount)} cashback revoked from wallet.`;
           } else if (summary.cashbackAction === 'RESTORED') {
-            successMsg += ` ${currency(summary.cashbackAmount)} cashback restored to wallet.`;
+            successMsg += ` ${formatCurrency(summary.cashbackAmount)} cashback restored to wallet.`;
           }
         }
         
@@ -284,11 +282,11 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-500">Total Offer Discount</div>
-          <div className="text-2xl font-bold text-green-600">{currency(summary.totalOfferDiscount)}</div>
+          <div className="text-2xl font-bold text-green-600">{formatCurrency(summary.totalOfferDiscount)}</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-500">Total Cashback Earned</div>
-          <div className="text-2xl font-bold text-amber-600">{currency(summary.totalCashbackEarned)}</div>
+          <div className="text-2xl font-bold text-amber-600">{formatCurrency(summary.totalCashbackEarned)}</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-500">Bundle Sessions Added</div>
@@ -296,7 +294,7 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <div className="text-sm text-gray-500">Total Agent Discount</div>
-          <div className="text-2xl font-bold text-blue-600">{currency(summary.totalAgentDiscount)}</div>
+          <div className="text-2xl font-bold text-blue-600">{formatCurrency(summary.totalAgentDiscount)}</div>
         </div>
       </div>
 
@@ -417,21 +415,21 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                       {item.offerDiscountAmount > 0 && (
                         <div>
                           {item.offerDiscountPercent > 0 && `${item.offerDiscountPercent}%`}
-                          <span className="text-gray-500 ml-1">{currency(item.offerDiscountAmount)}</span>
+                          <span className="text-gray-500 ml-1">{formatCurrency(item.offerDiscountAmount)}</span>
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm">
                       {item.agentDiscount && item.agentDiscount.amount > 0 && (
                         <span className="text-blue-600">
-                          {item.agentDiscount.type === "percent" ? `${item.agentDiscount.amount}%` : currency(item.agentDiscount.amount)}
+                          {item.agentDiscount.type === "percent" ? `${item.agentDiscount.amount}%` : formatCurrency(item.agentDiscount.amount)}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm text-amber-600">
                       {item.cashbackEarned > 0 && (
                         <div>
-                          <span className="font-medium">+{currency(item.cashbackEarned)}</span>
+                          <span className="font-medium">+{formatCurrency(item.cashbackEarned)}</span>
                           {item.cashbackValidity && (
                             <div className="text-xs text-gray-400">
                               {item.cashbackValidity.isExpired ? "Expired" : `Valid until ${formatDate(item.cashbackValidity.endDate)}`}
@@ -441,7 +439,7 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                       )}
                       {item.cashbackWalletUsed > 0 && (
                         <div className="text-green-600">
-                          <span className="font-medium">-{currency(item.cashbackWalletUsed)}</span>
+                          <span className="font-medium">-{formatCurrency(item.cashbackWalletUsed)}</span>
                           <div className="text-xs text-gray-400">Wallet Used</div>
                         </div>
                       )}
@@ -455,8 +453,8 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                     <td className="px-4 py-2 text-sm">
                       <span className="font-medium text-teal-600">{item.offerAppliedBy || "-"}</span>
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">{currency(item.originalAmount)}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(item.finalAmount)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-500">{formatCurrency(item.originalAmount)}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(item.finalAmount)}</td>
                     <td className="px-4 py-2 text-sm">
                       {canUpdate ? (
                         item.isOfferRefunded ? (
@@ -534,10 +532,10 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                   <p className="text-sm text-amber-800 font-medium mb-2">The following will happen on refund:</p>
                   <ul className="text-sm text-amber-700 space-y-1">
                     {selectedBilling.cashbackEarned > 0 && (
-                      <li className="text-red-600">⚠️ Cashback earned: {currency(selectedBilling.cashbackEarned)} will be REVOKED from wallet</li>
+                      <li className="text-red-600">⚠️ Cashback earned: {formatCurrency(selectedBilling.cashbackEarned)} will be REVOKED from wallet</li>
                     )}
                     {selectedBilling.cashbackWalletUsed > 0 && (
-                      <li className="text-green-600">✓ Cashback wallet usage: {currency(selectedBilling.cashbackWalletUsed)} will be RESTORED to wallet</li>
+                      <li className="text-green-600">✓ Cashback wallet usage: {formatCurrency(selectedBilling.cashbackWalletUsed)} will be RESTORED to wallet</li>
                     )}
                     {selectedBilling.offerType === 'bundle' && selectedBilling.freeSessionNames && (
                       <li className="text-red-600">⚠️ Free sessions granted: {selectedBilling.freeSessionNames} will be REMOVED</li>
@@ -546,7 +544,7 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                       <li className="text-green-600">✓ Used free sessions will be RESTORED: {selectedBilling.usedFreeSessionNames}</li>
                     )}
                     {selectedBilling.offerDiscountAmount > 0 && (
-                      <li>ℹ️ Discount recorded: {currency(selectedBilling.offerDiscountAmount)}</li>
+                      <li>ℹ️ Discount recorded: {formatCurrency(selectedBilling.offerDiscountAmount)}</li>
                     )}
                   </ul>
                 </div>

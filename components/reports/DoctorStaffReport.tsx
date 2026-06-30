@@ -12,6 +12,8 @@ import {
   Legend,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -48,19 +50,8 @@ type CommissionRow = {
   entries: number;
 };
 
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
-
 export default function DoctorStaffReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
   const [details, setDetails] = useState<DetailRow[]>([]);
@@ -68,6 +59,13 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
   const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
   const [topMembershipBilling, setTopMembershipBilling] = useState<BillingRow[]>([]);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -142,50 +140,50 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
     },
     {
       title: "Top 5 Doctor Staff Revenue",
-      headers: ["Doctor Staff", "Revenue (AED)", "Invoices"],
+      headers: ["Doctor Staff", `Revenue (${currency})`, "Invoices"],
       data: revenues.map(r => ({
         "Doctor Staff": r.staffName || "Unknown",
-        "Revenue (AED)": Math.round(r.revenue || 0),
+        [`Revenue (${currency})`]: Math.round(r.revenue || 0),
         "Invoices": r.invoices || 0,
       })),
     },
     {
       title: "Highest Billing in Packages",
-      headers: ["Doctor Staff", "Package Revenue (AED)", "Invoices"],
+      headers: ["Doctor Staff", `Package Revenue (${currency})`, "Invoices"],
       data: topPackageBilling.map(r => ({
         "Doctor Staff": r.name || "Unknown",
-        "Package Revenue (AED)": Math.round(r.amount || 0),
+        [`Package Revenue (${currency})`]: Math.round(r.amount || 0),
         "Invoices": r.count || 0,
       })),
     },
     {
       title: "Highest Billing in Memberships",
-      headers: ["Doctor Staff", "Membership Revenue (AED)", "Invoices"],
+      headers: ["Doctor Staff", `Membership Revenue (${currency})`, "Invoices"],
       data: topMembershipBilling.map(r => ({
         "Doctor Staff": r.name || "Unknown",
-        "Membership Revenue (AED)": Math.round(r.amount || 0),
+        [`Membership Revenue (${currency})`]: Math.round(r.amount || 0),
         "Invoices": r.count || 0,
       })),
     },
     {
       title: "Top 5 Doctor Staff Commission",
-      headers: ["Doctor Staff", "Total Commission (AED)", "Entries"],
+      headers: ["Doctor Staff", `Total Commission (${currency})`, "Entries"],
       data: topDoctorStaffCommission.map(r => ({
         "Doctor Staff": r.name || "Unknown",
-        "Total Commission (AED)": Math.round(r.totalCommission || 0),
+        [`Total Commission (${currency})`]: Math.round(r.totalCommission || 0),
         "Entries": r.entries || 0,
       })),
     },
     {
       title: "Top 5 Agents Commission",
-      headers: ["Agent", "Total Commission (AED)", "Entries"],
+      headers: ["Agent", `Total Commission (${currency})`, "Entries"],
       data: topAgentCommission.map(r => ({
         "Agent": r.name || "Unknown",
-        "Total Commission (AED)": Math.round(r.totalCommission || 0),
+        [`Total Commission (${currency})`]: Math.round(r.totalCommission || 0),
         "Entries": r.entries || 0,
       })),
     },
-  ], [details, revenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission]);
+  ], [details, revenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission, currency]);
 
   return (
     <div className="space-y-8">
@@ -225,17 +223,17 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-                <Legend verticalAlign="top" height={36}/>
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  name="Revenue (AED)" 
-                  stroke="#0EA5E9" 
-                  strokeWidth={3} 
-                  dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
-                  activeDot={{ r: 6, strokeWidth: 0 }} 
-                />
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
+                  <Legend verticalAlign="top" height={36}/>
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    name={`Revenue (${currency})`} 
+                    stroke="#0EA5E9" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
+                    activeDot={{ r: 6, strokeWidth: 0 }} 
+                  />
                 <Line 
                   type="monotone" 
                   dataKey="normalizedRevenue" 
@@ -261,7 +259,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 {revenues.map((r) => (
                   <tr key={r.staffId}>
                     <td className="px-4 py-2 text-sm">{r.staffName}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(r.revenue)}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.revenue)}</td>
                     <td className="px-4 py-2 text-sm">{r.invoices}</td>
                   </tr>
                 ))}
@@ -293,7 +291,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topPackageBilling.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
                   <td className="px-4 py-2 text-sm">{r.count}</td>
                 </tr>
               ))}
@@ -324,7 +322,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topMembershipBilling.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
                   <td className="px-4 py-2 text-sm">{r.count}</td>
                 </tr>
               ))}
@@ -413,7 +411,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topDoctorStaffCommission.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
                   <td className="px-4 py-2 text-sm">{r.entries}</td>
                 </tr>
               ))}
@@ -444,7 +442,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topAgentCommission.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
                   <td className="px-4 py-2 text-sm">{r.entries}</td>
                 </tr>
               ))}

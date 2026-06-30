@@ -223,6 +223,7 @@ interface PreviousComplaint {
   visitDate?: string;
   checklist?: Record<string, boolean>;
   createdPackage?: any;
+  serviceNames?: string[];
 }
 
 interface AppointmentComplaintModalProps {
@@ -1949,6 +1950,30 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     } else {
       doc.text("No complaint notes added.", margin, y);
       y += 11;
+    }
+
+    // === ACTIVE TREATMENTS ===
+    if (details?.serviceNames && details.serviceNames.length > 0) {
+      if (y > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Active Treatments", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+
+      details.serviceNames.forEach((name, i) => {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(`${i + 1}. ${name}`, margin, y);
+        y += 6;
+      });
+      y += 5;
     }
 
     // Helper function to extract filename from URL
@@ -9319,6 +9344,30 @@ const ComplaintDetailModal: React.FC<{
       } else {
         doc.text("No complaint notes added.", margin, y);
         y += 11;
+      }
+
+      // === ACTIVE TREATMENTS ===
+      if (complaint.serviceNames && complaint.serviceNames.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Active Treatments", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        complaint.serviceNames.forEach((name, i) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(`${i + 1}. ${name}`, margin, y);
+          y += 6;
+        });
+        y += 5;
       }
 
       // === BEFORE/AFTER MEDIA ===

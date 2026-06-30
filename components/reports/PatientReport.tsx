@@ -15,20 +15,10 @@ import {
   Cell,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
 
 interface Props {
   startDate: string;
@@ -37,6 +27,7 @@ interface Props {
 }
 
 export default function PatientReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [data, setData] = useState<any>({
     topVisited: [],
     membershipByPatient: [],
@@ -46,6 +37,13 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     revenueByPatient: [],
     summary: { totalPatients: 0, newPatients: 0, returningPatients: 0 },
   });
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -129,47 +127,47 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     },
     {
       title: "Top Patients by Revenue",
-      headers: ["Patient Name", "Total Revenue (AED)"],
+      headers: ["Patient Name", `Total Revenue (${currency})`],
       data: (data.revenueByPatient || []).map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
-        "Total Revenue (AED)": Math.round(r.revenue || 0),
+        [`Total Revenue (${currency})`]: Math.round(r.revenue || 0),
       })),
     },
     {
       title: "Top Membership Purchases",
-      headers: ["Patient Name", "Membership Count", "Membership Revenue (AED)"],
+      headers: ["Patient Name", "Membership Count", `Membership Revenue (${currency})`],
       data: (data.membershipByPatient || []).map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
         "Membership Count": r.count || 0,
-        "Membership Revenue (AED)": Math.round(r.membershipRevenue || 0),
+        [`Membership Revenue (${currency})`]: Math.round(r.membershipRevenue || 0),
       })),
     },
     {
       title: "Top Package Purchases",
-      headers: ["Patient Name", "Package Count", "Package Revenue (AED)"],
+      headers: ["Patient Name", "Package Count", `Package Revenue (${currency})`],
       data: (data.packageByPatient || []).map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
         "Package Count": r.count || 0,
-        "Package Revenue (AED)": Math.round(r.revenue || 0),
+        [`Package Revenue (${currency})`]: Math.round(r.revenue || 0),
       })),
     },
     {
       title: "Highest Pending Amount",
-      headers: ["Patient Name", "Pending Amount (AED)"],
+      headers: ["Patient Name", `Pending Amount (${currency})`],
       data: (data.highestPending || []).map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
-        "Pending Amount (AED)": Math.round(r.pending || 0),
+        [`Pending Amount (${currency})`]: Math.round(r.pending || 0),
       })),
     },
     {
       title: "Highest Advance Amount",
-      headers: ["Patient Name", "Advance Amount (AED)"],
+      headers: ["Patient Name", `Advance Amount (${currency})`],
       data: (data.highestAdvance || []).map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
-        "Advance Amount (AED)": Math.round(r.advance || 0),
+        [`Advance Amount (${currency})`]: Math.round(r.advance || 0),
       })),
     },
-  ], [data]);
+  ], [data, currency]);
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
 
@@ -210,7 +208,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis />
-                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
                 <Bar dataKey="revenue" fill="#10B981" />
               </BarChart>
             </ResponsiveContainer>
@@ -238,7 +236,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
             </ResponsiveContainer>
@@ -279,7 +277,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                 {(data.highestPending || []).slice(0, 10).map((r: any) => (
                   <tr key={String(r.patientId)}>
                     <td className="px-4 py-2 text-sm">{r.patientName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(r.pending || 0)}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.pending || 0)}</td>
                   </tr>
                 ))}
                 {!data.highestPending?.length && (
@@ -307,7 +305,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
                 {(data.highestAdvance || []).slice(0, 10).map((r: any) => (
                   <tr key={String(r.patientId)}>
                     <td className="px-4 py-2 text-sm">{r.patientName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(r.advance || 0)}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.advance || 0)}</td>
                   </tr>
                 ))}
                 {!data.highestAdvance?.length && (
@@ -333,7 +331,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
               <Legend verticalAlign="top" height={36}/>
               <Line 
                 type="monotone" 

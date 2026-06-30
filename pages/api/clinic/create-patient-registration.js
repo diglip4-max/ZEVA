@@ -872,6 +872,17 @@ export default async function handler(req, res) {
       });
     }
 
+    // Get invoicedByRate from AgentProfile if available
+    let invoicedByRate = 0;
+    try {
+      const agentProfile = await AgentProfile.findOne({ userId: clinicUser._id }).lean();
+      if (agentProfile && agentProfile.commissionPercentage) {
+        invoicedByRate = agentProfile.commissionPercentage;
+      }
+    } catch (profileError) {
+      console.error("[CreatePatientRegistration] Error fetching agent profile for rate:", profileError);
+    }
+
     // Build multiplePayments array: include user-provided payments plus advance, claim, pending, cashback usage
     const finalMultiPayArr = [
       ...multiPayArr.map((mp) => ({
@@ -914,6 +925,8 @@ export default async function handler(req, res) {
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
+      invoicedByRole: clinicUser.role,
+      invoicedByRate: invoicedByRate,
       appointmentId: appointment._id,
       patientId: patientRegistration._id,
       invoiceNumber,

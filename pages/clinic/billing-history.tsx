@@ -259,6 +259,7 @@ const BillingHistoryPage = () => {
         return [
           formatDate(item.invoicedDate),
           item.invoiceNumber || '—',
+          item.invoicedBy || '—',
           treatmentPackageDisplay,
           discountDesc,
           offerDesc,
@@ -282,7 +283,7 @@ const BillingHistoryPage = () => {
 
       autoTable(doc, {
         startY: 65,
-        head: [['Date', 'Invoice ID', 'Treatment/Package', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'Claim Used', 'Pend.Cl Paid', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
+        head: [['Date', 'Invoice ID', 'Invoiced By', 'Treatment/Package', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'Claim Used', 'Pend.Cl Paid', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
         body: tableRows,
         theme: 'striped',
         headStyles: { 
@@ -292,9 +293,8 @@ const BillingHistoryPage = () => {
         },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
-          3: { halign: 'center' },
-          4: { halign: 'left' },
-          5: { halign: 'right' },
+          4: { halign: 'center' },
+          5: { halign: 'left' },
           6: { halign: 'right' },
           7: { halign: 'right' },
           8: { halign: 'right' },
@@ -302,8 +302,9 @@ const BillingHistoryPage = () => {
           10: { halign: 'right' },
           11: { halign: 'right' },
           12: { halign: 'right' },
-          13: { halign: 'center' },
-          14: { halign: 'center' }
+          13: { halign: 'right' },
+          14: { halign: 'center' },
+          15: { halign: 'center' }
         },
         margin: { top: 65, left: 10, right: 10 }
       });
@@ -580,6 +581,16 @@ const BillingHistoryPage = () => {
                         <div className="text-[10px] text-gray-500">
                           {formatDate(billing.invoicedDate)}
                         </div>
+                        {/* Invoiced By Tag - Simple Small Text */}
+                        {billing.invoicedBy && (
+                          <div className="mt-1 text-[9px] text-gray-600 flex items-center gap-1">
+                            <span className="font-medium text-purple-700">
+                              Invoiced by:
+                            </span>
+                            <span>{billing.invoicedBy}</span>
+                            
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div>
