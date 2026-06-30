@@ -71,10 +71,10 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [_clinics, setClinics] = useState<Clinic[]>([]);
   const [salesStaff, setSalesStaff] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
+  const [_combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
   const [doctorLeaderboard, setDoctorLeaderboard] = useState<any[]>([]);
   const [departmentRevenueData, setDepartmentRevenueData] = useState<any[]>([]);
   // Default selected month to the month of startDate
@@ -417,20 +417,20 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   }, [salesStaff, selectedSalesStaff]);
 
   // Mock data for charts (in real app, these would come from APIs)
-  const monthlyRevenueData = [
-    { month: "Jan", actual: 180000, target: 200000 },
-    { month: "Feb", actual: 195000, target: 200000 },
-    { month: "Mar", actual: 175000, target: 200000 },
-    { month: "Apr", actual: 210000, target: 200000 },
-    { month: "May", actual: 230000, target: 200000 },
-    { month: "Jun", actual: 205000, target: 200000 },
-    { month: "Jul", actual: 240000, target: 200000 },
-    { month: "Aug", actual: 260000, target: 200000 },
-    { month: "Sep", actual: 250000, target: 200000 },
-    { month: "Oct", actual: 280000, target: 200000 },
-    { month: "Nov", actual: 265000, target: 200000 },
-    { month: "Dec", actual: 290000, target: 200000 },
-  ];
+  // const monthlyRevenueData = [
+  //   { month: "Jan", actual: 180000, target: 200000 },
+  //   { month: "Feb", actual: 195000, target: 200000 },
+  //   { month: "Mar", actual: 175000, target: 200000 },
+  //   { month: "Apr", actual: 210000, target: 200000 },
+  //   { month: "May", actual: 230000, target: 200000 },
+  //   { month: "Jun", actual: 205000, target: 200000 },
+  //   { month: "Jul", actual: 240000, target: 200000 },
+  //   { month: "Aug", actual: 260000, target: 200000 },
+  //   { month: "Sep", actual: 250000, target: 200000 },
+  //   { month: "Oct", actual: 280000, target: 200000 },
+  //   { month: "Nov", actual: 265000, target: 200000 },
+  //   { month: "Dec", actual: 290000, target: 200000 },
+  // ];
 
   // Get selected month's data from monthlyRevenue
   const selectedMonthData = useMemo(() => {
@@ -476,36 +476,36 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { department: "Cardiology", revenue: 95000 },
   ];
 
-  const branchData = [
-    { branch: "OK", revenue: 320000 },
-    { branch: "Al Olaya", revenue: 285000 },
-    { branch: "Al Malqa", revenue: 230000 },
-    { branch: "Diplomatic", revenue: 210000 },
-    { branch: "Al Nakheel", revenue: 185000 },
-    { branch: "Hittin", revenue: 120000 },
-  ];
+  // const branchData = [
+  //   { branch: "OK", revenue: 320000 },
+  //   { branch: "Al Olaya", revenue: 285000 },
+  //   { branch: "Al Malqa", revenue: 230000 },
+  //   { branch: "Diplomatic", revenue: 210000 },
+  //   { branch: "Al Nakheel", revenue: 185000 },
+  //   { branch: "Hittin", revenue: 120000 },
+  // ];
 
-  const topPackagesData = rows.length > 0 ? rows : [
-    { packageName: "Skin Rejuvenation Pro", totalBookings: 184, totalRevenue: 276000, growth: 18 },
-    { packageName: "Laser Hair Removal 6x", totalBookings: 156, totalRevenue: 234000, growth: 12 },
-    { packageName: "Anti-Aging Platinum", totalBookings: 134, totalRevenue: 201000, growth: 24 },
-    { packageName: "Derma Glow Premium", totalBookings: 118, totalRevenue: 177000, growth: 9 },
-    { packageName: "HydraFacial Series", totalBookings: 96, totalRevenue: 144000, growth: 15 },
-  ].map((p, i) => ({
-    ...p,
-    rank: i + 1,
-    packageName: (p as any).packageName || `Package ${i + 1}`,
-    totalBookings: (p as any).totalBookings || Math.floor(Math.random() * 200),
-    totalRevenue: (p as any).totalRevenue || Math.floor(Math.random() * 300000),
-    growth: (p as any).growth || Math.floor(Math.random() * 30),
-  }));
+  // const topPackagesData = rows.length > 0 ? rows : [
+  //   { packageName: "Skin Rejuvenation Pro", totalBookings: 184, totalRevenue: 276000, growth: 18 },
+  //   { packageName: "Laser Hair Removal 6x", totalBookings: 156, totalRevenue: 234000, growth: 12 },
+  //   { packageName: "Anti-Aging Platinum", totalBookings: 134, totalRevenue: 201000, growth: 24 },
+  //   { packageName: "Derma Glow Premium", totalBookings: 118, totalRevenue: 177000, growth: 9 },
+  //   { packageName: "HydraFacial Series", totalBookings: 96, totalRevenue: 144000, growth: 15 },
+  // ].map((p, i) => ({
+  //   ...p,
+  //   rank: i + 1,
+  //   packageName: (p as any).packageName || `Package ${i + 1}`,
+  //   totalBookings: (p as any).totalBookings || Math.floor(Math.random() * 200),
+  //   totalRevenue: (p as any).totalRevenue || Math.floor(Math.random() * 300000),
+  //   growth: (p as any).growth || Math.floor(Math.random() * 30),
+  // }));
 
-  const outstandingAgingData = [
-    { period: "0-30 Days", amount: 89000, accounts: 67, color: "#008891" },
-    { period: "31-60 Days", amount: 54000, accounts: 41, color: "#F5A623" },
-    { period: "61-90 Days", amount: 32000, accounts: 24, color: "#F78B2D" },
-    { period: "90+ Days", amount: 22000, accounts: 16, color: "#F53F3F" },
-  ];
+  // const outstandingAgingData = [
+  //   { period: "0-30 Days", amount: 89000, accounts: 67, color: "#008891" },
+  //   { period: "31-60 Days", amount: 54000, accounts: 41, color: "#F5A623" },
+  //   { period: "61-90 Days", amount: 32000, accounts: 24, color: "#F78B2D" },
+  //   { period: "90+ Days", amount: 22000, accounts: 16, color: "#F53F3F" },
+  // ];
 
   const expiringPackagesData = [
     { period: "Today", count: 8, color: "#F53F3F" },

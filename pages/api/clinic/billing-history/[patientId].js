@@ -1,5 +1,6 @@
 import dbConnect from "../../../../lib/database";
 import Billing from "../../../../models/Billing";
+import User from "../../../../models/Users";
 import { getUserFromReq } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -51,12 +52,26 @@ export default async function handler(req, res) {
       clinicId: clinicId,
       isAdvanceOnly: { $ne: true },
     })
+      .populate({
+        path: "doctorId",
+        select: "name",
+        model: User
+      })
       .sort({ createdAt: -1 }) // Most recent first
       .lean();
 
+    // Now map through each billing to set doctorName (using either stored doctorName or from populated doctorId)
+    const billingsWithDoctorName = billings.map(billing => {
+      const doctorName = billing.doctorName || billing.doctorId?.name || "—";
+      return {
+        ...billing,
+        doctorName
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      billings: billings,
+      billings: billingsWithDoctorName,
     });
   } catch (error) {
     console.error("Error fetching billing history:", error);

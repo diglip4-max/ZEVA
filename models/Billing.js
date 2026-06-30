@@ -122,6 +122,11 @@ const billingSchema = new mongoose.Schema(
       ref: "User",
       index: true,
     },
+    doctorName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     // Service details
     service: {
       type: String,
