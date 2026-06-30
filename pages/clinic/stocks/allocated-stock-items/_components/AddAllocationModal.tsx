@@ -18,6 +18,7 @@ import {
 import { getAuthHeaders } from "@/lib/helper";
 import { PurchaseRecord } from "@/types/stocks";
 import useAgents from "@/hooks/useAgents";
+import { User } from "@/types/users";
 
 type SourceType = "Purchase_Order" | "Custom_Stock_Item";
 
@@ -36,6 +37,7 @@ type CustomStockItem = {
   unitPrice: number;
   totalPrice: number;
   discount: number;
+  expiryDate?: string;
   discountType: string;
   discountAmount: number;
   netPrice: number;
@@ -48,6 +50,7 @@ type CustomStockItem = {
   level0?: any;
   packagingStructure?: any;
   status: string;
+  createdBy: User;
 };
 
 // Updated to match the API expected structure
@@ -255,6 +258,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       const res = await axios.get(`/api/stocks/locations`, { headers });
       const list: StockLocation[] = res.data?.locations || [];
       setLocations(list);
+      setDefaultLocationId(list[0]._id || "");
     } catch {
       setLocations([]);
     }
@@ -303,7 +307,10 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
       );
       if (item) {
         setSelectedCustomStockItem(item);
-        setDefaultExpiryDate(new Date().toISOString().split("T")[0]);
+        setDefaultExpiryDate(
+          new Date(item?.expiryDate || "").toISOString().split("T")[0],
+        );
+        setDefaultUserId(item?.createdBy?._id || "");
         const q: Record<string, number> = {};
         q[item._id] = item.quantity;
         setQuantities(q);
@@ -324,6 +331,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
     customStockItems,
     selectedType,
   ]);
+  console.log({ defaultUserId });
 
   const validateItemQuantity = (
     key: string,
@@ -404,9 +412,9 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         }
       } else if (
         selectedType === "Custom_Stock_Item" &&
-        selectedCustomStockItem?.freeQuantityExpiryDate
+        selectedCustomStockItem?.expiryDate
       ) {
-        d = new Date(selectedCustomStockItem.freeQuantityExpiryDate)
+        d = new Date(selectedCustomStockItem.expiryDate || "")
           .toISOString()
           .split("T")[0];
       }
@@ -612,7 +620,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
         allocatedBy:
           selectedType === "Purchase_Order"
             ? selectedRecord?.createdBy?._id || ""
-            : defaultUserId,
+            : selectedCustomStockItem?.createdBy?._id || defaultUserId || "",
         notes:
           selectedType === "Purchase_Order"
             ? `Allocated from ${selectedRecord?.orderNo}`
@@ -840,7 +848,10 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                           {selectedType === "Purchase_Order" &&
                           selectedRecord?.createdBy?.name
                             ? `Select user (default: ${selectedRecord.createdBy.name})`
-                            : "Select user"}
+                            : selectedType === "Custom_Stock_Item" &&
+                                selectedCustomStockItem?.createdBy?.name
+                              ? `Select user (default: ${selectedCustomStockItem.createdBy.name})`
+                              : "Select user"}
                         </option>
                         {userOptions.map((u: any) => (
                           <option key={u._id} value={u._id}>

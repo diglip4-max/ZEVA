@@ -152,7 +152,6 @@ export default async function handler(req, res) {
 
     // Prepare update data
     const updateData = {
-      status: "New",
       ...(req.body.name && { name: req.body.name.trim() }),
       ...(req.body.description !== undefined && {
         description: req.body.description?.trim() || "",
