@@ -574,7 +574,7 @@ export default async function handler(req, res) {
     };
 
     // ------------------------------
-    // Doctor Leaderboard (Package Billing)
+    // Doctor Leaderboard (Package Billing) - with month-wise data
     // ------------------------------
     const doctorPackageAgg = await Billing.aggregate([
       { $match: { ...match, doctorId: { $ne: null } } },
@@ -612,7 +612,13 @@ export default async function handler(req, res) {
       ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
       {
         $group: {
-          _id: { patientId: "$patientId", package: "$package", doctorId: "$effectiveDoctorId" },
+          _id: { 
+            patientId: "$patientId", 
+            package: "$package", 
+            doctorId: "$effectiveDoctorId", 
+            month: { $month: "$invoicedDate" },
+            year: { $year: "$invoicedDate" }
+          },
           totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
           firstPurchaseDate: { $min: "$createdAt" },
         },
@@ -646,16 +652,34 @@ export default async function handler(req, res) {
       { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
       {
         $group: {
-          _id: "$_id.doctorId",
+          _id: { doctorId: "$_id.doctorId", month: "$_id.month", year: "$_id.year" },
           name: { $first: { $ifNull: ["$doctor.name", "Unknown Doctor"] } },
           department: { $first: { $ifNull: ["$department.name", "Other"] } },
           packages: { $sum: 1 },
           revenue: { $sum: "$totalPaid" }
         }
       },
-      { $sort: { packages: -1 } },
+      {
+        $group: {
+          _id: "$_id.doctorId",
+          name: { $first: "$name" },
+          department: { $first: "$department" },
+          totalPackages: { $sum: "$packages" },
+          totalRevenue: { $sum: "$revenue" },
+          monthWiseData: {
+            $push: {
+              month: "$_id.month",
+              year: "$_id.year",
+              packages: "$packages",
+              revenue: "$revenue"
+            }
+          }
+        }
+      },
+      { $sort: { totalPackages: -1 } },
       { $limit: 5 }
     ]);
+    
     const doctorLeaderboard = doctorPackageAgg.map((doc, index) => ({
       rank: index + 1,
       initials: doc.name
@@ -663,12 +687,18 @@ export default async function handler(req, res) {
         : "UD",
       name: doc.name,
       department: doc.department,
-      packages: doc.packages,
-      revenue: Math.round(Number(doc.revenue || 0))
+      packages: doc.totalPackages,
+      revenue: Math.round(Number(doc.totalRevenue || 0)),
+      monthWiseData: doc.monthWiseData.map(m => ({
+        month: monthNames[m.month - 1],
+        year: m.year,
+        packages: m.packages,
+        revenue: Math.round(Number(m.revenue || 0))
+      }))
     }));
 
     // ------------------------------
-    // Sales Staff Leaderboard
+    // Sales Staff Leaderboard - with month-wise data
     // ------------------------------
     const salesStaffPipeline = [
       { $match: { ...(user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {})) } },
@@ -683,7 +713,11 @@ export default async function handler(req, res) {
       }] : []),
       {
         $group: {
-          _id: "$packages.packageSoldByUserId",
+          _id: {
+            staffId: "$packages.packageSoldByUserId",
+            month: { $month: "$packages.assignedDate" },
+            year: { $year: "$packages.assignedDate" }
+          },
           totalPackagesSold: { $sum: 1 },
           totalRevenue: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
           totalPaid: { $sum: { $ifNull: ["$packages.paidAmount", 0] } },
@@ -714,6 +748,26 @@ export default async function handler(req, res) {
         }
       },
       {
+        $group: {
+          _id: "$_id.staffId",
+          totalPackagesSold: { $sum: "$totalPackagesSold" },
+          totalRevenue: { $sum: "$totalRevenue" },
+          totalPaid: { $sum: "$totalPaid" },
+          totalPending: { $sum: "$totalPending" },
+          paidPackages: { $sum: "$paidPackages" },
+          partiallyPaidPackages: { $sum: "$partiallyPaidPackages" },
+          unpaidPackages: { $sum: "$unpaidPackages" },
+          monthWiseData: {
+            $push: {
+              month: "$_id.month",
+              year: "$_id.year",
+              totalPackagesSold: "$totalPackagesSold",
+              totalRevenue: "$totalRevenue"
+            }
+          }
+        }
+      },
+      {
         $lookup: {
           from: "users",
           localField: "_id",
@@ -739,13 +793,24 @@ export default async function handler(req, res) {
           outstanding: "$totalPending",
           paidPackages: 1,
           partiallyPaidPackages: 1,
-          unpaidPackages: 1
+          unpaidPackages: 1,
+          monthWiseData: 1
         }
       },
       { $sort: { totalPackagesSold: -1 } },
       { $limit: 5 }
     ];
-    const salesStaffLeaderboard = await PatientRegistration.aggregate(salesStaffPipeline);
+    const salesStaffLeaderboard = await PatientRegistration.aggregate(salesStaffPipeline).then(result => 
+      result.map(staff => ({
+        ...staff,
+        monthWiseData: staff.monthWiseData.map(m => ({
+          month: monthNames[m.month - 1],
+          year: m.year,
+          totalPackagesSold: m.totalPackagesSold,
+          totalRevenue: Math.round(Number(m.totalRevenue || 0))
+        }))
+      }))
+    );
 
     // ------------------------------
     // Department Revenue Data

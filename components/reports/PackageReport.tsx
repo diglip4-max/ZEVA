@@ -16,7 +16,8 @@ import {
 } from "recharts";
 import ExportButtons from "./ExportButtons";
 import usePaymentMethod from "../../hooks/usePaymentMethod";
-// import { formatCurrency } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -290,9 +291,18 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
   }
 
-  // Smart currency formatter function - show actual number
-  const formatCurrency = (amount: number): string => {
-    return amount.toLocaleString();
+  const { currency } = useCurrency();
+  
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+  
+  const formatCurrency = (n: number) => currencyFormatter(n);
+  
+  const formatK = (value: number): string => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${(value / 1000).toFixed(1)}K`;
   };
 
   // Helper to calculate trend percentage
@@ -471,23 +481,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     };
   }, [salesStaff, selectedSalesStaff]);
 
-  // Mock data for charts (in real app, these would come from APIs)
-  const monthlyRevenueData = [
-    { month: "Jan", actual: 180000, target: 200000 },
-    { month: "Feb", actual: 195000, target: 200000 },
-    { month: "Mar", actual: 175000, target: 200000 },
-    { month: "Apr", actual: 210000, target: 200000 },
-    { month: "May", actual: 230000, target: 200000 },
-    { month: "Jun", actual: 205000, target: 200000 },
-    { month: "Jul", actual: 240000, target: 200000 },
-    { month: "Aug", actual: 260000, target: 200000 },
-    { month: "Sep", actual: 250000, target: 200000 },
-    { month: "Oct", actual: 280000, target: 200000 },
-    { month: "Nov", actual: 265000, target: 200000 },
-    { month: "Dec", actual: 290000, target: 200000 },
-  ];
-
-  // Get selected month's data from monthlyRevenue
+  // Use API data for monthly revenue
   const selectedMonthData = useMemo(() => {
     return monthlyRevenue.find(m => m.month === selectedMonth) || {
       totalPackages: 0,
@@ -569,15 +563,45 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { period: "Expiring in 30 Days", count: metrics.expiring30Days, color: "#008891" },
   ], [metrics]);
 
-  const packageLifecycleData = [
-    { label: "Sold", value: 1348, color: "#008891", total: 1348 },
-    { label: "Active", value: 847, color: "#10B981", total: 1348, percentage: 63 },
-    { label: "Completed", value: 412, color: "#3B82F6", total: 847, percentage: 49 },
-    { label: "Renewed", value: 198, color: "#8B5CF6", total: 412, percentage: 48 },
-  ];
-
   const isSalesStaffActive = activeFilter === "salesStaff";
   const currentMetrics = isSalesStaffActive ? salesStaffMetrics : metrics;
+
+  const packageLifecycleData = useMemo(() => {
+    const sold = currentMetrics.totalPackagesSold;
+    const active = metrics.activePackages;
+    const completed = metrics.completedPackages;
+    // For "Renewed", we can use a calculated value or placeholder for now
+    const renewed = Math.min(completed, Math.round(metrics.renewalRate / 100 * completed));
+    return [
+      { 
+        label: "Sold", 
+        value: sold, 
+        color: "#008891", 
+        total: sold 
+      },
+      { 
+        label: "Active", 
+        value: active, 
+        color: "#10B981", 
+        total: sold, 
+        percentage: sold > 0 ? Math.round((active / sold) * 100) : 0 
+      },
+      { 
+        label: "Completed", 
+        value: completed, 
+        color: "#3B82F6", 
+        total: active, 
+        percentage: active > 0 ? Math.round((completed / active) * 100) : 0 
+      },
+      { 
+        label: "Renewed", 
+        value: renewed, 
+        color: "#8B5CF6", 
+        total: completed, 
+        percentage: completed > 0 ? Math.round((renewed / completed) * 100) : 0 
+      },
+    ];
+  }, [currentMetrics, metrics]);
 
   const kpiCards = [
     { label: "Total Packages Sold", value: currentMetrics.totalPackagesSold.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.totalPackagesSoldTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalPackagesSoldTrend.up, icon: "📦", subtitle: isSalesStaffActive ? "Sales Staff" : "All time" },
@@ -596,6 +620,59 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
   const packageExportSections = useMemo(() => [
     {
+      title: "Package Analytics Dashboard Summary",
+      headers: ["Metric", "Value", "Trend"],
+      data: [
+        { "Metric": "Total Packages Sold", "Value": currentMetrics.totalPackagesSold.toLocaleString(), "Trend": metrics.totalPackagesSoldTrend ? (metrics.totalPackagesSoldTrend.up ? `+${metrics.totalPackagesSoldTrend.value}%` : `${metrics.totalPackagesSoldTrend.value}%`) : "" },
+        { "Metric": "Total Revenue", "Value": formatCurrency(currentMetrics.totalRevenue), "Trend": metrics.totalRevenueTrend ? (metrics.totalRevenueTrend.up ? `+${metrics.totalRevenueTrend.value}%` : `${metrics.totalRevenueTrend.value}%`) : "" },
+        { "Metric": "Paid Revenue", "Value": formatCurrency(currentMetrics.paidRevenue), "Trend": metrics.paidRevenueTrend ? (metrics.paidRevenueTrend.up ? `+${metrics.paidRevenueTrend.value}%` : `${metrics.paidRevenueTrend.value}%`) : "" },
+        { "Metric": "Outstanding", "Value": formatCurrency(currentMetrics.outstanding), "Trend": metrics.outstandingTrend ? (metrics.outstandingTrend.up ? `+${metrics.outstandingTrend.value}%` : `${metrics.outstandingTrend.value}%`) : "" },
+        { "Metric": "Paid Packages", "Value": currentMetrics.paidPackages.toLocaleString(), "Trend": metrics.paidPackagesTrend ? (metrics.paidPackagesTrend.up ? `+${metrics.paidPackagesTrend.value}%` : `${metrics.paidPackagesTrend.value}%`) : "" },
+        { "Metric": "Partially Paid", "Value": currentMetrics.partiallyPaid.toLocaleString(), "Trend": metrics.partiallyPaidTrend ? (metrics.partiallyPaidTrend.up ? `+${metrics.partiallyPaidTrend.value}%` : `${metrics.partiallyPaidTrend.value}%`) : "" },
+        { "Metric": "Unpaid Packages", "Value": currentMetrics.unpaidPackages.toLocaleString(), "Trend": metrics.unpaidPackagesTrend ? (metrics.unpaidPackagesTrend.up ? `+${metrics.unpaidPackagesTrend.value}%` : `${metrics.unpaidPackagesTrend.value}%`) : "" },
+        { "Metric": "Active Packages", "Value": metrics.activePackages.toLocaleString(), "Trend": metrics.activePackagesTrend ? (metrics.activePackagesTrend.up ? `+${metrics.activePackagesTrend.value}%` : `${metrics.activePackagesTrend.value}%`) : "" },
+        { "Metric": "Expired Packages", "Value": metrics.expiredPackages.toLocaleString(), "Trend": "" },
+        { "Metric": "Expiring in 7 Days", "Value": metrics.expiring7Days.toLocaleString(), "Trend": "" },
+        { "Metric": "Expiring in 30 Days", "Value": metrics.expiring30Days.toLocaleString(), "Trend": "" },
+        { "Metric": "Renewal Opportunities", "Value": metrics.renewalOpportunities.toLocaleString(), "Trend": "" },
+      ],
+    },
+    {
+      title: "Revenue Trend",
+      headers: ["Month", "Actual Revenue", "Target Revenue"],
+      data: monthlyRevenue.map(m => ({
+        "Month": m.month,
+        "Actual Revenue": formatCurrency(m.actual || 0),
+        "Target Revenue": formatCurrency(m.target || 0),
+      })),
+    },
+    {
+      title: "Payment Status",
+      headers: ["Status", "Count"],
+      data: paymentStatusData.map(p => ({
+        "Status": p.name,
+        "Count": p.value,
+      })),
+    },
+    {
+      title: "Expiring Packages Timeline",
+      headers: ["Period", "Count"],
+      data: expiringPackagesData.map(e => ({
+        "Period": e.period,
+        "Count": e.count,
+      })),
+    },
+    {
+      title: "Quick Metrics",
+      headers: ["Metric", "Value"],
+      data: [
+        { "Metric": "Renewal Rate", "Value": `${metrics.renewalRate}%` },
+        { "Metric": "Avg Sessions Used", "Value": `${metrics.avgSessionsUsed} / 10` },
+        { "Metric": "Inactive Holders", "Value": metrics.inactiveHolders.toLocaleString() },
+        { "Metric": "Avg Package Value", "Value": formatCurrency(metrics.avgPackageValue) },
+      ],
+    },
+    {
       title: "Top Packages by Revenue",
       headers: ["Package Name", "Total Bookings", "Total Revenue (Rs)"],
       data: rows.map(r => ({
@@ -605,7 +682,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       })),
     },
     {
-      title: "Packages Sold",
+      title: "Package Registry",
       headers: ["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"],
       data: allSoldRows.map(r => ({
         "Package Name": r.packageName || "-",
@@ -617,7 +694,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         "Payment Status": r.paymentStatus || "-",
       })),
     },
-  ], [rows, allSoldRows]);
+  ], [rows, allSoldRows, currentMetrics, metrics, monthlyRevenue, paymentStatusData, expiringPackagesData]);
 
   const toggleFilter = (filter: string) => {
     setActiveFilter(activeFilter === filter ? null : filter);
@@ -978,10 +1055,10 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     formatter={(value, name) => {
                       const numValue = Number(value);
                       if (name === 'actual') {
-                        return [`Rs ${(numValue / 1000).toFixed(0)}K`, 'Actual Revenue'];
+                        return [`${formatK(numValue)}`, 'Actual Revenue'];
                       }
                       if (name === 'target') {
-                        return [`Rs ${(numValue / 1000).toFixed(0)}K`, 'Target Revenue'];
+                        return [`${formatK(numValue)}`, 'Target Revenue'];
                       }
                       return value;
                     }}
@@ -1098,7 +1175,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     axisLine={false} 
                   />
                   <Tooltip 
-                    formatter={(value) => typeof value === 'number' ? `Rs ${(value / 1000).toFixed(0)}K` : ''}
+                    formatter={(value) => typeof value === 'number' ? formatK(value) : ''}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="revenue" fill="#008891" radius={[0, 4, 4, 0]} barSize={16} />
@@ -1113,23 +1190,41 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 <h3 className="text-base font-semibold text-gray-900">Doctor Leaderboard</h3>
                 <p className="text-xs text-gray-500">By packages sold</p>
               </div>
-              {/* <button className="text-xs text-teal-600 font-medium">View all</button> */}
             </div>
             <div className="space-y-3">
-              {doctorLeaderboardData.map((doc, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <span className="text-xs font-semibold text-gray-400 w-4">{doc.rank}</span>
-                  <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
-                    {doc.initials}
+              {doctorLeaderboardData.map((doc: any, index) => (
+                <div key={index}>
+                  <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
+                    const details = document.getElementById(`doctor-details-${index}`);
+                    if (details) {
+                      details.classList.toggle('hidden');
+                    }
+                  }}>
+                    <span className="text-xs font-semibold text-gray-400 w-4">{doc.rank}</span>
+                    <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-semibold">
+                      {doc.initials}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{doc.name}</p>
+                      <p className="text-xs text-gray-500">{doc.department || "Other"}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">{doc.packages}</p>
+                      <p className="text-xs text-gray-500">{formatK(doc.revenue)}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                    <p className="text-xs text-gray-500">{doc.department || "Other"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">{doc.packages}</p>
-                    <p className="text-xs text-gray-500">Rs {doc.revenue / 1000}K</p>
-                  </div>
+                  {doc.monthWiseData && doc.monthWiseData.length > 0 && (
+                    <div id={`doctor-details-${index}`} className="hidden mt-2 ml-12 border-l-2 border-teal-100 pl-3">
+                      <div className="space-y-1">
+                        {doc.monthWiseData.map((m: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600">{m.month} {m.year}</span>
+                            <span className="font-medium text-gray-900">{m.packages} · {formatK(m.revenue)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1141,10 +1236,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 <h3 className="text-base font-semibold text-gray-900">Sales Staff</h3>
                 <p className="text-xs text-gray-500">By packages sold</p>
               </div>
-              {/* <button className="text-xs text-teal-600 font-medium">View all</button> */}
             </div>
             <div className="space-y-3">
-              {salesStaff.slice(0, 5).map((staff, index) => {
+              {salesStaff.slice(0, 5).map((staff: any, index) => {
                 // Get initials from name
                 const initials = staff.name
                   ? staff.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -1154,27 +1248,46 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 const percentage = totalRevenue > 0 ? Math.round((staff.totalRevenue / totalRevenue) * 100) : 0;
                 
                 return (
-                  <div key={staff.staffId || index} className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-gray-400 w-4">{index + 1}</span>
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-semibold">
-                      {initials}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{staff.name || 'Unknown'}</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-emerald-500 rounded-full"
-                            style={{ width: `${percentage}%` }}
-                          ></div>
+                  <div key={staff.staffId || index}>
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
+                      const details = document.getElementById(`sales-details-${index}`);
+                      if (details) {
+                        details.classList.toggle('hidden');
+                      }
+                    }}>
+                      <span className="text-xs font-semibold text-gray-400 w-4">{index + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 text-xs font-semibold">
+                        {initials}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{staff.name || 'Unknown'}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-500">{percentage}%</span>
                         </div>
-                        <span className="text-xs text-gray-500">{percentage}%</span>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-gray-900">{staff.totalPackagesSold}</p>
+                        <p className="text-xs text-gray-500">{formatK(Math.round(staff.totalRevenue))}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-semibold text-gray-900">{staff.totalPackagesSold}</p>
-                      <p className="text-xs text-gray-500">Rs {Math.round(staff.totalRevenue / 1000)}K</p>
-                    </div>
+                    {staff.monthWiseData && staff.monthWiseData.length > 0 && (
+                      <div id={`sales-details-${index}`} className="hidden mt-2 ml-12 border-l-2 border-emerald-100 pl-3">
+                        <div className="space-y-1">
+                          {staff.monthWiseData.map((m: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-gray-600">{m.month} {m.year}</span>
+                              <span className="font-medium text-gray-900">{m.totalPackagesSold} · {formatK(m.totalRevenue)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1194,7 +1307,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   <XAxis dataKey="branch" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(value) => `${value / 1000}K`} />
                   <Tooltip 
-                    formatter={(value) => typeof value === 'number' ? `Rs ${(value / 1000).toFixed(0)}K` : ''}
+                    formatter={(value) => typeof value === 'number' ? formatK(value) : ''}
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
                   <Bar dataKey="revenue" fill="#D1D5DB" radius={[4, 4, 0, 0]} barSize={24} />
@@ -1214,7 +1327,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     <div>
                       <p className="text-sm font-medium text-gray-900">{pkg.packageName}</p>
                       <p className="text-xs text-gray-500">
-                        {pkg.totalBookings} sold · Rs {(pkg.totalRevenue / 1000).toFixed(0)}K
+                        {pkg.totalBookings} sold · {formatK(pkg.totalRevenue)}
                       </p>
                     </div>
                   </div>
@@ -1226,14 +1339,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Outstanding by Aging</h3>
-            <p className="text-xs text-gray-500 mb-4">Rs 198K total outstanding</p>
+            <p className="text-xs text-gray-500 mb-4">{formatK(198000)} total outstanding</p>
             <div className="space-y-4">
               {outstandingAgingData.map((item, index) => (
                 <div key={index}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-medium text-gray-700">{item.period}</span>
                     <div className="text-right">
-                      <span className="text-sm font-semibold text-gray-900">Rs {item.amount / 1000}K</span>
+                      <span className="text-sm font-semibold text-gray-900">{formatK(item.amount)}</span>
                       <span className="text-xs text-gray-500 ml-2">{item.accounts} accts</span>
                     </div>
                   </div>
@@ -1305,7 +1418,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-gray-600">Avg Package Value</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-emerald-600">Rs {metrics.avgPackageValue.toLocaleString()}</span>
+                  <span className="text-sm font-semibold text-emerald-600">{formatCurrency(metrics.avgPackageValue)}</span>
                 </div>
               </div>
             </div>
@@ -1481,9 +1594,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">DERM</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">Nadia Al-Amin</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Rs 1,500</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">Rs 1,500</td>
-                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">Rs 0</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(1500)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(1500)}</td>
+                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">{formatCurrency(0)}</td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">
                       Paid
