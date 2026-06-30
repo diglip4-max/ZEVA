@@ -208,7 +208,7 @@ function SupplierReport({ startDate, endDate, headers }: Props) {
             {topSuppliers.map((supplier, index) => (
               <li key={index} className="flex justify-between items-center">
                 <span className="text-gray-600">{supplier.name}</span>
-                <span className="font-bold text-gray-800">{supplier.invoiceTotal.toLocaleString()}</span>
+                <span className="font-bold text-gray-800">{formatCurrency(supplier.invoiceTotal)}</span>
               </li>
             ))}
           </ul>

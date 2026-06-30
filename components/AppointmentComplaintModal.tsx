@@ -1965,7 +1965,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
 
-      details.serviceNames.forEach((name, i) => {
+      details.serviceNames.forEach((name: string, i: number) => {
         if (y > doc.internal.pageSize.getHeight() - 20) {
           doc.addPage();
           y = 20;
@@ -2017,7 +2017,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
 
-      selectedServices.forEach((svc, i) => {
+      selectedServices.forEach((svc: { name: string; clinicPrice?: number | null; price: number; quantity?: number }, i: number) => {
         if (y > doc.internal.pageSize.getHeight() - 20) {
           doc.addPage();
           y = 20;
@@ -9359,7 +9359,7 @@ const ComplaintDetailModal: React.FC<{
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
 
-        complaint.serviceNames.forEach((name, i) => {
+        complaint.serviceNames.forEach((name: string, i: number) => {
           if (y > doc.internal.pageSize.getHeight() - 20) {
             doc.addPage();
             y = 20;

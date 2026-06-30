@@ -7049,6 +7049,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Invoice</th>
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Date</th>
                                   <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Treatment/Package</th>
+                                  <th className="px-2 py-2 text-left text-[9px] font-bold text-gray-600 uppercase tracking-wider">Doctor</th>
                                   <th className="px-2 py-2 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider">Disc.</th>
                                   <th className="px-2 py-2 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider">Offer</th>
                                   <th className="px-2 py-2 text-center text-[9px] font-bold text-gray-600 uppercase tracking-wider">Free</th>
@@ -7205,6 +7206,12 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                                 ))}
                                               </div>
                                             )}
+                                          </div>
+                                        </td>
+                                        {/* Doctor */}
+                                        <td className="px-2 py-2 whitespace-nowrap">
+                                          <div className="text-[10px] text-gray-700">
+                                            {billing.doctorName || "—"}
                                           </div>
                                         </td>
                                         {/* Discount */}
@@ -7476,6 +7483,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Invoice</th>
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Date</th>
                                   <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Treatment/Package</th>
+                                  <th className="px-2 py-2 text-left text-[8px] font-bold text-gray-600 uppercase tracking-wider">Doctor</th>
                                   <th className="px-2 py-2 text-center text-[8px] font-bold text-gray-600 uppercase tracking-wider">Disc.</th>
                                   <th className="px-2 py-2 text-center text-[8px] font-bold text-gray-600 uppercase tracking-wider">Offer</th>
                                   <th className="px-2 py-2 text-center text-[8px] font-bold text-gray-600 uppercase tracking-wider">Free</th>
@@ -7575,6 +7583,12 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                                             {billing.package ? (
                                               <span className="font-semibold text-indigo-700">{billing.package}</span>
                                             ) : (billing.treatment || '-')}
+                                          </div>
+                                        </td>
+                                        {/* Doctor */}
+                                        <td className="px-2 py-2 whitespace-nowrap">
+                                          <div className="text-[9px] text-gray-700">
+                                            {billing.doctorName || "—"}
                                           </div>
                                         </td>
                                         {/* Discount */}

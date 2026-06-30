@@ -60,7 +60,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
   const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
   const [topMembershipBilling, setTopMembershipBilling] = useState<BillingRow[]>([]);
-  const [salesStaff, setSalesStaff] = useState<any[]>([]);
+  const [_salesStaff, setSalesStaff] = useState<any[]>([]);
 
   const currencyFormatter = (n: number) => {
     const symbol = getCurrencySymbol(currency);
@@ -216,19 +216,28 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
 
   return (
     <div className="space-y-8">
-      <div className="flex gap-2">
-        <button
-          onClick={() => setActiveTab('doctor')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'doctor' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          Doctor
-        </button>
-        <button
-          onClick={() => setActiveTab('sales')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'sales' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
-        >
-          Sales Staff
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab('doctor')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'doctor' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            Doctor
+          </button>
+          <button
+            onClick={() => setActiveTab('sales')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'sales' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+          >
+            Sales Staff
+          </button>
+        </div>
+        {activeTab === 'doctor' && (
+          <ExportButtons
+            title="Doctor Staff Report"
+            filename="doctor-staff-report"
+            sections={doctorStaffExportSections}
+          />
+        )}
       </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
