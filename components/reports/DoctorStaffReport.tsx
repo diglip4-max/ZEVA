@@ -12,6 +12,8 @@ import {
   Legend,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -48,31 +50,56 @@ type CommissionRow = {
   entries: number;
 };
 
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
-
 export default function DoctorStaffReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'doctor' | 'sales'>('doctor');
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
   const [details, setDetails] = useState<DetailRow[]>([]);
   const [topDoctorStaffCommission, setTopDoctorStaffCommission] = useState<CommissionRow[]>([]);
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
   const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
   const [topMembershipBilling, setTopMembershipBilling] = useState<BillingRow[]>([]);
+  const [salesStaff, setSalesStaff] = useState<any[]>([]);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
-    fetchData();
+    if (activeTab === 'doctor') {
+      fetchData();
+    } else {
+      fetchSalesStaff();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  }, [startDate, endDate, activeTab]);
+
+  async function fetchSalesStaff() {
+    setLoading(true);
+    try {
+      const params: any = { startDate, endDate, limit: "10" };
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/api/clinic/reports/sales-staff-performance?${qs}`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setSalesStaff(json.data || []);
+        setRevenues([]);
+        setDetails([]);
+        setTopDoctorStaffCommission([]);
+        setTopAgentCommission([]);
+        setTopPackageBilling([]);
+        setTopMembershipBilling([]);
+      }
+    } catch (e) {
+      console.error("Error fetching sales staff:", e);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function fetchData() {
     setLoading(true);
@@ -142,59 +169,66 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
     },
     {
       title: "Top 5 Doctor Staff Revenue",
-      headers: ["Doctor Staff", "Revenue (AED)", "Invoices"],
+      headers: ["Doctor Staff", `Revenue (${currency})`, "Invoices"],
       data: revenues.map(r => ({
         "Doctor Staff": r.staffName || "Unknown",
-        "Revenue (AED)": Math.round(r.revenue || 0),
+        [`Revenue (${currency})`]: Math.round(r.revenue || 0),
         "Invoices": r.invoices || 0,
       })),
     },
     {
       title: "Highest Billing in Packages",
-      headers: ["Doctor Staff", "Package Revenue (AED)", "Invoices"],
+      headers: ["Doctor Staff", `Package Revenue (${currency})`, "Invoices"],
       data: topPackageBilling.map(r => ({
         "Doctor Staff": r.name || "Unknown",
-        "Package Revenue (AED)": Math.round(r.amount || 0),
+        [`Package Revenue (${currency})`]: Math.round(r.amount || 0),
         "Invoices": r.count || 0,
       })),
     },
     {
       title: "Highest Billing in Memberships",
-      headers: ["Doctor Staff", "Membership Revenue (AED)", "Invoices"],
+      headers: ["Doctor Staff", `Membership Revenue (${currency})`, "Invoices"],
       data: topMembershipBilling.map(r => ({
         "Doctor Staff": r.name || "Unknown",
-        "Membership Revenue (AED)": Math.round(r.amount || 0),
+        [`Membership Revenue (${currency})`]: Math.round(r.amount || 0),
         "Invoices": r.count || 0,
       })),
     },
     {
       title: "Top 5 Doctor Staff Commission",
-      headers: ["Doctor Staff", "Total Commission (AED)", "Entries"],
+      headers: ["Doctor Staff", `Total Commission (${currency})`, "Entries"],
       data: topDoctorStaffCommission.map(r => ({
         "Doctor Staff": r.name || "Unknown",
-        "Total Commission (AED)": Math.round(r.totalCommission || 0),
+        [`Total Commission (${currency})`]: Math.round(r.totalCommission || 0),
         "Entries": r.entries || 0,
       })),
     },
     {
       title: "Top 5 Agents Commission",
-      headers: ["Agent", "Total Commission (AED)", "Entries"],
+      headers: ["Agent", `Total Commission (${currency})`, "Entries"],
       data: topAgentCommission.map(r => ({
         "Agent": r.name || "Unknown",
-        "Total Commission (AED)": Math.round(r.totalCommission || 0),
+        [`Total Commission (${currency})`]: Math.round(r.totalCommission || 0),
         "Entries": r.entries || 0,
       })),
     },
-  ], [details, revenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission]);
+  ], [details, revenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission, currency]);
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-end">
-        <ExportButtons
-          sections={doctorStaffExportSections}
-          filename={`doctor_staff_report_${startDate}_to_${endDate}`}
-          title="Doctor Staff Performance Report"
-        />
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('doctor')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'doctor' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          Doctor
+        </button>
+        <button
+          onClick={() => setActiveTab('sales')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'sales' ? 'bg-teal-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}
+        >
+          Sales Staff
+        </button>
       </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
@@ -225,17 +259,17 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-                <Legend verticalAlign="top" height={36}/>
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  name="Revenue (AED)" 
-                  stroke="#0EA5E9" 
-                  strokeWidth={3} 
-                  dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
-                  activeDot={{ r: 6, strokeWidth: 0 }} 
-                />
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
+                  <Legend verticalAlign="top" height={36}/>
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    name={`Revenue (${currency})`} 
+                    stroke="#0EA5E9" 
+                    strokeWidth={3} 
+                    dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
+                    activeDot={{ r: 6, strokeWidth: 0 }} 
+                  />
                 <Line 
                   type="monotone" 
                   dataKey="normalizedRevenue" 
@@ -261,14 +295,14 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 {revenues.map((r) => (
                   <tr key={r.staffId}>
                     <td className="px-4 py-2 text-sm">{r.staffName}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(r.revenue)}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.revenue)}</td>
                     <td className="px-4 py-2 text-sm">{r.invoices}</td>
                   </tr>
                 ))}
                 {!revenues.length && (
                   <tr>
                     <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                      No data for selected period
+                      No revenue data for selected period
                     </td>
                   </tr>
                 )}
@@ -293,7 +327,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topPackageBilling.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
                   <td className="px-4 py-2 text-sm">{r.count}</td>
                 </tr>
               ))}
@@ -324,7 +358,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topMembershipBilling.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
                   <td className="px-4 py-2 text-sm">{r.count}</td>
                 </tr>
               ))}
@@ -332,47 +366,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <tr>
                   <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
                     No membership billing data for selected period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-3">Top Doctor Staff Details</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Appointments</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Booked</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Cancelled</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Completed</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoiced</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Rescheduled</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Patients</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {details.map((d) => (
-                <tr key={d.staffId}>
-                  <td className="px-4 py-2 text-sm">{d.staffName}</td>
-                  <td className="px-4 py-2 text-sm">{d.totalAppointments}</td>
-                  <td className="px-4 py-2 text-sm">{d.booked}</td>
-                  <td className="px-4 py-2 text-sm">{d.cancelled}</td>
-                  <td className="px-4 py-2 text-sm">{d.completed}</td>
-                  <td className="px-4 py-2 text-sm">{d.invoiced}</td>
-                  <td className="px-4 py-2 text-sm">{d.rescheduled}</td>
-                  <td className="px-4 py-2 text-sm">{d.totalPatients}</td>
-                </tr>
-              ))}
-              {!details.length && (
-                <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
-                    No staff found for selected period
                   </td>
                 </tr>
               )}
@@ -413,7 +406,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topDoctorStaffCommission.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
                   <td className="px-4 py-2 text-sm">{r.entries}</td>
                 </tr>
               ))}
@@ -444,7 +437,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               {topAgentCommission.map((r) => (
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalCommission)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
                   <td className="px-4 py-2 text-sm">{r.entries}</td>
                 </tr>
               ))}

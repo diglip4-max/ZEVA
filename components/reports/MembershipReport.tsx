@@ -9,20 +9,10 @@ import {
   CartesianGrid,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
 
 interface TopRow {
   membershipName: string;
@@ -48,6 +38,7 @@ interface Props {
 }
 
 export default function MembershipReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [top, setTop] = useState<TopRow[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [page, setPage] = useState(1);
@@ -55,6 +46,13 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
   const [detail, setDetail] = useState<{ open: boolean; data?: any; membershipName?: string; patientId?: string }>(
     { open: false }
   );
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData(1);
@@ -88,30 +86,32 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
     [top]
   );
 
-  const membershipExportSections = useMemo(() => [
+  const membershipExportSections = useMemo(() => {
+    const currencyLabel = currency;
+    return [
     {
       title: "Top Memberships by Revenue",
-      headers: ["Membership Name", "Count", "Total Appointments", "Total Revenue (AED)"],
+      headers: ["Membership Name", "Count", "Total Appointments", `Total Revenue (${currencyLabel})`],
       data: top.map(t => ({
         "Membership Name": t.membershipName || "Unnamed",
         "Count": t.count || 0,
         "Total Appointments": t.totalAppointments || 0,
-        "Total Revenue (AED)": Math.round(t.totalRevenue || 0),
+        [`Total Revenue (${currencyLabel})`]: Math.round(t.totalRevenue || 0),
       })),
     },
     {
       title: "Active Memberships",
-      headers: ["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", "Total Revenue (AED)"],
+      headers: ["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", `Total Revenue (${currencyLabel})`],
       data: rows.map(r => ({
         "Membership Name": r.membershipName || "-",
         "Patient Name": r.patientName || "-",
         "Start Date": r.startDate ? new Date(r.startDate).toLocaleDateString() : "-",
         "Expiry Date": r.endDate ? new Date(r.endDate).toLocaleDateString() : "-",
         "Status": r.status || "-",
-        "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+        [`Total Revenue (${currencyLabel})`]: Math.round(r.totalRevenue || 0),
       })),
     },
-  ], [top, rows]);
+  ]}, [top, rows, currency]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -169,7 +169,7 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
                 tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} 
                 tick={{ fontSize: 10 }}
               />
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} contentStyle={{ fontSize: 11 }} />
               <Bar dataKey="revenue" fill="#2D9AA5" />
             </BarChart>
           </ResponsiveContainer>
@@ -185,14 +185,14 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
               sections={[
                 {
                   title: "Active Memberships",
-                  headers: ["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", "Total Revenue (AED)"],
+                  headers: ["Membership Name", "Patient Name", "Start Date", "Expiry Date", "Status", `Total Revenue (${currency})`],
                   data: rows.map(r => ({
                     "Membership Name": r.membershipName || "-",
                     "Patient Name": r.patientName || "-",
                     "Start Date": r.startDate ? new Date(r.startDate).toLocaleDateString() : "-",
                     "Expiry Date": r.endDate ? new Date(r.endDate).toLocaleDateString() : "-",
                     "Status": r.status || "-",
-                    "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+                    [`Total Revenue (${currency})`]: Math.round(r.totalRevenue || 0),
                   })),
                 },
               ]}
@@ -257,7 +257,7 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
                     {r.endDate ? new Date(r.endDate).toLocaleDateString() : "-"}
                   </td>
                   <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{r.status}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{currency(r.totalRevenue || 0)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{formatCurrency(r.totalRevenue || 0)}</td>
                   <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-right whitespace-nowrap">
                     <button
                       className="px-3 py-1.5 rounded bg-[#2D9AA5] text-white text-xs"

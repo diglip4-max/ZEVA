@@ -215,7 +215,7 @@ const UOMPage: NextPageWithLayout = () => {
                 
                 if (parentStockModule) {
                   modulePermission = parentStockModule.subModules.find((sm: any) => 
-                    sm?.moduleKey === "clinic_stock_uom"
+                    sm?.name === "UOM" || sm?.path === "/clinic/stocks/uom" || sm?.moduleKey === "clinic_stock_uom"
                   );
                   console.log("Submodule permission found (UOM):", modulePermission);
                 }

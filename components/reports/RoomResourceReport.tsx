@@ -10,20 +10,10 @@ import {
   Legend,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
 
 interface Props {
   startDate: string;
@@ -39,10 +29,18 @@ type RoomRow = {
 };
 
 export default function RoomResourceReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [rooms, setRooms] = useState<RoomRow[]>([]);
   const [top5Rooms, setTop5Rooms] = useState<RoomRow[]>([]);
   const [topRevenueRooms, setTopRevenueRooms] = useState<RoomRow[]>([]);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -72,11 +70,11 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
   const exportSections = useMemo(() => [
     {
       title: "All Room Performance",
-      headers: ["Room Name", "Total Bookings", "Total Revenue (AED)"],
+      headers: ["Room Name", "Total Bookings", `Total Revenue (${currency})`],
       data: rooms.map(r => ({
         "Room Name": r.roomName || "Unknown",
         "Total Bookings": r.totalBookings || 0,
-        "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+        [`Total Revenue (${currency})`]: Math.round(r.totalRevenue || 0),
       })),
     },
     {
@@ -89,13 +87,13 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
     },
     {
       title: "Highest Revenue Rooms",
-      headers: ["Room Name", "Total Revenue (AED)"],
+      headers: ["Room Name", `Total Revenue (${currency})`],
       data: topRevenueRooms.map(r => ({
         "Room Name": r.roomName || "Unknown",
-        "Total Revenue (AED)": Math.round(r.totalRevenue || 0),
+        [`Total Revenue (${currency})`]: Math.round(r.totalRevenue || 0),
       })),
     },
-  ], [rooms, top5Rooms, topRevenueRooms]);
+  ], [rooms, top5Rooms, topRevenueRooms, currency]);
 
   return (
     <div className="space-y-8">
@@ -118,7 +116,7 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
               <Legend verticalAlign="top" height={36}/>
               <Bar dataKey="revenue" name="Total Revenue" fill="#2D9AA5" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -145,7 +143,7 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
                 <tr key={r.roomId}>
                   <td className="px-4 py-2 text-sm">{r.roomName}</td>
                   <td className="px-4 py-2 text-sm font-medium">{r.totalBookings}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{currency(r.totalRevenue)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalRevenue)}</td>
                 </tr>
               ))}
             </tbody>

@@ -13,6 +13,7 @@ import {
 import { CustomStockItem as CustomStockItemType } from "@/types/stocks";
 import { Lock, Home, LogOut, Package, DollarSign, Percent } from "lucide-react";
 import { useRouter } from "next/router";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import AddCustomStockItemModal from "./_components/AddCustomStockItemModal";
 import EditCustomStockItemModal from "./_components/EditCustomStockItemModal";
 import DeleteCustomStockItemModal from "./_components/DeleteCustomStockItemModal";
@@ -46,6 +47,7 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
   const [currentItem, setCurrentItem] = useState<
     CustomStockItemType | undefined
   >();
+  const [currency, setCurrency] = useState<string>("INR");
 
   // Permission state (static for now)
   const [permissions, _setPermissions] = useState({
@@ -91,6 +93,25 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
     },
     [pagination.limit],
   );
+
+  // Fetch clinic currency preference
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath();
+        if (!token) return;
+        const res = await axios.get('/api/clinics/myallClinic', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   // Initial fetch on mount
   useEffect(() => {
@@ -297,7 +318,7 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
                         Total Value
                       </div>
                       <div className="text-3xl font-bold text-gray-900 mt-1">
-                        AED {stats.totalValue.toFixed(2)}
+                        {getCurrencySymbol(currency)} {stats.totalValue.toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -489,13 +510,13 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
                             {item.quantity} {item.uom}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            AED {item.unitPrice.toFixed(2)}
+                            {getCurrencySymbol(currency)} {item.unitPrice.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            AED {item.netPrice.toFixed(2)}
+                            {getCurrencySymbol(currency)} {item.netPrice.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            AED {item.netPlusVat?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(currency)} {item.netPlusVat?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -680,6 +701,7 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
           setCurrentItem(undefined);
         }}
         item={currentItem}
+        currency={currency}
       />
     </div>
   );

@@ -1,17 +1,20 @@
 import React from "react";
 import { X, Eye, Package, DollarSign, Percent, TrendingUp } from "lucide-react";
 import { CustomStockItem as CustomStockItemType } from "../../../../../types/stocks";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 interface ViewCustomStockItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   item?: CustomStockItemType;
+  currency?: string;
 }
 
 const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
   isOpen,
   onClose,
   item,
+  currency = "INR",
 }) => {
   if (!isOpen || !item) return null;
 
@@ -150,7 +153,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                     Unit Price
                   </span>
                   <span className="text-sm font-semibold text-gray-900 text-right max-w-[60%] break-words">
-                    AED {item.unitPrice.toFixed(2)}
+                    {getCurrencySymbol(currency)} {item.unitPrice.toFixed(2)}
                   </span>
                 </div>
 
@@ -159,7 +162,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                     Total Price
                   </span>
                   <span className="text-sm font-semibold text-gray-900 text-right max-w-[60%] break-words">
-                    AED {item.totalPrice.toFixed(2)}
+                    {getCurrencySymbol(currency)} {item.totalPrice.toFixed(2)}
                   </span>
                 </div>
 
@@ -170,9 +173,9 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                   <span className="text-sm font-semibold text-gray-900 text-right max-w-[60%] break-words">
                     {item.discountType === "Percentage"
                       ? `${item.discount || 0.0}%`
-                      : `AED ${item.discount?.toFixed(2)}`}
+                      : `${getCurrencySymbol(currency)} ${item.discount?.toFixed(2)}`}
                     <span className="text-gray-500 text-xs ml-1">
-                      (AED {item.discountAmount?.toFixed(2) || "0.00"})
+                      ({getCurrencySymbol(currency)} {item.discountAmount?.toFixed(2) || "0.00"})
                     </span>
                   </span>
                 </div>
@@ -182,7 +185,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                     Net Price
                   </span>
                   <span className="text-sm font-semibold text-blue-600 text-right max-w-[60%] break-words">
-                    AED {item.netPrice.toFixed(2)}
+                    {getCurrencySymbol(currency)} {item.netPrice.toFixed(2)}
                   </span>
                 </div>
 
@@ -193,7 +196,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                   <span className="text-sm font-semibold text-gray-900 text-right max-w-[60%] break-words">
                     {item.vatPercentage}%{" "}
                     <span className="text-gray-500 text-xs ml-1">
-                      (AED {item.vatAmount?.toFixed(2) || "0.00"})
+                      ({getCurrencySymbol(currency)} {item.vatAmount?.toFixed(2) || "0.00"})
                     </span>
                   </span>
                 </div>
@@ -203,7 +206,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                     Net + VAT
                   </span>
                   <span className="text-lg font-bold text-green-600 text-right max-w-[60%] break-words">
-                    AED {item.netPlusVat?.toFixed(2) || "0.00"}
+                    {getCurrencySymbol(currency)} {item.netPlusVat?.toFixed(2) || "0.00"}
                   </span>
                 </div>
               </div>
@@ -278,7 +281,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                       <div className="flex justify-between">
                         <span className="text-blue-700">Price</span>
                         <span className="font-semibold text-blue-900">
-                          AED {item.level0.price.toFixed(2)}
+                          {getCurrencySymbol(currency)} {item.level0.price.toFixed(2)}
                         </span>
                       </div>
                     )}
@@ -312,7 +315,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                       <div className="flex justify-between">
                         <span className="text-green-700">Price</span>
                         <span className="font-semibold text-green-900">
-                          AED {item.packagingStructure.level1.price.toFixed(2)}
+                          {getCurrencySymbol(currency)} {item.packagingStructure.level1.price.toFixed(2)}
                         </span>
                       </div>
                     )}
@@ -346,7 +349,7 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
                       <div className="flex justify-between">
                         <span className="text-purple-700">Price</span>
                         <span className="font-semibold text-purple-900">
-                          AED {item.packagingStructure.level2.price.toFixed(2)}
+                          {getCurrencySymbol(currency)} {item.packagingStructure.level2.price.toFixed(2)}
                         </span>
                       </div>
                     )}

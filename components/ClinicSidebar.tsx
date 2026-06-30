@@ -647,6 +647,8 @@ const renderIcon = (key: string, isActive: boolean = false) => {
       key.includes("stock")
     ) {
       node = <Archive className="w-4 h-4 text-[#6B7280]" />;
+    } else if (key.includes("boxes")) {
+      node = <Package className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🌍") || key.includes("globe2")) {
       node = <Globe2 className="w-4 h-4 text-[#6B7280]" />;
     } else if (key.includes("🤑") || key.includes("deals")) {
@@ -932,6 +934,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Create Agent": "clinic_create_agent",
     "Create Lead": "clinic_create_lead",
     Inbox: "clinic_inbox",
+    "KAKA Customization": "clinic_kaka_customization",
+
     Templates: "clinic_templates",
     Providers: "clinic_providers",
     Reviews: "clinic_review",
@@ -961,6 +965,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Transfer Stock On Request": "clinic_stock_transfer_on_request",
     // "Transfer Stock": "clinic_stock_transfer_on_request",
     "Allocated Stock Items": "clinic_stock_allocated_stock_items",
+    "Custom Stock Items": "custom_stock_items",
 
     "Policy & Compliance": "clinic_compliance",
     Authentication: "clinic_authentication",
@@ -971,6 +976,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Add Expense": "add_expense",
     "Petty Cash": "clinic_pettycash",
     Reports: "clinic_report",
+    "KAKA Analytics": "clinic_kaka_analytics",
     "Workflow Guide": "workflow_guide",
     Membership: "membership",
   };
@@ -1303,6 +1309,23 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             const label = item.label.toLowerCase();
 
             // Update stock submodule list to include all possible keys
+            // const isStockSubmodule = [
+            //   'clinic_stock_uom', 'clinic_stock_locations', 'clinic_stock_suppliers',
+            //   'clinic_stock_purchase_requests', 'clinic_stock_purchase_orders',
+            //   'clinic_stock_grn', 'clinic_stock_purchase_invoices',
+            //   'clinic_stock_qty_adjustment', 'clinic_stock_material_consumptions',
+            //   'clinic_stock_direct_transfer', 'clinic_stock_transfer_requests',
+            //   'clinic_stock_transfer_on_request', 'clinic_stock_allocated_stock_items',
+            //   'clinic_stock_purchase_return', 'custom_stock_items'
+            // ].includes(moduleKey) ||
+            // // Also check by label if moduleKey not set
+            // label.includes('uom') || label.includes('location') || label.includes('supplier') ||
+            // label.includes('purchase') || label.includes('grn') || label.includes('invoice') ||
+            // label.includes('return') || label.includes('stock') ||
+            // label.includes('transfer') || label.includes('material') ||
+            // label.includes('allocated') || label.includes('custom');
+
+            // Update stock submodule list to include all possible keys
             const isStockSubmodule =
               [
                 "clinic_stock_uom",
@@ -1350,6 +1373,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               "clinic_providers",
               "clinic_review",
               "clinic_enquiry",
+              "clinic_kaka_customization",
             ];
             if (
               marketingModulesWithParentCheck.includes(moduleKey) ||
@@ -1540,6 +1564,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               ),
               order: 110,
             },
+
             {
               label: "Marketing",
               icon: "🎯",
@@ -1551,6 +1576,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Reviews", "/clinic/getAllReview", "⭐"),
                 createItem("Enquiry", "/clinic/get-Enquiry", "❓"),
                 createItem("Campaigns", "/clinic/campaigns", "campaigns"),
+                createItem(
+                  "KAKA Customization",
+                  "/clinic/kaka-customization",
+                  "settings",
+                ),
               ),
               order: 120,
             },
@@ -1708,9 +1738,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickChild("Petty Cash"),
                 createItem("Petty Cash", "/clinic/pettycash", "dollar-sign"),
                 createItem("Reports", "/clinic/report", "reports"),
+                createItem(
+                  "KAKA Analytics",
+                  "/clinic/kaka-analytics",
+                  "analytics",
+                ),
               ),
               order: 180,
             },
+
             {
               label: "Workflow Guide",
               path: "/clinic/workflow-guide",

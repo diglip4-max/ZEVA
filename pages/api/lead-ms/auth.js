@@ -53,10 +53,15 @@ export async function getUserFromReq(req) {
 
 export function signToken(user) {
   return jwt.sign(
-    { userId: user._id, role: user.role, email: user.email },
+    { 
+      userId: user._id, 
+      role: user.role, 
+      email: user.email, 
+      clinicId: user.clinicId 
+    },
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
- );
+  );
 }
 
 export function requireRole(user, roles = []) {
