@@ -694,7 +694,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [_permissions, setPermissions] = useState<any[]>([]);
   const [isHiddenClinic, setIsHiddenClinic] = useState<boolean>(false);
- 
+
   // Trial countdown timer state
   const [trialInfo, setTrialInfo] = useState<{
     days: number;
@@ -740,8 +740,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       document.body.style.overflow = "unset";
     };
   }, [isMobileOpen]);
-
-
 
   // Trial countdown timer
   useEffect(() => {
@@ -963,12 +961,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Material Activity Consumption": "clinic_stock_material_consumptions",
     "Direct Stock Transfer": "clinic_stock_direct_transfer",
     "Stock Transfer Request": "clinic_stock_transfer_requests",
-    "Stock Transfer Requests": "clinic_stock_transfer_requests",
+    // "Stock Transfer Requests": "clinic_stock_transfer_requests",
     "Transfer Stock On Request": "clinic_stock_transfer_on_request",
-    "Transfer Stock": "clinic_stock_transfer_on_request",
+    // "Transfer Stock": "clinic_stock_transfer_on_request",
     "Allocated Stock Items": "clinic_stock_allocated_stock_items",
     "Custom Stock Items": "custom_stock_items",
-    
+
     "Policy & Compliance": "clinic_compliance",
     Authentication: "clinic_authentication",
     "Book Appointments": "clinic_Appointment",
@@ -1126,15 +1124,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           // console.log('[ClinicSidebar] perms type:', typeof perms, 'length:', perms ? perms.length : 'null/undefined');
           const localPermissions = perms && Array.isArray(perms) ? perms : [];
           setPermissions(localPermissions);
-          
+
           // Check if this is the hidden clinic
-          const isThisHiddenClinic = 
-            res.data.clinicId === '6a2fb50be9a7bb7a2aaba72c' || 
-            res.data.clinicOwnerId === '6a2fb50ae9a7bb7a2aaba728';
-          
-          console.log('[ClinicSidebar] isThisHiddenClinic:', isThisHiddenClinic);
+          const isThisHiddenClinic =
+            res.data.clinicId === "6a2fb50be9a7bb7a2aaba72c" ||
+            res.data.clinicOwnerId === "6a2fb50ae9a7bb7a2aaba728";
+
+          console.log(
+            "[ClinicSidebar] isThisHiddenClinic:",
+            isThisHiddenClinic,
+          );
           setIsHiddenClinic(isThisHiddenClinic);
-          
+
           // Create local versions of permission check functions using localPermissions
           const localIsActionTrue = (action: any): boolean => {
             return (
@@ -1306,7 +1307,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             }
 
             const label = item.label.toLowerCase();
-            
+
             // Update stock submodule list to include all possible keys
             // const isStockSubmodule = [
             //   'clinic_stock_uom', 'clinic_stock_locations', 'clinic_stock_suppliers',
@@ -1316,12 +1317,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             //   'clinic_stock_direct_transfer', 'clinic_stock_transfer_requests',
             //   'clinic_stock_transfer_on_request', 'clinic_stock_allocated_stock_items',
             //   'clinic_stock_purchase_return', 'custom_stock_items'
-            // ].includes(moduleKey) || 
+            // ].includes(moduleKey) ||
             // // Also check by label if moduleKey not set
-            // label.includes('uom') || label.includes('location') || label.includes('supplier') || 
-            // label.includes('purchase') || label.includes('grn') || label.includes('invoice') || 
-            // label.includes('return') || label.includes('stock') || 
-            // label.includes('transfer') || label.includes('material') || 
+            // label.includes('uom') || label.includes('location') || label.includes('supplier') ||
+            // label.includes('purchase') || label.includes('grn') || label.includes('invoice') ||
+            // label.includes('return') || label.includes('stock') ||
+            // label.includes('transfer') || label.includes('material') ||
             // label.includes('allocated') || label.includes('custom');
 
             // Update stock submodule list to include all possible keys
@@ -1575,7 +1576,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 createItem("Reviews", "/clinic/getAllReview", "⭐"),
                 createItem("Enquiry", "/clinic/get-Enquiry", "❓"),
                 createItem("Campaigns", "/clinic/campaigns", "campaigns"),
-                createItem("KAKA Customization", "/clinic/kaka-customization", "settings"),
+                createItem(
+                  "KAKA Customization",
+                  "/clinic/kaka-customization",
+                  "settings",
+                ),
               ),
               order: 120,
             },
@@ -1625,19 +1630,58 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   "deals",
                 ),
                 createItem("GRN", "/clinic/stocks/grn", "billing"),
-                createItem("Purchase Invoices", "/clinic/stocks/purchase-invoices", "billing"),
-                createItem("Purchase Returns", "/clinic/stocks/purchase-returns", "billing"),
-                createItem("Stock Quantity Adjustment", "/clinic/stocks/stock-qty-adjustment", "statistics"),
-                createItem("Stock Qty Adjustment", "/clinic/stocks/stock-qty-adjustment", "statistics"),
-                createItem("Direct Stock Transfer", "/clinic/stocks/stock-transfer/direct-stock-transfer", "arrow-right"),
-                createItem("Stock Transfer Requests", "/clinic/stocks/stock-transfer/stock-transfer-requests", "share"),
-                createItem("Stock Transfer Request", "/clinic/stocks/stock-transfer/stock-transfer-requests", "share"),
-                createItem("Transfer Stock On Request", "/clinic/stocks/stock-transfer/transfer-stock", "refresh-cw"),
-                createItem("Transfer Stock", "/clinic/stocks/stock-transfer/transfer-stock", "share"),
-                createItem("Material Activity Consumption", "/clinic/stocks/material-consumptions", "⚡"),
-                createItem("Material Consumptions", "/clinic/stocks/material-consumptions", "⚡"),
-                createItem("Allocated Stock Items", "/clinic/stocks/allocated-stock-items", "package"),
-                createItem("Custom Stock Items", "/clinic/stocks/custom-stock-items", "boxes"),
+                createItem(
+                  "Purchase Invoices",
+                  "/clinic/stocks/purchase-invoices",
+                  "billing",
+                ),
+                createItem(
+                  "Purchase Returns",
+                  "/clinic/stocks/purchase-returns",
+                  "billing",
+                ),
+                createItem(
+                  "Stock Quantity Adjustment",
+                  "/clinic/stocks/stock-qty-adjustment",
+                  "statistics",
+                ),
+                createItem(
+                  "Stock Qty Adjustment",
+                  "/clinic/stocks/stock-qty-adjustment",
+                  "statistics",
+                ),
+                createItem(
+                  "Direct Stock Transfer",
+                  "/clinic/stocks/stock-transfer/direct-stock-transfer",
+                  "arrow-right",
+                ),
+                // createItem("Stock Transfer Requests", "/clinic/stocks/stock-transfer/stock-transfer-requests", "share"),
+                createItem(
+                  "Stock Transfer Request",
+                  "/clinic/stocks/stock-transfer/stock-transfer-requests",
+                  "share",
+                ),
+                createItem(
+                  "Transfer Stock On Request",
+                  "/clinic/stocks/stock-transfer/transfer-stock",
+                  "refresh-cw",
+                ),
+                // createItem("Transfer Stock", "/clinic/stocks/stock-transfer/transfer-stock", "share"),
+                createItem(
+                  "Material Activity Consumption",
+                  "/clinic/stocks/material-consumptions",
+                  "⚡",
+                ),
+                createItem(
+                  "Material Consumptions",
+                  "/clinic/stocks/material-consumptions",
+                  "⚡",
+                ),
+                createItem(
+                  "Allocated Stock Items",
+                  "/clinic/stocks/allocated-stock-items",
+                  "package",
+                ),
               ),
               order: 135,
             },
@@ -1694,7 +1738,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 pickChild("Petty Cash"),
                 createItem("Petty Cash", "/clinic/pettycash", "dollar-sign"),
                 createItem("Reports", "/clinic/report", "reports"),
-                createItem("KAKA Analytics", "/clinic/kaka-analytics", "analytics"),
+                createItem(
+                  "KAKA Analytics",
+                  "/clinic/kaka-analytics",
+                  "analytics",
+                ),
               ),
               order: 180,
             },
@@ -2490,37 +2538,65 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {/* Trial Countdown Timer */}
             {(() => {
               console.log("[ClinicSidebar] isHiddenClinic:", isHiddenClinic);
-              
+
               if (isHiddenClinic) return null;
-              
+
               return (
                 <>
                   {trialInfo && !trialInfo.isExpired && (
                     <div className="mt-3 mx-2 p-3 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg">
                       <div className="flex items-center gap-1.5 mb-2">
-                        <svg className="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <svg
+                          className="w-3.5 h-3.5 text-amber-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
                         </svg>
-                        <span className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide">Free Trial Ends In</span>
+                        <span className="text-[10px] font-semibold text-amber-800 uppercase tracking-wide">
+                          Free Trial Ends In
+                        </span>
                       </div>
-                     
+
                       {/* Countdown Display */}
                       <div className="grid grid-cols-4 gap-1.5 mb-2">
                         <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                          <div className="text-base font-bold text-amber-700">{trialInfo.days}</div>
-                          <div className="text-[9px] text-amber-600 uppercase">Days</div>
+                          <div className="text-base font-bold text-amber-700">
+                            {trialInfo.days}
+                          </div>
+                          <div className="text-[9px] text-amber-600 uppercase">
+                            Days
+                          </div>
                         </div>
                         <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                          <div className="text-base font-bold text-amber-700">{trialInfo.hours}</div>
-                          <div className="text-[9px] text-amber-600 uppercase">Hrs</div>
+                          <div className="text-base font-bold text-amber-700">
+                            {trialInfo.hours}
+                          </div>
+                          <div className="text-[9px] text-amber-600 uppercase">
+                            Hrs
+                          </div>
                         </div>
                         <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                          <div className="text-base font-bold text-amber-700">{trialInfo.minutes}</div>
-                          <div className="text-[9px] text-amber-600 uppercase">Min</div>
+                          <div className="text-base font-bold text-amber-700">
+                            {trialInfo.minutes}
+                          </div>
+                          <div className="text-[9px] text-amber-600 uppercase">
+                            Min
+                          </div>
                         </div>
                         <div className="bg-white rounded-md p-1.5 text-center shadow-sm">
-                          <div className="text-base font-bold text-amber-700">{trialInfo.seconds}</div>
-                          <div className="text-[9px] text-amber-600 uppercase">Sec</div>
+                          <div className="text-base font-bold text-amber-700">
+                            {trialInfo.seconds}
+                          </div>
+                          <div className="text-[9px] text-amber-600 uppercase">
+                            Sec
+                          </div>
                         </div>
                       </div>
 
@@ -2529,14 +2605,14 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         <div
                           className="bg-gradient-to-r from-amber-500 to-orange-500 h-1 rounded-full transition-all duration-1000"
                           style={{
-                            width: `${Math.max(0, Math.min(100, ((trialInfo.days * 24 * 60 + trialInfo.hours * 60 + trialInfo.minutes) / (30 * 24 * 60)) * 100))}%`
+                            width: `${Math.max(0, Math.min(100, ((trialInfo.days * 24 * 60 + trialInfo.hours * 60 + trialInfo.minutes) / (30 * 24 * 60)) * 100))}%`,
                           }}
                         ></div>
                       </div>
-                     
+
                       {/* Upgrade Button */}
                       <button
-                        onClick={() => router.push('/clinic/upgrade-plan')}
+                        onClick={() => router.push("/clinic/upgrade-plan")}
                         className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-[10px] font-semibold py-1.5 px-2 rounded-md transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         Upgrade to Premium →
@@ -2548,14 +2624,29 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   {trialInfo && trialInfo.isExpired && (
                     <div className="mt-4 mx-3 p-4 bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-xl">
                       <div className="flex items-center gap-2 mb-3">
-                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        <svg
+                          className="w-4 h-4 text-red-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                          />
                         </svg>
-                        <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">Trial Expired</span>
+                        <span className="text-xs font-semibold text-red-800 uppercase tracking-wide">
+                          Trial Expired
+                        </span>
                       </div>
-                      <p className="text-xs text-red-700 mb-3">Your free trial has ended. Upgrade now to continue accessing all features.</p>
+                      <p className="text-xs text-red-700 mb-3">
+                        Your free trial has ended. Upgrade now to continue
+                        accessing all features.
+                      </p>
                       <button
-                        onClick={() => router.push('/clinic/upgrade-plan')}
+                        onClick={() => router.push("/clinic/upgrade-plan")}
                         className="w-full bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-600 hover:to-rose-600 text-white text-xs font-semibold py-2 px-3 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         Upgrade to Premium →

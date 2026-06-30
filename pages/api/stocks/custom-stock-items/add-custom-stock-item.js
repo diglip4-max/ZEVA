@@ -67,10 +67,20 @@ export default async function handler(req, res) {
     }
 
     // Validate required fields
-    const requiredFields = ["name", "quantity", "unitPrice", "totalPrice", "netPrice"];
+    const requiredFields = [
+      "name",
+      "quantity",
+      "unitPrice",
+      "totalPrice",
+      "netPrice",
+    ];
 
     for (const field of requiredFields) {
-      if (req.body[field] === undefined || req.body[field] === null || req.body[field] === "") {
+      if (
+        req.body[field] === undefined ||
+        req.body[field] === null ||
+        req.body[field] === ""
+      ) {
         return res.status(400).json({
           success: false,
           message: `${field} is required`,
@@ -80,16 +90,31 @@ export default async function handler(req, res) {
 
     // Validate numeric fields
     const numericFields = [
-      "quantity", "unitPrice", "totalPrice", "discount", "discountAmount",
-      "netPrice", "vatAmount", "vatPercentage", "netPlusVat", "freeQuantity",
-      "level0.price", "packagingStructure.level1.quantity",
-      "packagingStructure.level1.price", "packagingStructure.level2.quantity",
-      "packagingStructure.level2.price"
+      "quantity",
+      "unitPrice",
+      "totalPrice",
+      "discount",
+      "discountAmount",
+      "netPrice",
+      "vatAmount",
+      "vatPercentage",
+      "netPlusVat",
+      "freeQuantity",
+      "level0.price",
+      "packagingStructure.level1.quantity",
+      "packagingStructure.level1.price",
+      "packagingStructure.level2.quantity",
+      "packagingStructure.level2.price",
     ];
 
     for (const field of numericFields) {
       const value = getNestedValue(req.body, field);
-      if (value !== undefined && value !== null && value !== "" && typeof value !== "number") {
+      if (
+        value !== undefined &&
+        value !== null &&
+        value !== "" &&
+        typeof value !== "number"
+      ) {
         return res.status(400).json({
           success: false,
           message: `${field} must be a number`,
@@ -104,7 +129,10 @@ export default async function handler(req, res) {
     }
 
     // Validate discount type
-    if (req.body.discountType && !["Fixed", "Percentage"].includes(req.body.discountType)) {
+    if (
+      req.body.discountType &&
+      !["Fixed", "Percentage"].includes(req.body.discountType)
+    ) {
       return res.status(400).json({
         success: false,
         message: "discountType must be one of: Fixed, Percentage",
@@ -112,7 +140,10 @@ export default async function handler(req, res) {
     }
 
     // Validate vat type
-    if (req.body.vatType && !["Exclusive", "Inclusive"].includes(req.body.vatType)) {
+    if (
+      req.body.vatType &&
+      !["Exclusive", "Inclusive"].includes(req.body.vatType)
+    ) {
       return res.status(400).json({
         success: false,
         message: "vatType must be one of: Exclusive, Inclusive",
@@ -156,10 +187,12 @@ export default async function handler(req, res) {
           uom: req.body.packagingStructure?.level2?.uom?.trim() || "",
         },
       },
+      createdBy: me._id,
     };
 
     // Create new custom stock item
-    const newCustomStockItem = await CustomStockItem.create(customStockItemData);
+    const newCustomStockItem =
+      await CustomStockItem.create(customStockItemData);
 
     res.status(201).json({
       success: true,

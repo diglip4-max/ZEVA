@@ -135,7 +135,36 @@ export default async function handler(req, res) {
       if (expiryAfter) query.expiryDate.$gte = new Date(expiryAfter);
     }
 
-    query.quantitiesByUom = { $not: { $elemMatch: { quantity: { $lte: 0 } } } };
+    // First, build all non-expiry conditions into a new query object
+    const baseQuery = { ...query };
+    baseQuery.quantitiesByUom = {
+      $not: { $elemMatch: { quantity: { $lte: 0 } } },
+    };
+
+    // Now build the final query
+    const finalQuery = {};
+
+    // If user hasn't set expiry filters, exclude expired items
+    if (!expiryBefore && !expiryAfter) {
+      const now = new Date();
+      finalQuery.$and = [
+        baseQuery,
+        {
+          $or: [
+            { expiryDate: { $gte: now } },
+            { expiryDate: { $exists: false } },
+            { expiryDate: null },
+          ],
+        },
+      ];
+    } else {
+      // Use base query as-is if user provided expiry filters
+      Object.assign(finalQuery, baseQuery);
+    }
+
+    // Clear and replace original query with final query
+    Object.keys(query).forEach((key) => delete query[key]);
+    Object.assign(query, finalQuery);
 
     const skip = (Number(page) - 1) * Number(limit);
 
