@@ -55,10 +55,13 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [topPackagesSummary, setTopPackagesSummary] = useState<any>(null);
   const [topPackagesPreviousSummary, setTopPackagesPreviousSummary] = useState<any>(null);
   const [soldRows, setSoldRows] = useState<any[]>([]);
+  const [allSoldRows, setAllSoldRows] = useState<any[]>([]); // State to hold all packages sold data for export
   const [packagesSoldSummary, setPackagesSoldSummary] = useState<any>(null);
   const [packagesSoldPreviousSummary, setPackagesSoldPreviousSummary] = useState<any>(null);
   const [packages, setPackages] = useState<any[]>([]); // New state for packages from services setup
   const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
   const [hasNext, setHasNext] = useState(false);
   const [detail, setDetail] = useState<{ open: boolean; patientId?: string; packageName?: string; data?: any }>(
     { open: false }
@@ -96,6 +99,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     fetchClinics();
     fetchTopPackages();
     fetchPackagesSold(1);
+    fetchAllPackagesSold(); // Fetch all data for export
     fetchPackages(); // Fetch packages from services setup
     fetchSalesStaff(); // Fetch all sales staff on initial load
   }, [startDate, endDate, selectedDepartment, selectedDoctor, selectedSalesStaff, selectedClinic, selectedPaymentMethod]);
@@ -229,7 +233,38 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     setPackagesSoldSummary(json.summary || null);
     setPackagesSoldPreviousSummary(json.previousSummary || null);
     setHasNext(Boolean(json.pagination?.hasNext));
+    setTotalPages(json.pagination?.totalPages || 1);
+    setTotalResults(json.pagination?.total || 0);
     setPage(p);
+  }
+
+  // Fetch all packages sold data for export
+  async function fetchAllPackagesSold() {
+    let allData: any[] = [];
+    let currentPage = 1;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const params: any = { startDate, endDate, page: String(currentPage), limit: "1000" };
+      if (selectedDepartment) params.departmentId = selectedDepartment;
+      if (selectedDoctor) params.doctorId = selectedDoctor;
+      if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
+      if (selectedClinic) params.clinicId = selectedClinic;
+      if (selectedPaymentMethod) params.paymentMethod = selectedPaymentMethod;
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/api/clinic/reports/packages-sold?${qs}`, { headers });
+      const json = await res.json();
+      
+      if (res.ok && json.success && json.data) {
+        allData = [...allData, ...json.data];
+        hasMore = Boolean(json.pagination?.hasNext);
+        currentPage++;
+      } else {
+        hasMore = false;
+      }
+    }
+    
+    setAllSoldRows(allData);
   }
 
   async function fetchPackages() {
@@ -336,6 +371,23 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     const thirtyDaysFromToday = new Date(today);
     thirtyDaysFromToday.setDate(today.getDate() + 30);
 
+    // Calculate average sessions used from sold rows
+    let totalSessionsUsed = 0;
+    let totalSessionsAvailable = 0;
+    soldRows.forEach((row) => {
+      if (row.sessionsUsed) totalSessionsUsed += row.sessionsUsed;
+      if (row.totalSessions) totalSessionsAvailable += row.totalSessions;
+    });
+    const avgSessionsUsed = totalSessionsAvailable > 0 
+      ? Number((totalSessionsUsed / totalSessionsAvailable).toFixed(1))
+      : 0;
+    
+    // Calculate simple renewal rate based on completed vs total expired/expiring
+    const totalAtRisk = expiredCount + expiring7DaysCount + expiring30DaysCount;
+    const renewalRate = completedPackages > 0 
+      ? Number(((completedPackages / (completedPackages + totalAtRisk)) * 100).toFixed(1))
+      : 0;
+
     packages.forEach((pkg) => {
       const status = getPackageStatus(pkg);
       if (status === "Active") activeCount++;
@@ -376,6 +428,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       unusedPackagesTrend: calculateTrend(unusedPackages, prevUnusedPackages),
       renewalOpportunities: expiredCount + expiring7DaysCount + expiring30DaysCount, // Update
       avgPackageValue: totalPackagesSold > 0 ? totalRevenue / totalPackagesSold : 0,
+      avgSessionsUsed,
+      renewalRate,
+      inactiveHolders: unusedPackages,
     };
   }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages]);
 
@@ -507,13 +562,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { period: "90+ Days", amount: 22000, accounts: 16, color: "#F53F3F" },
   ];
 
-  const expiringPackagesData = [
-    { period: "Today", count: 8, color: "#F53F3F" },
-    { period: "2-7 Days", count: 34, color: "#F53F3F" },
-    { period: "8-14 Days", count: 78, color: "#008891" },
-    { period: "15-30 Days", count: 142, color: "#008891" },
-    { period: "31-60 Days", count: 198, color: "#008891" },
-  ];
+  // Dynamic expiring packages data using metrics from the cards
+  const expiringPackagesData = useMemo(() => [
+    { period: "Expired", count: metrics.expiredPackages, color: "#F53F3F" },
+    { period: "Expiring in 7 Days", count: metrics.expiring7Days, color: "#F5A623" },
+    { period: "Expiring in 30 Days", count: metrics.expiring30Days, color: "#008891" },
+  ], [metrics]);
 
   const packageLifecycleData = [
     { label: "Sold", value: 1348, color: "#008891", total: 1348 },
@@ -553,7 +607,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     {
       title: "Packages Sold",
       headers: ["Package Name", "Patient Name", "Doctor Name", "Total Sessions", "Sessions Used", "Remaining Sessions", "Payment Status"],
-      data: soldRows.map(r => ({
+      data: allSoldRows.map(r => ({
         "Package Name": r.packageName || "-",
         "Patient Name": r.patientName || "-",
         "Doctor Name": r.doctorName || "-",
@@ -563,7 +617,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         "Payment Status": r.paymentStatus || "-",
       })),
     },
-  ], [rows, soldRows]);
+  ], [rows, allSoldRows]);
 
   const toggleFilter = (filter: string) => {
     setActiveFilter(activeFilter === filter ? null : filter);
@@ -589,9 +643,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <div className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white">
                 📅 {new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - {new Date(endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
               </div>
-              <button className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700">
-                📥 Export
-              </button>
+              <ExportButtons 
+                sections={packageExportSections} 
+                filename="package-report" 
+                title="Package Report"
+              />
             </div>
           </div>
 
@@ -1200,7 +1256,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Expiring Packages Timeline</h3>
-            <p className="text-xs text-gray-500 mb-4">Packages expiring by period · red = urgent action</p>
+            <p className="text-xs text-gray-500 mb-4">Packages expiring by period </p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={expiringPackagesData}>
@@ -1231,36 +1287,25 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-600">Renewal Rate</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-gray-900">62.4%</span>
-                  <span className="text-xs text-emerald-600 ml-2">+4.2%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-600">Refund Rate</span>
-                <div className="text-right">
-                  <span className="text-sm font-semibold text-gray-900">3.8%</span>
-                  <span className="text-xs text-red-500 ml-2">-1.1%</span>
+                  <span className="text-sm font-semibold text-gray-900">{metrics.renewalRate}%</span>
                 </div>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-600">Avg Sessions Used</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-blue-600">6.2 / 10</span>
-                  <span className="text-xs text-emerald-600 ml-2">+0.8</span>
+                  <span className="text-sm font-semibold text-blue-600">{metrics.avgSessionsUsed} / 10</span>
                 </div>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-600">Inactive Holders</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-amber-600">67 patients</span>
-                  <span className="text-xs text-red-500 ml-2">+12</span>
+                  <span className="text-sm font-semibold text-amber-600">{metrics.inactiveHolders} patients</span>
                 </div>
               </div>
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-gray-600">Avg Package Value</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-emerald-600">Rs 1,834</span>
-                  <span className="text-xs text-emerald-600 ml-2">+7.3%</span>
+                  <span className="text-sm font-semibold text-emerald-600">Rs {metrics.avgPackageValue.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -1275,75 +1320,45 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <p className="text-xs text-gray-500">Items requiring immediate attention</p>
             </div>
             <div className="flex items-center gap-2">
-              <button className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-                💬 WhatsApp
-              </button>
-              <button className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-                📱 SMS
-              </button>
-              <button className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-                ✉️ Email
-              </button>
-              <button className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700">
-                📥 Bulk Export
-              </button>
+             
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-red-50 rounded-xl p-4 border border-red-100">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">⏰</div>
-                <span className="text-xl font-bold text-red-800">8</span>
+                <span className="text-xl font-bold text-red-800">{metrics.expiring7Days}</span>
               </div>
-              <p className="text-sm font-semibold text-red-900 mb-3">Expiring Today</p>
-              <button className="w-full py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600">
-                Send Reminders
-              </button>
+              <p className="text-sm font-semibold text-red-900 mb-3">Expiring Soon</p>
+              
             </div>
 
             <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">💲</div>
-                <span className="text-xl font-bold text-amber-800">41</span>
+                <span className="text-xl font-bold text-amber-800">{metrics.unpaidPackages}</span>
               </div>
-              <p className="text-sm font-semibold text-amber-900 mb-3">Overdue Payments</p>
-              <button className="w-full py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600">
-                Collect Now
-              </button>
+              <p className="text-sm font-semibold text-amber-900 mb-3">Unpaid Packages</p>
+              
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-700">👤</div>
-                <span className="text-xl font-bold text-gray-800">67</span>
+                <span className="text-xl font-bold text-gray-800">{metrics.inactiveHolders}</span>
               </div>
               <p className="text-sm font-semibold text-gray-900 mb-3">Inactive Patients</p>
-              <button className="w-full py-1.5 bg-gray-600 text-white text-xs font-medium rounded-lg hover:bg-gray-700">
-                Reach Out
-              </button>
+             
             </div>
 
             <div className="bg-teal-50 rounded-xl p-4 border border-teal-100">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700">🔄</div>
-                <span className="text-xl font-bold text-teal-800">198</span>
+                <span className="text-xl font-bold text-teal-800">{metrics.renewalOpportunities}</span>
               </div>
               <p className="text-sm font-semibold text-teal-900 mb-3">Renewal Ready</p>
-              <button className="w-full py-1.5 bg-teal-600 text-white text-xs font-medium rounded-lg hover:bg-teal-700">
-                Launch Campaign
-              </button>
-            </div>
-
-            <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">⚠️</div>
-                <span className="text-xl font-bold text-purple-800">12</span>
-              </div>
-              <p className="text-sm font-semibold text-purple-900 mb-3">Refund Requests</p>
-              <button className="w-full py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700">
-                Review Now
-              </button>
+              
             </div>
           </div>
         </div>
@@ -1359,14 +1374,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <div className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm">
                 🔍 <input type="text" placeholder="Search patient/package/ID" className="border-0 outline-none text-sm w-40" />
               </div>
-              <button className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-                ⚙️ Columns
-              </button>
-              <ExportButtons
-                sections={packageExportSections}
-                filename={`package-report-${startDate}-to-${endDate}`}
-                title="Package Report"
-              />
+              
+            
             </div>
           </div>
 
@@ -1529,7 +1538,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         {/* Pagination */}
         <div className="p-4 border-t border-gray-200 flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            Showing {soldRows.length} results · Page {page}
+            Showing {soldRows.length} of {totalResults} results · Page {page} of {totalPages}
           </p>
           <div className="flex items-center gap-2">
             <button 
@@ -1540,14 +1549,48 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               ← Prev
             </button>
             <div className="flex items-center gap-1">
-              {[1, 2, 3, '...', 12].map((p, i) => (
-                <button
-                  key={i}
-                  className={`w-8 h-8 rounded-lg text-sm ${p === page ? 'bg-teal-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
-                >
-                  {p}
-                </button>
-              ))}
+              {(() => {
+                const pages = [];
+                if (totalPages <= 7) {
+                  // If total pages are small, show all
+                  for (let i = 1; i <= totalPages; i++) {
+                    pages.push(i);
+                  }
+                } else {
+                  // Show first 2 pages, then current-2, current, current+2, then last 2
+                  pages.push(1);
+                  if (page > 3) {
+                    pages.push('...');
+                  }
+                  const start = Math.max(2, page - 2);
+                  const end = Math.min(totalPages - 1, page + 2);
+                  for (let i = start; i <= end; i++) {
+                    pages.push(i);
+                  }
+                  if (page < totalPages - 2) {
+                    pages.push('...');
+                  }
+                  pages.push(totalPages);
+                }
+                return pages.map((p, i) => (
+                  typeof p === 'number' ? (
+                    <button
+                      key={i}
+                      onClick={() => fetchPackagesSold(p)}
+                      className={`w-8 h-8 rounded-lg text-sm ${p === page ? 'bg-teal-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                    >
+                      {p}
+                    </button>
+                  ) : (
+                    <span
+                      key={i}
+                      className="w-8 h-8 rounded-lg text-sm flex items-center justify-center text-gray-500"
+                    >
+                      {p}
+                    </span>
+                  )
+                ));
+              })()}
             </div>
             <button 
               disabled={!hasNext}

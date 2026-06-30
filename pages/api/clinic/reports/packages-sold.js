@@ -40,10 +40,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod } = req.query;
+    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod, getAll } = req.query;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-    const skip = (pageNum - 1) * pageSize;
+    const pageSize = getAll ? Number.MAX_SAFE_INTEGER : Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const skip = getAll ? 0 : (pageNum - 1) * pageSize;
 
     const match = { service: "Package" };
     if (user.role !== "admin") {
@@ -528,12 +528,13 @@ export default async function handler(req, res) {
       renewalOpportunities: 0,
     };
 
+    const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
     return res.status(200).json({
       success: true,
       data: rows,
       summary,
       previousSummary,
-      pagination: { page: pageNum, pageSize, total, hasNext: skip + rows.length < total },
+      pagination: { page: pageNum, pageSize, total, totalPages, hasNext: skip + rows.length < total },
     });
   } catch (e) {
     console.error("packages-sold error:", e);

@@ -350,18 +350,62 @@ export default async function handler(req, res) {
     const monthlyAgg = await Billing.aggregate([
       { $match: monthlyMatch },
       {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveDoctorId: {
+            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          },
+        },
+      },
+      // Apply the same filters (doctor, department, sales staff)
+      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
+      ...(departmentId ? [
+        {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
+          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+        }
+      ] : []),
+      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+      {
         $group: {
-          _id: { $month: "$invoicedDate" },
-          actual: { $sum: { $ifNull: ["$paid", 0] } },
+          _id: {
+            patientId: "$patientId",
+            package: "$package",
+            month: { $month: "$invoicedDate" }
+          },
+          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.month",
+          actual: { $sum: "$totalPaid" },
           packageCount: { $sum: 1 },
           totalPackages: { $sum: 1 },
-          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
-          totalPaidRevenue: { $sum: { $ifNull: ["$paid", 0] } },
-          totalOutstanding: { $sum: { $ifNull: ["$pending", 0] } },
+          totalRevenue: { $sum: "$totalPaid" },
+          totalPaidRevenue: { $sum: "$totalPaid" },
+          totalOutstanding: { $sum: "$totalPending" },
           paidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: ["$paid", 0] }, { $lte: ["$pending", 0] }] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $lte: ["$totalPending", 0] }] },
                 1,
                 0,
               ],
@@ -370,7 +414,7 @@ export default async function handler(req, res) {
           partiallyPaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: ["$paid", 0] }, { $gt: ["$pending", 0] }] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0,
               ],
@@ -379,7 +423,7 @@ export default async function handler(req, res) {
           unpaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $lte: ["$paid", 0] }, { $gt: ["$pending", 0] }] },
+                { $and: [{ $lte: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0,
               ],
@@ -411,21 +455,88 @@ export default async function handler(req, res) {
     });
 
     // Combined summary: all metrics from the same filtered match (selected date range)
+    // Use the same grouping logic as packages-sold.js: group by { patientId, package }
     const combinedSummaryAgg = await Billing.aggregate([
       { $match: match },
       {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveDoctorId: {
+            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          },
+          __usedSessions: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$selectedPackageTreatments", []] },
+                as: "t",
+                in: { $ifNull: ["$$t.sessions", 0] },
+              },
+            },
+          },
+        },
+      },
+      // Apply the same filters (doctor, department, sales staff)
+      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
+      ...(departmentId ? [
+        {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
+          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+        }
+      ] : []),
+      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+      {
+        $group: {
+          _id: { patientId: "$patientId", package: "$package" },
+          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+          sessionsUsed: { $sum: "$__usedSessions" },
+          firstPurchaseDate: { $min: "$createdAt" },
+          lastActivityDate: { $max: "$createdAt" },
+          doctorIds: { $addToSet: "$effectiveDoctorId" },
+        },
+      },
+      {
+        $lookup: {
+          from: "packages",
+          localField: "_id.package",
+          foreignField: "name",
+          as: "pkg",
+        },
+      },
+      {
+        $addFields: {
+          totalSessions: { $ifNull: [{ $arrayElemAt: ["$pkg.totalSessions", 0] }, 0] },
+          pkgData: { $arrayElemAt: ["$pkg", 0] },
+        },
+      },
+      // Now group all these into summary metrics
+      {
         $group: {
           _id: null,
-          // Basic metrics
           totalPackages: { $sum: 1 },
-          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
-          totalPaidRevenue: { $sum: { $ifNull: ["$paid", 0] } },
-          totalOutstanding: { $sum: { $ifNull: ["$pending", 0] } },
-          // Package payment status counts
+          totalRevenue: { $sum: "$totalPaid" },
+          totalPaidRevenue: { $sum: "$totalPaid" },
+          totalOutstanding: { $sum: "$totalPending" },
           paidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: ["$paid", 0] }, { $lte: ["$pending", 0] }] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $lte: ["$totalPending", 0] }] },
                 1,
                 0,
               ],
@@ -434,7 +545,7 @@ export default async function handler(req, res) {
           partiallyPaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: ["$paid", 0] }, { $gt: ["$pending", 0] }] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0,
               ],
@@ -443,7 +554,7 @@ export default async function handler(req, res) {
           unpaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $lte: ["$paid", 0] }, { $gt: ["$pending", 0] }] },
+                { $and: [{ $lte: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0,
               ],
@@ -469,8 +580,47 @@ export default async function handler(req, res) {
       { $match: { ...match, doctorId: { $ne: null } } },
       {
         $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveDoctorId: {
+            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          },
+        },
+      },
+      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
+      ...(departmentId ? [
+        {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
+          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+        }
+      ] : []),
+      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+      {
+        $group: {
+          _id: { patientId: "$patientId", package: "$package", doctorId: "$effectiveDoctorId" },
+          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          firstPurchaseDate: { $min: "$createdAt" },
+        },
+      },
+      {
+        $lookup: {
           from: "users",
-          localField: "doctorId",
+          localField: "_id.doctorId",
           foreignField: "_id",
           as: "doctor"
         }
@@ -479,7 +629,7 @@ export default async function handler(req, res) {
       {
         $lookup: {
           from: "doctordepartments",
-          localField: "doctorId",
+          localField: "_id.doctorId",
           foreignField: "doctorId",
           as: "doctorDept"
         }
@@ -496,11 +646,11 @@ export default async function handler(req, res) {
       { $unwind: { path: "$department", preserveNullAndEmptyArrays: true } },
       {
         $group: {
-          _id: "$doctorId",
+          _id: "$_id.doctorId",
           name: { $first: { $ifNull: ["$doctor.name", "Unknown Doctor"] } },
           department: { $first: { $ifNull: ["$department.name", "Other"] } },
           packages: { $sum: 1 },
-          revenue: { $sum: { $ifNull: ["$paid", 0] } }
+          revenue: { $sum: "$totalPaid" }
         }
       },
       { $sort: { packages: -1 } },
@@ -607,10 +757,42 @@ export default async function handler(req, res) {
           from: "appointments",
           localField: "appointmentId",
           foreignField: "_id",
-          as: "appointment"
-        }
+          as: "appointment",
+        },
       },
       { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveDoctorId: {
+            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          },
+        },
+      },
+      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
+      ...(departmentId ? [
+        {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
+          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
+        }
+      ] : []),
+      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+      {
+        $group: {
+          _id: { patientId: "$patientId", package: "$package" },
+          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          firstPurchaseDate: { $min: "$createdAt" },
+          // Store appointment/service/department info for later
+          appointment: { $first: "$appointment" }
+        },
+      },
       {
         $lookup: {
           from: "services",
@@ -633,7 +815,7 @@ export default async function handler(req, res) {
         $group: {
           _id: { $ifNull: ["$department._id", null] },
           department: { $first: { $ifNull: ["$department.name", "Other"] } },
-          revenue: { $sum: { $ifNull: ["$paid", 0] } }
+          revenue: { $sum: "$totalPaid" }
         }
       },
       { $sort: { revenue: -1 } },
