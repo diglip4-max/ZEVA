@@ -695,32 +695,32 @@ function ClinicCommissionPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-teal-900">Commission Tracker</h2>
-              <p className="text-xs sm:text-sm text-teal-600">Referral and doctor/staff commissions</p>
+              <h2 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-500">Commission Tracker</h2>
+              <p className="text-xs sm:text-sm text-teal-600 dark:text-teal-400">Referral and doctor/staff commissions</p>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4 mb-4 border border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1 flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600">Doctor/Staff Name</label>
+                <label className="text-xs font-medium text-gray-600 dark:text-gray-600">Doctor/Staff Name</label>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by name..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm dark:text-gray-900 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
               <div className="flex gap-2">
                 <button 
-                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 hover:bg-teal-50 transition-all whitespace-nowrap"
+                  className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 dark:text-teal-300 hover:bg-teal-50 transition-all whitespace-nowrap"
                   onClick={() => setSearchQuery("")}
                 >
                   Clear Filter
                 </button>
                 <button 
-                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 hover:bg-teal-50 transition-all whitespace-nowrap"
+                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 dark:text-teal-300 hover:bg-teal-50 transition-all whitespace-nowrap"
                   onClick={load}
                 >
                   Refresh
@@ -731,7 +731,7 @@ function ClinicCommissionPage() {
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <button
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "referral" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "referral" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border border-gray-300 hover:bg-teal-50"}`}
               onClick={() => {
                 if (source !== "referral") {
                   setSource("referral");
@@ -741,7 +741,7 @@ function ClinicCommissionPage() {
               Referral
             </button>
             <button
-              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "staff" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "staff" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 dark:text-teal-300 border dark:text-gray-700 border-gray-300 hover:bg-teal-50"}`}
               onClick={() => {
                 if (source !== "staff") {
                   setSource("staff");
@@ -752,33 +752,34 @@ function ClinicCommissionPage() {
             </button>
           </div>
 
-          {loading ? (
-            <div className="text-sm text-teal-600">Loading...</div>
+          {loading ? ( 
+            <div className="text-sm text-teal-600 dark:text-teal-600">Loading...</div>
           ) : filteredMainItems.length === 0 ? (
-            <div className="text-sm text-teal-600">No commissions found</div>
+            <div className="text-sm text-teal-600 dark:text-teal-400">No commissions found</div>
           ) : (
             <div className="overflow-x-auto -mx-4 sm:mx-0">
               <table className="min-w-full text-xs sm:text-sm">
                 <thead>
-                  <tr className="text-left text-gray-600">
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">Name</th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">Type</th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">%</th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">Earned</th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">Paid</th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">Count</th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap">Actions</th>
+                  <tr className="text-left text-gray-600 dark:text-gray-300">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-700">Name</th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-700">Type</th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">Type</th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">% </th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">Earned</th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">Paid</th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">Count</th>
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredMainItems.map((row) => (
                     <tr key={`${row.source}-${row.personId}`} className="border-t border-gray-200 hover:bg-gray-50">
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">{row.name || "—"}</td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">{row.source === "referral" ? "Referral" : "Doctor/Staff"}</td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">{row.percent ?? 0}</td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">{getCurrencySymbol(currency)} {Number(row.totalEarned || 0).toFixed(2)}</td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">{getCurrencySymbol(currency)} {Number(row.totalPaid || 0).toFixed(2)}</td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap">{row.count}</td>
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-900">{row.name || "—"}</td>
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">{row.source === "referral" ? "Referral" : "Doctor/Staff"}</td>
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">{row.percent ?? 0}</td>
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">{getCurrencySymbol(currency)} {Number(row.totalEarned || 0).toFixed(2)}</td>
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">{getCurrencySymbol(currency)} {Number(row.totalPaid || 0).toFixed(2)}</td>
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">{row.count}</td>
                       <td className="px-2 sm:px-4 py-3">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5 sm:gap-2">
                           <button
@@ -824,16 +825,16 @@ function ClinicCommissionPage() {
               {/* Modal Header */}
               <div className="flex items-center justify-between px-2 py-2 border-b border-gray-200 flex-shrink-0">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold text-teal-900 truncate">
+                  <h3 className="text-sm font-bold text-teal-900 dark:text-teal-500 truncate">
                     {selectedPerson?.source === "referral" ? "Referral History" : "Doctor/Staff History"}
                   </h3>
-                  <p className="text-[10px] text-teal-600 mt-0.5 truncate">{selectedPerson?.name || ""}</p>
+                  <p className="text-[10px] text-teal-600 dark:text-teal-400 mt-0.5 truncate">{selectedPerson?.name || ""}</p>
                 </div>
                 <button 
                   className="p-1.5 rounded-md hover:bg-gray-100 transition-colors flex-shrink-0 ml-1"
                   onClick={() => setShowModal(false)}
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className="w-4 h-4 text-gray-500 dark:text-gray-300" />
                 </button>
               </div>
               
@@ -843,46 +844,46 @@ function ClinicCommissionPage() {
                   <div className="text-center py-4">
                     <div className="inline-flex items-center px-3 py-1.5 bg-teal-50 rounded-lg">
                       <div className="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mr-2"></div>
-                      <span className="text-teal-700 font-medium text-[10px]">Loading history...</span>
+                      <span className="text-teal-700 dark:text-teal-300 font-medium text-[10px]">Loading history...</span>
                     </div>
                   </div>
                 ) : filteredModalItems.length === 0 ? (
                   <div className="text-center py-4">
-                    <div className="text-teal-600 text-[10px]">No records found</div>
+                    <div className="text-teal-600 dark:text-teal-400 text-[10px]">No records found</div>
                   </div>
                 ) : (
                   <div className="overflow-hidden">
                     <table className="min-w-full text-[9px]">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Patient</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">EMR</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Invoice</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Paid</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Ref. Ded.</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Bank Ded.</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Payment</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Earned</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Comm.</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Doctor</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Date</th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Patient</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">EMR</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Paid</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Ref. Ded.</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Bank Ded.</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Payment</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Earned</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Comm.</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Doctor</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Date</th>
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">Action</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {filteredModalItems.map((it) => (
                           <React.Fragment key={it.commissionId}>
                             <tr className="hover:bg-gray-50">
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">{it.patientName || "—"}</td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">{it.patientEmr || "—"}</td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">{it.invoiceNumber || "—"}</td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">{getCurrencySymbol(currency)} {Number(it.paidAmount || 0).toFixed(2)}</td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-900">{it.patientName || "—"}</td>
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">{it.patientEmr || "—"}</td>
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">{it.invoiceNumber || "—"}</td>
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">{getCurrencySymbol(currency)} {Number(it.paidAmount || 0).toFixed(2)}</td>
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
                                 {Number(it.referralCommissionDeducted || 0) > 0 ? (
                                   `${getCurrencySymbol(currency)} ${Number(it.referralCommissionDeducted).toFixed(2)}`
                                 ) : "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
                                 {it.bankDeduction?.deductionAmount ? (
                                   `${getCurrencySymbol(currency)} ${Number(it.bankDeduction.deductionAmount).toFixed(2)}`
                                 ) : "—"}
@@ -892,17 +893,17 @@ function ClinicCommissionPage() {
                                   <div className="flex flex-col gap-0.5">
                                     {it.multiplePayments.map((mp, idx) => (
                                       <div key={idx} className="flex items-center justify-between gap-1">
-                                        <span className="font-medium text-gray-700">{mp.paymentMethod}</span>
-                                        <span className="text-gray-600">{getCurrencySymbol(currency)} {Number(mp.amount).toFixed(2)}</span>
+                                        <span className="font-medium text-gray-700 dark:text-gray-900">{mp.paymentMethod}</span>
+                                        <span className="text-gray-600 dark:text-gray-700">{getCurrencySymbol(currency)} {Number(mp.amount).toFixed(2)}</span>
                                       </div>
                                     ))}
                                   </div>
                                 ) : it.paymentMethod === "Cash" ? (
-                                  <span className="text-gray-700">Cash</span>
+                                  <span className="text-gray-700 dark:text-gray-900">Cash</span>
                                 ) : it.paymentMethod && it.bankDeduction?.enabled ? (
                                   <div className="flex flex-col gap-0.5">
-                                    <span className="font-medium text-gray-700">{it.paymentMethod}</span>
-                                    <span className="text-gray-600">
+                                    <span className="font-medium text-gray-700 dark:text-gray-900">{it.paymentMethod}</span>
+                                    <span className="text-gray-600 dark:text-gray-700">
                                       {it.bankDeduction.type === "flat" ? (
                                         `${getCurrencySymbol(currency)} ${Number(it.bankDeduction.value).toFixed(2)}`
                                       ) : (
@@ -914,18 +915,18 @@ function ClinicCommissionPage() {
                                   <span className="text-gray-400">—</span>
                                 )}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
                                 {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0) > 0
                                   ? `${getCurrencySymbol(currency)} ${Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)}`
                                   : "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
                                 {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0) > 0
                                   ? `${getCurrencySymbol(currency)} ${Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)} (${Number(it.commissionPercent || 0)}%)`
                                   : "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">{it.doctorName || "—"}</td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px]">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">{it.doctorName || "—"}</td>
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
                               <td className="px-1.5 py-1.5 whitespace-nowrap">
                                 <div className="flex items-center gap-1">
                                   <button
