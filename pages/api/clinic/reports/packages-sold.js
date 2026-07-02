@@ -144,6 +144,10 @@ export default async function handler(req, res) {
           firstPurchaseDate: { $min: "$createdAt" },
           lastActivityDate: { $max: "$createdAt" },
           doctorIds: { $addToSet: "$effectiveDoctorId" },
+          // Fields required by the Package Registry table columns (Staff, Branch, Dept)
+          soldBy: { $first: "$invoicedBy" },
+          clinicId: { $first: "$clinicId" },
+          serviceId: { $first: "$appointment.serviceId" },
         },
       },
       // Resolve doctor names
@@ -178,6 +182,68 @@ export default async function handler(req, res) {
           as: "pkg",
         },
       },
+      // Branch (clinic) name — Billing carries clinicId
+      {
+        $lookup: {
+          from: "clinics",
+          localField: "clinicId",
+          foreignField: "_id",
+          as: "clinic",
+        },
+      },
+      // Department chain: appointment.serviceId -> service.departmentId -> department.name
+      {
+        $lookup: {
+          from: "services",
+          localField: "serviceId",
+          foreignField: "_id",
+          as: "serviceDoc",
+        },
+      },
+      {
+        $addFields: {
+          departmentId: {
+            $ifNull: [{ $arrayElemAt: ["$serviceDoc.departmentId", 0] }, null],
+          },
+          // Expiry date mirrors the summary pipeline logic
+          // (pkg.endDate / pkg.validityInMonths / +1 year from first purchase)
+          expirationDate: {
+            $switch: {
+              branches: [
+                {
+                  case: { $ne: [{ $ifNull: [{ $arrayElemAt: ["$pkg.endDate", 0] }, null] }, null] },
+                  then: { $arrayElemAt: ["$pkg.endDate", 0] },
+                },
+                {
+                  case: { $gt: [{ $ifNull: [{ $arrayElemAt: ["$pkg.validityInMonths", 0] }, 0] }, 0] },
+                  then: {
+                    $dateAdd: {
+                      startDate: { $ifNull: ["$firstPurchaseDate", new Date()] },
+                      unit: "month",
+                      amount: { $arrayElemAt: ["$pkg.validityInMonths", 0] },
+                    },
+                  },
+                },
+              ],
+              default: {
+                $dateAdd: {
+                  startDate: { $ifNull: ["$firstPurchaseDate", new Date()] },
+                  unit: "year",
+                  amount: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "departments",
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "department",
+        },
+      },
       {
         $project: {
           patientId: 1,
@@ -189,6 +255,12 @@ export default async function handler(req, res) {
               { $ifNull: [{ $arrayElemAt: ["$patient.lastName", 0] }, ""] },
             ],
           },
+          phone: { $ifNull: [{ $arrayElemAt: ["$patient.mobileNumber", 0] }, ""] },
+          emrNumber: { $ifNull: [{ $arrayElemAt: ["$patient.emrNumber", 0] }, ""] },
+          branch: { $ifNull: [{ $arrayElemAt: ["$clinic.name", 0] }, ""] },
+          department: { $ifNull: [{ $arrayElemAt: ["$department.name", 0] }, ""] },
+          soldBy: { $ifNull: ["$soldBy", ""] },
+          totalValue: { $add: [{ $ifNull: ["$totalPaid", 0] }, { $ifNull: ["$totalPending", 0] }] },
           totalSessions: { $ifNull: [{ $arrayElemAt: ["$pkg.totalSessions", 0] }, 0] },
           sessionsUsed: 1,
           remainingSessions: {
@@ -224,6 +296,7 @@ export default async function handler(req, res) {
           totalPending: 1,
           firstPurchaseDate: 1,
           lastActivityDate: 1,
+          expirationDate: 1,
         },
       },
       {

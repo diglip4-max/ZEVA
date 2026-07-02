@@ -92,6 +92,19 @@ export default async function handler(req, res) {
       if (Object.keys(previousMatch.invoicedDate).length === 0) delete previousMatch.invoicedDate;
     }
 
+    const monthSectionMatch = { service: "Package" };
+    if (user.role !== "admin") {
+      monthSectionMatch.clinicId = new mongoose.Types.ObjectId(String(clinicId));
+    } else if (selectedClinicId) {
+      monthSectionMatch.clinicId = new mongoose.Types.ObjectId(String(selectedClinicId));
+    }
+    if (startAt || endAt) {
+      monthSectionMatch.invoicedDate = {};
+      if (startAt) monthSectionMatch.invoicedDate.$gte = startAt;
+      if (endAt) monthSectionMatch.invoicedDate.$lte = endAt;
+      if (Object.keys(monthSectionMatch.invoicedDate).length === 0) delete monthSectionMatch.invoicedDate;
+    }
+
     // Helper to build pipeline and summary
     const buildPipelines = (matchObj) => {
       const pipeline = [
@@ -336,11 +349,11 @@ export default async function handler(req, res) {
     const summary = summaryAgg?.[0] || { totalRevenue: 0, totalBookings: 0 };
     const previousSummary = previousSummaryAgg?.[0] || { totalRevenue: 0, totalBookings: 0 };
 
-    // Monthly package revenue data - all 12 months of the full year, ignoring date range but keeping other filters
+    // Monthly package revenue data - all 12 months of the selected year, ignoring dashboard filters
     // Determine which year to use: use startDate's year if available, else current year
     const yearToUse = startDate ? new Date(startDate).getFullYear() : new Date().getFullYear();
-    // Create match for monthly aggregation: full year + all other filters (clinic, payment method, etc.)
-    const monthlyMatch = { ...match };
+    // Create match for monthly aggregation: full year + clinic scope only
+    const monthlyMatch = { ...monthSectionMatch };
     // Override invoicedDate to full year to show all months
     monthlyMatch.invoicedDate = {
       $gte: new Date(yearToUse, 0, 1),
@@ -365,23 +378,6 @@ export default async function handler(req, res) {
           },
         },
       },
-      // Apply the same filters (doctor, department, sales staff)
-      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
-      ...(departmentId ? [
-        {
-          $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
-            foreignField: "_id",
-            as: "service",
-          },
-        },
-        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-        {
-          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-        }
-      ] : []),
-      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
       {
         $group: {
           _id: {
@@ -573,11 +569,154 @@ export default async function handler(req, res) {
       unpaidPackages: 0,
     };
 
+
+    const buildLifecycleSummaryPipeline = (matchObj) => {
+      const today = new Date();
+      const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+      const sevenDaysFromNow = new Date(todayStart);
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      const thirtyDaysFromNow = new Date(todayStart);
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+      return [
+        { $match: matchObj },
+        {
+          $lookup: {
+            from: "appointments",
+            localField: "appointmentId",
+            foreignField: "_id",
+            as: "appointment",
+          },
+        },
+        { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            __usedSessions: {
+              $sum: {
+                $map: {
+                  input: { $ifNull: ["$selectedPackageTreatments", []] },
+                  as: "t",
+                  in: { $ifNull: ["$$t.sessions", 0] },
+                },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { patientId: "$patientId", package: "$package" },
+            totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+            totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+            sessionsUsed: { $sum: "$__usedSessions" },
+            firstPurchaseDate: { $min: "$createdAt" },
+          },
+        },
+        {
+          $lookup: {
+            from: "packages",
+            localField: "_id.package",
+            foreignField: "name",
+            as: "pkg",
+          },
+        },
+        {
+          $addFields: {
+            totalSessions: { $ifNull: [{ $arrayElemAt: ["$pkg.totalSessions", 0] }, 0] },
+            pkgData: { $arrayElemAt: ["$pkg", 0] },
+          },
+        },
+        {
+          $addFields: {
+            expirationDate: {
+              $switch: {
+                branches: [
+                  {
+                    case: { $ne: ["$pkgData.endDate", null] },
+                    then: "$pkgData.endDate",
+                  },
+                  {
+                    case: { $gt: [{ $ifNull: ["$pkgData.validityInMonths", 0] }, 0] },
+                    then: {
+                      $dateAdd: {
+                        startDate: "$firstPurchaseDate",
+                        unit: "month",
+                        amount: "$pkgData.validityInMonths",
+                      },
+                    },
+                  },
+                ],
+                default: {
+                  $dateAdd: {
+                    startDate: "$firstPurchaseDate",
+                    unit: "year",
+                    amount: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            isExpired: { $lt: ["$expirationDate", todayStart] },
+            isExpiringIn7Days: {
+              $and: [
+                { $gte: ["$expirationDate", todayStart] },
+                { $lte: ["$expirationDate", sevenDaysFromNow] },
+              ],
+            },
+            isExpiringIn30Days: {
+              $and: [
+                { $gt: ["$expirationDate", sevenDaysFromNow] },
+                { $lte: ["$expirationDate", thirtyDaysFromNow] },
+              ],
+            },
+            isRenewalOpportunity: {
+              $or: [
+                { $lt: ["$expirationDate", thirtyDaysFromNow] },
+                { $gte: ["$sessionsUsed", "$totalSessions"] },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalPackagesSold: { $sum: 1 },
+            activePackages: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $gt: ["$sessionsUsed", 0] }, { $lt: ["$sessionsUsed", "$totalSessions"] }] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            completedPackages: {
+              $sum: {
+                $cond: [{ $gte: ["$sessionsUsed", "$totalSessions"] }, 1, 0],
+              },
+            },
+            renewalOpportunities: {
+              $sum: { $cond: ["$isRenewalOpportunity", 1, 0] },
+            },
+          },
+        },
+      ];
+    };
+
+    const lifecycleSummaryAgg = await Billing.aggregate(buildLifecycleSummaryPipeline(monthSectionMatch));
+    const lifecycleSummary = lifecycleSummaryAgg?.[0] || {
+      totalPackagesSold: 0,
+      activePackages: 0,
+      completedPackages: 0,
+      renewalOpportunities: 0,
+    };
     // ------------------------------
     // Doctor Leaderboard (Package Billing) - with month-wise data
     // ------------------------------
     const doctorPackageAgg = await Billing.aggregate([
-      { $match: { ...match, doctorId: { $ne: null } } },
+      { $match: monthSectionMatch },
       {
         $lookup: {
           from: "appointments",
@@ -594,22 +733,7 @@ export default async function handler(req, res) {
           },
         },
       },
-      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
-      ...(departmentId ? [
-        {
-          $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
-            foreignField: "_id",
-            as: "service",
-          },
-        },
-        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-        {
-          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-        }
-      ] : []),
-      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+      { $match: { effectiveDoctorId: { $ne: null } } },
       {
         $group: {
           _id: { 
@@ -676,7 +800,7 @@ export default async function handler(req, res) {
           }
         }
       },
-      { $sort: { totalPackages: -1 } },
+      { $sort: { totalPackages: -1, totalRevenue: -1, name: 1 } },
       { $limit: 5 }
     ]);
     
@@ -700,9 +824,25 @@ export default async function handler(req, res) {
     // ------------------------------
     // Sales Staff Leaderboard - with month-wise data
     // ------------------------------
+    // Sales Staff Leaderboard is sourced directly from the "Sold By" field
+    // (`packages.packageSoldBy`), which captures the seller's name at package
+    // creation time. This avoids relying on `packageSoldByUserId` (which is
+    // frequently null) and the separate user lookup that left the leaderboard
+    // without names.
     const salesStaffPipeline = [
-      { $match: { ...(user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {})) } },
+      { $match: user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {}) },
       { $unwind: "$packages" },
+      // Only count packages that actually have a non-empty "Sold By" name.
+      {
+        $match: {
+          $expr: {
+            $gt: [
+              { $trim: { input: { $ifNull: ["$packages.packageSoldBy", ""] } } },
+              ""
+            ]
+          }
+        }
+      },
       ...(startAt || endAt ? [{
         $match: {
           "packages.assignedDate": {
@@ -714,7 +854,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: {
-            staffId: "$packages.packageSoldByUserId",
+            soldBy: "$packages.packageSoldBy",
             month: { $month: "$packages.assignedDate" },
             year: { $year: "$packages.assignedDate" }
           },
@@ -749,7 +889,7 @@ export default async function handler(req, res) {
       },
       {
         $group: {
-          _id: "$_id.staffId",
+          _id: "$_id.soldBy",
           totalPackagesSold: { $sum: "$totalPackagesSold" },
           totalRevenue: { $sum: "$totalRevenue" },
           totalPaid: { $sum: "$totalPaid" },
@@ -768,24 +908,12 @@ export default async function handler(req, res) {
         }
       },
       {
-        $lookup: {
-          from: "users",
-          localField: "_id",
-          foreignField: "_id",
-          as: "staff"
-        }
-      },
-      { $unwind: { path: "$staff", preserveNullAndEmptyArrays: true } },
-      {
         $project: {
           _id: 0,
+          // The seller name comes directly from the "Sold By" field captured
+          // when the package was created — no user lookup required.
           staffId: "$_id",
-          name: {
-            $ifNull: [
-              "$staff.name",
-              { $trim: { input: { $concat: [{ $ifNull: ["$staff.firstName", ""] }, " ", { $ifNull: ["$staff.lastName", ""] }] } } }
-            ]
-          },
+          name: "$_id",
           totalPackagesSold: 1,
           totalRevenue: 1,
           totalPaid: 1,
@@ -797,8 +925,10 @@ export default async function handler(req, res) {
           monthWiseData: 1
         }
       },
-      { $sort: { totalPackagesSold: -1 } },
-      { $limit: 5 }
+      // Rank by highest revenue first (packages sold as a tie-breaker). The
+      // client applies the final Top 5 slice so no high-revenue seller is
+      // dropped before ranking.
+      { $sort: { totalRevenue: -1, totalPackagesSold: -1, name: 1 } }
     ];
     const salesStaffLeaderboard = await PatientRegistration.aggregate(salesStaffPipeline).then(result => 
       result.map(staff => ({
@@ -816,7 +946,7 @@ export default async function handler(req, res) {
     // Department Revenue Data
     // ------------------------------
     const departmentRevenueAgg = await Billing.aggregate([
-      { $match: match },
+      { $match: monthSectionMatch },
       {
         $lookup: {
           from: "appointments",
@@ -833,22 +963,6 @@ export default async function handler(req, res) {
           },
         },
       },
-      ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
-      ...(departmentId ? [
-        {
-          $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
-            foreignField: "_id",
-            as: "service",
-          },
-        },
-        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-        {
-          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-        }
-      ] : []),
-      ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
       {
         $group: {
           _id: { patientId: "$patientId", package: "$package" },
@@ -898,6 +1012,7 @@ export default async function handler(req, res) {
       previousSummary,
       monthlyRevenue,
       combinedSummary, // New: all metrics from single source
+      lifecycleSummary,
       doctorLeaderboard,
       salesStaffLeaderboard,
       departmentRevenueData
