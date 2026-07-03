@@ -354,20 +354,20 @@ function ClinicCommissionPage() {
   useEffect(() => {
     const fetchClinicCurrency = async () => {
       try {
-        const token = 
-          localStorage.getItem('clinicToken') || 
-          sessionStorage.getItem('clinicToken') || 
-          localStorage.getItem('agentToken') || 
+        const token =
+          localStorage.getItem('clinicToken') ||
+          sessionStorage.getItem('clinicToken') ||
+          localStorage.getItem('agentToken') ||
           sessionStorage.getItem('agentToken');
         if (!token) return;
-        const res = await axios.get('/api/clinics/myallClinic', { 
-          headers: { Authorization: `Bearer ${token}` } 
+        const res = await axios.get('/api/clinics/myallClinic', {
+          headers: { Authorization: `Bearer ${token}` }
         });
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
         }
-      } catch (e) { 
-        console.error('Error fetching clinic currency:', e); 
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
       }
     };
     fetchClinicCurrency();
@@ -419,7 +419,7 @@ function ClinicCommissionPage() {
         ]);
         setMembershipList(Array.isArray(mRes.data?.memberships) ? mRes.data.memberships : []);
         setPackageList(Array.isArray(pRes.data?.packages) ? pRes.data.packages : []);
-      } catch {}
+      } catch { }
     })();
   }, [permissionsLoaded, permissions.canRead]);
 
@@ -429,17 +429,17 @@ function ClinicCommissionPage() {
       showToast("Authentication required", "error");
       return;
     }
-    
+
     // Clear previous data and show modal
     setSelectedPerson(null);
     setModalItems([]);
     setShowModal(true);
     setModalLoading(true);
-    
+
     try {
       // Small delay to ensure UI updates
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       setSelectedPerson(row);
       const params =
         row.source === "referral"
@@ -502,7 +502,7 @@ function ClinicCommissionPage() {
               const d = r.data;
               const name = `${(d.firstName || "").trim()} ${(d.lastName || "").trim()}`.trim() || d.emrNumber || pid;
               transferNameMap[pid] = name;
-            } catch {}
+            } catch { }
           })
         );
         const entries = [];
@@ -542,14 +542,14 @@ function ClinicCommissionPage() {
 
         setPatientInfoMap((prev) => ({
           ...prev,
-          [row.patientId]: { 
-            data: basicRes.data, 
-            full, 
-            transferNameMap, 
+          [row.patientId]: {
+            data: basicRes.data,
+            full,
+            transferNameMap,
             membershipUsageMap,
             displayMemberships,
             packageUsage: pkgUsageRes?.data?.success ? pkgUsageRes.data.packageUsage : null,
-            error: null 
+            error: null
           }
         }));
       } catch (e) {
@@ -713,13 +713,13 @@ function ClinicCommissionPage() {
                 />
               </div>
               <div className="flex gap-2">
-                <button 
+                <button
                   className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 hover:bg-teal-50 transition-all whitespace-nowrap"
                   onClick={() => setSearchQuery("")}
                 >
                   Clear Filter
                 </button>
-                <button 
+                <button
                   className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 hover:bg-teal-50 transition-all whitespace-nowrap"
                   onClick={load}
                 >
@@ -749,6 +749,16 @@ function ClinicCommissionPage() {
               }}
             >
               Doctor/Staff
+            </button>
+            <button
+              className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-all ${source === "product" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
+              onClick={() => {
+                if (source !== "product") {
+                  setSource("product");
+                }
+              }}
+            >
+              Product
             </button>
           </div>
 
@@ -790,11 +800,10 @@ function ClinicCommissionPage() {
                           </button>
                           {permissions.canUpdate && (
                             <button
-                              className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 text-xs rounded-md flex items-center justify-center gap-1 font-medium transition-all shadow-sm ${
-                                Number(row.pendingApprovalCount || 0) > 0
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              }`}
+                              className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 text-xs rounded-md flex items-center justify-center gap-1 font-medium transition-all shadow-sm ${Number(row.pendingApprovalCount || 0) > 0
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                }`}
                               disabled={Number(row.pendingApprovalCount || 0) === 0}
                               onClick={() => handleApprove(row.personId, row.source)}
                               title={
@@ -829,14 +838,14 @@ function ClinicCommissionPage() {
                   </h3>
                   <p className="text-[10px] text-teal-600 mt-0.5 truncate">{selectedPerson?.name || ""}</p>
                 </div>
-                <button 
+                <button
                   className="p-1.5 rounded-md hover:bg-gray-100 transition-colors flex-shrink-0 ml-1"
                   onClick={() => setShowModal(false)}
                 >
                   <X className="w-4 h-4 text-gray-500" />
                 </button>
               </div>
-              
+
               {/* Modal Body */}
               <div className="p-1.5 overflow-y-auto flex-1">
                 {modalLoading ? (
@@ -939,11 +948,10 @@ function ClinicCommissionPage() {
                                     <button
                                       onClick={() => handleToggleSubmit(it.commissionId)}
                                       title={it.isSubmitted ? "Unmark submission" : "Mark as submitted"}
-                                      className={`p-1 sm:p-1.5 rounded-md transition-all ${
-                                        it.isSubmitted
-                                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                          : "bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-200"
-                                      }`}
+                                      className={`p-1 sm:p-1.5 rounded-md transition-all ${it.isSubmitted
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                        : "bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-200"
+                                        }`}
                                     >
                                       <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                     </button>
@@ -1084,68 +1092,68 @@ function ClinicCommissionPage() {
                                     )}
                                     {/* Add Expense button / inline form */}
                                     {permissions.canUpdate && (
-                                    <div className="mt-2">
-                                      {addExpenseRow !== it.commissionId ? (
-                                        <button
-                                          onClick={() => { setAddExpenseRow(it.commissionId); setNewExpenses([{ name: "", price: "" }]); }}
-                                          className="px-2 py-1 text-[9px] rounded-md bg-violet-600 hover:bg-violet-700 text-white font-medium transition-all"
-                                        >
-                                          + Add Expense
-                                        </button>
-                                      ) : (
-                                        <div className="rounded-md border border-violet-200 bg-violet-50/40 p-2 mt-1">
-                                          <div className="text-[9px] font-semibold text-violet-800 mb-1.5">Add Expenses</div>
-                                          {newExpenses.map((exp, idx) => (
-                                            <div key={idx} className="flex items-center gap-1.5 mb-1">
-                                              <input
-                                                type="text"
-                                                placeholder="Expense name"
-                                                value={exp.name}
-                                                onChange={(e) => setNewExpenses((prev) => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
-                                                className="flex-1 px-1.5 py-1 text-[9px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                              />
-                                              <input
-                                                type="number"
-                                                placeholder="Price"
-                                                min="0"
-                                                value={exp.price}
-                                                onChange={(e) => setNewExpenses((prev) => prev.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
-                                                className="w-20 px-1.5 py-1 text-[9px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
-                                              />
-                                              {newExpenses.length > 1 && (
-                                                <button
-                                                  onClick={() => setNewExpenses((prev) => prev.filter((_, i) => i !== idx))}
-                                                  className="text-[9px] text-red-500 hover:text-red-700 px-1"
-                                                >
-                                                  ✕
-                                                </button>
-                                              )}
+                                      <div className="mt-2">
+                                        {addExpenseRow !== it.commissionId ? (
+                                          <button
+                                            onClick={() => { setAddExpenseRow(it.commissionId); setNewExpenses([{ name: "", price: "" }]); }}
+                                            className="px-2 py-1 text-[9px] rounded-md bg-violet-600 hover:bg-violet-700 text-white font-medium transition-all"
+                                          >
+                                            + Add Expense
+                                          </button>
+                                        ) : (
+                                          <div className="rounded-md border border-violet-200 bg-violet-50/40 p-2 mt-1">
+                                            <div className="text-[9px] font-semibold text-violet-800 mb-1.5">Add Expenses</div>
+                                            {newExpenses.map((exp, idx) => (
+                                              <div key={idx} className="flex items-center gap-1.5 mb-1">
+                                                <input
+                                                  type="text"
+                                                  placeholder="Expense name"
+                                                  value={exp.name}
+                                                  onChange={(e) => setNewExpenses((prev) => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                                                  className="flex-1 px-1.5 py-1 text-[9px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                                />
+                                                <input
+                                                  type="number"
+                                                  placeholder="Price"
+                                                  min="0"
+                                                  value={exp.price}
+                                                  onChange={(e) => setNewExpenses((prev) => prev.map((x, i) => i === idx ? { ...x, price: e.target.value } : x))}
+                                                  className="w-20 px-1.5 py-1 text-[9px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                                />
+                                                {newExpenses.length > 1 && (
+                                                  <button
+                                                    onClick={() => setNewExpenses((prev) => prev.filter((_, i) => i !== idx))}
+                                                    className="text-[9px] text-red-500 hover:text-red-700 px-1"
+                                                  >
+                                                    ✕
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ))}
+                                            <div className="flex items-center gap-1.5 mt-1">
+                                              <button
+                                                onClick={() => setNewExpenses((prev) => [...prev, { name: "", price: "" }])}
+                                                className="px-2 py-1 text-[9px] rounded-md border border-violet-300 text-violet-700 hover:bg-violet-100"
+                                              >
+                                                + Add Row
+                                              </button>
+                                              <button
+                                                disabled={addExpenseLoading}
+                                                onClick={() => handleAddExpense(it.commissionId)}
+                                                className="px-2 py-1 text-[9px] rounded-md bg-violet-600 hover:bg-violet-700 text-white font-medium disabled:opacity-50"
+                                              >
+                                                {addExpenseLoading ? "Saving..." : "Save"}
+                                              </button>
+                                              <button
+                                                onClick={() => { setAddExpenseRow(null); setNewExpenses([{ name: "", price: "" }]); }}
+                                                className="px-2 py-1 text-[9px] rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
+                                              >
+                                                Cancel
+                                              </button>
                                             </div>
-                                          ))}
-                                          <div className="flex items-center gap-1.5 mt-1">
-                                            <button
-                                              onClick={() => setNewExpenses((prev) => [...prev, { name: "", price: "" }])}
-                                              className="px-2 py-1 text-[9px] rounded-md border border-violet-300 text-violet-700 hover:bg-violet-100"
-                                            >
-                                              + Add Row
-                                            </button>
-                                            <button
-                                              disabled={addExpenseLoading}
-                                              onClick={() => handleAddExpense(it.commissionId)}
-                                              className="px-2 py-1 text-[9px] rounded-md bg-violet-600 hover:bg-violet-700 text-white font-medium disabled:opacity-50"
-                                            >
-                                              {addExpenseLoading ? "Saving..." : "Save"}
-                                            </button>
-                                            <button
-                                              onClick={() => { setAddExpenseRow(null); setNewExpenses([{ name: "", price: "" }]); }}
-                                              className="px-2 py-1 text-[9px] rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
-                                            >
-                                              Cancel
-                                            </button>
                                           </div>
-                                        </div>
-                                      )}
-                                    </div>
+                                        )}
+                                      </div>
                                     )}
                                     <div className="border-t border-gray-100 my-2" />
                                     {it.patientId && patientInfoMap[it.patientId]?.full && (() => {

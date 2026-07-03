@@ -114,6 +114,7 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
             : "",
           level0: {
             price: (it.level0 && it.level0.price) || it.unitPrice || 0,
+            salePrice: (it.level0 && it.level0.salePrice) || it.unitPrice || 0,
             uom: (it.level0 && it.level0.uom) || it.uom || "",
           },
           packagingStructure: {
@@ -127,6 +128,11 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                 (it.packagingStructure &&
                   it.packagingStructure.level1 &&
                   it.packagingStructure.level1.price) ||
+                0,
+              salePrice:
+                (it.packagingStructure &&
+                  it.packagingStructure.level1 &&
+                  it.packagingStructure.level1.salePrice) ||
                 0,
               uom:
                 (it.packagingStructure &&
@@ -144,6 +150,11 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                 (it.packagingStructure &&
                   it.packagingStructure.level2 &&
                   it.packagingStructure.level2.price) ||
+                0,
+              salePrice:
+                (it.packagingStructure &&
+                  it.packagingStructure.level2 &&
+                  it.packagingStructure.level2.salePrice) ||
                 0,
               uom:
                 (it.packagingStructure &&
@@ -223,13 +234,62 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
     };
   };
 
-  const handleItemChange = (
-    index: number,
-    field: keyof PurchaseRecordItem,
-    value: any,
-  ) => {
+  const handleItemChange = (index: number, field: string, value: any) => {
     setItems((prev) => {
       const next = [...prev];
+
+      // Handle nested level0.salePrice
+      if (field === "level0.salePrice") {
+        const item = { ...next[index] };
+        if (!item.level0) {
+          item.level0 = { price: 0, salePrice: 0, uom: "" };
+        }
+        item.level0.salePrice = parseFloat(value) || 0;
+
+        // Recalculate packaging sale prices
+        const l1Qty = Number(item.packagingStructure?.level1?.quantity || 0);
+        const l2Qty = Number(item.packagingStructure?.level2?.quantity || 0);
+
+        if (!item.packagingStructure) {
+          item.packagingStructure = {
+            level1: { quantity: 0, price: 0, salePrice: 0, uom: "" },
+            level2: { quantity: 0, price: 0, salePrice: 0, uom: "" },
+          };
+        }
+
+        if (!item.packagingStructure.level1) {
+          item.packagingStructure.level1 = {
+            quantity: 0,
+            price: 0,
+            salePrice: 0,
+            uom: "",
+          };
+        }
+        if (!item.packagingStructure.level2) {
+          item.packagingStructure.level2 = {
+            quantity: 0,
+            price: 0,
+            salePrice: 0,
+            uom: "",
+          };
+        }
+
+        if (l1Qty > 0) {
+          const l1SalePrice = Number(
+            (item.level0.salePrice / l1Qty).toFixed(4),
+          );
+          item.packagingStructure.level1.salePrice = l1SalePrice;
+
+          if (l2Qty > 0) {
+            const l2SalePrice = Number((l1SalePrice / l2Qty).toFixed(4));
+            item.packagingStructure.level2.salePrice = l2SalePrice;
+          }
+        }
+
+        next[index] = item;
+        return next;
+      }
+
       const parsed =
         field === "quantity" ||
         field === "unitPrice" ||
@@ -238,7 +298,10 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         field === "freeQuantity"
           ? parseFloat(value) || 0
           : value;
-      const updated = recalcItem({ ...next[index], [field]: parsed });
+      const updated = recalcItem({
+        ...next[index],
+        [field as keyof PurchaseRecordItem]: parsed,
+      });
       // Recompute packaging prices from netPlusVat/quantity (per box)
       const qtyBox = Number(updated.quantity || 0);
       const totalInc = Number(updated.netPlusVat || 0);
@@ -246,25 +309,61 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         qtyBox > 0 ? Number((totalInc / qtyBox).toFixed(4)) : Number(0);
       const l1Qty = Number(updated.packagingStructure?.level1?.quantity || 0);
       const l2Qty = Number(updated.packagingStructure?.level2?.quantity || 0);
+
+      // Ensure level0 and packaging structure exist
+      if (!updated.level0) {
+        updated.level0 = { price: 0, salePrice: 0, uom: "" };
+      }
+      if (!updated.packagingStructure) {
+        updated.packagingStructure = {
+          level1: { quantity: 0, price: 0, salePrice: 0, uom: "" },
+          level2: { quantity: 0, price: 0, salePrice: 0, uom: "" },
+        };
+      }
+
+      // Initialize level0 price and sale price when unitPrice changes
+      if (field === "unitPrice") {
+        updated.level0.price = updated.unitPrice;
+        if (!updated.level0.salePrice || updated.level0.salePrice === 0) {
+          updated.level0.salePrice = updated.unitPrice;
+        }
+      }
+
       if (l1Qty > 0 && baseBoxPrice > 0) {
         const l1Price = Number((baseBoxPrice / l1Qty).toFixed(4));
+        const l1SalePrice =
+          updated.level0.salePrice && l1Qty > 0
+            ? Number((updated.level0.salePrice / l1Qty).toFixed(4))
+            : 0;
+
         updated.packagingStructure = {
           ...(updated.packagingStructure || {}),
           level1: {
             ...(updated.packagingStructure?.level1 || {}),
             price: l1Price,
+            salePrice: l1SalePrice,
             uom: updated.packagingStructure?.level1?.uom || "",
           },
           level2: updated.packagingStructure?.level2,
         };
         if (l2Qty > 0) {
           const l2Price = Number((l1Price / l2Qty).toFixed(4));
+          const l2SalePrice =
+            updated.packagingStructure?.level1?.salePrice && l2Qty > 0
+              ? Number(
+                  (updated.packagingStructure.level1.salePrice / l2Qty).toFixed(
+                    4,
+                  ),
+                )
+              : 0;
+
           updated.packagingStructure = {
             ...(updated.packagingStructure || {}),
             level1: updated.packagingStructure?.level1,
             level2: {
               ...(updated.packagingStructure?.level2 || {}),
               price: l2Price,
+              salePrice: l2SalePrice,
               uom: updated.packagingStructure?.level2?.uom || "",
             },
           };
@@ -286,7 +385,16 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
       const item = { ...next[index] };
       const parsed =
         subField === "quantity" ? Math.max(0, parseFloat(value) || 0) : value;
-      const ps = { ...(item.packagingStructure || {}) };
+
+      // Ensure packagingStructure exists
+      if (!item.packagingStructure) {
+        item.packagingStructure = {
+          level1: { quantity: 0, price: 0, salePrice: 0, uom: "" },
+          level2: { quantity: 0, price: 0, salePrice: 0, uom: "" },
+        };
+      }
+
+      const ps = { ...item.packagingStructure };
       if (level === 1) {
         ps.level1 = {
           ...(ps.level1 || {}),
@@ -299,26 +407,45 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         };
       }
       item.packagingStructure = ps;
+
+      // Ensure level0 exists
+      if (!item.level0) {
+        item.level0 = { price: 0, salePrice: 0, uom: "" };
+      }
+
       // recompute prices based on netPlusVat/quantity and sub-quantities
       const qtyBox = Number(item.quantity || 0);
       const totalInc = Number(item.netPlusVat || 0);
       const baseBoxPrice =
         qtyBox > 0 ? Number((totalInc / qtyBox).toFixed(4)) : Number(0);
-      console.log({ baseBoxPrice });
       const l1Qty = Number(item.packagingStructure?.level1?.quantity || 0);
       const l2Qty = Number(item.packagingStructure?.level2?.quantity || 0);
+
       if (l1Qty > 0 && baseBoxPrice > 0) {
-        const l1Price = Number((baseBoxPrice / l1Qty).toFixed(2));
+        const l1Price = Number((baseBoxPrice / l1Qty).toFixed(4));
+        const l1SalePrice =
+          item.level0.salePrice && l1Qty > 0
+            ? Number((item.level0.salePrice / l1Qty).toFixed(4))
+            : 0;
 
         item.packagingStructure.level1 = {
           ...(item.packagingStructure.level1 || {}),
           price: l1Price,
+          salePrice: l1SalePrice,
         };
         if (l2Qty > 0) {
-          const l2Price = Number((l1Price / l2Qty).toFixed(2));
+          const l2Price = Number((l1Price / l2Qty).toFixed(4));
+          const l2SalePrice =
+            item.packagingStructure?.level1?.salePrice && l2Qty > 0
+              ? Number(
+                  (item.packagingStructure.level1.salePrice / l2Qty).toFixed(4),
+                )
+              : 0;
+
           item.packagingStructure.level2 = {
             ...(item.packagingStructure.level2 || {}),
             price: l2Price,
+            salePrice: l2SalePrice,
           };
         }
       }
@@ -381,17 +508,20 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
               it.quantity > 0
                 ? Number(((it.netPlusVat || 0) / it.quantity).toFixed(4))
                 : Number(0),
-            uom: it.uom,
+            salePrice: it.level0?.salePrice || it.unitPrice || 0,
+            uom: it.level0?.uom || it.uom,
           },
           packagingStructure: {
             level1: {
               quantity: it.packagingStructure?.level1?.quantity || 0,
               price: it.packagingStructure?.level1?.price || 0,
+              salePrice: it.packagingStructure?.level1?.salePrice || 0,
               uom: it.packagingStructure?.level1?.uom || "",
             },
             level2: {
               quantity: it.packagingStructure?.level2?.quantity || 0,
               price: it.packagingStructure?.level2?.price || 0,
+              salePrice: it.packagingStructure?.level2?.salePrice || 0,
               uom: it.packagingStructure?.level2?.uom || "",
             },
           },
@@ -683,6 +813,9 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                         U.Price
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Sale Price
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                         D.Type
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -722,6 +855,9 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                         L1 Price
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L1 Sale Price
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                         L2 Qty
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -729,6 +865,9 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                         L2 Price
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        L2 Sale Price
                       </th>
                       {/* <th className="px-3 py-2 text-right text-xs font-bold text-white uppercase tracking-wider">
                         Edit
@@ -768,6 +907,24 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                             onChange={(e) =>
                               handleItemChange(idx, "unitPrice", e.target.value)
                             }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={
+                              item.level0?.salePrice || item.unitPrice || 0
+                            }
+                            onChange={(e) =>
+                              handleItemChange(
+                                idx,
+                                "level0.salePrice",
+                                e.target.value,
+                              )
+                            }
+                            min={item.unitPrice || 0}
                             className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
                           />
                         </td>
@@ -922,6 +1079,13 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                             ? item.packagingStructure.level1.price.toFixed(4)
                             : "-"}
                         </td>
+                        <td className="px-3 py-2 text-right">
+                          {item.packagingStructure?.level1?.salePrice
+                            ? item.packagingStructure.level1.salePrice.toFixed(
+                                4,
+                              )
+                            : "-"}
+                        </td>
                         <td className="px-3 py-2">
                           <input
                             type="number"
@@ -964,6 +1128,13 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                         <td className="px-3 py-2 text-right">
                           {item.packagingStructure?.level2?.price
                             ? item.packagingStructure.level2.price.toFixed(4)
+                            : "-"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {item.packagingStructure?.level2?.salePrice
+                            ? item.packagingStructure.level2.salePrice.toFixed(
+                                4,
+                              )
                             : "-"}
                         </td>
                         {/* <td className="px-3 py-2 text-right">

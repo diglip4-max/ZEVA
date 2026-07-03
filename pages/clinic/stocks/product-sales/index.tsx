@@ -24,6 +24,7 @@ import {
   BarChart3,
   PieChart as PieChartIcon,
   TrendingUp as TrendingUpIcon,
+  Download,
 } from "lucide-react";
 import debounce from "lodash.debounce";
 import { useRouter } from "next/router";
@@ -42,6 +43,7 @@ import {
   LineChart,
   Line,
 } from "recharts";
+import AddProductSaleModal from "./_components/AddProductSaleModal";
 
 // Types
 interface Patient {
@@ -61,6 +63,12 @@ interface PaymentMethod {
   status: string;
 }
 
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 interface ProductSaleItem {
   allocatedItemId: string;
   name: string;
@@ -72,12 +80,7 @@ interface ProductSaleItem {
   totalPrice: number;
   currency: string;
   notes: string;
-}
-
-interface User {
-  _id: string;
-  name: string;
-  email: string;
+  commission?: number;
 }
 
 interface ProductSale {
@@ -88,6 +91,7 @@ interface ProductSale {
   paymentMethodName: string;
   items: ProductSaleItem[];
   totalPrice: number;
+  totalCommission?: number;
   status: string;
   paymentStatus: string;
   createdAt: string;
@@ -99,6 +103,7 @@ interface ProductSale {
 interface Stats {
   totalSales: number;
   totalValue: number;
+  totalCommission: number;
   avgValuePerSale: number;
   uniquePatientsCount: number;
   uniquePaymentMethodsCount: number;
@@ -110,6 +115,13 @@ interface TopProduct {
   code: string;
   totalQuantity: number;
   totalValue: number;
+  totalCommission: number;
+}
+
+interface TopProductByCommission {
+  name: string;
+  code: string;
+  totalCommission: number;
 }
 
 interface TopSeller {
@@ -118,6 +130,7 @@ interface TopSeller {
   email: string;
   totalSales: number;
   totalValue: number;
+  totalCommission: number;
 }
 
 interface MonthlySale {
@@ -126,6 +139,7 @@ interface MonthlySale {
   year: number;
   totalSales: number;
   totalValue: number;
+  totalCommission: number;
 }
 
 interface Filters {
@@ -137,6 +151,7 @@ interface Filters {
 
 interface Charts {
   topProducts: TopProduct[];
+  topProductsByCommission: TopProductByCommission[];
   topSellers: TopSeller[];
   monthlySales: MonthlySale[];
 }
@@ -265,6 +280,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
   const [stats, setStats] = useState<Stats>({
     totalSales: 0,
     totalValue: 0,
+    totalCommission: 0,
     avgValuePerSale: 0,
     uniquePatientsCount: 0,
     uniquePaymentMethodsCount: 0,
@@ -280,11 +296,23 @@ const ProductSalesPage: NextPageWithLayout = () => {
     canDelete: false,
   });
   const [_permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Filter states
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState("");
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
+
+  // Add sale modal states
+  const [isOpenAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
+
+  const handleSaleSuccess = () => {
+    setIsAddSaleModalOpen(false);
+    fetchProductSales();
+  };
 
   const fetchProductSales = useCallback(
     debounce(async (page: number = 1, search: string = "") => {
@@ -298,6 +326,11 @@ const ProductSalesPage: NextPageWithLayout = () => {
         if (startDate) params.append("startDate", startDate);
         if (endDate) params.append("endDate", endDate);
         if (selectedUserId) params.append("userId", selectedUserId);
+        if (selectedStatus) params.append("status", selectedStatus);
+        if (selectedPaymentStatus)
+          params.append("paymentStatus", selectedPaymentStatus);
+        if (selectedPaymentMethodId)
+          params.append("paymentMethodId", selectedPaymentMethodId);
 
         const response = await axios.get(
           `/api/stocks/product-sales?${params.toString()}`,
@@ -313,6 +346,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
             response.data?.data?.statistics || {
               totalSales: 0,
               totalValue: 0,
+              totalCommission: 0,
               avgValuePerSale: 0,
               uniquePatientsCount: 0,
               uniquePaymentMethodsCount: 0,
@@ -328,7 +362,14 @@ const ProductSalesPage: NextPageWithLayout = () => {
         setLoading(false);
       }
     }, 300),
-    [startDate, endDate, selectedUserId],
+    [
+      startDate,
+      endDate,
+      selectedUserId,
+      selectedStatus,
+      selectedPaymentStatus,
+      selectedPaymentMethodId,
+    ],
   );
 
   useEffect(() => {
@@ -337,7 +378,17 @@ const ProductSalesPage: NextPageWithLayout = () => {
 
   useEffect(() => {
     if (_permissionsLoaded) fetchProductSales(1, searchTerm);
-  }, [searchTerm, _permissionsLoaded, fetchProductSales]);
+  }, [
+    searchTerm,
+    startDate,
+    endDate,
+    selectedUserId,
+    selectedStatus,
+    selectedPaymentStatus,
+    selectedPaymentMethodId,
+    _permissionsLoaded,
+    fetchProductSales,
+  ]);
 
   const handlePageChange = useCallback(
     (page: number) => fetchProductSales(page, searchTerm),
@@ -433,10 +484,56 @@ const ProductSalesPage: NextPageWithLayout = () => {
 
   const handleAddSale = () => router.push("/clinic/stocks/product-sales/new");
 
+  const handleExport = async () => {
+    try {
+      setExportLoading(true);
+      // Build query params
+      const params = new URLSearchParams();
+      if (searchTerm) params.set("search", searchTerm);
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      if (selectedStatus) params.set("status", selectedStatus);
+      if (selectedPaymentStatus)
+        params.set("paymentStatus", selectedPaymentStatus);
+      if (selectedPaymentMethodId)
+        params.set("paymentMethodId", selectedPaymentMethodId);
+      if (selectedUserId) params.set("userId", selectedUserId);
+
+      const token = getTokenByPath();
+      const response = await axios.get(
+        `/api/stocks/product-sales/export?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob", // Important for downloading files
+        },
+      );
+
+      // Create a download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `product-sales-export-${new Date().toISOString().split("T")[0]}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Error exporting product sales:", error);
+      alert("Failed to export product sales. Please try again.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const resetFilters = () => {
     setStartDate("");
     setEndDate("");
     setSelectedUserId("");
+    setSelectedStatus("");
+    setSelectedPaymentStatus("");
+    setSelectedPaymentMethodId("");
     setSearchTerm("");
   };
 
@@ -485,21 +582,47 @@ const ProductSalesPage: NextPageWithLayout = () => {
               product sales
             </p>
           </div>
-          {permissions.canCreate && (
+          <div className="flex items-center gap-3">
+            {permissions.canCreate && (
+              <button
+                onClick={handleAddSale}
+                className="px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-lg text-sm font-medium hover:from-gray-900 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center sm:justify-start"
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                New Sale
+              </button>
+            )}
             <button
-              onClick={handleAddSale}
+              onClick={() => setIsAddSaleModalOpen(true)}
               className="px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-lg text-sm font-medium hover:from-gray-900 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center sm:justify-start"
             >
               <PlusIcon className="w-4 h-4 mr-2" />
-              New Sale
+              New Sale Modal
             </button>
-          )}
+            <button
+              onClick={handleExport}
+              disabled={exportLoading}
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all shadow-sm hover:shadow-md flex items-center justify-center sm:justify-start disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exportLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             {
               label: "Total Sales",
@@ -514,6 +637,12 @@ const ProductSalesPage: NextPageWithLayout = () => {
               color: "green",
             },
             {
+              label: "Total Commission",
+              value: `AED ${(stats?.totalCommission || 0).toFixed(0)}`,
+              icon: TrendingUp,
+              color: "purple",
+            },
+            {
               label: "Avg. Sale",
               value: `AED ${(stats?.avgValuePerSale || 0).toFixed(0)}`,
               icon: TrendingUp,
@@ -523,7 +652,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
               label: "Patients",
               value: stats?.uniquePatientsCount || 0,
               icon: Users,
-              color: "purple",
+              color: "pink",
             },
             {
               label: "Items Sold",
@@ -587,6 +716,21 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 placeholder="End Date"
               />
             </div>
+            <div className="min-w-[180px]">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full text-gray-500 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                <option value="">All Statuses</option>
+                {filters?.statuses?.map((status) => (
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="min-w-[200px]">
               <select
                 value={selectedUserId}
@@ -601,7 +745,13 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 ))}
               </select>
             </div>
-            {(startDate || endDate || selectedUserId || searchTerm) && (
+            {(startDate ||
+              endDate ||
+              selectedUserId ||
+              searchTerm ||
+              selectedStatus ||
+              selectedPaymentStatus ||
+              selectedPaymentMethodId) && (
               <button
                 onClick={resetFilters}
                 className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
@@ -680,6 +830,78 @@ const ProductSalesPage: NextPageWithLayout = () => {
             </ResponsiveContainer>
           </div>
 
+          {/* Top Products by Commission Chart */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-xl shadow-gray-200/50 hover:shadow-2xl transition-all duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Top Products by Commission
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Items generating the most commission
+                </p>
+              </div>
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
+                <TrendingUpIcon className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart
+                data={charts.topProductsByCommission}
+                margin={{ top: 10, right: 10, left: -10, bottom: 10 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#e5e7eb"
+                />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 12, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "#6b7280" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
+                  }}
+                  itemStyle={{ color: "#1f2937", fontWeight: 600 }}
+                  formatter={(value) => {
+                    const numValue = typeof value === "number" ? value : 0;
+                    return [`AED ${numValue.toLocaleString()}`, "Commission"];
+                  }}
+                />
+                <Bar
+                  dataKey="totalCommission"
+                  fill="url(#colorCommissionBar)"
+                  radius={[8, 8, 0, 0]}
+                  barSize={40}
+                />
+                <defs>
+                  <linearGradient
+                    id="colorCommissionBar"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#a855f7" />
+                    <stop offset="100%" stopColor="#7c3aed" />
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
           {/* Top Sellers Chart */}
           <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-xl shadow-gray-200/50 hover:shadow-2xl transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
@@ -733,14 +955,16 @@ const ProductSalesPage: NextPageWithLayout = () => {
             </ResponsiveContainer>
           </div>
 
-          {/* Monthly Sales Chart */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 p-6 shadow-xl shadow-gray-200/50 hover:shadow-2xl transition-all duration-300">
+          {/* Monthly Sales & Commission Chart */}
+          <div className=" bg-white rounded-2xl border border-gray-100 p-6 shadow-xl shadow-gray-200/50 hover:shadow-2xl transition-all duration-300">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  Monthly Sales
+                  Monthly Sales & Commission
                 </h3>
-                <p className="text-sm text-gray-500">Revenue trend over time</p>
+                <p className="text-sm text-gray-500">
+                  Revenue and commission trend over time
+                </p>
               </div>
               <div className="p-3 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl shadow-lg">
                 <TrendingUpIcon className="w-6 h-6 text-white" />
@@ -755,6 +979,16 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   <linearGradient id="colorLine" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#8b5cf6" />
                     <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.1} />
+                  </linearGradient>
+                  <linearGradient
+                    id="colorCommissionLine"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor="#ec4899" />
+                    <stop offset="100%" stopColor="#ec4899" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
@@ -781,15 +1015,17 @@ const ProductSalesPage: NextPageWithLayout = () => {
                     boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
                   }}
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
-                  formatter={(value) => {
+                  formatter={(value, name) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`AED ${numValue.toLocaleString()}`, "Revenue"];
+                    return [`AED ${numValue.toLocaleString()}`, name];
                   }}
+                  labelFormatter={(label) => label}
                 />
                 <Legend wrapperStyle={{ paddingTop: "20px" }} />
                 <Line
                   type="monotone"
                   dataKey="totalValue"
+                  name="Revenue"
                   stroke="#8b5cf6"
                   strokeWidth={4}
                   dot={{
@@ -800,6 +1036,21 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   }}
                   activeDot={{ r: 8 }}
                   fill="url(#colorLine)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="totalCommission"
+                  name="Commission"
+                  stroke="#ec4899"
+                  strokeWidth={4}
+                  dot={{
+                    fill: "#ec4899",
+                    r: 6,
+                    strokeWidth: 2,
+                    stroke: "#ffffff",
+                  }}
+                  activeDot={{ r: 8 }}
+                  fill="url(#colorCommissionLine)"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -871,8 +1122,14 @@ const ProductSalesPage: NextPageWithLayout = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Items
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Paid
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Commission
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Actions
@@ -973,10 +1230,28 @@ const ProductSalesPage: NextPageWithLayout = () => {
                           </td>
 
                           {/* Total */}
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
                             <p className="text-sm font-bold text-gray-900 tabular-nums">
                               AED {sale.totalPrice.toFixed(2)}
                             </p>
+                          </td>
+                          {/* Total Paid */}
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <p className="text-sm font-bold text-gray-900 tabular-nums">
+                              AED {sale?.totalPaidAmount?.toFixed(2)}
+                            </p>
+                          </td>
+
+                          {/* Commission */}
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            {sale.totalCommission &&
+                            sale.totalCommission > 0 ? (
+                              <p className="text-sm font-bold text-purple-600 tabular-nums">
+                                AED {sale.totalCommission.toFixed(2)}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400">-</p>
+                            )}
                           </td>
 
                           {/* Actions */}
@@ -1017,7 +1292,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                         {/* Expanded Items */}
                         {expandedRows[sale._id] && (
                           <tr>
-                            <td colSpan={8} className="bg-gray-50 px-6 py-4">
+                            <td colSpan={9} className="bg-gray-50 px-6 py-4">
                               <div className="pl-4 border-l-2 border-blue-400 ml-4">
                                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
                                   Line Items
@@ -1040,6 +1315,9 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                         </th>
                                         <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                                           Total
+                                        </th>
+                                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                          Commission
                                         </th>
                                       </tr>
                                     </thead>
@@ -1071,6 +1349,12 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                             </td>
                                             <td className="px-4 py-3 text-right font-bold text-gray-900">
                                               AED {item.totalPrice.toFixed(2)}
+                                            </td>
+                                            <td className="px-4 py-3 text-right text-purple-600 font-semibold">
+                                              {item.commission &&
+                                              item.commission > 0
+                                                ? `AED ${item.commission.toFixed(2)}`
+                                                : "-"}
                                             </td>
                                           </tr>
                                         ),
@@ -1148,6 +1432,13 @@ const ProductSalesPage: NextPageWithLayout = () => {
           )}
         </div>
       </div>
+
+      {/* Add sale modal */}
+      <AddProductSaleModal
+        isOpen={isOpenAddSaleModalOpen}
+        onClose={() => setIsAddSaleModalOpen(false)}
+        onSuccess={handleSaleSuccess}
+      />
     </div>
   );
 };

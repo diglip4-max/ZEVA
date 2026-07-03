@@ -101,10 +101,13 @@ export default async function handler(req, res) {
       "netPlusVat",
       "freeQuantity",
       "level0.price",
+      "level0.salePrice",
       "packagingStructure.level1.quantity",
       "packagingStructure.level1.price",
+      "packagingStructure.level1.salePrice",
       "packagingStructure.level2.quantity",
       "packagingStructure.level2.price",
+      "packagingStructure.level2.salePrice",
     ];
 
     for (const field of numericFields) {
@@ -150,6 +153,57 @@ export default async function handler(req, res) {
       });
     }
 
+    // Validate salePrice >= price for each level
+    if (
+      req.body.level0?.salePrice !== undefined &&
+      req.body.level0?.price !== undefined
+    ) {
+      if (Number(req.body.level0.salePrice) < Number(req.body.level0.price)) {
+        return res.status(400).json({
+          success: false,
+          message: "Level 0 sale price cannot be less than the base price",
+        });
+      }
+    }
+
+    if (
+      req.body.packagingStructure?.level1?.salePrice !== undefined &&
+      req.body.packagingStructure?.level1?.price !== undefined &&
+      req.body.packagingStructure?.level1?.quantity !== undefined &&
+      req.body.packagingStructure?.level1?.quantity > 0 &&
+      req.body.packagingStructure?.level1?.uom !== undefined &&
+      req.body.packagingStructure?.level1?.uom !== ""
+    ) {
+      if (
+        Number(req.body.packagingStructure.level1.salePrice) <
+        Number(req.body.packagingStructure.level1.price)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Level 1 sale price cannot be less than the base price",
+        });
+      }
+    }
+
+    if (
+      req.body.packagingStructure?.level2?.salePrice !== undefined &&
+      req.body.packagingStructure?.level2?.price !== undefined &&
+      req.body.packagingStructure?.level2?.quantity !== undefined &&
+      req.body.packagingStructure?.level2?.quantity > 0 &&
+      req.body.packagingStructure?.level2?.uom !== undefined &&
+      req.body.packagingStructure?.level2?.uom !== ""
+    ) {
+      if (
+        Number(req.body.packagingStructure.level2.salePrice) <
+        Number(req.body.packagingStructure.level2.price)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Level 2 sale price cannot be less than the base price",
+        });
+      }
+    }
+
     // Prepare custom stock item data
     const customStockItemData = {
       clinicId,
@@ -173,17 +227,20 @@ export default async function handler(req, res) {
       freeQuantityExpiryDate: req.body.freeQuantityExpiryDate || null,
       level0: {
         price: req.body.level0?.price || 0,
+        salePrice: req.body.level0?.salePrice || 0,
         uom: req.body.level0?.uom?.trim() || "",
       },
       packagingStructure: {
         level1: {
           quantity: req.body.packagingStructure?.level1?.quantity || 1,
           price: req.body.packagingStructure?.level1?.price || 0,
+          salePrice: req.body.packagingStructure?.level1?.salePrice || 0,
           uom: req.body.packagingStructure?.level1?.uom?.trim() || "",
         },
         level2: {
           quantity: req.body.packagingStructure?.level2?.quantity || 1,
           price: req.body.packagingStructure?.level2?.price || 0,
+          salePrice: req.body.packagingStructure?.level2?.salePrice || 0,
           uom: req.body.packagingStructure?.level2?.uom?.trim() || "",
         },
       },

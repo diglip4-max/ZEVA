@@ -64,8 +64,6 @@ const GRNSchema = new mongoose.Schema(
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "StockItem",
-          required: true,
-          index: true,
         },
         code: {
           type: String,
@@ -152,6 +150,10 @@ const GRNSchema = new mongoose.Schema(
             type: String,
             trim: true,
           },
+          salePrice: {
+            type: Number,
+            default: 0,
+          },
         },
         packagingStructure: {
           level1: {
@@ -167,6 +169,10 @@ const GRNSchema = new mongoose.Schema(
               type: String,
               trim: true,
             },
+            salePrice: {
+              type: Number,
+              default: 0,
+            },
           },
           level2: {
             quantity: {
@@ -180,6 +186,10 @@ const GRNSchema = new mongoose.Schema(
             uom: {
               type: String,
               trim: true,
+            },
+            salePrice: {
+              type: Number,
+              default: 0,
             },
           },
         },

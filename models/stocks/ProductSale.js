@@ -112,6 +112,11 @@ const ProductSaleSchema = new mongoose.Schema(
           trim: true,
           default: "",
         },
+        commission: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
         _id: false,
       },
     ],
@@ -129,7 +134,14 @@ const ProductSaleSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed", "partially_refunded", "refunded"],
+      enum: [
+        "pending",
+        "paid",
+        "partially_paid",
+        "failed",
+        "partially_refunded",
+        "refunded",
+      ],
       default: "pending",
     },
     totalPrice: {
@@ -137,6 +149,16 @@ const ProductSaleSchema = new mongoose.Schema(
       default: 0,
       min: 0,
       required: true,
+    },
+    totalPaidAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalCommission: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     soldBy: {
       type: mongoose.Schema.Types.ObjectId,

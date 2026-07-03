@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import usePaymentMethod from "@/hooks/usePaymentMethod";
+import { useRouter } from "next/router";
 
 // Types
 interface QuantityByUom {
@@ -73,6 +74,7 @@ interface CartItem {
   itemId: string;
   uom: string;
   quantity: number;
+  customPrice?: number;
 }
 
 interface Patient {
@@ -97,6 +99,17 @@ interface Transaction {
   }[];
   total: string;
   paymentMethod?: string;
+  subtotal?: string;
+  previousPending?: string;
+  paidAmount?: string;
+  advanceUsed?: string;
+  claimAmountUsed?: string;
+  totalApplied?: string;
+  pendingCleared?: string;
+  newAdvanceCreated?: string;
+  pendingAmount?: string;
+  newAdvanceBalance?: string;
+  newPendingBalance?: string;
 }
 
 interface PaginationInfo {
@@ -106,7 +119,22 @@ interface PaginationInfo {
   totalPages: number;
 }
 
-// Constants
+interface PaymentMethod {
+  _id: string;
+  name: string;
+  status: string;
+}
+
+interface Balances {
+  advanceBalance: number;
+  pendingBalance: number;
+  claimAmount: number;
+  pendingClaim: number;
+  pastAdvanceBalance: number;
+  pastAdvance50PercentBalance: number;
+  pastAdvance54PercentBalance: number;
+  pastAdvance159FlatBalance: number;
+}
 
 // Helper functions
 const initials = (name: string): string => {
@@ -129,6 +157,8 @@ const formatExpiryDate = (dateString?: string): string => {
 };
 
 const NewProductSalesPage: NextPageWithLayout = () => {
+  const router = useRouter();
+  const { doctorId } = router.query as { doctorId: string };
   // State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -145,6 +175,39 @@ const NewProductSalesPage: NextPageWithLayout = () => {
     useState(false);
   const [paymentMethodSearchTerm, setPaymentMethodSearchTerm] = useState("");
   const paymentMethodDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Derived values first
+  const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
+
+  // Step management (0: Patient, 1: Products, 2: Payment, 3: Complete)
+  const getCurrentStep = (): number => {
+    if (!selectedPatient) return 0;
+    if (cartCount === 0) return 1;
+    if (!selectedPaymentMethod) return 2;
+    return 3;
+  };
+
+  const currentStep = getCurrentStep();
+
+  // Balances and advance usage
+  const [balances, setBalances] = useState<Balances>({
+    advanceBalance: 0,
+    pendingBalance: 0,
+    claimAmount: 0,
+    pendingClaim: 0,
+    pastAdvanceBalance: 0,
+    pastAdvance50PercentBalance: 0,
+    pastAdvance54PercentBalance: 0,
+    pastAdvance159FlatBalance: 0,
+  });
+
+  const [applyAdvance, setApplyAdvance] = useState(true); // Default to true
+
+  // Payment form data
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [advanceUsed, setAdvanceUsed] = useState<number>(0);
+  const [claimAmountUsed, setClaimAmountUsed] = useState<number>(0);
+  const [_pendingUsed, setPendingUsed] = useState<number>(0);
 
   // Allocated stock items state
   const [items, setItems] = useState<AllocatedStockItem[]>([]);
@@ -207,6 +270,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
           {
             headers: { Authorization: `Bearer ${token}` },
             params: {
+              user: doctorId,
               page: pageNum,
               limit: pagination.limit,
               search: searchTerm,
@@ -216,18 +280,18 @@ const NewProductSalesPage: NextPageWithLayout = () => {
 
         if (response.data?.success) {
           const itemsData = response.data.records || [];
-          const filteredItems = itemsData?.filter((f: AllocatedStockItem) => {
-            let findItemWithZero = f.quantitiesByUom?.find(
+          const filteredItems = itemsData.filter((f: AllocatedStockItem) => {
+            const findItemWithZero = f.quantitiesByUom?.find(
               (q) => q.quantity === 0,
             );
             return !findItemWithZero;
           });
           setItems(filteredItems);
           setPagination({
-            page: response.data.currentPage,
-            limit: response.data.limit,
-            total: response.data.totalRecords,
-            totalPages: response.data.totalPages,
+            page: response.data.currentPage || pageNum,
+            limit: response.data.limit || pagination.limit,
+            total: response.data.totalRecords || 0,
+            totalPages: response.data.totalPages || 0,
           });
         }
       } catch (error) {
@@ -307,6 +371,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
     if (clinicId) {
       fetchItems(1, search);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId]);
 
   // Debounce search
@@ -325,12 +390,70 @@ const NewProductSalesPage: NextPageWithLayout = () => {
     setPatientSearchPhone("");
     setPatientSearchResults([]);
     setShowPatientDropdown(false);
+
+    // Fetch patient balances when a patient is selected
+    fetchPatientBalances(patient._id);
+  };
+
+  // Fetch patient balances (advance/pending)
+  const fetchPatientBalances = async (patientId: string) => {
+    try {
+      const token = getTokenByPath();
+      const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data?.success && res.data?.balances) {
+        setBalances({
+          advanceBalance: res.data.balances.advanceBalance || 0,
+          pendingBalance: res.data.balances.pendingBalance || 0,
+          claimAmount: res.data.balances.claimAmount || 0,
+          pendingClaim: res.data.balances.pendingClaim || 0,
+          pastAdvanceBalance: res.data.balances.pastAdvanceBalance || 0,
+          pastAdvance50PercentBalance:
+            res.data.balances.pastAdvance50PercentBalance || 0,
+          pastAdvance54PercentBalance:
+            res.data.balances.pastAdvance54PercentBalance || 0,
+          pastAdvance159FlatBalance:
+            res.data.balances.pastAdvance159FlatBalance || 0,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to fetch patient balances", err);
+      // Reset balances if fetch fails
+      setBalances({
+        advanceBalance: 0,
+        pendingBalance: 0,
+        claimAmount: 0,
+        pendingClaim: 0,
+        pastAdvanceBalance: 0,
+        pastAdvance50PercentBalance: 0,
+        pastAdvance54PercentBalance: 0,
+        pastAdvance159FlatBalance: 0,
+      });
+    }
   };
 
   // Clear patient selection
   const clearPatientSelection = () => {
     setSelectedPatient(null);
     setPatientSearchPhone("");
+
+    // Reset payment state
+    setBalances({
+      advanceBalance: 0,
+      pendingBalance: 0,
+      claimAmount: 0,
+      pendingClaim: 0,
+      pastAdvanceBalance: 0,
+      pastAdvance50PercentBalance: 0,
+      pastAdvance54PercentBalance: 0,
+      pastAdvance159FlatBalance: 0,
+    });
+    setApplyAdvance(true); // Reset to default
+    setPaidAmount(0);
+    setAdvanceUsed(0);
+    setClaimAmountUsed(0);
+    setPendingUsed(0);
   };
 
   // Helper to get cart item
@@ -380,28 +503,86 @@ const NewProductSalesPage: NextPageWithLayout = () => {
   };
 
   // Derived values
-  const cartCount = cart.reduce((a, b) => a + b.quantity, 0);
   const cartItems = useMemo(() => {
     return cart
       .map((cartItem) => {
         const item = items.find((i) => i._id === cartItem.itemId);
         const prices = getProductPricesPerUnit(cartItem.itemId, cartItem.uom);
-        return item ? { item, cartItem, prices } : null;
+        if (!item) return null;
+
+        const effectivePrice = cartItem.customPrice || prices.salePrice;
+        const commission =
+          Math.max(0, effectivePrice - prices.salePrice) * cartItem.quantity;
+
+        return { item, cartItem, prices, effectivePrice, commission };
       })
-      .filter(Boolean) as {
-      item: AllocatedStockItem;
-      cartItem: CartItem;
-      prices: { costPrice: number; salePrice: number };
-    }[];
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
   }, [cart, items]);
 
   const subtotal = cartItems.reduce(
-    (sum, entry) => sum + entry.prices.salePrice * entry.cartItem.quantity,
+    (sum, entry) => sum + entry.effectivePrice * entry.cartItem.quantity,
     0,
   );
-  const total = subtotal;
+
+  const totalCommission = cartItems.reduce(
+    (sum, entry) => sum + entry.commission,
+    0,
+  );
+
+  // Previous pending balance is automatically added to total
+  const previousPending = balances.pendingBalance || 0;
+  const total = subtotal + previousPending;
+
+  // Calculate payment values - user only pays what they're paying now, not including previous pending
+  const totalApplied = paidAmount + advanceUsed + claimAmountUsed;
+  // New pending amount is (subtotal + previous pending) - (paid + advance + claim)
+  const pendingAmount = Math.max(0, total - totalApplied);
+
+  // Calculate detailed breakdown
+  const pendingCleared = Math.min(
+    Math.max(0, totalApplied - subtotal),
+    previousPending,
+  );
+  const newAdvanceCreated = Math.max(0, totalApplied - total);
+
+  // Advance and claim are still optional but can be used
+  useEffect(() => {
+    if (selectedPatient && applyAdvance && balances.advanceBalance > 0) {
+      // Auto use advance to cover part of the current subtotal if possible
+      const availableForAdvance = Math.max(
+        0,
+        total - paidAmount - claimAmountUsed,
+      );
+      setAdvanceUsed(Math.min(balances.advanceBalance, availableForAdvance));
+    } else {
+      setAdvanceUsed(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    selectedPatient,
+    applyAdvance,
+    balances.advanceBalance,
+    total,
+    paidAmount,
+    claimAmountUsed,
+  ]);
+
+  useEffect(() => {
+    if (selectedPatient && balances.claimAmount > 0) {
+      // Auto use claim to cover part of the current subtotal if possible
+      const availableForClaim = Math.max(0, total - paidAmount - advanceUsed);
+      setClaimAmountUsed(Math.min(balances.claimAmount, availableForClaim));
+    } else {
+      setClaimAmountUsed(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPatient, balances.claimAmount, total, paidAmount, advanceUsed]);
+
   const canCheckout =
-    cartCount > 0 && selectedPatient && selectedPaymentMethod && !processing;
+    cartCount > 0 &&
+    selectedPatient !== null &&
+    selectedPaymentMethod !== null &&
+    !processing;
 
   // Handlers
   const updateCart = (itemId: string, uom: string, delta: number) => {
@@ -448,6 +629,23 @@ const NewProductSalesPage: NextPageWithLayout = () => {
     });
   };
 
+  const updateCustomPrice = (itemId: string, uom: string, price: number) => {
+    setCart((prev) => {
+      const existingIndex = prev.findIndex(
+        (ci) => ci.itemId === itemId && ci.uom === uom,
+      );
+      if (existingIndex >= 0) {
+        const newCart = [...prev];
+        newCart[existingIndex] = {
+          ...newCart[existingIndex],
+          customPrice: price,
+        };
+        return newCart;
+      }
+      return prev;
+    });
+  };
+
   const removeFromCart = (itemId: string, uom: string) => {
     setCart((prev) =>
       prev.filter((ci) => !(ci.itemId === itemId && ci.uom === uom)),
@@ -457,15 +655,28 @@ const NewProductSalesPage: NextPageWithLayout = () => {
   const handleCheckout = async () => {
     if (!canCheckout) return;
 
+    const selectedMethod = paymentMethods.find(
+      (m: PaymentMethod) => m._id === selectedPaymentMethod,
+    );
+
     // Prepare sale data for confirmation
     const saleData = {
       patient: selectedPatient,
-      paymentMethod: paymentMethods.find(
-        (m) => m._id === selectedPaymentMethod,
-      ),
+      paymentMethod: selectedMethod || null,
       items: cartItems,
       subtotal,
+      previousPending,
       total,
+      paidAmount,
+      advanceUsed,
+      claimAmountUsed,
+      totalApplied,
+      pendingCleared,
+      newAdvanceCreated,
+      pendingAmount,
+      newAdvanceBalance:
+        balances.advanceBalance - advanceUsed + newAdvanceCreated,
+      newPendingBalance: previousPending - pendingCleared + pendingAmount,
     };
 
     setCurrentSaleData(saleData);
@@ -473,7 +684,6 @@ const NewProductSalesPage: NextPageWithLayout = () => {
   };
 
   const confirmAndPlaceSale = async () => {
-    setShowConfirmModal(false);
     setProcessing(true);
 
     try {
@@ -488,6 +698,9 @@ const NewProductSalesPage: NextPageWithLayout = () => {
         uom: entry.cartItem.uom,
         quantity: entry.cartItem.quantity,
         currency: "AED",
+        unitPrice: entry.effectivePrice,
+        totalPrice: entry.effectivePrice * entry.cartItem.quantity,
+        commission: entry.commission,
       }));
 
       const response = await axios.post(
@@ -497,7 +710,12 @@ const NewProductSalesPage: NextPageWithLayout = () => {
           paymentMethodId: selectedPaymentMethod!,
           items: apiItems,
           status: "completed",
-          paymentStatus: "paid",
+          totalCommission: totalCommission,
+          totalPrice: total,
+          paidAmount,
+          advanceUsed,
+          claimAmountUsed,
+          pendingUsed: previousPending, // Pass the entire previous pending as pendingUsed
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -513,6 +731,10 @@ const NewProductSalesPage: NextPageWithLayout = () => {
           uom: entry.cartItem.uom,
         }));
 
+        const selectedMethod = paymentMethods.find(
+          (m: PaymentMethod) => m._id === selectedPaymentMethod,
+        );
+
         const newTransaction: Transaction = {
           invoiceId: sale._id,
           patient: `${selectedPatient!.firstName} ${selectedPatient!.lastName}`,
@@ -523,15 +745,38 @@ const NewProductSalesPage: NextPageWithLayout = () => {
           }),
           items: transactionItems,
           total: total.toFixed(2),
-          paymentMethod: paymentMethods.find(
-            (m) => m._id === selectedPaymentMethod,
-          )?.name,
+          subtotal: subtotal.toFixed(2),
+          previousPending: previousPending.toFixed(2),
+          paidAmount: paidAmount.toFixed(2),
+          advanceUsed: advanceUsed.toFixed(2),
+          claimAmountUsed: claimAmountUsed.toFixed(2),
+          totalApplied: totalApplied.toFixed(2),
+          pendingCleared: pendingCleared.toFixed(2),
+          newAdvanceCreated: newAdvanceCreated.toFixed(2),
+          pendingAmount: pendingAmount.toFixed(2),
+          newAdvanceBalance: (
+            balances.advanceBalance -
+            advanceUsed +
+            newAdvanceCreated
+          ).toFixed(2),
+          newPendingBalance: (
+            previousPending -
+            pendingCleared +
+            pendingAmount
+          ).toFixed(2),
+          paymentMethod: selectedMethod?.name,
         };
 
         setTransaction(newTransaction);
         setCart([]);
         setSelectedPatient(null);
         setSelectedPaymentMethod(null);
+        setPaidAmount(0);
+        setAdvanceUsed(0);
+        setClaimAmountUsed(0);
+        setPendingUsed(0);
+        setApplyAdvance(true); // Reset to default
+        setShowConfirmModal(false); // Close confirm modal first
         setShowReceiptModal(true);
         toast.success("Transaction completed successfully!");
 
@@ -556,40 +801,266 @@ const NewProductSalesPage: NextPageWithLayout = () => {
               Product Sales & Dispensing
             </h1>
             <p className="text-xs sm:text-sm text-gray-600">
-              Select products, adjust quantities, and finalize billing
+              Follow these steps to complete the sale
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Step Indicators */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            {/* Step 1: Patient */}
+            <div className="flex items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                  currentStep >= 0
+                    ? "bg-teal-600 text-white"
+                    : "bg-gray-200 text-gray-400"
+                }`}
+              >
+                {currentStep > 0 ? <CheckCircle2 className="w-5 h-5" /> : "1"}
+              </div>
+              <div className="ml-3">
+                <p
+                  className={`text-sm font-semibold ${
+                    currentStep >= 0 ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  Select Patient
+                </p>
+                <p className="text-xs text-gray-500">
+                  {!selectedPatient ? "Required" : "Selected"}
+                </p>
+              </div>
+            </div>
+
+            {/* Connector 1 */}
+            <div
+              className={`h-1 flex-1 mx-4 rounded-full transition-all ${
+                currentStep > 0 ? "bg-teal-600" : "bg-gray-200"
+              }`}
+            />
+
+            {/* Step 2: Products */}
+            <div className="flex items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                  currentStep >= 1
+                    ? "bg-teal-600 text-white"
+                    : "bg-gray-200 text-gray-400"
+                }`}
+              >
+                {currentStep > 1 ? <CheckCircle2 className="w-5 h-5" /> : "2"}
+              </div>
+              <div className="ml-3">
+                <p
+                  className={`text-sm font-semibold ${
+                    currentStep >= 1 ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  Choose Products
+                </p>
+                <p className="text-xs text-gray-500">
+                  {cartCount === 0
+                    ? "Add items to cart"
+                    : `${cartCount} item${cartCount !== 1 ? "s" : ""} in cart`}
+                </p>
+              </div>
+            </div>
+
+            {/* Connector 2 */}
+            <div
+              className={`h-1 flex-1 mx-4 rounded-full transition-all ${
+                currentStep > 1 ? "bg-teal-600" : "bg-gray-200"
+              }`}
+            />
+
+            {/* Step 3: Payment */}
+            <div className="flex items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                  currentStep >= 2
+                    ? "bg-teal-600 text-white"
+                    : "bg-gray-200 text-gray-400"
+                }`}
+              >
+                {currentStep > 2 ? <CheckCircle2 className="w-5 h-5" /> : "3"}
+              </div>
+              <div className="ml-3">
+                <p
+                  className={`text-sm font-semibold ${
+                    currentStep >= 2 ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  Payment Method
+                </p>
+                <p className="text-xs text-gray-500">
+                  {!selectedPaymentMethod
+                    ? "Select payment method"
+                    : "Selected"}
+                </p>
+              </div>
+            </div>
+
+            {/* Connector 3 */}
+            <div
+              className={`h-1 flex-1 mx-4 rounded-full transition-all ${
+                currentStep > 2 ? "bg-teal-600" : "bg-gray-200"
+              }`}
+            />
+
+            {/* Step 4: Complete */}
+            <div className="flex items-center">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all ${
+                  currentStep >= 3
+                    ? "bg-teal-600 text-white"
+                    : "bg-gray-200 text-gray-400"
+                }`}
+              >
+                4
+              </div>
+              <div className="ml-3">
+                <p
+                  className={`text-sm font-semibold ${
+                    currentStep >= 3 ? "text-gray-900" : "text-gray-400"
+                  }`}
+                >
+                  Complete Sale
+                </p>
+                <p className="text-xs text-gray-500">
+                  {currentStep >= 3
+                    ? "Ready to complete"
+                    : "Complete previous steps"}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Product Selection */}
+        {/* Left Column: Step 1 & 2 - Patient & Products */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Search */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          {/* Step 1: Patient Selection */}
+          <div
+            className={`bg-white rounded-xl shadow-lg border transition-all ${
+              currentStep === 0
+                ? "border-teal-500 ring-2 ring-teal-100"
+                : "border-gray-200"
+            }`}
+          >
             <div className="p-6">
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by item name or code..."
-                  className="w-full pl-10 pr-4 py-3 text-sm text-gray-700 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
-                />
+              <div className="flex items-center gap-2 mb-4">
+                <User className="w-5 h-5 text-teal-600" />
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
+                  Step 1: Select Patient
+                </h3>
               </div>
+
+              {selectedPatient ? (
+                <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-teal-800 flex items-center justify-center text-white text-xs font-bold">
+                      {initials(
+                        `${selectedPatient.firstName} ${selectedPatient.lastName}`,
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {selectedPatient.firstName} {selectedPatient.lastName}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {selectedPatient.phone || selectedPatient.mobileNumber}
+                        {selectedPatient.age && ` • Age ${selectedPatient.age}`}
+                      </div>
+                    </div>
+                    <button
+                      onClick={clearPatientSelection}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative" ref={patientSearchRef}>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={patientSearchPhone}
+                      onChange={(e) => setPatientSearchPhone(e.target.value)}
+                      placeholder="Search patient by name or phone..."
+                      className="w-full flex items-center justify-between px-4 py-3 pl-10 bg-gray-50 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-100 transition-all focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
+                    />
+                    {isSearchingPatient && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600" />
+                      </div>
+                    )}
+                  </div>
+
+                  {showPatientDropdown && patientSearchResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-[100] overflow-hidden">
+                      {patientSearchResults.map((patient) => (
+                        <button
+                          key={patient._id}
+                          onClick={() => handlePatientSelect(patient)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-teal-50 transition-all border-t border-gray-100 first:border-t-0"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-xs font-bold">
+                            {initials(
+                              `${patient.firstName} ${patient.lastName}`,
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {patient.firstName} {patient.lastName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {patient.phone || patient.mobileNumber}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Product List */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          {/* Step 2: Product Selection (disabled until patient is selected) */}
+          <div
+            className={`bg-white rounded-xl shadow-lg border transition-all ${
+              currentStep === 1
+                ? "border-teal-500 ring-2 ring-teal-100"
+                : "border-gray-200"
+            } ${!selectedPatient ? "opacity-50 pointer-events-none" : ""}`}
+          >
             <div className="p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Package className="w-5 h-5 text-teal-600" />
-                Products
+                Step 2: Choose Products
               </h2>
+
+              {/* Search */}
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by item name or code..."
+                    className="w-full pl-10 pr-4 py-3 text-sm text-gray-700 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500 transition-all"
+                  />
+                </div>
+              </div>
 
               {itemsLoading ? (
                 <div className="flex justify-center py-12">
@@ -627,7 +1098,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                                   <span
                                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium ${(() => {
                                       const expiry = new Date(
-                                        stockItem.expiryDate,
+                                        stockItem.expiryDate!,
                                       );
                                       const now = new Date();
                                       const daysUntilExpiry = Math.ceil(
@@ -826,104 +1297,128 @@ const NewProductSalesPage: NextPageWithLayout = () => {
           </div>
         </div>
 
-        {/* Right Column: Cart & Checkout (sticky) */}
+        {/* Right Column: Step 3 & 4 - Payment & Complete Sale */}
         <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-6 lg:self-start">
-          {/* Patient Selection */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+          {/* Cart Items */}
+          <div
+            className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden ${
+              !selectedPatient ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
-                <User className="w-5 h-5 text-teal-600" />
+                <Package className="w-5 h-5 text-teal-600" />
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                  Patient
+                  Cart
                 </h3>
               </div>
 
-              {selectedPatient ? (
-                <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-600 to-teal-800 flex items-center justify-center text-white text-xs font-bold">
-                      {initials(
-                        `${selectedPatient.firstName} ${selectedPatient.lastName}`,
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-gray-900">
-                        {selectedPatient.firstName} {selectedPatient.lastName}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {selectedPatient.phone || selectedPatient.mobileNumber}
-                        {selectedPatient.age && ` • Age ${selectedPatient.age}`}
-                      </div>
-                    </div>
-                    <button
-                      onClick={clearPatientSelection}
-                      className="text-gray-400 hover:text-red-500"
+              {cartItems.length > 0 ? (
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {cartItems.map((entry) => (
+                    <div
+                      key={`${entry.item._id}-${entry.cartItem.uom}`}
+                      className="p-3 rounded-lg bg-gray-50 border border-teal-100"
                     >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <div className="text-sm font-semibold text-gray-900 truncate">
+                            {entry.item.item.name}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {entry.cartItem.quantity} {entry.cartItem.uom}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() =>
+                            removeFromCart(entry.item._id, entry.cartItem.uom)
+                          }
+                          className="p-1.5 text-red-500 hover:bg-red-100 rounded-md transition-all"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {/* Editable Price */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-600">Price:</span>
+                          <div className="flex-1 flex items-center gap-2">
+                            <span className="text-sm text-gray-800">AED</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min={entry.prices.salePrice}
+                              value={entry.effectivePrice}
+                              onChange={(e) => {
+                                const newPrice = parseFloat(e.target.value);
+                                if (
+                                  !isNaN(newPrice) &&
+                                  newPrice >= entry.prices.salePrice
+                                ) {
+                                  updateCustomPrice(
+                                    entry.item._id,
+                                    entry.cartItem.uom,
+                                    newPrice,
+                                  );
+                                }
+                              }}
+                              className="w-32 px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Commission */}
+                        {entry.commission > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-purple-600 font-medium">
+                              Commission:
+                            </span>
+                            <span className="text-xs text-purple-600 font-semibold">
+                              AED {entry.commission.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Total for item */}
+                        <div className="flex items-center justify-between pt-1 border-t border-gray-200">
+                          <span className="text-xs text-gray-600">Total:</span>
+                          <span className="text-sm font-semibold text-teal-600">
+                            AED{" "}
+                            {(
+                              entry.effectivePrice * entry.cartItem.quantity
+                            ).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="relative" ref={patientSearchRef}>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      value={patientSearchPhone}
-                      onChange={(e) => setPatientSearchPhone(e.target.value)}
-                      placeholder="Search patient by name or phone..."
-                      className="w-full flex items-center justify-between px-4 py-3 pl-10 bg-gray-50 border border-gray-300 rounded-xl text-sm text-gray-700 hover:bg-gray-100 transition-all focus:outline-none focus:ring-2 focus:ring-teal-100 focus:border-teal-500"
-                    />
-                    {isSearchingPatient && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {showPatientDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-[100] overflow-hidden">
-                      {patientSearchResults.length > 0 ? (
-                        patientSearchResults.map((patient) => (
-                          <button
-                            key={patient._id}
-                            onClick={() => handlePatientSelect(patient)}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-teal-50 transition-all border-t border-gray-100 first:border-t-0"
-                          >
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-xs font-bold">
-                              {initials(
-                                `${patient.firstName} ${patient.lastName}`,
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {patient.firstName} {patient.lastName}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {patient.phone || patient.mobileNumber}
-                              </div>
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-sm text-gray-500">
-                          No patients found
-                        </div>
-                      )}
-                    </div>
-                  )}
+                <div className="text-center py-8 text-gray-500">
+                  <Package className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm font-medium">No items in cart</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Add items to get started
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Payment Method Selection */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+          {/* Step 3: Payment Method Selection (disabled until items are in cart) */}
+          <div
+            className={`bg-white rounded-xl shadow-lg border transition-all ${
+              currentStep === 2
+                ? "border-teal-500 ring-2 ring-teal-100"
+                : "border-gray-200"
+            } ${!selectedPatient || cartCount === 0 ? "opacity-50 pointer-events-none" : ""}`}
+          >
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <CreditCard className="w-5 h-5 text-teal-600" />
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                  Payment Method
+                  Step 3: Payment Method
                 </h3>
               </div>
 
@@ -950,7 +1445,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   >
                     <span className="truncate">
                       {paymentMethods.find(
-                        (m) => m._id === selectedPaymentMethod,
+                        (m: PaymentMethod) => m._id === selectedPaymentMethod,
                       )?.name || "Select a payment method"}
                     </span>
                     <ChevronDown
@@ -982,8 +1477,8 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="overflow-y-auto flex-1">
                         {(() => {
                           const filtered = paymentMethods
-                            .filter((m) => m.status === "active")
-                            .filter((m) =>
+                            .filter((m: PaymentMethod) => m.status === "active")
+                            .filter((m: PaymentMethod) =>
                               m.name
                                 .toLowerCase()
                                 .includes(
@@ -999,7 +1494,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                           }
                           return (
                             <ul className="py-2">
-                              {filtered.map((method) => (
+                              {filtered.map((method: PaymentMethod) => (
                                 <li
                                   key={method._id}
                                   className={
@@ -1047,62 +1542,193 @@ const NewProductSalesPage: NextPageWithLayout = () => {
             </div>
           </div>
 
-          {/* Cart Items */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Package className="w-5 h-5 text-teal-600" />
+          {/* Step 4: Payment Details & Complete Sale (disabled until payment method is selected) */}
+          {selectedPatient && (
+            <div
+              className={`bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden ${
+                !selectedPaymentMethod ? "opacity-50 pointer-events-none" : ""
+              }`}
+            >
+              <div className="p-6 space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">
-                  Items
+                  Step 4: Payment Details
                 </h3>
-              </div>
 
-              {cartItems.length > 0 ? (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {cartItems.map((entry) => (
-                    <div
-                      key={`${entry.item._id}-${entry.cartItem.uom}`}
-                      className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-teal-100"
-                    >
-                      <div className="flex-1 min-w-0 pr-2">
-                        <div className="text-sm font-semibold text-gray-900 truncate">
-                          {entry.item.item.name}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {entry.cartItem.quantity} {entry.cartItem.uom} × AED{" "}
-                          {entry.prices.salePrice.toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-semibold text-teal-600">
-                          AED{" "}
-                          {(
-                            entry.prices.salePrice * entry.cartItem.quantity
-                          ).toFixed(2)}
-                        </div>
-                        <button
-                          onClick={() =>
-                            removeFromCart(entry.item._id, entry.cartItem.uom)
-                          }
-                          className="p-1.5 text-red-500 hover:bg-red-100 rounded-md transition-all"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                {/* Amount Breakdown */}
+                <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Products Amount:</span>
+                    <span className="font-semibold text-gray-900">
+                      AED {subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {previousPending > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Previous Pending:</span>
+                      <span className="font-semibold text-orange-600">
+                        AED {previousPending.toFixed(2)}
+                      </span>
                     </div>
-                  ))}
+                  )}
+                  <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between text-sm">
+                    <span className="font-semibold text-gray-900">
+                      Total Payable:
+                    </span>
+                    <span className="font-bold text-teal-600">
+                      AED {total.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Package className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm font-medium">No items in cart</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Add items to get started
-                  </p>
+
+                {/* Patient Balances */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Advance Balance:</span>
+                    <span className="font-medium text-teal-600">
+                      AED {balances.advanceBalance.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Pending Balance:</span>
+                    <span className="font-medium text-orange-600">
+                      AED {balances.pendingBalance.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-600">Claim Amount:</span>
+                    <span className="font-medium text-blue-600">
+                      AED {balances.claimAmount.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
-              )}
+
+                {/* Advance Toggle */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={applyAdvance}
+                      onChange={(e) => setApplyAdvance(e.target.checked)}
+                      disabled={balances.advanceBalance <= 0}
+                      className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-sm text-gray-700">
+                      Use Advance Balance (AED {advanceUsed.toFixed(2)})
+                    </span>
+                  </label>
+                </div>
+
+                {/* Auto Applied Balances */}
+                <div className="space-y-2 text-xs">
+                  {advanceUsed > 0 && (
+                    <div className="flex justify-between text-teal-600">
+                      <span>Advance Applied:</span>
+                      <span className="font-semibold">
+                        AED {advanceUsed.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {claimAmountUsed > 0 && (
+                    <div className="flex justify-between text-blue-600">
+                      <span>Claim Applied:</span>
+                      <span className="font-semibold">
+                        AED {claimAmountUsed.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Paid Amount Input */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Amount Paid Now
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">AED</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={paidAmount}
+                      onChange={(e) =>
+                        setPaidAmount(parseFloat(e.target.value) || 0)
+                      }
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="pt-3 border-t border-gray-200 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      Total Applied (Paid + Advances):
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      AED {totalApplied.toFixed(2)}
+                    </span>
+                  </div>
+                  {pendingCleared > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-orange-600">
+                        Previous Pending Cleared:
+                      </span>
+                      <span className="font-semibold text-orange-600">
+                        AED {pendingCleared.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {newAdvanceCreated > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-teal-600">
+                        New Advance Created:
+                      </span>
+                      <span className="font-semibold text-teal-600">
+                        AED {newAdvanceCreated.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">New Pending Amount:</span>
+                    <span
+                      className={`font-semibold ${pendingAmount > 0 ? "text-orange-600" : "text-gray-900"}`}
+                    >
+                      AED {pendingAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-200">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        New Advance Balance:
+                      </span>
+                      <span className="font-semibold text-teal-600">
+                        AED{" "}
+                        {(
+                          balances.advanceBalance -
+                          advanceUsed +
+                          newAdvanceCreated
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        New Pending Balance:
+                      </span>
+                      <span className="font-semibold text-orange-600">
+                        AED{" "}
+                        {(
+                          previousPending -
+                          pendingCleared +
+                          pendingAmount
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Totals & Checkout */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
@@ -1110,11 +1736,27 @@ const NewProductSalesPage: NextPageWithLayout = () => {
               {/* Totals */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-gray-600">Products Amount</span>
                   <span className="font-semibold text-gray-900">
                     AED {subtotal.toFixed(2)}
                   </span>
                 </div>
+                {previousPending > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Previous Pending</span>
+                    <span className="font-semibold text-orange-600">
+                      AED {previousPending.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {totalCommission > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-purple-600">Total Commission</span>
+                    <span className="font-semibold text-purple-600">
+                      AED {totalCommission.toFixed(2)}
+                    </span>
+                  </div>
+                )}
                 <div className="pt-3 mt-2 border-t border-gray-200 flex justify-between items-center">
                   <span className="text-base font-semibold text-gray-900">
                     Grand Total
@@ -1155,7 +1797,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
       {/* Confirmation Modal */}
       {showConfirmModal && currentSaleData && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden">
             {/* Modal Header */}
             <div className="p-6 text-center border-b border-gray-100 bg-gradient-to-br from-teal-50 to-teal-100">
               <h2 className="text-xl font-bold text-gray-900">Confirm Sale</h2>
@@ -1165,7 +1807,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
             </div>
 
             {/* Confirmation Content */}
-            <div className="p-6">
+            <div className="p-6 max-h-[70vh] overflow-auto">
               {/* Patient Info */}
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">
@@ -1227,22 +1869,114 @@ const NewProductSalesPage: NextPageWithLayout = () => {
 
               {/* Totals */}
               <div className="mb-6">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="space-y-2">
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Products Amount:</span>
+                    <span className="font-semibold text-gray-900">
+                      AED {currentSaleData.subtotal.toFixed(2)}
+                    </span>
+                  </div>
+                  {currentSaleData.previousPending > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal</span>
-                      <span className="font-semibold text-gray-900">
-                        AED {currentSaleData.subtotal.toFixed(2)}
+                      <span className="text-gray-600">Previous Pending:</span>
+                      <span className="font-semibold text-orange-600">
+                        AED {currentSaleData.previousPending.toFixed(2)}
                       </span>
                     </div>
-                    <div className="pt-3 mt-2 border-t border-gray-200 flex justify-between items-center">
-                      <span className="text-base font-semibold text-gray-900">
-                        Grand Total
-                      </span>
-                      <span className="text-xl font-bold text-teal-600">
-                        AED {currentSaleData.total.toFixed(2)}
+                  )}
+                  <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between items-center">
+                    <span className="text-base font-semibold text-gray-900">
+                      Total Payable:
+                    </span>
+                    <span className="text-xl font-bold text-teal-600">
+                      AED {currentSaleData.total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Payment Breakdown */}
+                <div className="mt-4 bg-gray-50 rounded-xl p-4 space-y-2">
+                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-2">
+                    Payment Breakdown
+                  </h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Paid Now (Cash/Card):</span>
+                    <span className="font-semibold text-gray-900">
+                      AED {currentSaleData.paidAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  {currentSaleData.advanceUsed > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-teal-600">Advance Used:</span>
+                      <span className="font-semibold text-teal-600">
+                        AED {currentSaleData.advanceUsed.toFixed(2)}
                       </span>
                     </div>
+                  )}
+                  {currentSaleData.claimAmountUsed > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-blue-600">Claim Used:</span>
+                      <span className="font-semibold text-blue-600">
+                        AED {currentSaleData.claimAmountUsed.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between text-sm">
+                    <span className="font-semibold text-gray-900">
+                      Total Applied:
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      AED {currentSaleData.totalApplied.toFixed(2)}
+                    </span>
+                  </div>
+                  {currentSaleData.pendingCleared > 0 && (
+                    <div className="flex justify-between text-sm text-orange-600">
+                      <span>Previous Pending Cleared:</span>
+                      <span className="font-semibold">
+                        AED {currentSaleData.pendingCleared.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {currentSaleData.newAdvanceCreated > 0 && (
+                    <div className="flex justify-between text-sm text-teal-600">
+                      <span>New Advance Created:</span>
+                      <span className="font-semibold">
+                        AED {currentSaleData.newAdvanceCreated.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">New Pending Amount:</span>
+                    <span
+                      className={`font-semibold ${
+                        currentSaleData.pendingAmount > 0
+                          ? "text-orange-600"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      AED {currentSaleData.pendingAmount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* New Balances */}
+                <div className="mt-4 bg-teal-50 rounded-xl p-4 space-y-2">
+                  <h4 className="text-sm font-semibold text-teal-900 uppercase tracking-wide mb-2">
+                    New Patient Balances
+                  </h4>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-teal-700">New Advance Balance:</span>
+                    <span className="font-semibold text-teal-700">
+                      AED {currentSaleData.newAdvanceBalance.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-orange-700">
+                      New Pending Balance:
+                    </span>
+                    <span className="font-semibold text-orange-700">
+                      AED {currentSaleData.newPendingBalance.toFixed(2)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1259,33 +1993,32 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   </span>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowConfirmModal(false)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmAndPlaceSale}
-                  disabled={processing}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-800 hover:from-teal-700 hover:to-teal-900 text-white rounded-xl font-semibold transition-all shadow-lg"
-                >
-                  {processing ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-5 h-5" />
-                      Confirm Sale
-                    </>
-                  )}
-                </button>
-              </div>
+            </div>
+            {/* Action Buttons */}
+            <div className="p-6 flex gap-3 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmAndPlaceSale}
+                disabled={processing}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-800 hover:from-teal-700 hover:to-teal-900 text-white rounded-xl font-semibold transition-all shadow-lg"
+              >
+                {processing ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5" />
+                    Confirm Sale
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1294,22 +2027,24 @@ const NewProductSalesPage: NextPageWithLayout = () => {
       {/* Receipt Modal */}
       {showReceiptModal && transaction && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden">
             {/* Modal Header */}
-            <div className="p-6 text-center border-b border-gray-100 bg-gradient-to-br from-teal-50 to-teal-100">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-teal-100 flex items-center justify-center">
+            <div className="p-6 text-center border-b border-gray-100 flex items-center justify-center gap-5 bg-gradient-to-br from-teal-50 to-teal-100">
+              <div className="w-16 h-16 rounded-full bg-teal-100 flex items-center justify-center">
                 <CheckCircle2 className="w-8 h-8 text-teal-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Transaction Complete!
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Receipt generated successfully
-              </p>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Transaction Complete!
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Receipt generated successfully
+                </p>
+              </div>
             </div>
 
             {/* Receipt Content */}
-            <div className="p-6">
+            <div className="p-6 max-h-[65vh] overflow-auto">
               <div className="bg-gray-50 rounded-xl p-4 mb-6">
                 <div className="space-y-3">
                   {transaction.items.map((item, idx) => (
@@ -1323,65 +2058,190 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     </div>
                   ))}
                 </div>
+              </div>
 
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
-                  {[
-                    {
-                      label: "Invoice ID",
-                      value: transaction.invoiceId,
-                      mono: true,
-                    },
-                    { label: "Patient", value: transaction.patient },
-                    { label: "Date", value: transaction.date },
-                    ...(transaction.paymentMethod
-                      ? [
-                          {
-                            label: "Payment Method",
-                            value: transaction.paymentMethod,
-                          },
-                        ]
-                      : []),
-                  ].map(({ label, value, mono }) => (
-                    <div key={label} className="flex justify-between text-sm">
-                      <span className="text-gray-600">{label}</span>
-                      <span
-                        className={`font-medium text-gray-900 ${mono ? "font-mono text-xs" : ""}`}
-                      >
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">
-                    Total Paid
-                  </span>
-                  <span className="text-lg font-bold text-gray-900">
-                    AED {transaction.total}
-                  </span>
+              {/* Amount Breakdown */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">
+                  Amount Breakdown
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Products Amount:</span>
+                    <span className="font-semibold text-gray-900">
+                      AED {transaction.subtotal}
+                    </span>
+                  </div>
+                  {transaction.previousPending &&
+                    parseFloat(transaction.previousPending) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Previous Pending:</span>
+                        <span className="font-semibold text-orange-600">
+                          AED {transaction.previousPending}
+                        </span>
+                      </div>
+                    )}
+                  <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between text-sm">
+                    <span className="font-semibold text-gray-900">
+                      Total Payable:
+                    </span>
+                    <span className="font-bold text-teal-600">
+                      AED {transaction.total}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    window.open(
-                      `/clinic/stocks/product-sales/print-product-sale/${transaction.invoiceId}`,
-                      "_blank",
-                    );
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold transition-all"
-                >
-                  Print Receipt
-                </button>
-                <button
-                  onClick={() => setShowReceiptModal(false)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-all"
-                >
-                  Done
-                </button>
+              {/* Payment Breakdown */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">
+                  Payment Details
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Paid Now:</span>
+                    <span className="font-semibold text-gray-900">
+                      AED {transaction.paidAmount}
+                    </span>
+                  </div>
+                  {transaction.advanceUsed &&
+                    parseFloat(transaction.advanceUsed) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-teal-600">Advance Used:</span>
+                        <span className="font-semibold text-teal-600">
+                          AED {transaction.advanceUsed}
+                        </span>
+                      </div>
+                    )}
+                  {transaction.claimAmountUsed &&
+                    parseFloat(transaction.claimAmountUsed) > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-blue-600">Claim Used:</span>
+                        <span className="font-semibold text-blue-600">
+                          AED {transaction.claimAmountUsed}
+                        </span>
+                      </div>
+                    )}
+                  <div className="pt-2 mt-2 border-t border-gray-200 flex justify-between text-sm">
+                    <span className="font-semibold text-gray-900">
+                      Total Applied:
+                    </span>
+                    <span className="font-semibold text-gray-900">
+                      AED {transaction.totalApplied}
+                    </span>
+                  </div>
+                  {transaction.pendingCleared &&
+                    parseFloat(transaction.pendingCleared) > 0 && (
+                      <div className="flex justify-between text-sm text-orange-600">
+                        <span>Previous Pending Cleared:</span>
+                        <span className="font-semibold">
+                          AED {transaction.pendingCleared}
+                        </span>
+                      </div>
+                    )}
+                  {transaction.newAdvanceCreated &&
+                    parseFloat(transaction.newAdvanceCreated) > 0 && (
+                      <div className="flex justify-between text-sm text-teal-600">
+                        <span>New Advance Created:</span>
+                        <span className="font-semibold">
+                          AED {transaction.newAdvanceCreated}
+                        </span>
+                      </div>
+                    )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">New Pending:</span>
+                    <span
+                      className={`font-semibold ${
+                        transaction.pendingAmount &&
+                        parseFloat(transaction.pendingAmount) > 0
+                          ? "text-orange-600"
+                          : "text-gray-900"
+                      }`}
+                    >
+                      AED {transaction.pendingAmount}
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              {/* New Balances */}
+              <div className="bg-teal-50 rounded-xl p-4 mb-6">
+                <h3 className="text-sm font-semibold text-teal-900 uppercase tracking-wide mb-3">
+                  Final Patient Balances
+                </h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-teal-700">Advance Balance:</span>
+                    <span className="font-semibold text-teal-700">
+                      AED {transaction.newAdvanceBalance}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-orange-700">Pending Balance:</span>
+                    <span className="font-semibold text-orange-700">
+                      AED {transaction.newPendingBalance}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                {[
+                  {
+                    label: "Invoice ID",
+                    value: transaction.invoiceId,
+                    mono: true,
+                  },
+                  { label: "Patient", value: transaction.patient },
+                  { label: "Date", value: transaction.date },
+                  ...(transaction.paymentMethod
+                    ? [
+                        {
+                          label: "Payment Method",
+                          value: transaction.paymentMethod,
+                        },
+                      ]
+                    : []),
+                ].map(({ label, value, mono }) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-gray-600">{label}</span>
+                    <span
+                      className={`font-medium text-gray-900 ${mono ? "font-mono text-xs" : ""}`}
+                    >
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-600">
+                  Total Paid
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  AED {transaction.total}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6 flex gap-3 border-t border-gray-200 bg-gray-50 ">
+              <button
+                onClick={() => {
+                  window.open(
+                    `/clinic/stocks/product-sales/print-product-sale/${transaction.invoiceId}`,
+                    "_blank",
+                  );
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-semibold transition-all"
+              >
+                Print Receipt
+              </button>
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-all"
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>

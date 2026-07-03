@@ -101,10 +101,13 @@ export default async function handler(req, res) {
       "netPlusVat",
       "freeQuantity",
       "level0.price",
+      "level0.salePrice",
       "packagingStructure.level1.quantity",
       "packagingStructure.level1.price",
+      "packagingStructure.level1.salePrice",
       "packagingStructure.level2.quantity",
       "packagingStructure.level2.price",
+      "packagingStructure.level2.salePrice",
     ];
 
     for (const field of numericFields) {
@@ -147,6 +150,72 @@ export default async function handler(req, res) {
       return res.status(400).json({
         success: false,
         message: "vatType must be one of: Exclusive, Inclusive",
+      });
+    }
+
+    // Validate salePrice >= price for each level
+    const level0Price =
+      req.body.level0?.price !== undefined
+        ? Number(req.body.level0.price)
+        : existingItem.level0?.price;
+    const level0SalePrice =
+      req.body.level0?.salePrice !== undefined
+        ? Number(req.body.level0.salePrice)
+        : existingItem.level0?.salePrice;
+    if (
+      level0SalePrice !== undefined &&
+      level0Price !== undefined &&
+      level0SalePrice < level0Price
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Level 0 sale price cannot be less than the base price",
+      });
+    }
+
+    const level1Price =
+      req.body.packagingStructure?.level1?.price !== undefined
+        ? Number(req.body.packagingStructure.level1.price)
+        : existingItem.packagingStructure?.level1?.price;
+    const level1SalePrice =
+      req.body.packagingStructure?.level1?.salePrice !== undefined
+        ? Number(req.body.packagingStructure.level1.salePrice)
+        : existingItem.packagingStructure?.level1?.salePrice;
+    if (
+      level1SalePrice !== undefined &&
+      level1Price !== undefined &&
+      level1SalePrice < level1Price &&
+      req.body.packagingStructure?.level1?.quantity !== undefined &&
+      req.body.packagingStructure?.level1?.quantity > 0 &&
+      req.body.packagingStructure?.level1?.uom !== undefined &&
+      req.body.packagingStructure?.level1?.uom !== ""
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Level 1 sale price cannot be less than the base price",
+      });
+    }
+
+    const level2Price =
+      req.body.packagingStructure?.level2?.price !== undefined
+        ? Number(req.body.packagingStructure.level2.price)
+        : existingItem.packagingStructure?.level2?.price;
+    const level2SalePrice =
+      req.body.packagingStructure?.level2?.salePrice !== undefined
+        ? Number(req.body.packagingStructure.level2.salePrice)
+        : existingItem.packagingStructure?.level2?.salePrice;
+    if (
+      level2SalePrice !== undefined &&
+      level2Price !== undefined &&
+      level2SalePrice < level2Price &&
+      req.body.packagingStructure?.level2?.quantity !== undefined &&
+      req.body.packagingStructure?.level2?.quantity > 0 &&
+      req.body.packagingStructure?.level2?.uom !== undefined &&
+      req.body.packagingStructure?.level2?.uom !== ""
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Level 2 sale price cannot be less than the base price",
       });
     }
 
@@ -205,6 +274,10 @@ export default async function handler(req, res) {
           req.body.level0.price !== undefined
             ? req.body.level0.price
             : existingItem.level0?.price,
+        salePrice:
+          req.body.level0.salePrice !== undefined
+            ? req.body.level0.salePrice
+            : existingItem.level0?.salePrice,
         uom:
           req.body.level0.uom !== undefined
             ? req.body.level0.uom?.trim() || ""
@@ -223,6 +296,10 @@ export default async function handler(req, res) {
             req.body.packagingStructure.level1?.price !== undefined
               ? req.body.packagingStructure.level1.price
               : existingItem.packagingStructure?.level1?.price,
+          salePrice:
+            req.body.packagingStructure.level1?.salePrice !== undefined
+              ? req.body.packagingStructure.level1.salePrice
+              : existingItem.packagingStructure?.level1?.salePrice,
           uom:
             req.body.packagingStructure.level1?.uom !== undefined
               ? req.body.packagingStructure.level1.uom?.trim() || ""
@@ -237,6 +314,10 @@ export default async function handler(req, res) {
             req.body.packagingStructure.level2?.price !== undefined
               ? req.body.packagingStructure.level2.price
               : existingItem.packagingStructure?.level2?.price,
+          salePrice:
+            req.body.packagingStructure.level2?.salePrice !== undefined
+              ? req.body.packagingStructure.level2.salePrice
+              : existingItem.packagingStructure?.level2?.salePrice,
           uom:
             req.body.packagingStructure.level2?.uom !== undefined
               ? req.body.packagingStructure.level2.uom?.trim() || ""

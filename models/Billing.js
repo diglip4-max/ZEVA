@@ -85,6 +85,14 @@ const billingSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+
+    // Product-based commission fields (optional depending on source)
+    productSaleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductSale",
+      index: true,
+    },
+
     invoiceNumber: {
       type: String,
       required: true,
@@ -96,26 +104,26 @@ const billingSchema = new mongoose.Schema(
       default: Date.now,
     },
     invoicedBy: {
-        type: String,
-        required: true,
-        trim: true,
-      },
-      // ID of the user who created the billing (agent / doctorStaff / clinic owner)
-      invoicedById: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        index: true,
-      },
-      // Role of the user who created the billing
-      invoicedByRole: {
-        type: String,
-        trim: true,
-      },
-      // Rate/commission percentage of the user who created the billing
-      invoicedByRate: {
-        type: Number,
-        default: 0,
-      },
+      type: String,
+      required: true,
+      trim: true,
+    },
+    // ID of the user who created the billing (agent / doctorStaff / clinic owner)
+    invoicedById: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      index: true,
+    },
+    // Role of the user who created the billing
+    invoicedByRole: {
+      type: String,
+      trim: true,
+    },
+    // Rate/commission percentage of the user who created the billing
+    invoicedByRate: {
+      type: Number,
+      default: 0,
+    },
     // Doctor (doctorStaff) assigned to the appointment
     doctorId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -125,7 +133,7 @@ const billingSchema = new mongoose.Schema(
     // Service details
     service: {
       type: String,
-      enum: ["Package", "Treatment", "Service"],
+      enum: ["Package", "Treatment", "Service", "Product"],
       required: true,
     },
     treatment: {

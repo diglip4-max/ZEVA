@@ -1,9 +1,11 @@
 import dbConnect from "../../../../lib/database";
+import mongoose from "mongoose";
 import Clinic from "../../../../models/Clinic";
 import PatientRegistration from "../../../../models/PatientRegistration";
 import PaymentMethod from "../../../../models/PaymentMethod";
 import ProductSale from "../../../../models/stocks/ProductSale";
 import AllocatedStockItem from "../../../../models/stocks/AllocatedStockItem";
+import Commission from "../../../../models/Commission";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 import {
   calculateTotalAmount,
@@ -177,257 +179,309 @@ export default async function handler(req, res) {
         });
       }
 
-      const { patientId, paymentMethodId, items, status, paymentStatus } =
-        req.body;
+      // Start MongoDB transaction
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      const updateData = {};
+      try {
+        const { patientId, paymentMethodId, items, status, paymentStatus } =
+          req.body;
 
-      if (patientId) {
-        const patient = await PatientRegistration.findOne({
-          _id: patientId,
-          clinicId,
-        });
-        if (!patient) {
-          return res.status(404).json({
-            success: false,
-            message: "Patient not found or doesn't belong to this clinic",
-          });
+        const updateData = {};
+
+        if (patientId) {
+          const patient = await PatientRegistration.findOne({
+            _id: patientId,
+            clinicId,
+          }).session(session);
+          if (!patient) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({
+              success: false,
+              message: "Patient not found or doesn't belong to this clinic",
+            });
+          }
+          updateData.patientId = patientId;
         }
-        updateData.patientId = patientId;
-      }
 
-      if (paymentMethodId) {
-        const paymentMethod = await PaymentMethod.findOne({
-          _id: paymentMethodId,
-          clinicId,
-          status: "active",
-        });
-        if (!paymentMethod) {
-          return res.status(404).json({
-            success: false,
-            message: "Payment method not found or inactive",
-          });
+        if (paymentMethodId) {
+          const paymentMethod = await PaymentMethod.findOne({
+            _id: paymentMethodId,
+            clinicId,
+            status: "active",
+          }).session(session);
+          if (!paymentMethod) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(404).json({
+              success: false,
+              message: "Payment method not found or inactive",
+            });
+          }
+          updateData.paymentMethodId = paymentMethodId;
+          updateData.paymentMethodName = paymentMethod.name;
         }
-        updateData.paymentMethodId = paymentMethodId;
-        updateData.paymentMethodName = paymentMethod.name;
-      }
 
-      // Validate status and payment status
-      const validStatuses = [
-        "pending",
-        "completed",
-        "cancelled",
-        "refunded",
-        "partially_refunded",
-      ];
-      if (status !== undefined) {
-        if (!validStatuses.includes(status)) {
-          return res.status(400).json({
-            success: false,
-            message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-          });
+        // Validate status and payment status
+        const validStatuses = [
+          "pending",
+          "completed",
+          "cancelled",
+          "refunded",
+          "partially_refunded",
+        ];
+        if (status !== undefined) {
+          if (!validStatuses.includes(status)) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({
+              success: false,
+              message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+            });
+          }
+          updateData.status = status;
         }
-        updateData.status = status;
-      }
 
-      const validPaymentStatuses = [
-        "pending",
-        "paid",
-        "failed",
-        "partially_refunded",
-        "refunded",
-      ];
-      if (paymentStatus !== undefined) {
-        if (!validPaymentStatuses.includes(paymentStatus)) {
-          return res.status(400).json({
-            success: false,
-            message: `Invalid payment status. Must be one of: ${validPaymentStatuses.join(", ")}`,
-          });
+        const validPaymentStatuses = [
+          "pending",
+          "paid",
+          "failed",
+          "partially_refunded",
+          "refunded",
+        ];
+        if (paymentStatus !== undefined) {
+          if (!validPaymentStatuses.includes(paymentStatus)) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({
+              success: false,
+              message: `Invalid payment status. Must be one of: ${validPaymentStatuses.join(", ")}`,
+            });
+          }
+          updateData.paymentStatus = paymentStatus;
         }
-        updateData.paymentStatus = paymentStatus;
-      }
 
-      if (items) {
-        // If items are being updated, revert quantities first
-        for (const item of existingSale.items) {
-          const allocatedItem = await AllocatedStockItem.findById(
-            item.allocatedItemId,
-          );
-          if (allocatedItem) {
-            // Calculate the revert: add back the quantity using negative targetQty in reduceQuantity
-            const revertedQtyByUom = await reduceQuantity(
-              allocatedItem.quantitiesByUom,
-              item.uom,
-              -item.quantity, // Negative quantity to add back
-              allocatedItem?.item?.level0,
-              allocatedItem?.item?.packagingStructure,
-            );
-
-            // Update allocated item status when reverting
-            let status = "Allocated";
-            const checkFullyAllocated = revertedQtyByUom.some(
-              (qtyItem) => qtyItem.quantity > 0,
-            );
-            if (checkFullyAllocated) {
-              status = "Partially_Used";
-            }
-            const checkAllZero = revertedQtyByUom.every(
-              (qtyItem) => qtyItem.quantity === 0,
-            );
-            if (checkAllZero) {
-              status = "Used";
-            }
-            await AllocatedStockItem.findByIdAndUpdate(
+        if (items) {
+          // If items are being updated, revert quantities first
+          for (const item of existingSale.items) {
+            const allocatedItem = await AllocatedStockItem.findById(
               item.allocatedItemId,
-              {
-                quantitiesByUom: revertedQtyByUom,
-                status: status,
-              },
-              { new: true },
-            );
+            ).session(session);
+            if (allocatedItem) {
+              // Calculate the revert: add back the quantity using negative targetQty in reduceQuantity
+              const revertedQtyByUom = await reduceQuantity(
+                allocatedItem.quantitiesByUom,
+                item.uom,
+                -item.quantity, // Negative quantity to add back
+                allocatedItem?.item?.level0,
+                allocatedItem?.item?.packagingStructure,
+              );
+
+              // Update allocated item status when reverting
+              let status = "Allocated";
+              const checkFullyAllocated = revertedQtyByUom.some(
+                (qtyItem) => qtyItem.quantity > 0,
+              );
+              if (checkFullyAllocated) {
+                status = "Partially_Used";
+              }
+              const checkAllZero = revertedQtyByUom.every(
+                (qtyItem) => qtyItem.quantity === 0,
+              );
+              if (checkAllZero) {
+                status = "Used";
+              }
+              await AllocatedStockItem.findByIdAndUpdate(
+                item.allocatedItemId,
+                {
+                  quantitiesByUom: revertedQtyByUom,
+                  status: status,
+                },
+                { new: true, session },
+              );
+            }
           }
+
+          // Validate and process new items
+          const normalizedItems = [];
+          let totalPrice = 0;
+          let totalCommission = 0;
+
+          // Process each item to calculate totals and validate stock
+          if (items && items.length > 0) {
+            for (let i = 0; i < items.length; i++) {
+              const it = items[i] || {};
+              const {
+                allocatedItemId,
+                uom,
+                quantity,
+                unitPrice,
+                totalPrice: itemTotalPrice,
+                commission,
+              } = it;
+
+              if (!allocatedItemId) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                  success: false,
+                  message: `Item ${i + 1}: allocatedItemId is required`,
+                });
+              }
+
+              // Check if allocated item exists
+              const allocatedItem = await AllocatedStockItem.findOne({
+                _id: allocatedItemId,
+                clinicId,
+                status: { $in: ["Allocated", "Issued", "Partially_Used"] },
+              }).session(session);
+
+              if (!allocatedItem) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(404).json({
+                  success: false,
+                  message: `Item ${i + 1}: Allocated stock item not found for itemId: ${allocatedItemId}`,
+                });
+              }
+
+              // Validate required fields
+              if (!it.name || !it.name.trim()) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                  success: false,
+                  message: `Item ${i + 1}: name is required`,
+                });
+              }
+
+              if (!it.code || !it.code.trim()) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                  success: false,
+                  message: `Item ${i + 1}: code is required`,
+                });
+              }
+
+              if (!it.description || !it.description.trim()) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                  success: false,
+                  message: `Item ${i + 1}: description is required`,
+                });
+              }
+
+              const qty = Number(quantity || 0);
+              if (qty <= 0) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                  success: false,
+                  message: `Item ${i + 1}: quantity must be greater than 0`,
+                });
+              }
+
+              if (!uom) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                  success: false,
+                  message: `Item ${i + 1}: uom is required`,
+                });
+              }
+
+              // Use stockUtils to reduce quantity
+              const updatedQtyByUom = await reduceQuantity(
+                allocatedItem.quantitiesByUom,
+                uom,
+                qty,
+                allocatedItem?.item?.level0,
+                allocatedItem?.item?.packagingStructure,
+              );
+
+              // Calculate total amount for this item if not provided
+              const finalUnitPrice =
+                unitPrice ||
+                (await calculateTotalAmount(allocatedItemId, uom, 1));
+              const finalItemTotal = itemTotalPrice || finalUnitPrice * qty;
+              const finalCommission = commission || 0;
+
+              // Update allocated item in DB
+              let status = "Partially_Used";
+              const checkFullyUsed = updatedQtyByUom.every(
+                (qtyItem) => qtyItem.quantity === 0,
+              );
+              if (checkFullyUsed) {
+                status = "Used";
+              }
+              await AllocatedStockItem.findByIdAndUpdate(
+                allocatedItemId,
+                {
+                  quantitiesByUom: updatedQtyByUom,
+                  status: status,
+                },
+                { new: true, session },
+              );
+
+              // Add item to normalized items
+              normalizedItems.push({
+                allocatedItemId: allocatedItemId,
+                name: it.name.trim(),
+                code: it.code.trim(),
+                description: it.description.trim(),
+                quantity: qty,
+                uom: uom,
+                unitPrice: finalUnitPrice,
+                totalPrice: finalItemTotal,
+                currency: it.currency || "AED",
+                notes: it.notes ? it.notes.trim() : "",
+                commission: finalCommission,
+              });
+
+              totalPrice += finalItemTotal;
+              totalCommission += finalCommission;
+            }
+          }
+
+          updateData.items = normalizedItems;
+          updateData.totalPrice = parseFloat(totalPrice.toFixed(2));
+          updateData.totalCommission = parseFloat(totalCommission.toFixed(2));
         }
 
-        // Validate and process new items
-        const normalizedItems = [];
-        let totalPrice = 0;
-
-        // Process each item to calculate totals and validate stock
-        if (items && items.length > 0) {
-          for (let i = 0; i < items.length; i++) {
-            const it = items[i] || {};
-            const { allocatedItemId, uom, quantity } = it;
-
-            if (!allocatedItemId) {
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: allocatedItemId is required`,
-              });
-            }
-
-            // Check if allocated item exists
-            const allocatedItem = await AllocatedStockItem.findOne({
-              _id: allocatedItemId,
-              clinicId,
-              status: { $in: ["Allocated", "Issued", "Partially_Used"] },
-            });
-
-            if (!allocatedItem) {
-              return res.status(404).json({
-                success: false,
-                message: `Item ${i + 1}: Allocated stock item not found for itemId: ${allocatedItemId}`,
-              });
-            }
-
-            // Validate required fields
-            if (!it.name || !it.name.trim()) {
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: name is required`,
-              });
-            }
-
-            if (!it.code || !it.code.trim()) {
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: code is required`,
-              });
-            }
-
-            if (!it.description || !it.description.trim()) {
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: description is required`,
-              });
-            }
-
-            const qty = Number(quantity || 0);
-            if (qty <= 0) {
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: quantity must be greater than 0`,
-              });
-            }
-
-            if (!uom) {
-              return res.status(400).json({
-                success: false,
-                message: `Item ${i + 1}: uom is required`,
-              });
-            }
-
-            // Use stockUtils to reduce quantity
-            const updatedQtyByUom = await reduceQuantity(
-              allocatedItem.quantitiesByUom,
-              uom,
-              qty,
-              allocatedItem?.item?.level0,
-              allocatedItem?.item?.packagingStructure,
-            );
-
-            // Calculate total amount for this item
-            const itemTotalAmount = await calculateTotalAmount(
-              allocatedItemId,
-              uom,
-              qty,
-            );
-
-            // Update allocated item in DB
-            let status = "Partially_Used";
-            const checkFullyUsed = updatedQtyByUom.every(
-              (qtyItem) => qtyItem.quantity === 0,
-            );
-            if (checkFullyUsed) {
-              status = "Used";
-            }
-            await AllocatedStockItem.findByIdAndUpdate(
-              allocatedItemId,
-              {
-                quantitiesByUom: updatedQtyByUom,
-                status: status,
-              },
-              { new: true },
-            );
-
-            // Add item to normalized items
-            normalizedItems.push({
-              allocatedItemId: allocatedItemId,
-              name: it.name.trim(),
-              code: it.code.trim(),
-              description: it.description.trim(),
-              quantity: qty,
-              uom: uom,
-              unitPrice: await calculateTotalAmount(allocatedItemId, uom, 1), // Unit price for 1 unit
-              totalPrice: itemTotalAmount,
-              currency: it.currency || "AED",
-              notes: it.notes ? it.notes.trim() : "",
-            });
-
-            totalPrice += itemTotalAmount;
-          }
-        }
-
-        updateData.items = normalizedItems;
-        updateData.totalPrice = parseFloat(totalPrice.toFixed(2));
-      }
-
-      // Update product sale
-      const updatedSale = await ProductSale.findByIdAndUpdate(id, updateData, {
-        new: true,
-      })
-        .populate(
-          "patientId",
-          "firstName lastName phone email age gender",
-          PatientRegistration,
+        // Update product sale
+        const updatedSale = await ProductSale.findByIdAndUpdate(
+          id,
+          updateData,
+          {
+            new: true,
+            session,
+          },
         )
-        .populate("paymentMethodId", "name uniqueName status", PaymentMethod)
-        .lean();
+          .populate(
+            "patientId",
+            "firstName lastName phone email age gender",
+            PatientRegistration,
+          )
+          .populate("paymentMethodId", "name uniqueName status", PaymentMethod)
+          .lean();
 
-      return res.status(200).json({
-        success: true,
-        message: "Product sale updated successfully",
-        data: updatedSale,
-      });
+        // Commit transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json({
+          success: true,
+          message: "Product sale updated successfully",
+          data: updatedSale,
+        });
+      } catch (transactionErr) {
+        await session.abortTransaction();
+        session.endSession();
+        throw transactionErr;
+      }
     } catch (err) {
       console.error("Error in update product sale:", err);
       if (err.name === "ValidationError") {
@@ -500,63 +554,79 @@ export default async function handler(req, res) {
         });
       }
 
-      // Find and delete product sale
-      const productSale = await ProductSale.findOneAndDelete({
-        _id: id,
-        clinicId,
-      });
+      // Start MongoDB transaction
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-      if (!productSale) {
-        return res.status(404).json({
-          success: false,
-          message: "Product sale not found",
-        });
-      }
+      try {
+        // Find and delete product sale
+        const productSale = await ProductSale.findOneAndDelete({
+          _id: id,
+          clinicId,
+        }).session(session);
 
-      // Revert quantities
-      for (const item of productSale.items) {
-        const allocatedItem = await AllocatedStockItem.findById(
-          item.allocatedItemId,
-        );
-        if (allocatedItem) {
-          // Calculate the revert: add back the quantity using negative targetQty in reduceQuantity
-          const revertedQtyByUom = await reduceQuantity(
-            allocatedItem.quantitiesByUom,
-            item.uom,
-            -item.quantity, // Negative quantity to add back
-            allocatedItem?.item?.level0,
-            allocatedItem?.item?.packagingStructure,
-          );
-
-          // Update allocated item status when reverting
-          let status = "Allocated";
-          const checkFullyAllocated = revertedQtyByUom.some(
-            (qtyItem) => qtyItem.quantity > 0,
-          );
-          if (checkFullyAllocated) {
-            status = "Partially_Used";
-          }
-          const checkAllZero = revertedQtyByUom.every(
-            (qtyItem) => qtyItem.quantity === 0,
-          );
-          if (checkAllZero) {
-            status = "Used";
-          }
-          await AllocatedStockItem.findByIdAndUpdate(
-            item.allocatedItemId,
-            {
-              quantitiesByUom: revertedQtyByUom,
-              status: status,
-            },
-            { new: true },
-          );
+        if (!productSale) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(404).json({
+            success: false,
+            message: "Product sale not found",
+          });
         }
-      }
 
-      return res.status(200).json({
-        success: true,
-        message: "Product sale deleted successfully",
-      });
+        // Revert quantities
+        for (const item of productSale.items) {
+          const allocatedItem = await AllocatedStockItem.findById(
+            item.allocatedItemId,
+          ).session(session);
+          if (allocatedItem) {
+            // Calculate the revert: add back the quantity using negative targetQty in reduceQuantity
+            const revertedQtyByUom = await reduceQuantity(
+              allocatedItem.quantitiesByUom,
+              item.uom,
+              -item.quantity, // Negative quantity to add back
+              allocatedItem?.item?.level0,
+              allocatedItem?.item?.packagingStructure,
+            );
+
+            // Update allocated item status when reverting
+            let status = "Allocated";
+            const checkFullyAllocated = revertedQtyByUom.some(
+              (qtyItem) => qtyItem.quantity > 0,
+            );
+            if (checkFullyAllocated) {
+              status = "Partially_Used";
+            }
+            const checkAllZero = revertedQtyByUom.every(
+              (qtyItem) => qtyItem.quantity === 0,
+            );
+            if (checkAllZero) {
+              status = "Used";
+            }
+            await AllocatedStockItem.findByIdAndUpdate(
+              item.allocatedItemId,
+              {
+                quantitiesByUom: revertedQtyByUom,
+                status: status,
+              },
+              { new: true, session },
+            );
+          }
+        }
+
+        // Commit transaction
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(200).json({
+          success: true,
+          message: "Product sale deleted successfully",
+        });
+      } catch (transactionErr) {
+        await session.abortTransaction();
+        session.endSession();
+        throw transactionErr;
+      }
     } catch (err) {
       console.error("Error in delete product sale:", err);
       return res.status(500).json({
