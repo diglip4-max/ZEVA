@@ -934,6 +934,7 @@ export default async function handler(req, res) {
       invoicedBy: clinicUser.name || "Clinic Staff",
       invoicedById: clinicUser._id,
       doctorId: appointment.doctorId || null,
+      doctorName: doctor || "",
       service,
       // Treatments AND a Package can now be billed in the same invoice. Preserve whatever the frontend sends.
       treatment: treatment || "",

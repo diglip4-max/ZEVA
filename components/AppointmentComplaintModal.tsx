@@ -2297,7 +2297,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
 
-        details.serviceNames.forEach((name, i) => {
+        details.serviceNames.forEach((name: string, i: number) => {
           if (y > doc.internal.pageSize.getHeight() - 20) {
             doc.addPage();
             y = 20;
@@ -2349,25 +2349,35 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
 
-        selectedServices.forEach((svc, i) => {
-          if (y > doc.internal.pageSize.getHeight() - 20) {
-            doc.addPage();
-            y = 20;
-          }
-          doc.setFont("helvetica", "bold");
-          doc.text(`${i + 1}. ${svc.name}`, margin, y);
-          y += 6;
-          doc.setFont("helvetica", "normal");
-          const price = svc.clinicPrice != null ? svc.clinicPrice : svc.price;
-          const qty = svc.quantity || 1;
-          const total = (price * qty).toFixed(2);
-          doc.text(
-            `   Price: ${currency} ${price.toFixed(2)}, Quantity: ${qty}, Total: ${currency} ${total}`,
-            margin + 5,
-            y,
-          );
-          y += 8;
-        });
+        selectedServices.forEach(
+          (
+            svc: {
+              name: string;
+              clinicPrice?: number | null;
+              price: number;
+              quantity?: number;
+            },
+            i: number,
+          ) => {
+            if (y > doc.internal.pageSize.getHeight() - 20) {
+              doc.addPage();
+              y = 20;
+            }
+            doc.setFont("helvetica", "bold");
+            doc.text(`${i + 1}. ${svc.name}`, margin, y);
+            y += 6;
+            doc.setFont("helvetica", "normal");
+            const price = svc.clinicPrice != null ? svc.clinicPrice : svc.price;
+            const qty = svc.quantity || 1;
+            const total = (price * qty).toFixed(2);
+            doc.text(
+              `   Price: ${currency} ${price.toFixed(2)}, Quantity: ${qty}, Total: ${currency} ${total}`,
+              margin + 5,
+              y,
+            );
+            y += 8;
+          },
+        );
         y += 5;
       }
 
@@ -2644,7 +2654,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!complaints.trim()) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">  Complaint Required</span>
+          <span className="font-semibold"> Complaint Required</span>
           <span className="text-xs opacity-80">
             Please enter complaint notes before saving.
           </span>
@@ -2832,7 +2842,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">  Incomplete Item</span>
+          <span className="font-semibold"> Incomplete Item</span>
           <span className="text-xs opacity-80">
             Please complete item selection, quantity and UOM
           </span>
@@ -3179,7 +3189,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       );
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">  Send Failed</span>
+          <span className="font-semibold"> Send Failed</span>
           <span className="text-xs opacity-80">
             {error?.response?.data?.message ||
               "Failed to send prescription via WhatsApp"}
@@ -8833,7 +8843,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 toast.error(
                                   <div className="flex flex-col gap-1">
                                     <span className="font-semibold">
-                                        Upload Failed
+                                      {" "}
+                                      Upload Failed
                                     </span>
                                     <span className="text-xs opacity-80">
                                       Prescription saved but failed to send

@@ -140,7 +140,9 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     invoiceNumber: string;
     patientName: string;
     service: string;
+    doctorName: string;
     amount: number;
+    paidAmount: number;
     paymentMethod: string;
     transactionType: string;
     paymentStatus: string;
@@ -151,6 +153,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     invoiceNumber: string;
     patientName: string;
     serviceName: string;
+    doctorName: string;
     totalAmount: number;
     paidAmount: number;
     pendingAmount: number;
@@ -231,11 +234,12 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     },
     {
       title: "Pending / Advance Payment Report",
-      headers: ["Patient Name", "Invoice Number", "Service", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, `Pending Amount (${currencyLabel})`, `Advance Amount (${currencyLabel})`, "Due Date"],
+      headers: ["Patient Name", "Invoice Number", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, `Pending Amount (${currencyLabel})`, `Advance Amount (${currencyLabel})`, "Due Date"],
       data: pendingPayments.map(pp => ({
         "Patient Name": pp.patientName || "Unknown",
         "Invoice Number": pp.invoiceNumber || "-",
         "Service": pp.serviceName || "Unknown",
+        "Doctor": pp.doctorName || "—",
         [`Total Amount (${currencyLabel})`]: Math.round(pp.totalAmount || 0),
         [`Paid Amount (${currencyLabel})`]: Math.round(pp.paidAmount || 0),
         [`Pending Amount (${currencyLabel})`]: Math.round(pp.pendingAmount || 0),
@@ -245,12 +249,14 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     },
     {
       title: "Payment Reports",
-      headers: ["Invoice Number", "Patient Name", "Service", `Amount (${currencyLabel})`, "Payment Method", "Transaction Type", "Payment Status", "Payment Date"],
+      headers: ["Invoice Number", "Patient Name", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, "Payment Method", "Transaction Type", "Payment Status", "Payment Date"],
       data: payments.map(p => ({
         "Invoice Number": p.invoiceNumber || "-",
         "Patient Name": p.patientName || "Unknown",
         "Service": p.service || "Unknown",
-        [`Amount (${currencyLabel})`]: Math.round(p.amount || 0),
+        "Doctor": p.doctorName || "—",
+        [`Total Amount (${currencyLabel})`]: Math.round(p.amount || 0),
+        [`Paid Amount (${currencyLabel})`]: Math.round(p.paidAmount || 0),
         "Payment Method": p.paymentMethod || "-",
         "Transaction Type": p.transactionType || "Payment",
         "Payment Status": p.paymentStatus || "-",
@@ -556,6 +562,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice Number</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service/Membership/Package</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending Amount</th>
@@ -569,6 +576,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   <td className="px-4 py-2 text-sm">{pp.patientName || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{pp.invoiceNumber}</td>
                   <td className="px-4 py-2 text-sm">{pp.serviceName || "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{pp.doctorName || "—"}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(pp.totalAmount)}</td>
                   <td className="px-4 py-2 text-sm">{fmtCurrency(pp.paidAmount)}</td>
                   <td className="px-4 py-2 text-sm text-red-600 font-semibold">{fmtCurrency(pp.pendingAmount)}</td>
@@ -580,7 +588,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               ))}
               {!pendingPayments.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={9}>
                     No pending payments for selected period
                   </td>
                 </tr>
@@ -599,7 +607,9 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice Number</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Method</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Transaction Type</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Status</th>
@@ -612,7 +622,9 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   <td className="px-4 py-2 text-sm">{p.invoiceNumber}</td>
                   <td className="px-4 py-2 text-sm">{p.patientName || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{p.service || "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm">{p.doctorName || "—"}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(p.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(p.paidAmount)}</td>
                   <td className="px-4 py-2 text-sm">{p.paymentMethod}</td>
                   <td className="px-4 py-2 text-sm">
                     <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${
@@ -633,7 +645,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               ))}
               {!payments.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={10}>
                     No payments found for selected period
                   </td>
                 </tr>

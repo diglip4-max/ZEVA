@@ -3981,7 +3981,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       doc.setFontSize(22);
       doc.setTextColor(20, 184, 166); // teal-600
       doc.setFont("helvetica", "bold");
-      doc.text("ZEVA CLINIC", 14, 20);
+      // doc.text("ZEVA CLINIC", 14, 20);
 
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139); // slate-500

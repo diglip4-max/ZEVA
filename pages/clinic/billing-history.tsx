@@ -138,7 +138,7 @@ const BillingHistoryPage = () => {
       doc.setFontSize(22);
       doc.setTextColor(20, 184, 166); // teal-600
       doc.setFont("helvetica", "bold");
-      doc.text("ZEVA CLINIC", 14, 20);
+      // doc.text("ZEVA CLINIC", 14, 20);
 
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139); // slate-500
@@ -261,6 +261,7 @@ const BillingHistoryPage = () => {
           item.invoiceNumber || '—',
           item.invoicedBy || '—',
           treatmentPackageDisplay,
+          item.doctorName || '—',
           discountDesc,
           offerDesc,
           formatCurrency(item.originalAmount || item.amount || 0),
@@ -283,7 +284,7 @@ const BillingHistoryPage = () => {
 
       autoTable(doc, {
         startY: 65,
-        head: [['Date', 'Invoice ID', 'Invoiced By', 'Treatment/Package', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'Claim Used', 'Pend.Cl Paid', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
+        head: [['Date', 'Invoice ID', 'Invoiced By', 'Treatment/Package', 'Doctor', 'Disc.', 'Offer Applied', 'Orig. Amt', 'Total', 'Paid', 'Pending', 'Adv.', 'Adv.Used', 'Claim Used', 'Pend.Cl Paid', 'PastAdv.', 'P.Adv.Used', 'Qty', 'Sess.', 'Method']],
         body: tableRows,
         theme: 'striped',
         headStyles: { 
@@ -293,9 +294,9 @@ const BillingHistoryPage = () => {
         },
         bodyStyles: { fontSize: 7 },
         columnStyles: {
-          4: { halign: 'center' },
-          5: { halign: 'left' },
-          6: { halign: 'right' },
+          4: { halign: 'left' },
+          5: { halign: 'center' },
+          6: { halign: 'left' },
           7: { halign: 'right' },
           8: { halign: 'right' },
           9: { halign: 'right' },
@@ -303,10 +304,12 @@ const BillingHistoryPage = () => {
           11: { halign: 'right' },
           12: { halign: 'right' },
           13: { halign: 'right' },
-          14: { halign: 'center' },
-          15: { halign: 'center' }
+          14: { halign: 'right' },
+          15: { halign: 'right' },
+          16: { halign: 'center' },
+          17: { halign: 'center' }
         },
-        margin: { top: 65, left: 10, right: 10 }
+        margin: { top: 65, left: 8, right: 8 }
       });
 
       // Summary Section
@@ -502,6 +505,7 @@ const BillingHistoryPage = () => {
                 <tr className="bg-gray-800 text-white text-xs uppercase tracking-wider">
                   <th className="px-4 py-3 text-left font-semibold">Invoice ID</th>
                   <th className="px-4 py-3 text-left font-semibold">Treatment/Package</th>
+                  <th className="px-4 py-3 text-left font-semibold">Doctor</th>
                   <th className="px-4 py-3 text-center font-semibold">Discount</th>
                   <th className="px-4 py-3 text-left font-semibold">Offer Applied</th>
                   <th className="px-4 py-3 text-right font-semibold">Original Amount</th>
@@ -523,7 +527,7 @@ const BillingHistoryPage = () => {
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={18} className="px-4 py-12">
+                    <td colSpan={19} className="px-4 py-12">
                       <div className="flex items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
                         <span className="text-sm text-gray-500">Loading billing history...</span>
@@ -532,7 +536,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan={18} className="px-4 py-12">
+                    <td colSpan={19} className="px-4 py-12">
                       <div className="text-center">
                         <div className="text-sm text-red-600 font-medium mb-2">{error}</div>
                         <button
@@ -546,7 +550,7 @@ const BillingHistoryPage = () => {
                   </tr>
                 ) : billingHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={18} className="px-4 py-12">
+                    <td colSpan={19} className="px-4 py-12">
                       <div className="text-center text-sm text-gray-500">
                         No billing history found for this appointment
                       </div>
@@ -637,6 +641,12 @@ const BillingHistoryPage = () => {
                               {billing.description}
                             </div>
                           )}
+                        </div>
+                      </td>
+                      {/* Doctor Column */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-xs text-gray-700">
+                          {billing.doctorName || '—'}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -977,6 +987,7 @@ const BillingHistoryPage = () => {
                 <tfoot>
                   <tr className="bg-gray-100 border-t-2 border-gray-300 text-xs font-bold">
                     <td className="px-4 py-3 text-gray-900">Totals</td>
+                    <td className="px-4 py-3"></td>
                     <td className="px-4 py-3"></td>
                     <td className="px-4 py-3"></td>
                     <td className="px-4 py-3 text-right text-gray-900">
