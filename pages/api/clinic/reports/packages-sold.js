@@ -70,6 +70,76 @@ export default async function handler(req, res) {
       if (Object.keys(match.invoicedDate).length === 0) delete match.invoicedDate;
     }
 
+    // Helper: build the comprehensive effectiveDepartmentId pipeline stages
+    // (service.departmentId -> treatmentServices[0].departmentId -> doctorDepartments[0].clinicDepartmentId)
+    // Mirrors the logic in package-performance.js so both endpoints report consistent stats
+    const buildDepartmentFilterStages = () => {
+      if (!departmentId) return [];
+      const deptObjId = new mongoose.Types.ObjectId(String(departmentId));
+      return [
+        {
+          $lookup: {
+            from: "doctordepartments",
+            localField: "effectiveDoctorId",
+            foreignField: "doctorId",
+            as: "doctorDepartments",
+          },
+        },
+        // Treatment names from selectedPackageTreatments or treatment field
+        {
+          $addFields: {
+            __treatmentNames: {
+              $cond: {
+                if: {
+                  $gt: [
+                    { $size: { $ifNull: ["$selectedPackageTreatments", []] } },
+                    0,
+                  ],
+                },
+                then: "$selectedPackageTreatments.treatmentName",
+                else: { $cond: { if: "$treatment", then: ["$treatment"], else: [] } },
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "services",
+            let: { tNames: "$__treatmentNames", clinicId: "$clinicId" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$clinicId", "$$clinicId"] },
+                      { $in: ["$name", "$$tNames"] },
+                    ],
+                  },
+                },
+              },
+              { $project: { departmentId: 1, name: 1, _id: 0 } },
+            ],
+            as: "treatmentServices",
+          },
+        },
+        {
+          $addFields: {
+            effectiveDepartmentId: {
+              $ifNull: [
+                "$service.departmentId",
+                { $arrayElemAt: ["$treatmentServices.departmentId", 0] },
+                { $arrayElemAt: ["$doctorDepartments.clinicDepartmentId", 0] },
+                null,
+              ],
+            },
+          },
+        },
+        {
+          $match: { effectiveDepartmentId: deptObjId },
+        },
+      ];
+    };
+
     const pipeline = [
       { $match: match },
       {
@@ -81,6 +151,16 @@ export default async function handler(req, res) {
         },
       },
       { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      // Lookup appointment's service (needed for service.departmentId)
+      {
+        $lookup: {
+          from: "services",
+          localField: "appointment.serviceId",
+          foreignField: "_id",
+          as: "service",
+        },
+      },
+      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
       {
         $addFields: {
           effectiveDoctorId: {
@@ -97,20 +177,7 @@ export default async function handler(req, res) {
     }
 
     if (departmentId) {
-      pipeline.push(
-        {
-          $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
-            foreignField: "_id",
-            as: "service",
-          },
-        },
-        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-        {
-          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-        }
-      );
+      pipeline.push(...buildDepartmentFilterStages());
     }
 
     if (salesStaffId) {
@@ -257,6 +324,15 @@ export default async function handler(req, res) {
       },
       { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "services",
+          localField: "appointment.serviceId",
+          foreignField: "_id",
+          as: "service",
+        },
+      },
+      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+      {
         $addFields: {
           effectiveDoctorId: {
             $ifNull: ["$doctorId", "$appointment.doctorId"]
@@ -272,20 +348,7 @@ export default async function handler(req, res) {
     }
 
     if (departmentId) {
-      countPipeline.push(
-        {
-          $lookup: {
-            from: "services",
-            localField: "appointment.serviceId",
-            foreignField: "_id",
-            as: "service",
-          },
-        },
-        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-        {
-          $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-        }
-      );
+      countPipeline.push(...buildDepartmentFilterStages());
     }
 
     if (salesStaffId) {
@@ -352,6 +415,15 @@ export default async function handler(req, res) {
         },
         { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
         {
+          $lookup: {
+            from: "services",
+            localField: "appointment.serviceId",
+            foreignField: "_id",
+            as: "service",
+          },
+        },
+        { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+        {
           $addFields: {
             effectiveDoctorId: {
               $ifNull: ["$doctorId", "$appointment.doctorId"]
@@ -368,20 +440,7 @@ export default async function handler(req, res) {
           }
         },
         ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
-        ...(departmentId ? [
-          {
-            $lookup: {
-              from: "services",
-              localField: "appointment.serviceId",
-              foreignField: "_id",
-              as: "service",
-            },
-          },
-          { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-          {
-            $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
-          }
-        ] : []),
+        ...(departmentId ? buildDepartmentFilterStages() : []),
         ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
         {
           $group: {
