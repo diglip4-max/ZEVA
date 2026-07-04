@@ -4,7 +4,7 @@ import os
 import json
 
 redis_client = redis.from_url(
-    os.getenv("REDIS_URL", "redis://localhost:6379"),
+    os.getenv("REDIS_AGENT_URL"),
     decode_responses=True,
     max_connections=10,
     protocol=2,
