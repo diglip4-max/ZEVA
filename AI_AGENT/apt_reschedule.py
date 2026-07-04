@@ -283,6 +283,11 @@ async def reschedule_apt(
             await redis_client.delete(cache_key)
         except redis.exceptions.RedisError as e:
             logger.error(f"Redis Error: {e}")
+        appointment = put_data.get("appointment") or {}
+        patient = appointment.get("patientId") or {}
+        doctor = appointment.get("doctorId") or {}
+        service = appointment.get("serviceId") or {}
+
         return {
             "Appointment Status": "Rescheduled",
             "Message": put_data.get("message", "Appointment rescheduled successfully."),
@@ -292,13 +297,12 @@ async def reschedule_apt(
             "placeholders": {
                 "newDate": startDate,
                 "newTime": fromTime,
-                "patient_name": f"{put_data.get("appointment").get("patientId").get("firstName")} {put_data.get("appointment").get("patientId").get("lastName")}",
-                "doctor_name": put_data.get("appointment").get("doctorId").get("name"),
-                "service_name": put_data.get("appointment")
-                .get("serviceId")
-                .get("name"),
+                "patient_name": f"{patient.get('firstName', '')} {patient.get('lastName', '')}".strip(),
+                "doctor_name": doctor.get("name", ""),
+                "service_name": service.get("name", ""),
             },
         }
+
     else:
         return {
             "Status": "Error",
