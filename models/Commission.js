@@ -4,7 +4,17 @@ const multiplePaymentSchema = new mongoose.Schema(
   {
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet"],
+      enum: [
+        "Cash",
+        "Card",
+        "BT",
+        "Tabby",
+        "Tamara",
+        "Advance Balance",
+        "Insurance Claim",
+        "Pending Claim",
+        "Cashback Wallet",
+      ],
       required: true,
     },
     amount: { type: Number, required: true, min: 0 },
@@ -14,18 +24,48 @@ const multiplePaymentSchema = new mongoose.Schema(
 
 const CommissionSchema = new mongoose.Schema(
   {
-    clinicId: { type: mongoose.Schema.Types.ObjectId, ref: "Clinic", required: true, index: true },
+    clinicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Clinic",
+      required: true,
+      index: true,
+    },
     // Source indicates who this commission is for
-    source: { type: String, enum: ["referral", "staff"], required: true, index: true },
+    source: {
+      type: String,
+      enum: ["referral", "staff", "product"],
+      required: true,
+      index: true,
+    },
     // Referral-based commission fields (optional depending on source)
-    referralId: { type: mongoose.Schema.Types.ObjectId, ref: "Referral", index: true },
+    referralId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Referral",
+      index: true,
+    },
     referralName: { type: String, trim: true },
     // Staff/doctor-based commission fields (optional depending on source)
     staffId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
-    commissionType: { type: String, enum: ["flat", "after_deduction", "target_based", "target_plus_expense"], default: "flat" },
-    appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment", required: true },
-    patientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration", required: true },
-    billingId: { type: mongoose.Schema.Types.ObjectId, ref: "Billing", required: true },
+
+    // Product-based commission fields (optional depending on source)
+    productSaleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ProductSale",
+      index: true,
+    },
+
+    commissionType: {
+      type: String,
+      enum: ["flat", "after_deduction", "target_based", "target_plus_expense"],
+      default: "flat",
+    },
+    appointmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Appointment" },
+    patientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PatientRegistration",
+      required: true,
+    },
+    billingId: { type: mongoose.Schema.Types.ObjectId, ref: "Billing" },
     commissionPercent: { type: Number, min: 0, max: 100, required: true },
     amountPaid: { type: Number, min: 0, required: true },
     commissionAmount: { type: Number, min: 0, required: true },
@@ -50,31 +90,52 @@ const CommissionSchema = new mongoose.Schema(
     // Post-commission expense fields
     commissionBaseAmount: { type: Number, min: 0, default: 0 }, // Base amount used for commission (paidAmount - billing expenses). Stored once at billing time.
     postCommissionExpenses: {
-      type: [{ name: { type: String }, price: { type: Number }, addedAt: { type: Date, default: Date.now } }],
+      type: [
+        {
+          name: { type: String },
+          price: { type: Number },
+          addedAt: { type: Date, default: Date.now },
+        },
+      ],
       default: [],
     }, // Additional expenses added after commission was calculated
     finalCommissionAmount: { type: Number, min: 0, default: 0 }, // Recalculated commission after post-commission expenses. Initially equals commissionAmount.
     // Submission & approval workflow
     isSubmitted: { type: Boolean, default: false }, // Clinic marks individual commission as submitted/selected (tick in detail modal)
-    isApproved: { type: Boolean, default: false },  // Clinic approves the batch after submitting (approve button on summary row)
+    isApproved: { type: Boolean, default: false }, // Clinic approves the batch after submitting (approve button on summary row)
     // Payment method and bank deduction details
-    paymentMethod: { type: String, enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"] },
+    paymentMethod: {
+      type: String,
+      // enum: [
+      //   "Cash",
+      //   "Card",
+      //   "BT",
+      //   "Tabby",
+      //   "Tamara",
+      //   "Advance Balance",
+      //   "Insurance Claim",
+      //   "Pending Claim",
+      //   "Cashback Wallet",
+      //   "Package Full Paid",
+      // ],
+    },
     multiplePayments: [multiplePaymentSchema],
-    bankDeduction: { 
+    bankDeduction: {
       enabled: Boolean,
       type: { type: String, enum: ["flat", "percentage"] },
       value: Number,
       applyOn: { type: String, enum: ["paid", "earned"] },
-      deductionAmount: Number
+      deductionAmount: Number,
     },
     // Referral commission deducted from paid amount before calculating staff/doctor commission
-    referralCommissionDeducted: { type: Number, min: 0, default: 0 }
+    referralCommissionDeducted: { type: Number, min: 0, default: 0 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 CommissionSchema.index({ clinicId: 1, source: 1, billingId: 1 });
 CommissionSchema.index({ clinicId: 1, createdAt: -1 });
 
 delete mongoose.models.Commission;
-export default mongoose.models.Commission || mongoose.model("Commission", CommissionSchema);
+export default mongoose.models.Commission ||
+  mongoose.model("Commission", CommissionSchema);
