@@ -52,9 +52,19 @@ async def check_patient(state: AppointmentState):
     if not data:
         header = get_header(state["clinicToken"])
         url = f"{AGENT_URL}/api/clinic/patient-information"
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=header)
-        data = resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
+                resp = await client.get(url, headers=header)
+                resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            return {
+                "patientExists": False,
+                "patients": [],
+                "patientId": "",
+                "Status": "Error",
+                "errorMessage": f"Patient list API error: {str(e)}",
+            }
         if data.get("success"):
             await set_cache(cache_key, data, 300)
 
@@ -140,11 +150,19 @@ async def register_patient(state: AppointmentState):
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{AGENT_URL}/api/clinic/patient-registration",
-                json=payload,
-                headers=header,
-            )
+            try:
+                response = await client.post(
+                    f"{AGENT_URL}/api/clinic/patient-registration",
+                    json=payload,
+                    headers=header,
+                )
+            except httpx.RequestError as e:
+                return {
+                    "patientExists": False,
+                    "Status": "Error",
+                    "errorMessage": f"Patient registration request error: {str(e)}",
+                }
+
         data = response.json()
 
         if response.status_code in [200, 201] and data.get("success"):
@@ -175,10 +193,20 @@ async def check_doctor(state: AppointmentState) -> dict:
     if not data:
         header = get_header(state["clinicToken"])
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{AGENT_URL}/api/lead-ms/get-agents-options?role=doctorStaff",
-                headers=header,
-            )
+            try:
+                resp = await client.get(
+                    f"{AGENT_URL}/api/lead-ms/get-agents-options?role=doctorStaff",
+                    headers=header,
+                )
+            except httpx.RequestError as e:
+                return {
+                    "doctorExists": False,
+                    "doctors": [],
+                    "selectedDoctorId": "",
+                    "Status": "Error",
+                    "errorMessage": f"Doctor list request error: {str(e)}",
+                }
+
         data = resp.json()
         if data.get("success"):
             await set_cache(cache_key, data, 300)
@@ -211,16 +239,26 @@ async def check_treatments(state: AppointmentState) -> dict:
         data = cached
     else:
         header = get_header(state["clinicToken"])
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(30.0), headers=header
-        ) as client:
-            services = await _fetch_all_pages(
-                client,
-                url_fn=lambda p: f"{AGENT_URL}/api/clinic/services?page={p}&limit=20",
-                data_extractor=lambda d: d.get("services", []),
-                has_more_fn=lambda d: bool(d.get("pagination", {}).get("hasMore")),
-                page_size=20,
-            )
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0),
+                headers=header,
+            ) as client:
+                services = await _fetch_all_pages(
+                    client,
+                    url_fn=lambda p: f"{AGENT_URL}/api/clinic/services?page={p}&limit=20",
+                    data_extractor=lambda d: d.get("services", []),
+                    has_more_fn=lambda d: bool(d.get("pagination", {}).get("hasMore")),
+                    page_size=20,
+                )
+        except Exception as e:
+            return {
+                "treatmentExists": False,
+                "treatments": {"success": False, "services": []},
+                "selectedTreatment": "",
+                "Status": "Error",
+                "errorMessage": f"Treatment list API error: {str(e)}",
+            }
         data = {"success": True, "services": services}
         await set_cache(cache_key, data, 300)
 
@@ -311,13 +349,19 @@ async def book_appointment(state: AppointmentState):
         "toTime": state["toTime"],
     }
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{AGENT_URL}/api/clinic/appointments",
-            json=payload,
-            headers=header,
-        )
-    data = response.json()
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
+            response = await client.post(
+                f"{AGENT_URL}/api/clinic/appointments",
+                json=payload,
+                headers=header,
+            )
+        data = response.json()
+    except Exception as e:
+        return {
+            "Status": "Error",
+            "Message": f"Appointment booking API error: {str(e)}",
+        }
 
     if data.get("success"):
         appt = data.get("appointment", {})
