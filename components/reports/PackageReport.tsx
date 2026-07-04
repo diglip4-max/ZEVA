@@ -93,6 +93,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   // Default selected month to the month of startDate
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const date = new Date(startDate);
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleString('default', { month: 'short' });
   });
   const { paymentMethods } = usePaymentMethod();
@@ -100,6 +101,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   // Update selectedMonth when startDate changes
   useEffect(() => {
     const date = new Date(startDate);
+    if (isNaN(date.getTime())) return;
     setSelectedMonth(date.toLocaleString('default', { month: 'short' }));
   }, [startDate]);
 
@@ -235,11 +237,18 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
   // Fetch the unfiltered overview used by sections that must stay independent
   // of the dashboard filters: Revenue Trend, Payment Status, Doctor Leaderboard
-  // and Sales Staff. Only the date range (+ clinic scope) is sent — never the
-  // Department/Doctor/Sales-Staff/Payment filters.
+  // and Sales Staff. Leaderboards always use the full month of startDate so they
+  // never appear empty when a single day has no data.
   async function fetchOverview() {
     try {
-      const params: any = { startDate, endDate, limit: "10" };
+      // Compute month-wide dates for the leaderboards
+      const startD = new Date(startDate);
+      if (isNaN(startD.getTime())) return; // Guard against invalid startDate
+      const monthStart = new Date(startD.getFullYear(), startD.getMonth(), 1);
+      const monthEnd = new Date(startD.getFullYear(), startD.getMonth() + 1, 0);
+      const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+      const params: any = { startDate: fmt(monthStart), endDate: fmt(monthEnd), limit: "10" };
       if (selectedClinic) params.clinicId = selectedClinic;
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(`/api/clinic/reports/package-performance?${qs}`, { headers });
@@ -573,39 +582,78 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     ];
   }, [selectedMonthData]);
 
-  // Use real data from API (overview, filter-independent), fall back to static data if empty
-  const doctorLeaderboardData = effectiveDoctorLeaderboard.length > 0 ? effectiveDoctorLeaderboard : [
-    { rank: 1, initials: "SA", name: "Dr. Sara Al-Rashid", packages: 142, revenue: 198000 },
-    { rank: 2, initials: "OH", name: "Dr. Omar Hassan", packages: 118, revenue: 165000 },
-    { rank: 3, initials: "LK", name: "Dr. Layla Khalid", packages: 96, revenue: 134000 },
-    { rank: 4, initials: "AN", name: "Dr. Ahmed Nour", packages: 84, revenue: 118000 },
-    { rank: 5, initials: "FS", name: "Dr. Fatima Saeed", packages: 71, revenue: 99000 },
-  ];
+  // Build the Top 5 doctor leaderboard for the selected month.
+  //
+  // Uses the same month-wise logic as the Sales Staff Leaderboard.
+  // The API returns totalPackages/totalRevenue aggregated across ALL months,
+  // so we extract only the selected month's data from monthWiseData.
+  // This ensures the leaderboard shows only doctors with sales in the selected calendar month.
+  const topDoctorLeaderboardData = useMemo(() => {
+    const monthData = (effectiveDoctorLeaderboard || [])
+      .map((doc: any) => {
+        // Find the entry in monthWiseData that matches the selected month
+        const monthEntry = (doc.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        if (!monthEntry) return null;
+        
+        return {
+          ...doc,
+          name: doc.name || "Unknown Doctor",
+          packages: monthEntry.packages || 0,
+          revenue: monthEntry.revenue || 0,
+          monthWiseData: doc.monthWiseData || [],
+        };
+      })
+      .filter((doc: any) => doc !== null && ((doc.packages || 0) > 0 || (doc.revenue || 0) > 0));
+    
+    return monthData
+      .sort((a: any, b: any) => {
+        const packagesDiff = (b.packages || 0) - (a.packages || 0);
+        if (packagesDiff !== 0) return packagesDiff;
+        return (b.revenue || 0) - (a.revenue || 0);
+      })
+      .slice(0, 5)
+      .map((doc: any, index: number) => ({
+        ...doc,
+        rank: index + 1,
+        initials: doc.name
+          ? doc.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+          : "UD",
+      }));
+  }, [effectiveDoctorLeaderboard, selectedMonth]);
 
-  // Build the Top 5 sales staff leaderboard for the selected period.
+  // Build the Top 5 sales staff leaderboard for the selected month.
   //
-  // Sourced directly from the "Sold By" field (`packages.packageSoldBy`), which
-  // captures the seller's name when the package is created. The data comes from
-  // the filter-independent overview fetch, so it reflects the selected date
-  // range only (never the Department/Doctor/Sales-Staff/Payment filters).
+  // The API returns totalRevenue/totalPackagesSold aggregated across ALL months,
+  // which causes incorrect data (e.g., Sarthak appearing in July when his sales
+  // are in June, or Esha showing ₹1833 instead of ₹1333 for July).
   //
-  // Staff with zero package sales/revenue for the period are excluded, then we
-  // rank by highest total revenue (packages sold as a tie-breaker) and cap at 5.
+  // Fix: Use the selected month's data from monthWiseData instead of the totals.
+  // This ensures the leaderboard shows only the selected calendar month's data.
   const topSalesStaffData = useMemo(() => {
-    return (effectiveSalesStaffLeaderboard || [])
-      .filter((s: any) => (s.totalPackagesSold || 0) > 0 || (s.totalRevenue || 0) > 0)
-      .map((s: any) => ({
-        ...s,
-        name: s.name || "Unknown",
-        monthWiseData: s.monthWiseData || [],
-      }))
+    const monthData = (effectiveSalesStaffLeaderboard || [])
+      .map((s: any) => {
+        // Find the entry in monthWiseData that matches the selected month
+        const monthEntry = (s.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        if (!monthEntry) return null;
+        
+        return {
+          ...s,
+          name: s.name || "Unknown",
+          totalPackagesSold: monthEntry.totalPackagesSold || 0,
+          totalRevenue: monthEntry.totalRevenue || 0,
+          monthWiseData: s.monthWiseData || [],
+        };
+      })
+      .filter((s: any) => s !== null && ((s.totalPackagesSold || 0) > 0 || (s.totalRevenue || 0) > 0));
+    
+    return monthData
       .sort((a: any, b: any) => {
         const revenueDiff = (b.totalRevenue || 0) - (a.totalRevenue || 0);
         if (revenueDiff !== 0) return revenueDiff;
         return (b.totalPackagesSold || 0) - (a.totalPackagesSold || 0);
       })
       .slice(0, 5);
-  }, [effectiveSalesStaffLeaderboard]);
+  }, [effectiveSalesStaffLeaderboard, selectedMonth]);
 
   // Use real department revenue data from API, fall back to static data if empty
   const finalDepartmentRevenueData = departmentRevenueData.length > 0 ? departmentRevenueData : [
@@ -812,7 +860,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <div className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white">
-                📅 {new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - {new Date(endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                📅 {!isNaN(new Date(startDate).getTime()) ? new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : 'Invalid Date'} - {!isNaN(new Date(endDate).getTime()) ? new Date(endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : 'Invalid Date'}
               </div>
               <ExportButtons 
                 sections={packageExportSections} 
@@ -887,7 +935,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Departments
+                        Select Departments
                       </button>
                       {departments.map((dept) => (
                         <button
@@ -902,7 +950,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         >
                           {dept.name}
                         </button>
-                      ))}
+                      ))}                                                                   
                     </div>
                   </div>
                 )}
@@ -931,10 +979,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         onClick={() => {
                           setSelectedDoctor(null);
                           setActiveFilter(null);
+                          
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Doctors
+                        Select Doctors
                       </button>
                       {doctors.map((doc) => (
                         <button
@@ -978,7 +1027,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Sales Staff
+                        Select Sales Staff
                       </button>
                       {salesStaff.map((staff) => (
                         <button
@@ -994,7 +1043,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                           {staff.name}
                         </button>
                       ))}
-                    </div>
+                    </div>                                                                                                                                                                                                       
                   </div>
                 )}
               </div>
@@ -1022,7 +1071,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Payment Statuses
+                        Select Payment Status
                       </button>
                       {paymentMethods.map((pm) => (
                         <button
@@ -1065,7 +1114,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
           {kpiCards.map((card, index) => (
             <div key={index} className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
               <div className="flex items-start justify-between">
@@ -1114,7 +1163,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Revenue Trend</h3>
-                <p className="text-xs text-gray-500">Monthly actual vs. target · {new Date(startDate).getFullYear()}</p>
+                <p className="text-xs text-gray-500">Monthly actual vs. target · {!isNaN(new Date(startDate).getTime()) ? new Date(startDate).getFullYear() : 'N/A'}</p>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1">
@@ -1286,7 +1335,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               </div>
             </div>
             <div className="space-y-3">
-              {doctorLeaderboardData.slice(0, 5).map((doc: any, index) => (
+              {topDoctorLeaderboardData.map((doc: any, index) => (
                 <div key={index}>
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
                     const details = document.getElementById(`doctor-details-${index}`);
@@ -1300,7 +1349,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                      <p className="text-xs text-gray-500">{doc.department || "Other"}</p>
+                      {/* <p className="text-xs text-gray-500">{doc.packagename || "Other"}</p> */}
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">{doc.packages}</p>
@@ -1510,10 +1559,10 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 </div>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-gray-600">Avg Package Value</span>
-                <div className="text-right">
+                {/* <span className="text-sm text-gray-600">Avg Package Value</span> */}
+                {/* <div className="text-right">
                   <span className="text-sm font-semibold text-emerald-600">{formatCurrency(metrics.avgPackageValue)}</span>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
