@@ -696,7 +696,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const metrics = useMemo(() => {
     const summary = packagesSoldSummary;
     const prevSummary = packagesSoldPreviousSummary;
-    const topSummary = topPackagesSummary;
+    // const topSummary = topPackagesSummary;
     const prevTopSummary = topPackagesPreviousSummary;
 
     // When NO filter is active, sum BOTH Doctor Leaderboard (Billing) and Sales Staff (PatientRegistration)
@@ -745,10 +745,10 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }, 0);
     // Doctor leaderboard doesn't have paid/partially paid/unpaid breakdown, so these are 0
     const doctorPaidPackages = 0;
-    const doctorPartiallyPaid = 0;
-    const doctorUnpaidPackages = 0;
-    const doctorTotalPaid = 0; // Will use revenue as approximation
-    const doctorTotalPending = 0;
+    // const doctorPartiallyPaid = 0;
+    // const doctorUnpaidPackages = 0;
+    // const doctorTotalPaid = 0; // Will use revenue as approximation
+    // const doctorTotalPending = 0;
     
     // Calculate sales staff totals inline
     // Use overviewSalesStaffLeaderboard (from package-performance API) which matches the Sales Staff UI section
@@ -1047,41 +1047,41 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages, combinedSummary, overviewCombinedSummary, selectedDoctor, selectedDepartment, selectedSalesStaff, selectedClinic, selectedPaymentMethod, doctorLeaderboard, overviewDoctorLeaderboard, salesStaff, overviewSalesStaffLeaderboard, selectedMonth]);
 
   // Calculate total sales staff KPIs
-  const salesStaffMetrics = useMemo(() => {
-    const filtered = selectedSalesStaff 
-      ? salesStaff.filter(s => s.staffId === selectedSalesStaff) 
-      : salesStaff;
-    const totals = filtered.reduce(
-      (acc, staff) => ({
-        totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
-        totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
-        totalPaid: acc.totalPaid + (staff.totalPaid || 0),
-        totalPending: acc.totalPending + (staff.totalPending || 0),
-        paidPackages: acc.paidPackages + (staff.paidPackages || 0),
-        partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
-        unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
-      }),
-      {
-        totalPackagesSold: 0,
-        totalRevenue: 0,
-        totalPaid: 0,
-        totalPending: 0,
-        paidPackages: 0,
-        partiallyPaidPackages: 0,
-        unpaidPackages: 0,
-      }
-    );
+  // const salesStaffMetrics = useMemo(() => {
+  //   const filtered = selectedSalesStaff 
+  //     ? salesStaff.filter(s => s.staffId === selectedSalesStaff) 
+  //     : salesStaff;
+  //   const totals = filtered.reduce(
+  //     (acc, staff) => ({
+  //       totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
+  //       totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
+  //       totalPaid: acc.totalPaid + (staff.totalPaid || 0),
+  //       totalPending: acc.totalPending + (staff.totalPending || 0),
+  //       paidPackages: acc.paidPackages + (staff.paidPackages || 0),
+  //       partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
+  //       unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
+  //     }),
+  //     {
+  //       totalPackagesSold: 0,
+  //       totalRevenue: 0,
+  //       totalPaid: 0,
+  //       totalPending: 0,
+  //       paidPackages: 0,
+  //       partiallyPaidPackages: 0,
+  //       unpaidPackages: 0,
+  //     }
+  //   );
 
-    return {
-      totalPackagesSold: totals.totalPackagesSold,
-      totalRevenue: totals.totalRevenue,
-      paidRevenue: totals.totalPaid,
-      outstanding: totals.totalPending,
-      paidPackages: totals.paidPackages,
-      partiallyPaid: totals.partiallyPaidPackages,
-      unpaidPackages: totals.unpaidPackages,
-    };
-  }, [salesStaff, selectedSalesStaff]);
+  //   return {
+  //     totalPackagesSold: totals.totalPackagesSold,
+  //     totalRevenue: totals.totalRevenue,
+  //     paidRevenue: totals.totalPaid,
+  //     outstanding: totals.totalPending,
+  //     paidPackages: totals.paidPackages,
+  //     partiallyPaid: totals.partiallyPaidPackages,
+  //     unpaidPackages: totals.unpaidPackages,
+  //   };
+  // }, [salesStaff, selectedSalesStaff]);
 
   // These sections must stay independent of the dashboard filters, so they use
   // the dedicated overview fetch (date range + clinic scope only), falling back
