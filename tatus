@@ -1,0 +1,78 @@
+components/reports/PackageReport.tsx:205: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:208: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:211: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:232: trailing whitespace.
+[32m+[m[41m            [m
+components/reports/PackageReport.tsx:250: trailing whitespace.
+[32m+[m[41m            [m
+components/reports/PackageReport.tsx:268: trailing whitespace.
+[32m+[m[41m            [m
+components/reports/PackageReport.tsx:286: trailing whitespace.
+[32m+[m[41m            [m
+components/reports/PackageReport.tsx:305: trailing whitespace.
+[32m+[m[41m        [m
+components/reports/PackageReport.tsx:309: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:317: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:319: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:321: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:325: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:327: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:334: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:336: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:338: trailing whitespace.
+[32m+[m[32m      console.log('DEBUG KPI Click - Current Metrics:', {[m[41m [m
+components/reports/PackageReport.tsx:341: trailing whitespace.
+[32m+[m[32m        outstanding: currentMetrics.outstanding[m[41m [m
+components/reports/PackageReport.tsx:343: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:348: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:354: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:356: trailing whitespace.
+[32m+[m[32m      const validPackages = soldPackages.filter((p: any) =>[m[41m [m
+components/reports/PackageReport.tsx:359: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:361: trailing whitespace.
+[32m+[m[41m      [m
+components/reports/PackageReport.tsx:376: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:390: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:404: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:419: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:432: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:447: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:460: trailing whitespace.
+[32m+[m[41m          [m
+components/reports/PackageReport.tsx:465: trailing whitespace.
+[32m+[m[41m      [m
+pages/api/clinic/reports/packages-sold.js:186: trailing whitespace.
+[32m+[m[41m      [m
+pages/api/clinic/reports/packages-sold.js:398: trailing whitespace.
+[32m+[m[41m    [m
+pages/api/clinic/reports/packages-sold.js:449: trailing whitespace.
+[32m+[m[41m      [m
+pages/api/clinic/reports/packages-sold.js:472: trailing whitespace.
+[32m+[m[41m    [m
+pages/api/clinic/reports/packages-sold.js:510: trailing whitespace.
+[32m+[m[41m      [m
+pages/api/clinic/reports/packages-sold.js:514: trailing whitespace.
+[32m+[m[32m        return isValidObjectId[m[41m [m
+pages/api/clinic/reports/packages-sold.js:518: trailing whitespace.
+[32m+[m[41m      [m

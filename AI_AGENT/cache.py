@@ -13,6 +13,7 @@ redis_client = redis.from_url(
     protocol=2,
 )
 
+
 async def get_cache(key: str) -> dict | None:
     try:
         data = await redis_client.get(key)
