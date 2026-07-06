@@ -79,7 +79,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [salesStaff, setSalesStaff] = useState<any[]>([]);
   const [salesStaffLeaderboard, setSalesStaffLeaderboard] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [_combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
+  const [combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
+  const [overviewCombinedSummary, setOverviewCombinedSummary] = useState<any>(null); // Unfiltered overview summary
   const [doctorLeaderboard, setDoctorLeaderboard] = useState<any[]>([]);
   const [departmentRevenueData, setDepartmentRevenueData] = useState<any[]>([]);
   const [lifecycleSummary, setLifecycleSummary] = useState<any>(null);
@@ -128,7 +129,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   async function fetchSalesStaff() {
     try {
       // Fetch sales staff performance data
-      const params: any = { startDate, endDate, limit: "10" };
+      const params: any = { startDate, endDate, limit: "1000" };
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(`/api/clinic/reports/sales-staff-performance?${qs}`, { headers });
       const json = await res.json();
@@ -156,6 +157,34 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             unpaidPackages: performance?.unpaidPackages || 0
           };
         });
+        
+        // Also include entries with null staffId (packages assigned by doctors or other means)
+        // These are packages without packageSoldByUserId set
+        const nullStaffEntries = performanceData.filter((p: any) => !p.staffId || p.staffId === null || p.staffId === "null");
+        if (nullStaffEntries.length > 0) {
+          const nullStaffTotals = nullStaffEntries.reduce((acc: any, entry: any) => ({
+            totalPackagesSold: acc.totalPackagesSold + (entry.totalPackagesSold || 0),
+            totalRevenue: acc.totalRevenue + (entry.totalRevenue || 0),
+            totalPaid: acc.totalPaid + (entry.totalPaid || 0),
+            totalPending: acc.totalPending + (entry.totalPending || 0),
+            paidPackages: acc.paidPackages + (entry.paidPackages || 0),
+            partiallyPaidPackages: acc.partiallyPaidPackages + (entry.partiallyPaidPackages || 0),
+            unpaidPackages: acc.unpaidPackages + (entry.unpaidPackages || 0),
+          }), {
+            totalPackagesSold: 0,
+            totalRevenue: 0,
+            totalPaid: 0,
+            totalPending: 0,
+            paidPackages: 0,
+            partiallyPaidPackages: 0,
+            unpaidPackages: 0,
+          });
+          combinedData.push({
+            staffId: "__null_staff__",
+            name: "Other/Doctor Assigned",
+            ...nullStaffTotals
+          });
+        }
         
         setSalesStaff(combinedData);
       }
@@ -257,21 +286,24 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         setOverviewMonthlyRevenue([]);
         setOverviewDoctorLeaderboard([]);
         setOverviewSalesStaffLeaderboard([]);
+        setOverviewCombinedSummary(null);
         return;
       }
       setOverviewMonthlyRevenue(json.monthlyRevenue || []);
       setOverviewDoctorLeaderboard(json.doctorLeaderboard || []);
       setOverviewSalesStaffLeaderboard(json.salesStaffLeaderboard || []);
+      setOverviewCombinedSummary(json.combinedSummary || null);
     } catch (e) {
       console.error("Error fetching overview:", e);
       setOverviewMonthlyRevenue([]);
       setOverviewDoctorLeaderboard([]);
       setOverviewSalesStaffLeaderboard([]);
+      setOverviewCombinedSummary(null);
     }
   }
 
   async function fetchPackagesSold(p = 1) {
-    const params: any = { startDate, endDate, page: String(p), limit: "20" };
+    const params: any = { startDate, endDate, page: String(p), limit: "1000" };
     if (selectedDepartment) params.departmentId = selectedDepartment;
     if (selectedDoctor) params.doctorId = selectedDoctor;
     if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
@@ -289,6 +321,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
     setSoldRows(json.data || []);
     setPackagesSoldSummary(json.summary || null);
+    console.log('fetchPackagesSold response:', { summary: json.summary, dataLength: json.data?.length });
     setPackagesSoldPreviousSummary(json.previousSummary || null);
     setHasNext(Boolean(json.pagination?.hasNext));
     setTotalPages(json.pagination?.totalPages || 1);
@@ -388,24 +421,233 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     const topSummary = topPackagesSummary;
     const prevTopSummary = topPackagesPreviousSummary;
 
-    const totalPackagesSold = summary?.totalPackagesSold ?? soldRows.length;
-    const prevTotalPackagesSold = prevSummary?.totalPackagesSold ?? 0;
-    const totalRevenue = topSummary?.totalRevenue ?? rows.reduce((sum, r) => sum + (r.totalRevenue || 0), 0);
+    // When NO filter is active, sum BOTH Doctor Leaderboard (Billing) and Sales Staff (PatientRegistration)
+    // to show the total of all packages regardless of attribution.
+    // When a filter IS active, use combinedSummary since filters apply to Billing data.
+    const hasAnyFilter = selectedDoctor || selectedDepartment || selectedSalesStaff || selectedClinic || selectedPaymentMethod;
+    
+    // Calculate totals from Doctor Leaderboard (Billing collection, grouped by doctor)
+    // Note: doctorLeaderboard has 'packages' and 'revenue' fields, but NOT payment status breakdown
+    // Use overviewDoctorLeaderboard if available (matches what's shown in UI), else doctorLeaderboard
+    // IMPORTANT: Only count packages for the SELECTED MONTH, not all months
+    let doctorLeaderboardData = overviewDoctorLeaderboard.length > 0 ? overviewDoctorLeaderboard : doctorLeaderboard;
+    
+    // Filter by selected doctor if doctor filter is active
+    if (selectedDoctor) {
+      // Find the doctor name from the doctors array (selectedDoctor is an ID, not a name)
+      const selectedDoctorObj = doctors.find(d => d._id === selectedDoctor);
+      const selectedDoctorName = selectedDoctorObj?.name || (selectedDoctorObj?.firstName && selectedDoctorObj?.lastName ? `${selectedDoctorObj.firstName} ${selectedDoctorObj.lastName}` : null);
+      
+      if (selectedDoctorName) {
+        doctorLeaderboardData = doctorLeaderboardData.filter(d => d.name === selectedDoctorName);
+      } else {
+        // If we can't find the name, filter by ID if available in the data
+        doctorLeaderboardData = doctorLeaderboardData.filter(d => d._id === selectedDoctor || d.doctorId === selectedDoctor);
+      }
+    }
+    
+    console.log('DEBUG doctorLeaderboardData:', doctorLeaderboardData);
+    console.log('DEBUG selectedDoctor:', selectedDoctor);
+    console.log('DEBUG selectedMonth:', selectedMonth);
+    console.log('DEBUG individual doctor revenues:', doctorLeaderboardData.map(d => {
+      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+      return { name: d.name, monthRevenue: monthEntry?.revenue || 0, totalRevenue: d.revenue || 0 };
+    }));
+    
+    const doctorTotalPackages = doctorLeaderboardData.reduce((sum: number, d: any) => {
+      // Find the entry for the selected month in monthWiseData
+      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+      console.log('DEBUG doctor monthEntry:', { doctor: d.name, selectedMonth, monthEntry, fallback: d.packages });
+      return sum + (monthEntry?.packages || d.packages || 0);
+    }, 0);
+    const doctorTotalRevenue = doctorLeaderboardData.reduce((sum: number, d: any) => {
+      // Find the entry for the selected month in monthWiseData
+      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+      return sum + (monthEntry?.revenue || d.revenue || 0);
+    }, 0);
+    // Doctor leaderboard doesn't have paid/partially paid/unpaid breakdown, so these are 0
+    const doctorPaidPackages = 0;
+    const doctorPartiallyPaid = 0;
+    const doctorUnpaidPackages = 0;
+    const doctorTotalPaid = 0; // Will use revenue as approximation
+    const doctorTotalPending = 0;
+    
+    // Calculate sales staff totals inline
+    // Use overviewSalesStaffLeaderboard (from package-performance API) which matches the Sales Staff UI section
+    // This includes all sales staff who have invoiced packages, not just registered agents
+    const salesStaffData = overviewSalesStaffLeaderboard.length > 0 ? overviewSalesStaffLeaderboard : salesStaff;
+    
+    const salesStaffFiltered = selectedSalesStaff 
+      ? salesStaffData.filter(s => s.staffId === selectedSalesStaff || s.name === selectedSalesStaff) 
+      : salesStaffData;
+    
+    console.log('DEBUG salesStaffData:', salesStaffData);
+    console.log('DEBUG salesStaffFiltered:', salesStaffFiltered);
+    console.log('DEBUG individual sales staff revenues:', salesStaffFiltered.map(s => ({ name: s.name, totalRevenue: s.totalRevenue, totalPaid: s.totalPaid })));
+    
+    const salesStaffTotals = salesStaffFiltered.reduce(
+      (acc, staff) => {
+        // Find the entry for the selected month in monthWiseData
+        const monthEntry = (staff.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        
+        return {
+          totalPackagesSold: acc.totalPackagesSold + (monthEntry?.totalPackagesSold || staff.totalPackagesSold || 0),
+          totalRevenue: acc.totalRevenue + (monthEntry?.totalRevenue || staff.totalRevenue || 0),
+          totalPaid: acc.totalPaid + (monthEntry?.totalRevenue || staff.totalRevenue || 0),  // Use revenue as paid
+          totalPending: acc.totalPending + (staff.totalPending || 0),
+          paidPackages: acc.paidPackages + (staff.paidPackages || 0),
+          partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
+          unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
+        };
+      },
+      {
+        totalPackagesSold: 0,
+        totalRevenue: 0,
+        totalPaid: 0,
+        totalPending: 0,
+        paidPackages: 0,
+        partiallyPaidPackages: 0,
+        unpaidPackages: 0,
+      }
+    );
+    
+    console.log('Doctor Leaderboard totals:', { doctorTotalPackages, doctorTotalRevenue, doctorPaidPackages });
+    console.log('Sales Staff totals:', salesStaffTotals);
+    
+    // Primary source depends on whether filters are active
+    let primarySource: any = null;
+    let useSalesStaffSum = false;
+    
+    if (!hasAnyFilter) {
+      // No filter: use Sales Staff totals as single source of truth
+      useSalesStaffSum = true;
+    } else if (selectedDoctor) {
+      // Doctor filter: use filtered doctor leaderboard data
+      // Get doctor name for matching with sales staff data
+      const selectedDoctorObj = doctors.find(d => d._id === selectedDoctor);
+      const selectedDoctorName = selectedDoctorObj?.name || doctors.find(d => `${d.firstName || ''} ${d.lastName || ''}`.trim() === selectedDoctor)?.name || '';
+      
+      console.log('DEBUG doctor filter:', { 
+        selectedDoctor, 
+        selectedDoctorName, 
+        doctorsList: doctors.map(d => ({ id: d._id, name: d.name })),
+        salesStaffDataList: salesStaffData.map(s => ({ name: s.name, staffId: s.staffId, unpaidPackages: s.unpaidPackages, totalPending: s.totalPending }))
+      });
+      
+      // Get sales staff data for this doctor to calculate unpaid packages
+      // Use salesStaffData (from overviewSalesStaffLeaderboard) which has correct names
+      const doctorSalesStaffData = selectedDoctorName 
+        ? salesStaffData.filter(s => s.name === selectedDoctorName)
+        : [];
+      
+      console.log('DEBUG doctor sales staff data:', { doctorSalesStaffData });
+      
+      const doctorUnpaidFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.unpaidPackages || 0), 0);
+      const doctorPendingFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.totalPending || 0), 0);
+      const doctorPartiallyPaidFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.partiallyPaidPackages || 0), 0);
+      
+      console.log('DEBUG doctor unpaid/pending:', { doctorUnpaidFromSalesStaff, doctorPendingFromSalesStaff, doctorPartiallyPaidFromSalesStaff });
+      
+      primarySource = {
+        totalPackagesSold: doctorTotalPackages + doctorUnpaidFromSalesStaff,  // Include unpaid packages in total count
+        totalRevenue: doctorTotalRevenue,
+        totalPaid: doctorTotalRevenue,  // Use revenue as paid for doctor
+        totalPending: doctorPendingFromSalesStaff,
+        paidPackages: doctorTotalPackages - doctorPartiallyPaidFromSalesStaff,  // Billed packages minus partially paid
+        partiallyPaid: doctorPartiallyPaidFromSalesStaff,
+        unpaidPackages: doctorUnpaidFromSalesStaff,
+      };
+    } else if (selectedSalesStaff) {
+      // Sales Staff filter: use filtered sales staff data
+      primarySource = {
+        totalPackagesSold: salesStaffTotals.totalPackagesSold,
+        totalRevenue: salesStaffTotals.totalRevenue,
+        totalPaid: salesStaffTotals.totalPaid,
+        totalPending: salesStaffTotals.totalPending,
+        paidPackages: salesStaffTotals.paidPackages,
+        partiallyPaid: salesStaffTotals.partiallyPaidPackages,
+        unpaidPackages: salesStaffTotals.unpaidPackages,
+      };
+    } else {
+      // Other filters (department, clinic, payment method): use combinedSummary
+      primarySource = combinedSummary || {
+        totalPackages: 0,
+        totalPackagesSold: 0,
+        totalPaid: 0,
+        totalPending: 0,
+        paidPackages: 0,
+        partiallyPaid: 0,
+        unpaidPackages: 0,
+      };
+    }
+    
+    console.log('DEBUG KPI metrics:', { 
+      useSalesStaffSum, 
+      totalPackagesSold: useSalesStaffSum ? salesStaffTotals.totalPackagesSold : (primarySource?.totalPackagesSold ?? 0),
+      totalPending: useSalesStaffSum ? salesStaffTotals.totalPending : (primarySource?.totalPending ?? 0),
+      unpaidPackages: useSalesStaffSum ? salesStaffTotals.unpaidPackages : (primarySource?.unpaidPackages ?? 0)
+    });
+    
+    console.log('metrics calculation:', { hasAnyFilter, useSalesStaffSum, doctorTotalPackages, salesStaffTotalPackages: salesStaffTotals.totalPackagesSold });
+    console.log('DEBUG revenue calculation:', { 
+      doctorTotalRevenue, 
+      salesStaffTotals: {
+        totalRevenue: salesStaffTotals.totalRevenue,
+        totalPaid: salesStaffTotals.totalPaid,
+      },
+      calculatedTotalRevenue: doctorTotalRevenue + salesStaffTotals.totalRevenue,
+      calculatedTotalPaid: doctorTotalRevenue + salesStaffTotals.totalPaid,
+    });
+    
+    // When no filter, use Sales Staff totals as single source of truth
+    // This represents unique package sales by invoicer, preventing double-counting
+    // when the same person is both doctor AND invoicer (e.g., prabhu)
+    // Doctor Leaderboard shows breakdown by doctor for display only
+    const totalPackagesSold = useSalesStaffSum 
+      ? salesStaffTotals.totalPackagesSold
+      : (primarySource?.totalPackagesSold ?? primarySource?.totalPackages ?? 0);
+    
+    const totalRevenue = useSalesStaffSum
+      ? salesStaffTotals.totalRevenue
+      : (primarySource?.totalPaid ?? primarySource?.totalRevenue ?? 0);
+    
     const prevTotalRevenue = prevTopSummary?.totalRevenue ?? 0;
     
-    // Calculate actual paid amounts from summary if available, else sold rows
-    const totalPaid = summary?.totalPaid ?? soldRows.reduce((sum, r) => sum + (r.totalPaid || 0), 0);
+    // Calculate actual paid amounts
+    // Use Sales Staff totals to prevent double-counting
+    const totalPaid = useSalesStaffSum
+      ? salesStaffTotals.totalPaid
+      : (primarySource?.totalPaid ?? 0);
+    
     const prevTotalPaid = prevSummary?.totalPaid ?? 0;
-    const totalPending = summary?.totalPending ?? soldRows.reduce((sum, r) => sum + (r.totalPending || 0), 0);
+    
+    const totalPending = useSalesStaffSum
+      ? salesStaffTotals.totalPending
+      : (primarySource?.totalPending ?? 0);
+    
     const prevTotalPending = prevSummary?.totalPending ?? 0;
     
-    // Calculate payment status counts from summary if available, else sold rows
-    const paidPackages = summary?.paidPackages ?? soldRows.filter(r => (r.totalPending || 0) <= 0).length;
+    // Calculate payment status counts
+    // Use Sales Staff totals to prevent double-counting
+    const paidPackages = useSalesStaffSum
+      ? salesStaffTotals.paidPackages
+      : (primarySource?.paidPackages ?? 0);
+    
     const prevPaidPackages = prevSummary?.paidPackages ?? 0;
-    const partiallyPaid = summary?.partiallyPaid ?? soldRows.filter(r => (r.totalPending || 0) > 0 && (r.totalPaid || 0) > 0).length;
+    
+    const partiallyPaid = useSalesStaffSum
+      ? salesStaffTotals.partiallyPaidPackages
+      : (primarySource?.partiallyPaid ?? 0);
+    
     const prevPartiallyPaid = prevSummary?.partiallyPaid ?? 0;
-    const unpaidPackages = summary?.unpaidPackages ?? soldRows.filter(r => (r.totalPaid || 0) <= 0).length;
+    
+    const unpaidPackages = useSalesStaffSum
+      ? salesStaffTotals.unpaidPackages
+      : (primarySource?.unpaidPackages ?? 0);
+    
     const prevUnpaidPackages = prevSummary?.unpaidPackages ?? 0;
+    
+    const prevTotalPackagesSold = prevSummary?.totalPackagesSold ?? 0;
     
     const prevActivePackages = prevSummary?.activePackages ?? 0;
     const completedPackages = summary?.completedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) >= (r.totalSessions || 1)).length;
@@ -511,7 +753,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       renewalRate,
       inactiveHolders: unusedPackages,
     };
-  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages]);
+  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages, combinedSummary, overviewCombinedSummary, selectedDoctor, selectedDepartment, selectedSalesStaff, selectedClinic, selectedPaymentMethod, doctorLeaderboard, overviewDoctorLeaderboard, salesStaff, overviewSalesStaffLeaderboard, selectedMonth]);
 
   // Calculate total sales staff KPIs
   const salesStaffMetrics = useMemo(() => {
@@ -595,10 +837,13 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         const monthEntry = (doc.monthWiseData || []).find((m: any) => m.month === selectedMonth);
         if (!monthEntry) return null;
         
+        // Get unpaid packages count for this doctor from overviewSalesStaffLeaderboard
+        const doctorUnpaid = (overviewSalesStaffLeaderboard || []).find((s: any) => s.name === doc.name)?.unpaidPackages || 0;
+        
         return {
           ...doc,
           name: doc.name || "Unknown Doctor",
-          packages: monthEntry.packages || 0,
+          packages: (monthEntry.packages || 0) + doctorUnpaid,  // Include unpaid packages in count
           revenue: monthEntry.revenue || 0,
           monthWiseData: doc.monthWiseData || [],
         };
@@ -619,7 +864,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           ? doc.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
           : "UD",
       }));
-  }, [effectiveDoctorLeaderboard, selectedMonth]);
+  }, [effectiveDoctorLeaderboard, selectedMonth, overviewSalesStaffLeaderboard]);
 
   // Build the Top 5 sales staff leaderboard for the selected month.
   //
@@ -703,8 +948,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { period: "Expiring in 30 Days", count: metrics.expiring30Days, color: "#008891" },
   ], [metrics]);
 
+  // metrics useMemo now handles filter logic internally:
+  // - No filter: uses packagesSoldSummary (Billing collection, ALL invoiced packages)
+  // - Filter active: uses combinedSummary (filtered Billing data)
   const isSalesStaffActive = activeFilter === "salesStaff";
-  const currentMetrics = isSalesStaffActive ? salesStaffMetrics : metrics;
+  const currentMetrics = metrics;
 
   const packageLifecycleData = useMemo(() => {
     const sold = lifecycleSummary?.totalPackagesSold ?? currentMetrics.totalPackagesSold;
@@ -1033,11 +1281,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         <button
                           key={staff.staffId || staff._id || staff.name}
                           onClick={() => {
-                            setSelectedSalesStaff(staff.staffId);
+                            // Use name for filtering (matches overviewSalesStaffLeaderboard format)
+                            setSelectedSalesStaff(staff.name);
                             setActiveFilter(null);
                           }}
                           className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
-                            selectedSalesStaff === staff.staffId ? "bg-emerald-50 text-emerald-700" : ""
+                            selectedSalesStaff === staff.name ? "bg-emerald-50 text-emerald-700" : ""
                           }`}
                         >
                           {staff.name}

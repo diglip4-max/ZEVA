@@ -114,9 +114,20 @@ export default async function handler(req, res) {
     }
 
     if (salesStaffId) {
-      pipeline.push({
-        $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
-      });
+      // Check if salesStaffId is a valid ObjectId or a name
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+      
+      if (isValidObjectId) {
+        // Match by user ID
+        pipeline.push({
+          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+        });
+      } else {
+        // Match by user name (e.g., "xyz", "muskan")
+        pipeline.push({
+          $match: { invoicedBy: String(salesStaffId) },
+        });
+      }
     }
 
     pipeline.push(
@@ -138,7 +149,8 @@ export default async function handler(req, res) {
           _id: { patientId: "$patientId", package: "$package" },
           patientId: { $first: "$patientId" },
           packageName: { $first: "$package" },
-          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          // Use amount - pendingUsed to exclude pending clearance for other services
+          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
           totalPending: { $sum: { $ifNull: ["$pending", 0] } },
           sessionsUsed: { $sum: "$__usedSessions" },
           firstPurchaseDate: { $min: "$createdAt" },
@@ -316,6 +328,13 @@ export default async function handler(req, res) {
     );
 
     const rows = await Billing.aggregate(pipeline);
+    
+    // Debug logging
+    console.log('DEBUG packages-sold rows:', {
+      salesStaffId,
+      rowsCount: rows?.length || 0,
+      firstRow: rows?.[0] ? { packageName: rows[0].packageName, soldBy: rows[0].soldBy } : null
+    });
 
     // For count, we need to apply the same filters
     const countPipeline = [
@@ -362,9 +381,18 @@ export default async function handler(req, res) {
     }
 
     if (salesStaffId) {
-      countPipeline.push({
-        $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
-      });
+      // Check if salesStaffId is a valid ObjectId or a name
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+      
+      if (isValidObjectId) {
+        countPipeline.push({
+          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+        });
+      } else {
+        countPipeline.push({
+          $match: { invoicedBy: String(salesStaffId) },
+        });
+      }
     }
 
     countPipeline.push(
@@ -378,6 +406,9 @@ export default async function handler(req, res) {
 
     const countAgg = await Billing.aggregate(countPipeline);
     const total = countAgg?.[0]?.count || 0;
+    
+    // Debug logging for count
+    console.log('DEBUG packages-sold count:', { salesStaffId, total, countAggLength: countAgg?.length });
 
     // Calculate previous period dates
     let previousStartAt = null;
@@ -413,6 +444,15 @@ export default async function handler(req, res) {
       sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
       const thirtyDaysFromNow = new Date(todayStart);
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      
+      // Build sales staff filter (ObjectId or name)
+      const summarySalesStaffFilter = salesStaffId ? (() => {
+        const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+        return isValidObjectId 
+          ? { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) }
+          : { invoicedBy: String(salesStaffId) };
+      })() : null;
+      
       return [
         { $match: matchObj },
         {
@@ -455,11 +495,12 @@ export default async function handler(req, res) {
             $match: { "service.departmentId": new mongoose.Types.ObjectId(String(departmentId)) },
           }
         ] : []),
-        ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+        ...(summarySalesStaffFilter ? [{ $match: summarySalesStaffFilter }] : []),
         {
           $group: {
             _id: { patientId: "$patientId", package: "$package" },
-            totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+            // Use amount - pendingUsed to exclude pending clearance for other services
+            totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
             totalPending: { $sum: { $ifNull: ["$pending", 0] } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },
