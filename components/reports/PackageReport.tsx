@@ -64,7 +64,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
   const [hasNext, setHasNext] = useState(false);
-  const [detail, setDetail] = useState<{ open: boolean; patientId?: string; packageName?: string; data?: any }>(
+  const [detail, setDetail] = useState<{ open: boolean; patientId?: string; packageName?: string; patientName?: string; data?: any }>(
     { open: false }
   );
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -77,13 +77,26 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [_clinics, setClinics] = useState<Clinic[]>([]);
   const [salesStaff, setSalesStaff] = useState<any[]>([]);
+  const [salesStaffLeaderboard, setSalesStaffLeaderboard] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [_combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
+  const [combinedSummary, setCombinedSummary] = useState<any>(null); // Single source of truth for all metrics
+  const [overviewCombinedSummary, setOverviewCombinedSummary] = useState<any>(null); // Unfiltered overview summary
   const [doctorLeaderboard, setDoctorLeaderboard] = useState<any[]>([]);
   const [departmentRevenueData, setDepartmentRevenueData] = useState<any[]>([]);
+  const [lifecycleSummary, setLifecycleSummary] = useState<any>(null);
+  // Overview data for sections that must stay independent of the dashboard's
+  // Department/Doctor/Sales-Staff/Payment filters (Revenue Trend, Payment
+  // Status, Doctor Leaderboard, Sales Staff). Fetched using the date range +
+  // clinic scope only.
+  const [overviewMonthlyRevenue, setOverviewMonthlyRevenue] = useState<any[]>([]);
+  const [overviewDoctorLeaderboard, setOverviewDoctorLeaderboard] = useState<any[]>([]);
+  const [overviewSalesStaffLeaderboard, setOverviewSalesStaffLeaderboard] = useState<any[]>([]);
+  // KPI Detail Modal state
+  const [kpiModal, setKpiModal] = useState<{ open: boolean; title: string; data: any[] }>({ open: false, title: '', data: [] });
   // Default selected month to the month of startDate
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const date = new Date(startDate);
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleString('default', { month: 'short' });
   });
   const { paymentMethods } = usePaymentMethod();
@@ -91,6 +104,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   // Update selectedMonth when startDate changes
   useEffect(() => {
     const date = new Date(startDate);
+    if (isNaN(date.getTime())) return;
     setSelectedMonth(date.toLocaleString('default', { month: 'short' }));
   }, [startDate]);
 
@@ -105,10 +119,19 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     fetchSalesStaff(); // Fetch all sales staff on initial load
   }, [startDate, endDate, selectedDepartment, selectedDoctor, selectedSalesStaff, selectedClinic, selectedPaymentMethod]);
 
+  // Overview sections (Revenue Trend, Payment Status, Doctor Leaderboard,
+  // Sales Staff) depend ONLY on the selected date range (+ clinic scope) and
+  // must NOT react to the Department/Doctor/Sales-Staff/Payment filters, which
+  // apply only to the summary cards above.
+  useEffect(() => {
+    fetchOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, selectedClinic]);
+
   async function fetchSalesStaff() {
     try {
       // Fetch sales staff performance data
-      const params: any = { startDate, endDate, limit: "10" };
+      const params: any = { startDate, endDate, limit: "1000" };
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(`/api/clinic/reports/sales-staff-performance?${qs}`, { headers });
       const json = await res.json();
@@ -137,10 +160,314 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           };
         });
         
+        // Also include entries with null staffId (packages assigned by doctors or other means)
+        // These are packages without packageSoldByUserId set
+        const nullStaffEntries = performanceData.filter((p: any) => !p.staffId || p.staffId === null || p.staffId === "null");
+        if (nullStaffEntries.length > 0) {
+          const nullStaffTotals = nullStaffEntries.reduce((acc: any, entry: any) => ({
+            totalPackagesSold: acc.totalPackagesSold + (entry.totalPackagesSold || 0),
+            totalRevenue: acc.totalRevenue + (entry.totalRevenue || 0),
+            totalPaid: acc.totalPaid + (entry.totalPaid || 0),
+            totalPending: acc.totalPending + (entry.totalPending || 0),
+            paidPackages: acc.paidPackages + (entry.paidPackages || 0),
+            partiallyPaidPackages: acc.partiallyPaidPackages + (entry.partiallyPaidPackages || 0),
+            unpaidPackages: acc.unpaidPackages + (entry.unpaidPackages || 0),
+          }), {
+            totalPackagesSold: 0,
+            totalRevenue: 0,
+            totalPaid: 0,
+            totalPending: 0,
+            paidPackages: 0,
+            partiallyPaidPackages: 0,
+            unpaidPackages: 0,
+          });
+          combinedData.push({
+            staffId: "__null_staff__",
+            name: "Other/Doctor Assigned",
+            ...nullStaffTotals
+          });
+        }
+        
         setSalesStaff(combinedData);
       }
     } catch (e) {
       console.error("Error fetching sales staff:", e);
+    }
+  }
+
+  // Handle KPI card click to show package details
+  async function handleKpiCardClick(kpiType: string) {
+    try {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      let title = '';
+      let data: any[] = [];
+      
+      // For expiry-related KPIs, use packages state (package templates) - not filtered by doctor/staff
+      const expiryKpiTypes = ['activePackages', 'expiredPackages', 'expiring7Days', 'expiring30Days', 'renewalOpportunities'];
+      
+      if (expiryKpiTypes.includes(kpiType)) {
+        // Use packages state directly (from /api/clinic/packages)
+        switch (kpiType) {
+          case 'activePackages':
+            title = 'Active Packages';
+            data = packages
+              .filter((p: any) => {
+                if (!p.endDate) return true;
+                const endDate = new Date(p.endDate);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate > now;
+              })
+              .map((p: any) => ({
+                packageName: p.name,
+                patientName: '-',
+                amount: p.totalPrice || 0,
+                expirationDate: p.endDate,
+                date: p.createdAt
+              }));
+            break;
+            
+          case 'expiredPackages':
+            title = 'Expired Packages';
+            data = packages
+              .filter((p: any) => {
+                if (!p.endDate) return false;
+                const endDate = new Date(p.endDate);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate <= now;
+              })
+              .map((p: any) => ({
+                packageName: p.name,
+                patientName: '-',
+                amount: p.totalPrice || 0,
+                expirationDate: p.endDate,
+                date: p.createdAt
+              }));
+            break;
+            
+          case 'expiring7Days':
+            title = 'Expiring in 7 Days';
+            data = packages
+              .filter((p: any) => {
+                if (!p.endDate) return false;
+                const endDate = new Date(p.endDate);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate > now && endDate <= sevenDaysFromNow;
+              })
+              .map((p: any) => ({
+                packageName: p.name,
+                patientName: '-',
+                amount: p.totalPrice || 0,
+                expirationDate: p.endDate,
+                date: p.createdAt
+              }));
+            break;
+            
+          case 'expiring30Days':
+            title = 'Expiring in 30 Days';
+            data = packages
+              .filter((p: any) => {
+                if (!p.endDate) return false;
+                const endDate = new Date(p.endDate);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate > sevenDaysFromNow && endDate <= thirtyDaysFromNow;
+              })
+              .map((p: any) => ({
+                packageName: p.name,
+                patientName: '-',
+                amount: p.totalPrice || 0,
+                expirationDate: p.endDate,
+                date: p.createdAt
+              }));
+            break;
+            
+          case 'renewalOpportunities':
+            title = 'Renewal Opportunities';
+            data = packages
+              .filter((p: any) => {
+                if (!p.endDate) return false;
+                const endDate = new Date(p.endDate);
+                endDate.setHours(0, 0, 0, 0);
+                return endDate <= thirtyDaysFromNow;
+              })
+              .map((p: any) => ({
+                packageName: p.name,
+                patientName: '-',
+                amount: p.totalPrice || 0,
+                expirationDate: p.endDate,
+                date: p.createdAt
+              }));
+            break;
+        }
+        
+        setKpiModal({ open: true, title, data });
+        return;
+      }
+      
+      // For billing-related KPIs, fetch from packages-sold API
+      const params: any = { startDate, endDate, limit: "1000", getAll: "true" };
+      if (selectedDoctor) params.doctorId = selectedDoctor;
+      if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
+      if (selectedDepartment) params.departmentId = selectedDepartment;
+      if (selectedClinic) params.clinicId = selectedClinic;
+      if (selectedPaymentMethod) params.paymentMethod = selectedPaymentMethod;
+      
+      const qs = new URLSearchParams(params).toString();
+      
+      console.log('DEBUG KPI Click - Sales Staff Filter:', { 
+        selectedSalesStaff, 
+        selectedDoctor,
+        params, 
+        qs 
+      });
+      
+      // Fetch packages sold data
+      const res = await fetch(`/api/clinic/reports/packages-sold?${qs}`, { headers });
+      const json = await res.json();
+      
+      console.log('DEBUG KPI Click - API Response:', { 
+        ok: res.ok, 
+        success: json.success, 
+        dataLength: json.data?.length,
+        error: json.error 
+      });
+      
+      if (!res.ok || !json.success) {
+        console.error('Failed to fetch packages sold data', json);
+        // Show modal with empty data
+        setKpiModal({ open: true, title: kpiType, data: [] });
+        return;
+      }
+      
+      const soldPackages = json.data || [];
+      
+      console.log('DEBUG KPI Click - Sold Packages Count:', soldPackages.length);
+      console.log('DEBUG KPI Click - First 3 packages:', soldPackages.slice(0, 3));
+      
+      console.log('DEBUG KPI Click - Sold Packages Count:', soldPackages.length);
+      console.log('DEBUG KPI Click - Current Metrics:', { 
+        totalRevenue: currentMetrics.totalRevenue,
+        paidRevenue: currentMetrics.paidRevenue,
+        outstanding: currentMetrics.outstanding 
+      });
+      
+      // Filter out packages with no name or 0 total value (invalid data)
+      const validPackages = soldPackages.filter((p: any) => 
+        p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
+      );
+      
+      console.log('DEBUG KPI Click - Valid Packages Count:', validPackages.length);
+      
+      switch (kpiType) {
+        case 'totalPackagesSold':
+          title = 'Total Packages Sold';
+          data = validPackages.map((p: any) => ({
+            packageName: p.packageName,
+            patientName: p.patientName,
+            amount: p.totalValue || 0,
+            paidAmount: p.totalPaid || 0,
+            pending: p.totalPending || 0,
+            paymentStatus: p.paymentStatus || 'Unknown',
+            date: p.firstPurchaseDate
+          }));
+          console.log('DEBUG Total Packages - Data sum:', data.reduce((sum, d) => sum + d.amount, 0));
+          break;
+          
+        case 'totalRevenue':
+          title = 'Total Revenue';
+          data = validPackages.map((p: any) => ({
+            packageName: p.packageName,
+            patientName: p.patientName,
+            amount: p.totalValue || 0,
+            paidAmount: p.totalPaid || 0,
+            paymentStatus: p.paymentStatus || 'Unknown',
+            date: p.firstPurchaseDate
+          }));
+          console.log('DEBUG Total Revenue - Data sum:', data.reduce((sum, d) => sum + d.amount, 0));
+          console.log('DEBUG Total Revenue - Individual amounts:', data.map(d => ({ name: d.packageName, amount: d.amount })));
+          break;
+          
+        case 'paidRevenue':
+          title = 'Paid Revenue';
+          data = validPackages
+            .filter((p: any) => (p.totalPending || 0) === 0)
+            .map((p: any) => ({
+              packageName: p.packageName,
+              patientName: p.patientName,
+              amount: p.totalValue || 0,
+              paidAmount: p.totalPaid || 0,
+              date: p.firstPurchaseDate
+            }));
+          console.log('DEBUG Paid Revenue - Data sum:', data.reduce((sum, d) => sum + d.amount, 0));
+          break;
+          
+        case 'outstanding':
+          title = 'Outstanding';
+          data = validPackages
+            .filter((p: any) => (p.totalPending || 0) > 0)
+            .map((p: any) => ({
+              packageName: p.packageName,
+              patientName: p.patientName,
+              amount: p.totalValue || 0,
+              paidAmount: p.totalPaid || 0,
+              pending: p.totalPending || 0,
+              date: p.firstPurchaseDate
+            }));
+          console.log('DEBUG Outstanding - Data sum:', data.reduce((sum, d) => sum + d.pending, 0));
+          break;
+          
+        case 'paidPackages':
+          title = 'Paid Packages';
+          data = validPackages
+            .filter((p: any) => (p.totalPending || 0) === 0)
+            .map((p: any) => ({
+              packageName: p.packageName,
+              patientName: p.patientName,
+              amount: p.totalValue || 0,
+              date: p.firstPurchaseDate
+            }));
+          console.log('DEBUG Paid Packages - Count:', data.length);
+          break;
+          
+        case 'partiallyPaid':
+          title = 'Partially Paid';
+          data = validPackages
+            .filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) > 0)
+            .map((p: any) => ({
+              packageName: p.packageName,
+              patientName: p.patientName,
+              amount: p.totalValue || 0,
+              paidAmount: p.totalPaid || 0,
+              pending: p.totalPending || 0,
+              date: p.firstPurchaseDate
+            }));
+          console.log('DEBUG Partially Paid - Count:', data.length);
+          break;
+          
+        case 'unpaidPackages':
+          title = 'Unpaid Packages';
+          data = validPackages
+            .filter((p: any) => (p.totalPaid || 0) === 0)
+            .map((p: any) => ({
+              packageName: p.packageName,
+              patientName: p.patientName,
+              amount: p.totalValue || 0,
+              date: p.firstPurchaseDate
+            }));
+          console.log('DEBUG Unpaid Packages - Count:', data.length);
+          break;
+          
+        default:
+          title = kpiType;
+          data = [];
+      }
+      
+      setKpiModal({ open: true, title, data });
+    } catch (e) {
+      console.error('Error fetching KPI details:', e);
     }
   }
 
@@ -200,7 +527,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       setCombinedSummary(null);
       setDoctorLeaderboard([]);
       setDepartmentRevenueData([]);
-      setSalesStaff([]);
+      setSalesStaffLeaderboard([]);
+      setLifecycleSummary(null);
       return;
     }
     setRows(json.data || []);
@@ -210,11 +538,50 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     setCombinedSummary(json.combinedSummary || null);
     setDoctorLeaderboard(json.doctorLeaderboard || []);
     setDepartmentRevenueData(json.departmentRevenueData || []);
-    setSalesStaff(json.salesStaffLeaderboard || []);
+    setSalesStaffLeaderboard(json.salesStaffLeaderboard || []);
+    setLifecycleSummary(json.lifecycleSummary || null);
+  }
+
+  // Fetch the unfiltered overview used by sections that must stay independent
+  // of the dashboard filters: Revenue Trend, Payment Status, Doctor Leaderboard
+  // and Sales Staff. Leaderboards always use the full month of startDate so they
+  // never appear empty when a single day has no data.
+  async function fetchOverview() {
+    try {
+      // Compute month-wide dates for the leaderboards
+      const startD = new Date(startDate);
+      if (isNaN(startD.getTime())) return; // Guard against invalid startDate
+      const monthStart = new Date(startD.getFullYear(), startD.getMonth(), 1);
+      const monthEnd = new Date(startD.getFullYear(), startD.getMonth() + 1, 0);
+      const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+      const params: any = { startDate: fmt(monthStart), endDate: fmt(monthEnd), limit: "10" };
+      if (selectedClinic) params.clinicId = selectedClinic;
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/api/clinic/reports/package-performance?${qs}`, { headers });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setOverviewMonthlyRevenue([]);
+        setOverviewDoctorLeaderboard([]);
+        setOverviewSalesStaffLeaderboard([]);
+        setOverviewCombinedSummary(null);
+        return;
+      }
+      setOverviewMonthlyRevenue(json.monthlyRevenue || []);
+      setOverviewDoctorLeaderboard(json.doctorLeaderboard || []);
+      setOverviewSalesStaffLeaderboard(json.salesStaffLeaderboard || []);
+      setOverviewCombinedSummary(json.combinedSummary || null);
+    } catch (e) {
+      console.error("Error fetching overview:", e);
+      setOverviewMonthlyRevenue([]);
+      setOverviewDoctorLeaderboard([]);
+      setOverviewSalesStaffLeaderboard([]);
+      setOverviewCombinedSummary(null);
+    }
   }
 
   async function fetchPackagesSold(p = 1) {
-    const params: any = { startDate, endDate, page: String(p), limit: "20" };
+    const params: any = { startDate, endDate, page: String(p), limit: "1000" };
     if (selectedDepartment) params.departmentId = selectedDepartment;
     if (selectedDoctor) params.doctorId = selectedDoctor;
     if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
@@ -232,6 +599,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
     setSoldRows(json.data || []);
     setPackagesSoldSummary(json.summary || null);
+    console.log('fetchPackagesSold response:', { summary: json.summary, dataLength: json.data?.length });
     setPackagesSoldPreviousSummary(json.previousSummary || null);
     setHasNext(Boolean(json.pagination?.hasNext));
     setTotalPages(json.pagination?.totalPages || 1);
@@ -280,14 +648,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     }
   }
 
-  async function openUsage(patientId: string, packageName: string) {
+  async function openUsage(patientId: string, packageName: string, patientName?: string) {
     const qs = new URLSearchParams({ packageName }).toString();
     const res = await fetch(`/api/clinic/package-usage/${patientId}?${qs}`, { headers });
     const json = await res.json();
     if (res.ok && json.success) {
-      setDetail({ open: true, patientId, packageName, data: json.packageUsage || [] });
+      setDetail({ open: true, patientId, packageName, patientName, data: json.packageUsage || [] });
     } else {
-      setDetail({ open: true, patientId, packageName, data: { error: json.message || "Failed to load" } });
+      setDetail({ open: true, patientId, packageName, patientName, data: { error: json.message || "Failed to load" } });
     }
   }
 
@@ -303,6 +671,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const formatK = (value: number): string => {
     const symbol = getCurrencySymbol(currency);
     return `${symbol}${(value / 1000).toFixed(1)}K`;
+  };
+
+  // Formats a date value as YYYY-MM-DD for the Package Registry columns
+  const formatDate = (value: any): string => {
+    if (!value) return "-";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString("en-CA");
   };
 
   // Helper to calculate trend percentage
@@ -323,24 +699,246 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     const topSummary = topPackagesSummary;
     const prevTopSummary = topPackagesPreviousSummary;
 
-    const totalPackagesSold = summary?.totalPackagesSold ?? soldRows.length;
-    const prevTotalPackagesSold = prevSummary?.totalPackagesSold ?? 0;
-    const totalRevenue = topSummary?.totalRevenue ?? rows.reduce((sum, r) => sum + (r.totalRevenue || 0), 0);
+    // When NO filter is active, sum BOTH Doctor Leaderboard (Billing) and Sales Staff (PatientRegistration)
+    // to show the total of all packages regardless of attribution.
+    // When a filter IS active, use combinedSummary since filters apply to Billing data.
+    const hasAnyFilter = selectedDoctor || selectedDepartment || selectedSalesStaff || selectedClinic || selectedPaymentMethod;
+    
+    // Calculate totals from Doctor Leaderboard (Billing collection, grouped by doctor)
+    // Note: doctorLeaderboard has 'packages' and 'revenue' fields, but NOT payment status breakdown
+    // Use overviewDoctorLeaderboard if available (matches what's shown in UI), else doctorLeaderboard
+    // IMPORTANT: Only count packages for the SELECTED MONTH, not all months
+    let doctorLeaderboardData = overviewDoctorLeaderboard.length > 0 ? overviewDoctorLeaderboard : doctorLeaderboard;
+    
+    // Filter by selected doctor if doctor filter is active
+    if (selectedDoctor) {
+      // Find the doctor name from the doctors array (selectedDoctor is an ID, not a name)
+      const selectedDoctorObj = doctors.find(d => d._id === selectedDoctor);
+      const selectedDoctorName = selectedDoctorObj?.name || (selectedDoctorObj?.firstName && selectedDoctorObj?.lastName ? `${selectedDoctorObj.firstName} ${selectedDoctorObj.lastName}` : null);
+      
+      if (selectedDoctorName) {
+        doctorLeaderboardData = doctorLeaderboardData.filter(d => d.name === selectedDoctorName);
+      } else {
+        // If we can't find the name, filter by ID if available in the data
+        doctorLeaderboardData = doctorLeaderboardData.filter(d => d._id === selectedDoctor || d.doctorId === selectedDoctor);
+      }
+    }
+    
+    console.log('DEBUG doctorLeaderboardData:', doctorLeaderboardData);
+    console.log('DEBUG selectedDoctor:', selectedDoctor);
+    console.log('DEBUG selectedMonth:', selectedMonth);
+    console.log('DEBUG individual doctor revenues:', doctorLeaderboardData.map(d => {
+      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+      return { name: d.name, monthRevenue: monthEntry?.revenue || 0, totalRevenue: d.revenue || 0 };
+    }));
+    
+    const doctorTotalPackages = doctorLeaderboardData.reduce((sum: number, d: any) => {
+      // Find the entry for the selected month in monthWiseData
+      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+      console.log('DEBUG doctor monthEntry:', { doctor: d.name, selectedMonth, monthEntry, fallback: d.packages });
+      return sum + (monthEntry?.packages || d.packages || 0);
+    }, 0);
+    const doctorTotalRevenue = doctorLeaderboardData.reduce((sum: number, d: any) => {
+      // Find the entry for the selected month in monthWiseData
+      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+      return sum + (monthEntry?.revenue || d.revenue || 0);
+    }, 0);
+    // Doctor leaderboard doesn't have paid/partially paid/unpaid breakdown, so these are 0
+    const doctorPaidPackages = 0;
+    const doctorPartiallyPaid = 0;
+    const doctorUnpaidPackages = 0;
+    const doctorTotalPaid = 0; // Will use revenue as approximation
+    const doctorTotalPending = 0;
+    
+    // Calculate sales staff totals inline
+    // Use overviewSalesStaffLeaderboard (from package-performance API) which matches the Sales Staff UI section
+    // This includes all sales staff who have invoiced packages, not just registered agents
+    const salesStaffData = overviewSalesStaffLeaderboard.length > 0 ? overviewSalesStaffLeaderboard : salesStaff;
+    
+    const salesStaffFiltered = selectedSalesStaff 
+      ? salesStaffData.filter(s => s.staffId === selectedSalesStaff || s.name === selectedSalesStaff) 
+      : salesStaffData;
+    
+    console.log('DEBUG salesStaffData:', salesStaffData);
+    console.log('DEBUG salesStaffFiltered:', salesStaffFiltered);
+    console.log('DEBUG individual sales staff revenues:', salesStaffFiltered.map(s => ({ name: s.name, totalRevenue: s.totalRevenue, totalPaid: s.totalPaid })));
+    
+    const salesStaffTotals = salesStaffFiltered.reduce(
+      (acc, staff) => {
+        // Find the entry for the selected month in monthWiseData
+        const monthEntry = (staff.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        
+        return {
+          totalPackagesSold: acc.totalPackagesSold + (monthEntry?.totalPackagesSold || staff.totalPackagesSold || 0),
+          totalRevenue: acc.totalRevenue + (monthEntry?.totalRevenue || staff.totalRevenue || 0),
+          totalPaid: acc.totalPaid + (monthEntry?.totalRevenue || staff.totalRevenue || 0),  // Use revenue as paid
+          totalPending: acc.totalPending + (staff.totalPending || 0),
+          paidPackages: acc.paidPackages + (staff.paidPackages || 0),
+          partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
+          unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
+        };
+      },
+      {
+        totalPackagesSold: 0,
+        totalRevenue: 0,
+        totalPaid: 0,
+        totalPending: 0,
+        paidPackages: 0,
+        partiallyPaidPackages: 0,
+        unpaidPackages: 0,
+      }
+    );
+    
+    console.log('Doctor Leaderboard totals:', { doctorTotalPackages, doctorTotalRevenue, doctorPaidPackages });
+    console.log('Sales Staff totals:', salesStaffTotals);
+    
+    // Primary source depends on whether filters are active
+    let primarySource: any = null;
+    let useSalesStaffSum = false;
+    
+    if (!hasAnyFilter) {
+      // No filter: use Sales Staff totals as single source of truth
+      useSalesStaffSum = true;
+    } else if (selectedDoctor) {
+      // Doctor filter: use filtered doctor leaderboard data
+      // Get doctor name for matching with sales staff data
+      const selectedDoctorObj = doctors.find(d => d._id === selectedDoctor);
+      const selectedDoctorName = selectedDoctorObj?.name || doctors.find(d => `${d.firstName || ''} ${d.lastName || ''}`.trim() === selectedDoctor)?.name || '';
+      
+      console.log('DEBUG doctor filter:', { 
+        selectedDoctor, 
+        selectedDoctorName, 
+        doctorsList: doctors.map(d => ({ id: d._id, name: d.name })),
+        salesStaffDataList: salesStaffData.map(s => ({ name: s.name, staffId: s.staffId, unpaidPackages: s.unpaidPackages, totalPending: s.totalPending }))
+      });
+      
+      // Get sales staff data for this doctor to calculate unpaid packages
+      // Use salesStaffData (from overviewSalesStaffLeaderboard) which has correct names
+      const doctorSalesStaffData = selectedDoctorName 
+        ? salesStaffData.filter(s => s.name === selectedDoctorName)
+        : [];
+      
+      console.log('DEBUG doctor sales staff data:', { doctorSalesStaffData });
+      
+      const doctorUnpaidFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.unpaidPackages || 0), 0);
+      const doctorPendingFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.totalPending || 0), 0);
+      const doctorPartiallyPaidFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.partiallyPaidPackages || 0), 0);
+      
+      console.log('DEBUG doctor unpaid/pending:', { doctorUnpaidFromSalesStaff, doctorPendingFromSalesStaff, doctorPartiallyPaidFromSalesStaff });
+      
+      primarySource = {
+        totalPackagesSold: doctorTotalPackages + doctorUnpaidFromSalesStaff,  // Include unpaid packages in total count
+        totalRevenue: doctorTotalRevenue,
+        totalPaid: doctorTotalRevenue,  // Use revenue as paid for doctor
+        totalPending: doctorPendingFromSalesStaff,
+        paidPackages: doctorTotalPackages - doctorPartiallyPaidFromSalesStaff,  // Billed packages minus partially paid
+        partiallyPaid: doctorPartiallyPaidFromSalesStaff,
+        unpaidPackages: doctorUnpaidFromSalesStaff,
+      };
+    } else if (selectedSalesStaff) {
+      // Sales Staff filter: use filtered sales staff data
+      primarySource = {
+        totalPackagesSold: salesStaffTotals.totalPackagesSold,
+        totalRevenue: salesStaffTotals.totalRevenue,
+        totalPaid: salesStaffTotals.totalPaid,
+        totalPending: salesStaffTotals.totalPending,
+        paidPackages: salesStaffTotals.paidPackages,
+        partiallyPaid: salesStaffTotals.partiallyPaidPackages,
+        unpaidPackages: salesStaffTotals.unpaidPackages,
+      };
+    } else {
+      // Other filters (department, clinic, payment method): calculate from soldRows data
+      // combinedSummary doesn't have correct paid/outstanding breakdown for payment method filter
+      // soldRows comes from packages-sold API which has the correct structure
+      console.log('DEBUG Payment Method Filter - soldRows data:', {
+        soldRowsLength: soldRows?.length,
+        firstRow: soldRows?.[0]
+      });
+      
+      const validRows = (soldRows || []).filter((p: any) => 
+        p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
+      );
+      
+      primarySource = {
+        totalPackagesSold: validRows.length,
+        totalRevenue: validRows.reduce((sum: number, p: any) => sum + (p.totalValue || 0), 0),
+        totalPaid: validRows.reduce((sum: number, p: any) => sum + (p.totalPaid || 0), 0),
+        totalPending: validRows.reduce((sum: number, p: any) => sum + (p.totalPending || 0), 0),
+        paidPackages: validRows.filter((p: any) => (p.totalPending || 0) === 0).length,
+        partiallyPaid: validRows.filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) > 0).length,
+        unpaidPackages: validRows.filter((p: any) => (p.totalPaid || 0) === 0).length,
+      };
+      
+      console.log('DEBUG Payment Method Filter - Calculated from soldRows:', primarySource);
+    }
+    
+    console.log('DEBUG KPI metrics:', { 
+      useSalesStaffSum, 
+      totalPackagesSold: useSalesStaffSum ? salesStaffTotals.totalPackagesSold : (primarySource?.totalPackagesSold ?? 0),
+      totalPending: useSalesStaffSum ? salesStaffTotals.totalPending : (primarySource?.totalPending ?? 0),
+      unpaidPackages: useSalesStaffSum ? salesStaffTotals.unpaidPackages : (primarySource?.unpaidPackages ?? 0)
+    });
+    
+    console.log('metrics calculation:', { hasAnyFilter, useSalesStaffSum, doctorTotalPackages, salesStaffTotalPackages: salesStaffTotals.totalPackagesSold });
+    console.log('DEBUG revenue calculation:', { 
+      doctorTotalRevenue, 
+      salesStaffTotals: {
+        totalRevenue: salesStaffTotals.totalRevenue,
+        totalPaid: salesStaffTotals.totalPaid,
+      },
+      calculatedTotalRevenue: doctorTotalRevenue + salesStaffTotals.totalRevenue,
+      calculatedTotalPaid: doctorTotalRevenue + salesStaffTotals.totalPaid,
+    });
+    
+    // When no filter, use Sales Staff totals as single source of truth
+    // This represents unique package sales by invoicer, preventing double-counting
+    // when the same person is both doctor AND invoicer (e.g., prabhu)
+    // Doctor Leaderboard shows breakdown by doctor for display only
+    const totalPackagesSold = useSalesStaffSum 
+      ? salesStaffTotals.totalPackagesSold
+      : (primarySource?.totalPackagesSold ?? primarySource?.totalPackages ?? 0);
+    
+    const totalRevenue = useSalesStaffSum
+      ? salesStaffTotals.totalRevenue
+      : (primarySource?.totalPaid ?? primarySource?.totalRevenue ?? 0);
+    
     const prevTotalRevenue = prevTopSummary?.totalRevenue ?? 0;
     
-    // Calculate actual paid amounts from summary if available, else sold rows
-    const totalPaid = summary?.totalPaid ?? soldRows.reduce((sum, r) => sum + (r.totalPaid || 0), 0);
+    // Calculate actual paid amounts
+    // Use Sales Staff totals to prevent double-counting
+    const totalPaid = useSalesStaffSum
+      ? salesStaffTotals.totalPaid
+      : (primarySource?.totalPaid ?? 0);
+    
     const prevTotalPaid = prevSummary?.totalPaid ?? 0;
-    const totalPending = summary?.totalPending ?? soldRows.reduce((sum, r) => sum + (r.totalPending || 0), 0);
+    
+    const totalPending = useSalesStaffSum
+      ? salesStaffTotals.totalPending
+      : (primarySource?.totalPending ?? 0);
+    
     const prevTotalPending = prevSummary?.totalPending ?? 0;
     
-    // Calculate payment status counts from summary if available, else sold rows
-    const paidPackages = summary?.paidPackages ?? soldRows.filter(r => (r.totalPending || 0) <= 0).length;
+    // Calculate payment status counts
+    // Use Sales Staff totals to prevent double-counting
+    const paidPackages = useSalesStaffSum
+      ? salesStaffTotals.paidPackages
+      : (primarySource?.paidPackages ?? 0);
+    
     const prevPaidPackages = prevSummary?.paidPackages ?? 0;
-    const partiallyPaid = summary?.partiallyPaid ?? soldRows.filter(r => (r.totalPending || 0) > 0 && (r.totalPaid || 0) > 0).length;
+    
+    const partiallyPaid = useSalesStaffSum
+      ? salesStaffTotals.partiallyPaidPackages
+      : (primarySource?.partiallyPaid ?? 0);
+    
     const prevPartiallyPaid = prevSummary?.partiallyPaid ?? 0;
-    const unpaidPackages = summary?.unpaidPackages ?? soldRows.filter(r => (r.totalPaid || 0) <= 0).length;
+    
+    const unpaidPackages = useSalesStaffSum
+      ? salesStaffTotals.unpaidPackages
+      : (primarySource?.unpaidPackages ?? 0);
+    
     const prevUnpaidPackages = prevSummary?.unpaidPackages ?? 0;
+    
+    const prevTotalPackagesSold = prevSummary?.totalPackagesSold ?? 0;
     
     const prevActivePackages = prevSummary?.activePackages ?? 0;
     const completedPackages = summary?.completedPackages ?? soldRows.filter(r => (r.sessionsUsed || 0) >= (r.totalSessions || 1)).length;
@@ -381,20 +979,23 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     const thirtyDaysFromToday = new Date(today);
     thirtyDaysFromToday.setDate(today.getDate() + 30);
 
-    // Calculate average sessions used from sold rows
-    let totalSessionsUsed = 0;
-    let totalSessionsAvailable = 0;
-    soldRows.forEach((row) => {
-      if (row.sessionsUsed) totalSessionsUsed += row.sessionsUsed;
-      if (row.totalSessions) totalSessionsAvailable += row.totalSessions;
-    });
-    const avgSessionsUsed = totalSessionsAvailable > 0 
-      ? Number((totalSessionsUsed / totalSessionsAvailable).toFixed(1))
+    // Calculate average sessions used per package from API summary
+    // (summary aggregates across ALL sold packages, not just the current page)
+    const totalUsedSessions = summary?.totalUsedSessions ?? 0;
+    const totalSessionsAll = summary?.totalSessions ?? 0;
+    const avgSessionsUsed = totalPackagesSold > 0
+      ? Number((totalUsedSessions / totalPackagesSold).toFixed(1))
+      : 0;
+    const avgTotalSessions = totalPackagesSold > 0
+      ? Number((totalSessionsAll / totalPackagesSold).toFixed(1))
       : 0;
     
-    // Calculate simple renewal rate based on completed vs total expired/expiring
-    const totalAtRisk = expiredCount + expiring7DaysCount + expiring30DaysCount;
-    const renewalRate = completedPackages > 0 
+    // Calculate renewal rate from API summary (actual sold package data)
+    const expiredPackagesCount = summary?.expiredPackages ?? 0;
+    const expiring7DaysSum = summary?.expiring7Days ?? 0;
+    const expiring30DaysSum = summary?.expiring30Days ?? 0;
+    const totalAtRisk = expiredPackagesCount + expiring7DaysSum + expiring30DaysSum;
+    const renewalRate = (completedPackages + totalAtRisk) > 0
       ? Number(((completedPackages / (completedPackages + totalAtRisk)) * 100).toFixed(1))
       : 0;
 
@@ -437,12 +1038,13 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       unusedPackages,
       unusedPackagesTrend: calculateTrend(unusedPackages, prevUnusedPackages),
       renewalOpportunities: expiredCount + expiring7DaysCount + expiring30DaysCount, // Update
-      avgPackageValue: totalPackagesSold > 0 ? totalRevenue / totalPackagesSold : 0,
+      avgPackageValue: totalPackagesSold > 0 ? (totalPaid + totalPending) / totalPackagesSold : 0,
       avgSessionsUsed,
+      avgTotalSessions,
       renewalRate,
       inactiveHolders: unusedPackages,
     };
-  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages]);
+  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages, combinedSummary, overviewCombinedSummary, selectedDoctor, selectedDepartment, selectedSalesStaff, selectedClinic, selectedPaymentMethod, doctorLeaderboard, overviewDoctorLeaderboard, salesStaff, overviewSalesStaffLeaderboard, selectedMonth]);
 
   // Calculate total sales staff KPIs
   const salesStaffMetrics = useMemo(() => {
@@ -481,9 +1083,16 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     };
   }, [salesStaff, selectedSalesStaff]);
 
-  // Use API data for monthly revenue
+  // These sections must stay independent of the dashboard filters, so they use
+  // the dedicated overview fetch (date range + clinic scope only), falling back
+  // to the filtered response if the overview hasn't loaded yet.
+  const revenueTrendData = overviewMonthlyRevenue.length > 0 ? overviewMonthlyRevenue : monthlyRevenue;
+  const effectiveDoctorLeaderboard = overviewDoctorLeaderboard.length > 0 ? overviewDoctorLeaderboard : doctorLeaderboard;
+  const effectiveSalesStaffLeaderboard = overviewSalesStaffLeaderboard.length > 0 ? overviewSalesStaffLeaderboard : salesStaffLeaderboard;
+
+  // Use API data for monthly revenue (overview, filter-independent)
   const selectedMonthData = useMemo(() => {
-    return monthlyRevenue.find(m => m.month === selectedMonth) || {
+    return revenueTrendData.find(m => m.month === selectedMonth) || {
       totalPackages: 0,
       paidPackages: 0,
       partiallyPaidPackages: 0,
@@ -492,7 +1101,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       totalPaidRevenue: 0,
       totalOutstanding: 0,
     };
-  }, [monthlyRevenue, selectedMonth]);
+  }, [revenueTrendData, selectedMonth]);
 
   // Dynamic payment status data from selected month's data
   const paymentStatusData = useMemo(() => {
@@ -506,14 +1115,81 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     ];
   }, [selectedMonthData]);
 
-  // Use real data from API, fall back to static data if empty
-  const doctorLeaderboardData = doctorLeaderboard.length > 0 ? doctorLeaderboard : [
-    { rank: 1, initials: "SA", name: "Dr. Sara Al-Rashid", packages: 142, revenue: 198000 },
-    { rank: 2, initials: "OH", name: "Dr. Omar Hassan", packages: 118, revenue: 165000 },
-    { rank: 3, initials: "LK", name: "Dr. Layla Khalid", packages: 96, revenue: 134000 },
-    { rank: 4, initials: "AN", name: "Dr. Ahmed Nour", packages: 84, revenue: 118000 },
-    { rank: 5, initials: "FS", name: "Dr. Fatima Saeed", packages: 71, revenue: 99000 },
-  ];
+  // Build the Top 5 doctor leaderboard for the selected month.
+  //
+  // Uses the same month-wise logic as the Sales Staff Leaderboard.
+  // The API returns totalPackages/totalRevenue aggregated across ALL months,
+  // so we extract only the selected month's data from monthWiseData.
+  // This ensures the leaderboard shows only doctors with sales in the selected calendar month.
+  const topDoctorLeaderboardData = useMemo(() => {
+    const monthData = (effectiveDoctorLeaderboard || [])
+      .map((doc: any) => {
+        // Find the entry in monthWiseData that matches the selected month
+        const monthEntry = (doc.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        if (!monthEntry) return null;
+        
+        // Get unpaid packages count for this doctor from overviewSalesStaffLeaderboard
+        const doctorUnpaid = (overviewSalesStaffLeaderboard || []).find((s: any) => s.name === doc.name)?.unpaidPackages || 0;
+        
+        return {
+          ...doc,
+          name: doc.name || "Unknown Doctor",
+          packages: (monthEntry.packages || 0) + doctorUnpaid,  // Include unpaid packages in count
+          revenue: monthEntry.revenue || 0,
+          monthWiseData: doc.monthWiseData || [],
+        };
+      })
+      .filter((doc: any) => doc !== null && ((doc.packages || 0) > 0 || (doc.revenue || 0) > 0));
+    
+    return monthData
+      .sort((a: any, b: any) => {
+        const packagesDiff = (b.packages || 0) - (a.packages || 0);
+        if (packagesDiff !== 0) return packagesDiff;
+        return (b.revenue || 0) - (a.revenue || 0);
+      })
+      .slice(0, 5)
+      .map((doc: any, index: number) => ({
+        ...doc,
+        rank: index + 1,
+        initials: doc.name
+          ? doc.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+          : "UD",
+      }));
+  }, [effectiveDoctorLeaderboard, selectedMonth, overviewSalesStaffLeaderboard]);
+
+  // Build the Top 5 sales staff leaderboard for the selected month.
+  //
+  // The API returns totalRevenue/totalPackagesSold aggregated across ALL months,
+  // which causes incorrect data (e.g., Sarthak appearing in July when his sales
+  // are in June, or Esha showing ₹1833 instead of ₹1333 for July).
+  //
+  // Fix: Use the selected month's data from monthWiseData instead of the totals.
+  // This ensures the leaderboard shows only the selected calendar month's data.
+  const topSalesStaffData = useMemo(() => {
+    const monthData = (effectiveSalesStaffLeaderboard || [])
+      .map((s: any) => {
+        // Find the entry in monthWiseData that matches the selected month
+        const monthEntry = (s.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        if (!monthEntry) return null;
+        
+        return {
+          ...s,
+          name: s.name || "Unknown",
+          totalPackagesSold: monthEntry.totalPackagesSold || 0,
+          totalRevenue: monthEntry.totalRevenue || 0,
+          monthWiseData: s.monthWiseData || [],
+        };
+      })
+      .filter((s: any) => s !== null && ((s.totalPackagesSold || 0) > 0 || (s.totalRevenue || 0) > 0));
+    
+    return monthData
+      .sort((a: any, b: any) => {
+        const revenueDiff = (b.totalRevenue || 0) - (a.totalRevenue || 0);
+        if (revenueDiff !== 0) return revenueDiff;
+        return (b.totalPackagesSold || 0) - (a.totalPackagesSold || 0);
+      })
+      .slice(0, 5);
+  }, [effectiveSalesStaffLeaderboard, selectedMonth]);
 
   // Use real department revenue data from API, fall back to static data if empty
   const finalDepartmentRevenueData = departmentRevenueData.length > 0 ? departmentRevenueData : [
@@ -563,15 +1239,20 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { period: "Expiring in 30 Days", count: metrics.expiring30Days, color: "#008891" },
   ], [metrics]);
 
+  // metrics useMemo now handles filter logic internally:
+  // - No filter: uses packagesSoldSummary (Billing collection, ALL invoiced packages)
+  // - Filter active: uses combinedSummary (filtered Billing data)
   const isSalesStaffActive = activeFilter === "salesStaff";
-  const currentMetrics = isSalesStaffActive ? salesStaffMetrics : metrics;
+  const currentMetrics = metrics;
 
   const packageLifecycleData = useMemo(() => {
-    const sold = currentMetrics.totalPackagesSold;
-    const active = metrics.activePackages;
-    const completed = metrics.completedPackages;
-    // For "Renewed", we can use a calculated value or placeholder for now
-    const renewed = Math.min(completed, Math.round(metrics.renewalRate / 100 * completed));
+    const sold = lifecycleSummary?.totalPackagesSold ?? currentMetrics.totalPackagesSold;
+    const active = lifecycleSummary?.activePackages ?? metrics.activePackages;
+    const completed = lifecycleSummary?.completedPackages ?? metrics.completedPackages;
+    const renewalOpportunities = lifecycleSummary?.renewalOpportunities ?? 0;
+    const renewed = lifecycleSummary
+      ? Math.min(completed, renewalOpportunities)
+      : Math.min(completed, Math.round(metrics.renewalRate / 100 * completed));
     return [
       { 
         label: "Sold", 
@@ -601,21 +1282,21 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         percentage: completed > 0 ? Math.round((renewed / completed) * 100) : 0 
       },
     ];
-  }, [currentMetrics, metrics]);
+  }, [currentMetrics, metrics, lifecycleSummary]);
 
   const kpiCards = [
-    { label: "Total Packages Sold", value: currentMetrics.totalPackagesSold.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.totalPackagesSoldTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalPackagesSoldTrend.up, icon: "📦", subtitle: isSalesStaffActive ? "Sales Staff" : "All time" },
-    { label: "Total Revenue", value: formatCurrency(currentMetrics.totalRevenue), trend: isSalesStaffActive ? 0 : metrics.totalRevenueTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalRevenueTrend.up, icon: "💲", subtitle: isSalesStaffActive ? "Sales Staff" : "This year" },
-    { label: "Paid Revenue", value: formatCurrency(currentMetrics.paidRevenue), trend: isSalesStaffActive ? 0 : metrics.paidRevenueTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidRevenueTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Collected" },
-    { label: "Outstanding", value: formatCurrency(currentMetrics.outstanding), trend: isSalesStaffActive ? 0 : (metrics.outstandingTrend ? (metrics.outstandingTrend.up ? metrics.outstandingTrend.value : -metrics.outstandingTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.outstandingTrend ? !metrics.outstandingTrend.up : false), icon: "⚠️", subtitle: isSalesStaffActive ? "Sales Staff" : "Pending collection" },
-    { label: "Paid Packages", value: currentMetrics.paidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.paidPackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidPackagesTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Fully settled" },
-    { label: "Partially Paid", value: currentMetrics.partiallyPaid.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.partiallyPaidTrend.value, trendUp: isSalesStaffActive ? false : metrics.partiallyPaidTrend.up, icon: "⏳", subtitle: isSalesStaffActive ? "Sales Staff" : "Partial payment" },
-    { label: "Unpaid Packages", value: currentMetrics.unpaidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : (metrics.unpaidPackagesTrend ? (metrics.unpaidPackagesTrend.up ? metrics.unpaidPackagesTrend.value : -metrics.unpaidPackagesTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.unpaidPackagesTrend ? !metrics.unpaidPackagesTrend.up : false), icon: "�", subtitle: isSalesStaffActive ? "Sales Staff" : "No payment made" },
-    { label: "Active Packages", value: metrics.activePackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.activePackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.activePackagesTrend.up, icon: "📈", subtitle: "In progress" },
-    { label: "Expired Packages", value: metrics.expiredPackages.toLocaleString(), trend: 0, trendUp: false, icon: "⏰", subtitle: "Past expiry date" },
-    { label: "Expiring in 7 Days", value: metrics.expiring7Days.toLocaleString(), trend: 0, trendUp: false, icon: "⏳", subtitle: "Urgent action needed" },
-    { label: "Expiring in 30 Days", value: metrics.expiring30Days.toLocaleString(), trend: 0, trendUp: false, icon: "📅", subtitle: "Upcoming expirations" },
-    { label: "Renewal Opportunities", value: metrics.renewalOpportunities.toLocaleString(), trend: 0, trendUp: true, icon: "🔄", subtitle: "Ready to renew" },
+    { label: "Total Packages Sold", kpiType: "totalPackagesSold", value: currentMetrics.totalPackagesSold.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.totalPackagesSoldTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalPackagesSoldTrend.up, icon: "📦", subtitle: isSalesStaffActive ? "Sales Staff" : "All time" },
+    { label: "Total Revenue", kpiType: "totalRevenue", value: formatCurrency(currentMetrics.totalRevenue), trend: isSalesStaffActive ? 0 : metrics.totalRevenueTrend.value, trendUp: isSalesStaffActive ? false : metrics.totalRevenueTrend.up, icon: "💲", subtitle: isSalesStaffActive ? "Sales Staff" : "This year" },
+    { label: "Paid Revenue", kpiType: "paidRevenue", value: formatCurrency(currentMetrics.paidRevenue), trend: isSalesStaffActive ? 0 : metrics.paidRevenueTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidRevenueTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Collected" },
+    { label: "Outstanding", kpiType: "outstanding", value: formatCurrency(currentMetrics.outstanding), trend: isSalesStaffActive ? 0 : (metrics.outstandingTrend ? (metrics.outstandingTrend.up ? metrics.outstandingTrend.value : -metrics.outstandingTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.outstandingTrend ? !metrics.outstandingTrend.up : false), icon: "⚠️", subtitle: isSalesStaffActive ? "Sales Staff" : "Pending collection" },
+    { label: "Paid Packages", kpiType: "paidPackages", value: currentMetrics.paidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.paidPackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidPackagesTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Fully settled" },
+    { label: "Partially Paid", kpiType: "partiallyPaid", value: currentMetrics.partiallyPaid.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.partiallyPaidTrend.value, trendUp: isSalesStaffActive ? false : metrics.partiallyPaidTrend.up, icon: "⏳", subtitle: isSalesStaffActive ? "Sales Staff" : "Partial payment" },
+    { label: "Unpaid Packages", kpiType: "unpaidPackages", value: currentMetrics.unpaidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : (metrics.unpaidPackagesTrend ? (metrics.unpaidPackagesTrend.up ? metrics.unpaidPackagesTrend.value : -metrics.unpaidPackagesTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.unpaidPackagesTrend ? !metrics.unpaidPackagesTrend.up : false), icon: "�", subtitle: isSalesStaffActive ? "Sales Staff" : "No payment made" },
+    { label: "Active Packages", kpiType: "activePackages", value: metrics.activePackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.activePackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.activePackagesTrend.up, icon: "📈", subtitle: "In progress" },
+    { label: "Expired Packages", kpiType: "expiredPackages", value: metrics.expiredPackages.toLocaleString(), trend: 0, trendUp: false, icon: "⏰", subtitle: "Past expiry date" },
+    { label: "Expiring in 7 Days", kpiType: "expiring7Days", value: metrics.expiring7Days.toLocaleString(), trend: 0, trendUp: false, icon: "⏳", subtitle: "Urgent action needed" },
+    { label: "Expiring in 30 Days", kpiType: "expiring30Days", value: metrics.expiring30Days.toLocaleString(), trend: 0, trendUp: false, icon: "📅", subtitle: "Upcoming expirations" },
+    { label: "Renewal Opportunities", kpiType: "renewalOpportunities", value: metrics.renewalOpportunities.toLocaleString(), trend: 0, trendUp: true, icon: "🔄", subtitle: "Ready to renew" },
   ];
 
   const packageExportSections = useMemo(() => [
@@ -640,7 +1321,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     {
       title: "Revenue Trend",
       headers: ["Month", "Actual Revenue", "Target Revenue"],
-      data: monthlyRevenue.map(m => ({
+      data: revenueTrendData.map(m => ({
         "Month": m.month,
         "Actual Revenue": formatCurrency(m.actual || 0),
         "Target Revenue": formatCurrency(m.target || 0),
@@ -667,7 +1348,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       headers: ["Metric", "Value"],
       data: [
         { "Metric": "Renewal Rate", "Value": `${metrics.renewalRate}%` },
-        { "Metric": "Avg Sessions Used", "Value": `${metrics.avgSessionsUsed} / 10` },
+        { "Metric": "Avg Sessions Used", "Value": `${metrics.avgSessionsUsed} / ${metrics.avgTotalSessions}` },
         { "Metric": "Inactive Holders", "Value": metrics.inactiveHolders.toLocaleString() },
         { "Metric": "Avg Package Value", "Value": formatCurrency(metrics.avgPackageValue) },
       ],
@@ -694,7 +1375,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         "Payment Status": r.paymentStatus || "-",
       })),
     },
-  ], [rows, allSoldRows, currentMetrics, metrics, monthlyRevenue, paymentStatusData, expiringPackagesData]);
+  ], [rows, allSoldRows, currentMetrics, metrics, revenueTrendData, paymentStatusData, expiringPackagesData]);
 
   const toggleFilter = (filter: string) => {
     setActiveFilter(activeFilter === filter ? null : filter);
@@ -718,7 +1399,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <div className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white">
-                📅 {new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} - {new Date(endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                📅 {!isNaN(new Date(startDate).getTime()) ? new Date(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : 'Invalid Date'} - {!isNaN(new Date(endDate).getTime()) ? new Date(endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : 'Invalid Date'}
               </div>
               <ExportButtons 
                 sections={packageExportSections} 
@@ -793,7 +1474,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Departments
+                        Select Departments
                       </button>
                       {departments.map((dept) => (
                         <button
@@ -808,7 +1489,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         >
                           {dept.name}
                         </button>
-                      ))}
+                      ))}                                                                   
                     </div>
                   </div>
                 )}
@@ -837,10 +1518,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         onClick={() => {
                           setSelectedDoctor(null);
                           setActiveFilter(null);
+                          
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Doctors
+                        Select Doctors
                       </button>
                       {doctors.map((doc) => (
                         <button
@@ -884,23 +1566,24 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Sales Staff
+                        Select Sales Staff
                       </button>
                       {salesStaff.map((staff) => (
                         <button
                           key={staff.staffId || staff._id || staff.name}
                           onClick={() => {
-                            setSelectedSalesStaff(staff.staffId);
+                            // Use name for filtering (matches overviewSalesStaffLeaderboard format)
+                            setSelectedSalesStaff(staff.name);
                             setActiveFilter(null);
                           }}
                           className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors ${
-                            selectedSalesStaff === staff.staffId ? "bg-emerald-50 text-emerald-700" : ""
+                            selectedSalesStaff === staff.name ? "bg-emerald-50 text-emerald-700" : ""
                           }`}
                         >
                           {staff.name}
                         </button>
                       ))}
-                    </div>
+                    </div>                                                                                                                                                                                                       
                   </div>
                 )}
               </div>
@@ -928,7 +1611,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        All Payment Statuses
+                        Select Payment Status
                       </button>
                       {paymentMethods.map((pm) => (
                         <button
@@ -971,9 +1654,9 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
           {kpiCards.map((card, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+            <div key={index} className="bg-white rounded-xl shadow-sm p-4 border border-gray-200 cursor-pointer hover:shadow-md transition-shadow" onClick={() => card.kpiType && handleKpiCardClick(card.kpiType)}>
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -1020,7 +1703,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Revenue Trend</h3>
-                <p className="text-xs text-gray-500">Monthly actual vs. target · {new Date(startDate).getFullYear()}</p>
+                <p className="text-xs text-gray-500">Monthly actual vs. target · {!isNaN(new Date(startDate).getTime()) ? new Date(startDate).getFullYear() : 'N/A'}</p>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1">
@@ -1035,7 +1718,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyRevenue}>
+                <AreaChart data={revenueTrendData}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#00B42A" stopOpacity="0.2"/>
@@ -1048,22 +1731,22 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     tick={{ fontSize: 12 }} 
                     tickLine={false} 
                     axisLine={false}
-                    tickFormatter={(value) => `${value / 1000}K`}
+                    tickFormatter={(value) => formatCurrency(Number(value))}
                   />
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                     formatter={(value, name) => {
                       const numValue = Number(value);
                       if (name === 'actual') {
-                        return [`${formatK(numValue)}`, 'Actual Revenue'];
+                        return [formatCurrency(numValue), 'Actual Revenue'];
                       }
                       if (name === 'target') {
-                        return [`${formatK(numValue)}`, 'Target Revenue'];
+                        return [formatCurrency(numValue), 'Target Revenue'];
                       }
                       return value;
                     }}
                     labelFormatter={(label) => {
-                      const data = monthlyRevenue.find((d) => d.month === label);
+                      const data = revenueTrendData.find((d) => d.month === label);
                       return `${label} · ${data?.packageCount || 0} packages`;
                     }}
                   />
@@ -1192,7 +1875,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               </div>
             </div>
             <div className="space-y-3">
-              {doctorLeaderboardData.map((doc: any, index) => (
+              {topDoctorLeaderboardData.map((doc: any, index) => (
                 <div key={index}>
                   <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
                     const details = document.getElementById(`doctor-details-${index}`);
@@ -1206,11 +1889,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                      <p className="text-xs text-gray-500">{doc.department || "Other"}</p>
+                      {/* <p className="text-xs text-gray-500">{doc.packagename || "Other"}</p> */}
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-semibold text-gray-900">{doc.packages}</p>
-                      <p className="text-xs text-gray-500">{formatK(doc.revenue)}</p>
+                      <p className="text-xs text-gray-500">{formatCurrency(doc.revenue || 0)}</p>
                     </div>
                   </div>
                   {doc.monthWiseData && doc.monthWiseData.length > 0 && (
@@ -1219,7 +1902,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         {doc.monthWiseData.map((m: any, i: number) => (
                           <div key={i} className="flex items-center justify-between text-xs">
                             <span className="text-gray-600">{m.month} {m.year}</span>
-                            <span className="font-medium text-gray-900">{m.packages} · {formatK(m.revenue)}</span>
+                            <span className="font-medium text-gray-900">{m.packages} · {formatCurrency(m.revenue || 0)}</span>
                           </div>
                         ))}
                       </div>
@@ -1238,13 +1921,13 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               </div>
             </div>
             <div className="space-y-3">
-              {salesStaff.slice(0, 5).map((staff: any, index) => {
+              {topSalesStaffData.map((staff: any, index) => {
                 // Get initials from name
                 const initials = staff.name
                   ? staff.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
                   : 'SS';
                 // Calculate percentage of total revenue
-                const totalRevenue = salesStaff.reduce((sum: number, s: any) => sum + (s.totalRevenue || 0), 0);
+                const totalRevenue = topSalesStaffData.reduce((sum: number, s: any) => sum + (s.totalRevenue || 0), 0);
                 const percentage = totalRevenue > 0 ? Math.round((staff.totalRevenue / totalRevenue) * 100) : 0;
                 
                 return (
@@ -1273,7 +1956,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-gray-900">{staff.totalPackagesSold}</p>
-                        <p className="text-xs text-gray-500">{formatK(Math.round(staff.totalRevenue))}</p>
+                        <p className="text-xs text-gray-500">{formatCurrency(Math.round(staff.totalRevenue || 0))}</p>
                       </div>
                     </div>
                     {staff.monthWiseData && staff.monthWiseData.length > 0 && (
@@ -1282,7 +1965,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                           {staff.monthWiseData.map((m: any, i: number) => (
                             <div key={i} className="flex items-center justify-between text-xs">
                               <span className="text-gray-600">{m.month} {m.year}</span>
-                              <span className="font-medium text-gray-900">{m.totalPackagesSold} · {formatK(m.totalRevenue)}</span>
+                              <span className="font-medium text-gray-900">{m.totalPackagesSold} · {formatCurrency(m.totalRevenue || 0)}</span>
                             </div>
                           ))}
                         </div>
@@ -1406,7 +2089,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-600">Avg Sessions Used</span>
                 <div className="text-right">
-                  <span className="text-sm font-semibold text-blue-600">{metrics.avgSessionsUsed} / 10</span>
+                  <span className="text-sm font-semibold text-blue-600">{metrics.avgSessionsUsed} / {metrics.avgTotalSessions}</span>
                 </div>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
@@ -1416,10 +2099,10 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 </div>
               </div>
               <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-gray-600">Avg Package Value</span>
-                <div className="text-right">
+                {/* <span className="text-sm text-gray-600">Avg Package Value</span> */}
+                {/* <div className="text-right">
                   <span className="text-sm font-semibold text-emerald-600">{formatCurrency(metrics.avgPackageValue)}</span>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
@@ -1515,9 +2198,6 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     Doctor
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Dept
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Branch
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -1566,13 +2246,10 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700 text-xs font-bold">
-                          SK
-                        </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">{row.packageName || "Package"}</p>
                           <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <span className="text-amber-500">🔥</span> Popular
+                            {/* <span className="text-amber-500">🔥</span> Popular */}
                           </div>
                         </div>
                       </div>
@@ -1584,55 +2261,53 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">{row.patientName || "Patient"}</p>
-                          <p className="text-xs text-gray-500">ID: MRN-{10000 + index}</p>
+                          <p className="text-xs text-gray-500">ID: {row.emrNumber || (row.patientId ? String(row.patientId).slice(-6) : "-")}</p>
                         </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">+966 55 123 4567</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{row.phone || "-"}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">{row.doctorName || "Dr. Name"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{row.branch || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{row.soldBy || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(Number(row.totalValue) || 0)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(Number(row.totalPaid) || 0)}</td>
+                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">{formatCurrency(Number(row.totalPending) || 0)}</td>
                   <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full">DERM</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">Nadia Al-Amin</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(1500)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(1500)}</td>
-                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">{formatCurrency(0)}</td>
-                  <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs rounded-full font-medium">
-                      Paid
+                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${(row.paymentStatus || "Paid") === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {row.paymentStatus || "Paid"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <span className="text-sm text-gray-900">5/8</span>
+                      <span className="text-sm text-gray-900">{row.sessionsUsed || 0}/{row.totalSessions || 0}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: '63%' }}></div>
+                        <div className="h-full bg-emerald-500" style={{ width: `${row.totalSessions > 0 ? Math.min(100, Math.round(((row.sessionsUsed || 0) / row.totalSessions) * 100)) : 0}%` }}></div>
                       </div>
-                      <span className="text-xs text-gray-500">63%</span>
+                      <span className="text-xs text-gray-500">{row.totalSessions > 0 ? Math.min(100, Math.round(((row.sessionsUsed || 0) / row.totalSessions) * 100)) : 0}%</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">2024-01-15</td>
+                  <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600">{formatDate(row.firstPurchaseDate)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <span className="text-emerald-500">●</span>
-                      <span className="text-sm text-gray-600">2025-07-15</span>
+                      <span className="text-xs whitespace-nowrap text-gray-600">{formatDate(row.expirationDate)}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">2024-06-10</td>
+                  <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600">{formatDate(row.lastActivityDate)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       <button 
-                        onClick={() => openUsage(row.patientId || '123', row.packageName || 'Package')}
+                        onClick={() => openUsage(row.patientId || '123', row.packageName || 'Package', row.patientName || 'Patient')}
                         className="p-1 hover:bg-gray-100 rounded text-gray-500"
                       >
                         👁️
                       </button>
-                      <button className="p-1 hover:bg-gray-100 rounded text-gray-500">📄</button>
-                      <button className="p-1 hover:bg-gray-100 rounded text-gray-500">⋮</button>
+                      {/* <button className="p-1 hover:bg-gray-100 rounded text-gray-500">📄</button> */}
+                      {/* <button className="p-1 hover:bg-gray-100 rounded text-gray-500">⋮</button> */}
                     </div>
                   </td>
                 </tr>
@@ -1723,7 +2398,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           <div className="bg-white w-full md:max-w-3xl rounded-t-lg md:rounded-lg shadow-lg">
             <div className="p-4 border-b flex items-center justify-between">
               <div className="font-semibold">
-                Package Usage — {detail.packageName} ({detail.patientId})
+                Package Usage — {detail.packageName} ({detail.patientName || detail.patientId})
               </div>
               <button
                 className="px-3 py-1.5 rounded border text-sm"
@@ -1757,8 +2432,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         )}
                       </div>
                     )}
+                    <div className="text-sm text-gray-600 mb-1">
+                      Total Sessions Used: {(pkg.treatments || []).reduce((sum: number, t: any) => sum + (t.totalUsedSessions || 0), 0)}
+                    </div>
+                    <div className="text-sm text-gray-600 mb-1">
+                      Total Allowed Sessions: {pkg.totalAllowedSessions ?? 0}
+                    </div>
                     <div className="text-sm text-gray-600 mb-2">
-                      Total Sessions Used: {pkg.totalSessions || 0}
+                      Remaining Sessions: {pkg.remainingSessions ?? Math.max(0, (pkg.totalAllowedSessions ?? 0) - (pkg.treatments || []).reduce((sum: number, t: any) => sum + (t.totalUsedSessions || 0), 0))}
                     </div>
                     <div className="text-sm text-gray-700 mb-2">Treatments:</div>
                     <div className="border rounded">
@@ -1786,6 +2467,87 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               ) : (
                 <div className="text-sm text-red-600">{detail.data?.error || "No data"}</div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Detail Modal */}
+      {kpiModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setKpiModal({ open: false, title: '', data: [] })}>
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">{kpiModal.title}</h3>
+              <button
+                onClick={() => setKpiModal({ open: false, title: '', data: [] })}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+              {kpiModal.data.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No packages found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        {kpiModal.data[0]?.paidAmount !== undefined && (
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                        )}
+                        {kpiModal.data[0]?.pending !== undefined && (
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                        )}
+                        {kpiModal.data[0]?.expirationDate && (
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+                        )}
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {kpiModal.data.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.packageName || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.patientName || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(item.amount || 0)}</td>
+                          {item.paidAmount !== undefined && (
+                            <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(item.paidAmount || 0)}</td>
+                          )}
+                          {item.pending !== undefined && (
+                            <td className="px-4 py-3 text-sm text-right text-red-500">{formatCurrency(item.pending)}</td>
+                          )}
+                          {item.expirationDate && (
+                            <td className="px-4 py-3 text-sm text-gray-600">{new Date(item.expirationDate).toLocaleDateString()}</td>
+                          )}
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total: {kpiModal.data.length} package(s)</span>
+                <button
+                  onClick={() => setKpiModal({ open: false, title: '', data: [] })}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

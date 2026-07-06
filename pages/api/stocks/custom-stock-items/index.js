@@ -76,11 +76,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const {
-      page = 1,
-      limit = 10,
-      search = "",
-    } = req.query;
+    const { page = 1, limit = 10, search = "" } = req.query;
 
     // Build filter object
     let filter = { clinicId };
@@ -96,6 +92,8 @@ export default async function handler(req, res) {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const customStockItems = await CustomStockItem.find(filter)
+      .populate("createdBy", "name email")
+      .populate("clinicId", "name")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -103,8 +101,14 @@ export default async function handler(req, res) {
     const total = await CustomStockItem.countDocuments(filter);
 
     // Calculate stats
-    const totalValue = customStockItems.reduce((sum, item) => sum + (item.netPlusVat || 0), 0);
-    const totalQuantity = customStockItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalValue = customStockItems.reduce(
+      (sum, item) => sum + (item.netPlusVat || 0),
+      0,
+    );
+    const totalQuantity = customStockItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
 
     res.status(200).json({
       success: true,

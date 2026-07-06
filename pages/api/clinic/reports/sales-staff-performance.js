@@ -76,7 +76,7 @@ export default async function handler(req, res) {
 
   const { startDate, endDate, limit = "10" } = req.query;
 
-  const lim = Math.max(1, Math.min(25, parseInt(limit, 10) || 10));
+  const lim = Math.max(1, Math.min(1000, parseInt(limit, 10) || 10));
 
   try {
     const match = {};
@@ -135,9 +135,18 @@ export default async function handler(req, res) {
           ]
         : []),
 
+      // Only count packages that have billing records (paidAmount > 0 indicates billing exists)
+      {
+        $match: {
+          $expr: {
+            $gt: [{ $ifNull: ["$packages.paidAmount", 0] }, 0]
+          }
+        }
+      },
+
       {
         $group: {
-          _id: "$packages.packageSoldByUserId",
+          _id: "$packages.packageSoldBy",  // Use the string name directly instead of UserId
 
           totalPackagesSold: {
             $sum: 1,
@@ -238,47 +247,12 @@ export default async function handler(req, res) {
       },
 
       {
-        $lookup: {
-          from: "users",
-          localField: "_id",
-          foreignField: "_id",
-          as: "staff",
-        },
-      },
-
-      {
-        $unwind: {
-          path: "$staff",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-
-      {
         $project: {
           _id: 0,
 
           staffId: "$_id",
 
-          name: {
-            $ifNull: [
-              "$staff.name",
-              {
-                $trim: {
-                  input: {
-                    $concat: [
-                      {
-                        $ifNull: ["$staff.firstName", ""],
-                      },
-                      " ",
-                      {
-                        $ifNull: ["$staff.lastName", ""],
-                      },
-                    ],
-                  },
-                },
-              },
-            ],
-          },
+          name: "$_id",  // Use the packageSoldBy string directly as the name
 
           totalPackagesSold: 1,
           totalRevenue: 1,
@@ -306,9 +280,85 @@ export default async function handler(req, res) {
 
     const leaderboard = await PatientRegistration.aggregate(pipeline);
 
+    // Separate aggregation for unpaid packages (paidAmount === 0)
+    const unpaidPipeline = [
+      { $match: match },
+      { $unwind: "$packages" },
+      ...(startAt || endAt
+        ? [{
+            $match: {
+              "packages.assignedDate": {
+                ...(startAt ? { $gte: startAt } : {}),
+                ...(endAt ? { $lte: endAt } : {}),
+              },
+            },
+          }]
+        : []),
+      // Only count packages WITHOUT billing (paidAmount === 0)
+      {
+        $match: {
+          $expr: {
+            $eq: [{ $ifNull: ["$packages.paidAmount", 0] }, 0]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$packages.packageSoldBy",  // Use the string name directly
+          totalPackagesSold: { $sum: 1 },
+          totalRevenue: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
+          totalPaid: { $sum: 0 },
+          totalPending: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
+          paidPackages: { $sum: 0 },
+          partiallyPaidPackages: { $sum: 0 },
+          unpaidPackages: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          staffId: "$_id",
+          name: "$_id",  // Use the packageSoldBy string directly
+          totalPackagesSold: 1,
+          totalRevenue: 1,
+          totalPaid: 1,
+          totalPending: 1,
+          outstanding: "$totalPending",
+          paidPackages: 1,
+          partiallyPaidPackages: 1,
+          unpaidPackages: 1,
+        },
+      },
+    ];
+
+    const unpaidLeaderboard = await PatientRegistration.aggregate(unpaidPipeline);
+
+    // Merge unpaid data into main leaderboard
+    const leaderboardWithUnpaid = leaderboard.map(item => {
+      const unpaidItem = unpaidLeaderboard.find(u => String(u.staffId) === String(item.staffId));
+      if (unpaidItem) {
+        return {
+          ...item,
+          totalPackagesSold: item.totalPackagesSold + unpaidItem.totalPackagesSold,
+          totalRevenue: item.totalRevenue + unpaidItem.totalRevenue,
+          totalPending: item.totalPending + unpaidItem.totalPending,
+          outstanding: (item.outstanding || 0) + unpaidItem.outstanding,
+          unpaidPackages: (item.unpaidPackages || 0) + unpaidItem.unpaidPackages,
+        };
+      }
+      return item;
+    });
+
+    // Add unpaid-only staff (those who only have unpaid packages)
+    unpaidLeaderboard.forEach(unpaidItem => {
+      const exists = leaderboardWithUnpaid.find(item => String(item.staffId) === String(unpaidItem.staffId));
+      if (!exists) {
+        leaderboardWithUnpaid.push(unpaidItem);
+      }
+    });
+
     const leaderboardWithFallback =
-      leaderboard.length > 0
-        ? leaderboard
+      leaderboardWithUnpaid.length > 0
+        ? leaderboardWithUnpaid
         : [
             {
               staffId: null,

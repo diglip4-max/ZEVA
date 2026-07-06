@@ -181,9 +181,20 @@ export default async function handler(req, res) {
     }
 
     if (salesStaffId) {
-      pipeline.push({
-        $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
-      });
+      // Check if salesStaffId is a valid ObjectId or a name
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+      
+      if (isValidObjectId) {
+        // Match by user ID
+        pipeline.push({
+          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+        });
+      } else {
+        // Match by user name (e.g., "xyz", "muskan")
+        pipeline.push({
+          $match: { invoicedBy: String(salesStaffId) },
+        });
+      }
     }
 
     pipeline.push(
@@ -205,12 +216,17 @@ export default async function handler(req, res) {
           _id: { patientId: "$patientId", package: "$package" },
           patientId: { $first: "$patientId" },
           packageName: { $first: "$package" },
-          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          // Use amount - pendingUsed to exclude pending clearance for other services
+          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
           totalPending: { $sum: { $ifNull: ["$pending", 0] } },
           sessionsUsed: { $sum: "$__usedSessions" },
           firstPurchaseDate: { $min: "$createdAt" },
           lastActivityDate: { $max: "$createdAt" },
           doctorIds: { $addToSet: "$effectiveDoctorId" },
+          // Fields required by the Package Registry table columns (Staff, Branch, Dept)
+          soldBy: { $first: "$invoicedBy" },
+          clinicId: { $first: "$clinicId" },
+          serviceId: { $first: "$appointment.serviceId" },
         },
       },
       // Resolve doctor names
@@ -245,6 +261,68 @@ export default async function handler(req, res) {
           as: "pkg",
         },
       },
+      // Branch (clinic) name — Billing carries clinicId
+      {
+        $lookup: {
+          from: "clinics",
+          localField: "clinicId",
+          foreignField: "_id",
+          as: "clinic",
+        },
+      },
+      // Department chain: appointment.serviceId -> service.departmentId -> department.name
+      {
+        $lookup: {
+          from: "services",
+          localField: "serviceId",
+          foreignField: "_id",
+          as: "serviceDoc",
+        },
+      },
+      {
+        $addFields: {
+          departmentId: {
+            $ifNull: [{ $arrayElemAt: ["$serviceDoc.departmentId", 0] }, null],
+          },
+          // Expiry date mirrors the summary pipeline logic
+          // (pkg.endDate / pkg.validityInMonths / +1 year from first purchase)
+          expirationDate: {
+            $switch: {
+              branches: [
+                {
+                  case: { $ne: [{ $ifNull: [{ $arrayElemAt: ["$pkg.endDate", 0] }, null] }, null] },
+                  then: { $arrayElemAt: ["$pkg.endDate", 0] },
+                },
+                {
+                  case: { $gt: [{ $ifNull: [{ $arrayElemAt: ["$pkg.validityInMonths", 0] }, 0] }, 0] },
+                  then: {
+                    $dateAdd: {
+                      startDate: { $ifNull: ["$firstPurchaseDate", new Date()] },
+                      unit: "month",
+                      amount: { $arrayElemAt: ["$pkg.validityInMonths", 0] },
+                    },
+                  },
+                },
+              ],
+              default: {
+                $dateAdd: {
+                  startDate: { $ifNull: ["$firstPurchaseDate", new Date()] },
+                  unit: "year",
+                  amount: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "departments",
+          localField: "departmentId",
+          foreignField: "_id",
+          as: "department",
+        },
+      },
       {
         $project: {
           patientId: 1,
@@ -256,6 +334,12 @@ export default async function handler(req, res) {
               { $ifNull: [{ $arrayElemAt: ["$patient.lastName", 0] }, ""] },
             ],
           },
+          phone: { $ifNull: [{ $arrayElemAt: ["$patient.mobileNumber", 0] }, ""] },
+          emrNumber: { $ifNull: [{ $arrayElemAt: ["$patient.emrNumber", 0] }, ""] },
+          branch: { $ifNull: [{ $arrayElemAt: ["$clinic.name", 0] }, ""] },
+          department: { $ifNull: [{ $arrayElemAt: ["$department.name", 0] }, ""] },
+          soldBy: { $ifNull: ["$soldBy", ""] },
+          totalValue: { $add: [{ $ifNull: ["$totalPaid", 0] }, { $ifNull: ["$totalPending", 0] }] },
           totalSessions: { $ifNull: [{ $arrayElemAt: ["$pkg.totalSessions", 0] }, 0] },
           sessionsUsed: 1,
           remainingSessions: {
@@ -291,6 +375,7 @@ export default async function handler(req, res) {
           totalPending: 1,
           firstPurchaseDate: 1,
           lastActivityDate: 1,
+          expirationDate: 1,
         },
       },
       {
@@ -310,6 +395,13 @@ export default async function handler(req, res) {
     );
 
     const rows = await Billing.aggregate(pipeline);
+    
+    // Debug logging
+    console.log('DEBUG packages-sold rows:', {
+      salesStaffId,
+      rowsCount: rows?.length || 0,
+      firstRow: rows?.[0] ? { packageName: rows[0].packageName, soldBy: rows[0].soldBy } : null
+    });
 
     // For count, we need to apply the same filters
     const countPipeline = [
@@ -352,9 +444,18 @@ export default async function handler(req, res) {
     }
 
     if (salesStaffId) {
-      countPipeline.push({
-        $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
-      });
+      // Check if salesStaffId is a valid ObjectId or a name
+      const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+      
+      if (isValidObjectId) {
+        countPipeline.push({
+          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+        });
+      } else {
+        countPipeline.push({
+          $match: { invoicedBy: String(salesStaffId) },
+        });
+      }
     }
 
     countPipeline.push(
@@ -368,6 +469,9 @@ export default async function handler(req, res) {
 
     const countAgg = await Billing.aggregate(countPipeline);
     const total = countAgg?.[0]?.count || 0;
+    
+    // Debug logging for count
+    console.log('DEBUG packages-sold count:', { salesStaffId, total, countAggLength: countAgg?.length });
 
     // Calculate previous period dates
     let previousStartAt = null;
@@ -403,6 +507,15 @@ export default async function handler(req, res) {
       sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
       const thirtyDaysFromNow = new Date(todayStart);
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      
+      // Build sales staff filter (ObjectId or name)
+      const summarySalesStaffFilter = salesStaffId ? (() => {
+        const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+        return isValidObjectId 
+          ? { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) }
+          : { invoicedBy: String(salesStaffId) };
+      })() : null;
+      
       return [
         { $match: matchObj },
         {
@@ -441,11 +554,17 @@ export default async function handler(req, res) {
         },
         ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
         ...(departmentId ? buildDepartmentFilterStages() : []),
-        ...(salesStaffId ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }] : []),
+        ...(salesStaffId ? (() => {
+          const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
+          return isValidObjectId 
+            ? [{ $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) } }]
+            : [{ $match: { invoicedBy: String(salesStaffId) } }];
+        })() : []),
         {
           $group: {
             _id: { patientId: "$patientId", package: "$package" },
-            totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+            // Use amount - pendingUsed to exclude pending clearance for other services
+            totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
             totalPending: { $sum: { $ifNull: ["$pending", 0] } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },

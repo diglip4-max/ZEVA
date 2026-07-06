@@ -4,12 +4,13 @@ import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
 
 /**
- * Public endpoint to search patients by phone number within a clinic.
- * Used by the appointment booking page to auto-fill patient details
- * when an existing patient is found.
+ * Public endpoint to search patients by name or phone number within a clinic.
+ * Used by the appointment booking page and product sales page to auto-fill
+ * patient details when an existing patient is found.
  *
  * Query Params:
- *   - phone     (required): Phone number to search for (partial match supported)
+ *   - search    (required): Search term (name or phone number, min 2 characters)
+ *   - phone     (required, deprecated): Legacy param, same as search
  *   - clinicId  (required): Clinic ID to scope the search
  *   - limit     (optional): Max number of results (default: 10)
  */
@@ -24,15 +25,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phone, clinicId, limit = 10 } = req.query;
+    const { search, phone, clinicId, limit = 10 } = req.query;
+    const searchTerm = search || phone;
 
     // Validate required params
-    if (!phone || String(phone).trim().length < 3) {
+    if (!searchTerm || String(searchTerm).trim().length < 2) {
       return res.status(400).json({
         success: false,
-        message: "Phone number is required (min 3 characters)",
+        message: "Search term (search or phone) is required (min 2 characters)",
       });
     }
+
+    // Sanitize search input for regex - escape special chars
+    const sanitizedSearch = String(searchTerm)
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     if (!clinicId) {
       return res.status(400).json({
@@ -60,19 +67,18 @@ export default async function handler(req, res) {
 
     const clinicUserIds = clinicUsers.map((u) => u._id);
 
-    // Sanitize phone input for regex - escape special chars
-    const sanitizedPhone = String(phone)
-      .trim()
-      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-    // Build query: scope to clinic (via clinicId OR userId in clinic users)
+    // Build query: scope to clinic (via clinicId OR userId in clinic users) AND search
     const query = {
       $and: [
         {
           $or: [{ clinicId: clinic._id }, { userId: { $in: clinicUserIds } }],
         },
         {
-          mobileNumber: { $regex: sanitizedPhone, $options: "i" },
+          $or: [
+            { mobileNumber: { $regex: sanitizedSearch, $options: "i" } },
+            { firstName: { $regex: sanitizedSearch, $options: "i" } },
+            { lastName: { $regex: sanitizedSearch, $options: "i" } },
+          ],
         },
       ],
     };

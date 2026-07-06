@@ -100,14 +100,14 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
       try {
         const token = getTokenByPath();
         if (!token) return;
-        const res = await axios.get('/api/clinics/myallClinic', {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.data.success && res.data.clinic?.currency) {
-          setCurrency(res.data.clinic.currency);
+          setCurrency("AED");
         }
       } catch (e) {
-        console.error('Error fetching clinic currency:', e);
+        console.error("Error fetching clinic currency:", e);
       }
     };
     fetchClinicCurrency();
@@ -318,7 +318,8 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
                         Total Value
                       </div>
                       <div className="text-3xl font-bold text-gray-900 mt-1">
-                        {getCurrencySymbol(currency)} {stats.totalValue.toFixed(2)}
+                        {getCurrencySymbol(currency)}{" "}
+                        {stats.totalValue.toFixed(2)}
                       </div>
                     </div>
                   </div>
@@ -510,13 +511,16 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
                             {item.quantity} {item.uom}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getCurrencySymbol(currency)} {item.unitPrice.toFixed(2)}
+                            {getCurrencySymbol(currency)}{" "}
+                            {item.unitPrice.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {getCurrencySymbol(currency)} {item.netPrice.toFixed(2)}
+                            {getCurrencySymbol(currency)}{" "}
+                            {item.netPrice.toFixed(2)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            {getCurrencySymbol(currency)} {item.netPlusVat?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(currency)}{" "}
+                            {item.netPlusVat?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span

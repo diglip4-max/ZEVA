@@ -1898,10 +1898,22 @@ export default async function handler(req, res) {
             );
             
             if (packageIndex !== -1) {
-              // Update the package payment status to Full
-              patient.packages[packageIndex].paymentStatus = 'Full';
-              patient.packages[packageIndex].paidAmount = amount || patient.packages[packageIndex].totalPrice;
+              // Update the package payment status - ADD the amount to existing paidAmount
+              const currentPaid = patient.packages[packageIndex].paidAmount || 0;
+              const newPaidAmount = currentPaid + (amount || 0);
+              const totalPrice = patient.packages[packageIndex].totalPrice || 0;
+              
+              patient.packages[packageIndex].paidAmount = newPaidAmount;
               patient.packages[packageIndex].paymentMethod = paymentMethod || 'Cash';
+              
+              // Update payment status based on new paid amount
+              if (newPaidAmount >= totalPrice) {
+                patient.packages[packageIndex].paymentStatus = 'Full';
+              } else if (newPaidAmount > 0) {
+                patient.packages[packageIndex].paymentStatus = 'Partial';
+              } else {
+                patient.packages[packageIndex].paymentStatus = 'Unpaid';
+              }
               
              
               
