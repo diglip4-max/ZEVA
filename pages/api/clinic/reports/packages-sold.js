@@ -3,6 +3,7 @@ import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permissions-helper";
 import mongoose from "mongoose";
 import Billing from "../../../../models/Billing";
+import PatientRegistration from "../../../../models/PatientRegistration";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -40,10 +41,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod, getAll } = req.query;
+    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod, getAll, includeUnpaid, doctorName } = req.query;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageSize = getAll ? Number.MAX_SAFE_INTEGER : Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = getAll ? 0 : (pageNum - 1) * pageSize;
+    // When includeUnpaid=true (used by the KPI detail modal), also pull package
+    // records from PatientRegistration that have no billing yet (unpaid/partial).
+    // Default behavior (main report / export) is unchanged when the flag is absent.
+    const shouldIncludeUnpaid = includeUnpaid === "true" || includeUnpaid === "1";
 
     const match = { service: "Package" };
     if (user.role !== "admin") {
@@ -170,7 +175,11 @@ export default async function handler(req, res) {
       }
     ];
 
-    if (doctorId) {
+    // When includeUnpaid=true (KPI modal), the dashboard's KPI numbers come from
+    // PatientRegistration (packageSoldBy) not Billing (invoicedBy). So we skip
+    // doctorId/salesStaffId on the Billing pipeline to avoid field-mismatch emptiness.
+    // The PatientRegistration pipeline below handles these filters using the correct fields.
+    if (doctorId && !shouldIncludeUnpaid) {
       pipeline.push({
         $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) },
       });
@@ -180,7 +189,7 @@ export default async function handler(req, res) {
       pipeline.push(...buildDepartmentFilterStages());
     }
 
-    if (salesStaffId) {
+    if (salesStaffId && !shouldIncludeUnpaid) {
       // Check if salesStaffId is a valid ObjectId or a name
       const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
       
@@ -395,13 +404,179 @@ export default async function handler(req, res) {
     );
 
     const rows = await Billing.aggregate(pipeline);
-    
+
     // Debug logging
     console.log('DEBUG packages-sold rows:', {
       salesStaffId,
       rowsCount: rows?.length || 0,
       firstRow: rows?.[0] ? { packageName: rows[0].packageName, soldBy: rows[0].soldBy } : null
     });
+
+    // ---------------------------------------------------------------------
+    // Optional: include unpaid / partially paid packages from PatientRegistration
+    // so the KPI detail modal shows the SAME package set that the dashboard
+    // cards count. Only triggered when includeUnpaid=true is sent.
+    // We dedupe by (patientId + packageName) so a package that already has a
+    // billing record is never double-counted.
+    // ---------------------------------------------------------------------
+    let unpaidRows = [];
+    if (shouldIncludeUnpaid) {
+      try {
+        // Build a lookup table of patientId + packageName already covered by Billing
+        const seenKeys = new Set(
+          (rows || [])
+            .filter((r) => r.patientId && r.packageName)
+            .map((r) => `${String(r.patientId)}__${String(r.packageName)}`)
+        );
+
+        // Base match for PatientRegistration (clinic scope only)
+        const prMatch = {};
+        if (user.role !== "admin") {
+          prMatch.clinicId = new mongoose.Types.ObjectId(String(clinicId));
+        } else if (selectedClinicId) {
+          prMatch.clinicId = new mongoose.Types.ObjectId(String(selectedClinicId));
+        }
+
+        const prPipeline = [
+          { $match: prMatch },
+          { $unwind: "$packages" },
+          // Only consider packages that actually have a price set
+          {
+            $match: {
+              "packages.totalPrice": { $gt: 0 },
+            },
+          },
+          // Date range based on assignedDate (mirrors sales-staff-performance.js)
+          ...(startAt || endAt
+            ? [
+                {
+                  $match: {
+                    "packages.assignedDate": {
+                      ...(startAt ? { $gte: startAt } : {}),
+                      ...(endAt ? { $lte: endAt } : {}),
+                    },
+                  },
+                },
+              ]
+            : []),
+        ];
+
+        // Sales staff filter: match by userId (ObjectId) or by name string
+        if (salesStaffId) {
+          const isValidObjectId =
+            mongoose.Types.ObjectId.isValid(salesStaffId) &&
+            String(salesStaffId).length === 24;
+          if (isValidObjectId) {
+            prPipeline.push({
+              $match: {
+                "packages.packageSoldByUserId": new mongoose.Types.ObjectId(
+                  String(salesStaffId)
+                ),
+              },
+            });
+          } else {
+            prPipeline.push({
+              $match: { "packages.packageSoldBy": String(salesStaffId) },
+            });
+          }
+        }
+
+        // Doctor filter: match by doctorName (passed from frontend) against
+        // packages.packageSoldBy – mirrors how the dashboard counts unpaid
+        // packages for a doctor via sales-staff data filtered by doctor name.
+        if (doctorName && String(doctorName).trim()) {
+          prPipeline.push({
+            $match: { "packages.packageSoldBy": String(doctorName).trim() },
+          });
+        }
+
+        prPipeline.push(
+          {
+            $group: {
+              _id: {
+                patientId: "$_id",
+                packageName: "$packages.packageName",
+              },
+              patientId: { $first: "$_id" },
+              firstName: { $first: "$firstName" },
+              lastName: { $first: "$lastName" },
+              mobileNumber: { $first: "$mobileNumber" },
+              emrNumber: { $first: "$emrNumber" },
+              clinicId: { $first: "$clinicId" },
+              packageName: { $first: "$packages.packageName" },
+              totalPrice: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
+              paidAmount: { $sum: { $ifNull: ["$packages.paidAmount", 0] } },
+              paymentStatus: { $first: "$packages.paymentStatus" },
+              paymentMethod: { $first: "$packages.paymentMethod" },
+              packageSoldBy: { $first: "$packages.packageSoldBy" },
+              assignedDate: { $min: "$packages.assignedDate" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              patientId: 1,
+              packageName: 1,
+              patientName: {
+                $concat: [
+                  { $ifNull: ["$firstName", ""] },
+                  " ",
+                  { $ifNull: ["$lastName", ""] },
+                ],
+              },
+              phone: { $ifNull: ["$mobileNumber", ""] },
+              emrNumber: { $ifNull: ["$emrNumber", ""] },
+              branch: "",
+              department: "",
+              soldBy: { $ifNull: ["$packageSoldBy", ""] },
+              totalPaid: "$paidAmount",
+              totalPending: {
+                $max: [
+                  { $subtract: ["$totalPrice", "$paidAmount"] },
+                  0,
+                ],
+              },
+              totalValue: "$totalPrice",
+              firstPurchaseDate: "$assignedDate",
+              lastActivityDate: "$assignedDate",
+              paymentStatus: {
+                $cond: [
+                  { $lte: ["$paidAmount", 0] },
+                  "Unpaid",
+                  {
+                    $cond: [
+                      { $lt: ["$paidAmount", "$totalPrice"] },
+                      "Partly Paid",
+                      "Paid",
+                    ],
+                  },
+                ],
+              },
+              sessionsUsed: 0,
+              totalSessions: 0,
+              remainingSessions: 0,
+              doctorNames: [],
+              doctorName: "Unknown",
+              expirationDate: null,
+            },
+          }
+        );
+
+        const prResults = await PatientRegistration.aggregate(prPipeline);
+
+        // Dedupe against Billing rows (same patient + same package) so we never
+        // show a package twice when it already has a billing record.
+        unpaidRows = (prResults || []).filter((r) => {
+          if (!r.patientId || !r.packageName) return true;
+          const key = `${String(r.patientId)}__${String(r.packageName)}`;
+          if (seenKeys.has(key)) return false;
+          return true;
+        });
+      } catch (e) {
+        console.error("packages-sold includeUnpaid error:", e);
+        unpaidRows = [];
+      }
+    }
 
     // For count, we need to apply the same filters
     const countPipeline = [
@@ -469,9 +644,16 @@ export default async function handler(req, res) {
 
     const countAgg = await Billing.aggregate(countPipeline);
     const total = countAgg?.[0]?.count || 0;
-    
+
     // Debug logging for count
     console.log('DEBUG packages-sold count:', { salesStaffId, total, countAggLength: countAgg?.length });
+
+    // When includeUnpaid=true we are fetching ALL rows (getAll or large limit)
+    // for the KPI modal. Append the unpaid rows from PatientRegistration so
+    // the modal and the dashboard cards reflect the same set of packages.
+    if (shouldIncludeUnpaid && unpaidRows.length > 0) {
+      rows.push(...unpaidRows);
+    }
 
     // Calculate previous period dates
     let previousStartAt = null;
@@ -706,13 +888,16 @@ export default async function handler(req, res) {
       renewalOpportunities: 0,
     };
 
-    const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+    // Recompute total so it reflects the merged result set (Billing + PatientRegistration)
+    // when includeUnpaid=true. Used only for the pagination block in the response.
+    const finalTotal = shouldIncludeUnpaid ? rows.length : total;
+    const totalPages = finalTotal > 0 ? Math.ceil(finalTotal / pageSize) : 0;
     return res.status(200).json({
       success: true,
       data: rows,
       summary,
       previousSummary,
-      pagination: { page: pageNum, pageSize, total, totalPages, hasNext: skip + rows.length < total },
+      pagination: { page: pageNum, pageSize, total: finalTotal, totalPages, hasNext: skip + rows.length < finalTotal },
     });
   } catch (e) {
     console.error("packages-sold error:", e);

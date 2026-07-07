@@ -308,8 +308,19 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       }
       
       // For billing-related KPIs, fetch from packages-sold API
-      const params: any = { startDate, endDate, limit: "1000", getAll: "true" };
-      if (selectedDoctor) params.doctorId = selectedDoctor;
+      // includeUnpaid=true asks the API to also include package records from
+      // PatientRegistration that have no billing yet (unpaid / partially paid),
+      // so the modal shows the SAME package set the dashboard cards are counting.
+      // The main report and export flows do NOT pass this flag, so their default
+      // behavior is preserved.
+      const params: any = { startDate, endDate, limit: "1000", getAll: "true", includeUnpaid: "true" };
+      if (selectedDoctor) {
+        params.doctorId = selectedDoctor;
+        // Pass doctor name so the PatientRegistration pipeline can filter by packageSoldBy
+        const docObj = doctors.find((d: any) => d._id === selectedDoctor);
+        const docName = docObj?.name || (docObj?.firstName && docObj?.lastName ? `${docObj.firstName} ${docObj.lastName}` : null);
+        if (docName) params.doctorName = docName;
+      }
       if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
       if (selectedDepartment) params.departmentId = selectedDepartment;
       if (selectedClinic) params.clinicId = selectedClinic;
@@ -770,8 +781,11 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         
         return {
           totalPackagesSold: acc.totalPackagesSold + (monthEntry?.totalPackagesSold || staff.totalPackagesSold || 0),
-          totalRevenue: acc.totalRevenue + (monthEntry?.totalRevenue || staff.totalRevenue || 0),
-          totalPaid: acc.totalPaid + (monthEntry?.totalRevenue || staff.totalRevenue || 0),  // Use revenue as paid
+          // Use staff.totalPaid (sum of paidAmount) for both totalRevenue and totalPaid
+          // so that unpaid packages (paidAmount=0) are NOT counted in Total Revenue
+          // or Paid Revenue — they should only appear in Outstanding.
+          totalRevenue: acc.totalRevenue + (staff.totalPaid || 0),
+          totalPaid: acc.totalPaid + (staff.totalPaid || 0),  // Use actual paid, not totalRevenue
           totalPending: acc.totalPending + (staff.totalPending || 0),
           paidPackages: acc.paidPackages + (staff.paidPackages || 0),
           partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
@@ -1121,16 +1135,30 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   // The API returns totalPackages/totalRevenue aggregated across ALL months,
   // so we extract only the selected month's data from monthWiseData.
   // This ensures the leaderboard shows only doctors with sales in the selected calendar month.
+  //
+  // Sync rule: the Doctor Leaderboard must also include doctorStaff (role 'doctor' or
+  // 'doctorStaff') who only have unpaid packages assigned (no billing record yet).
+  // The Doctor Leaderboard API is sourced from Billing (paid > 0) so these
+  // doctorStaff are missing from `effectiveDoctorLeaderboard`. We backfill them
+  // here from `overviewSalesStaffLeaderboard` using the `doctors` list (which
+  // already contains both 'doctor' and 'doctorStaff' roles) as the source of
+  // truth for who qualifies as a doctor/doctorStaff.
   const topDoctorLeaderboardData = useMemo(() => {
+    // Names of users with role 'doctor' or 'doctorStaff' from /api/clinic/doctors
+    const doctorStaffNames = new Set(
+      (doctors || []).map((d: any) => d.name).filter(Boolean)
+    );
+
+    // Process existing doctor leaderboard data (doctors with billing activity)
     const monthData = (effectiveDoctorLeaderboard || [])
       .map((doc: any) => {
         // Find the entry in monthWiseData that matches the selected month
         const monthEntry = (doc.monthWiseData || []).find((m: any) => m.month === selectedMonth);
         if (!monthEntry) return null;
-        
+
         // Get unpaid packages count for this doctor from overviewSalesStaffLeaderboard
         const doctorUnpaid = (overviewSalesStaffLeaderboard || []).find((s: any) => s.name === doc.name)?.unpaidPackages || 0;
-        
+
         return {
           ...doc,
           name: doc.name || "Unknown Doctor",
@@ -1140,8 +1168,39 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         };
       })
       .filter((doc: any) => doc !== null && ((doc.packages || 0) > 0 || (doc.revenue || 0) > 0));
-    
-    return monthData
+
+    // Names already represented in the doctor leaderboard (after filtering)
+    const existingDoctorNames = new Set(monthData.map((d: any) => d.name));
+
+    // Backfill: include doctorStaff who appear in the Sales Staff leaderboard
+    // (meaning they assigned at least one package) but are missing from the
+    // Doctor Leaderboard because no billing has been generated yet.
+    const missingDoctorStaff = (overviewSalesStaffLeaderboard || [])
+      .filter((s: any) => {
+        if (!s.name) return false;
+        // Must be a doctor or doctorStaff per the /api/clinic/doctors source
+        if (!doctorStaffNames.has(s.name)) return false;
+        // Must not already be in the doctor leaderboard (avoid duplicates)
+        if (existingDoctorNames.has(s.name)) return false;
+        // Must have package activity in the selected month
+        const monthEntry = (s.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        return Boolean(monthEntry && ((monthEntry.totalPackagesSold || 0) > 0 || (monthEntry.totalRevenue || 0) > 0));
+      })
+      .map((s: any) => {
+        const monthEntry = (s.monthWiseData || []).find((m: any) => m.month === selectedMonth);
+        return {
+          name: s.name,
+          // Count includes all packages assigned in the month (paid + unpaid)
+          // because the leaderboard is for "packages sold" by this seller.
+          packages: monthEntry?.totalPackagesSold || 0,
+          // No billing exists for unpaid-only packages, so revenue is 0 here.
+          // The KPI cards already exclude unpaid from Total/Paid Revenue.
+          revenue: 0,
+          monthWiseData: s.monthWiseData || [],
+        };
+      });
+
+    return [...monthData, ...missingDoctorStaff]
       .sort((a: any, b: any) => {
         const packagesDiff = (b.packages || 0) - (a.packages || 0);
         if (packagesDiff !== 0) return packagesDiff;
@@ -1155,7 +1214,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           ? doc.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
           : "UD",
       }));
-  }, [effectiveDoctorLeaderboard, selectedMonth, overviewSalesStaffLeaderboard]);
+  }, [effectiveDoctorLeaderboard, selectedMonth, overviewSalesStaffLeaderboard, doctors]);
 
   // Build the Top 5 sales staff leaderboard for the selected month.
   //
