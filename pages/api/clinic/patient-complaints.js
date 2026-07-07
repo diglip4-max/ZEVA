@@ -57,14 +57,13 @@ export default async function handler(req, res) {
 
     if (
       !appointmentId ||
-      !appointmentReportId ||
       !complaints ||
       !complaints.trim()
     ) {
       return res.status(400).json({
         success: false,
         message:
-          "appointmentId, appointmentReportId, and complaints are required",
+          "appointmentId and complaints are required",
       });
     }
 
@@ -80,17 +79,20 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Appointment not found" });
       }
 
-      // Verify appointment report exists and belongs to the appointment
-      const report = await AppointmentReport.findOne({
-        _id: appointmentReportId,
-        appointmentId: appointmentId,
-        clinicId,
-      }).lean();
-      if (!report) {
-        return res.status(404).json({
-          success: false,
-          message: "Appointment report not found or does not match appointment",
-        });
+      // Verify appointment report exists and belongs to the appointment (if provided)
+      let report = null;
+      if (appointmentReportId) {
+        report = await AppointmentReport.findOne({
+          _id: appointmentReportId,
+          appointmentId: appointmentId,
+          clinicId,
+        }).lean();
+        if (!report) {
+          return res.status(404).json({
+            success: false,
+            message: "Appointment report not found or does not match appointment",
+          });
+        }
       }
 
       // Get doctorId from appointment (the doctor assigned to this appointment)

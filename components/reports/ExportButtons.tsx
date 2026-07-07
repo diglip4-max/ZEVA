@@ -1,5 +1,5 @@
-import React from "react";
-import { FileSpreadsheet, FileText, File as FilePdf } from "lucide-react";
+import React, { useState } from "react";
+import { FileText, File as FilePdf, ChevronDown, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -21,28 +21,12 @@ interface ExportButtonsProps {
 }
 
 const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, title, sections }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
   // Normalise: always work with an array of sections
   const allSections: ExportSection[] = sections && sections.length > 0
     ? sections
     : [{ title, headers: headers || (data && data.length > 0 ? Object.keys(data[0]) : []), data: data || [] }];
-
-  // ── Excel ──────────────────────────────────────────────────────────────────
-  const exportToExcel = () => {
-    const workbook = XLSX.utils.book_new();
-    allSections.forEach((section, idx) => {
-      const rows = section.data.length > 0 ? section.data : [{}];
-      // Build rows using only the declared header order
-      const sheetData = rows.map((item: any) =>
-        section.headers.reduce((acc: any, h) => { acc[h] = item[h] ?? ""; return acc; }, {})
-      );
-      const worksheet = XLSX.utils.json_to_sheet(sheetData, { header: section.headers });
-      // Sheet names must be ≤ 31 chars and unique
-      let sheetName = section.title.replace(/[\\\/:*?[\]]/g, "").slice(0, 28);
-      if (workbook.SheetNames.includes(sheetName)) sheetName = `${sheetName}_${idx + 1}`;
-      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    });
-    XLSX.writeFile(workbook, `${filename}.xlsx`);
-  };
 
   // ── CSV ────────────────────────────────────────────────────────────────────
   const exportToCSV = () => {
@@ -106,32 +90,39 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
     doc.save(`${filename}.pdf`);
   };
 
+  const exportFunctions = {
+    CSV: exportToCSV,
+    PDF: exportToPDF
+  };
+
   return (
-    <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 mb-3 sm:mb-4">
+    <div className="relative">
       <button
-        onClick={exportToCSV}
-        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm transition-colors shadow-sm min-w-[70px] sm:min-w-[85px]"
-        title="Download CSV"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg text-sm hover:bg-teal-700"
       >
-        <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
-        <span className="font-medium">CSV</span>
+        <Download className="w-4 h-4" />
+        <span>Export</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
-      <button
-        onClick={exportToExcel}
-        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm transition-colors shadow-sm min-w-[70px] sm:min-w-[85px]"
-        title="Download Excel"
-      >
-        <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-600" />
-        <span className="font-medium">Excel</span>
-      </button>
-      <button
-        onClick={exportToPDF}
-        className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs sm:text-sm transition-colors shadow-sm min-w-[70px] sm:min-w-[85px]"
-        title="Download PDF"
-      >
-        <FilePdf className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
-        <span className="font-medium">PDF</span>
-      </button>
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+          {Object.entries(exportFunctions).map(([format, fn]) => (
+            <button
+              key={format}
+              onClick={() => {
+                fn();
+                setIsOpen(false);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              {format === 'CSV' && <FileText className="w-4 h-4 text-green-600" />}
+              {format === 'PDF' && <FilePdf className="w-4 h-4 text-red-600" />}
+              {format}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

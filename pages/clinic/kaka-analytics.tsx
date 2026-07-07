@@ -11,8 +11,8 @@ import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "../_app";
 import {
-  AreaChart,
-  Area,
+  
+ 
   BarChart,
   Bar,
   LineChart,
@@ -27,7 +27,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import {
-  MessageSquare,
+ 
   Users,
   CalendarCheck,
   RefreshCw,
@@ -622,8 +622,8 @@ const KakaAnalyticsPage: NextPageWithLayout = function KakaAnalyticsPage() {
     mode === "date" ? (dayDetail?.scenario_breakdown ?? []) : mix;
 
   const volumeChartData = mode === "date" ? (dayDetail?.hourly ?? []) : daily;
-  const volumeChartKey = mode === "date" ? "volume" : "conversations";
-  const volumeChartXKey = mode === "date" ? "hour" : "date";
+  // const volumeChartKey = mode === "date" ? "volume" : "conversations";
+  // const volumeChartXKey = mode === "date" ? "hour" : "date";
 
   const maxHour = activeHours.length
     ? Math.max(...activeHours.map((h) => h.volume))

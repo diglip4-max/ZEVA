@@ -304,22 +304,31 @@ export default async function handler(req, res) {
         // Packaging structure acceptance
         const level0 = {
           price: Number(it.level0?.price ?? unit),
+          salePrice: Number(it.level0?.salePrice ?? unit),
           uom: String(it.level0?.uom ?? it.uom ?? ""),
         };
         const l1Qty = Number(it.packagingStructure?.level1?.quantity || 0);
         const l1Uom = String(it.packagingStructure?.level1?.uom || "");
         let l1Price = Number(it.packagingStructure?.level1?.price || 0);
+        let l1SalePrice = Number(it.packagingStructure?.level1?.salePrice || 0);
         // base box price derived from netPlusVat/qty
         const baseBoxPrice =
           qty > 0 ? Number((netPlusVat / qty).toFixed(4)) : Number(0);
         if (l1Qty > 0 && baseBoxPrice > 0) {
           l1Price = Number((baseBoxPrice / l1Qty).toFixed(4));
+          if (level0.salePrice) {
+            l1SalePrice = Number((level0.salePrice / l1Qty).toFixed(4));
+          }
         }
         const l2Qty = Number(it.packagingStructure?.level2?.quantity || 0);
         const l2Uom = String(it.packagingStructure?.level2?.uom || "");
         let l2Price = Number(it.packagingStructure?.level2?.price || 0);
+        let l2SalePrice = Number(it.packagingStructure?.level2?.salePrice || 0);
         if (l2Qty > 0 && l1Qty > 0 && l1Price > 0) {
           l2Price = Number((l1Price / l2Qty).toFixed(4));
+          if (l1SalePrice) {
+            l2SalePrice = Number((l1SalePrice / l2Qty).toFixed(4));
+          }
         }
 
         normalized.push({
@@ -349,11 +358,13 @@ export default async function handler(req, res) {
             level1: {
               quantity: l1Qty,
               price: l1Price,
+              salePrice: l1SalePrice,
               uom: l1Uom,
             },
             level2: {
               quantity: l2Qty,
               price: l2Price,
+              salePrice: l2SalePrice,
               uom: l2Uom,
             },
           },

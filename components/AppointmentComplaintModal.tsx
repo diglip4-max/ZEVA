@@ -29,11 +29,10 @@ import {
   Send,
   TrendingUp,
   Pill,
-   Edit2,
+  Edit2,
   NotebookPen,
   CheckCircle,
   XCircle,
-  
   Search,
   Loader2,
   Phone,
@@ -42,6 +41,8 @@ import {
   AlertCircle,
   Wrench,
   Camera,
+  Download,
+  ShoppingCart,
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import useStockItems from "@/hooks/useStockItems";
@@ -52,24 +53,48 @@ import AddStockTransferRequestModal from "@/pages/clinic/stocks/stock-transfer/s
 
 // Helper function to get user role from token
 const getUserRole = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   try {
-    const isClinicPath = window.location.pathname.startsWith('/clinic/');
+    const isClinicPath = window.location.pathname.startsWith("/clinic/");
     let tokenKeys;
     if (isClinicPath) {
-      tokenKeys = ['clinicToken', 'doctorToken', 'agentToken', 'staffToken', 'userToken', 'adminToken'];
+      tokenKeys = [
+        "clinicToken",
+        "doctorToken",
+        "agentToken",
+        "staffToken",
+        "userToken",
+        "adminToken",
+      ];
     } else {
-      tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
+      tokenKeys = [
+        "agentToken",
+        "doctorToken",
+        "clinicToken",
+        "staffToken",
+        "userToken",
+        "adminToken",
+      ];
     }
-    
+
     for (const key of tokenKeys) {
       const token = localStorage.getItem(key) || sessionStorage.getItem(key);
       if (token) {
         try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
+          const payload = JSON.parse(atob(token.split(".")[1]));
           const role = payload.role || null;
-          
-          if (role && ['agent', 'doctorStaff', 'doctor', 'clinic', 'staff', 'admin'].includes(role)) {
+
+          if (
+            role &&
+            [
+              "agent",
+              "doctorStaff",
+              "doctor",
+              "clinic",
+              "staff",
+              "admin",
+            ].includes(role)
+          ) {
             return role;
           }
         } catch (e) {
@@ -78,7 +103,7 @@ const getUserRole = () => {
       }
     }
   } catch (error) {
-    console.error('Error getting user role:', error);
+    console.error("Error getting user role:", error);
   }
   return null;
 };
@@ -88,7 +113,7 @@ const maskMobileNumber = (mobile: string) => {
   const firstTwo = mobile.slice(0, 2);
   const lastTwo = mobile.slice(-2);
   const middleLength = mobile.length - 4;
-  return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
+  return `${firstTwo}${"*".repeat(middleLength)}${lastTwo}`;
 };
 
 interface AppointmentLite {
@@ -220,6 +245,9 @@ interface PreviousComplaint {
     [key: string]: any;
   }>;
   visitDate?: string;
+  checklist?: Record<string, boolean>;
+  createdPackage?: any;
+  serviceNames?: string[];
 }
 
 interface AppointmentComplaintModalProps {
@@ -248,7 +276,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>("");
-  const [currency, setCurrency] = useState('INR');
+  const [currency, setCurrency] = useState("INR");
   const [isSpecificClinic, setIsSpecificClinic] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -274,13 +302,29 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [loadingComplaints, setLoadingComplaints] = useState(false);
   const [_showPreviousReports, setShowPreviousReports] = useState(false);
   interface PatientEMRStats {
-    totalSpend: number; totalBilled: number; totalPending: number;
-    totalVisits: number; billingCount: number;
-    recentBillings: Array<{ service: string; label: string; amount: number; paid: number; pending: number; date: string }>;
+    totalSpend: number;
+    totalBilled: number;
+    totalPending: number;
+    totalVisits: number;
+    billingCount: number;
+    recentBillings: Array<{
+      service: string;
+      label: string;
+      amount: number;
+      paid: number;
+      pending: number;
+      date: string;
+    }>;
   }
-  const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(null);
+  const [patientStats, setPatientStats] = useState<PatientEMRStats | null>(
+    null,
+  );
   const [loadingPatientStats, setLoadingPatientStats] = useState(false);
-  const [patientBalance, setPatientBalance] = useState({ pendingBalance: 0, advanceBalance: 0, pendingClaim: 0 });
+  const [patientBalance, setPatientBalance] = useState({
+    pendingBalance: 0,
+    advanceBalance: 0,
+    pendingClaim: 0,
+  });
   // Ref to scroll to Previous Complaints when History is clicked
   const previousComplaintsRef = useRef<HTMLDivElement | null>(null);
   const [expandedComplaints, setExpandedComplaints] = useState<
@@ -319,14 +363,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     useState<boolean>(false);
 
   // consent form
-  interface ConsentFormOption { _id: string; formName: string; }
+  interface ConsentFormOption {
+    _id: string;
+    formName: string;
+  }
   const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
   const [selectedConsentId, setSelectedConsentId] = useState<string>("");
   const [_selectedComplaintId, setSelectedComplaintId] = useState<string>("");
   const [sendingConsent, setSendingConsent] = useState<boolean>(false);
   const [consentSent, setConsentSent] = useState<boolean>(false);
   const [sentConsentLogIds, setSentConsentLogIds] = useState<string[]>([]); // Track consent log IDs sent in this modal session
- 
+
   // Consent status tracking
   // interface ConsentStatusData {
   //   status: "not-sent" | "sent" | "viewed" | "signed";
@@ -353,12 +400,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
   const [addingNewEntry, setAddingNewEntry] = useState(false);
   const [newEntryText, setNewEntryText] = useState<string>("");
-  const [newEntryDate, setNewEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [newEntryDate, setNewEntryDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [savingProgress, setSavingProgress] = useState(false);
   const [progressError, setProgressError] = useState<string>("");
-  
+
   // Edit progress note state
-  const [editingProgressNoteId, setEditingProgressNoteId] = useState<string | null>(null);
+  const [editingProgressNoteId, setEditingProgressNoteId] = useState<
+    string | null
+  >(null);
   const [editingProgressNoteData, setEditingProgressNoteData] = useState<{
     note: string;
     noteDate: string;
@@ -369,7 +420,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const isWithin24Hours = (dateString: string) => {
     const now = new Date();
     const createdDate = new Date(dateString);
-    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+    const hoursDiff =
+      (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
     return hoursDiff < 24;
   };
 
@@ -378,7 +430,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setEditingProgressNoteId(entry._id);
     setEditingProgressNoteData({
       note: entry.note,
-      noteDate: entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10),
+      noteDate: entry.noteDate
+        ? new Date(entry.noteDate).toISOString().slice(0, 10)
+        : new Date(entry.createdAt).toISOString().slice(0, 10),
     });
   };
 
@@ -388,74 +442,116 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   };
 
   const saveEditedProgressNote = async (noteId: string) => {
-    if (!editingProgressNoteData || !editingProgressNoteData.note.trim()) return;
-    
+    if (!editingProgressNoteData || !editingProgressNoteData.note.trim())
+      return;
+
     setSavingEditedProgress(true);
     try {
       const headers = getAuthHeaders();
-      
-      await axios.put("/api/clinic/progress-notes", {
-        noteId,
-        note: editingProgressNoteData.note.trim(),
-        noteDate: editingProgressNoteData.noteDate,
-      }, { headers });
+
+      await axios.put(
+        "/api/clinic/progress-notes",
+        {
+          noteId,
+          note: editingProgressNoteData.note.trim(),
+          noteDate: editingProgressNoteData.noteDate,
+        },
+        { headers },
+      );
 
       // Update local state
-      setProgressNotes(prev => prev.map(n => {
-        if (n._id === noteId) {
-          return {
-            ...n,
-            note: editingProgressNoteData.note.trim(),
-            noteDate: editingProgressNoteData.noteDate,
-          };
-        }
-        return n;
-      }));
+      setProgressNotes((prev) =>
+        prev.map((n) => {
+          if (n._id === noteId) {
+            return {
+              ...n,
+              note: editingProgressNoteData.note.trim(),
+              noteDate: editingProgressNoteData.noteDate,
+            };
+          }
+          return n;
+        }),
+      );
 
       setEditingProgressNoteId(null);
       setEditingProgressNoteData(null);
     } catch (error: any) {
-      setProgressError(error.response?.data?.message || "Failed to update progress note");
+      setProgressError(
+        error.response?.data?.message || "Failed to update progress note",
+      );
     } finally {
       setSavingEditedProgress(false);
     }
   };
 
   // Prescription tab state
-  type MedicineLine = { id: string; medicineName: string; dosage: string; duration: string; notes: string };
-  const emptyMedicine = (): MedicineLine => ({ id: Date.now().toString() + Math.random(), medicineName: "", dosage: "", duration: "", notes: "" });
+  type MedicineLine = {
+    id: string;
+    medicineName: string;
+    dosage: string;
+    duration: string;
+    notes: string;
+  };
+  const emptyMedicine = (): MedicineLine => ({
+    id: Date.now().toString() + Math.random(),
+    medicineName: "",
+    dosage: "",
+    duration: "",
+    notes: "",
+  });
   const [medicines, setMedicines] = useState<MedicineLine[]>([emptyMedicine()]);
-  const [aftercareInstructions, setAftercareInstructions] = useState<string>("");
+  const [aftercareInstructions, setAftercareInstructions] =
+    useState<string>("");
   const [includeInPdf, setIncludeInPdf] = useState<boolean>(true);
   const [savingPrescription, setSavingPrescription] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState<string>("");
   const [prescriptionSaved, setPrescriptionSaved] = useState<boolean>(false);
   interface PrescriptionHistoryEntry {
     _id: string;
-    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    medicines: Array<{
+      _id?: string;
+      medicineName: string;
+      dosage?: string;
+      duration?: string;
+      notes?: string;
+    }>;
     aftercareInstructions?: string;
     includeInPdf?: boolean;
     doctorId?: { _id?: string; name?: string; email?: string } | string | null;
     createdAt: string;
     updatedAt: string;
   }
-  const [prescriptionHistory, setPrescriptionHistory] = useState<PrescriptionHistoryEntry[]>([]);
-  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] = useState(false);
-  const [expandedPrescription, setExpandedPrescription] = useState<Record<string, boolean>>({});
-  
+  const [prescriptionHistory, setPrescriptionHistory] = useState<
+    PrescriptionHistoryEntry[]
+  >([]);
+  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] =
+    useState(false);
+  const [expandedPrescription, setExpandedPrescription] = useState<
+    Record<string, boolean>
+  >({});
+
   // Edit prescription state
-  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<
+    string | null
+  >(null);
   const [editingPrescriptionData, setEditingPrescriptionData] = useState<{
-    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    medicines: Array<{
+      _id?: string;
+      medicineName: string;
+      dosage?: string;
+      duration?: string;
+      notes?: string;
+    }>;
     aftercareInstructions?: string;
   } | null>(null);
-  const [savingEditedPrescription, setSavingEditedPrescription] = useState(false);
+  const [savingEditedPrescription, setSavingEditedPrescription] =
+    useState(false);
 
   // Edit prescription handlers
   const startEditPrescription = (entry: PrescriptionHistoryEntry) => {
     setEditingPrescriptionId(entry._id);
     setEditingPrescriptionData({
-      medicines: entry.medicines.map(m => ({
+      medicines: entry.medicines.map((m) => ({
         _id: m._id,
         medicineName: m.medicineName || "",
         dosage: m.dosage || "",
@@ -473,45 +569,70 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   const saveEditedPrescription = async (prescriptionId: string) => {
     if (!editingPrescriptionData) return;
-    
+
     setSavingEditedPrescription(true);
     try {
       const headers = getAuthHeaders();
       // Filter out empty medicines
-      const validMeds = editingPrescriptionData.medicines.filter(m => m.medicineName.trim());
-      
-      await axios.put("/api/clinic/prescriptions", {
-        prescriptionId,
-        medicines: validMeds,
-        aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
-      }, { headers });
+      const validMeds = editingPrescriptionData.medicines.filter((m) =>
+        m.medicineName.trim(),
+      );
+
+      await axios.put(
+        "/api/clinic/prescriptions",
+        {
+          prescriptionId,
+          medicines: validMeds,
+          aftercareInstructions:
+            editingPrescriptionData.aftercareInstructions || "",
+        },
+        { headers },
+      );
 
       // Update local state
-      setPrescriptionHistory(prev => prev.map(p => {
-        if (p._id === prescriptionId) {
-          return {
-            ...p,
-            medicines: validMeds,
-            aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return p;
-      }));
+      setPrescriptionHistory((prev) =>
+        prev.map((p) => {
+          if (p._id === prescriptionId) {
+            return {
+              ...p,
+              medicines: validMeds,
+              aftercareInstructions:
+                editingPrescriptionData.aftercareInstructions || "",
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return p;
+        }),
+      );
 
       setEditingPrescriptionId(null);
       setEditingPrescriptionData(null);
     } catch (error: any) {
-      setPrescriptionError(error.response?.data?.message || "Failed to update prescription");
+      setPrescriptionError(
+        error.response?.data?.message || "Failed to update prescription",
+      );
     } finally {
       setSavingEditedPrescription(false);
     }
   };
 
   // Smart Recommendations state
-  interface SmartService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; departmentId?: string; }
-  interface SmartDepartment { _id: string; name: string; services: SmartService[]; }
-  const [smartDepartments, setSmartDepartments] = useState<SmartDepartment[]>([]);
+  interface SmartService {
+    _id: string;
+    name: string;
+    price: number;
+    clinicPrice?: number | null;
+    durationMinutes?: number;
+    departmentId?: string;
+  }
+  interface SmartDepartment {
+    _id: string;
+    name: string;
+    services: SmartService[];
+  }
+  const [smartDepartments, setSmartDepartments] = useState<SmartDepartment[]>(
+    [],
+  );
   const [loadingSmartRec, setLoadingSmartRec] = useState(false);
 
   // Next Session Booking state
@@ -522,27 +643,39 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [nextSessionBooked, setNextSessionBooked] = useState(false);
   const [nextSessionError, setNextSessionError] = useState<string>("");
   // Rooms state
-  interface Room { _id: string; name: string; }
+  interface Room {
+    _id: string;
+    name: string;
+  }
   const [rooms, setRooms] = useState<Room[]>([]);
   const [nextSessionRoom, setNextSessionRoom] = useState<string>("");
   const [loadingRooms, setLoadingRooms] = useState(false);
 
   // Upcoming appointments state
-  interface UpcomingAppointment { _id: string; startDate: string; fromTime: string; toTime: string; status: string; followType: string; }
-  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([]);
+  interface UpcomingAppointment {
+    _id: string;
+    startDate: string;
+    fromTime: string;
+    toTime: string;
+    status: string;
+    followType: string;
+  }
+  const [upcomingAppointments, setUpcomingAppointments] = useState<
+    UpcomingAppointment[]
+  >([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
 
   // Filter upcoming appointments to only show future ones (date and time)
   const filteredUpcomingAppointments = useMemo(() => {
     if (!upcomingAppointments) return [];
-   
+
     const now = new Date();
     // Current date in YYYY-MM-DD format (local time)
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
     const todayStr = `${year}-${month}-${day}`;
-   
+
     const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
     return upcomingAppointments
@@ -553,7 +686,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         const apptMonth = String(d.getMonth() + 1).padStart(2, "0");
         const apptDay = String(d.getDate()).padStart(2, "0");
         const apptDateStr = `${apptYear}-${apptMonth}-${apptDay}`;
-       
+
         if (apptDateStr > todayStr) return true;
         if (apptDateStr === todayStr) {
           // Compare fromTime (HH:mm) with currentTimeStr (HH:mm)
@@ -561,7 +694,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         }
         return false;
       })
-      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+      .sort(
+        (a, b) =>
+          new Date(a.startDate).getTime() - new Date(b.startDate).getTime(),
+      );
   }, [upcomingAppointments]);
 
   // Consent Form Status state
@@ -576,11 +712,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     status: "pending" | "signed" | "sent";
     signedAt?: string;
   }
-  const [consentStatuses, setConsentStatuses] = useState<ConsentFormStatus[]>([]);
+  const [consentStatuses, setConsentStatuses] = useState<ConsentFormStatus[]>(
+    [],
+  );
   const [loadingConsentStatus, setLoadingConsentStatus] = useState(false);
 
   // Clinical Checklist state
-  const CHECKLIST_ITEMS = ["Consent Signed", "Allergy Checked", "Photos Uploaded", "Notes Completed"] as const;
+  const CHECKLIST_ITEMS = [
+    "Consent Signed",
+    "Allergy Checked",
+    "Photos Uploaded",
+    "Notes Completed",
+  ] as const;
   const [checklist, setChecklist] = useState<Record<string, boolean>>({
     "Consent Signed": false,
     "Allergy Checked": false,
@@ -590,7 +733,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [checklistError, setChecklistError] = useState<string>("");
 
   // Add Service state
-  interface ClinicService { _id: string; name: string; price: number; clinicPrice?: number | null; durationMinutes?: number; quantity?: number; }
+  interface ClinicService {
+    _id: string;
+    name: string;
+    price: number;
+    clinicPrice?: number | null;
+    durationMinutes?: number;
+    quantity?: number;
+  }
   const [allServices, setAllServices] = useState<ClinicService[]>([]);
   const [showAddServiceDropdown, setShowAddServiceDropdown] = useState(false);
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
@@ -599,7 +749,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [servicesSaved, setServicesSaved] = useState(false);
   const [servicesError, setServicesError] = useState("");
   const [loadingServices, setLoadingServices] = useState(false);
-  const [deletingTreatmentId, setDeletingTreatmentId] = useState<string | null>(null);
+  const [deletingTreatmentId, setDeletingTreatmentId] = useState<string | null>(
+    null,
+  );
 
   // Custom Service Add state
   const [showAddCustomService, setShowAddCustomService] = useState(false);
@@ -618,22 +770,44 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [pkgModalName, setPkgModalName] = useState("");
   const [pkgModalPrice, setPkgModalPrice] = useState("");
   const [pkgModalValidityInMonths, setPkgModalValidityInMonths] = useState("");
-  const [pkgModalStartDate, setPkgModalStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pkgModalStartDate, setPkgModalStartDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [pkgModalEndDate, setPkgModalEndDate] = useState("");
-  const [pkgTreatments, setPkgTreatments] = useState<Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }>>([]);
-  const [pkgSelectedTreatments, setPkgSelectedTreatments] = useState<Array<{ treatmentName: string; treatmentSlug: string; sessions: number; allocatedPrice: number }>>([]);
-  const [pkgTreatmentDropdownOpen, setPkgTreatmentDropdownOpen] = useState(false);
+  const [pkgTreatments, setPkgTreatments] = useState<
+    Array<{
+      name: string;
+      slug: string;
+      type?: string;
+      mainTreatment?: string | null;
+    }>
+  >([]);
+  const [pkgSelectedTreatments, setPkgSelectedTreatments] = useState<
+    Array<{
+      treatmentName: string;
+      treatmentSlug: string;
+      sessions: number;
+      allocatedPrice: number;
+    }>
+  >([]);
+  const [pkgTreatmentDropdownOpen, setPkgTreatmentDropdownOpen] =
+    useState(false);
   const [pkgTreatmentSearch, setPkgTreatmentSearch] = useState("");
   const [pkgSubmitting, setPkgSubmitting] = useState(false);
   const [pkgError, setPkgError] = useState("");
   const [pkgSuccess, setPkgSuccess] = useState("");
   const [addingPackageToPatient, setAddingPackageToPatient] = useState(false);
-  const [showVitalsWarning, setShowVitalsWarning] = useState(false);
-  const [addingRecService, setAddingRecService] = useState<Record<string, boolean>>({});
+  const [addingRecService, setAddingRecService] = useState<
+    Record<string, boolean>
+  >({});
   // Track added services per patient (key format: "patientId_serviceId")
-  const [addedRecServices, setAddedRecServices] = useState<Record<string, boolean>>({});
+  const [addedRecServices, setAddedRecServices] = useState<
+    Record<string, boolean>
+  >({});
   // Track recently added services for visual highlighting (with timestamp for animation)
-  const [recentlyAddedServices, setRecentlyAddedServices] = useState<Record<string, number>>({});
+  const [recentlyAddedServices, setRecentlyAddedServices] = useState<
+    Record<string, number>
+  >({});
 
   // Auto-clear recently added status after 3 seconds
   useEffect(() => {
@@ -662,12 +836,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   // Auto-calculate end date for package creation
   useEffect(() => {
-    if (pkgModalStartDate && pkgModalValidityInMonths && !isNaN(parseInt(pkgModalValidityInMonths))) {
+    if (
+      pkgModalStartDate &&
+      pkgModalValidityInMonths &&
+      !isNaN(parseInt(pkgModalValidityInMonths))
+    ) {
       const start = new Date(pkgModalStartDate);
       const months = parseInt(pkgModalValidityInMonths);
       const end = new Date(start);
       end.setMonth(start.getMonth() + months);
-      setPkgModalEndDate(end.toISOString().split('T')[0]);
+      setPkgModalEndDate(end.toISOString().split("T")[0]);
     } else {
       setPkgModalEndDate("");
     }
@@ -679,15 +857,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       try {
         const headers = getAuthHeaders();
         if (!headers?.Authorization) return;
-        const res = await axios.get('/api/clinics/myallClinic', { headers });
+        const res = await axios.get("/api/clinics/myallClinic", { headers });
         if (res.data.success && res.data.clinic) {
           if (res.data.clinic.currency) {
             setCurrency(res.data.clinic.currency);
           }
           // Check if it's the specific clinic by clinic ID or owner ID
-          const isSpecific = 
-            res.data.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
-            res.data.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          const isSpecific =
+            res.data.clinic._id === "6a2fb50be9a7bb7a2aaba72c" ||
+            res.data.clinic.owner === "6a2fb50ae9a7bb7a2aaba728";
           setIsSpecificClinic(isSpecific);
         }
       } catch (e) {
@@ -697,7 +875,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     fetchClinicData();
   }, []);
 
-   // SEND CONSENT FORM MSG ON WHATSAPP
+  // SEND CONSENT FORM MSG ON WHATSAPP
   const [sendMsgLoading, setSendMsgLoading] = useState<boolean>(false);
 
   // Doctor discount state
@@ -705,8 +883,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     discountType: string;
     discountAmount: number;
   } | null>(null);
-  const [isDoctorDiscountApplied, setIsDoctorDiscountApplied] =
-    useState(false);
+  const [isDoctorDiscountApplied, setIsDoctorDiscountApplied] = useState(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -730,7 +907,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     try {
       console.log("Fetching consent statuses for patient:", patientId);
       const headers = getAuthHeaders();
-     
+
       const [signaturesResponse, logsResponse] = await Promise.all([
         axios.get("/api/clinic/consent-status", {
           headers,
@@ -741,7 +918,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           params: { patientId },
         }),
       ]);
-     
+
       if (signaturesResponse.data?.success) {
         // Update consent statuses with the results
         setConsentStatuses(signaturesResponse.data.consentStatuses || []);
@@ -750,10 +927,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         // Also merge with consent logs if needed
         const signatures = signaturesResponse.data?.consentStatuses || [];
         const logs = logsResponse.data?.consentLogs || [];
-       
+
         // Merge logs and signatures
         const logMap = new Map();
-       
+
         logs.forEach((log: any) => {
           logMap.set(log.consentFormId, {
             _id: log._id,
@@ -767,14 +944,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             signedAt: null,
           });
         });
-       
+
         signatures.forEach((sig: any) => {
           logMap.set(sig.consentFormId, {
             ...sig,
             status: "signed",
           });
         });
-       
+
         setConsentStatuses(Array.from(logMap.values()));
       }
     } catch (err) {
@@ -814,7 +991,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setExpandedComplaints({});
       setPatientStats(null);
       setLoadingPatientStats(false);
-      setPatientBalance({ pendingBalance: 0, advanceBalance: 0, pendingClaim: 0 });
+      setPatientBalance({
+        pendingBalance: 0,
+        advanceBalance: 0,
+        pendingClaim: 0,
+      });
       setItems([]);
       setCurrentItem({
         itemId: "",
@@ -885,7 +1066,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setPkgModalName("");
       setPkgModalPrice("");
       setPkgModalValidityInMonths("");
-      setPkgModalStartDate(new Date().toISOString().split('T')[0]);
+      setPkgModalStartDate(new Date().toISOString().split("T")[0]);
       setPkgModalEndDate("");
       setPkgTreatments([]);
       setPkgSelectedTreatments([]);
@@ -910,7 +1091,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setAfterImage("");
     setPreviousComplaints([]);
     setPatientStats(null);
-    setPatientBalance({ pendingBalance: 0, advanceBalance: 0, pendingClaim: 0 });
+    setPatientBalance({
+      pendingBalance: 0,
+      advanceBalance: 0,
+      pendingClaim: 0,
+    });
     setProgressNotes([]);
     setPrescriptionHistory([]);
     setUpcomingAppointments([]);
@@ -954,7 +1139,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setPkgModalName("");
     setPkgModalPrice("");
     setPkgModalValidityInMonths("");
-    setPkgModalStartDate(new Date().toISOString().split('T')[0]);
+    setPkgModalStartDate(new Date().toISOString().split("T")[0]);
     setPkgModalEndDate("");
     setPkgTreatments([]);
     setPkgSelectedTreatments([]);
@@ -1008,20 +1193,27 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         // Populate selectedServices from current appointment's services
         const currentAppointment = response.data.appointment;
         const servicesToSelect: ClinicService[] = [];
-        
+
         // Get service from serviceId if exists
         if (currentAppointment.serviceId) {
-          const foundSvc = allServices.find(s => s._id === currentAppointment.serviceId);
+          const foundSvc = allServices.find(
+            (s) => s._id === currentAppointment.serviceId,
+          );
           if (foundSvc) {
             servicesToSelect.push({ ...foundSvc, quantity: 1 });
           }
         }
-        
+
         // Get services from serviceIds array
         if (Array.isArray(currentAppointment.serviceIds)) {
           currentAppointment.serviceIds.forEach((sid: string) => {
-            const foundSvc = allServices.find(s => s._id === sid);
-            if (foundSvc && !servicesToSelect.some(existing => existing._id === foundSvc._id)) {
+            const foundSvc = allServices.find((s) => s._id === sid);
+            if (
+              foundSvc &&
+              !servicesToSelect.some(
+                (existing) => existing._id === foundSvc._id,
+              )
+            ) {
               servicesToSelect.push({ ...foundSvc, quantity: 1 });
             }
           });
@@ -1056,8 +1248,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         } else {
           setReport(null);
           setComplaints("");
-          // Show vitals warning immediately when modal loads and no report exists
-          setShowVitalsWarning(true);
         }
 
         setPatientReports(
@@ -1068,12 +1258,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         // Fetch previous complaints + billing/visit stats
         if (response.data.appointment?.patientId) {
-          console.log("Appointment found, fetching related data:", response.data.appointment);
+          console.log(
+            "Appointment found, fetching related data:",
+            response.data.appointment,
+          );
           fetchPreviousComplaints(response.data.appointment.patientId);
           fetchPatientStats(response.data.appointment.patientId);
           fetchPatientBalance(response.data.appointment.patientId);
           fetchUpcomingAppointments(response.data.appointment.patientId);
-         
+
           // Fetch consent form statuses
           fetchConsentStatuses(response.data.appointment.patientId);
         } else {
@@ -1082,10 +1275,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
         // Fetch smart recommendations based on doctor's departments
         if (response.data.appointment?.doctorId) {
-          const docId = typeof response.data.appointment.doctorId === 'object'
-            ? response.data.appointment.doctorId._id
-            : response.data.appointment.doctorId;
-         
+          const docId =
+            typeof response.data.appointment.doctorId === "object"
+              ? response.data.appointment.doctorId._id
+              : response.data.appointment.doctorId;
+
           if (docId) {
             fetchSmartRecommendations(docId, headers);
             fetchDoctorDiscount(docId, headers);
@@ -1181,7 +1375,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         });
       } else {
         setReport(null);
-        setShowVitalsWarning(true);
       }
 
       setPatientReports(
@@ -1302,7 +1495,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     }
 
     // Get the service ID to remove
-    const serviceIds = Array.isArray(details.serviceIds) ? [...details.serviceIds] : [];
+    const serviceIds = Array.isArray(details.serviceIds)
+      ? [...details.serviceIds]
+      : [];
     const serviceIdToRemove = serviceIds[treatmentIndex];
 
     if (!serviceIdToRemove) {
@@ -1316,7 +1511,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       const headers = getAuthHeaders();
 
       // Remove the service ID from the array
-      const updatedServiceIds = serviceIds.filter((_, idx) => idx !== treatmentIndex);
+      const updatedServiceIds = serviceIds.filter(
+        (_, idx) => idx !== treatmentIndex,
+      );
 
       // Call the update appointment API
       const response = await axios.put(
@@ -1336,15 +1533,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           serviceId: updatedServiceIds.length > 0 ? updatedServiceIds[0] : "",
           serviceIds: updatedServiceIds,
         },
-        { headers }
+        { headers },
       );
 
       if (response.data?.success) {
         // Update local state
-        setDetails(prev => {
+        setDetails((prev) => {
           if (!prev) return prev;
-          const newServiceNames = prev.serviceNames?.filter((_, idx) => idx !== treatmentIndex) || [];
-          const newServiceIds = prev.serviceIds?.filter((_, idx) => idx !== treatmentIndex) || [];
+          const newServiceNames =
+            prev.serviceNames?.filter((_, idx) => idx !== treatmentIndex) || [];
+          const newServiceIds =
+            prev.serviceIds?.filter((_, idx) => idx !== treatmentIndex) || [];
           return {
             ...prev,
             serviceNames: newServiceNames,
@@ -1354,7 +1553,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         });
 
         // Also remove from selectedServices if present
-        setSelectedServices(prev => prev.filter(svc => svc._id !== serviceIdToRemove));
+        setSelectedServices((prev) =>
+          prev.filter((svc) => svc._id !== serviceIdToRemove),
+        );
 
         toast.success("Treatment removed successfully");
       } else {
@@ -1368,16 +1569,30 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   };
 
   // Fetch doctor departments + services for smart recommendations
-  const fetchSmartRecommendations = async (doctorStaffId: string, headers: Record<string, string>) => {
+  const fetchSmartRecommendations = async (
+    doctorStaffId: string,
+    headers: Record<string, string>,
+  ) => {
     setLoadingSmartRec(true);
     try {
       const deptRes = await axios.get("/api/clinic/doctor-departments", {
         headers,
         params: { doctorStaffId },
       });
-      if (!deptRes.data?.success) { setLoadingSmartRec(false); return; }
-      const departments: { _id: string; name: string; clinicDepartmentId?: string }[] = deptRes.data.departments || [];
-      if (departments.length === 0) { setSmartDepartments([]); setLoadingSmartRec(false); return; }
+      if (!deptRes.data?.success) {
+        setLoadingSmartRec(false);
+        return;
+      }
+      const departments: {
+        _id: string;
+        name: string;
+        clinicDepartmentId?: string;
+      }[] = deptRes.data.departments || [];
+      if (departments.length === 0) {
+        setSmartDepartments([]);
+        setLoadingSmartRec(false);
+        return;
+      }
 
       // Fetch services for each department in parallel
       const results = await Promise.allSettled(
@@ -1385,25 +1600,27 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           axios.get("/api/clinic/services", {
             headers,
             params: { departmentId: dept.clinicDepartmentId || dept._id },
-          })
-        )
+          }),
+        ),
       );
 
-      const enriched: SmartDepartment[] = departments.map((dept, i) => {
-        const res = results[i];
-        const services: SmartService[] =
-          res.status === "fulfilled" && res.value.data?.success
-            ? (res.value.data.services || []).map((s: any) => ({
-                _id: s._id,
-                name: s.name,
-                price: s.price,
-                clinicPrice: s.clinicPrice,
-                durationMinutes: s.durationMinutes,
-                departmentId: dept._id,
-              }))
-            : [];
-        return { _id: dept._id, name: dept.name, services };
-      }).filter((d) => d.services.length > 0);
+      const enriched: SmartDepartment[] = departments
+        .map((dept, i) => {
+          const res = results[i];
+          const services: SmartService[] =
+            res.status === "fulfilled" && res.value.data?.success
+              ? (res.value.data.services || []).map((s: any) => ({
+                  _id: s._id,
+                  name: s.name,
+                  price: s.price,
+                  clinicPrice: s.clinicPrice,
+                  durationMinutes: s.durationMinutes,
+                  departmentId: dept._id,
+                }))
+              : [];
+          return { _id: dept._id, name: dept.name, services };
+        })
+        .filter((d) => d.services.length > 0);
 
       setSmartDepartments(enriched);
     } catch {
@@ -1414,28 +1631,31 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   };
 
   const fetchDoctorDiscount = async (
-     doctorId: string,
-     headers: Record<string, string>,
-   ) => {
-     try {
-       console.log("Fetching doctor discount for ID:", doctorId);
-       const res = await axios.get(`/api/lead-ms/get-agents?agentId=${doctorId}`, {
-         headers,
-       });
-       console.log("Doctor discount response:", res.data);
-       if (res.data.success && res.data.profile) {
-         const profile = res.data.profile;
-         if (profile.discountType && profile.discountAmount) {
-           setDoctorDiscount({
-             discountType: profile.discountType,
-             discountAmount: parseFloat(profile.discountAmount) || 0,
-           });
-         }
-       }
-     } catch (err) {
-       console.error("Error fetching doctor discount:", err);
-     }
-   };
+    doctorId: string,
+    headers: Record<string, string>,
+  ) => {
+    try {
+      console.log("Fetching doctor discount for ID:", doctorId);
+      const res = await axios.get(
+        `/api/lead-ms/get-agents?agentId=${doctorId}`,
+        {
+          headers,
+        },
+      );
+      console.log("Doctor discount response:", res.data);
+      if (res.data.success && res.data.profile) {
+        const profile = res.data.profile;
+        if (profile.discountType && profile.discountAmount) {
+          setDoctorDiscount({
+            discountType: profile.discountType,
+            discountAmount: parseFloat(profile.discountAmount) || 0,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching doctor discount:", err);
+    }
+  };
 
   // Book next session for the same patient + doctor
   const bookNextSession = async () => {
@@ -1471,41 +1691,55 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         appointmentData.roomId = nextSessionRoom;
       }
 
-      const res = await axios.post("/api/clinic/appointments", appointmentData, { headers });
-      const newAppointmentId = res.data.appointment?._id || res.data.appointmentId;
-      
+      const res = await axios.post(
+        "/api/clinic/appointments",
+        appointmentData,
+        { headers },
+      );
+      const newAppointmentId =
+        res.data.appointment?._id || res.data.appointmentId;
+
       // Collect all services: first from selectedServices, then from details if any missing
       const serviceMap = new Map();
-      
+
       // Add selected services
-      selectedServices.forEach(s => {
+      selectedServices.forEach((s) => {
         serviceMap.set(s._id, { serviceId: s._id, quantity: s.quantity || 1 });
       });
-      
+
       // Add services from details (serviceId and serviceIds) if not already present
       if (details.serviceId && !serviceMap.has(details.serviceId)) {
-        serviceMap.set(details.serviceId, { serviceId: details.serviceId, quantity: 1 });
+        serviceMap.set(details.serviceId, {
+          serviceId: details.serviceId,
+          quantity: 1,
+        });
       }
       if (Array.isArray(details.serviceIds)) {
-        details.serviceIds.forEach(sid => {
+        details.serviceIds.forEach((sid) => {
           if (sid && !serviceMap.has(sid)) {
             serviceMap.set(sid, { serviceId: sid, quantity: 1 });
           }
         });
       }
-      
+
       const servicesToSave = Array.from(serviceMap.values());
-      
+
       // Save services to new appointment
       if (servicesToSave.length > 0 && newAppointmentId) {
-        await axios.patch(`/api/clinic/appointment-services/${newAppointmentId}`, { services: servicesToSave }, { headers });
+        await axios.patch(
+          `/api/clinic/appointment-services/${newAppointmentId}`,
+          { services: servicesToSave },
+          { headers },
+        );
       }
 
       setNextSessionBooked(true);
       // Refresh upcoming list
       if (details?.patientId) fetchUpcomingAppointments(details.patientId);
     } catch (err: any) {
-      setNextSessionError(err.response?.data?.message || "Failed to book next session");
+      setNextSessionError(
+        err.response?.data?.message || "Failed to book next session",
+      );
     } finally {
       setBookingNextSession(false);
     }
@@ -1561,7 +1795,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       const headers = getAuthHeaders();
       if (!headers) return;
 
-      const response = await axios.get(`/api/clinic/patient-emr-stats/${patientId}`, { headers });
+      const response = await axios.get(
+        `/api/clinic/patient-emr-stats/${patientId}`,
+        { headers },
+      );
       if (response.data?.success) {
         const s = response.data;
         setPatientStats({
@@ -1574,7 +1811,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         });
       }
     } catch (error) {
-      console.error('Error fetching patient stats:', error);
+      console.error("Error fetching patient stats:", error);
     } finally {
       setLoadingPatientStats(false);
     }
@@ -1584,7 +1821,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const fetchPatientBalance = async (patientId: string) => {
     try {
       const headers = getAuthHeaders();
-      const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, { headers });
+      const res = await axios.get(`/api/clinic/patient-balance/${patientId}`, {
+        headers,
+      });
       if (res.data?.success && res.data.balances) {
         setPatientBalance(res.data.balances);
       }
@@ -1643,12 +1882,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
             {
               name: customServiceName.trim(),
               price: parseFloat(customServicePrice),
-              durationMinutes: customServiceDuration ? parseInt(customServiceDuration) : 0,
-              clinicPrice: customServiceClinicPrice ? parseFloat(customServiceClinicPrice) : null,
+              durationMinutes: customServiceDuration
+                ? parseInt(customServiceDuration)
+                : 0,
+              clinicPrice: customServiceClinicPrice
+                ? parseFloat(customServiceClinicPrice)
+                : null,
             },
           ],
         },
-        { headers }
+        { headers },
       );
       if (res.data?.success) {
         // Reset form
@@ -1694,13 +1937,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     setServicesSaved(false);
     try {
       const headers = getAuthHeaders();
-      const services = selectedServices.map((s) => ({ serviceId: s._id, quantity: s.quantity || 1 }));
-      await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services }, { headers });
+      const services = selectedServices.map((s) => ({
+        serviceId: s._id,
+        quantity: s.quantity || 1,
+      }));
+      await axios.patch(
+        `/api/clinic/appointment-services/${details.appointmentId}`,
+        { services },
+        { headers },
+      );
       setServicesSaved(true);
       setShowAddServiceDropdown(false);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      setServicesError(err.response?.data?.message || "Failed to save services.");
+      setServicesError(
+        err.response?.data?.message || "Failed to save services.",
+      );
     } finally {
       setSavingServices(false);
     }
@@ -1712,96 +1964,145 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       const headers = getAuthHeaders();
       const res = await axios.get("/api/clinic/services", { headers });
       if (res.data?.success) {
-        const flat: Array<{ name: string; slug: string; type?: string; mainTreatment?: string | null }> = [];
+        const flat: Array<{
+          name: string;
+          slug: string;
+          type?: string;
+          mainTreatment?: string | null;
+        }> = [];
         (res.data.services || []).forEach((svc: any) => {
-          flat.push({ name: svc.name, slug: svc.serviceSlug || svc._id, type: "service", mainTreatment: null });
+          flat.push({
+            name: svc.name,
+            slug: svc.serviceSlug || svc._id,
+            type: "service",
+            mainTreatment: null,
+          });
         });
         setPkgTreatments(flat);
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   // Create package and optionally add to patient
   const handleCreatePackageModal = async (addToPatient: boolean) => {
     setPkgError("");
     setPkgSuccess("");
-    if (!pkgModalName.trim()) { setPkgError("Please enter a package name"); return; }
-    if (!pkgModalPrice || parseFloat(pkgModalPrice) < 0) { setPkgError("Please enter a valid price"); return; }
-    if (pkgSelectedTreatments.length === 0) { setPkgError("Please select at least one treatment"); return; }
-    const totalAllocated = pkgSelectedTreatments.reduce((sum, t) => sum + (parseFloat(String(t.allocatedPrice)) || 0), 0);
+    if (!pkgModalName.trim()) {
+      setPkgError("Please enter a package name");
+      return;
+    }
+    if (!pkgModalPrice || parseFloat(pkgModalPrice) < 0) {
+      setPkgError("Please enter a valid price");
+      return;
+    }
+    if (pkgSelectedTreatments.length === 0) {
+      setPkgError("Please select at least one treatment");
+      return;
+    }
+    const totalAllocated = pkgSelectedTreatments.reduce(
+      (sum, t) => sum + (parseFloat(String(t.allocatedPrice)) || 0),
+      0,
+    );
     const packagePrice = parseFloat(pkgModalPrice);
     if (Math.abs(totalAllocated - packagePrice) > 0.01) {
-      setPkgError(`Total allocated prices (${totalAllocated.toFixed(2)}) must equal the package price (${packagePrice.toFixed(2)})`);
+      setPkgError(
+        `Total allocated prices (${totalAllocated.toFixed(2)}) must equal the package price (${packagePrice.toFixed(2)})`,
+      );
       return;
     }
     setPkgSubmitting(true);
     try {
       const headers = getAuthHeaders();
-      const res = await axios.post("/api/clinic/packages", {
-        name: pkgModalName.trim(),
-        totalPrice: packagePrice,
-        validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
-        startDate: pkgModalStartDate,
-        endDate: pkgModalEndDate,
-        treatments: pkgSelectedTreatments,
-      }, { headers });
+      const res = await axios.post(
+        "/api/clinic/packages",
+        {
+          name: pkgModalName.trim(),
+          totalPrice: packagePrice,
+          validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+          startDate: pkgModalStartDate,
+          endDate: pkgModalEndDate,
+          treatments: pkgSelectedTreatments,
+        },
+        { headers },
+      );
       if (res.data?.success) {
         const newPkgId = res.data.package?._id || res.data.packageId || null;
         const createdPkgData = res.data.package || null;
         if (addToPatient && newPkgId && details?.patientId) {
           setAddingPackageToPatient(true);
           try {
-            await axios.post("/api/clinic/assign-package-to-patient", {
-              patientId: details.patientId,
-              packageId: newPkgId,
-              validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
-              startDate: pkgModalStartDate,
-              endDate: pkgModalEndDate,
-              totalPrice: packagePrice,
-              paidAmount: 0,
-              paymentStatus: "Unpaid",
-              paymentMethod: "Cash",
-            }, { headers });
+            await axios.post(
+              "/api/clinic/assign-package-to-patient",
+              {
+                patientId: details.patientId,
+                packageId: newPkgId,
+                validityInMonths: parseInt(pkgModalValidityInMonths) || 0,
+                startDate: pkgModalStartDate,
+                endDate: pkgModalEndDate,
+                totalPrice: packagePrice,
+                paidAmount: 0,
+                paymentStatus: "Unpaid",
+                paymentMethod: "Cash",
+              },
+              { headers },
+            );
 
             // Create a package billing record so it gets added to the patient's pending balance
             try {
-              await axios.post("/api/clinic/package-billing", {
-                patientId: details.patientId,
-                packageName: pkgModalName.trim(),
-                packageId: newPkgId,
-                totalAmount: packagePrice,
-                paidAmount: 0,
-                paymentMethod: "Cash",
-                paymentStatus: "Unpaid",
-                advanceBalanceUsed: 0,
-                claimAmountUsed: 0,
-                treatments: pkgSelectedTreatments,
-              }, { headers });
-              console.log('Package billing created for pending balance');
-              
+              await axios.post(
+                "/api/clinic/package-billing",
+                {
+                  patientId: details.patientId,
+                  packageName: pkgModalName.trim(),
+                  packageId: newPkgId,
+                  totalAmount: packagePrice,
+                  paidAmount: 0,
+                  paymentMethod: "Cash",
+                  paymentStatus: "Unpaid",
+                  advanceBalanceUsed: 0,
+                  claimAmountUsed: 0,
+                  treatments: pkgSelectedTreatments,
+                },
+                { headers },
+              );
+              console.log("Package billing created for pending balance");
+
               // Refresh patient balance to show updated pending balance
               fetchPatientBalance(details.patientId);
               fetchPatientStats(details.patientId);
             } catch (billingErr: any) {
-              console.error('Error creating package billing:', billingErr);
+              console.error("Error creating package billing:", billingErr);
             }
-            
+
             setPkgSuccess("Package created and added to patient profile!");
-            setCreatedPackage(createdPkgData);
+            setCreatedPackage({
+              ...createdPkgData,
+              treatments: pkgSelectedTreatments,
+            });
           } catch {
-            setPkgSuccess("Package created. (Could not add to patient profile)");
-            setCreatedPackage(createdPkgData);
+            setPkgSuccess(
+              "Package created. (Could not add to patient profile)",
+            );
+            setCreatedPackage({
+              ...createdPkgData,
+              treatments: pkgSelectedTreatments,
+            });
           } finally {
             setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
-          setCreatedPackage(createdPkgData);
+          setCreatedPackage({
+            ...createdPkgData,
+            treatments: pkgSelectedTreatments,
+          });
         }
         setPkgModalName("");
         setPkgModalPrice("");
         setPkgModalValidityInMonths("");
-        setPkgModalStartDate(new Date().toISOString().split('T')[0]);
+        setPkgModalStartDate(new Date().toISOString().split("T")[0]);
         setPkgModalEndDate("");
         setPkgSelectedTreatments([]);
         setPkgTreatmentSearch("");
@@ -1836,32 +2137,32 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       }
     };
     fetchProgressNotes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, details?.patientId]);
- 
-    // Fetch prescription history when switching to prescription tab
-    useEffect(() => {
-      if (activeTab !== "prescription" || !details?.patientId) return;
-      const fetchPrescriptionHistory = async () => {
-        setLoadingPrescriptionHistory(true);
-        try {
-          const headers = getAuthHeaders();
-          const res = await axios.get("/api/clinic/prescriptions", {
-            headers,
-            params: { patientId: details.patientId },
-          });
-          if (res.data?.success) {
-            setPrescriptionHistory(res.data.prescriptions || []);
-          }
-        } catch {
-          // silently ignore history fetch errors
-        } finally {
-          setLoadingPrescriptionHistory(false);
-        }
-      };
-      fetchPrescriptionHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, details?.patientId]);
+  }, [activeTab, details?.patientId]);
+
+  // Fetch prescription history when switching to prescription tab
+  useEffect(() => {
+    if (activeTab !== "prescription" || !details?.patientId) return;
+    const fetchPrescriptionHistory = async () => {
+      setLoadingPrescriptionHistory(true);
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get("/api/clinic/prescriptions", {
+          headers,
+          params: { patientId: details.patientId },
+        });
+        if (res.data?.success) {
+          setPrescriptionHistory(res.data.prescriptions || []);
+        }
+      } catch {
+        // silently ignore history fetch errors
+      } finally {
+        setLoadingPrescriptionHistory(false);
+      }
+    };
+    fetchPrescriptionHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, details?.patientId]);
 
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -1877,14 +2178,446 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     return d.toLocaleString();
   };
 
+  const handleDownloadPDF = async () => {
+    console.log("Download PDF button clicked!");
+    if (!details) {
+      console.log("No details available!");
+      toast.error("Patient details not available for download!");
+      return;
+    }
+    toast.loading("Generating PDF report...");
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let y = 20;
+
+      // === HEADER WITH COLORED BACKGROUND ===
+      doc.setFillColor(25, 118, 210);
+      doc.roundedRect(0, 0, pageWidth, 35, 0, 0, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("APPOINTMENT COMPLAINT REPORT", pageWidth / 2, 22, {
+        align: "center",
+      });
+      doc.setTextColor(0, 0, 0);
+      y = 45;
+
+      // === PATIENT INFO ===
+      doc.setFillColor(248, 249, 250);
+      doc.roundedRect(
+        margin - 5,
+        y - 5,
+        pageWidth - 2 * (margin - 5),
+        50,
+        3,
+        3,
+        "F",
+      );
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 37, 41);
+      doc.text("Patient Information", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(73, 80, 87);
+      doc.text(`Patient Name: ${details.patientName || "N/A"}`, margin, y);
+      y += 6;
+      doc.text(
+        `EMR Number: ${details.emrNumber || details.patientId.slice(-8)}`,
+        margin,
+        y,
+      );
+      y += 6;
+      doc.text(`Gender: ${details.gender || "N/A"}`, margin, y);
+      y += 6;
+      doc.text(
+        `Mobile: ${userRole === "doctorStaff" ? (details.mobileNumber ? maskMobileNumber(details.mobileNumber) : "") : details.mobileNumber || "N/A"}`,
+        margin,
+        y,
+      );
+      y += 6;
+      doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, margin, y);
+      y += 6;
+      const apptDate = details.startDate
+        ? new Date(details.startDate).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "N/A";
+      const apptTime = details.fromTime || "N/A";
+      doc.text(
+        `Appointment Date & Time: ${apptDate} at ${apptTime}`,
+        margin,
+        y,
+      );
+      y += 6;
+      doc.text(`Status: ${details.status || "in-progress"}`, margin, y);
+      doc.setTextColor(0, 0, 0);
+      y += 15;
+
+      // === DIVIDER ===
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(222, 226, 230);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 10;
+
+      // === COMPLAINT SECTION ===
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Complaint Notes", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      if (complaints) {
+        const splitComplaint = doc.splitTextToSize(
+          complaints,
+          pageWidth - margin * 2,
+        );
+        doc.text(splitComplaint, margin, y);
+        y += splitComplaint.length * 6 + 5;
+      } else {
+        doc.text("No complaint notes added.", margin, y);
+        y += 11;
+      }
+
+      // === ACTIVE TREATMENTS ===
+      if (details?.serviceNames && details.serviceNames.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Active Treatments", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        details.serviceNames.forEach((name: string, i: number) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(`${i + 1}. ${name}`, margin, y);
+          y += 6;
+        });
+        y += 5;
+      }
+
+      // Helper function to extract filename from URL
+      const getFileNameFromUrl = (url: string): string => {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split("/");
+          const fileName = pathParts[pathParts.length - 1];
+          return decodeURIComponent(fileName.split("?")[0]);
+        } catch {
+          return url;
+        }
+      };
+
+      // === BEFORE/AFTER MEDIA ===
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Before/After Media", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      if (beforeImage) {
+        doc.text(`Before File: ${getFileNameFromUrl(beforeImage)}`, margin, y);
+        y += 6;
+      }
+      if (afterImage) {
+        doc.text(`After File: ${getFileNameFromUrl(afterImage)}`, margin, y);
+        y += 6;
+      }
+      if (!beforeImage && !afterImage) {
+        doc.text("No before/after media added.", margin, y);
+        y += 6;
+      }
+      y += 5;
+      // === SELECTED TREATMENTS ===
+      if (selectedServices.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Selected Treatments", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        selectedServices.forEach(
+          (
+            svc: {
+              name: string;
+              clinicPrice?: number | null;
+              price: number;
+              quantity?: number;
+            },
+            i: number,
+          ) => {
+            if (y > doc.internal.pageSize.getHeight() - 20) {
+              doc.addPage();
+              y = 20;
+            }
+            doc.setFont("helvetica", "bold");
+            doc.text(`${i + 1}. ${svc.name}`, margin, y);
+            y += 6;
+            doc.setFont("helvetica", "normal");
+            const price = svc.clinicPrice != null ? svc.clinicPrice : svc.price;
+            const qty = svc.quantity || 1;
+            const total = (price * qty).toFixed(2);
+            doc.text(
+              `   Price: ${currency} ${price.toFixed(2)}, Quantity: ${qty}, Total: ${currency} ${total}`,
+              margin + 5,
+              y,
+            );
+            y += 8;
+          },
+        );
+        y += 5;
+      }
+
+      // === ADDED PACKAGE ===
+      if (createdPackage && createdPackage.name) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Added Package", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`1. ${createdPackage.name}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        const pkgPrice = parseFloat(createdPackage.totalPrice || 0);
+        doc.text(`   Price: ${currency} ${pkgPrice.toFixed(2)}`, margin + 5, y);
+        y += 8;
+
+        // Show package treatments if available
+        if (createdPackage.treatments && createdPackage.treatments.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text("   Included Treatments:", margin + 5, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          createdPackage.treatments.forEach((treatment: any, i: number) => {
+            if (y > doc.internal.pageSize.getHeight() - 20) {
+              doc.addPage();
+              y = 20;
+            }
+            doc.text(
+              `      ${i + 1}. ${treatment.treatmentName} - Sessions: ${treatment.sessions}, Price: ${currency} ${treatment.allocatedPrice.toFixed(2)}`,
+              margin + 5,
+              y,
+            );
+            y += 6;
+          });
+        }
+        y += 5;
+      }
+
+      // === TOTAL BILL ===
+      if (selectedServices.length > 0 || createdPackage) {
+        doc.setFillColor(240, 248, 255);
+        doc.roundedRect(
+          margin - 2,
+          y - 6,
+          pageWidth - 2 * (margin - 2),
+          22,
+          3,
+          3,
+          "F",
+        );
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(25, 118, 210);
+        doc.text(
+          `Total Bill: ${currency} ${totalBill.toFixed(2)}`,
+          margin,
+          y + 4,
+        );
+        doc.setTextColor(0, 0, 0);
+        y += 25;
+      }
+
+      // === CLINICAL CHECKLIST ===
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Clinical Checklist", margin, y);
+      y += 10;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      CHECKLIST_ITEMS.forEach((item) => {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        const status = checklist[item] ? "[X] Completed" : "[ ] Pending";
+        doc.text(`${item}: ${status}`, margin, y);
+        y += 6;
+      });
+      y += 6;
+
+      // === PROGRESS NOTES ===
+      if (progressNotes.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Progress Notes", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        progressNotes.forEach((note, i) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. Note Date: ${note.noteDate || "N/A"}`, margin, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          const splitNote = doc.splitTextToSize(
+            note.note,
+            pageWidth - margin * 2,
+          );
+          doc.text(splitNote, margin, y);
+          y += splitNote.length * 6 + 6;
+        });
+      }
+
+      // === PRESCRIPTION ===
+      const validMeds = medicines.filter(
+        (med) => med && med.medicineName && med.medicineName.trim() !== "",
+      );
+      if (validMeds.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Prescription", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        validMeds.forEach((med, i) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. ${med.medicineName}`, margin, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          doc.text(`   Dosage: ${med.dosage || "N/A"}`, margin + 5, y);
+          y += 5;
+          doc.text(`   Duration: ${med.duration || "N/A"}`, margin + 5, y);
+          y += 5;
+          doc.text(`   Notes: ${med.notes || "N/A"}`, margin + 5, y);
+          y += 8;
+        });
+      }
+
+      // === AFTERCARE INSTRUCTIONS ===
+      if (aftercareInstructions.trim()) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Aftercare Instructions", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        const splitAftercare = doc.splitTextToSize(
+          aftercareInstructions,
+          pageWidth - margin * 2,
+        );
+        doc.text(splitAftercare, margin, y);
+        y += splitAftercare.length * 6 + 6;
+      }
+
+      // === STOCK/ITEMS USED ===
+      if (items.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Items/Stock Used", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        items.forEach((item, i) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. ${item.name}`, margin, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          doc.text(
+            `   Quantity: ${item.quantity}, UOM: ${item.uom || "N/A"}`,
+            margin + 5,
+            y,
+          );
+          y += 8;
+        });
+      }
+
+      // === FOOTER ===
+      const date = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text(
+        `Generated on: ${date}`,
+        margin,
+        doc.internal.pageSize.getHeight() - 10,
+      );
+
+      // === DOWNLOAD ===
+      const fileName = `Complaint_Report_${details.patientName.replace(/ /g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      console.log("Saving PDF:", fileName);
+      doc.save(fileName);
+      toast.dismiss();
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.dismiss();
+      toast.error("Failed to generate PDF: " + (error as Error).message);
+    }
+  };
+
   const handleSaveComplaints = async () => {
     if (!appointment || !details) return;
 
     // Check if a complaint already exists for this appointment
     const existingComplaint = previousComplaints.find((c) => {
-      const complaintApptId = typeof c.appointmentId === 'object'
-        ? c.appointmentId?._id?.toString()
-        : c.appointmentId?.toString();
+      const complaintApptId =
+        typeof c.appointmentId === "object"
+          ? c.appointmentId?._id?.toString()
+          : c.appointmentId?.toString();
       return complaintApptId === details.appointmentId?.toString();
     });
 
@@ -1892,52 +2625,28 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       toast.error(
         <div className="flex flex-col gap-1">
           <span className="font-semibold">Complaint Already Exists</span>
-          <span className="text-xs opacity-80">A complaint has already been created for this appointment. You cannot create another complaint for the same appointment.</span>
+          <span className="text-xs opacity-80">
+            A complaint has already been created for this appointment. You
+            cannot create another complaint for the same appointment.
+          </span>
         </div>,
         {
           duration: 5000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
+            primary: "#fff",
+            secondary: "#ef4444",
           },
-        }
-      );
-      return;
-    }
-
-    if (!report || !report.reportId) {
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold"> Vitals Report Required</span>
-          <span className="text-xs opacity-80">Please fill the appointment report first, then add complaints.</span>
-        </div>,
-        {
-          duration: 4000,
-          position: 'top-right',
-          style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            zIndex: 9999,
-            maxWidth: '500px',
-          },
-          iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
-          },
-        }
+        },
       );
       return;
     }
@@ -1945,80 +2654,57 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!complaints.trim()) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">  Complaint Required</span>
-          <span className="text-xs opacity-80">Please enter complaint notes before saving.</span>
+          <span className="font-semibold"> Complaint Required</span>
+          <span className="text-xs opacity-80">
+            Please enter complaint notes before saving.
+          </span>
         </div>,
         {
           duration: 4000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
+            primary: "#fff",
+            secondary: "#ef4444",
           },
-        }
+        },
       );
       return;
     }
-
-    // Validate clinical checklist
-    const unchecked = CHECKLIST_ITEMS.filter((item) => !checklist[item]);
-    if (unchecked.length > 0) {
-      setChecklistError(`Please tick all checklist items before saving: ${unchecked.join(", ")}`);
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold"> Incomplete Checklist</span>
-          <span className="text-xs opacity-80">Please tick all checklist items before saving: {unchecked.join(", ")}</span>
-        </div>,
-        {
-          duration: 5000,
-          position: 'top-right',
-          style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            zIndex: 9999,
-            maxWidth: '600px',
-          },
-          iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
-          },
-        }
-      );
-      return;
-    }
-    setChecklistError("");
 
     setSaving(true);
     setError("");
     try {
       const headers = getAuthHeaders();
-      
+
       // Step 1: Save the complaint FIRST
       await axios.post(
         "/api/clinic/patient-complaints",
         {
           appointmentId: details.appointmentId,
-          appointmentReportId: report.reportId,
+          ...(report?.reportId ? { appointmentReportId: report.reportId } : {}),
           complaints: complaints.trim(),
           items: items || [],
           beforeImage: beforeImage || null,
           afterImage: afterImage || null,
           isDoctorDiscountApplied: isDoctorDiscountApplied,
-          doctorDiscountType: isDoctorDiscountApplied ? doctorDiscount?.discountType : null,
-          doctorDiscountAmount: isDoctorDiscountApplied ? doctorDiscount?.discountAmount : 0,
+          doctorDiscountType: isDoctorDiscountApplied
+            ? doctorDiscount?.discountType
+            : null,
+          doctorDiscountAmount: isDoctorDiscountApplied
+            ? doctorDiscount?.discountAmount
+            : 0,
           consentLogIds: sentConsentLogIds, // Pass the sent consent log IDs
+          checklist: checklist || {}, // Save clinical checklist
+          createdPackage: createdPackage || null, // Save package with treatments
         },
         { headers },
       );
@@ -2026,14 +2712,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       // Step 2: Only if complaint saved successfully, then save services to appointment
       if (selectedServices.length > 0 && details.appointmentId) {
         try {
-          const services = selectedServices.map((s) => ({ 
-            serviceId: s._id, 
-            quantity: s.quantity || 1 
+          const services = selectedServices.map((s) => ({
+            serviceId: s._id,
+            quantity: s.quantity || 1,
           }));
           await axios.patch(
             `/api/clinic/appointment-services/${details.appointmentId}`,
             { services },
-            { headers }
+            { headers },
           );
         } catch (serviceErr: any) {
           console.error("Error saving services to appointment:", serviceErr);
@@ -2041,25 +2727,28 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           toast.error(
             <div className="flex flex-col gap-1">
               <span className="font-semibold"> Warning</span>
-              <span className="text-xs opacity-80">Complaint saved, but services may not have been saved properly. Please verify.</span>
+              <span className="text-xs opacity-80">
+                Complaint saved, but services may not have been saved properly.
+                Please verify.
+              </span>
             </div>,
             {
               duration: 4000,
-              position: 'top-right',
+              position: "top-right",
               style: {
-                background: '#f59e0b',
-                color: '#fff',
-                padding: '16px',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                background: "#f59e0b",
+                color: "#fff",
+                padding: "16px",
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                 zIndex: 9999,
-                maxWidth: '500px',
+                maxWidth: "500px",
               },
               iconTheme: {
-                primary: '#fff',
-                secondary: '#f59e0b',
+                primary: "#fff",
+                secondary: "#f59e0b",
               },
-            }
+            },
           );
         }
       }
@@ -2088,35 +2777,37 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       // set items to empty array
       setItems([]);
       fetchAllocatedItems();
-     
+
       // Call onSuccess callback to refresh parent component
       if (onSuccess) {
         onSuccess();
       }
-     
+
       // Show success toast
       toast.success(
         <div className="flex flex-col gap-1">
           <span className="font-semibold"> Complaints Saved Successfully</span>
-          <span className="text-xs opacity-80">Your complaint notes have been saved to the patient record.</span>
+          <span className="text-xs opacity-80">
+            Your complaint notes have been saved to the patient record.
+          </span>
         </div>,
         {
           duration: 3000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#10b981',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#10b981",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#10b981',
+            primary: "#fff",
+            secondary: "#10b981",
           },
-        }
+        },
       );
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to save complaints");
@@ -2151,26 +2842,28 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     if (!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom) {
       toast.error(
         <div className="flex flex-col gap-1">
-          <span className="font-semibold">  Incomplete Item</span>
-          <span className="text-xs opacity-80">Please complete item selection, quantity and UOM</span>
+          <span className="font-semibold"> Incomplete Item</span>
+          <span className="text-xs opacity-80">
+            Please complete item selection, quantity and UOM
+          </span>
         </div>,
         {
           duration: 3000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
+            primary: "#fff",
+            secondary: "#ef4444",
           },
-        }
+        },
       );
       return;
     }
@@ -2267,251 +2960,263 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   /*---------------------------
     // SEND CONSENT FORM MESSAGE ON WHATSAPP
     //---------------------------*/
-    const handleSendConsentMsgOnWhatsapp = async () => {
-      if (!selectedConsentId) return;
- 
-      try {
-        setSendMsgLoading(true);
-        setSendingConsent(true);
-        const token = getTokenByPath();
-        console.log('Details object:', details);
- 
-        // Create patient data object for URL
-        const patientData = {
-          firstName: details?.patientName?.split(" ")[0] || "",
-          lastName: details?.patientName?.split(" ").slice(1).join(" ") || "",
-          mobileNumber: details?.mobileNumber || "",
-          email: details?.email || "",
-          appointmentId: details?._id || details?.appointmentId || "",
-        };
-       
-        console.log('Patient data object:', patientData);
-        const encodedPatientData = encodeURIComponent(JSON.stringify(patientData));
-        console.log('Encoded patient data:', encodedPatientData);
-        const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
-        console.log('Final consent URL:', consentUrl);
- 
-        const { data } = await axios.post(
-          "/api/messages/send-message",
-          {
-            patientId: details?.patientId,
-            providerId: "6952256c4a46b2f1eb01be86",
-            channel: "whatsapp",
-            content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
-            mediaUrl: "",
-            mediaType: "",
-            source: "Zeva",
-            messageType: "conversational",
-            templateId: "69c38b4d26b8217e1ba78f8a",
-            // for whatsapp template if body variables exist
-            headerParameters: [],
-            bodyParameters: [
-              {
-                type: "text",
-                text: consentUrl,
-              },
-            ],
-            attachments: [],
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
+  const handleSendConsentMsgOnWhatsapp = async () => {
+    if (!selectedConsentId) return;
+
+    try {
+      setSendMsgLoading(true);
+      setSendingConsent(true);
+      const token = getTokenByPath();
+      console.log("Details object:", details);
+
+      // Create patient data object for URL
+      const patientData = {
+        firstName: details?.patientName?.split(" ")[0] || "",
+        lastName: details?.patientName?.split(" ").slice(1).join(" ") || "",
+        mobileNumber: details?.mobileNumber || "",
+        email: details?.email || "",
+        appointmentId: details?._id || details?.appointmentId || "",
+      };
+
+      console.log("Patient data object:", patientData);
+      const encodedPatientData = encodeURIComponent(
+        JSON.stringify(patientData),
+      );
+      console.log("Encoded patient data:", encodedPatientData);
+      const consentUrl = `https://zeva360.com/consent-form/${selectedConsentId}?patient=${encodedPatientData}`;
+      console.log("Final consent URL:", consentUrl);
+
+      const { data } = await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: details?.patientId,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please review and sign the consent form by clicking the link below:\n\n ${consentUrl}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c38b4d26b8217e1ba78f8a",
+          // for whatsapp template if body variables exist
+          headerParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: consentUrl,
             },
+          ],
+          attachments: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-        );
- 
-        if (data && data?.success) {
-          setConsentSent(true);
-         
-          // Show success popup
-          toast.success("Consent form sent successfully!", {
-            duration: 4000,
+        },
+      );
+
+      if (data && data?.success) {
+        setConsentSent(true);
+
+        // Show success popup
+        toast.success("Consent form sent successfully!", {
+          duration: 4000,
+          style: {
+            background: "#10B981",
+            color: "#fff",
+            fontWeight: "600",
+            padding: "14px 20px",
+            borderRadius: "10px",
+            fontSize: "14px",
+          },
+          iconTheme: {
+            primary: "#fff",
+            secondary: "#10B981",
+          },
+        });
+
+        // Log the sent consent form
+        try {
+          const token = getTokenByPath();
+          const selectedForm = consentForms.find(
+            (f) => f._id === selectedConsentId,
+          );
+          const logResponse = await axios.post(
+            "/api/clinic/consent-log",
+            {
+              consentFormId: selectedConsentId,
+              consentFormName: selectedForm?.formName || "",
+              patientId: details?.patientId,
+              patientName: details?.patientName || "",
+              appointmentId: details?.appointmentId,
+              sentVia: "whatsapp",
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          // Store the log ID to link it when saving the complaint
+          if (logResponse.data && logResponse.data.logId) {
+            setSentConsentLogIds((prev) => [...prev, logResponse.data.logId]);
+          }
+
+          // Force re-fetch of consent statuses by clearing and setting state
+          setConsentStatuses([]);
+          if (details?.patientId) {
+            setTimeout(() => {
+              fetchConsentStatuses(details.patientId);
+            }, 100);
+          }
+        } catch (logError) {
+          console.error("Error logging consent form sent:", logError);
+        }
+      }
+    } catch (error: any) {
+      console.log(
+        "Error in send consent form msg on whatsapp: ",
+        error?.message,
+      );
+    } finally {
+      setSendMsgLoading(false);
+      setSendingConsent(false);
+    }
+  };
+
+  /*---------------------------
+    // SEND PRESCRIPTION MESSAGE ON WHATSAPP
+    //---------------------------*/
+  const handleSendPrescriptionWhatsapp = async (prescriptionLink: string) => {
+    if (!prescriptionLink) return;
+
+    try {
+      const token = getTokenByPath();
+
+      console.log("=== SENDING PRESCRIPTION VIA WHATSAPP ===");
+      console.log("Prescription Link:", prescriptionLink);
+      console.log("Patient Name:", details?.patientName);
+      console.log("Patient Mobile:", details?.mobileNumber);
+      console.log("==========================================");
+
+      const { data } = await axios.post(
+        "/api/messages/send-message",
+        {
+          patientId: details?.patientId,
+          providerId: "6952256c4a46b2f1eb01be86",
+          channel: "whatsapp",
+          content: `Please check out this prescription form by clicking the link below:\n\n ${prescriptionLink}\n\n Thank you.`,
+          mediaUrl: "",
+          mediaType: "",
+          source: "Zeva",
+          messageType: "conversational",
+          templateId: "69c679add3dde2931e28d893",
+          headerParameters: [],
+          bodyParameters: [
+            {
+              type: "text",
+              text: prescriptionLink,
+            },
+          ],
+          attachments: [],
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (data && data?.success) {
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">Message Sent Successfully</span>
+            <span className="text-xs opacity-80">
+              Your prescription has been sent via WhatsApp.
+            </span>
+          </div>,
+          {
+            duration: 3000,
+            position: "top-center",
             style: {
-              background: "#10B981",
+              background: "#10b981",
               color: "#fff",
-              fontWeight: "600",
-              padding: "14px 20px",
-              borderRadius: "10px",
-              fontSize: "14px",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 9999,
+              maxWidth: "500px",
             },
             iconTheme: {
               primary: "#fff",
-              secondary: "#10B981",
+              secondary: "#10b981",
             },
-          });
-         
-          // Log the sent consent form
-          try {
-            const token = getTokenByPath();
-            const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
-            const logResponse = await axios.post(
-              "/api/clinic/consent-log",
-              {
-                consentFormId: selectedConsentId,
-                consentFormName: selectedForm?.formName || "",
-                patientId: details?.patientId,
-                patientName: details?.patientName || "",
-                appointmentId: details?.appointmentId,
-                sentVia: "whatsapp",
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-            
-            // Store the log ID to link it when saving the complaint
-            if (logResponse.data && logResponse.data.logId) {
-              setSentConsentLogIds(prev => [...prev, logResponse.data.logId]);
-            }
-           
-            // Force re-fetch of consent statuses by clearing and setting state
-            setConsentStatuses([]);
-            if (details?.patientId) {
-              setTimeout(() => {
-                fetchConsentStatuses(details.patientId);
-              }, 100);
-            }
-          } catch (logError) {
-            console.error("Error logging consent form sent:", logError);
-          }
-        }
-      } catch (error: any) {
-        console.log(
-          "Error in send consent form msg on whatsapp: ",
-          error?.message,
+          },
         );
-      } finally {
-        setSendMsgLoading(false);
-        setSendingConsent(false);
-      }
-    };
 
-    /*---------------------------
-    // SEND PRESCRIPTION MESSAGE ON WHATSAPP
-    //---------------------------*/
-    const handleSendPrescriptionWhatsapp = async (prescriptionLink: string) => {
-      if (!prescriptionLink) return;
-     
-      try {
-        const token = getTokenByPath();
-       
-        console.log("=== SENDING PRESCRIPTION VIA WHATSAPP ===");
-        console.log("Prescription Link:", prescriptionLink);
-        console.log("Patient Name:", details?.patientName);
-        console.log("Patient Mobile:", details?.mobileNumber);
-        console.log("==========================================");
-       
-        const { data } = await axios.post(
-          "/api/messages/send-message",
-          {
-            patientId: details?.patientId,
-            providerId: "6952256c4a46b2f1eb01be86",
-            channel: "whatsapp",
-            content: `Please check out this prescription form by clicking the link below:\n\n ${prescriptionLink}\n\n Thank you.`,
-            mediaUrl: "",
-            mediaType: "",
-            source: "Zeva",
-            messageType: "conversational",
-            templateId: "69c679add3dde2931e28d893",
-            headerParameters: [],
-            bodyParameters: [
-              {
-                type: "text",
-                text: prescriptionLink,
-              },
-            ],
-            attachments: [],
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          },
-        );
-       
-        if (data && data?.success) {
-          toast.success(
-            <div className="flex flex-col gap-1">
-              <span className="font-semibold">Message Sent Successfully</span>
-              <span className="text-xs opacity-80">Your prescription has been sent via WhatsApp.</span>
-            </div>,
-            {
-              duration: 3000,
-              position: 'top-center',
-              style: {
-                background: '#10b981',
-                color: '#fff',
-                padding: '16px',
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                zIndex: 9999,
-                maxWidth: '500px',
-              },
-              iconTheme: {
-                primary: '#fff',
-                secondary: '#10b981',
-              },
+        // Clear the prescription form
+        setMedicines([emptyMedicine()]);
+        setAftercareInstructions("");
+        setIncludeInPdf(true);
+        setPrescriptionSaved(false);
+
+        // Refresh prescription history
+        if (details?.patientId) {
+          try {
+            const headers = getAuthHeaders();
+            const histRes = await axios.get("/api/clinic/prescriptions", {
+              headers,
+              params: { patientId: details.patientId },
+            });
+            if (histRes.data?.success) {
+              setPrescriptionHistory(histRes.data.prescriptions || []);
             }
-          );
-          
-          // Clear the prescription form
-          setMedicines([emptyMedicine()]);
-          setAftercareInstructions("");
-          setIncludeInPdf(true);
-          setPrescriptionSaved(false);
-          
-          // Refresh prescription history
-          if (details?.patientId) {
-            try {
-              const headers = getAuthHeaders();
-              const histRes = await axios.get("/api/clinic/prescriptions", {
-                headers,
-                params: { patientId: details.patientId },
-              });
-              if (histRes.data?.success) {
-                setPrescriptionHistory(histRes.data.prescriptions || []);
-              }
-            } catch (err) {
-              console.error("Error refreshing prescription history:", err);
-            }
-          }
-          
-          // Call onSuccess callback to refresh parent component
-          if (onSuccess) {
-            onSuccess();
+          } catch (err) {
+            console.error("Error refreshing prescription history:", err);
           }
         }
-      } catch (error: any) {
-        console.log("Error in send prescription msg on whatsapp: ", error?.message);
-        toast.error(
-          <div className="flex flex-col gap-1">
-            <span className="font-semibold">  Send Failed</span>
-            <span className="text-xs opacity-80">{error?.response?.data?.message || "Failed to send prescription via WhatsApp"}</span>
-          </div>,
-          {
-            duration: 4000,
-            position: 'top-center',
-            style: {
-              background: '#ef4444',
-              color: '#fff',
-              padding: '16px',
-              borderRadius: '8px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-              zIndex: 9999,
-              maxWidth: '500px',
-            },
-            iconTheme: {
-              primary: '#fff',
-              secondary: '#ef4444',
-            },
-          }
-        );
-      } finally {
-        setSendMsgLoading(false);
+
+        // Call onSuccess callback to refresh parent component
+        if (onSuccess) {
+          onSuccess();
+        }
       }
-    };
+    } catch (error: any) {
+      console.log(
+        "Error in send prescription msg on whatsapp: ",
+        error?.message,
+      );
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold"> Send Failed</span>
+          <span className="text-xs opacity-80">
+            {error?.response?.data?.message ||
+              "Failed to send prescription via WhatsApp"}
+          </span>
+        </div>,
+        {
+          duration: 4000,
+          position: "top-center",
+          style: {
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            zIndex: 9999,
+            maxWidth: "500px",
+          },
+          iconTheme: {
+            primary: "#fff",
+            secondary: "#ef4444",
+          },
+        },
+      );
+    } finally {
+      setSendMsgLoading(false);
+    }
+  };
 
   if (!isOpen || !appointment) {
     return null;
@@ -2530,22 +3235,35 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     availableForSelectedUom > 0;
 
   // Compute total bill from selected services AND packages
-  const totalBill = selectedServices.reduce(
-    (sum, s) => sum + (s.clinicPrice != null ? s.clinicPrice : s.price) * (s.quantity || 1),
-    0,
-  ) + (createdPackage && parseFloat(createdPackage.totalPrice || 0) > 0 ? parseFloat(createdPackage.totalPrice) : 0);
+  const totalBill =
+    selectedServices.reduce(
+      (sum, s) =>
+        sum +
+        (s.clinicPrice != null ? s.clinicPrice : s.price) * (s.quantity || 1),
+      0,
+    ) +
+    (createdPackage && parseFloat(createdPackage.totalPrice || 0) > 0
+      ? parseFloat(createdPackage.totalPrice)
+      : 0);
 
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-3 md:p-4">
         <div className="bg-gray-50 w-full max-w-[1500px] rounded-xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[98vh] sm:max-h-[96vh]">
-
-          
           <div className="bg-white border-b border-gray-200 px-3 sm:px-4 md:px-5 py-2 sm:py-3 flex-shrink-0">
             {loading ? (
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-400">Loading patient details...</div>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                <div className="text-sm text-gray-400">
+                  Loading patient details...
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ) : details ? (
               <div className="flex flex-col gap-2">
@@ -2558,7 +3276,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm sm:text-base font-bold text-gray-900 truncate">{details.patientName}</span>
+                        <span className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                          {details.patientName}
+                        </span>
                         <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 font-medium">
                           ID: {details.emrNumber || details.patientId.slice(-8)}
                         </span>
@@ -2572,11 +3292,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           ) : (
                             <User className="w-3 h-3 text-gray-400" />
                           )}
-                          <span className="capitalize">{details.gender || ""}</span>
+                          <span className="capitalize">
+                            {details.gender || ""}
+                          </span>
                         </span>
                         <span className="flex items-center gap-1">
                           <Phone className="w-3 h-3 text-gray-400" />
-                          <span>{userRole === "doctorStaff" ? (details.mobileNumber ? maskMobileNumber(details.mobileNumber) : "") : (details.mobileNumber || "")}</span>
+                          <span>
+                            {userRole === "doctorStaff"
+                              ? details.mobileNumber
+                                ? maskMobileNumber(details.mobileNumber)
+                                : ""
+                              : details.mobileNumber || ""}
+                          </span>
                         </span>
                       </div>
                     </div>
@@ -2585,54 +3313,139 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   {/* Centre: Total Spend + Visits stat boxes */}
                   <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-center sm:justify-start">
                     <div className="flex flex-col items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-teal-200 bg-teal-50/40 min-w-[80px] sm:min-w-[100px]">
-                      <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Total Spend</span>
+                      <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">
+                        Total Spend
+                      </span>
                       <span className="text-base font-bold text-teal-700 leading-tight">
-                        {loadingPatientStats ? "" : patientStats != null ? `${getCurrencySymbol(currency)} ${patientStats.totalSpend.toLocaleString()}` : ""}
+                        {loadingPatientStats
+                          ? ""
+                          : patientStats != null
+                            ? `${getCurrencySymbol(currency)} ${patientStats.totalSpend.toLocaleString()}`
+                            : ""}
                       </span>
                     </div>
                     <div className="flex flex-col items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-teal-200 bg-teal-50/40 min-w-[56px] sm:min-w-[64px]">
-                      <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">Visits</span>
+                      <span className="text-[9px] sm:text-[10px] text-teal-600 font-medium">
+                        Visits
+                      </span>
                       <span className="text-base font-bold text-teal-700 leading-tight">
-                        {loadingPatientStats ? "" : patientStats != null ? patientStats.totalVisits : ""}
+                        {loadingPatientStats
+                          ? ""
+                          : patientStats != null
+                            ? patientStats.totalVisits
+                            : ""}
                       </span>
                     </div>
                   </div>
 
                   {/* Right: date + time + status + action buttons */}
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-shrink-0 w-full sm:w-auto justify-center sm:justify-end">
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="flex items-center gap-1.5 rounded-md sm:rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-2.5 sm:px-3 py-1.5 sm:py-1.5 text-[10px] sm:text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                    >
+                      <Download size={12} />
+                      Download PDF
+                    </button>
                     <div className="flex items-center gap-1 sm:gap-1.5 border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs text-gray-500 bg-gray-50">
-                      <Calendar size={10} className="sm:w-[11px] sm:h-[11px]" /> {formatDate(details.startDate)}
+                      <Calendar size={10} className="sm:w-[11px] sm:h-[11px]" />{" "}
+                      {formatDate(details.startDate)}
                     </div>
                     {details.fromTime && (
                       <div className="flex items-center gap-1 sm:gap-1.5 border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5 text-[10px] sm:text-xs text-gray-500 bg-gray-50">
-                        <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> {details.fromTime}{details.toTime ? `${details.toTime}` : ""}
+                        <Clock size={10} className="sm:w-[11px] sm:h-[11px]" />{" "}
+                        {details.fromTime}
+                        {details.toTime ? `${details.toTime}` : ""}
                       </div>
                     )}
-                    <span className={`text-[10px] sm:text-xs rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 font-semibold ${
-                      details.status === "Arrived" ? "bg-green-100 text-green-700 border border-green-200" :
-                      details.status === "booked" ? "bg-blue-100 text-blue-700 border border-blue-200" :
-                      details.status === "Completed" ? "bg-gray-100 text-gray-700 border border-gray-200" :
-                      "bg-orange-100 text-orange-700 border border-orange-200"
-                    }`}>{details.status || "in-progress"}</span>
+                    <span
+                      className={`text-[10px] sm:text-xs rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 font-semibold ${
+                        details.status === "Arrived"
+                          ? "bg-green-100 text-green-700 border border-green-200"
+                          : details.status === "booked"
+                            ? "bg-blue-100 text-blue-700 border border-blue-200"
+                            : details.status === "Completed"
+                              ? "bg-gray-100 text-gray-700 border border-gray-200"
+                              : "bg-orange-100 text-orange-700 border border-orange-200"
+                      }`}
+                    >
+                      {details.status || "in-progress"}
+                    </span>
 
                     {/* Send Consent */}
                     <div className="flex flex-wrap items-center gap-1 w-full sm:w-auto">
-                      <select value={selectedConsentId} onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); }} className="border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 w-full sm:max-w-[130px]">
+                      <select
+                        value={selectedConsentId}
+                        onChange={(e) => {
+                          setSelectedConsentId(e.target.value);
+                          setConsentSent(false);
+                        }}
+                        className="border border-gray-200 rounded-md sm:rounded-lg px-2 py-1 sm:py-1.5 text-[10px] sm:text-xs bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300 w-full sm:max-w-[130px]"
+                      >
                         <option value="">Select Consent</option>
-                        {consentForms.map((cf) => (<option key={cf._id} value={cf._id}>{cf.formName}</option>))}
+                        {consentForms.map((cf) => (
+                          <option key={cf._id} value={cf._id}>
+                            {cf.formName}
+                          </option>
+                        ))}
                       </select>
-                      <button type="button" disabled={!selectedConsentId || sendingConsent || sendMsgLoading || consentSent}
+                      <button
+                        type="button"
+                        disabled={
+                          !selectedConsentId ||
+                          sendingConsent ||
+                          sendMsgLoading ||
+                          consentSent
+                        }
                         onClick={handleSendConsentMsgOnWhatsapp}
-                        className={`flex items-center justify-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
-                        {consentSent ? <><Check size={10} className="sm:w-[11px] sm:h-[11px]" /> Sent</> : sendingConsent ? <><RefreshCw size={10} className="sm:w-[11px] sm:h-[11px] animate-spin" /> Sending...</> : <><Send size={10} className="sm:w-[11px] sm:h-[11px]" /> Send Consent</>}
+                        className={`flex items-center justify-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}
+                      >
+                        {consentSent ? (
+                          <>
+                            <Check
+                              size={10}
+                              className="sm:w-[11px] sm:h-[11px]"
+                            />{" "}
+                            Sent
+                          </>
+                        ) : sendingConsent ? (
+                          <>
+                            <RefreshCw
+                              size={10}
+                              className="sm:w-[11px] sm:h-[11px] animate-spin"
+                            />{" "}
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send
+                              size={10}
+                              className="sm:w-[11px] sm:h-[11px]"
+                            />{" "}
+                            Send Consent
+                          </>
+                        )}
                       </button>
                     </div>
 
-                   
-                    <button type="button"
-                      onClick={() => { if (activeTab !== "complaint") setActiveTab("complaint"); setTimeout(() => { previousComplaintsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); }}
-                      className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap">
-                      <Clock size={10} className="sm:w-[11px] sm:h-[11px]" /> History {previousComplaints.length > 0 && `(${previousComplaints.length})`}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab !== "complaint")
+                          setActiveTab("complaint");
+                        setTimeout(() => {
+                          previousComplaintsRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }, 60);
+                      }}
+                      className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 whitespace-nowrap"
+                    >
+                      <Clock size={10} className="sm:w-[11px] sm:h-[11px]" />{" "}
+                      History{" "}
+                      {previousComplaints.length > 0 &&
+                        `(${previousComplaints.length})`}
                     </button>
                     <button
                       type="button"
@@ -2641,10 +3454,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       title="Refresh data (keeps unsaved entries)"
                       className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg border border-gray-200 text-[10px] sm:text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     >
-                      <RefreshCw size={10} className={`sm:w-[11px] sm:h-[11px] ${refreshing ? "animate-spin" : ""}`} />
+                      <RefreshCw
+                        size={10}
+                        className={`sm:w-[11px] sm:h-[11px] ${refreshing ? "animate-spin" : ""}`}
+                      />
                       {refreshing ? "Refreshing..." : "Refresh"}
                     </button>
-                    <button onClick={onClose} className="ml-1 text-gray-400 hover:text-gray-600 p-1 sm:p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0">
+                    <button
+                      onClick={onClose}
+                      className="ml-1 text-gray-400 hover:text-gray-600 p-1 sm:p-1.5 rounded-lg hover:bg-gray-100 flex-shrink-0"
+                    >
                       <X className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
@@ -2656,81 +3475,40 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     <span className="font-semibold text-gray-700">Vitals:</span>
                     <span> {report.temperatureCelsius}</span>
                     <span> {report.pulseBpm} bpm</span>
-                    <span> {report.systolicBp}/{report.diastolicBp} mmHg</span>
-                    {report.weightKg != null && <span> {report.weightKg} kg</span>}
-                    {report.heightCm != null && <span>{report.heightCm} cm</span>}
+                    <span>
+                      {" "}
+                      {report.systolicBp}/{report.diastolicBp} mmHg
+                    </span>
+                    {report.weightKg != null && (
+                      <span> {report.weightKg} kg</span>
+                    )}
+                    {report.heightCm != null && (
+                      <span>{report.heightCm} cm</span>
+                    )}
                     {report.bmi != null && <span>BMI {report.bmi}</span>}
-                    {report.spo2Percent != null && <span> {report.spo2Percent}%</span>}
+                    {report.spo2Percent != null && (
+                      <span> {report.spo2Percent}%</span>
+                    )}
                   </div>
                 )}
-
-
               </div>
             ) : !loading ? (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">No patient data available.</span>
-                <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                <span className="text-sm text-gray-400">
+                  No patient data available.
+                </span>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             ) : null}
           </div>
-{/* Vitals Warning Banner - Show at TOP of modal when no report exists */}
-
-          {showVitalsWarning && !report && (
-
-            <div className="mb-4 mx-4 p-4 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
-
-              <div className="flex items-start gap-3">
-
-                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-
-                  <AlertTriangle className="w-5 h-5 text-amber-600" />
-
-                </div>
-
-                <div className="flex-1">
-
-                  <h4 className="text-sm font-bold text-amber-800 mb-1">Vitals Report Required</h4>
-
-                  <p className="text-xs text-amber-700 mb-2">
-
-                    Please fill the appointment report first, then add complaints.
-
-                  </p>
-
-                  <p className="text-xs text-amber-600">
-
-                    No vitals have been recorded for this appointment yet.
-
-                  </p>
-
-                </div>
-
-                <button
-
-                  type="button"
-
-                  onClick={() => setShowVitalsWarning(false)}
-
-                  className="text-amber-400 hover:text-amber-600 transition-colors"
-
-                >
-
-                  <XIcon size={16} />
-
-                </button>
-
-              </div>
-
-            </div>
-
-          )}
-
 
           <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
-
-           
             <div className="flex-1 min-w-0 overflow-y-auto scrollbar-hide px-3 sm:px-4 py-3 sm:py-4 space-y-3 sm:space-y-4">
-
               {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {error}
@@ -2749,9 +3527,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   <div className="flex items-center gap-1 bg-white rounded-lg sm:rounded-xl border border-gray-200 p-0.5 sm:p-1 shadow-sm">
                     {(
                       [
-                        { key: "complaint", label: "Complaints", icon: <NotebookPen className="w-3.5 h-3.5" /> },
-                        { key: "progress", label: "Progress Notes", icon: <TrendingUp className="w-3.5 h-3.5" /> },
-                        { key: "prescription", label: "Prescription", icon: <Pill className="w-3.5 h-3.5" /> },
+                        {
+                          key: "complaint",
+                          label: "Complaints",
+                          icon: <NotebookPen className="w-3.5 h-3.5" />,
+                        },
+                        {
+                          key: "progress",
+                          label: "Progress Notes",
+                          icon: <TrendingUp className="w-3.5 h-3.5" />,
+                        },
+                        {
+                          key: "prescription",
+                          label: "Prescription",
+                          icon: <Pill className="w-3.5 h-3.5" />,
+                        },
                       ] as const
                     ).map((tab) => (
                       <button
@@ -2769,7 +3559,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     ))}
                   </div>
 
-                
                   {activeTab === "complaint" && (
                     <div className="space-y-4">
                       {/* Chief Complaints */}
@@ -2777,11 +3566,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-100 bg-gray-50/60">
                           <div className="flex items-center gap-2">
                             <NotebookPen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
-                            <span className="text-xs sm:text-sm font-semibold text-gray-800">Chief Complaints</span>
+                            <span className="text-xs sm:text-sm font-semibold text-gray-800">
+                              Chief Complaints
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] sm:text-xs text-gray-400">{complaints.length}/2000</span>
-                           
+                            <span className="text-[10px] sm:text-xs text-gray-400">
+                              {complaints.length}/2000
+                            </span>
                           </div>
                         </div>
                         <div className="p-3 sm:p-4">
@@ -2793,32 +3585,65 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none placeholder-gray-400"
                             placeholder="Document chief complaints, presenting symptoms, and patient history..."
                           />
-                          {/* Image Upload */}
+                          {/* Image/PDF Upload */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                             <div>
-                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                                {isSpecificClinic
+                                  ? "Static Scan (Image/PDF)"
+                                  : "Before (Image/PDF)"}
+                              </p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                <div
+                                  className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
+                                >
                                   {beforeImage && (
                                     <button
                                       onClick={() => setBeforeImage("")}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                                      title="Remove image"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                                      title="Remove file"
                                     >
                                       <X size={14} />
                                     </button>
                                   )}
                                   {beforeImage ? (
-                                    <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                                    beforeImage
+                                      .toLowerCase()
+                                      .endsWith(".pdf") ? (
+                                      <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                                        <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                                        <a
+                                          href={beforeImage}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
+                                        >
+                                          View PDF
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <img
+                                        src={beforeImage}
+                                        alt={
+                                          isSpecificClinic
+                                            ? "Static Scan"
+                                            : "Before"
+                                        }
+                                        className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
+                                      />
+                                    )
                                   ) : (
                                     <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                                   )}
                                   {uploadingBefore && (
-                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                                       <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                                     </div>
                                   )}
-                                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                                  <input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (!file) return;
@@ -2832,29 +3657,62 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
                             </div>
                             <div>
-                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
+                              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                                {isSpecificClinic
+                                  ? "Dynamic Scan (Image/PDF)"
+                                  : "After (Image/PDF)"}
+                              </p>
                               <div className="relative flex items-center gap-2">
-                                <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                <div
+                                  className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
+                                >
                                   {afterImage && (
                                     <button
                                       onClick={() => setAfterImage("")}
-                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                                      title="Remove image"
+                                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                                      title="Remove file"
                                     >
                                       <X size={14} />
                                     </button>
                                   )}
                                   {afterImage ? (
-                                    <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+                                    afterImage
+                                      .toLowerCase()
+                                      .endsWith(".pdf") ? (
+                                      <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                                        <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                                        <a
+                                          href={afterImage}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
+                                        >
+                                          View PDF
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <img
+                                        src={afterImage}
+                                        alt={
+                                          isSpecificClinic
+                                            ? "Dynamic Scan"
+                                            : "After"
+                                        }
+                                        className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
+                                      />
+                                    )
                                   ) : (
                                     <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                                   )}
                                   {uploadingAfter && (
-                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                                       <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                                     </div>
                                   )}
-                                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                                  <input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                     onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (!file) return;
@@ -2871,19 +3729,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                       </div>
 
-                     
-                     
-
                       {/* Treatment & Billing - Enhanced Modern UI */}
-                      <div id="treatment-billing-section" className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                      <div
+                        id="treatment-billing-section"
+                        className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden"
+                      >
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
                           <div className="flex items-center gap-2.5">
                             <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
                               <Package className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
-                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                              <h3 className="text-base font-bold text-gray-900">
+                                Treatment & Billing
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                Add and manage treatment services
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -2895,7 +3757,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
-                                if (allServices.length === 0) fetchAllServices();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -2907,7 +3770,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(true);
                                 setShowAddServiceDropdown(false);
                                 setShowCreatePackage(false);
-                                if (departments.length === 0) fetchDepartments();
+                                if (departments.length === 0)
+                                  fetchDepartments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -2921,8 +3785,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
-                                if (allServices.length === 0) fetchAllServices(); // Load clinic services
-                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                                if (allServices.length === 0)
+                                  fetchAllServices(); // Load clinic services
+                                if (pkgTreatments.length === 0)
+                                  fetchPkgTreatments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
                             >
@@ -2939,11 +3805,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
                                   <Search className="w-4 h-4 text-blue-600" />
                                 </div>
-                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                                <span className="text-sm font-bold text-blue-800">
+                                  Search & Add Services
+                                </span>
                               </div>
-                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button
+                                type="button"
+                                onClick={() => setShowAddServiceDropdown(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <XIcon size={16} />
+                              </button>
                             </div>
-                           
+
                             {/* Search Input */}
                             <div className="relative mb-3">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -2953,80 +3827,142 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 type="text"
                                 placeholder="Search by service name..."
                                 value={serviceSearchQuery}
-                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                onChange={(e) =>
+                                  setServiceSearchQuery(e.target.value)
+                                }
                                 className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
                               />
                             </div>
-                           
+
                             {/* Services List */}
                             <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
                               {loadingServices ? (
                                 <div className="flex items-center justify-center py-8">
                                   <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                  <span className="ml-2 text-sm text-gray-500">
+                                    Loading services...
+                                  </span>
                                 </div>
-                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                              ) : allServices.filter((s) =>
+                                  s.name
+                                    .toLowerCase()
+                                    .includes(serviceSearchQuery.toLowerCase()),
+                                ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
-                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
-                                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                                  <p className="text-sm text-gray-500 font-medium">
+                                    No services found
+                                  </p>
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Try a different search term
+                                  </p>
                                 </div>
                               ) : (
-                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
-                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
-                                  return (
-                                    <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
-                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                        isSelected
-                                          ? "bg-blue-50 border-blue-300 shadow-sm"
-                                          : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                                        }`}>
-                                          {isSelected && <Check size={12} className="text-white" />}
-                                        </div>
-                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>
-                                          {svc.name}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>
-                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                        </span>
-                                        {isSelected && (
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                                            Added
+                                allServices
+                                  .filter((s) =>
+                                    s.name
+                                      .toLowerCase()
+                                      .includes(
+                                        serviceSearchQuery.toLowerCase(),
+                                      ),
+                                  )
+                                  .map((svc) => {
+                                    const isSelected = selectedServices.some(
+                                      (s) => s._id === svc._id,
+                                    );
+                                    return (
+                                      <button
+                                        key={svc._id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedServices((prev) =>
+                                            isSelected
+                                              ? prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                )
+                                              : [
+                                                  ...prev,
+                                                  { ...svc, quantity: 1 },
+                                                ],
+                                          );
+                                          setServicesSaved(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                          isSelected
+                                            ? "bg-blue-50 border-blue-300 shadow-sm"
+                                            : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                              isSelected
+                                                ? "bg-blue-600 border-blue-600"
+                                                : "border-gray-300 bg-white"
+                                            }`}
+                                          >
+                                            {isSelected && (
+                                              <Check
+                                                size={12}
+                                                className="text-white"
+                                              />
+                                            )}
+                                          </div>
+                                          <span
+                                            className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}
+                                          >
+                                            {svc.name}
                                           </span>
-                                        )}
-                                      </div>
-                                    </button>
-                                  );
-                                })
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <span
+                                            className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}
+                                          >
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(svc.clinicPrice != null
+                                              ? svc.clinicPrice
+                                              : svc.price
+                                            ).toFixed(2)}
+                                          </span>
+                                          {isSelected && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                              Added
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })
                               )}
                             </div>
-                           
+
                             {/* Action Buttons */}
                             {/* Services save status - hidden as services are saved with complaint */}
                             {false && servicesError && (
                               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-red-700">{servicesError}</p>
+                                <p className="text-xs text-red-700">
+                                  {servicesError}
+                                </p>
                               </div>
                             )}
                             {false && servicesSaved && (
                               <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                                 <CheckCircle className="w-4 h-4 text-green-600" />
-                                <p className="text-xs text-green-700 font-medium">Services saved successfully!</p>
+                                <p className="text-xs text-green-700 font-medium">
+                                  Services saved successfully!
+                                </p>
                               </div>
                             )}
                             {/* Save Services button - hidden as services are saved automatically with complaint */}
                             {false && (
-                              <button type="button" onClick={saveServicesToAppointment}
-                                disabled={savingServices || selectedServices.length === 0}
+                              <button
+                                type="button"
+                                onClick={saveServicesToAppointment}
+                                disabled={
+                                  savingServices ||
+                                  selectedServices.length === 0
+                                }
                                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                               >
                                 {savingServices ? (
@@ -3053,31 +3989,47 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                                   <Wrench className="w-4 h-4 text-emerald-600" />
                                 </div>
-                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                                <span className="text-sm font-bold text-emerald-800">
+                                  Add Custom Service
+                                </span>
                               </div>
-                              <button type="button" onClick={() => {
-                                setShowAddCustomService(false);
-                                setCustomServiceName("");
-                                setCustomServicePrice("");
-                                setCustomServiceClinicPrice("");
-                                setCustomServiceDuration("");
-                                setCustomServiceDepartment("");
-                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddCustomService(false);
+                                  setCustomServiceName("");
+                                  setCustomServicePrice("");
+                                  setCustomServiceClinicPrice("");
+                                  setCustomServiceDuration("");
+                                  setCustomServiceDepartment("");
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
                                 <XIcon size={16} />
                               </button>
                             </div>
 
-                            <form onSubmit={addCustomService} className="space-y-3">
+                            <form
+                              onSubmit={addCustomService}
+                              className="space-y-3"
+                            >
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Department{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <select
                                   value={customServiceDepartment}
-                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceDepartment(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   disabled={departmentsLoading}
                                   required
                                 >
-                                  <option value="" disabled>Select department</option>
+                                  <option value="" disabled>
+                                    Select department
+                                  </option>
                                   {departments.map((dept) => (
                                     <option key={dept._id} value={dept._id}>
                                       {dept.name}
@@ -3087,11 +4039,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Service Name{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                   type="text"
                                   value={customServiceName}
-                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceName(e.target.value)
+                                  }
                                   placeholder="Enter service name"
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   required
@@ -3100,15 +4057,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Price{" "}
+                                    <span className="text-red-500">*</span>
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServicePrice}
-                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServicePrice(e.target.value)
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                       required
@@ -3117,15 +4081,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Clinic Price (Optional)
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServiceClinicPrice}
-                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServiceClinicPrice(
+                                          e.target.value,
+                                        )
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                     />
@@ -3133,12 +4105,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Duration (Minutes)
+                                  </label>
                                   <input
                                     type="number"
                                     min="0"
                                     value={customServiceDuration}
-                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    onChange={(e) =>
+                                      setCustomServiceDuration(e.target.value)
+                                    }
                                     placeholder="30"
                                     className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   />
@@ -3174,20 +4150,43 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
                                   <Package className="w-4 h-4 text-violet-600" />
                                 </div>
-                                <span className="text-sm font-bold text-violet-800">Create New Package</span>
+                                <span className="text-sm font-bold text-violet-800">
+                                  Create New Package
+                                </span>
                               </div>
-                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCreatePackage(false);
+                                  setPkgError("");
+                                  setPkgSuccess("");
+                                  setPkgModalName("");
+                                  setPkgModalPrice("");
+                                  setPkgModalValidityInMonths("");
+                                  setPkgModalStartDate(
+                                    new Date().toISOString().split("T")[0],
+                                  );
+                                  setPkgModalEndDate("");
+                                  setPkgSelectedTreatments([]);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
                                 <XIcon size={16} />
                               </button>
                             </div>
 
                             {/* Package Name */}
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Package Name{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <input
                                 type="text"
                                 value={pkgModalName}
-                                onChange={(e) => setPkgModalName(e.target.value)}
+                                onChange={(e) =>
+                                  setPkgModalName(e.target.value)
+                                }
                                 placeholder="e.g., Premium Skin Care Package"
                                 className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                               />
@@ -3195,7 +4194,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* Package Price */}
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Total Package Price{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <div className="relative">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium"></span>
                                 <input
@@ -3203,7 +4205,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   min="0"
                                   step="0.01"
                                   value={pkgModalPrice}
-                                  onChange={(e) => setPkgModalPrice(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalPrice(e.target.value)
+                                  }
                                   placeholder=""
                                   className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
@@ -3213,27 +4217,37 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {/* Validity & Dates */}
                             <div className="grid grid-cols-3 gap-3 mb-3">
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Validity (Months)</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  Validity (Months)
+                                </label>
                                 <input
                                   type="number"
                                   min="0"
                                   value={pkgModalValidityInMonths}
-                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalValidityInMonths(e.target.value)
+                                  }
                                   placeholder="e.g. 12"
                                   className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Start Date</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  Start Date
+                                </label>
                                 <input
                                   type="date"
                                   value={pkgModalStartDate}
-                                  onChange={(e) => setPkgModalStartDate(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalStartDate(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">End Date</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  End Date
+                                </label>
                                 <input
                                   type="date"
                                   value={pkgModalEndDate}
@@ -3245,22 +4259,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* Treatment Selector */}
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Select Treatments / Services{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <div className="relative">
                                 <div
                                   className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
                                   onClick={() => {
-                                    setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen);
-                                    if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices();
+                                    setPkgTreatmentDropdownOpen(
+                                      !pkgTreatmentDropdownOpen,
+                                    );
+                                    if (
+                                      !pkgTreatmentDropdownOpen &&
+                                      allServices.length === 0
+                                    )
+                                      fetchAllServices();
                                   }}
                                 >
-                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
-                                    {pkgSelectedTreatments.length > 0
-                                      ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? 's' : ''} selected`
-                                      : "Select treatments to include..."
+                                  <span
+                                    className={
+                                      pkgSelectedTreatments.length > 0
+                                        ? "text-gray-800 font-medium"
+                                        : "text-gray-400"
                                     }
+                                  >
+                                    {pkgSelectedTreatments.length > 0
+                                      ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected`
+                                      : "Select treatments to include..."}
                                   </span>
-                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`}
+                                  />
                                 </div>
 
                                 {pkgTreatmentDropdownOpen && (
@@ -3271,7 +4301,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <input
                                           type="text"
                                           value={pkgTreatmentSearch}
-                                          onChange={(e) => setPkgTreatmentSearch(e.target.value)}
+                                          onChange={(e) =>
+                                            setPkgTreatmentSearch(
+                                              e.target.value,
+                                            )
+                                          }
                                           placeholder="Search treatments..."
                                           autoFocus
                                           className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
@@ -3282,49 +4316,106 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       {loadingServices ? (
                                         <div className="flex items-center justify-center p-4">
                                           <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
-                                          <span className="ml-2 text-sm text-gray-500">Loading...</span>
+                                          <span className="ml-2 text-sm text-gray-500">
+                                            Loading...
+                                          </span>
                                         </div>
-                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-gray-400">No treatments found</div>
+                                      ) : allServices.filter((s) =>
+                                          s.name
+                                            .toLowerCase()
+                                            .includes(
+                                              pkgTreatmentSearch.toLowerCase(),
+                                            ),
+                                        ).length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-400">
+                                          No treatments found
+                                        </div>
                                       ) : (
                                         <ul className="py-1">
                                           {allServices
-                                            .filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase()))
+                                            .filter((svc) =>
+                                              svc.name
+                                                .toLowerCase()
+                                                .includes(
+                                                  pkgTreatmentSearch.toLowerCase(),
+                                                ),
+                                            )
                                             .map((svc) => {
-                                              const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
+                                              const isSelected =
+                                                pkgSelectedTreatments.some(
+                                                  (t) =>
+                                                    t.treatmentSlug === svc._id,
+                                                );
                                               return (
                                                 <li key={svc._id}>
                                                   <button
                                                     type="button"
                                                     onClick={() => {
                                                       if (isSelected) {
-                                                        setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id));
+                                                        setPkgSelectedTreatments(
+                                                          (prev) =>
+                                                            prev.filter(
+                                                              (t) =>
+                                                                t.treatmentSlug !==
+                                                                svc._id,
+                                                            ),
+                                                        );
                                                       } else {
-                                                        setPkgSelectedTreatments((prev) => [
-                                                          ...prev,
-                                                          {
-                                                            treatmentName: svc.name,
-                                                            treatmentSlug: svc._id,
-                                                            sessions: 1,
-                                                            allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price,
-                                                          },
-                                                        ]);
+                                                        setPkgSelectedTreatments(
+                                                          (prev) => [
+                                                            ...prev,
+                                                            {
+                                                              treatmentName:
+                                                                svc.name,
+                                                              treatmentSlug:
+                                                                svc._id,
+                                                              sessions: 1,
+                                                              allocatedPrice:
+                                                                svc.clinicPrice !=
+                                                                null
+                                                                  ? svc.clinicPrice
+                                                                  : svc.price,
+                                                            },
+                                                          ],
+                                                        );
                                                       }
                                                     }}
                                                     className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${
-                                                      isSelected ? "bg-violet-50" : ""
+                                                      isSelected
+                                                        ? "bg-violet-50"
+                                                        : ""
                                                     }`}
                                                   >
                                                     <div className="flex items-center gap-3">
-                                                      <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                                                        isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"
-                                                      }`}>
-                                                        {isSelected && <Check size={12} className="text-white" />}
+                                                      <div
+                                                        className={`w-5 h-5 rounded border flex items-center justify-center ${
+                                                          isSelected
+                                                            ? "bg-violet-600 border-violet-600"
+                                                            : "border-gray-300"
+                                                        }`}
+                                                      >
+                                                        {isSelected && (
+                                                          <Check
+                                                            size={12}
+                                                            className="text-white"
+                                                          />
+                                                        )}
                                                       </div>
                                                       <div className="text-left">
-                                                        <p className="text-sm font-medium text-gray-800">{svc.name}</p>
+                                                        <p className="text-sm font-medium text-gray-800">
+                                                          {svc.name}
+                                                        </p>
                                                         <p className="text-xs text-gray-500">
-                                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}  {svc.durationMinutes} mins
+                                                          {getCurrencySymbol(
+                                                            currency,
+                                                          )}{" "}
+                                                          {(svc.clinicPrice !=
+                                                          null
+                                                            ? svc.clinicPrice
+                                                            : svc.price
+                                                          ).toFixed(2)}{" "}
+                                                          {svc.durationMinutes}{" "}
+                                                          mins
                                                         </p>
                                                       </div>
                                                     </div>
@@ -3342,16 +4433,35 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               {/* Selected Treatments List */}
                               {pkgSelectedTreatments.length > 0 && (
                                 <div className="mt-3 space-y-2">
-                                  <p className="text-xs font-semibold text-violet-700">Selected Treatments</p>
+                                  <p className="text-xs font-semibold text-violet-700">
+                                    Selected Treatments
+                                  </p>
                                   {pkgSelectedTreatments.map((sel) => {
-                                    const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                    const sessPrice =
+                                      sel.sessions > 0
+                                        ? (sel.allocatedPrice || 0) /
+                                          sel.sessions
+                                        : 0;
                                     return (
-                                      <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm">
+                                      <div
+                                        key={sel.treatmentSlug}
+                                        className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm"
+                                      >
                                         <div className="flex items-center justify-between mb-2">
-                                          <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
+                                          <span className="text-xs font-semibold text-violet-700">
+                                            {sel.treatmentName}
+                                          </span>
                                           <button
                                             type="button"
-                                            onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))}
+                                            onClick={() =>
+                                              setPkgSelectedTreatments((prev) =>
+                                                prev.filter(
+                                                  (t) =>
+                                                    t.treatmentSlug !==
+                                                    sel.treatmentSlug,
+                                                ),
+                                              )
+                                            }
                                             className="text-red-400 hover:text-red-600 transition-colors"
                                           >
                                             <XIcon size={13} />
@@ -3359,26 +4469,67 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         </div>
                                         <div className="grid grid-cols-3 gap-2">
                                           <div>
-                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
+                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                              Price
+                                            </label>
                                             <input
-                                              type="number" min="0" step="0.01"
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
                                               value={sel.allocatedPrice || ""}
-                                              onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))}
+                                              onChange={(e) =>
+                                                setPkgSelectedTreatments(
+                                                  (prev) =>
+                                                    prev.map((t) =>
+                                                      t.treatmentSlug ===
+                                                      sel.treatmentSlug
+                                                        ? {
+                                                            ...t,
+                                                            allocatedPrice:
+                                                              parseFloat(
+                                                                e.target.value,
+                                                              ) || 0,
+                                                          }
+                                                        : t,
+                                                    ),
+                                                )
+                                              }
                                               className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
                                               placeholder="0.00"
                                             />
                                           </div>
                                           <div>
-                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
+                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                              Sessions
+                                            </label>
                                             <input
-                                              type="number" min="1"
+                                              type="number"
+                                              min="1"
                                               value={sel.sessions}
-                                              onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))}
+                                              onChange={(e) =>
+                                                setPkgSelectedTreatments(
+                                                  (prev) =>
+                                                    prev.map((t) =>
+                                                      t.treatmentSlug ===
+                                                      sel.treatmentSlug
+                                                        ? {
+                                                            ...t,
+                                                            sessions:
+                                                              parseInt(
+                                                                e.target.value,
+                                                              ) || 1,
+                                                          }
+                                                        : t,
+                                                    ),
+                                                )
+                                              }
                                               className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400"
                                             />
                                           </div>
                                           <div>
-                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
+                                            <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                              /Session
+                                            </label>
                                             <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">
                                               {sessPrice.toFixed(2)}
                                             </div>
@@ -3391,20 +4542,53 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   {/* Price Validation Summary */}
                                   <div className="grid grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                     <div className="text-center">
-                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
-                                      <p className="text-xs font-bold text-violet-800">{parseFloat(pkgModalPrice) || 0}</p>
+                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                        Pkg Price
+                                      </p>
+                                      <p className="text-xs font-bold text-violet-800">
+                                        {parseFloat(pkgModalPrice) || 0}
+                                      </p>
                                     </div>
                                     <div className="text-center">
-                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
-                                      <p className="text-xs font-bold text-violet-800">{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                        Allocated
+                                      </p>
+                                      <p className="text-xs font-bold text-violet-800">
+                                        {pkgSelectedTreatments
+                                          .reduce(
+                                            (sum, t) =>
+                                              sum + (t.allocatedPrice || 0),
+                                            0,
+                                          )
+                                          .toFixed(2)}
+                                      </p>
                                     </div>
                                     <div className="text-center">
-                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
-                                      <p className={`text-xs font-bold ${
-                                        Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01
-                                          ? "text-teal-600" : "text-amber-600"
-                                      }`}>
-                                        {((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                      <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                        Remaining
+                                      </p>
+                                      <p
+                                        className={`text-xs font-bold ${
+                                          Math.abs(
+                                            (parseFloat(pkgModalPrice) || 0) -
+                                              pkgSelectedTreatments.reduce(
+                                                (sum, t) =>
+                                                  sum + (t.allocatedPrice || 0),
+                                                0,
+                                              ),
+                                          ) < 0.01
+                                            ? "text-teal-600"
+                                            : "text-amber-600"
+                                        }`}
+                                      >
+                                        {(
+                                          (parseFloat(pkgModalPrice) || 0) -
+                                          pkgSelectedTreatments.reduce(
+                                            (sum, t) =>
+                                              sum + (t.allocatedPrice || 0),
+                                            0,
+                                          )
+                                        ).toFixed(2)}
                                       </p>
                                     </div>
                                   </div>
@@ -3416,13 +4600,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {pkgError && (
                               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-red-700">{pkgError}</p>
+                                <p className="text-xs text-red-700">
+                                  {pkgError}
+                                </p>
                               </div>
                             )}
                             {pkgSuccess && (
                               <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                                 <CheckCircle className="w-4 h-4 text-green-600" />
-                                <p className="text-xs text-green-700 font-medium">{pkgSuccess}</p>
+                                <p className="text-xs text-green-700 font-medium">
+                                  {pkgSuccess}
+                                </p>
                               </div>
                             )}
 
@@ -3432,7 +4620,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <Package className="w-4 h-4 text-violet-600" />
-                                    <h4 className="text-xs font-bold text-violet-800">Package Created</h4>
+                                    <h4 className="text-xs font-bold text-violet-800">
+                                      Package Created
+                                    </h4>
                                   </div>
                                   <button
                                     type="button"
@@ -3442,58 +4632,108 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <XIcon size={14} />
                                   </button>
                                 </div>
-                               
+
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-gray-600">Name:</span>
-                                    <span className="text-xs font-semibold text-gray-900">{createdPackage.name || "N/A"}</span>
+                                    <span className="text-[10px] text-gray-600">
+                                      Name:
+                                    </span>
+                                    <span className="text-xs font-semibold text-gray-900">
+                                      {createdPackage.name || "N/A"}
+                                    </span>
                                   </div>
                                   <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-gray-600">Price:</span>
-                                    <span className="text-xs font-bold text-violet-600">{getCurrencySymbol(currency)} {parseFloat(createdPackage.totalPrice || 0).toFixed(2)}</span>
+                                    <span className="text-[10px] text-gray-600">
+                                      Price:
+                                    </span>
+                                    <span className="text-xs font-bold text-violet-600">
+                                      {getCurrencySymbol(currency)}{" "}
+                                      {parseFloat(
+                                        createdPackage.totalPrice || 0,
+                                      ).toFixed(2)}
+                                    </span>
                                   </div>
 
                                   {/* Validity Display */}
-                                  {(createdPackage.validityInMonths || createdPackage.startDate || createdPackage.endDate) && (
+                                  {(createdPackage.validityInMonths ||
+                                    createdPackage.startDate ||
+                                    createdPackage.endDate) && (
                                     <div className="bg-white/50 rounded p-1.5 border border-violet-100 mt-1">
                                       <div className="flex items-center justify-between text-[9px] mb-1">
                                         <span className="text-violet-600 font-semibold flex items-center gap-1">
                                           <Clock className="w-2.5 h-2.5" />
-                                          Validity: {createdPackage.validityInMonths || 0} Months
+                                          Validity:{" "}
+                                          {createdPackage.validityInMonths ||
+                                            0}{" "}
+                                          Months
                                         </span>
                                       </div>
                                       <div className="grid grid-cols-2 gap-2 text-[9px]">
                                         <div>
-                                          <span className="text-gray-500">Start:</span>
+                                          <span className="text-gray-500">
+                                            Start:
+                                          </span>
                                           <span className="text-gray-700 font-bold ml-1">
-                                            {createdPackage.startDate ? new Date(createdPackage.startDate).toLocaleDateString() : '-'}
+                                            {createdPackage.startDate
+                                              ? new Date(
+                                                  createdPackage.startDate,
+                                                ).toLocaleDateString()
+                                              : "-"}
                                           </span>
                                         </div>
                                         <div>
-                                          <span className="text-gray-500">End:</span>
+                                          <span className="text-gray-500">
+                                            End:
+                                          </span>
                                           <span className="text-gray-700 font-bold ml-1">
-                                            {createdPackage.endDate ? new Date(createdPackage.endDate).toLocaleDateString() : '-'}
+                                            {createdPackage.endDate
+                                              ? new Date(
+                                                  createdPackage.endDate,
+                                                ).toLocaleDateString()
+                                              : "-"}
                                           </span>
                                         </div>
                                       </div>
                                     </div>
                                   )}
-                                 
-                                  {(createdPackage.treatments || []).length > 0 && (
+
+                                  {(createdPackage.treatments || []).length >
+                                    0 && (
                                     <div className="border-t border-violet-200 pt-2 mt-2">
-                                      <p className="text-[10px] font-semibold text-gray-600 mb-1.5">Included Treatments:</p>
+                                      <p className="text-[10px] font-semibold text-gray-600 mb-1.5">
+                                        Included Treatments:
+                                      </p>
                                       <div className="space-y-1">
-                                        {(createdPackage.treatments || []).map((treatment: any, idx: number) => (
-                                          <div key={idx} className="flex items-center justify-between text-[10px]">
-                                            <span className="text-gray-700 truncate flex-1">{treatment.treatmentName || "N/A"}</span>
-                                            <span className="text-gray-600 ml-2">{treatment.sessions || 0} session{(treatment.sessions || 0) > 1 ? 's' : ''}</span>
-                                            <span className="text-violet-600 font-semibold ml-2">{getCurrencySymbol(currency)} {(treatment.allocatedPrice || 0).toFixed(2)}</span>
-                                          </div>
-                                        ))}
+                                        {(createdPackage.treatments || []).map(
+                                          (treatment: any, idx: number) => (
+                                            <div
+                                              key={idx}
+                                              className="flex items-center justify-between text-[10px]"
+                                            >
+                                              <span className="text-gray-700 truncate flex-1">
+                                                {treatment.treatmentName ||
+                                                  "N/A"}
+                                              </span>
+                                              <span className="text-gray-600 ml-2">
+                                                {treatment.sessions || 0}{" "}
+                                                session
+                                                {(treatment.sessions || 0) > 1
+                                                  ? "s"
+                                                  : ""}
+                                              </span>
+                                              <span className="text-violet-600 font-semibold ml-2">
+                                                {getCurrencySymbol(currency)}{" "}
+                                                {(
+                                                  treatment.allocatedPrice || 0
+                                                ).toFixed(2)}
+                                              </span>
+                                            </div>
+                                          ),
+                                        )}
                                       </div>
                                     </div>
                                   )}
-                                 
+
                                   <div className="flex gap-2 mt-2 pt-2 border-t border-violet-200">
                                     <button
                                       type="button"
@@ -3512,20 +4752,28 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleCreatePackageModal(false)}
-                                disabled={pkgSubmitting || addingPackageToPatient}
+                                disabled={
+                                  pkgSubmitting || addingPackageToPatient
+                                }
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Package size={14} />
-                                {pkgSubmitting ? "Creating..." : "Create Package"}
+                                {pkgSubmitting
+                                  ? "Creating..."
+                                  : "Create Package"}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleCreatePackageModal(true)}
-                                disabled={pkgSubmitting || addingPackageToPatient}
+                                disabled={
+                                  pkgSubmitting || addingPackageToPatient
+                                }
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Plus size={14} />
-                                {addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                                {addingPackageToPatient
+                                  ? "Adding..."
+                                  : "Create & Add to Patient"}
                               </button>
                             </div>
                           </div>
@@ -3538,13 +4786,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                                 <Package className="w-10 h-10 text-gray-400" />
                               </div>
-                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
-                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
+                              <p className="text-sm font-medium text-gray-600 mb-1">
+                                No services added yet
+                              </p>
+                              <p className="text-xs text-gray-400 mb-4">
+                                Click "Add Service" to begin building your
+                                treatment plan
+                              </p>
                               <button
                                 type="button"
                                 onClick={() => {
                                   setShowAddServiceDropdown(true);
-                                  if (allServices.length === 0) fetchAllServices();
+                                  if (allServices.length === 0)
+                                    fetchAllServices();
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
                               >
@@ -3556,138 +4810,205 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               {/* Services Header */}
                               <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
+                                  <span className="text-sm font-bold text-gray-900">
+                                    Selected Treatments
+                                  </span>
                                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
                                     {selectedServices.length}
                                   </span>
                                 </div>
-                               
                               </div>
 
                               {/* Service Cards */}
                               {selectedServices.map((svc, i) => {
-                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                const isRecentlyAdded =
+                                  recentlyAddedServices[svc._id] &&
+                                  Date.now() - recentlyAddedServices[svc._id] <
+                                    3000;
                                 return (
-                                <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
-                                  {isRecentlyAdded && (
-                                    <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
-                                      <Check size={10} />
-                                      <span>Just Added</span>
-                                    </div>
-                                  )}
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex items-start gap-3 flex-1">
-                                      {/* Icon */}
-                                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
-                                        <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
+                                  <div
+                                    key={svc._id}
+                                    className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? "border-green-400 bg-green-50 shadow-md ring-2 ring-green-300" : "border-gray-200 bg-white hover:shadow-md"}`}
+                                  >
+                                    {isRecentlyAdded && (
+                                      <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
+                                        <Check size={10} />
+                                        <span>Just Added</span>
                                       </div>
-                                                                   
-                                      {/* Info */}
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
-                                          {isRecentlyAdded ? (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-                                              Smart Recommendation
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                                              Standard
-                                            </span>
-                                          )}
+                                    )}
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        {/* Icon */}
+                                        <div
+                                          className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200" : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"}`}
+                                        >
+                                          <Package
+                                            className={`w-6 h-6 ${isRecentlyAdded ? "text-green-600" : "text-blue-600"}`}
+                                          />
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
-                                                                                                       
-                                        {/* Price Input */}
-                                        <div className="flex items-center gap-4">
-                                          <div className="flex items-center gap-2">
-                                            <label className="text-xs text-gray-600 font-medium">Price:</label>
-                                            <div className="relative">
-                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                              <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                                readOnly
-                                                className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
-                                              />
-                                            </div>
-                                          </div>
 
-                                          {/* Quantity Controls */}
-                                          <div className="flex items-center gap-2">
-                                            <label className="text-xs text-gray-600 font-medium">Qty:</label>
-                                            <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setSelectedServices((prev) =>
-                                                    prev.map((s) =>
-                                                      s._id === svc._id
-                                                        ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
-                                                        : s
-                                                    )
-                                                  );
-                                                }}
-                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                                                disabled={(svc.quantity || 1) <= 1}
-                                              >
-                                                -
-                                              </button>
-                                              <input
-                                                type="number"
-                                                min="1"
-                                                value={svc.quantity || 1}
-                                                onChange={(e) => {
-                                                  const newQty = Math.max(1, parseInt(e.target.value) || 1);
-                                                  setSelectedServices((prev) =>
-                                                    prev.map((s) =>
-                                                      s._id === svc._id ? { ...s, quantity: newQty } : s
-                                                    )
-                                                  );
-                                                }}
-                                                className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
-                                              />
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setSelectedServices((prev) =>
-                                                    prev.map((s) =>
-                                                      s._id === svc._id
-                                                        ? { ...s, quantity: (s.quantity || 1) + 1 }
-                                                        : s
-                                                    )
-                                                  );
-                                                }}
-                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                                              >
-                                                +
-                                              </button>
+                                        {/* Info */}
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="text-sm font-bold text-gray-900">
+                                              {svc.name}
+                                            </h4>
+                                            {isRecentlyAdded ? (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                                Smart Recommendation
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                                Standard
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-gray-500 mb-2">
+                                            Service #{i + 1} ID:{" "}
+                                            {svc._id.slice(-6)}
+                                          </p>
+
+                                          {/* Price Input */}
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Price:
+                                              </label>
+                                              <div className="relative">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">
+                                                  {getCurrencySymbol(currency)}
+                                                </span>
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  step="0.01"
+                                                  value={(svc.clinicPrice !=
+                                                  null
+                                                    ? svc.clinicPrice
+                                                    : svc.price
+                                                  ).toFixed(2)}
+                                                  readOnly
+                                                  className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            {/* Quantity Controls */}
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Qty:
+                                              </label>
+                                              <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  Math.max(
+                                                                    1,
+                                                                    (s.quantity ||
+                                                                      1) - 1,
+                                                                  ),
+                                                              }
+                                                            : s,
+                                                        ),
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                  disabled={
+                                                    (svc.quantity || 1) <= 1
+                                                  }
+                                                >
+                                                  -
+                                                </button>
+                                                <input
+                                                  type="number"
+                                                  min="1"
+                                                  value={svc.quantity || 1}
+                                                  onChange={(e) => {
+                                                    const newQty = Math.max(
+                                                      1,
+                                                      parseInt(
+                                                        e.target.value,
+                                                      ) || 1,
+                                                    );
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  newQty,
+                                                              }
+                                                            : s,
+                                                        ),
+                                                    );
+                                                  }}
+                                                  className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  (s.quantity ||
+                                                                    1) + 1,
+                                                              }
+                                                            : s,
+                                                        ),
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                >
+                                                  +
+                                                </button>
+                                              </div>
                                             </div>
                                           </div>
                                         </div>
                                       </div>
-                                    </div>
-                                                                 
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-right">
-                                        <p className="text-sm font-bold text-gray-900">
-                                          {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
-                                        </p>
+
+                                      {/* Actions */}
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                          <p className="text-sm font-bold text-gray-900">
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(
+                                              (svc.clinicPrice != null
+                                                ? svc.clinicPrice
+                                                : svc.price) *
+                                              (svc.quantity || 1)
+                                            ).toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setSelectedServices((prev) =>
+                                              prev.filter(
+                                                (s) => s._id !== svc._id,
+                                              ),
+                                            )
+                                          }
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                          title="Remove service"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
-                                        title="Remove service"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
                                     </div>
                                   </div>
-                                </div>
                                 );
                               })}
 
@@ -3699,12 +5020,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <ClipboardList className="w-5 h-5 text-white" />
                                     </div>
                                     <div>
-                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
-                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? 'treatment' : 'treatments'}</p>
+                                      <p className="text-xs font-medium text-blue-100">
+                                        Total Bill
+                                      </p>
+                                      <p className="text-[10px] text-blue-200">
+                                        {selectedServices.length}{" "}
+                                        {selectedServices.length === 1
+                                          ? "treatment"
+                                          : "treatments"}
+                                      </p>
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-lg font-bold text-white">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</p>
+                                    <p className="text-lg font-bold text-white">
+                                      {getCurrencySymbol(currency)}{" "}
+                                      {totalBill.toFixed(2)}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -3713,68 +5044,165 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                       </div>
 
-       {(smartDepartments.length > 0 || loadingSmartRec) && (
+                      {(smartDepartments.length > 0 || loadingSmartRec) && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
                           <div className="flex items-center gap-2 mb-3">
                             <Stethoscope className="w-4 h-4 text-blue-600" />
-                            <h3 className="text-sm font-semibold text-gray-800">Smart Recommendations</h3>
-                            <span className="text-[10px] text-gray-400">Based on doctor's services</span>
+                            <h3 className="text-sm font-semibold text-gray-800">
+                              Smart Recommendations
+                            </h3>
+                            <span className="text-[10px] text-gray-400">
+                              Based on doctor's services
+                            </span>
                           </div>
                           {loadingSmartRec ? (
-                            <div className="text-xs text-gray-400 py-2">Loading recommendations...</div>
+                            <div className="text-xs text-gray-400 py-2">
+                              Loading recommendations...
+                            </div>
                           ) : (
                             <div className="space-y-3">
                               {smartDepartments.map((dept) => (
                                 <div key={dept._id}>
-                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">{dept.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                                    {dept.name}
+                                  </p>
                                   <div className="flex flex-wrap gap-2">
                                     {dept.services.map((svc) => (
-                                      <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
-                                        <span className="text-xs font-semibold text-gray-800">{svc.name}</span>
-                                        <span className="text-xs text-blue-600 font-medium">{svc.clinicPrice != null ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}` : `${getCurrencySymbol(currency)} ${svc.price}`}</span>
-                                        <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
+                                      <div
+                                        key={svc._id}
+                                        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm"
+                                      >
+                                        <span className="text-xs font-semibold text-gray-800">
+                                          {svc.name}
+                                        </span>
+                                        <span className="text-xs text-blue-600 font-medium">
+                                          {svc.clinicPrice != null
+                                            ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}`
+                                            : `${getCurrencySymbol(currency)} ${svc.price}`}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            addingRecService[
+                                              `${details?.patientId}_${svc._id}`
+                                            ] ||
+                                            addedRecServices[
+                                              `${details?.patientId}_${svc._id}`
+                                            ]
+                                          }
                                           onClick={async () => {
-                                            if (!details?.appointmentId || !details?.patientId) return;
-                                           
+                                            if (
+                                              !details?.appointmentId ||
+                                              !details?.patientId
+                                            )
+                                              return;
+
                                             const patientServiceKey = `${details.patientId}_${svc._id}`;
-                                           
+
                                             // 1. Add to selectedServices (so it appears in Treatment & Billing)
                                             const serviceToAdd = {
                                               _id: svc._id,
                                               name: svc.name,
                                               price: svc.price,
                                               clinicPrice: svc.clinicPrice,
-                                              durationMinutes: svc.durationMinutes,
-                                              quantity: 1
+                                              durationMinutes:
+                                                svc.durationMinutes,
+                                              quantity: 1,
                                             } as ClinicService;
-                                           
-                                            setSelectedServices((prev) => [...prev, serviceToAdd]);
+
+                                            setSelectedServices((prev) => [
+                                              ...prev,
+                                              serviceToAdd,
+                                            ]);
                                             setServicesSaved(false);
-                                           
+
                                             // Track recently added service with timestamp for visual feedback
-                                            setRecentlyAddedServices((prev) => ({ ...prev, [svc._id]: Date.now() }));
-                                           
+                                            setRecentlyAddedServices(
+                                              (prev) => ({
+                                                ...prev,
+                                                [svc._id]: Date.now(),
+                                              }),
+                                            );
+
                                             // 2. Also save to appointment via API
-                                            setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
+                                            setAddingRecService((p) => ({
+                                              ...p,
+                                              [patientServiceKey]: true,
+                                            }));
                                             try {
-                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services: [{ serviceId: svc._id, quantity: 1 }] }, { headers: getAuthHeaders() });
-                                              setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                              await axios.patch(
+                                                `/api/clinic/appointment-services/${details.appointmentId}`,
+                                                {
+                                                  services: [
+                                                    {
+                                                      serviceId: svc._id,
+                                                      quantity: 1,
+                                                    },
+                                                  ],
+                                                },
+                                                { headers: getAuthHeaders() },
+                                              );
+                                              setAddedRecServices((p) => ({
+                                                ...p,
+                                                [patientServiceKey]: true,
+                                              }));
                                               if (onSuccess) onSuccess();
                                             } catch (err: any) {
                                               // If API fails, remove from selectedServices
-                                              setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
-                                              setRecentlyAddedServices((prev) => {
-                                                const updated = { ...prev };
-                                                delete updated[svc._id];
-                                                return updated;
-                                              });
+                                              setSelectedServices((prev) =>
+                                                prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                ),
+                                              );
+                                              setRecentlyAddedServices(
+                                                (prev) => {
+                                                  const updated = { ...prev };
+                                                  delete updated[svc._id];
+                                                  return updated;
+                                                },
+                                              );
                                             } finally {
-                                              setAddingRecService((p) => ({ ...p, [patientServiceKey]: false }));
+                                              setAddingRecService((p) => ({
+                                                ...p,
+                                                [patientServiceKey]: false,
+                                              }));
                                             }
                                           }}
                                           className={`flex items-center gap-0.5 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${addedRecServices[`${details?.patientId}_${svc._id}`] ? "bg-green-100 text-green-700 cursor-default" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                                         >
-                                          {addingRecService[`${details?.patientId}_${svc._id}`] ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : addedRecServices[`${details?.patientId}_${svc._id}`] ? <><Check size={10} /> Added</> : <><Plus size={10} /> Add</>}
+                                          {addingRecService[
+                                            `${details?.patientId}_${svc._id}`
+                                          ] ? (
+                                            <svg
+                                              className="w-3 h-3 animate-spin"
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                            >
+                                              <circle
+                                                className="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                strokeWidth="4"
+                                              />
+                                              <path
+                                                className="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8v8z"
+                                              />
+                                            </svg>
+                                          ) : addedRecServices[
+                                              `${details?.patientId}_${svc._id}`
+                                            ] ? (
+                                            <>
+                                              <Check size={10} /> Added
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus size={10} /> Add
+                                            </>
+                                          )}
                                         </button>
                                       </div>
                                     ))}
@@ -3786,63 +5214,145 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                       )}
 
-
                       {/* Stock Items */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         {/* Section Header */}
                         <div className="px-4 pt-4 pb-1">
                           <div className="flex items-center justify-between mb-0.5">
-                            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">STOCK ITEMS</h3>
-                            <button
-                              type="button"
-                              onClick={() => setIsOpenStockTransferModal(true)}
-                              className="flex items-center gap-1.5 text-xs text-blue-600 px-3 py-1.5 rounded-lg border border-blue-300 hover:bg-blue-50 font-medium transition-colors"
-                            >
-                              <RefreshCw size={12} /> Stock Transfer Request
-                            </button>
+                            <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">
+                              STOCK ITEMS
+                            </h3>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  window.open(
+                                    `/clinic/stocks/product-sales/new/?doctorId=${details?.doctorId}`,
+                                    "_blank",
+                                  );
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-blue-600 px-3 py-1.5 rounded-lg border border-blue-300 hover:bg-blue-50 font-medium transition-colors"
+                              >
+                                <ShoppingCart size={12} /> Sale Product
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setIsOpenStockTransferModal(true)
+                                }
+                                className="flex items-center gap-1.5 text-xs text-blue-600 px-3 py-1.5 rounded-lg border border-blue-300 hover:bg-blue-50 font-medium transition-colors"
+                              >
+                                <RefreshCw size={12} /> Stock Transfer Request
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-[11px] text-blue-500 mb-3">Add items related to this appointment</p>
+                          <p className="text-[11px] text-blue-500 mb-3">
+                            Add items related to this appointment
+                          </p>
                         </div>
 
                         {/* Input Form Card */}
                         <div className="mx-4 mb-3 border border-gray-200 rounded-lg p-4 bg-white">
                           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
                             {/* Item selector */}
-                            <div className="relative" ref={allocatedDropdownRef}>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Item {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
+                            <div
+                              className="relative"
+                              ref={allocatedDropdownRef}
+                            >
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Item{" "}
+                                {!isSpecificClinic && (
+                                  <span className="text-red-500">*</span>
+                                )}
+                              </label>
                               <div
                                 className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg flex items-center justify-between cursor-pointer bg-white h-10 hover:border-gray-400 transition-colors"
-                                onClick={() => setIsAllocatedDropdownOpen(!isAllocatedDropdownOpen)}
+                                onClick={() =>
+                                  setIsAllocatedDropdownOpen(
+                                    !isAllocatedDropdownOpen,
+                                  )
+                                }
                               >
-                                <span className={currentItem.itemId ? "text-gray-800" : "text-gray-400"}>
-                                  {allocatedItems.find((si: any) => si._id === currentItem.itemId)?.item?.name || "Select item"}
+                                <span
+                                  className={
+                                    currentItem.itemId
+                                      ? "text-gray-800"
+                                      : "text-gray-400"
+                                  }
+                                >
+                                  {allocatedItems.find(
+                                    (si: any) => si._id === currentItem.itemId,
+                                  )?.item?.name || "Select item"}
                                 </span>
-                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isAllocatedDropdownOpen ? "rotate-180" : ""}`} />
+                                <ChevronDown
+                                  className={`w-4 h-4 text-gray-400 transition-transform ${isAllocatedDropdownOpen ? "rotate-180" : ""}`}
+                                />
                               </div>
                               {isAllocatedDropdownOpen && (
                                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
                                   <div className="p-2 border-b border-gray-100">
-                                    <input type="text" placeholder="Search..." value={allocatedSearch} onChange={(e) => setAllocatedSearch(e.target.value)} autoFocus className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none" />
+                                    <input
+                                      type="text"
+                                      placeholder="Search..."
+                                      value={allocatedSearch}
+                                      onChange={(e) =>
+                                        setAllocatedSearch(e.target.value)
+                                      }
+                                      autoFocus
+                                      className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none"
+                                    />
                                   </div>
                                   {fetchAllocatedItemsLoading ? (
-                                    <div className="p-3 text-xs text-center text-gray-400">Loading...</div>
+                                    <div className="p-3 text-xs text-center text-gray-400">
+                                      Loading...
+                                    </div>
                                   ) : allocatedItems.length === 0 ? (
-                                    <div className="p-3 text-center text-gray-400 text-xs">No items</div>
+                                    <div className="p-3 text-center text-gray-400 text-xs">
+                                      No items
+                                    </div>
                                   ) : (
                                     <ul className="py-1">
-                                      {allocatedItems.filter((si: any) => {
-                                        const n = (si.item?.name || "").toLowerCase();
-                                        const c = (si.item?.code || "").toLowerCase();
-                                        const q = allocatedSearch.toLowerCase();
-                                        return n.includes(q) || c.includes(q);
-                                      }).map((si: any) => (
-                                        <li key={si._id} className="px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer"
-                                          onClick={() => { const it = si.item || {}; setCurrentItem((prev) => ({ ...prev, code: it.code || "", itemId: si._id || "", name: it.name || "", description: it.description || "", uom: it.uom || prev.uom || "" })); setIsAllocatedDropdownOpen(false); setAllocatedSearch(""); }}
-                                        >
-                                          <div className="font-medium">{si.item?.name || "-"}</div>
-                                          {si.item?.code && <div className="text-[10px] text-gray-400">Code: {si.item.code}</div>}
-                                        </li>
-                                      ))}
+                                      {allocatedItems
+                                        .filter((si: any) => {
+                                          const n = (
+                                            si.item?.name || ""
+                                          ).toLowerCase();
+                                          const c = (
+                                            si.item?.code || ""
+                                          ).toLowerCase();
+                                          const q =
+                                            allocatedSearch.toLowerCase();
+                                          return n.includes(q) || c.includes(q);
+                                        })
+                                        .map((si: any) => (
+                                          <li
+                                            key={si._id}
+                                            className="px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                            onClick={() => {
+                                              const it = si.item || {};
+                                              setCurrentItem((prev) => ({
+                                                ...prev,
+                                                code: it.code || "",
+                                                itemId: si._id || "",
+                                                name: it.name || "",
+                                                description:
+                                                  it.description || "",
+                                                uom: it.uom || prev.uom || "",
+                                              }));
+                                              setIsAllocatedDropdownOpen(false);
+                                              setAllocatedSearch("");
+                                            }}
+                                          >
+                                            <div className="font-medium">
+                                              {si.item?.name || "-"}
+                                            </div>
+                                            {si.item?.code && (
+                                              <div className="text-[10px] text-gray-400">
+                                                Code: {si.item.code}
+                                              </div>
+                                            )}
+                                          </li>
+                                        ))}
                                     </ul>
                                   )}
                                 </div>
@@ -3851,11 +5361,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* Description */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Description</label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Description
+                              </label>
                               <input
                                 type="text"
                                 value={currentItem.description || ""}
-                                onChange={(e) => handleCurrentItemChange("description", e.target.value)}
+                                onChange={(e) =>
+                                  handleCurrentItemChange(
+                                    "description",
+                                    e.target.value,
+                                  )
+                                }
                                 placeholder="sample desc"
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg h-10 focus:outline-none focus:ring-2 focus:ring-blue-300 hover:border-gray-400 transition-colors"
                               />
@@ -3863,46 +5380,81 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                             {/* Qty */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">Qty {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                Qty{" "}
+                                {!isSpecificClinic && (
+                                  <span className="text-red-500">*</span>
+                                )}
+                              </label>
                               <input
                                 type="number"
                                 min={1}
                                 value={currentItem.quantity}
-                                onChange={(e) => handleCurrentItemChange("quantity", e.target.value)}
+                                onChange={(e) =>
+                                  handleCurrentItemChange(
+                                    "quantity",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg h-10 focus:outline-none focus:ring-2 focus:ring-blue-300 hover:border-gray-400 transition-colors"
                               />
                               {currentItem.uom && (
                                 <p className="text-[11px] text-gray-500 mt-0.5">
-                                  Available: {availableForSelectedUom} {currentItem.uom}
+                                  Available: {availableForSelectedUom}{" "}
+                                  {currentItem.uom}
                                 </p>
                               )}
                             </div>
 
                             {/* UOM */}
                             <div>
-                              <label className="block text-xs font-semibold text-gray-700 mb-1">UOM {!isSpecificClinic && <span className="text-red-500">*</span>}</label>
+                              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                                UOM{" "}
+                                {!isSpecificClinic && (
+                                  <span className="text-red-500">*</span>
+                                )}
+                              </label>
                               <select
                                 value={currentItem.uom || ""}
-                                onChange={(e) => handleCurrentItemChange("uom", e.target.value)}
+                                onChange={(e) =>
+                                  handleCurrentItemChange("uom", e.target.value)
+                                }
                                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg h-10 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 hover:border-gray-400 transition-colors"
                               >
                                 <option value="">Select UOM</option>
-                                {(allocatedItems?.find((i) => i?._id === currentItem?.itemId)?.quantitiesByUom || []).map((i: any, idx: number) => (
-                                  <option key={idx} value={i.uom}>{i.uom}</option>
+                                {(
+                                  allocatedItems?.find(
+                                    (i) => i?._id === currentItem?.itemId,
+                                  )?.quantitiesByUom || []
+                                ).map((i: any, idx: number) => (
+                                  <option key={idx} value={i.uom}>
+                                    {i.uom}
+                                  </option>
                                 ))}
                               </select>
                             </div>
                           </div>
 
                           {exceedsAvailable && (
-                            <p className="text-xs text-red-500 mb-3">Quantity exceeds available stock</p>
+                            <p className="text-xs text-red-500 mb-3">
+                              Quantity exceeds available stock
+                            </p>
                           )}
 
                           {/* Action Buttons */}
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => setCurrentItem({ itemId: "", code: "", name: "", description: "", quantity: 1, uom: "" })}
+                              onClick={() =>
+                                setCurrentItem({
+                                  itemId: "",
+                                  code: "",
+                                  name: "",
+                                  description: "",
+                                  quantity: 1,
+                                  uom: "",
+                                })
+                              }
                               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
                             >
                               <Trash2 size={13} /> Reset
@@ -3910,7 +5462,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <button
                               type="button"
                               onClick={addCurrentItem}
-                              disabled={!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom || exceedsAvailable}
+                              disabled={
+                                !currentItem.name.trim() ||
+                                !currentItem.quantity ||
+                                !currentItem.uom ||
+                                exceedsAvailable
+                              }
                               className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors"
                             >
                               <Plus size={14} /> Add Item
@@ -3923,61 +5480,179 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           <table className="w-full text-xs">
                             <thead>
                               <tr className="bg-gray-900 text-white">
-                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">SI NO</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">ITEM</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">DESCRIPTION</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">QTY</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">UOM</th>
-                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">ACTION</th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">
+                                  SI NO
+                                </th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">
+                                  ITEM
+                                </th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">
+                                  DESCRIPTION
+                                </th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">
+                                  QTY
+                                </th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">
+                                  UOM
+                                </th>
+                                <th className="px-3 py-2.5 text-left font-semibold text-xs tracking-wide">
+                                  ACTION
+                                </th>
                               </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
                               {items.length === 0 ? (
                                 <tr>
-                                  <td colSpan={6} className="px-3 py-8 text-center text-gray-400 text-sm">No Items Added</td>
+                                  <td
+                                    colSpan={6}
+                                    className="px-3 py-8 text-center text-gray-400 text-sm"
+                                  >
+                                    No Items Added
+                                  </td>
                                 </tr>
                               ) : (
                                 items.map((item, index) => {
-                                  const isEditing = editIndex === index && editingItem;
+                                  const isEditing =
+                                    editIndex === index && editingItem;
                                   return (
-                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                      <td className="px-3 py-2.5 text-gray-500 font-medium">{index + 1}</td>
+                                    <tr
+                                      key={index}
+                                      className="hover:bg-gray-50 transition-colors"
+                                    >
+                                      <td className="px-3 py-2.5 text-gray-500 font-medium">
+                                        {index + 1}
+                                      </td>
                                       <td className="px-3 py-2.5 font-medium text-gray-800">
                                         {isEditing ? (
-                                          <select value={editingItem?.itemId || ""} onChange={(e) => handleEditingItemChange("itemId", e.target.value)} className="w-full px-2 py-1 text-xs border border-gray-200 rounded">
-                                            <option value="">Select Item</option>
-                                            {allocatedItems.map((si: any) => <option key={si._id} value={si.item?.itemId || ""}>{si.item?.name || "-"}</option>)}
+                                          <select
+                                            value={editingItem?.itemId || ""}
+                                            onChange={(e) =>
+                                              handleEditingItemChange(
+                                                "itemId",
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="w-full px-2 py-1 text-xs border border-gray-200 rounded"
+                                          >
+                                            <option value="">
+                                              Select Item
+                                            </option>
+                                            {allocatedItems.map((si: any) => (
+                                              <option
+                                                key={si._id}
+                                                value={si.item?.itemId || ""}
+                                              >
+                                                {si.item?.name || "-"}
+                                              </option>
+                                            ))}
                                           </select>
-                                        ) : item.name}
+                                        ) : (
+                                          item.name
+                                        )}
                                       </td>
                                       <td className="px-3 py-2.5 text-gray-600">
                                         {isEditing ? (
-                                          <input type="text" value={editingItem?.description || ""} onChange={(e) => handleEditingItemChange("description", e.target.value)} className="w-full px-2 py-1 text-xs border border-gray-200 rounded" placeholder="Description" />
-                                        ) : (item.description || "-")}
+                                          <input
+                                            type="text"
+                                            value={
+                                              editingItem?.description || ""
+                                            }
+                                            onChange={(e) =>
+                                              handleEditingItemChange(
+                                                "description",
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="w-full px-2 py-1 text-xs border border-gray-200 rounded"
+                                            placeholder="Description"
+                                          />
+                                        ) : (
+                                          item.description || "-"
+                                        )}
                                       </td>
                                       <td className="px-3 py-2.5">
                                         {isEditing ? (
-                                          <input type="number" min={1} value={editingItem?.quantity || 1} onChange={(e) => handleEditingItemChange("quantity", e.target.value)} className="w-16 px-2 py-1 text-xs border border-gray-200 rounded" />
-                                        ) : item.quantity}
+                                          <input
+                                            type="number"
+                                            min={1}
+                                            value={editingItem?.quantity || 1}
+                                            onChange={(e) =>
+                                              handleEditingItemChange(
+                                                "quantity",
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="w-16 px-2 py-1 text-xs border border-gray-200 rounded"
+                                          />
+                                        ) : (
+                                          item.quantity
+                                        )}
                                       </td>
                                       <td className="px-3 py-2.5 text-gray-600">
                                         {isEditing ? (
-                                          <select value={editingItem?.uom || ""} onChange={(e) => handleEditingItemChange("uom", e.target.value)} className="w-24 px-2 py-1 text-xs border border-gray-200 rounded">
+                                          <select
+                                            value={editingItem?.uom || ""}
+                                            onChange={(e) =>
+                                              handleEditingItemChange(
+                                                "uom",
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="w-24 px-2 py-1 text-xs border border-gray-200 rounded"
+                                          >
                                             <option value="">UOM</option>
-                                            {(allocatedItems?.find((i) => i?._id === editingItem?.itemId)?.quantitiesByUom || []).map((i: any, idx: number) => <option key={idx} value={i.uom}>{i.uom}</option>)}
+                                            {(
+                                              allocatedItems?.find(
+                                                (i) =>
+                                                  i?._id ===
+                                                  editingItem?.itemId,
+                                              )?.quantitiesByUom || []
+                                            ).map((i: any, idx: number) => (
+                                              <option key={idx} value={i.uom}>
+                                                {i.uom}
+                                              </option>
+                                            ))}
                                           </select>
-                                        ) : (item.uom || "-")}
+                                        ) : (
+                                          item.uom || "-"
+                                        )}
                                       </td>
                                       <td className="px-3 py-2.5">
                                         {isEditing ? (
                                           <div className="flex gap-1.5">
-                                            <button type="button" onClick={saveEditItem} className="text-green-600 hover:text-green-800"><Check className="w-3.5 h-3.5" /></button>
-                                            <button type="button" onClick={cancelEditItem} className="text-gray-400 hover:text-gray-600"><XIcon className="w-3.5 h-3.5" /></button>
+                                            <button
+                                              type="button"
+                                              onClick={saveEditItem}
+                                              className="text-green-600 hover:text-green-800"
+                                            >
+                                              <Check className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={cancelEditItem}
+                                              className="text-gray-400 hover:text-gray-600"
+                                            >
+                                              <XIcon className="w-3.5 h-3.5" />
+                                            </button>
                                           </div>
                                         ) : (
                                           <div className="flex gap-1.5">
-                                            <button type="button" onClick={() => startEditItem(index)} className="text-blue-500 hover:text-blue-700"><Pencil className="w-3.5 h-3.5" /></button>
-                                            <button type="button" onClick={() => removeItem(index)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                startEditItem(index)
+                                              }
+                                              className="text-blue-500 hover:text-blue-700"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => removeItem(index)}
+                                              className="text-red-400 hover:text-red-600"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
                                           </div>
                                         )}
                                       </td>
@@ -3994,7 +5669,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {consentStatuses.length > 0 && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 mb-3">
                           <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-blue-600" /> Consent Forms
+                            <FileText className="w-4 h-4 text-blue-600" />{" "}
+                            Consent Forms
                           </h3>
                           <div className="space-y-2">
                             {consentStatuses.map((consent) => (
@@ -4035,7 +5711,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         : "bg-blue-100 text-blue-700"
                                     }`}
                                   >
-                                    {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                    {consent.status === "signed"
+                                      ? "SIGNED"
+                                      : "SENT"}
                                   </span>
                                 </div>
                               </div>
@@ -4046,104 +5724,253 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                       {/* Clinical Checklist */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Eye className="w-4 h-4 text-blue-600" /> Clinical Checklist</h3>
+                        <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <Eye className="w-4 h-4 text-blue-600" /> Clinical
+                          Checklist
+                        </h3>
                         <div className="grid grid-cols-2 gap-2">
                           {CHECKLIST_ITEMS.map((item) => (
-                            <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
-                              <span className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}>{item}</span>
-                              {checklist[item] && <Check size={12} className="ml-auto text-green-500" />}
+                            <label
+                              key={item}
+                              className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checklist[item]}
+                                onChange={() =>
+                                  setChecklist((prev) => ({
+                                    ...prev,
+                                    [item]: !prev[item],
+                                  }))
+                                }
+                                className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer"
+                              />
+                              <span
+                                className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}
+                              >
+                                {item}
+                              </span>
+                              {checklist[item] && (
+                                <Check
+                                  size={12}
+                                  className="ml-auto text-green-500"
+                                />
+                              )}
                             </label>
                           ))}
                         </div>
                         {checklistError && (
                           <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
                             <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5" />
-                            <p className="text-xs text-red-700">{checklistError}</p>
+                            <p className="text-xs text-red-700">
+                              {checklistError}
+                            </p>
                           </div>
                         )}
                       </div>
 
-                 
-
                       {/* Previous Complaints */}
-                      <div ref={previousComplaintsRef} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                      <div
+                        ref={previousComplaintsRef}
+                        className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+                      >
                         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
                           <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                             <ClipboardList className="w-4 h-4 text-blue-600" />
                             Previous Complaints
-                            <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{previousComplaints.length}</span>
+                            <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                              {previousComplaints.length}
+                            </span>
                           </h3>
                         </div>
                         {loadingComplaints ? (
-                          <div className="py-6 text-center text-gray-400 text-sm">Loading...</div>
+                          <div className="py-6 text-center text-gray-400 text-sm">
+                            Loading...
+                          </div>
                         ) : previousComplaints.length === 0 ? (
-                          <div className="py-6 text-center text-gray-400 text-sm">No previous complaints found.</div>
+                          <div className="py-6 text-center text-gray-400 text-sm">
+                            No previous complaints found.
+                          </div>
                         ) : (
                           <div className="divide-y divide-gray-100">
                             {previousComplaints.map((complaint) => {
-                              const hasItems = Array.isArray(complaint.items) && complaint.items.length > 0;
-                              const isOpenC = !!expandedComplaints[complaint._id];
+                              const hasItems =
+                                Array.isArray(complaint.items) &&
+                                complaint.items.length > 0;
+                              const isOpenC =
+                                !!expandedComplaints[complaint._id];
                               return (
                                 <React.Fragment key={complaint._id}>
                                   <div className="px-4 py-3 hover:bg-gray-50 transition-colors">
                                     <div className="flex items-start justify-between gap-3">
                                       <div className="flex-1 min-w-0">
-                                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">{complaint.complaints}</p>
-                                        {(complaint.beforeImage || complaint.afterImage) && (
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words line-clamp-3">
+                                          {complaint.complaints}
+                                        </p>
+                                        {(complaint.beforeImage ||
+                                          complaint.afterImage) && (
                                           <div className="flex gap-2 mt-2">
-                                            {complaint.beforeImage && (() => {
-                                              const cleanUrl = complaint.beforeImage.trim().replace(/^`|`$/g, "");
-                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={cleanUrl} alt="Before" className="w-full h-full object-cover" /></a>
-                                            })()}
-                                            {complaint.afterImage && (() => {
-                                              const cleanUrl = complaint.afterImage.trim().replace(/^`|`$/g, "");
-                                              return <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80"><img src={cleanUrl} alt="After" className="w-full h-full object-cover" /></a>
-                                            })()}
+                                            {complaint.beforeImage &&
+                                              (() => {
+                                                const cleanUrl =
+                                                  complaint.beforeImage
+                                                    .trim()
+                                                    .replace(/^`|`$/g, "");
+                                                const isPdf = cleanUrl
+                                                  .toLowerCase()
+                                                  .endsWith(".pdf");
+                                                return (
+                                                  <a
+                                                    href={cleanUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50"
+                                                  >
+                                                    {isPdf ? (
+                                                      <FileText className="w-5 h-5 text-gray-400" />
+                                                    ) : (
+                                                      <img
+                                                        src={cleanUrl}
+                                                        alt="Before"
+                                                        className="w-full h-full object-cover"
+                                                      />
+                                                    )}
+                                                  </a>
+                                                );
+                                              })()}
+                                            {complaint.afterImage &&
+                                              (() => {
+                                                const cleanUrl =
+                                                  complaint.afterImage
+                                                    .trim()
+                                                    .replace(/^`|`$/g, "");
+                                                const isPdf = cleanUrl
+                                                  .toLowerCase()
+                                                  .endsWith(".pdf");
+                                                return (
+                                                  <a
+                                                    href={cleanUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50"
+                                                  >
+                                                    {isPdf ? (
+                                                      <FileText className="w-5 h-5 text-gray-400" />
+                                                    ) : (
+                                                      <img
+                                                        src={cleanUrl}
+                                                        alt="After"
+                                                        className="w-full h-full object-cover"
+                                                      />
+                                                    )}
+                                                  </a>
+                                                );
+                                              })()}
                                           </div>
                                         )}
                                         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
-                                          <span>{formatDateTime(complaint.createdAt)}</span>
+                                          <span>
+                                            {formatDateTime(
+                                              complaint.createdAt,
+                                            )}
+                                          </span>
                                           <span>·</span>
-                                          <span>{typeof complaint.doctorId === "object" && complaint.doctorId?.name ? `Dr. ${complaint.doctorId.name}` : "Unknown Doctor"}</span>
+                                          <span>
+                                            {typeof complaint.doctorId ===
+                                              "object" &&
+                                            complaint.doctorId?.name
+                                              ? `Dr. ${complaint.doctorId.name}`
+                                              : "Unknown Doctor"}
+                                          </span>
                                         </div>
                                         {/* Linked Consent Forms */}
-                                        {complaint.consentLogs && complaint.consentLogs.length > 0 && (
-                                          <div className="mt-2 flex flex-wrap gap-1.5">
-                                            {complaint.consentLogs.map((consent: any) => (
-                                              <div
-                                                key={consent._id}
-                                                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                                                  consent.status === "signed"
-                                                    ? "border-green-200 bg-green-50 text-green-700"
-                                                    : "border-blue-200 bg-blue-50 text-blue-700"
-                                                }`}
-                                              >
-                                                <FileText className="w-3 h-3" />
-                                                <span className="truncate max-w-[120px]">{consent.consentFormName}</span>
-                                                {consent.status === "signed" ? (
-                                                  <CheckCircle className="w-3 h-3" />
-                                                ) : (
-                                                  <Send className="w-3 h-3" />
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
+                                        {complaint.consentLogs &&
+                                          complaint.consentLogs.length > 0 && (
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                              {complaint.consentLogs.map(
+                                                (consent: any) => (
+                                                  <div
+                                                    key={consent._id}
+                                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                                                      consent.status ===
+                                                      "signed"
+                                                        ? "border-green-200 bg-green-50 text-green-700"
+                                                        : "border-blue-200 bg-blue-50 text-blue-700"
+                                                    }`}
+                                                  >
+                                                    <FileText className="w-3 h-3" />
+                                                    <span className="truncate max-w-[120px]">
+                                                      {consent.consentFormName}
+                                                    </span>
+                                                    {consent.status ===
+                                                    "signed" ? (
+                                                      <CheckCircle className="w-3 h-3" />
+                                                    ) : (
+                                                      <Send className="w-3 h-3" />
+                                                    )}
+                                                  </div>
+                                                ),
+                                              )}
+                                            </div>
+                                          )}
                                       </div>
                                       <div className="flex items-center gap-1.5 flex-shrink-0">
                                         {hasItems && (
-                                          <button type="button" onClick={() => setExpandedComplaints((prev) => ({ ...prev, [complaint._id]: !prev[complaint._id] }))} className="flex items-center gap-1 px-2 py-1 text-[11px] border border-gray-200 rounded text-gray-600 hover:bg-gray-50">
-                                            {isOpenC ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setExpandedComplaints((prev) => ({
+                                                ...prev,
+                                                [complaint._id]:
+                                                  !prev[complaint._id],
+                                              }))
+                                            }
+                                            className="flex items-center gap-1 px-2 py-1 text-[11px] border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+                                          >
+                                            {isOpenC ? (
+                                              <ChevronUp size={11} />
+                                            ) : (
+                                              <ChevronDown size={11} />
+                                            )}
                                             Items
                                           </button>
                                         )}
                                         {/* Always visible: View and Delete buttons */}
-                                        <button type="button" onClick={() => { setSelectedComplaint(complaint); setIsOpenViewComplaintModal(true); }} className="p-1 text-blue-400 hover:text-blue-600"><Eye size={13} /></button>
-                                        <button type="button" onClick={() => { setDeletedComplaint(complaint); setIsOpenDeleteComplaintModal(true); }} className="p-1 text-red-400 hover:text-red-600"><Trash2 size={13} /></button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedComplaint(complaint);
+                                            setIsOpenViewComplaintModal(true);
+                                          }}
+                                          className="p-1 text-blue-400 hover:text-blue-600"
+                                        >
+                                          <Eye size={13} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setDeletedComplaint(complaint);
+                                            setIsOpenDeleteComplaintModal(true);
+                                          }}
+                                          className="p-1 text-red-400 hover:text-red-600"
+                                        >
+                                          <Trash2 size={13} />
+                                        </button>
                                         {/* Only within 24 hours: Edit button */}
-                                        {new Date(complaint.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000) && (
-                                          <button type="button" onClick={() => { setEditingComplaint(complaint); setIsEditModalOpen(true); }} className="p-1 text-amber-400 hover:text-amber-600"><Edit2 size={13} /></button>
+                                        {new Date(complaint.createdAt) >
+                                          new Date(
+                                            Date.now() - 24 * 60 * 60 * 1000,
+                                          ) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingComplaint(complaint);
+                                              setIsEditModalOpen(true);
+                                            }}
+                                            className="p-1 text-amber-400 hover:text-amber-600"
+                                          >
+                                            <Edit2 size={13} />
+                                          </button>
                                         )}
                                       </div>
                                     </div>
@@ -4154,21 +5981,43 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <table className="w-full text-xs">
                                           <thead className="bg-gray-100">
                                             <tr>
-                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">Code</th>
-                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">Item</th>
-                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">Qty</th>
-                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">UOM</th>
-                                              <th className="px-3 py-2 text-right font-semibold text-gray-600">Amount</th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">
+                                                Code
+                                              </th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">
+                                                Item
+                                              </th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">
+                                                Qty
+                                              </th>
+                                              <th className="px-3 py-2 text-left font-semibold text-gray-600">
+                                                UOM
+                                              </th>
+                                              <th className="px-3 py-2 text-right font-semibold text-gray-600">
+                                                Amount
+                                              </th>
                                             </tr>
                                           </thead>
                                           <tbody className="divide-y divide-gray-100 bg-white">
                                             {complaint.items!.map((it, idx) => (
-                                              <tr key={`${complaint._id}-${idx}`}>
-                                                <td className="px-3 py-2 text-gray-500">{it.code || "-"}</td>
-                                                <td className="px-3 py-2 font-medium text-gray-800">{it.name}</td>
-                                                <td className="px-3 py-2 text-gray-700">{it.quantity}</td>
-                                                <td className="px-3 py-2 text-gray-500">{it.uom || "-"}</td>
-                                                <td className="px-3 py-2 text-right font-semibold text-gray-800">{it?.totalAmount || "0"}</td>
+                                              <tr
+                                                key={`${complaint._id}-${idx}`}
+                                              >
+                                                <td className="px-3 py-2 text-gray-500">
+                                                  {it.code || "-"}
+                                                </td>
+                                                <td className="px-3 py-2 font-medium text-gray-800">
+                                                  {it.name}
+                                                </td>
+                                                <td className="px-3 py-2 text-gray-700">
+                                                  {it.quantity}
+                                                </td>
+                                                <td className="px-3 py-2 text-gray-500">
+                                                  {it.uom || "-"}
+                                                </td>
+                                                <td className="px-3 py-2 text-right font-semibold text-gray-800">
+                                                  {it?.totalAmount || "0"}
+                                                </td>
                                               </tr>
                                             ))}
                                           </tbody>
@@ -4184,26 +6033,76 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       </div>
 
                       {/* Stock Used */}
-                      {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+                      {previousComplaints.some(
+                        (c) => Array.isArray(c.items) && c.items.length > 0,
+                      ) && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <Package className="w-4 h-4 text-gray-500" /> Stock
+                            Used (All Sessions)
+                          </h3>
                           <div className="rounded-lg border border-gray-100 overflow-hidden">
                             <table className="w-full text-xs">
-                              <thead className="bg-gray-50"><tr>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
-                                <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
-                              </tr></thead>
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    Date
+                                  </th>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    Item
+                                  </th>
+                                  <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
+                                    Qty
+                                  </th>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    UOM
+                                  </th>
+                                </tr>
+                              </thead>
                               <tbody className="divide-y divide-gray-100 bg-white">
-                                {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `${c._id}-${idx}` }))).map(({ date, item, key }) => (
-                                  <tr key={key} className="hover:bg-gray-50">
-                                    <td className="px-3 py-2 text-gray-500">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
-                                    <td className="px-3 py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
-                                    <td className="px-3 py-2 text-gray-500">{item.uom || "-"}</td>
-                                  </tr>
-                                ))}
+                                {previousComplaints
+                                  .filter(
+                                    (c) =>
+                                      Array.isArray(c.items) &&
+                                      c.items.length > 0,
+                                  )
+                                  .sort(
+                                    (a, b) =>
+                                      new Date(b.createdAt).getTime() -
+                                      new Date(a.createdAt).getTime(),
+                                  )
+                                  .flatMap((c) =>
+                                    (
+                                      c.items as NonNullable<typeof c.items>
+                                    ).map((item, idx) => ({
+                                      date: c.createdAt,
+                                      item,
+                                      key: `${c._id}-${idx}`,
+                                    })),
+                                  )
+                                  .map(({ date, item, key }) => (
+                                    <tr key={key} className="hover:bg-gray-50">
+                                      <td className="px-3 py-2 text-gray-500">
+                                        {new Date(date).toLocaleDateString(
+                                          "en-GB",
+                                          {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                          },
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 font-medium text-gray-800">
+                                        {item.name}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold text-gray-700">
+                                        {item.quantity}
+                                      </td>
+                                      <td className="px-3 py-2 text-gray-500">
+                                        {item.uom || "-"}
+                                      </td>
+                                    </tr>
+                                  ))}
                               </tbody>
                             </table>
                           </div>
@@ -4214,37 +6113,80 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
                           <ClipboardList className="w-4 h-4 text-blue-600" />
-                          <h3 className="text-sm font-semibold text-gray-800">Appointments</h3>
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Appointments
+                          </h3>
                         </div>
                         <div className="px-5 py-3">
                           {loadingUpcoming ? (
                             <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                              Loading appointments...
                             </div>
                           ) : filteredUpcomingAppointments.length === 0 ? (
-                            <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
+                            <p className="text-xs text-gray-400 py-3 text-center">
+                              No upcoming appointments
+                            </p>
                           ) : (
                             <div>
-                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
+                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">
+                                Upcoming
+                              </p>
                               <div className="space-y-2">
                                 {filteredUpcomingAppointments.map((appt) => {
                                   const d = new Date(appt.startDate);
-                                  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                                  const [fh, fm] = appt.fromTime.split(":").map(Number);
+                                  const dateStr = d.toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    },
+                                  );
+                                  const [fh, fm] = appt.fromTime
+                                    .split(":")
+                                    .map(Number);
                                   const ampm = fh < 12 ? "AM" : "PM";
                                   const h12 = fh % 12 || 12;
                                   const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
-                                  const statusColor = appt.status === "booked" || appt.status === "Approved" ? "bg-blue-600 text-white" : appt.status === "Completed" ? "bg-green-100 text-green-700" : appt.status === "Cancelled" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
+                                  const statusColor =
+                                    appt.status === "booked" ||
+                                    appt.status === "Approved"
+                                      ? "bg-blue-600 text-white"
+                                      : appt.status === "Completed"
+                                        ? "bg-green-100 text-green-700"
+                                        : appt.status === "Cancelled"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-gray-100 text-gray-600";
                                   return (
-                                    <div key={appt._id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                                    <div
+                                      key={appt._id}
+                                      className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between"
+                                    >
                                       <div>
-                                        <p className="text-xs font-semibold text-gray-800">{appt.followType === "follow up" ? "Follow-up Session" : appt.followType === "first time" ? "First Visit" : appt.followType}</p>
+                                        <p className="text-xs font-semibold text-gray-800">
+                                          {appt.followType === "follow up"
+                                            ? "Follow-up Session"
+                                            : appt.followType === "first time"
+                                              ? "First Visit"
+                                              : appt.followType}
+                                        </p>
                                         <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
-                                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {dateStr}</span>
-                                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeStr}</span>
+                                          <span className="flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" />{" "}
+                                            {dateStr}
+                                          </span>
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />{" "}
+                                            {timeStr}
+                                          </span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}>{appt.status}</span>
+                                      <span
+                                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}
+                                      >
+                                        {appt.status}
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -4258,43 +6200,96 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
                         <div className="flex items-center gap-2 mb-4">
                           <Calendar className="w-4 h-4 text-blue-600" />
-                          <h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3>
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Next Session Booking
+                          </h3>
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
-                            Check the availability of the room 
+                            Check the availability of the room
                           </span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1.5">Select Date</label>
+                            <label className="block text-xs text-gray-500 mb-1.5">
+                              Select Date
+                            </label>
                             <input
                               type="date"
                               value={nextSessionDate}
                               min={new Date().toISOString().slice(0, 10)}
-                              onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              onChange={(e) => {
+                                setNextSessionDate(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1.5">Select Time</label>
+                            <label className="block text-xs text-gray-500 mb-1.5">
+                              Select Time
+                            </label>
                             <select
                               value={nextSessionTime}
-                              onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              onChange={(e) => {
+                                setNextSessionTime(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                             >
-                              {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                              {[
+                                "07:00",
+                                "07:30",
+                                "08:00",
+                                "08:30",
+                                "09:00",
+                                "09:30",
+                                "10:00",
+                                "10:30",
+                                "11:00",
+                                "11:30",
+                                "12:00",
+                                "12:30",
+                                "13:00",
+                                "13:30",
+                                "14:00",
+                                "14:30",
+                                "15:00",
+                                "15:30",
+                                "16:00",
+                                "16:30",
+                                "17:00",
+                                "17:30",
+                                "18:00",
+                                "18:30",
+                                "19:00",
+                                "19:30",
+                                "20:00",
+                              ].map((t) => {
                                 const [h, m] = t.split(":").map(Number);
                                 const ampm = h < 12 ? "AM" : "PM";
                                 const h12 = h % 12 || 12;
-                                return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                                return (
+                                  <option
+                                    key={t}
+                                    value={t}
+                                  >{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>
+                                );
                               })}
                             </select>
                           </div>
                           <div className="col-span-2">
-                            <label className="block text-xs text-gray-500 mb-1.5">Select Room</label>
+                            <label className="block text-xs text-gray-500 mb-1.5">
+                              Select Room
+                            </label>
                             <select
                               value={nextSessionRoom}
-                              onChange={(e) => { setNextSessionRoom(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              onChange={(e) => {
+                                setNextSessionRoom(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                             >
                               <option value="">Select a room...</option>
@@ -4302,7 +6297,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <option disabled>Loading rooms...</option>
                               ) : (
                                 rooms.map((room) => (
-                                  <option key={room._id} value={room._id}>{room.name}</option>
+                                  <option key={room._id} value={room._id}>
+                                    {room.name}
+                                  </option>
                                 ))
                               )}
                             </select>
@@ -4311,13 +6308,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         {nextSessionError && (
                           <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
                             <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                            <p className="text-red-600 text-xs">{nextSessionError}</p>
+                            <p className="text-red-600 text-xs">
+                              {nextSessionError}
+                            </p>
                           </div>
                         )}
                         {nextSessionBooked && (
                           <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
                             <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                            <p className="text-green-700 text-xs font-medium">Session booked successfully!</p>
+                            <p className="text-green-700 text-xs font-medium">
+                              Session booked successfully!
+                            </p>
                           </div>
                         )}
                         <button
@@ -4327,21 +6328,27 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 transition-colors shadow-sm"
                         >
                           <Calendar size={15} />
-                          {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                          {bookingNextSession
+                            ? "Booking..."
+                            : nextSessionBooked
+                              ? "Session Booked!"
+                              : "Book Next Session"}
                         </button>
                       </div>
                     </div>
                   )}
 
-
-                    
                   {activeTab === "progress" && (
                     <div className="space-y-4">
                       {progressError && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{progressError}</div>
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {progressError}
+                        </div>
                       )}
                       {loadingProgressNotes ? (
-                        <div className="py-8 text-center text-gray-400 text-sm">Loading progress notes...</div>
+                        <div className="py-8 text-center text-gray-400 text-sm">
+                          Loading progress notes...
+                        </div>
                       ) : (
                         <div className="relative">
                           {progressNotes.length > 0 && (
@@ -4349,34 +6356,73 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           )}
                           <div className="space-y-4">
                             {progressNotes.map((entry) => {
-                              const dateStr = entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10);
-                              const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                              const dateStr = entry.noteDate
+                                ? new Date(entry.noteDate)
+                                    .toISOString()
+                                    .slice(0, 10)
+                                : new Date(entry.createdAt)
+                                    .toISOString()
+                                    .slice(0, 10);
+                              const doctorName =
+                                typeof entry.doctorId === "object" &&
+                                entry.doctorId?.name
+                                  ? entry.doctorId.name
+                                  : null;
                               return (
-                                <div key={entry._id} className="flex gap-4 items-start">
+                                <div
+                                  key={entry._id}
+                                  className="flex gap-4 items-start"
+                                >
                                   <div className="flex-shrink-0 w-9 h-9 rounded-full bg-blue-500 border-4 border-white shadow-md flex items-center justify-center z-10">
-                                    <TrendingUp size={14} className="text-white" />
+                                    <TrendingUp
+                                      size={14}
+                                      className="text-white"
+                                    />
                                   </div>
                                   <div className="flex-1 rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-3 space-y-1">
-                                    {editingProgressNoteId === entry._id && editingProgressNoteData ? (
+                                    {editingProgressNoteId === entry._id &&
+                                    editingProgressNoteData ? (
                                       // Edit Mode
                                       <div className="space-y-3">
                                         <div className="flex items-center justify-between">
-                                          <span className="text-xs font-semibold text-blue-700">Edit Progress Note</span>
-                                          <button type="button" onClick={cancelEditProgressNote} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                                          <span className="text-xs font-semibold text-blue-700">
+                                            Edit Progress Note
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={cancelEditProgressNote}
+                                            className="text-xs text-gray-500 hover:text-gray-700"
+                                          >
+                                            Cancel
+                                          </button>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                          <label className="text-xs text-gray-600 font-medium">Date:</label>
+                                          <label className="text-xs text-gray-600 font-medium">
+                                            Date:
+                                          </label>
                                           <input
                                             type="date"
-                                            value={editingProgressNoteData.noteDate}
-                                            onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, noteDate: e.target.value })}
+                                            value={
+                                              editingProgressNoteData.noteDate
+                                            }
+                                            onChange={(e) =>
+                                              setEditingProgressNoteData({
+                                                ...editingProgressNoteData,
+                                                noteDate: e.target.value,
+                                              })
+                                            }
                                             className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
                                           />
                                         </div>
                                         <textarea
                                           autoFocus
                                           value={editingProgressNoteData.note}
-                                          onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, note: e.target.value })}
+                                          onChange={(e) =>
+                                            setEditingProgressNoteData({
+                                              ...editingProgressNoteData,
+                                              note: e.target.value,
+                                            })
+                                          }
                                           rows={4}
                                           placeholder="Describe patient's progress, treatment response, observations..."
                                           className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
@@ -4384,12 +6430,38 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <div className="flex items-center gap-2">
                                           <button
                                             type="button"
-                                            disabled={savingEditedProgress || !editingProgressNoteData.note.trim()}
-                                            onClick={() => saveEditedProgressNote(entry._id)}
+                                            disabled={
+                                              savingEditedProgress ||
+                                              !editingProgressNoteData.note.trim()
+                                            }
+                                            onClick={() =>
+                                              saveEditedProgressNote(entry._id)
+                                            }
                                             className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                                           >
                                             {savingEditedProgress ? (
-                                              <><svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Saving...</>
+                                              <>
+                                                <svg
+                                                  className="w-3 h-3 animate-spin"
+                                                  viewBox="0 0 24 24"
+                                                  fill="none"
+                                                >
+                                                  <circle
+                                                    className="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                    stroke="currentColor"
+                                                    strokeWidth="4"
+                                                  />
+                                                  <path
+                                                    className="opacity-75"
+                                                    fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8v8z"
+                                                  />
+                                                </svg>{" "}
+                                                Saving...
+                                              </>
                                             ) : (
                                               "Save Changes"
                                             )}
@@ -4407,22 +6479,77 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       // View Mode
                                       <div>
                                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                                          <span className="text-xs font-semibold text-blue-600">{dateStr}</span>
+                                          <span className="text-xs font-semibold text-blue-600">
+                                            {dateStr}
+                                          </span>
                                           <div className="flex items-center gap-3">
-                                            {doctorName && <span className="text-xs text-gray-400">{doctorName}</span>}
-                                            {isWithin24Hours(entry.createdAt) && (
-                                              <button type="button" onClick={() => startEditProgressNote(entry)} className="text-gray-300 hover:text-blue-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                                            {doctorName && (
+                                              <span className="text-xs text-gray-400">
+                                                {doctorName}
+                                              </span>
                                             )}
-                                            <button type="button" onClick={async () => {
-                                              try {
-                                                const headers = getAuthHeaders();
-                                                await axios.delete("/api/clinic/progress-notes", { headers, params: { noteId: entry._id } });
-                                                setProgressNotes((prev) => prev.filter((n) => n._id !== entry._id));
-                                              } catch { setProgressError("Failed to delete progress note"); }
-                                            }} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+                                            {isWithin24Hours(
+                                              entry.createdAt,
+                                            ) && (
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  startEditProgressNote(entry)
+                                                }
+                                                className="text-gray-300 hover:text-blue-500 transition-colors"
+                                              >
+                                                <svg
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                  width="12"
+                                                  height="12"
+                                                  viewBox="0 0 24 24"
+                                                  fill="none"
+                                                  stroke="currentColor"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                  strokeLinejoin="round"
+                                                >
+                                                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                                  <path d="m15 5 4 4" />
+                                                </svg>
+                                              </button>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={async () => {
+                                                try {
+                                                  const headers =
+                                                    getAuthHeaders();
+                                                  await axios.delete(
+                                                    "/api/clinic/progress-notes",
+                                                    {
+                                                      headers,
+                                                      params: {
+                                                        noteId: entry._id,
+                                                      },
+                                                    },
+                                                  );
+                                                  setProgressNotes((prev) =>
+                                                    prev.filter(
+                                                      (n) =>
+                                                        n._id !== entry._id,
+                                                    ),
+                                                  );
+                                                } catch {
+                                                  setProgressError(
+                                                    "Failed to delete progress note",
+                                                  );
+                                                }
+                                              }}
+                                              className="text-gray-300 hover:text-red-500 transition-colors"
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
                                           </div>
                                         </div>
-                                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{entry.note}</p>
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                          {entry.note}
+                                        </p>
                                       </div>
                                     )}
                                   </div>
@@ -4436,38 +6563,115 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {addingNewEntry ? (
                         <div className="rounded-xl border-2 border-dashed border-blue-300 bg-blue-50/60 px-4 py-4 space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Plus size={12} /> New Progress Entry</span>
-                            <span className="text-xs text-blue-600">{newEntryDate}</span>
+                            <span className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                              <Plus size={12} /> New Progress Entry
+                            </span>
+                            <span className="text-xs text-blue-600">
+                              {newEntryDate}
+                            </span>
                           </div>
-                          <textarea autoFocus value={newEntryText} onChange={(e) => setNewEntryText(e.target.value)} rows={4} placeholder="Describe patient's progress, treatment response, observations..." className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                          <textarea
+                            autoFocus
+                            value={newEntryText}
+                            onChange={(e) => setNewEntryText(e.target.value)}
+                            rows={4}
+                            placeholder="Describe patient's progress, treatment response, observations..."
+                            className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                          />
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
-                              <label className="text-xs text-blue-700 font-medium">Date:</label>
-                              <input type="date" value={newEntryDate} onChange={(e) => setNewEntryDate(e.target.value)} className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                              <label className="text-xs text-blue-700 font-medium">
+                                Date:
+                              </label>
+                              <input
+                                type="date"
+                                value={newEntryDate}
+                                onChange={(e) =>
+                                  setNewEntryDate(e.target.value)
+                                }
+                                className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                              />
                             </div>
                             <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => { setAddingNewEntry(false); setNewEntryText(""); setProgressError(""); }} className="px-4 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
-                              <button type="button" disabled={savingProgress || !newEntryText.trim()}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAddingNewEntry(false);
+                                  setNewEntryText("");
+                                  setProgressError("");
+                                }}
+                                className="px-4 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  savingProgress || !newEntryText.trim()
+                                }
                                 onClick={async () => {
                                   if (!newEntryText.trim() || !details) return;
-                                  setSavingProgress(true); setProgressError("");
+                                  setSavingProgress(true);
+                                  setProgressError("");
                                   try {
                                     const headers = getAuthHeaders();
-                                    const res = await axios.post("/api/clinic/progress-notes", { appointmentId: details.appointmentId, patientId: details.patientId, note: newEntryText.trim(), noteDate: newEntryDate }, { headers });
-                                    if (res.data?.success && res.data.note) setProgressNotes((prev) => [res.data.note, ...prev]);
-                                    setNewEntryText(""); setNewEntryDate(new Date().toISOString().slice(0, 10)); setAddingNewEntry(false);
-                                  } catch (err: any) { setProgressError(err.response?.data?.message || "Failed to save progress note"); }
-                                  finally { setSavingProgress(false); }
+                                    const res = await axios.post(
+                                      "/api/clinic/progress-notes",
+                                      {
+                                        appointmentId: details.appointmentId,
+                                        patientId: details.patientId,
+                                        note: newEntryText.trim(),
+                                        noteDate: newEntryDate,
+                                      },
+                                      { headers },
+                                    );
+                                    if (res.data?.success && res.data.note)
+                                      setProgressNotes((prev) => [
+                                        res.data.note,
+                                        ...prev,
+                                      ]);
+                                    setNewEntryText("");
+                                    setNewEntryDate(
+                                      new Date().toISOString().slice(0, 10),
+                                    );
+                                    setAddingNewEntry(false);
+                                  } catch (err: any) {
+                                    setProgressError(
+                                      err.response?.data?.message ||
+                                        "Failed to save progress note",
+                                    );
+                                  } finally {
+                                    setSavingProgress(false);
+                                  }
                                 }}
                                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                               >
-                                {savingProgress ? <><RefreshCw size={12} className="animate-spin" /> Saving...</> : <><Check size={12} /> Save Entry</>}
+                                {savingProgress ? (
+                                  <>
+                                    <RefreshCw
+                                      size={12}
+                                      className="animate-spin"
+                                    />{" "}
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check size={12} /> Save Entry
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <button type="button" onClick={() => { setAddingNewEntry(true); setNewEntryDate(new Date().toISOString().slice(0, 10)); }}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingNewEntry(true);
+                            setNewEntryDate(
+                              new Date().toISOString().slice(0, 10),
+                            );
+                          }}
                           className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-4 text-sm font-medium text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors bg-white"
                         >
                           <Plus size={16} /> Add New Progress Note
@@ -4479,63 +6683,158 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
                           <div className="flex items-center gap-2 mb-2">
                             <Stethoscope className="w-4 h-4 text-blue-600" />
-                            <h3 className="text-sm font-semibold text-gray-800">Smart Recommendations</h3>
+                            <h3 className="text-sm font-semibold text-gray-800">
+                              Smart Recommendations
+                            </h3>
                           </div>
                           {loadingSmartRec ? (
-                            <div className="text-xs text-gray-400 py-2">Loading...</div>
+                            <div className="text-xs text-gray-400 py-2">
+                              Loading...
+                            </div>
                           ) : (
                             <div className="space-y-2">
                               {smartDepartments.map((dept) => (
                                 <div key={dept._id}>
-                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{dept.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                    {dept.name}
+                                  </p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {dept.services.map((svc) => (
-                                      <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-                                        <span className="text-xs font-medium text-gray-700">{svc.name}</span>
-                                        <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}` : `${getCurrencySymbol(currency)} ${svc.price}`}</span>
-                                        <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
+                                      <div
+                                        key={svc._id}
+                                        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5"
+                                      >
+                                        <span className="text-xs font-medium text-gray-700">
+                                          {svc.name}
+                                        </span>
+                                        <span className="text-[10px] text-blue-600">
+                                          {svc.clinicPrice != null
+                                            ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}`
+                                            : `${getCurrencySymbol(currency)} ${svc.price}`}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            addingRecService[
+                                              `${details?.patientId}_${svc._id}`
+                                            ] ||
+                                            addedRecServices[
+                                              `${details?.patientId}_${svc._id}`
+                                            ]
+                                          }
                                           onClick={async () => {
-                                            if (!details?.appointmentId || !details?.patientId) return;
-                                           
+                                            if (
+                                              !details?.appointmentId ||
+                                              !details?.patientId
+                                            )
+                                              return;
+
                                             const patientServiceKey = `${details.patientId}_${svc._id}`;
-                                           
+
                                             // 1. Add to selectedServices (so it appears in Treatment & Billing)
                                             const serviceToAdd = {
                                               _id: svc._id,
                                               name: svc.name,
                                               price: svc.price,
                                               clinicPrice: svc.clinicPrice,
-                                              durationMinutes: svc.durationMinutes,
-                                              quantity: 1
+                                              durationMinutes:
+                                                svc.durationMinutes,
+                                              quantity: 1,
                                             } as ClinicService;
-                                           
-                                            setSelectedServices((prev) => [...prev, serviceToAdd]);
+
+                                            setSelectedServices((prev) => [
+                                              ...prev,
+                                              serviceToAdd,
+                                            ]);
                                             setServicesSaved(false);
-                                           
+
                                             // Track recently added service with timestamp for visual feedback
-                                            setRecentlyAddedServices((prev) => ({ ...prev, [svc._id]: Date.now() }));
-                                           
+                                            setRecentlyAddedServices(
+                                              (prev) => ({
+                                                ...prev,
+                                                [svc._id]: Date.now(),
+                                              }),
+                                            );
+
                                             // 2. Also save to appointment via API
-                                            setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
+                                            setAddingRecService((p) => ({
+                                              ...p,
+                                              [patientServiceKey]: true,
+                                            }));
                                             try {
-                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services: [{ serviceId: svc._id, quantity: 1 }] }, { headers: getAuthHeaders() });
-                                              setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                              await axios.patch(
+                                                `/api/clinic/appointment-services/${details.appointmentId}`,
+                                                {
+                                                  services: [
+                                                    {
+                                                      serviceId: svc._id,
+                                                      quantity: 1,
+                                                    },
+                                                  ],
+                                                },
+                                                { headers: getAuthHeaders() },
+                                              );
+                                              setAddedRecServices((p) => ({
+                                                ...p,
+                                                [patientServiceKey]: true,
+                                              }));
                                               if (onSuccess) onSuccess();
                                             } catch (err: any) {
                                               // If API fails, remove from selectedServices
-                                              setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
-                                              setRecentlyAddedServices((prev) => {
-                                                const updated = { ...prev };
-                                                delete updated[svc._id];
-                                                return updated;
-                                              });
+                                              setSelectedServices((prev) =>
+                                                prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                ),
+                                              );
+                                              setRecentlyAddedServices(
+                                                (prev) => {
+                                                  const updated = { ...prev };
+                                                  delete updated[svc._id];
+                                                  return updated;
+                                                },
+                                              );
                                             } finally {
-                                              setAddingRecService((p) => ({ ...p, [patientServiceKey]: false }));
+                                              setAddingRecService((p) => ({
+                                                ...p,
+                                                [patientServiceKey]: false,
+                                              }));
                                             }
                                           }}
                                           className={`flex items-center gap-0.5 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${addedRecServices[`${details?.patientId}_${svc._id}`] ? "bg-green-100 text-green-700 cursor-default" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                                         >
-                                          {addingRecService[`${details?.patientId}_${svc._id}`] ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : addedRecServices[`${details?.patientId}_${svc._id}`] ? <><Check size={10} /> Added</> : <><Plus size={10} /> Add</>}
+                                          {addingRecService[
+                                            `${details?.patientId}_${svc._id}`
+                                          ] ? (
+                                            <svg
+                                              className="w-3 h-3 animate-spin"
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                            >
+                                              <circle
+                                                className="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                strokeWidth="4"
+                                              />
+                                              <path
+                                                className="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8v8z"
+                                              />
+                                            </svg>
+                                          ) : addedRecServices[
+                                              `${details?.patientId}_${svc._id}`
+                                            ] ? (
+                                            <>
+                                              <Check size={10} /> Added
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus size={10} /> Add
+                                            </>
+                                          )}
                                         </button>
                                       </div>
                                     ))}
@@ -4551,37 +6850,80 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
                           <ClipboardList className="w-4 h-4 text-blue-600" />
-                          <h3 className="text-sm font-semibold text-gray-800">Appointments</h3>
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Appointments
+                          </h3>
                         </div>
                         <div className="px-5 py-3">
                           {loadingUpcoming ? (
                             <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                              Loading appointments...
                             </div>
                           ) : filteredUpcomingAppointments.length === 0 ? (
-                            <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
+                            <p className="text-xs text-gray-400 py-3 text-center">
+                              No upcoming appointments
+                            </p>
                           ) : (
                             <div>
-                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
+                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">
+                                Upcoming
+                              </p>
                               <div className="space-y-2">
                                 {filteredUpcomingAppointments.map((appt) => {
                                   const d = new Date(appt.startDate);
-                                  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                                  const [fh, fm] = appt.fromTime.split(":").map(Number);
+                                  const dateStr = d.toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    },
+                                  );
+                                  const [fh, fm] = appt.fromTime
+                                    .split(":")
+                                    .map(Number);
                                   const ampm = fh < 12 ? "AM" : "PM";
                                   const h12 = fh % 12 || 12;
                                   const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
-                                  const statusColor = appt.status === "booked" || appt.status === "Approved" ? "bg-blue-600 text-white" : appt.status === "Completed" ? "bg-green-100 text-green-700" : appt.status === "Cancelled" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
+                                  const statusColor =
+                                    appt.status === "booked" ||
+                                    appt.status === "Approved"
+                                      ? "bg-blue-600 text-white"
+                                      : appt.status === "Completed"
+                                        ? "bg-green-100 text-green-700"
+                                        : appt.status === "Cancelled"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-gray-100 text-gray-600";
                                   return (
-                                    <div key={appt._id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                                    <div
+                                      key={appt._id}
+                                      className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between"
+                                    >
                                       <div>
-                                        <p className="text-xs font-semibold text-gray-800">{appt.followType === "follow up" ? "Follow-up Session" : appt.followType === "first time" ? "First Visit" : appt.followType}</p>
+                                        <p className="text-xs font-semibold text-gray-800">
+                                          {appt.followType === "follow up"
+                                            ? "Follow-up Session"
+                                            : appt.followType === "first time"
+                                              ? "First Visit"
+                                              : appt.followType}
+                                        </p>
                                         <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
-                                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {dateStr}</span>
-                                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeStr}</span>
+                                          <span className="flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" />{" "}
+                                            {dateStr}
+                                          </span>
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />{" "}
+                                            {timeStr}
+                                          </span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}>{appt.status}</span>
+                                      <span
+                                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}
+                                      >
+                                        {appt.status}
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -4595,32 +6937,79 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
                         <div className="flex items-center gap-2 mb-4">
                           <Calendar className="w-4 h-4 text-blue-600" />
-                          <h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3>
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Next Session Booking
+                          </h3>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mb-4">
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1.5">Select Date</label>
+                            <label className="block text-xs text-gray-500 mb-1.5">
+                              Select Date
+                            </label>
                             <input
                               type="date"
                               value={nextSessionDate}
                               min={new Date().toISOString().slice(0, 10)}
-                              onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              onChange={(e) => {
+                                setNextSessionDate(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1.5">Select Time</label>
+                            <label className="block text-xs text-gray-500 mb-1.5">
+                              Select Time
+                            </label>
                             <select
                               value={nextSessionTime}
-                              onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }}
+                              onChange={(e) => {
+                                setNextSessionTime(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
                               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
                             >
-                              {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => {
+                              {[
+                                "07:00",
+                                "07:30",
+                                "08:00",
+                                "08:30",
+                                "09:00",
+                                "09:30",
+                                "10:00",
+                                "10:30",
+                                "11:00",
+                                "11:30",
+                                "12:00",
+                                "12:30",
+                                "13:00",
+                                "13:30",
+                                "14:00",
+                                "14:30",
+                                "15:00",
+                                "15:30",
+                                "16:00",
+                                "16:30",
+                                "17:00",
+                                "17:30",
+                                "18:00",
+                                "18:30",
+                                "19:00",
+                                "19:30",
+                                "20:00",
+                              ].map((t) => {
                                 const [h, m] = t.split(":").map(Number);
                                 const ampm = h < 12 ? "AM" : "PM";
                                 const h12 = h % 12 || 12;
-                                return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>;
+                                return (
+                                  <option
+                                    key={t}
+                                    value={t}
+                                  >{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>
+                                );
                               })}
                             </select>
                           </div>
@@ -4628,13 +7017,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         {nextSessionError && (
                           <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-red-50 border border-red-200">
                             <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                            <p className="text-red-600 text-xs">{nextSessionError}</p>
+                            <p className="text-red-600 text-xs">
+                              {nextSessionError}
+                            </p>
                           </div>
                         )}
                         {nextSessionBooked && (
                           <div className="mb-3 flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
                             <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                            <p className="text-green-700 text-xs font-medium">Session booked successfully!</p>
+                            <p className="text-green-700 text-xs font-medium">
+                              Session booked successfully!
+                            </p>
                           </div>
                         )}
                         <button
@@ -4644,13 +7037,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 transition-colors shadow-sm"
                         >
                           <Calendar size={15} />
-                          {bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                          {bookingNextSession
+                            ? "Booking..."
+                            : nextSessionBooked
+                              ? "Session Booked!"
+                              : "Book Next Session"}
                         </button>
                       </div>
 
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-px bg-gray-200" />
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Summary</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          Session Summary
+                        </span>
                         <div className="flex-1 h-px bg-gray-200" />
                       </div>
 
@@ -4662,8 +7061,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <Package className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
-                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                              <h3 className="text-base font-bold text-gray-900">
+                                Treatment & Billing
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                Add and manage treatment services
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -4675,7 +7078,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
-                                if (allServices.length === 0) fetchAllServices();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -4687,7 +7091,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(true);
                                 setShowAddServiceDropdown(false);
                                 setShowCreatePackage(false);
-                                if (departments.length === 0) fetchDepartments();
+                                if (departments.length === 0)
+                                  fetchDepartments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -4701,8 +7106,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
-                                if (allServices.length === 0) fetchAllServices();
-                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
+                                if (pkgTreatments.length === 0)
+                                  fetchPkgTreatments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
                             >
@@ -4719,9 +7126,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
                                   <Search className="w-4 h-4 text-blue-600" />
                                 </div>
-                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                                <span className="text-sm font-bold text-blue-800">
+                                  Search & Add Services
+                                </span>
                               </div>
-                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button
+                                type="button"
+                                onClick={() => setShowAddServiceDropdown(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <XIcon size={16} />
+                              </button>
                             </div>
                             <div className="relative mb-3">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -4731,7 +7146,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 type="text"
                                 placeholder="Search by service name..."
                                 value={serviceSearchQuery}
-                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                onChange={(e) =>
+                                  setServiceSearchQuery(e.target.value)
+                                }
                                 className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
                               />
                             </div>
@@ -4739,60 +7156,138 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               {loadingServices ? (
                                 <div className="flex items-center justify-center py-8">
                                   <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                  <span className="ml-2 text-sm text-gray-500">
+                                    Loading services...
+                                  </span>
                                 </div>
-                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                              ) : allServices.filter((s) =>
+                                  s.name
+                                    .toLowerCase()
+                                    .includes(serviceSearchQuery.toLowerCase()),
+                                ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
-                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
+                                  <p className="text-sm text-gray-500 font-medium">
+                                    No services found
+                                  </p>
                                 </div>
                               ) : (
-                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
-                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
-                                  return (
-                                    <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
-                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                        isSelected ? "bg-blue-50 border-blue-300 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                                        }`}>
-                                          {isSelected && <Check size={12} className="text-white" />}
+                                allServices
+                                  .filter((s) =>
+                                    s.name
+                                      .toLowerCase()
+                                      .includes(
+                                        serviceSearchQuery.toLowerCase(),
+                                      ),
+                                  )
+                                  .map((svc) => {
+                                    const isSelected = selectedServices.some(
+                                      (s) => s._id === svc._id,
+                                    );
+                                    return (
+                                      <button
+                                        key={svc._id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedServices((prev) =>
+                                            isSelected
+                                              ? prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                )
+                                              : [
+                                                  ...prev,
+                                                  { ...svc, quantity: 1 },
+                                                ],
+                                          );
+                                          setServicesSaved(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                          isSelected
+                                            ? "bg-blue-50 border-blue-300 shadow-sm"
+                                            : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                              isSelected
+                                                ? "bg-blue-600 border-blue-600"
+                                                : "border-gray-300 bg-white"
+                                            }`}
+                                          >
+                                            {isSelected && (
+                                              <Check
+                                                size={12}
+                                                className="text-white"
+                                              />
+                                            )}
+                                          </div>
+                                          <span
+                                            className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}
+                                          >
+                                            {svc.name}
+                                          </span>
                                         </div>
-                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>{svc.name}</span>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</span>
-                                        {isSelected && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Added</span>}
-                                      </div>
-                                    </button>
-                                  );
-                                })
+                                        <div className="flex items-center gap-3">
+                                          <span
+                                            className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}
+                                          >
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(svc.clinicPrice != null
+                                              ? svc.clinicPrice
+                                              : svc.price
+                                            ).toFixed(2)}
+                                          </span>
+                                          {isSelected && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                              Added
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })
                               )}
                             </div>
                             {/* Services save status - hidden as services are saved with complaint */}
                             {false && servicesError && (
                               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-red-700">{servicesError}</p>
+                                <p className="text-xs text-red-700">
+                                  {servicesError}
+                                </p>
                               </div>
                             )}
                             {false && servicesSaved && (
                               <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                                 <CheckCircle className="w-4 h-4 text-green-600" />
-                                <p className="text-xs text-green-700 font-medium">Services saved successfully!</p>
+                                <p className="text-xs text-green-700 font-medium">
+                                  Services saved successfully!
+                                </p>
                               </div>
                             )}
                             {/* Save Services button - hidden as services are saved automatically with complaint */}
                             {false && (
-                              <button type="button" onClick={saveServicesToAppointment}
-                                disabled={savingServices || selectedServices.length === 0}
+                              <button
+                                type="button"
+                                onClick={saveServicesToAppointment}
+                                disabled={
+                                  savingServices ||
+                                  selectedServices.length === 0
+                                }
                                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                               >
-                                {savingServices ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><CheckCircle className="w-4 h-4" />Save Services to Appointment</>)}
+                                {savingServices ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Save Services to Appointment
+                                  </>
+                                )}
                               </button>
                             )}
                           </div>
@@ -4806,31 +7301,47 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                                   <Wrench className="w-4 h-4 text-emerald-600" />
                                 </div>
-                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                                <span className="text-sm font-bold text-emerald-800">
+                                  Add Custom Service
+                                </span>
                               </div>
-                              <button type="button" onClick={() => {
-                                setShowAddCustomService(false);
-                                setCustomServiceName("");
-                                setCustomServicePrice("");
-                                setCustomServiceClinicPrice("");
-                                setCustomServiceDuration("");
-                                setCustomServiceDepartment("");
-                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddCustomService(false);
+                                  setCustomServiceName("");
+                                  setCustomServicePrice("");
+                                  setCustomServiceClinicPrice("");
+                                  setCustomServiceDuration("");
+                                  setCustomServiceDepartment("");
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
                                 <XIcon size={16} />
                               </button>
                             </div>
 
-                            <form onSubmit={addCustomService} className="space-y-3">
+                            <form
+                              onSubmit={addCustomService}
+                              className="space-y-3"
+                            >
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Department{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <select
                                   value={customServiceDepartment}
-                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceDepartment(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   disabled={departmentsLoading}
                                   required
                                 >
-                                  <option value="" disabled>Select department</option>
+                                  <option value="" disabled>
+                                    Select department
+                                  </option>
                                   {departments.map((dept) => (
                                     <option key={dept._id} value={dept._id}>
                                       {dept.name}
@@ -4840,11 +7351,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Service Name{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                   type="text"
                                   value={customServiceName}
-                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceName(e.target.value)
+                                  }
                                   placeholder="Enter service name"
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   required
@@ -4853,15 +7369,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Price{" "}
+                                    <span className="text-red-500">*</span>
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServicePrice}
-                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServicePrice(e.target.value)
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                       required
@@ -4870,15 +7393,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Clinic Price (Optional)
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServiceClinicPrice}
-                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServiceClinicPrice(
+                                          e.target.value,
+                                        )
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                     />
@@ -4886,12 +7417,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Duration (Minutes)
+                                  </label>
                                   <input
                                     type="number"
                                     min="0"
                                     value={customServiceDuration}
-                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    onChange={(e) =>
+                                      setCustomServiceDuration(e.target.value)
+                                    }
                                     placeholder="30"
                                     className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   />
@@ -4927,46 +7462,102 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
                                   <Package className="w-4 h-4 text-violet-600" />
                                 </div>
-                                <span className="text-sm font-bold text-violet-800">Create New Package</span>
+                                <span className="text-sm font-bold text-violet-800">
+                                  Create New Package
+                                </span>
                               </div>
-                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCreatePackage(false);
+                                  setPkgError("");
+                                  setPkgSuccess("");
+                                  setPkgModalName("");
+                                  setPkgModalPrice("");
+                                  setPkgModalValidityInMonths("");
+                                  setPkgModalStartDate(
+                                    new Date().toISOString().split("T")[0],
+                                  );
+                                  setPkgModalEndDate("");
+                                  setPkgSelectedTreatments([]);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <XIcon size={16} />
+                              </button>
                             </div>
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
-                              <input type="text" value={pkgModalName} onChange={(e) => setPkgModalName(e.target.value)} placeholder="e.g., Premium Skin Care Package" className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Package Name{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={pkgModalName}
+                                onChange={(e) =>
+                                  setPkgModalName(e.target.value)
+                                }
+                                placeholder="e.g., Premium Skin Care Package"
+                                className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                              />
                             </div>
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Total Package Price{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                  {getCurrencySymbol(currency)}
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={pkgModalPrice}
+                                  onChange={(e) =>
+                                    setPkgModalPrice(e.target.value)
+                                  }
+                                  placeholder="0.00"
+                                  className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
                               </div>
                             </div>
 
                             {/* Validity & Dates */}
                             <div className="grid grid-cols-3 gap-3 mb-3">
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Validity (Months)</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  Validity (Months)
+                                </label>
                                 <input
                                   type="number"
                                   min="0"
                                   value={pkgModalValidityInMonths}
-                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalValidityInMonths(e.target.value)
+                                  }
                                   placeholder="e.g. 12"
                                   className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Start Date</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  Start Date
+                                </label>
                                 <input
                                   type="date"
                                   value={pkgModalStartDate}
-                                  onChange={(e) => setPkgModalStartDate(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalStartDate(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">End Date</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  End Date
+                                </label>
                                 <input
                                   type="date"
                                   value={pkgModalEndDate}
@@ -4976,54 +7567,161 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
                             </div>
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Select Treatments / Services{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <div className="relative">
-                                <div className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
-                                  onClick={() => { setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen); if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices(); }}>
-                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
-                                    {pkgSelectedTreatments.length > 0 ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected` : "Select treatments to include..."}
+                                <div
+                                  className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
+                                  onClick={() => {
+                                    setPkgTreatmentDropdownOpen(
+                                      !pkgTreatmentDropdownOpen,
+                                    );
+                                    if (
+                                      !pkgTreatmentDropdownOpen &&
+                                      allServices.length === 0
+                                    )
+                                      fetchAllServices();
+                                  }}
+                                >
+                                  <span
+                                    className={
+                                      pkgSelectedTreatments.length > 0
+                                        ? "text-gray-800 font-medium"
+                                        : "text-gray-400"
+                                    }
+                                  >
+                                    {pkgSelectedTreatments.length > 0
+                                      ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected`
+                                      : "Select treatments to include..."}
                                   </span>
-                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`}
+                                  />
                                 </div>
                                 {pkgTreatmentDropdownOpen && (
                                   <div className="absolute z-20 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
                                     <div className="p-3 border-b border-violet-100 sticky top-0 bg-white">
                                       <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <input type="text" value={pkgTreatmentSearch} onChange={(e) => setPkgTreatmentSearch(e.target.value)} placeholder="Search treatments..." autoFocus className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                                        <input
+                                          type="text"
+                                          value={pkgTreatmentSearch}
+                                          onChange={(e) =>
+                                            setPkgTreatmentSearch(
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder="Search treatments..."
+                                          autoFocus
+                                          className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                        />
                                       </div>
                                     </div>
                                     <div className="overflow-y-auto max-h-52">
                                       {loadingServices ? (
-                                        <div className="flex items-center justify-center p-4"><Loader2 className="w-5 h-5 text-violet-600 animate-spin" /><span className="ml-2 text-sm text-gray-500">Loading...</span></div>
-                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-gray-400">No treatments found</div>
+                                        <div className="flex items-center justify-center p-4">
+                                          <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
+                                          <span className="ml-2 text-sm text-gray-500">
+                                            Loading...
+                                          </span>
+                                        </div>
+                                      ) : allServices.filter((s) =>
+                                          s.name
+                                            .toLowerCase()
+                                            .includes(
+                                              pkgTreatmentSearch.toLowerCase(),
+                                            ),
+                                        ).length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-400">
+                                          No treatments found
+                                        </div>
                                       ) : (
                                         <ul className="py-1">
-                                          {allServices.filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).map((svc) => {
-                                            const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
-                                            return (
-                                              <li key={svc._id}>
-                                                <button type="button"
-                                                  onClick={() => {
-                                                    if (isSelected) { setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id)); }
-                                                    else { setPkgSelectedTreatments((prev) => [...prev, { treatmentName: svc.name, treatmentSlug: svc._id, sessions: 1, allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price }]); }
-                                                  }}
-                                                  className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected ? "bg-violet-50" : ""}`}
-                                                >
-                                                  <div className="flex items-center gap-3">
-                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"}`}>
-                                                      {isSelected && <Check size={12} className="text-white" />}
+                                          {allServices
+                                            .filter((svc) =>
+                                              svc.name
+                                                .toLowerCase()
+                                                .includes(
+                                                  pkgTreatmentSearch.toLowerCase(),
+                                                ),
+                                            )
+                                            .map((svc) => {
+                                              const isSelected =
+                                                pkgSelectedTreatments.some(
+                                                  (t) =>
+                                                    t.treatmentSlug === svc._id,
+                                                );
+                                              return (
+                                                <li key={svc._id}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      if (isSelected) {
+                                                        setPkgSelectedTreatments(
+                                                          (prev) =>
+                                                            prev.filter(
+                                                              (t) =>
+                                                                t.treatmentSlug !==
+                                                                svc._id,
+                                                            ),
+                                                        );
+                                                      } else {
+                                                        setPkgSelectedTreatments(
+                                                          (prev) => [
+                                                            ...prev,
+                                                            {
+                                                              treatmentName:
+                                                                svc.name,
+                                                              treatmentSlug:
+                                                                svc._id,
+                                                              sessions: 1,
+                                                              allocatedPrice:
+                                                                svc.clinicPrice !=
+                                                                null
+                                                                  ? svc.clinicPrice
+                                                                  : svc.price,
+                                                            },
+                                                          ],
+                                                        );
+                                                      }
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected ? "bg-violet-50" : ""}`}
+                                                  >
+                                                    <div className="flex items-center gap-3">
+                                                      <div
+                                                        className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"}`}
+                                                      >
+                                                        {isSelected && (
+                                                          <Check
+                                                            size={12}
+                                                            className="text-white"
+                                                          />
+                                                        )}
+                                                      </div>
+                                                      <div className="text-left">
+                                                        <p className="text-sm font-medium text-gray-800">
+                                                          {svc.name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                          {getCurrencySymbol(
+                                                            currency,
+                                                          )}{" "}
+                                                          {(svc.clinicPrice !=
+                                                          null
+                                                            ? svc.clinicPrice
+                                                            : svc.price
+                                                          ).toFixed(2)}{" "}
+                                                          {svc.durationMinutes}{" "}
+                                                          mins
+                                                        </p>
+                                                      </div>
                                                     </div>
-                                                    <div className="text-left">
-                                                      <p className="text-sm font-medium text-gray-800">{svc.name}</p>
-                                                      <p className="text-xs text-gray-500">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}  {svc.durationMinutes} mins</p>
-                                                    </div>
-                                                  </div>
-                                                </button>
-                                              </li>
-                                            );
-                                          })}
+                                                  </button>
+                                                </li>
+                                              );
+                                            })}
                                         </ul>
                                       )}
                                     </div>
@@ -5031,27 +7729,109 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 )}
                                 {pkgSelectedTreatments.length > 0 && (
                                   <div className="mt-3 space-y-2">
-                                    <p className="text-xs font-semibold text-violet-700">Selected Treatments</p>
+                                    <p className="text-xs font-semibold text-violet-700">
+                                      Selected Treatments
+                                    </p>
                                     {pkgSelectedTreatments.map((sel) => {
-                                      const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                      const sessPrice =
+                                        sel.sessions > 0
+                                          ? (sel.allocatedPrice || 0) /
+                                            sel.sessions
+                                          : 0;
                                       return (
-                                        <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm">
+                                        <div
+                                          key={sel.treatmentSlug}
+                                          className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm"
+                                        >
                                           <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
-                                            <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600 transition-colors"><XIcon size={13} /></button>
+                                            <span className="text-xs font-semibold text-violet-700">
+                                              {sel.treatmentName}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setPkgSelectedTreatments(
+                                                  (prev) =>
+                                                    prev.filter(
+                                                      (t) =>
+                                                        t.treatmentSlug !==
+                                                        sel.treatmentSlug,
+                                                    ),
+                                                )
+                                              }
+                                              className="text-red-400 hover:text-red-600 transition-colors"
+                                            >
+                                              <XIcon size={13} />
+                                            </button>
                                           </div>
                                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                             <div>
-                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
-                                              <input type="number" min="0" step="0.01" value={sel.allocatedPrice || ""} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400" placeholder="0.00" />
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                                Price
+                                              </label>
+                                              <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={sel.allocatedPrice || ""}
+                                                onChange={(e) =>
+                                                  setPkgSelectedTreatments(
+                                                    (prev) =>
+                                                      prev.map((t) =>
+                                                        t.treatmentSlug ===
+                                                        sel.treatmentSlug
+                                                          ? {
+                                                              ...t,
+                                                              allocatedPrice:
+                                                                parseFloat(
+                                                                  e.target
+                                                                    .value,
+                                                                ) || 0,
+                                                            }
+                                                          : t,
+                                                      ),
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                                placeholder="0.00"
+                                              />
                                             </div>
                                             <div>
-                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
-                                              <input type="number" min="1" value={sel.sessions} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                                Sessions
+                                              </label>
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                value={sel.sessions}
+                                                onChange={(e) =>
+                                                  setPkgSelectedTreatments(
+                                                    (prev) =>
+                                                      prev.map((t) =>
+                                                        t.treatmentSlug ===
+                                                        sel.treatmentSlug
+                                                          ? {
+                                                              ...t,
+                                                              sessions:
+                                                                parseInt(
+                                                                  e.target
+                                                                    .value,
+                                                                ) || 1,
+                                                            }
+                                                          : t,
+                                                      ),
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                              />
                                             </div>
                                             <div>
-                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
-                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">{sessPrice.toFixed(2)}</div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                                /Session
+                                              </label>
+                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">
+                                                {sessPrice.toFixed(2)}
+                                              </div>
                                             </div>
                                           </div>
                                         </div>
@@ -5059,17 +7839,42 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     })}
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                       <div className="text-center">
-                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
-                                        <p className="text-xs font-bold text-violet-800">{parseFloat(pkgModalPrice) || 0}</p>
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                          Pkg Price
+                                        </p>
+                                        <p className="text-xs font-bold text-violet-800">
+                                          {parseFloat(pkgModalPrice) || 0}
+                                        </p>
                                       </div>
                                       <div className="text-center">
-                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
-                                        <p className="text-xs font-bold text-violet-800">{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                          Allocated
+                                        </p>
+                                        <p className="text-xs font-bold text-violet-800">
+                                          {pkgSelectedTreatments
+                                            .reduce(
+                                              (sum, t) =>
+                                                sum + (t.allocatedPrice || 0),
+                                              0,
+                                            )
+                                            .toFixed(2)}
+                                        </p>
                                       </div>
                                       <div className="text-center">
-                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
-                                        <p className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}>
-                                          {((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                          Remaining
+                                        </p>
+                                        <p
+                                          className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}
+                                        >
+                                          {(
+                                            (parseFloat(pkgModalPrice) || 0) -
+                                            pkgSelectedTreatments.reduce(
+                                              (sum, t) =>
+                                                sum + (t.allocatedPrice || 0),
+                                              0,
+                                            )
+                                          ).toFixed(2)}
                                         </p>
                                       </div>
                                     </div>
@@ -5077,14 +7882,48 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 )}
                               </div>
                             </div>
-                            {pkgError && (<div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"><AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" /><p className="text-xs text-red-700">{pkgError}</p></div>)}
-                            {pkgSuccess && (<div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><p className="text-xs text-green-700 font-medium">{pkgSuccess}</p></div>)}
+                            {pkgError && (
+                              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">
+                                  {pkgError}
+                                </p>
+                              </div>
+                            )}
+                            {pkgSuccess && (
+                              <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <p className="text-xs text-green-700 font-medium">
+                                  {pkgSuccess}
+                                </p>
+                              </div>
+                            )}
                             <div className="flex gap-3">
-                              <button type="button" onClick={() => handleCreatePackageModal(false)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Package size={14} />{pkgSubmitting ? "Creating..." : "Create Package"}
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(false)}
+                                disabled={
+                                  pkgSubmitting || addingPackageToPatient
+                                }
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Package size={14} />
+                                {pkgSubmitting
+                                  ? "Creating..."
+                                  : "Create Package"}
                               </button>
-                              <button type="button" onClick={() => handleCreatePackageModal(true)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Plus size={14} />{addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(true)}
+                                disabled={
+                                  pkgSubmitting || addingPackageToPatient
+                                }
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Plus size={14} />
+                                {addingPackageToPatient
+                                  ? "Adding..."
+                                  : "Create & Add to Patient"}
                               </button>
                             </div>
                           </div>
@@ -5097,9 +7936,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                                 <Package className="w-10 h-10 text-gray-400" />
                               </div>
-                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
-                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
-                              <button type="button" onClick={() => { setShowAddServiceDropdown(true); if (allServices.length === 0) fetchAllServices(); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md">
+                              <p className="text-sm font-medium text-gray-600 mb-1">
+                                No services added yet
+                              </p>
+                              <p className="text-xs text-gray-400 mb-4">
+                                Click "Add Service" to begin building your
+                                treatment plan
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddServiceDropdown(true);
+                                  if (allServices.length === 0)
+                                    fetchAllServices();
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
+                              >
                                 <Plus size={16} /> Browse Services
                               </button>
                             </div>
@@ -5107,14 +7959,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div className="space-y-3">
                               <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{selectedServices.length}</span>
+                                  <span className="text-sm font-bold text-gray-900">
+                                    Selected Treatments
+                                  </span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                                    {selectedServices.length}
+                                  </span>
                                 </div>
                               </div>
                               {selectedServices.map((svc, i) => {
-                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                const isRecentlyAdded =
+                                  recentlyAddedServices[svc._id] &&
+                                  Date.now() - recentlyAddedServices[svc._id] <
+                                    3000;
                                 return (
-                                  <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
+                                  <div
+                                    key={svc._id}
+                                    className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? "border-green-400 bg-green-50 shadow-md ring-2 ring-green-300" : "border-gray-200 bg-white hover:shadow-md"}`}
+                                  >
                                     {isRecentlyAdded && (
                                       <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
                                         <Check size={10} />
@@ -5124,14 +7986,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="flex items-start justify-between">
                                       <div className="flex items-start gap-3 flex-1">
                                         {/* Icon */}
-                                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
-                                          <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
+                                        <div
+                                          className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200" : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"}`}
+                                        >
+                                          <Package
+                                            className={`w-6 h-6 ${isRecentlyAdded ? "text-green-600" : "text-blue-600"}`}
+                                          />
                                         </div>
 
                                         {/* Info */}
                                         <div className="flex-1">
                                           <div className="flex items-center gap-2 mb-1">
-                                            <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                            <h4 className="text-sm font-bold text-gray-900">
+                                              {svc.name}
+                                            </h4>
                                             {isRecentlyAdded ? (
                                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
                                                 Smart Recommendation
@@ -5142,19 +8010,30 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               </span>
                                             )}
                                           </div>
-                                          <p className="text-xs text-gray-500 mb-2">Service #{i + 1} ID: {svc._id.slice(-6)}</p>
+                                          <p className="text-xs text-gray-500 mb-2">
+                                            Service #{i + 1} ID:{" "}
+                                            {svc._id.slice(-6)}
+                                          </p>
 
                                           {/* Price and Quantity Controls */}
                                           <div className="flex items-center gap-4">
                                             <div className="flex items-center gap-2">
-                                              <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Price:
+                                              </label>
                                               <div className="relative">
-                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">
+                                                  {getCurrencySymbol(currency)}
+                                                </span>
                                                 <input
                                                   type="number"
                                                   min="0"
                                                   step="0.01"
-                                                  value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                  value={(svc.clinicPrice !=
+                                                  null
+                                                    ? svc.clinicPrice
+                                                    : svc.price
+                                                  ).toFixed(2)}
                                                   readOnly
                                                   className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
                                                 />
@@ -5163,21 +8042,34 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                                             {/* Quantity Controls */}
                                             <div className="flex items-center gap-2">
-                                              <label className="text-xs text-gray-600 font-medium">Qty:</label>
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Qty:
+                                              </label>
                                               <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
                                                 <button
                                                   type="button"
                                                   onClick={() => {
-                                                    setSelectedServices((prev) =>
-                                                      prev.map((s) =>
-                                                        s._id === svc._id
-                                                          ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
-                                                          : s
-                                                      )
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  Math.max(
+                                                                    1,
+                                                                    (s.quantity ||
+                                                                      1) - 1,
+                                                                  ),
+                                                              }
+                                                            : s,
+                                                        ),
                                                     );
                                                   }}
                                                   className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                                                  disabled={(svc.quantity || 1) <= 1}
+                                                  disabled={
+                                                    (svc.quantity || 1) <= 1
+                                                  }
                                                 >
                                                   -
                                                 </button>
@@ -5186,11 +8078,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   min="1"
                                                   value={svc.quantity || 1}
                                                   onChange={(e) => {
-                                                    const newQty = Math.max(1, parseInt(e.target.value) || 1);
-                                                    setSelectedServices((prev) =>
-                                                      prev.map((s) =>
-                                                        s._id === svc._id ? { ...s, quantity: newQty } : s
-                                                      )
+                                                    const newQty = Math.max(
+                                                      1,
+                                                      parseInt(
+                                                        e.target.value,
+                                                      ) || 1,
+                                                    );
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  newQty,
+                                                              }
+                                                            : s,
+                                                        ),
                                                     );
                                                   }}
                                                   className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
@@ -5198,12 +8102,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                 <button
                                                   type="button"
                                                   onClick={() => {
-                                                    setSelectedServices((prev) =>
-                                                      prev.map((s) =>
-                                                        s._id === svc._id
-                                                          ? { ...s, quantity: (s.quantity || 1) + 1 }
-                                                          : s
-                                                      )
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  (s.quantity ||
+                                                                    1) + 1,
+                                                              }
+                                                            : s,
+                                                        ),
                                                     );
                                                   }}
                                                   className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
@@ -5220,12 +8130,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <div className="flex items-center gap-2">
                                         <div className="text-right">
                                           <p className="text-sm font-bold text-gray-900">
-                                            {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(
+                                              (svc.clinicPrice != null
+                                                ? svc.clinicPrice
+                                                : svc.price) *
+                                              (svc.quantity || 1)
+                                            ).toFixed(2)}
                                           </p>
                                         </div>
                                         <button
                                           type="button"
-                                          onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
+                                          onClick={() =>
+                                            setSelectedServices((prev) =>
+                                              prev.filter(
+                                                (s) => s._id !== svc._id,
+                                              ),
+                                            )
+                                          }
                                           className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
                                           title="Remove service"
                                         >
@@ -5239,13 +8161,25 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center"><ClipboardList className="w-5 h-5 text-white" /></div>
+                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center">
+                                      <ClipboardList className="w-5 h-5 text-white" />
+                                    </div>
                                     <div>
-                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
-                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? "treatment" : "treatments"}</p>
+                                      <p className="text-xs font-medium text-blue-100">
+                                        Total Bill
+                                      </p>
+                                      <p className="text-[10px] text-blue-200">
+                                        {selectedServices.length}{" "}
+                                        {selectedServices.length === 1
+                                          ? "treatment"
+                                          : "treatments"}
+                                      </p>
                                     </div>
                                   </div>
-                                  <p className="text-lg font-bold text-white">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</p>
+                                  <p className="text-lg font-bold text-white">
+                                    {getCurrencySymbol(currency)}{" "}
+                                    {totalBill.toFixed(2)}
+                                  </p>
                                 </div>
                               </div>
                             </div>
@@ -5256,46 +8190,121 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {/* Clinical Checklist (read-only) */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
                         <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                          <Eye className="w-4 h-4 text-blue-600" /> Clinical Checklist
+                          <Eye className="w-4 h-4 text-blue-600" /> Clinical
+                          Checklist
                         </h3>
                         <div className="grid grid-cols-2 gap-2">
                           {CHECKLIST_ITEMS.map((item) => (
-                            <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
-                              <span className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}>{item}</span>
-                              {checklist[item] && <Check size={12} className="ml-auto text-green-500" />}
+                            <label
+                              key={item}
+                              className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checklist[item]}
+                                onChange={() =>
+                                  setChecklist((prev) => ({
+                                    ...prev,
+                                    [item]: !prev[item],
+                                  }))
+                                }
+                                className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer"
+                              />
+                              <span
+                                className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}
+                              >
+                                {item}
+                              </span>
+                              {checklist[item] && (
+                                <Check
+                                  size={12}
+                                  className="ml-auto text-green-500"
+                                />
+                              )}
                             </label>
                           ))}
                         </div>
                         {checklistError && (
                           <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
                             <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5" />
-                            <p className="text-xs text-red-700">{checklistError}</p>
+                            <p className="text-xs text-red-700">
+                              {checklistError}
+                            </p>
                           </div>
                         )}
                       </div>
 
                       {/* Stock Used (All Sessions) */}
-                      {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+                      {previousComplaints.some(
+                        (c) => Array.isArray(c.items) && c.items.length > 0,
+                      ) && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-4 h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <Package className="w-4 h-4 text-gray-500" /> Stock
+                            Used (All Sessions)
+                          </h3>
                           <div className="rounded-lg border border-gray-100 overflow-hidden">
                             <table className="w-full text-xs">
-                              <thead className="bg-gray-50"><tr>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
-                                <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
-                              </tr></thead>
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    Date
+                                  </th>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    Item
+                                  </th>
+                                  <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
+                                    Qty
+                                  </th>
+                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    UOM
+                                  </th>
+                                </tr>
+                              </thead>
                               <tbody className="divide-y divide-gray-100 bg-white">
-                                {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `progress-${c._id}-${idx}` }))).map(({ date, item, key }) => (
-                                  <tr key={key} className="hover:bg-gray-50">
-                                    <td className="px-3 py-2 text-gray-500">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                                    <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
-                                    <td className="px-3 py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
-                                    <td className="px-3 py-2 text-gray-500">{item.uom || "-"}</td>
-                                  </tr>
-                                ))}
+                                {previousComplaints
+                                  .filter(
+                                    (c) =>
+                                      Array.isArray(c.items) &&
+                                      c.items.length > 0,
+                                  )
+                                  .sort(
+                                    (a, b) =>
+                                      new Date(b.createdAt).getTime() -
+                                      new Date(a.createdAt).getTime(),
+                                  )
+                                  .flatMap((c) =>
+                                    (
+                                      c.items as NonNullable<typeof c.items>
+                                    ).map((item, idx) => ({
+                                      date: c.createdAt,
+                                      item,
+                                      key: `progress-${c._id}-${idx}`,
+                                    })),
+                                  )
+                                  .map(({ date, item, key }) => (
+                                    <tr key={key} className="hover:bg-gray-50">
+                                      <td className="px-3 py-2 text-gray-500">
+                                        {new Date(date).toLocaleDateString(
+                                          "en-GB",
+                                          {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                          },
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-2 font-medium text-gray-800">
+                                        {item.name}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold text-gray-700">
+                                        {item.quantity}
+                                      </td>
+                                      <td className="px-3 py-2 text-gray-500">
+                                        {item.uom || "-"}
+                                      </td>
+                                    </tr>
+                                  ))}
                               </tbody>
                             </table>
                           </div>
@@ -5304,13 +8313,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                     </div>
                   )}
 
-                
                   {activeTab === "prescription" && (
                     <div className="space-y-5">
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-semibold text-gray-800">Prescribed Medicines </h3>
-                          <button type="button" onClick={() => setMedicines((prev) => [...prev, emptyMedicine()])}
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Prescribed Medicines{" "}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setMedicines((prev) => [...prev, emptyMedicine()])
+                            }
                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
                           >
                             <Plus size={13} /> Add Medicine
@@ -5318,176 +8332,392 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div>
                         <div className="space-y-2">
                           {medicines.map((med) => (
-                            <div key={med.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm">
+                            <div
+                              key={med.id}
+                              className="rounded-xl border border-gray-200 bg-white px-4 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center shadow-sm"
+                            >
                               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Medicine</label>
-                                <input type="text" value={med.medicineName} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, medicineName: e.target.value } : m))} placeholder="Medicine name" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400" />
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                                  Medicine
+                                </label>
+                                <input
+                                  type="text"
+                                  value={med.medicineName}
+                                  onChange={(e) =>
+                                    setMedicines((prev) =>
+                                      prev.map((m) =>
+                                        m.id === med.id
+                                          ? {
+                                              ...m,
+                                              medicineName: e.target.value,
+                                            }
+                                          : m,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="Medicine name"
+                                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-800 placeholder-gray-400"
+                                />
                               </div>
                               <div className="flex flex-col gap-0.5 w-full sm:w-28">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Dosage</label>
-                                <input type="text" value={med.dosage} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, dosage: e.target.value } : m))} placeholder="2x/day" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                                  Dosage
+                                </label>
+                                <input
+                                  type="text"
+                                  value={med.dosage}
+                                  onChange={(e) =>
+                                    setMedicines((prev) =>
+                                      prev.map((m) =>
+                                        m.id === med.id
+                                          ? { ...m, dosage: e.target.value }
+                                          : m,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="2x/day"
+                                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                />
                               </div>
                               <div className="flex flex-col gap-0.5 w-full sm:w-24">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Duration</label>
-                                <input type="text" value={med.duration} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, duration: e.target.value } : m))} placeholder="7 days" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                                  Duration
+                                </label>
+                                <input
+                                  type="text"
+                                  value={med.duration}
+                                  onChange={(e) =>
+                                    setMedicines((prev) =>
+                                      prev.map((m) =>
+                                        m.id === med.id
+                                          ? { ...m, duration: e.target.value }
+                                          : m,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="7 days"
+                                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                />
                               </div>
                               <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                                <label className="text-[10px] font-semibold text-gray-400 uppercase">Notes</label>
-                                <input type="text" value={med.notes} onChange={(e) => setMedicines((prev) => prev.map((m) => m.id === med.id ? { ...m, notes: e.target.value } : m))} placeholder="After meals" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                                <label className="text-[10px] font-semibold text-gray-400 uppercase">
+                                  Notes
+                                </label>
+                                <input
+                                  type="text"
+                                  value={med.notes}
+                                  onChange={(e) =>
+                                    setMedicines((prev) =>
+                                      prev.map((m) =>
+                                        m.id === med.id
+                                          ? { ...m, notes: e.target.value }
+                                          : m,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="After meals"
+                                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                />
                               </div>
-                              <button type="button" onClick={() => { if (medicines.length === 1) { setMedicines([emptyMedicine()]); } else { setMedicines((prev) => prev.filter((m) => m.id !== med.id)); } }} className="mt-4 sm:mt-0 text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 size={15} /></button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (medicines.length === 1) {
+                                    setMedicines([emptyMedicine()]);
+                                  } else {
+                                    setMedicines((prev) =>
+                                      prev.filter((m) => m.id !== med.id),
+                                    );
+                                  }
+                                }}
+                                className="mt-4 sm:mt-0 text-gray-300 hover:text-red-500 flex-shrink-0"
+                              >
+                                <Trash2 size={15} />
+                              </button>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-800 mb-2">Aftercare Instructions</h3>
-                        <textarea value={aftercareInstructions} onChange={(e) => setAftercareInstructions(e.target.value)} rows={4} placeholder="Enter aftercare instructions..." className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                        <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                          Aftercare Instructions
+                        </h3>
+                        <textarea
+                          value={aftercareInstructions}
+                          onChange={(e) =>
+                            setAftercareInstructions(e.target.value)
+                          }
+                          rows={4}
+                          placeholder="Enter aftercare instructions..."
+                          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                        />
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <button type="button" role="switch" aria-checked={includeInPdf} onClick={() => setIncludeInPdf((v) => !v)}
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={includeInPdf}
+                          onClick={() => setIncludeInPdf((v) => !v)}
                           className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${includeInPdf ? "bg-blue-500" : "bg-gray-300"}`}
                         >
-                          <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${includeInPdf ? "translate-x-5" : "translate-x-0"}`} />
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${includeInPdf ? "translate-x-5" : "translate-x-0"}`}
+                          />
                         </button>
-                        <span className="text-sm text-gray-700 font-medium">Include in patient PDF</span>
+                        <span className="text-sm text-gray-700 font-medium">
+                          Include in patient PDF
+                        </span>
                       </div>
 
-                      {prescriptionError && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{prescriptionError}</div>}
-                      {prescriptionSaved && <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2"><Check size={14} /> Prescription saved.</div>}
+                      {prescriptionError && (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          {prescriptionError}
+                        </div>
+                      )}
+                      {prescriptionSaved && (
+                        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+                          <Check size={14} /> Prescription saved.
+                        </div>
+                      )}
 
                       <div className="flex items-center gap-3 flex-wrap">
-                        <button type="button" disabled={savingPrescription}
+                        <button
+                          type="button"
+                          disabled={savingPrescription}
                           onClick={async () => {
-                            const validMeds = medicines.filter((m) => m.medicineName.trim());
+                            const validMeds = medicines.filter((m) =>
+                              m.medicineName.trim(),
+                            );
                             if (!details) return;
-                            setSavingPrescription(true); setPrescriptionError(""); setPrescriptionSaved(false);
+                            setSavingPrescription(true);
+                            setPrescriptionError("");
+                            setPrescriptionSaved(false);
                             try {
                               const headers = getAuthHeaders();
-                              await axios.post("/api/clinic/prescriptions", { appointmentId: details.appointmentId, patientId: details.patientId, medicines: validMeds, aftercareInstructions, includeInPdf }, { headers });
+                              await axios.post(
+                                "/api/clinic/prescriptions",
+                                {
+                                  appointmentId: details.appointmentId,
+                                  patientId: details.patientId,
+                                  medicines: validMeds,
+                                  aftercareInstructions,
+                                  includeInPdf,
+                                },
+                                { headers },
+                              );
                               setPrescriptionSaved(true);
-                              const histRes = await axios.get("/api/clinic/prescriptions", { headers, params: { patientId: details.patientId } });
-                              if (histRes.data?.success) setPrescriptionHistory(histRes.data.prescriptions || []);
-                            } catch (err: any) { setPrescriptionError(err.response?.data?.message || "Failed to save prescription"); }
-                            finally { setSavingPrescription(false); }
+                              const histRes = await axios.get(
+                                "/api/clinic/prescriptions",
+                                {
+                                  headers,
+                                  params: { patientId: details.patientId },
+                                },
+                              );
+                              if (histRes.data?.success)
+                                setPrescriptionHistory(
+                                  histRes.data.prescriptions || [],
+                                );
+                            } catch (err: any) {
+                              setPrescriptionError(
+                                err.response?.data?.message ||
+                                  "Failed to save prescription",
+                              );
+                            } finally {
+                              setSavingPrescription(false);
+                            }
                           }}
                           className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 shadow-sm"
                         >
-                          {savingPrescription ? <><RefreshCw size={13} className="animate-spin" /> Saving...</> : <><Check size={13} /> Save Prescription</>}
+                          {savingPrescription ? (
+                            <>
+                              <RefreshCw size={13} className="animate-spin" />{" "}
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Check size={13} /> Save Prescription
+                            </>
+                          )}
                         </button>
-                        <button type="button" onClick={() => {
-                          const validMeds = medicines.filter((m) => m.medicineName.trim());
-                          if (!details) return;
-                         
-                          const doc = new jsPDF();
-                          const pageWidth = doc.internal.pageSize.getWidth();
-                         
-                          // Header - Clinic Name
-                          doc.setFontSize(18);
-                          doc.setFont("helvetica", "bold");
-                          doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
-                         
-                          // Patient Information
-                          doc.setFontSize(12);
-                          doc.setFont("helvetica", "normal");
-                          doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
-                          doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
-                          const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
-                          const appointmentTime = details.fromTime || "N/A";
-                          doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
-                         
-                          // Divider line
-                          doc.setLineWidth(0.5);
-                          doc.line(20, 58, pageWidth - 20, 58);
-                         
-                          // Prescribed Medicines Section
-                          doc.setFontSize(14);
-                          doc.setFont("helvetica", "bold");
-                          doc.text("Prescribed Medicines", 20, 68);
-                         
-                          // Medicines table header
-                          doc.setFontSize(10);
-                          doc.setFont("helvetica", "bold");
-                          doc.setFillColor(240, 240, 240);
-                          doc.rect(20, 73, pageWidth - 40, 8, "F");
-                          doc.text("#", 22, 78);
-                          doc.text("Medicine", 30, 78);
-                          doc.text("Dosage", 90, 78);
-                          doc.text("Duration", 120, 78);
-                          doc.text("Notes", 150, 78);
-                         
-                          // Medicines table rows
-                          doc.setFont("helvetica", "normal");
-                          let yPos = 83;
-                          validMeds.forEach((med, index) => {
-                            doc.text(String(index + 1), 22, yPos);
-                            doc.text(med.medicineName || "-", 30, yPos);
-                            doc.text(med.dosage || "-", 90, yPos);
-                            doc.text(med.duration || "-", 120, yPos);
-                            doc.text(med.notes || "-", 150, yPos);
-                            yPos += 8;
-                          });
-                         
-                          // Aftercare Instructions Section
-                          if (aftercareInstructions.trim()) {
-                            yPos += 10;
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const validMeds = medicines.filter((m) =>
+                              m.medicineName.trim(),
+                            );
+                            if (!details) return;
+
+                            const doc = new jsPDF();
+                            const pageWidth = doc.internal.pageSize.getWidth();
+
+                            // Header - Clinic Name
+                            doc.setFontSize(18);
+                            doc.setFont("helvetica", "bold");
+                            doc.text("PRESCRIPTION", pageWidth / 2, 20, {
+                              align: "center",
+                            });
+
+                            // Patient Information
+                            doc.setFontSize(12);
+                            doc.setFont("helvetica", "normal");
+                            doc.text(
+                              `Patient Name: ${details.patientName || "N/A"}`,
+                              20,
+                              35,
+                            );
+                            doc.text(
+                              `Doctor: Dr. ${details.doctorName || "N/A"}`,
+                              20,
+                              43,
+                            );
+                            const appointmentDate = details.startDate
+                              ? new Date(details.startDate).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  },
+                                )
+                              : "N/A";
+                            const appointmentTime = details.fromTime || "N/A";
+                            doc.text(
+                              `Date: ${appointmentDate} at ${appointmentTime}`,
+                              20,
+                              51,
+                            );
+
+                            // Divider line
+                            doc.setLineWidth(0.5);
+                            doc.line(20, 58, pageWidth - 20, 58);
+
+                            // Prescribed Medicines Section
                             doc.setFontSize(14);
                             doc.setFont("helvetica", "bold");
-                            doc.text("Aftercare Instructions", 20, yPos);
-                            yPos += 8;
-                           
+                            doc.text("Prescribed Medicines", 20, 68);
+
+                            // Medicines table header
                             doc.setFontSize(10);
+                            doc.setFont("helvetica", "bold");
+                            doc.setFillColor(240, 240, 240);
+                            doc.rect(20, 73, pageWidth - 40, 8, "F");
+                            doc.text("#", 22, 78);
+                            doc.text("Medicine", 30, 78);
+                            doc.text("Dosage", 90, 78);
+                            doc.text("Duration", 120, 78);
+                            doc.text("Notes", 150, 78);
+
+                            // Medicines table rows
                             doc.setFont("helvetica", "normal");
-                            const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
-                            doc.text(aftercareLines, 20, yPos);
-                          }
-                         
-                          // Footer
-                          doc.setFontSize(8);
-                          doc.setTextColor(128, 128, 128);
-                          doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
-                         
-                          // Save the PDF
-                          doc.save(`Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${new Date().toISOString().split("T")[0]}.pdf`);
-                        }} className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"><FileText size={13} /> Generate PDF</button>
-                        <button 
-                          type="button" 
-                          disabled={sendMsgLoading} 
+                            let yPos = 83;
+                            validMeds.forEach((med, index) => {
+                              doc.text(String(index + 1), 22, yPos);
+                              doc.text(med.medicineName || "-", 30, yPos);
+                              doc.text(med.dosage || "-", 90, yPos);
+                              doc.text(med.duration || "-", 120, yPos);
+                              doc.text(med.notes || "-", 150, yPos);
+                              yPos += 8;
+                            });
+
+                            // Aftercare Instructions Section
+                            if (aftercareInstructions.trim()) {
+                              yPos += 10;
+                              doc.setFontSize(14);
+                              doc.setFont("helvetica", "bold");
+                              doc.text("Aftercare Instructions", 20, yPos);
+                              yPos += 8;
+
+                              doc.setFontSize(10);
+                              doc.setFont("helvetica", "normal");
+                              const aftercareLines = doc.splitTextToSize(
+                                aftercareInstructions,
+                                pageWidth - 40,
+                              );
+                              doc.text(aftercareLines, 20, yPos);
+                            }
+
+                            // Footer
+                            doc.setFontSize(8);
+                            doc.setTextColor(128, 128, 128);
+                            doc.text(
+                              `Generated on: ${new Date().toLocaleString()}`,
+                              pageWidth / 2,
+                              285,
+                              { align: "center" },
+                            );
+
+                            // Save the PDF
+                            doc.save(
+                              `Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${new Date().toISOString().split("T")[0]}.pdf`,
+                            );
+                          }}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gray-800 text-white text-sm font-semibold hover:bg-gray-900 disabled:opacity-40 shadow-sm"
+                        >
+                          <FileText size={13} /> Generate PDF
+                        </button>
+                        <button
+                          type="button"
+                          disabled={sendMsgLoading}
                           onClick={async () => {
-                            const validMeds = medicines.filter((m) => m.medicineName.trim());
+                            const validMeds = medicines.filter((m) =>
+                              m.medicineName.trim(),
+                            );
                             if (!details) return;
-                           
+
                             // Show loader immediately on click
                             setSendMsgLoading(true);
-                           
+
                             try {
                               const headers = getAuthHeaders();
-                             
+
                               // Generate PDF
                               const doc = new jsPDF();
-                              const pageWidth = doc.internal.pageSize.getWidth();
-                             
+                              const pageWidth =
+                                doc.internal.pageSize.getWidth();
+
                               doc.setFontSize(18);
                               doc.setFont("helvetica", "bold");
-                              doc.text("PRESCRIPTION", pageWidth / 2, 20, { align: "center" });
-                             
+                              doc.text("PRESCRIPTION", pageWidth / 2, 20, {
+                                align: "center",
+                              });
+
                               doc.setFontSize(12);
                               doc.setFont("helvetica", "normal");
-                              doc.text(`Patient Name: ${details.patientName || "N/A"}`, 20, 35);
-                              doc.text(`Doctor: Dr. ${details.doctorName || "N/A"}`, 20, 43);
-                              const appointmentDate = details.startDate ? new Date(details.startDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+                              doc.text(
+                                `Patient Name: ${details.patientName || "N/A"}`,
+                                20,
+                                35,
+                              );
+                              doc.text(
+                                `Doctor: Dr. ${details.doctorName || "N/A"}`,
+                                20,
+                                43,
+                              );
+                              const appointmentDate = details.startDate
+                                ? new Date(
+                                    details.startDate,
+                                  ).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  })
+                                : "N/A";
                               const appointmentTime = details.fromTime || "N/A";
-                              doc.text(`Date: ${appointmentDate} at ${appointmentTime}`, 20, 51);
-                             
+                              doc.text(
+                                `Date: ${appointmentDate} at ${appointmentTime}`,
+                                20,
+                                51,
+                              );
+
                               doc.setLineWidth(0.5);
                               doc.line(20, 58, pageWidth - 20, 58);
-                             
+
                               doc.setFontSize(14);
                               doc.setFont("helvetica", "bold");
                               doc.text("Prescribed Medicines", 20, 68);
-                             
+
                               doc.setFontSize(10);
                               doc.setFont("helvetica", "bold");
                               doc.setFillColor(240, 240, 240);
@@ -5497,7 +8727,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               doc.text("Dosage", 90, 78);
                               doc.text("Duration", 120, 78);
                               doc.text("Notes", 150, 78);
-                             
+
                               doc.setFont("helvetica", "normal");
                               let yPos = 83;
                               validMeds.forEach((med, index) => {
@@ -5508,133 +8738,177 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 doc.text(med.notes || "-", 150, yPos);
                                 yPos += 8;
                               });
-                             
+
                               if (aftercareInstructions.trim()) {
                                 yPos += 10;
                                 doc.setFontSize(14);
                                 doc.setFont("helvetica", "bold");
                                 doc.text("Aftercare Instructions", 20, yPos);
                                 yPos += 8;
-                               
+
                                 doc.setFontSize(10);
                                 doc.setFont("helvetica", "normal");
-                                const aftercareLines = doc.splitTextToSize(aftercareInstructions, pageWidth - 40);
+                                const aftercareLines = doc.splitTextToSize(
+                                  aftercareInstructions,
+                                  pageWidth - 40,
+                                );
                                 doc.text(aftercareLines, 20, yPos);
                               }
-                             
+
                               doc.setFontSize(8);
                               doc.setTextColor(128, 128, 128);
-                              doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, 285, { align: "center" });
-                             
+                              doc.text(
+                                `Generated on: ${new Date().toLocaleString()}`,
+                                pageWidth / 2,
+                                285,
+                                { align: "center" },
+                              );
+
                               // Convert PDF to base64
                               const pdfBase64 = doc.output("datauristring");
-                             
+
                               // Upload PDF to server using FormData
                               const pdfFileName = `Prescription_${details.patientName?.replace(/\s+/g, "_") || "Patient"}_${Date.now()}.pdf`;
                               const formData = new FormData();
-                             
+
                               // Convert base64 to blob
                               const base64Response = await fetch(pdfBase64);
                               const pdfBlob = await base64Response.blob();
                               formData.append("file", pdfBlob, pdfFileName);
-                             
-                              const uploadRes = await axios.post("/api/upload", formData, {
-                                headers: {
-                                  ...headers,
-                                  "Content-Type": "multipart/form-data",
+
+                              const uploadRes = await axios.post(
+                                "/api/upload",
+                                formData,
+                                {
+                                  headers: {
+                                    ...headers,
+                                    "Content-Type": "multipart/form-data",
+                                  },
                                 },
-                              });
-                             
+                              );
+
                               let pdfUrl = "";
                               if (uploadRes.data?.url) {
                                 pdfUrl = uploadRes.data.url;
-                              } else if (uploadRes.data?.success && uploadRes.data?.fileUrl) {
+                              } else if (
+                                uploadRes.data?.success &&
+                                uploadRes.data?.fileUrl
+                              ) {
                                 pdfUrl = uploadRes.data.fileUrl;
                               }
-                             
+
                               // Save prescription with PDF URL
-                              const saveRes = await axios.post("/api/clinic/prescriptions", {
-                                appointmentId: details.appointmentId,
-                                patientId: details.patientId,
-                                medicines: validMeds,
-                                aftercareInstructions,
-                                includeInPdf: true,
-                                pdfUrl,
-                              }, { headers });
-                             
+                              const saveRes = await axios.post(
+                                "/api/clinic/prescriptions",
+                                {
+                                  appointmentId: details.appointmentId,
+                                  patientId: details.patientId,
+                                  medicines: validMeds,
+                                  aftercareInstructions,
+                                  includeInPdf: true,
+                                  pdfUrl,
+                                },
+                                { headers },
+                              );
+
                               if (pdfUrl) {
                                 // Generate public prescription link
                                 const baseUrl = window.location.origin;
-                                const prescriptionId = saveRes.data?.prescription?._id;
-                                const prescriptionLink = prescriptionId ? `${baseUrl}/prescription/${prescriptionId}` : pdfUrl;
-                               
+                                const prescriptionId =
+                                  saveRes.data?.prescription?._id;
+                                const prescriptionLink = prescriptionId
+                                  ? `${baseUrl}/prescription/${prescriptionId}`
+                                  : pdfUrl;
+
                                 // Log the prescription link to console
-                                console.log("=== PRESCRIPTION LINK GENERATED ===");
-                                console.log("Prescription Link:", prescriptionLink);
+                                console.log(
+                                  "=== PRESCRIPTION LINK GENERATED ===",
+                                );
+                                console.log(
+                                  "Prescription Link:",
+                                  prescriptionLink,
+                                );
                                 console.log("Prescription ID:", prescriptionId);
                                 console.log("Base URL:", baseUrl);
                                 console.log("PDF URL:", pdfUrl);
-                                console.log("===================================");
-                               
+                                console.log(
+                                  "===================================",
+                                );
+
                                 // Send WhatsApp message using the dedicated function
-                                await handleSendPrescriptionWhatsapp(prescriptionLink);
+                                await handleSendPrescriptionWhatsapp(
+                                  prescriptionLink,
+                                );
                               } else {
                                 toast.error(
                                   <div className="flex flex-col gap-1">
-                                    <span className="font-semibold">  Upload Failed</span>
-                                    <span className="text-xs opacity-80">Prescription saved but failed to send WhatsApp message.</span>
+                                    <span className="font-semibold">
+                                      {" "}
+                                      Upload Failed
+                                    </span>
+                                    <span className="text-xs opacity-80">
+                                      Prescription saved but failed to send
+                                      WhatsApp message.
+                                    </span>
                                   </div>,
                                   {
                                     duration: 4000,
-                                    position: 'top-center',
+                                    position: "top-center",
                                     style: {
-                                      background: '#ef4444',
-                                      color: '#fff',
-                                      padding: '16px',
-                                      borderRadius: '8px',
-                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                      background: "#ef4444",
+                                      color: "#fff",
+                                      padding: "16px",
+                                      borderRadius: "8px",
+                                      boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                                       zIndex: 9999,
-                                      maxWidth: '500px',
+                                      maxWidth: "500px",
                                     },
                                     iconTheme: {
-                                      primary: '#fff',
-                                      secondary: '#ef4444',
+                                      primary: "#fff",
+                                      secondary: "#ef4444",
                                     },
-                                  }
+                                  },
                                 );
                               }
                             } catch (err: any) {
                               console.error("Error sending prescription:", err);
                               toast.error(
                                 <div className="flex flex-col gap-1">
-                                  <span className="font-semibold"> Send Failed</span>
-                                  <span className="text-xs opacity-80">{err.response?.data?.message || "Failed to send prescription via WhatsApp"}</span>
+                                  <span className="font-semibold">
+                                    {" "}
+                                    Send Failed
+                                  </span>
+                                  <span className="text-xs opacity-80">
+                                    {err.response?.data?.message ||
+                                      "Failed to send prescription via WhatsApp"}
+                                  </span>
                                 </div>,
                                 {
                                   duration: 4000,
-                                  position: 'top-center',
+                                  position: "top-center",
                                   style: {
-                                    background: '#ef4444',
-                                    color: '#fff',
-                                    padding: '16px',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                    background: "#ef4444",
+                                    color: "#fff",
+                                    padding: "16px",
+                                    borderRadius: "8px",
+                                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
                                     zIndex: 9999,
-                                    maxWidth: '500px',
+                                    maxWidth: "500px",
                                   },
                                   iconTheme: {
-                                    primary: '#fff',
-                                    secondary: '#ef4444',
+                                    primary: "#fff",
+                                    secondary: "#ef4444",
                                   },
-                                }
+                                },
                               );
                             }
-                          }} 
+                          }}
                           className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-40"
                         >
                           {sendMsgLoading ? (
                             <>
-                              <RefreshCw size={13} className="animate-spin" /> Sending...
+                              <RefreshCw size={13} className="animate-spin" />{" "}
+                              Sending...
                             </>
                           ) : (
                             <>
@@ -5645,15 +8919,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       </div>
 
                       {/* Treatment & Billing - Enhanced Modern UI */}
-                      <div id="treatment-billing-section" className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
+                      <div
+                        id="treatment-billing-section"
+                        className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden"
+                      >
                         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
                           <div className="flex items-center gap-2.5">
                             <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
                               <Package className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
-                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                              <h3 className="text-base font-bold text-gray-900">
+                                Treatment & Billing
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                Add and manage treatment services
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -5665,7 +8946,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
-                                if (allServices.length === 0) fetchAllServices();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -5677,7 +8959,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(true);
                                 setShowAddServiceDropdown(false);
                                 setShowCreatePackage(false);
-                                if (departments.length === 0) fetchDepartments();
+                                if (departments.length === 0)
+                                  fetchDepartments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -5691,8 +8974,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
-                                if (allServices.length === 0) fetchAllServices();
-                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
+                                if (pkgTreatments.length === 0)
+                                  fetchPkgTreatments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
                             >
@@ -5709,11 +8994,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
                                   <Search className="w-4 h-4 text-blue-600" />
                                 </div>
-                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                                <span className="text-sm font-bold text-blue-800">
+                                  Search & Add Services
+                                </span>
                               </div>
-                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button
+                                type="button"
+                                onClick={() => setShowAddServiceDropdown(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <XIcon size={16} />
+                              </button>
                             </div>
-                           
+
                             {/* Search Input */}
                             <div className="relative mb-3">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -5723,59 +9016,112 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 type="text"
                                 placeholder="Search by service name..."
                                 value={serviceSearchQuery}
-                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                onChange={(e) =>
+                                  setServiceSearchQuery(e.target.value)
+                                }
                                 className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
                               />
                             </div>
-                           
+
                             {/* Services List */}
                             <div className="max-h-64 overflow-y-auto space-y-2 mb-3 rounded-lg border border-gray-200 bg-white p-2">
                               {loadingServices ? (
                                 <div className="flex items-center justify-center py-8">
                                   <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                  <span className="ml-2 text-sm text-gray-500">
+                                    Loading services...
+                                  </span>
                                 </div>
-                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                              ) : allServices.filter((s) =>
+                                  s.name
+                                    .toLowerCase()
+                                    .includes(serviceSearchQuery.toLowerCase()),
+                                ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
-                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
-                                  <p className="text-xs text-gray-400 mt-1">Try a different search term</p>
+                                  <p className="text-sm text-gray-500 font-medium">
+                                    No services found
+                                  </p>
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    Try a different search term
+                                  </p>
                                 </div>
                               ) : (
-                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
-                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
-                                  return (
-                                    <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
-                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                        isSelected
-                                          ? "bg-blue-50 border-blue-300 shadow-sm"
-                                          : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                                        }`}>
-                                          {isSelected && <Check size={12} className="text-white" />}
-                                        </div>
-                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>
-                                          {svc.name}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>
-                                          {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                        </span>
-                                        {isSelected && (
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                                            Added
+                                allServices
+                                  .filter((s) =>
+                                    s.name
+                                      .toLowerCase()
+                                      .includes(
+                                        serviceSearchQuery.toLowerCase(),
+                                      ),
+                                  )
+                                  .map((svc) => {
+                                    const isSelected = selectedServices.some(
+                                      (s) => s._id === svc._id,
+                                    );
+                                    return (
+                                      <button
+                                        key={svc._id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedServices((prev) =>
+                                            isSelected
+                                              ? prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                )
+                                              : [
+                                                  ...prev,
+                                                  { ...svc, quantity: 1 },
+                                                ],
+                                          );
+                                          setServicesSaved(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                          isSelected
+                                            ? "bg-blue-50 border-blue-300 shadow-sm"
+                                            : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                              isSelected
+                                                ? "bg-blue-600 border-blue-600"
+                                                : "border-gray-300 bg-white"
+                                            }`}
+                                          >
+                                            {isSelected && (
+                                              <Check
+                                                size={12}
+                                                className="text-white"
+                                              />
+                                            )}
+                                          </div>
+                                          <span
+                                            className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}
+                                          >
+                                            {svc.name}
                                           </span>
-                                        )}
-                                      </div>
-                                    </button>
-                                  );
-                                })
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                          <span
+                                            className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}
+                                          >
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(svc.clinicPrice != null
+                                              ? svc.clinicPrice
+                                              : svc.price
+                                            ).toFixed(2)}
+                                          </span>
+                                          {isSelected && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                              Added
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })
                               )}
                             </div>
                           </div>
@@ -5789,31 +9135,47 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                                   <Wrench className="w-4 h-4 text-emerald-600" />
                                 </div>
-                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                                <span className="text-sm font-bold text-emerald-800">
+                                  Add Custom Service
+                                </span>
                               </div>
-                              <button type="button" onClick={() => {
-                                setShowAddCustomService(false);
-                                setCustomServiceName("");
-                                setCustomServicePrice("");
-                                setCustomServiceClinicPrice("");
-                                setCustomServiceDuration("");
-                                setCustomServiceDepartment("");
-                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddCustomService(false);
+                                  setCustomServiceName("");
+                                  setCustomServicePrice("");
+                                  setCustomServiceClinicPrice("");
+                                  setCustomServiceDuration("");
+                                  setCustomServiceDepartment("");
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
                                 <XIcon size={16} />
                               </button>
                             </div>
 
-                            <form onSubmit={addCustomService} className="space-y-3">
+                            <form
+                              onSubmit={addCustomService}
+                              className="space-y-3"
+                            >
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Department{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <select
                                   value={customServiceDepartment}
-                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceDepartment(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   disabled={departmentsLoading}
                                   required
                                 >
-                                  <option value="" disabled>Select department</option>
+                                  <option value="" disabled>
+                                    Select department
+                                  </option>
                                   {departments.map((dept) => (
                                     <option key={dept._id} value={dept._id}>
                                       {dept.name}
@@ -5823,11 +9185,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Service Name{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                   type="text"
                                   value={customServiceName}
-                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceName(e.target.value)
+                                  }
                                   placeholder="Enter service name"
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   required
@@ -5836,15 +9203,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Price{" "}
+                                    <span className="text-red-500">*</span>
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServicePrice}
-                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServicePrice(e.target.value)
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                       required
@@ -5853,15 +9227,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Clinic Price (Optional)
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServiceClinicPrice}
-                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServiceClinicPrice(
+                                          e.target.value,
+                                        )
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                     />
@@ -5869,12 +9251,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Duration (Minutes)
+                                  </label>
                                   <input
                                     type="number"
                                     min="0"
                                     value={customServiceDuration}
-                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    onChange={(e) =>
+                                      setCustomServiceDuration(e.target.value)
+                                    }
                                     placeholder="30"
                                     className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   />
@@ -5909,13 +9295,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                                 <Package className="w-10 h-10 text-gray-400" />
                               </div>
-                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
-                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
+                              <p className="text-sm font-medium text-gray-600 mb-1">
+                                No services added yet
+                              </p>
+                              <p className="text-xs text-gray-400 mb-4">
+                                Click "Add Service" to begin building your
+                                treatment plan
+                              </p>
                               <button
                                 type="button"
                                 onClick={() => {
                                   setShowAddServiceDropdown(true);
-                                  if (allServices.length === 0) fetchAllServices();
+                                  if (allServices.length === 0)
+                                    fetchAllServices();
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
                               >
@@ -5927,138 +9319,205 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               {/* Services Header */}
                               <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
+                                  <span className="text-sm font-bold text-gray-900">
+                                    Selected Treatments
+                                  </span>
                                   <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
                                     {selectedServices.length}
                                   </span>
                                 </div>
-                               
                               </div>
 
                               {/* Service Cards */}
                               {selectedServices.map((svc, i) => {
-                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                const isRecentlyAdded =
+                                  recentlyAddedServices[svc._id] &&
+                                  Date.now() - recentlyAddedServices[svc._id] <
+                                    3000;
                                 return (
-                                <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
-                                  {isRecentlyAdded && (
-                                    <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
-                                      <Check size={10} />
-                                      <span>Just Added</span>
-                                    </div>
-                                  )}
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex items-start gap-3 flex-1">
-                                      {/* Icon */}
-                                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
-                                        <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
+                                  <div
+                                    key={svc._id}
+                                    className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? "border-green-400 bg-green-50 shadow-md ring-2 ring-green-300" : "border-gray-200 bg-white hover:shadow-md"}`}
+                                  >
+                                    {isRecentlyAdded && (
+                                      <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
+                                        <Check size={10} />
+                                        <span>Just Added</span>
                                       </div>
-                                                                   
-                                      {/* Info */}
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
-                                          {isRecentlyAdded ? (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
-                                              Smart Recommendation
-                                            </span>
-                                          ) : (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                                              Standard
-                                            </span>
-                                          )}
+                                    )}
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        {/* Icon */}
+                                        <div
+                                          className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200" : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"}`}
+                                        >
+                                          <Package
+                                            className={`w-6 h-6 ${isRecentlyAdded ? "text-green-600" : "text-blue-600"}`}
+                                          />
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
-                                                                                                       
-                                        {/* Price Input */}
-                                        <div className="flex items-center gap-4">
-                                          <div className="flex items-center gap-2">
-                                            <label className="text-xs text-gray-600 font-medium">Price:</label>
-                                            <div className="relative">
-                                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                              <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
-                                                readOnly
-                                                className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
-                                              />
-                                            </div>
-                                          </div>
 
-                                          {/* Quantity Controls */}
-                                          <div className="flex items-center gap-2">
-                                            <label className="text-xs text-gray-600 font-medium">Qty:</label>
-                                            <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setSelectedServices((prev) =>
-                                                    prev.map((s) =>
-                                                      s._id === svc._id
-                                                        ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
-                                                        : s
-                                                    )
-                                                  );
-                                                }}
-                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                                                disabled={(svc.quantity || 1) <= 1}
-                                              >
-                                                -
-                                              </button>
-                                              <input
-                                                type="number"
-                                                min="1"
-                                                value={svc.quantity || 1}
-                                                onChange={(e) => {
-                                                  const newQty = Math.max(1, parseInt(e.target.value) || 1);
-                                                  setSelectedServices((prev) =>
-                                                    prev.map((s) =>
-                                                      s._id === svc._id ? { ...s, quantity: newQty } : s
-                                                    )
-                                                  );
-                                                }}
-                                                className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
-                                              />
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  setSelectedServices((prev) =>
-                                                    prev.map((s) =>
-                                                      s._id === svc._id
-                                                        ? { ...s, quantity: (s.quantity || 1) + 1 }
-                                                        : s
-                                                    )
-                                                  );
-                                                }}
-                                                className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                                              >
-                                                +
-                                              </button>
+                                        {/* Info */}
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <h4 className="text-sm font-bold text-gray-900">
+                                              {svc.name}
+                                            </h4>
+                                            {isRecentlyAdded ? (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
+                                                Smart Recommendation
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                                Standard
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-gray-500 mb-2">
+                                            Service #{i + 1} ID:{" "}
+                                            {svc._id.slice(-6)}
+                                          </p>
+
+                                          {/* Price Input */}
+                                          <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Price:
+                                              </label>
+                                              <div className="relative">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">
+                                                  {getCurrencySymbol(currency)}
+                                                </span>
+                                                <input
+                                                  type="number"
+                                                  min="0"
+                                                  step="0.01"
+                                                  value={(svc.clinicPrice !=
+                                                  null
+                                                    ? svc.clinicPrice
+                                                    : svc.price
+                                                  ).toFixed(2)}
+                                                  readOnly
+                                                  className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
+                                                />
+                                              </div>
+                                            </div>
+
+                                            {/* Quantity Controls */}
+                                            <div className="flex items-center gap-2">
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Qty:
+                                              </label>
+                                              <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  Math.max(
+                                                                    1,
+                                                                    (s.quantity ||
+                                                                      1) - 1,
+                                                                  ),
+                                                              }
+                                                            : s,
+                                                        ),
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                  disabled={
+                                                    (svc.quantity || 1) <= 1
+                                                  }
+                                                >
+                                                  -
+                                                </button>
+                                                <input
+                                                  type="number"
+                                                  min="1"
+                                                  value={svc.quantity || 1}
+                                                  onChange={(e) => {
+                                                    const newQty = Math.max(
+                                                      1,
+                                                      parseInt(
+                                                        e.target.value,
+                                                      ) || 1,
+                                                    );
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  newQty,
+                                                              }
+                                                            : s,
+                                                        ),
+                                                    );
+                                                  }}
+                                                  className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  (s.quantity ||
+                                                                    1) + 1,
+                                                              }
+                                                            : s,
+                                                        ),
+                                                    );
+                                                  }}
+                                                  className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+                                                >
+                                                  +
+                                                </button>
+                                              </div>
                                             </div>
                                           </div>
                                         </div>
                                       </div>
-                                    </div>
-                                                                 
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-2">
-                                      <div className="text-right">
-                                        <p className="text-sm font-bold text-gray-900">
-                                          {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
-                                        </p>
+
+                                      {/* Actions */}
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-right">
+                                          <p className="text-sm font-bold text-gray-900">
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(
+                                              (svc.clinicPrice != null
+                                                ? svc.clinicPrice
+                                                : svc.price) *
+                                              (svc.quantity || 1)
+                                            ).toFixed(2)}
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setSelectedServices((prev) =>
+                                              prev.filter(
+                                                (s) => s._id !== svc._id,
+                                              ),
+                                            )
+                                          }
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
+                                          title="Remove service"
+                                        >
+                                          <Trash2 size={16} />
+                                        </button>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
-                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
-                                        title="Remove service"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
                                     </div>
                                   </div>
-                                </div>
                                 );
                               })}
 
@@ -6070,12 +9529,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <ClipboardList className="w-5 h-5 text-white" />
                                     </div>
                                     <div>
-                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
-                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? 'treatment' : 'treatments'}</p>
+                                      <p className="text-xs font-medium text-blue-100">
+                                        Total Bill
+                                      </p>
+                                      <p className="text-[10px] text-blue-200">
+                                        {selectedServices.length}{" "}
+                                        {selectedServices.length === 1
+                                          ? "treatment"
+                                          : "treatments"}
+                                      </p>
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <p className="text-lg font-bold text-white">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</p>
+                                    <p className="text-lg font-bold text-white">
+                                      {getCurrencySymbol(currency)}{" "}
+                                      {totalBill.toFixed(2)}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
@@ -6089,170 +9558,453 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                           <Pill size={14} className="text-blue-500" />
                           Prescription History
-                          {prescriptionHistory.length > 0 && <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{prescriptionHistory.length}</span>}
+                          {prescriptionHistory.length > 0 && (
+                            <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                              {prescriptionHistory.length}
+                            </span>
+                          )}
                         </h3>
                         {loadingPrescriptionHistory ? (
-                          <div className="py-6 text-center text-gray-400 text-sm">Loading...</div>
+                          <div className="py-6 text-center text-gray-400 text-sm">
+                            Loading...
+                          </div>
                         ) : prescriptionHistory.length === 0 ? (
-                          <div className="py-6 text-center text-gray-400 text-sm">No prescription history found.</div>
+                          <div className="py-6 text-center text-gray-400 text-sm">
+                            No prescription history found.
+                          </div>
                         ) : (
                           <div className="space-y-2">
                             {prescriptionHistory.map((entry) => {
-                              const isExpanded = !!expandedPrescription[entry._id];
-                              const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                              const isExpanded =
+                                !!expandedPrescription[entry._id];
+                              const doctorName =
+                                typeof entry.doctorId === "object" &&
+                                entry.doctorId?.name
+                                  ? entry.doctorId.name
+                                  : null;
                               return (
-                                <div key={entry._id} className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                                  <button type="button" onClick={() => setExpandedPrescription((prev) => ({ ...prev, [entry._id]: !prev[entry._id] }))} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                                <div
+                                  key={entry._id}
+                                  className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedPrescription((prev) => ({
+                                        ...prev,
+                                        [entry._id]: !prev[entry._id],
+                                      }))
+                                    }
+                                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50"
+                                  >
                                     <div className="flex items-center gap-3 flex-wrap">
-                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200"><Pill size={10} />{entry.medicines.length} medicine{entry.medicines.length !== 1 ? "s" : ""}</span>
-                                      <span className="text-xs text-gray-400 flex items-center gap-1"><Calendar size={11} />{new Date(entry.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</span>
-                                      {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                                        <Pill size={10} />
+                                        {entry.medicines.length} medicine
+                                        {entry.medicines.length !== 1
+                                          ? "s"
+                                          : ""}
+                                      </span>
+                                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                                        <Calendar size={11} />
+                                        {new Date(
+                                          entry.createdAt,
+                                        ).toLocaleDateString("en-US", {
+                                          year: "numeric",
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                      {doctorName && (
+                                        <span className="text-xs text-gray-400">
+                                          Dr. {doctorName}
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {isWithin24Hours(entry.createdAt) && (
-                                        <button type="button" onClick={(e) => { e.stopPropagation(); startEditPrescription(entry); }} className="p-1 text-gray-300 hover:text-blue-500"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            startEditPrescription(entry);
+                                          }}
+                                          className="p-1 text-gray-300 hover:text-blue-500"
+                                        >
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="12"
+                                            height="12"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                          >
+                                            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                            <path d="m15 5 4 4" />
+                                          </svg>
+                                        </button>
                                       )}
-                                      <button type="button" onClick={async (e) => { e.stopPropagation(); try { const headers = getAuthHeaders(); await axios.delete("/api/clinic/prescriptions", { headers, params: { prescriptionId: entry._id } }); setPrescriptionHistory((prev) => prev.filter((p) => p._id !== entry._id)); } catch { setPrescriptionError("Failed to delete prescription"); } }} className="p-1 text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
-                                      {isExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+                                      <button
+                                        type="button"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            const headers = getAuthHeaders();
+                                            await axios.delete(
+                                              "/api/clinic/prescriptions",
+                                              {
+                                                headers,
+                                                params: {
+                                                  prescriptionId: entry._id,
+                                                },
+                                              },
+                                            );
+                                            setPrescriptionHistory((prev) =>
+                                              prev.filter(
+                                                (p) => p._id !== entry._id,
+                                              ),
+                                            );
+                                          } catch {
+                                            setPrescriptionError(
+                                              "Failed to delete prescription",
+                                            );
+                                          }
+                                        }}
+                                        className="p-1 text-gray-300 hover:text-red-500"
+                                      >
+                                        <Trash2 size={12} />
+                                      </button>
+                                      {isExpanded ? (
+                                        <ChevronUp
+                                          size={14}
+                                          className="text-gray-400"
+                                        />
+                                      ) : (
+                                        <ChevronDown
+                                          size={14}
+                                          className="text-gray-400"
+                                        />
+                                      )}
                                     </div>
                                   </button>
                                   {isExpanded && (
                                     <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 space-y-3">
-                                      {editingPrescriptionId === entry._id && editingPrescriptionData ? (
+                                      {editingPrescriptionId === entry._id &&
+                                      editingPrescriptionData ? (
                                         // Edit Mode
                                         <div className="space-y-3">
                                           <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-semibold text-blue-700">Edit Prescription</h4>
-                                            <button type="button" onClick={cancelEditPrescription} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                                            <h4 className="text-sm font-semibold text-blue-700">
+                                              Edit Prescription
+                                            </h4>
+                                            <button
+                                              type="button"
+                                              onClick={cancelEditPrescription}
+                                              className="text-xs text-gray-500 hover:text-gray-700"
+                                            >
+                                              Cancel
+                                            </button>
                                           </div>
-                                          
+
                                           {/* Editable Medicines Table */}
                                           <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
                                             <table className="w-full text-xs">
                                               <thead className="bg-gray-100">
                                                 <tr>
-                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">#</th>
-                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Medicine</th>
-                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Dosage</th>
-                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Duration</th>
-                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">Notes</th>
-                                                  <th className="px-3 py-2 text-center font-semibold text-gray-500 w-20">Action</th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    #
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Medicine
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Dosage
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Duration
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Notes
+                                                  </th>
+                                                  <th className="px-3 py-2 text-center font-semibold text-gray-500 w-20">
+                                                    Action
+                                                  </th>
                                                 </tr>
                                               </thead>
                                               <tbody className="divide-y divide-gray-100">
-                                                {editingPrescriptionData.medicines.map((med, mIdx) => (
-                                                  <tr key={med._id || mIdx}>
-                                                    <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
-                                                    <td className="px-3 py-2">
-                                                      <input
-                                                        type="text"
-                                                        value={med.medicineName}
-                                                        onChange={(e) => {
-                                                          const newMeds = [...editingPrescriptionData.medicines];
-                                                          newMeds[mIdx].medicineName = e.target.value;
-                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
-                                                        }}
-                                                        placeholder="Medicine name"
-                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                                      />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                      <input
-                                                        type="text"
-                                                        value={med.dosage || ""}
-                                                        onChange={(e) => {
-                                                          const newMeds = [...editingPrescriptionData.medicines];
-                                                          newMeds[mIdx].dosage = e.target.value;
-                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
-                                                        }}
-                                                        placeholder="Dosage"
-                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                                      />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                      <input
-                                                        type="text"
-                                                        value={med.duration || ""}
-                                                        onChange={(e) => {
-                                                          const newMeds = [...editingPrescriptionData.medicines];
-                                                          newMeds[mIdx].duration = e.target.value;
-                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
-                                                        }}
-                                                        placeholder="Duration"
-                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                                      />
-                                                    </td>
-                                                    <td className="px-3 py-2">
-                                                      <input
-                                                        type="text"
-                                                        value={med.notes || ""}
-                                                        onChange={(e) => {
-                                                          const newMeds = [...editingPrescriptionData.medicines];
-                                                          newMeds[mIdx].notes = e.target.value;
-                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
-                                                        }}
-                                                        placeholder="Notes"
-                                                        className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
-                                                      />
-                                                    </td>
-                                                    <td className="px-3 py-2 text-center">
-                                                      <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                          const newMeds = editingPrescriptionData.medicines.filter((_, idx) => idx !== mIdx);
-                                                          setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
-                                                        }}
-                                                        className="text-red-500 hover:text-red-700 p-1"
-                                                        title="Remove medicine"
-                                                      >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                                                      </button>
-                                                    </td>
-                                                  </tr>
-                                                ))}
+                                                {editingPrescriptionData.medicines.map(
+                                                  (med, mIdx) => (
+                                                    <tr key={med._id || mIdx}>
+                                                      <td className="px-3 py-2 text-gray-400">
+                                                        {mIdx + 1}
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          value={
+                                                            med.medicineName
+                                                          }
+                                                          onChange={(e) => {
+                                                            const newMeds = [
+                                                              ...editingPrescriptionData.medicines,
+                                                            ];
+                                                            newMeds[
+                                                              mIdx
+                                                            ].medicineName =
+                                                              e.target.value;
+                                                            setEditingPrescriptionData(
+                                                              {
+                                                                ...editingPrescriptionData,
+                                                                medicines:
+                                                                  newMeds,
+                                                              },
+                                                            );
+                                                          }}
+                                                          placeholder="Medicine name"
+                                                          className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          value={
+                                                            med.dosage || ""
+                                                          }
+                                                          onChange={(e) => {
+                                                            const newMeds = [
+                                                              ...editingPrescriptionData.medicines,
+                                                            ];
+                                                            newMeds[
+                                                              mIdx
+                                                            ].dosage =
+                                                              e.target.value;
+                                                            setEditingPrescriptionData(
+                                                              {
+                                                                ...editingPrescriptionData,
+                                                                medicines:
+                                                                  newMeds,
+                                                              },
+                                                            );
+                                                          }}
+                                                          placeholder="Dosage"
+                                                          className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          value={
+                                                            med.duration || ""
+                                                          }
+                                                          onChange={(e) => {
+                                                            const newMeds = [
+                                                              ...editingPrescriptionData.medicines,
+                                                            ];
+                                                            newMeds[
+                                                              mIdx
+                                                            ].duration =
+                                                              e.target.value;
+                                                            setEditingPrescriptionData(
+                                                              {
+                                                                ...editingPrescriptionData,
+                                                                medicines:
+                                                                  newMeds,
+                                                              },
+                                                            );
+                                                          }}
+                                                          placeholder="Duration"
+                                                          className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2">
+                                                        <input
+                                                          type="text"
+                                                          value={
+                                                            med.notes || ""
+                                                          }
+                                                          onChange={(e) => {
+                                                            const newMeds = [
+                                                              ...editingPrescriptionData.medicines,
+                                                            ];
+                                                            newMeds[
+                                                              mIdx
+                                                            ].notes =
+                                                              e.target.value;
+                                                            setEditingPrescriptionData(
+                                                              {
+                                                                ...editingPrescriptionData,
+                                                                medicines:
+                                                                  newMeds,
+                                                              },
+                                                            );
+                                                          }}
+                                                          placeholder="Notes"
+                                                          className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                                        />
+                                                      </td>
+                                                      <td className="px-3 py-2 text-center">
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => {
+                                                            const newMeds =
+                                                              editingPrescriptionData.medicines.filter(
+                                                                (_, idx) =>
+                                                                  idx !== mIdx,
+                                                              );
+                                                            setEditingPrescriptionData(
+                                                              {
+                                                                ...editingPrescriptionData,
+                                                                medicines:
+                                                                  newMeds,
+                                                              },
+                                                            );
+                                                          }}
+                                                          className="text-red-500 hover:text-red-700 p-1"
+                                                          title="Remove medicine"
+                                                        >
+                                                          <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="12"
+                                                            height="12"
+                                                            viewBox="0 0 24 24"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                          >
+                                                            <path d="M3 6h18" />
+                                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                                          </svg>
+                                                        </button>
+                                                      </td>
+                                                    </tr>
+                                                  ),
+                                                )}
                                               </tbody>
                                             </table>
                                           </div>
-                                          
+
                                           {/* Add Medicine Button */}
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const newMeds = [...editingPrescriptionData.medicines, { medicineName: "", dosage: "", duration: "", notes: "" }];
-                                              setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds });
+                                              const newMeds = [
+                                                ...editingPrescriptionData.medicines,
+                                                {
+                                                  medicineName: "",
+                                                  dosage: "",
+                                                  duration: "",
+                                                  notes: "",
+                                                },
+                                              ];
+                                              setEditingPrescriptionData({
+                                                ...editingPrescriptionData,
+                                                medicines: newMeds,
+                                              });
                                             }}
                                             className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 font-medium"
                                           >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              width="14"
+                                              height="14"
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                            >
+                                              <path d="M5 12h14" />
+                                              <path d="M12 5v14" />
+                                            </svg>
                                             Add Medicine
                                           </button>
-                                          
+
                                           {/* Editable Aftercare Instructions */}
                                           <div>
-                                            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">Aftercare Instructions</label>
+                                            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">
+                                              Aftercare Instructions
+                                            </label>
                                             <textarea
-                                              value={editingPrescriptionData.aftercareInstructions || ""}
+                                              value={
+                                                editingPrescriptionData.aftercareInstructions ||
+                                                ""
+                                              }
                                               onChange={(e) => {
-                                                setEditingPrescriptionData({ ...editingPrescriptionData, aftercareInstructions: e.target.value });
+                                                setEditingPrescriptionData({
+                                                  ...editingPrescriptionData,
+                                                  aftercareInstructions:
+                                                    e.target.value,
+                                                });
                                               }}
                                               rows={3}
                                               placeholder="Enter aftercare instructions..."
                                               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
                                             />
                                           </div>
-                                          
+
                                           {/* Save/Cancel Buttons */}
                                           <div className="flex items-center gap-3">
                                             <button
                                               type="button"
-                                              disabled={savingEditedPrescription}
-                                              onClick={() => saveEditedPrescription(entry._id)}
+                                              disabled={
+                                                savingEditedPrescription
+                                              }
+                                              onClick={() =>
+                                                saveEditedPrescription(
+                                                  entry._id,
+                                                )
+                                              }
                                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                                             >
                                               {savingEditedPrescription ? (
-                                                <><svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Saving...</>
+                                                <>
+                                                  <svg
+                                                    className="w-3 h-3 animate-spin"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                  >
+                                                    <circle
+                                                      className="opacity-25"
+                                                      cx="12"
+                                                      cy="12"
+                                                      r="10"
+                                                      stroke="currentColor"
+                                                      strokeWidth="4"
+                                                    />
+                                                    <path
+                                                      className="opacity-75"
+                                                      fill="currentColor"
+                                                      d="M4 12a8 8 0 018-8v8z"
+                                                    />
+                                                  </svg>{" "}
+                                                  Saving...
+                                                </>
                                               ) : (
-                                                <><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Changes</>
+                                                <>
+                                                  <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="12"
+                                                    height="12"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                  >
+                                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                                                    <polyline points="17 21 17 13 7 13 7 21" />
+                                                    <polyline points="7 3 7 8 15 8" />
+                                                  </svg>{" "}
+                                                  Save Changes
+                                                </>
                                               )}
                                             </button>
                                             <button
@@ -6268,30 +10020,58 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         <div>
                                           <div className="rounded-lg border border-gray-200 overflow-hidden">
                                             <table className="w-full text-xs">
-                                              <thead className="bg-gray-100"><tr>
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">#</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Medicine</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Dosage</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Duration</th>
-                                                <th className="px-3 py-2 text-left font-semibold text-gray-500">Notes</th>
-                                              </tr></thead>
+                                              <thead className="bg-gray-100">
+                                                <tr>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    #
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Medicine
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Dosage
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Duration
+                                                  </th>
+                                                  <th className="px-3 py-2 text-left font-semibold text-gray-500">
+                                                    Notes
+                                                  </th>
+                                                </tr>
+                                              </thead>
                                               <tbody className="divide-y divide-gray-100 bg-white">
-                                                {entry.medicines.map((med, mIdx) => (
-                                                  <tr key={med._id || mIdx}>
-                                                    <td className="px-3 py-2 text-gray-400">{mIdx + 1}</td>
-                                                    <td className="px-3 py-2 font-medium text-gray-800">{med.medicineName}</td>
-                                                    <td className="px-3 py-2 text-gray-500">{med.dosage || ""}</td>
-                                                    <td className="px-3 py-2 text-gray-500">{med.duration || ""}</td>
-                                                    <td className="px-3 py-2 text-gray-500">{med.notes || ""}</td>
-                                                  </tr>
-                                                ))}
+                                                {entry.medicines.map(
+                                                  (med, mIdx) => (
+                                                    <tr key={med._id || mIdx}>
+                                                      <td className="px-3 py-2 text-gray-400">
+                                                        {mIdx + 1}
+                                                      </td>
+                                                      <td className="px-3 py-2 font-medium text-gray-800">
+                                                        {med.medicineName}
+                                                      </td>
+                                                      <td className="px-3 py-2 text-gray-500">
+                                                        {med.dosage || ""}
+                                                      </td>
+                                                      <td className="px-3 py-2 text-gray-500">
+                                                        {med.duration || ""}
+                                                      </td>
+                                                      <td className="px-3 py-2 text-gray-500">
+                                                        {med.notes || ""}
+                                                      </td>
+                                                    </tr>
+                                                  ),
+                                                )}
                                               </tbody>
                                             </table>
                                           </div>
                                           {entry.aftercareInstructions && (
                                             <div>
-                                              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Aftercare Instructions</p>
-                                              <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2">{entry.aftercareInstructions}</p>
+                                              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                                                Aftercare Instructions
+                                              </p>
+                                              <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white rounded-lg border border-gray-200 px-3 py-2">
+                                                {entry.aftercareInstructions}
+                                              </p>
                                             </div>
                                           )}
                                         </div>
@@ -6310,63 +10090,158 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
                           <div className="flex items-center gap-2 mb-2">
                             <Stethoscope className="w-4 h-4 text-blue-600" />
-                            <h3 className="text-sm font-semibold text-gray-800">Smart Recommendations</h3>
+                            <h3 className="text-sm font-semibold text-gray-800">
+                              Smart Recommendations
+                            </h3>
                           </div>
                           {loadingSmartRec ? (
-                            <div className="text-xs text-gray-400 py-2">Loading...</div>
+                            <div className="text-xs text-gray-400 py-2">
+                              Loading...
+                            </div>
                           ) : (
                             <div className="space-y-2">
                               {smartDepartments.map((dept) => (
                                 <div key={dept._id}>
-                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">{dept.name}</p>
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                    {dept.name}
+                                  </p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {dept.services.map((svc) => (
-                                      <div key={svc._id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-                                        <span className="text-xs font-medium text-gray-700">{svc.name}</span>
-                                        <span className="text-[10px] text-blue-600">{svc.clinicPrice != null ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}` : `${getCurrencySymbol(currency)} ${svc.price}`}</span>
-                                        <button type="button" disabled={addingRecService[`${details?.patientId}_${svc._id}`] || addedRecServices[`${details?.patientId}_${svc._id}`]}
+                                      <div
+                                        key={svc._id}
+                                        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5"
+                                      >
+                                        <span className="text-xs font-medium text-gray-700">
+                                          {svc.name}
+                                        </span>
+                                        <span className="text-[10px] text-blue-600">
+                                          {svc.clinicPrice != null
+                                            ? `${getCurrencySymbol(currency)} ${svc.clinicPrice}`
+                                            : `${getCurrencySymbol(currency)} ${svc.price}`}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            addingRecService[
+                                              `${details?.patientId}_${svc._id}`
+                                            ] ||
+                                            addedRecServices[
+                                              `${details?.patientId}_${svc._id}`
+                                            ]
+                                          }
                                           onClick={async () => {
-                                            if (!details?.appointmentId || !details?.patientId) return;
-                                           
+                                            if (
+                                              !details?.appointmentId ||
+                                              !details?.patientId
+                                            )
+                                              return;
+
                                             const patientServiceKey = `${details.patientId}_${svc._id}`;
-                                           
+
                                             // 1. Add to selectedServices (so it appears in Treatment & Billing)
                                             const serviceToAdd = {
                                               _id: svc._id,
                                               name: svc.name,
                                               price: svc.price,
                                               clinicPrice: svc.clinicPrice,
-                                              durationMinutes: svc.durationMinutes,
-                                              quantity: 1
+                                              durationMinutes:
+                                                svc.durationMinutes,
+                                              quantity: 1,
                                             } as ClinicService;
-                                           
-                                            setSelectedServices((prev) => [...prev, serviceToAdd]);
+
+                                            setSelectedServices((prev) => [
+                                              ...prev,
+                                              serviceToAdd,
+                                            ]);
                                             setServicesSaved(false);
-                                           
+
                                             // Track recently added service with timestamp for visual feedback
-                                            setRecentlyAddedServices((prev) => ({ ...prev, [svc._id]: Date.now() }));
-                                           
+                                            setRecentlyAddedServices(
+                                              (prev) => ({
+                                                ...prev,
+                                                [svc._id]: Date.now(),
+                                              }),
+                                            );
+
                                             // 2. Also save to appointment via API
-                                            setAddingRecService((p) => ({ ...p, [patientServiceKey]: true }));
+                                            setAddingRecService((p) => ({
+                                              ...p,
+                                              [patientServiceKey]: true,
+                                            }));
                                             try {
-                                              await axios.patch(`/api/clinic/appointment-services/${details.appointmentId}`, { services: [{ serviceId: svc._id, quantity: 1 }] }, { headers: getAuthHeaders() });
-                                              setAddedRecServices((p) => ({ ...p, [patientServiceKey]: true }));
+                                              await axios.patch(
+                                                `/api/clinic/appointment-services/${details.appointmentId}`,
+                                                {
+                                                  services: [
+                                                    {
+                                                      serviceId: svc._id,
+                                                      quantity: 1,
+                                                    },
+                                                  ],
+                                                },
+                                                { headers: getAuthHeaders() },
+                                              );
+                                              setAddedRecServices((p) => ({
+                                                ...p,
+                                                [patientServiceKey]: true,
+                                              }));
                                               if (onSuccess) onSuccess();
                                             } catch (err: any) {
                                               // If API fails, remove from selectedServices
-                                              setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id));
-                                              setRecentlyAddedServices((prev) => {
-                                                const updated = { ...prev };
-                                                delete updated[svc._id];
-                                                return updated;
-                                              });
+                                              setSelectedServices((prev) =>
+                                                prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                ),
+                                              );
+                                              setRecentlyAddedServices(
+                                                (prev) => {
+                                                  const updated = { ...prev };
+                                                  delete updated[svc._id];
+                                                  return updated;
+                                                },
+                                              );
                                             } finally {
-                                              setAddingRecService((p) => ({ ...p, [patientServiceKey]: false }));
+                                              setAddingRecService((p) => ({
+                                                ...p,
+                                                [patientServiceKey]: false,
+                                              }));
                                             }
                                           }}
                                           className={`flex items-center gap-0.5 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${addedRecServices[`${details?.patientId}_${svc._id}`] ? "bg-green-100 text-green-700 cursor-default" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}
                                         >
-                                          {addingRecService[`${details?.patientId}_${svc._id}`] ? <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> : addedRecServices[`${details?.patientId}_${svc._id}`] ? <><Check size={10} /> Added</> : <><Plus size={10} /> Add</>}
+                                          {addingRecService[
+                                            `${details?.patientId}_${svc._id}`
+                                          ] ? (
+                                            <svg
+                                              className="w-3 h-3 animate-spin"
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                            >
+                                              <circle
+                                                className="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                strokeWidth="4"
+                                              />
+                                              <path
+                                                className="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8v8z"
+                                              />
+                                            </svg>
+                                          ) : addedRecServices[
+                                              `${details?.patientId}_${svc._id}`
+                                            ] ? (
+                                            <>
+                                              <Check size={10} /> Added
+                                            </>
+                                          ) : (
+                                            <>
+                                              <Plus size={10} /> Add
+                                            </>
+                                          )}
                                         </button>
                                       </div>
                                     ))}
@@ -6382,37 +10257,80 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                         <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100">
                           <ClipboardList className="w-4 h-4 text-blue-600" />
-                          <h3 className="text-sm font-semibold text-gray-800">Appointments</h3>
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Appointments
+                          </h3>
                         </div>
                         <div className="px-5 py-3">
                           {loadingUpcoming ? (
                             <div className="flex items-center gap-2 py-3 text-xs text-gray-400">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading appointments...
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                              Loading appointments...
                             </div>
                           ) : filteredUpcomingAppointments.length === 0 ? (
-                            <p className="text-xs text-gray-400 py-3 text-center">No upcoming appointments</p>
+                            <p className="text-xs text-gray-400 py-3 text-center">
+                              No upcoming appointments
+                            </p>
                           ) : (
                             <div>
-                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">Upcoming</p>
+                              <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-2">
+                                Upcoming
+                              </p>
                               <div className="space-y-2">
                                 {filteredUpcomingAppointments.map((appt) => {
                                   const d = new Date(appt.startDate);
-                                  const dateStr = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-                                  const [fh, fm] = appt.fromTime.split(":").map(Number);
+                                  const dateStr = d.toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    },
+                                  );
+                                  const [fh, fm] = appt.fromTime
+                                    .split(":")
+                                    .map(Number);
                                   const ampm = fh < 12 ? "AM" : "PM";
                                   const h12 = fh % 12 || 12;
                                   const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
-                                  const statusColor = appt.status === "booked" || appt.status === "Approved" ? "bg-blue-600 text-white" : appt.status === "Completed" ? "bg-green-100 text-green-700" : appt.status === "Cancelled" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600";
+                                  const statusColor =
+                                    appt.status === "booked" ||
+                                    appt.status === "Approved"
+                                      ? "bg-blue-600 text-white"
+                                      : appt.status === "Completed"
+                                        ? "bg-green-100 text-green-700"
+                                        : appt.status === "Cancelled"
+                                          ? "bg-red-100 text-red-700"
+                                          : "bg-gray-100 text-gray-600";
                                   return (
-                                    <div key={appt._id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                                    <div
+                                      key={appt._id}
+                                      className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 flex items-center justify-between"
+                                    >
                                       <div>
-                                        <p className="text-xs font-semibold text-gray-800">{appt.followType === "follow up" ? "Follow-up Session" : appt.followType === "first time" ? "First Visit" : appt.followType}</p>
+                                        <p className="text-xs font-semibold text-gray-800">
+                                          {appt.followType === "follow up"
+                                            ? "Follow-up Session"
+                                            : appt.followType === "first time"
+                                              ? "First Visit"
+                                              : appt.followType}
+                                        </p>
                                         <div className="flex items-center gap-3 mt-0.5 text-[11px] text-gray-500">
-                                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {dateStr}</span>
-                                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {timeStr}</span>
+                                          <span className="flex items-center gap-1">
+                                            <Calendar className="w-3 h-3" />{" "}
+                                            {dateStr}
+                                          </span>
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />{" "}
+                                            {timeStr}
+                                          </span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}>{appt.status}</span>
+                                      <span
+                                        className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-md capitalize ${statusColor}`}
+                                      >
+                                        {appt.status}
+                                      </span>
                                     </div>
                                   );
                                 })}
@@ -6424,31 +10342,115 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                       {/* Next Session Booking in prescription tab */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-5">
-                        <div className="flex items-center gap-2 mb-4"><Calendar className="w-4 h-4 text-blue-600" /><h3 className="text-sm font-semibold text-gray-800">Next Session Booking</h3></div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            Next Session Booking
+                          </h3>
+                        </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                           <div>
-                            <label className="block text-xs text-gray-400 mb-1">Date</label>
-                            <input type="date" value={nextSessionDate} min={new Date().toISOString().slice(0, 10)} onChange={(e) => { setNextSessionDate(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                            <label className="block text-xs text-gray-400 mb-1">
+                              Date
+                            </label>
+                            <input
+                              type="date"
+                              value={nextSessionDate}
+                              min={new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => {
+                                setNextSessionDate(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            />
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-400 mb-1">Time</label>
-                            <select value={nextSessionTime} onChange={(e) => { setNextSessionTime(e.target.value); setNextSessionBooked(false); setNextSessionError(""); }} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
-                              {["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"].map((t) => { const [h, m] = t.split(":").map(Number); const ampm = h < 12 ? "AM" : "PM"; const h12 = h % 12 || 12; return <option key={t} value={t}>{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>; })}
+                            <label className="block text-xs text-gray-400 mb-1">
+                              Time
+                            </label>
+                            <select
+                              value={nextSessionTime}
+                              onChange={(e) => {
+                                setNextSessionTime(e.target.value);
+                                setNextSessionBooked(false);
+                                setNextSessionError("");
+                              }}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            >
+                              {[
+                                "07:00",
+                                "07:30",
+                                "08:00",
+                                "08:30",
+                                "09:00",
+                                "09:30",
+                                "10:00",
+                                "10:30",
+                                "11:00",
+                                "11:30",
+                                "12:00",
+                                "12:30",
+                                "13:00",
+                                "13:30",
+                                "14:00",
+                                "14:30",
+                                "15:00",
+                                "15:30",
+                                "16:00",
+                                "16:30",
+                                "17:00",
+                                "17:30",
+                                "18:00",
+                                "18:30",
+                                "19:00",
+                                "19:30",
+                                "20:00",
+                              ].map((t) => {
+                                const [h, m] = t.split(":").map(Number);
+                                const ampm = h < 12 ? "AM" : "PM";
+                                const h12 = h % 12 || 12;
+                                return (
+                                  <option
+                                    key={t}
+                                    value={t}
+                                  >{`${h12}:${String(m).padStart(2, "0")} ${ampm}`}</option>
+                                );
+                              })}
                             </select>
                           </div>
                         </div>
-                        {nextSessionError && <p className="text-red-500 text-xs mb-2">{nextSessionError}</p>}
-                        {nextSessionBooked && <p className="text-green-600 text-xs mb-2 flex items-center gap-1"><Check size={11} /> Session booked!</p>}
-                        <button type="button" onClick={bookNextSession} disabled={bookingNextSession || nextSessionBooked} className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
-                          <Calendar size={14} />{bookingNextSession ? "Booking..." : nextSessionBooked ? "Session Booked!" : "Book Next Session"}
+                        {nextSessionError && (
+                          <p className="text-red-500 text-xs mb-2">
+                            {nextSessionError}
+                          </p>
+                        )}
+                        {nextSessionBooked && (
+                          <p className="text-green-600 text-xs mb-2 flex items-center gap-1">
+                            <Check size={11} /> Session booked!
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={bookNextSession}
+                          disabled={bookingNextSession || nextSessionBooked}
+                          className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                        >
+                          <Calendar size={14} />
+                          {bookingNextSession
+                            ? "Booking..."
+                            : nextSessionBooked
+                              ? "Session Booked!"
+                              : "Book Next Session"}
                         </button>
                       </div>
 
-                     
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-px bg-gray-200" />
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Summary</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          Session Summary
+                        </span>
                         <div className="flex-1 h-px bg-gray-200" />
                       </div>
 
@@ -6460,8 +10462,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <Package className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                              <h3 className="text-base font-bold text-gray-900">Treatment & Billing</h3>
-                              <p className="text-xs text-gray-500">Add and manage treatment services</p>
+                              <h3 className="text-base font-bold text-gray-900">
+                                Treatment & Billing
+                              </h3>
+                              <p className="text-xs text-gray-500">
+                                Add and manage treatment services
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -6473,7 +10479,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowCreatePackage(false);
                                 setServicesSaved(false);
                                 setServicesError("");
-                                if (allServices.length === 0) fetchAllServices();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -6485,7 +10492,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(true);
                                 setShowAddServiceDropdown(false);
                                 setShowCreatePackage(false);
-                                if (departments.length === 0) fetchDepartments();
+                                if (departments.length === 0)
+                                  fetchDepartments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-all shadow-md hover:shadow-lg"
                             >
@@ -6499,8 +10507,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 setShowAddCustomService(false);
                                 setPkgError("");
                                 setPkgSuccess("");
-                                if (allServices.length === 0) fetchAllServices();
-                                if (pkgTreatments.length === 0) fetchPkgTreatments();
+                                if (allServices.length === 0)
+                                  fetchAllServices();
+                                if (pkgTreatments.length === 0)
+                                  fetchPkgTreatments();
                               }}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-all"
                             >
@@ -6517,9 +10527,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
                                   <Search className="w-4 h-4 text-blue-600" />
                                 </div>
-                                <span className="text-sm font-bold text-blue-800">Search & Add Services</span>
+                                <span className="text-sm font-bold text-blue-800">
+                                  Search & Add Services
+                                </span>
                               </div>
-                              <button type="button" onClick={() => setShowAddServiceDropdown(false)} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button
+                                type="button"
+                                onClick={() => setShowAddServiceDropdown(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <XIcon size={16} />
+                              </button>
                             </div>
                             <div className="relative mb-3">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -6529,7 +10547,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 type="text"
                                 placeholder="Search by service name..."
                                 value={serviceSearchQuery}
-                                onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                onChange={(e) =>
+                                  setServiceSearchQuery(e.target.value)
+                                }
                                 className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent shadow-sm transition-all"
                               />
                             </div>
@@ -6537,60 +10557,138 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               {loadingServices ? (
                                 <div className="flex items-center justify-center py-8">
                                   <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
-                                  <span className="ml-2 text-sm text-gray-500">Loading services...</span>
+                                  <span className="ml-2 text-sm text-gray-500">
+                                    Loading services...
+                                  </span>
                                 </div>
-                              ) : allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).length === 0 ? (
+                              ) : allServices.filter((s) =>
+                                  s.name
+                                    .toLowerCase()
+                                    .includes(serviceSearchQuery.toLowerCase()),
+                                ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
-                                  <p className="text-sm text-gray-500 font-medium">No services found</p>
+                                  <p className="text-sm text-gray-500 font-medium">
+                                    No services found
+                                  </p>
                                 </div>
                               ) : (
-                                allServices.filter((s) => s.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())).map((svc) => {
-                                  const isSelected = selectedServices.some((s) => s._id === svc._id);
-                                  return (
-                                    <button key={svc._id} type="button"
-                                      onClick={() => { setSelectedServices((prev) => isSelected ? prev.filter((s) => s._id !== svc._id) : [...prev, { ...svc, quantity: 1 }]); setServicesSaved(false); }}
-                                      className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                        isSelected ? "bg-blue-50 border-blue-300 shadow-sm" : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                      }`}
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                          isSelected ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
-                                        }`}>
-                                          {isSelected && <Check size={12} className="text-white" />}
+                                allServices
+                                  .filter((s) =>
+                                    s.name
+                                      .toLowerCase()
+                                      .includes(
+                                        serviceSearchQuery.toLowerCase(),
+                                      ),
+                                  )
+                                  .map((svc) => {
+                                    const isSelected = selectedServices.some(
+                                      (s) => s._id === svc._id,
+                                    );
+                                    return (
+                                      <button
+                                        key={svc._id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedServices((prev) =>
+                                            isSelected
+                                              ? prev.filter(
+                                                  (s) => s._id !== svc._id,
+                                                )
+                                              : [
+                                                  ...prev,
+                                                  { ...svc, quantity: 1 },
+                                                ],
+                                          );
+                                          setServicesSaved(false);
+                                        }}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
+                                          isSelected
+                                            ? "bg-blue-50 border-blue-300 shadow-sm"
+                                            : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-3">
+                                          <div
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                                              isSelected
+                                                ? "bg-blue-600 border-blue-600"
+                                                : "border-gray-300 bg-white"
+                                            }`}
+                                          >
+                                            {isSelected && (
+                                              <Check
+                                                size={12}
+                                                className="text-white"
+                                              />
+                                            )}
+                                          </div>
+                                          <span
+                                            className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}
+                                          >
+                                            {svc.name}
+                                          </span>
                                         </div>
-                                        <span className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}>{svc.name}</span>
-                                      </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}>{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}</span>
-                                        {isSelected && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Added</span>}
-                                      </div>
-                                    </button>
-                                  );
-                                })
+                                        <div className="flex items-center gap-3">
+                                          <span
+                                            className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}
+                                          >
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(svc.clinicPrice != null
+                                              ? svc.clinicPrice
+                                              : svc.price
+                                            ).toFixed(2)}
+                                          </span>
+                                          {isSelected && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                              Added
+                                            </span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    );
+                                  })
                               )}
                             </div>
                             {/* Services save status - hidden as services are saved with complaint */}
                             {false && servicesError && (
                               <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                                <p className="text-xs text-red-700">{servicesError}</p>
+                                <p className="text-xs text-red-700">
+                                  {servicesError}
+                                </p>
                               </div>
                             )}
                             {false && servicesSaved && (
                               <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                                 <CheckCircle className="w-4 h-4 text-green-600" />
-                                <p className="text-xs text-green-700 font-medium">Services saved successfully!</p>
+                                <p className="text-xs text-green-700 font-medium">
+                                  Services saved successfully!
+                                </p>
                               </div>
                             )}
                             {/* Save Services button - hidden as services are saved automatically with complaint */}
                             {false && (
-                              <button type="button" onClick={saveServicesToAppointment}
-                                disabled={savingServices || selectedServices.length === 0}
+                              <button
+                                type="button"
+                                onClick={saveServicesToAppointment}
+                                disabled={
+                                  savingServices ||
+                                  selectedServices.length === 0
+                                }
                                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                               >
-                                {savingServices ? (<><Loader2 className="w-4 h-4 animate-spin" />Saving...</>) : (<><CheckCircle className="w-4 h-4" />Save Services to Appointment</>)}
+                                {savingServices ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Save Services to Appointment
+                                  </>
+                                )}
                               </button>
                             )}
                           </div>
@@ -6604,31 +10702,47 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
                                   <Wrench className="w-4 h-4 text-emerald-600" />
                                 </div>
-                                <span className="text-sm font-bold text-emerald-800">Add Custom Service</span>
+                                <span className="text-sm font-bold text-emerald-800">
+                                  Add Custom Service
+                                </span>
                               </div>
-                              <button type="button" onClick={() => {
-                                setShowAddCustomService(false);
-                                setCustomServiceName("");
-                                setCustomServicePrice("");
-                                setCustomServiceClinicPrice("");
-                                setCustomServiceDuration("");
-                                setCustomServiceDepartment("");
-                              }} className="text-gray-400 hover:text-gray-600 transition-colors">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddCustomService(false);
+                                  setCustomServiceName("");
+                                  setCustomServicePrice("");
+                                  setCustomServiceClinicPrice("");
+                                  setCustomServiceDuration("");
+                                  setCustomServiceDepartment("");
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
                                 <XIcon size={16} />
                               </button>
                             </div>
 
-                            <form onSubmit={addCustomService} className="space-y-3">
+                            <form
+                              onSubmit={addCustomService}
+                              className="space-y-3"
+                            >
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Department <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Department{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <select
                                   value={customServiceDepartment}
-                                  onChange={(e) => setCustomServiceDepartment(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceDepartment(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   disabled={departmentsLoading}
                                   required
                                 >
-                                  <option value="" disabled>Select department</option>
+                                  <option value="" disabled>
+                                    Select department
+                                  </option>
                                   {departments.map((dept) => (
                                     <option key={dept._id} value={dept._id}>
                                       {dept.name}
@@ -6638,11 +10752,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
 
                               <div>
-                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Service Name <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                  Service Name{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
                                 <input
                                   type="text"
                                   value={customServiceName}
-                                  onChange={(e) => setCustomServiceName(e.target.value)}
+                                  onChange={(e) =>
+                                    setCustomServiceName(e.target.value)
+                                  }
                                   placeholder="Enter service name"
                                   className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   required
@@ -6651,15 +10770,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Price <span className="text-red-500">*</span></label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Price{" "}
+                                    <span className="text-red-500">*</span>
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServicePrice}
-                                      onChange={(e) => setCustomServicePrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServicePrice(e.target.value)
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                       required
@@ -6668,15 +10794,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Clinic Price (Optional)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Clinic Price (Optional)
+                                  </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                      {getCurrencySymbol(currency)}
+                                    </span>
                                     <input
                                       type="number"
                                       min="0"
                                       step="0.01"
                                       value={customServiceClinicPrice}
-                                      onChange={(e) => setCustomServiceClinicPrice(e.target.value)}
+                                      onChange={(e) =>
+                                        setCustomServiceClinicPrice(
+                                          e.target.value,
+                                        )
+                                      }
                                       placeholder="0.00"
                                       className="w-full pl-10 pr-4 py-2 text-sm font-semibold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                     />
@@ -6684,12 +10818,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
 
                                 <div>
-                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">Duration (Minutes)</label>
+                                  <label className="block text-xs font-semibold text-emerald-700 mb-1.5">
+                                    Duration (Minutes)
+                                  </label>
                                   <input
                                     type="number"
                                     min="0"
                                     value={customServiceDuration}
-                                    onChange={(e) => setCustomServiceDuration(e.target.value)}
+                                    onChange={(e) =>
+                                      setCustomServiceDuration(e.target.value)
+                                    }
                                     placeholder="30"
                                     className="w-full px-3 py-2 text-sm border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent shadow-sm"
                                   />
@@ -6725,46 +10863,102 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center">
                                   <Package className="w-4 h-4 text-violet-600" />
                                 </div>
-                                <span className="text-sm font-bold text-violet-800">Create New Package</span>
+                                <span className="text-sm font-bold text-violet-800">
+                                  Create New Package
+                                </span>
                               </div>
-                              <button type="button" onClick={() => { setShowCreatePackage(false); setPkgError(""); setPkgSuccess(""); setPkgModalName(""); setPkgModalPrice(""); setPkgModalValidityInMonths(""); setPkgModalStartDate(new Date().toISOString().split('T')[0]); setPkgModalEndDate(""); setPkgSelectedTreatments([]); }} className="text-gray-400 hover:text-gray-600 transition-colors"><XIcon size={16} /></button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowCreatePackage(false);
+                                  setPkgError("");
+                                  setPkgSuccess("");
+                                  setPkgModalName("");
+                                  setPkgModalPrice("");
+                                  setPkgModalValidityInMonths("");
+                                  setPkgModalStartDate(
+                                    new Date().toISOString().split("T")[0],
+                                  );
+                                  setPkgModalEndDate("");
+                                  setPkgSelectedTreatments([]);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                <XIcon size={16} />
+                              </button>
                             </div>
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Package Name <span className="text-red-500">*</span></label>
-                              <input type="text" value={pkgModalName} onChange={(e) => setPkgModalName(e.target.value)} placeholder="e.g., Premium Skin Care Package" className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Package Name{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={pkgModalName}
+                                onChange={(e) =>
+                                  setPkgModalName(e.target.value)
+                                }
+                                placeholder="e.g., Premium Skin Care Package"
+                                className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                              />
                             </div>
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Total Package Price <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Total Package Price{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
-                                <input type="number" min="0" step="0.01" value={pkgModalPrice} onChange={(e) => setPkgModalPrice(e.target.value)} placeholder="0.00" className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm" />
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                                  {getCurrencySymbol(currency)}
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={pkgModalPrice}
+                                  onChange={(e) =>
+                                    setPkgModalPrice(e.target.value)
+                                  }
+                                  placeholder="0.00"
+                                  className="w-full pl-12 pr-4 py-2 text-sm font-semibold border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
+                                />
                               </div>
                             </div>
 
                             {/* Validity & Dates */}
                             <div className="grid grid-cols-3 gap-3 mb-3">
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Validity (Months)</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  Validity (Months)
+                                </label>
                                 <input
                                   type="number"
                                   min="0"
                                   value={pkgModalValidityInMonths}
-                                  onChange={(e) => setPkgModalValidityInMonths(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalValidityInMonths(e.target.value)
+                                  }
                                   placeholder="e.g. 12"
                                   className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">Start Date</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  Start Date
+                                </label>
                                 <input
                                   type="date"
                                   value={pkgModalStartDate}
-                                  onChange={(e) => setPkgModalStartDate(e.target.value)}
+                                  onChange={(e) =>
+                                    setPkgModalStartDate(e.target.value)
+                                  }
                                   className="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent shadow-sm"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">End Date</label>
+                                <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                  End Date
+                                </label>
                                 <input
                                   type="date"
                                   value={pkgModalEndDate}
@@ -6774,54 +10968,161 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </div>
                             </div>
                             <div className="mb-3">
-                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">Select Treatments / Services <span className="text-red-500">*</span></label>
+                              <label className="block text-xs font-semibold text-violet-700 mb-1.5">
+                                Select Treatments / Services{" "}
+                                <span className="text-red-500">*</span>
+                              </label>
                               <div className="relative">
-                                <div className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
-                                  onClick={() => { setPkgTreatmentDropdownOpen(!pkgTreatmentDropdownOpen); if (!pkgTreatmentDropdownOpen && allServices.length === 0) fetchAllServices(); }}>
-                                  <span className={pkgSelectedTreatments.length > 0 ? "text-gray-800 font-medium" : "text-gray-400"}>
-                                    {pkgSelectedTreatments.length > 0 ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected` : "Select treatments to include..."}
+                                <div
+                                  className="w-full px-4 py-2.5 text-sm border border-violet-200 rounded-lg bg-white cursor-pointer flex items-center justify-between hover:border-violet-300 transition-colors shadow-sm"
+                                  onClick={() => {
+                                    setPkgTreatmentDropdownOpen(
+                                      !pkgTreatmentDropdownOpen,
+                                    );
+                                    if (
+                                      !pkgTreatmentDropdownOpen &&
+                                      allServices.length === 0
+                                    )
+                                      fetchAllServices();
+                                  }}
+                                >
+                                  <span
+                                    className={
+                                      pkgSelectedTreatments.length > 0
+                                        ? "text-gray-800 font-medium"
+                                        : "text-gray-400"
+                                    }
+                                  >
+                                    {pkgSelectedTreatments.length > 0
+                                      ? `${pkgSelectedTreatments.length} treatment${pkgSelectedTreatments.length > 1 ? "s" : ""} selected`
+                                      : "Select treatments to include..."}
                                   </span>
-                                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`} />
+                                  <ChevronDown
+                                    className={`w-4 h-4 text-gray-400 transition-transform ${pkgTreatmentDropdownOpen ? "rotate-180" : ""}`}
+                                  />
                                 </div>
                                 {pkgTreatmentDropdownOpen && (
                                   <div className="absolute z-20 w-full mt-1 bg-white border border-violet-200 rounded-lg shadow-lg max-h-64 overflow-hidden flex flex-col">
                                     <div className="p-3 border-b border-violet-100 sticky top-0 bg-white">
                                       <div className="relative">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                                        <input type="text" value={pkgTreatmentSearch} onChange={(e) => setPkgTreatmentSearch(e.target.value)} placeholder="Search treatments..." autoFocus className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400" />
+                                        <input
+                                          type="text"
+                                          value={pkgTreatmentSearch}
+                                          onChange={(e) =>
+                                            setPkgTreatmentSearch(
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder="Search treatments..."
+                                          autoFocus
+                                          className="w-full pl-9 pr-3 py-2 text-sm border border-violet-200 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                        />
                                       </div>
                                     </div>
                                     <div className="overflow-y-auto max-h-52">
                                       {loadingServices ? (
-                                        <div className="flex items-center justify-center p-4"><Loader2 className="w-5 h-5 text-violet-600 animate-spin" /><span className="ml-2 text-sm text-gray-500">Loading...</span></div>
-                                      ) : allServices.filter((s) => s.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).length === 0 ? (
-                                        <div className="p-4 text-center text-sm text-gray-400">No treatments found</div>
+                                        <div className="flex items-center justify-center p-4">
+                                          <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
+                                          <span className="ml-2 text-sm text-gray-500">
+                                            Loading...
+                                          </span>
+                                        </div>
+                                      ) : allServices.filter((s) =>
+                                          s.name
+                                            .toLowerCase()
+                                            .includes(
+                                              pkgTreatmentSearch.toLowerCase(),
+                                            ),
+                                        ).length === 0 ? (
+                                        <div className="p-4 text-center text-sm text-gray-400">
+                                          No treatments found
+                                        </div>
                                       ) : (
                                         <ul className="py-1">
-                                          {allServices.filter((svc) => svc.name.toLowerCase().includes(pkgTreatmentSearch.toLowerCase())).map((svc) => {
-                                            const isSelected = pkgSelectedTreatments.some((t) => t.treatmentSlug === svc._id);
-                                            return (
-                                              <li key={svc._id}>
-                                                <button type="button"
-                                                  onClick={() => {
-                                                    if (isSelected) { setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== svc._id)); }
-                                                    else { setPkgSelectedTreatments((prev) => [...prev, { treatmentName: svc.name, treatmentSlug: svc._id, sessions: 1, allocatedPrice: svc.clinicPrice != null ? svc.clinicPrice : svc.price }]); }
-                                                  }}
-                                                  className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected ? "bg-violet-50" : ""}`}
-                                                >
-                                                  <div className="flex items-center gap-3">
-                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"}`}>
-                                                      {isSelected && <Check size={12} className="text-white" />}
+                                          {allServices
+                                            .filter((svc) =>
+                                              svc.name
+                                                .toLowerCase()
+                                                .includes(
+                                                  pkgTreatmentSearch.toLowerCase(),
+                                                ),
+                                            )
+                                            .map((svc) => {
+                                              const isSelected =
+                                                pkgSelectedTreatments.some(
+                                                  (t) =>
+                                                    t.treatmentSlug === svc._id,
+                                                );
+                                              return (
+                                                <li key={svc._id}>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      if (isSelected) {
+                                                        setPkgSelectedTreatments(
+                                                          (prev) =>
+                                                            prev.filter(
+                                                              (t) =>
+                                                                t.treatmentSlug !==
+                                                                svc._id,
+                                                            ),
+                                                        );
+                                                      } else {
+                                                        setPkgSelectedTreatments(
+                                                          (prev) => [
+                                                            ...prev,
+                                                            {
+                                                              treatmentName:
+                                                                svc.name,
+                                                              treatmentSlug:
+                                                                svc._id,
+                                                              sessions: 1,
+                                                              allocatedPrice:
+                                                                svc.clinicPrice !=
+                                                                null
+                                                                  ? svc.clinicPrice
+                                                                  : svc.price,
+                                                            },
+                                                          ],
+                                                        );
+                                                      }
+                                                    }}
+                                                    className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected ? "bg-violet-50" : ""}`}
+                                                  >
+                                                    <div className="flex items-center gap-3">
+                                                      <div
+                                                        className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? "bg-violet-600 border-violet-600" : "border-gray-300"}`}
+                                                      >
+                                                        {isSelected && (
+                                                          <Check
+                                                            size={12}
+                                                            className="text-white"
+                                                          />
+                                                        )}
+                                                      </div>
+                                                      <div className="text-left">
+                                                        <p className="text-sm font-medium text-gray-800">
+                                                          {svc.name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                          {getCurrencySymbol(
+                                                            currency,
+                                                          )}{" "}
+                                                          {(svc.clinicPrice !=
+                                                          null
+                                                            ? svc.clinicPrice
+                                                            : svc.price
+                                                          ).toFixed(2)}{" "}
+                                                          {svc.durationMinutes}{" "}
+                                                          mins
+                                                        </p>
+                                                      </div>
                                                     </div>
-                                                    <div className="text-left">
-                                                      <p className="text-sm font-medium text-gray-800">{svc.name}</p>
-                                                      <p className="text-xs text-gray-500">{getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}  {svc.durationMinutes} mins</p>
-                                                    </div>
-                                                  </div>
-                                                </button>
-                                              </li>
-                                            );
-                                          })}
+                                                  </button>
+                                                </li>
+                                              );
+                                            })}
                                         </ul>
                                       )}
                                     </div>
@@ -6829,27 +11130,109 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 )}
                                 {pkgSelectedTreatments.length > 0 && (
                                   <div className="mt-3 space-y-2">
-                                    <p className="text-xs font-semibold text-violet-700">Selected Treatments</p>
+                                    <p className="text-xs font-semibold text-violet-700">
+                                      Selected Treatments
+                                    </p>
                                     {pkgSelectedTreatments.map((sel) => {
-                                      const sessPrice = sel.sessions > 0 ? (sel.allocatedPrice || 0) / sel.sessions : 0;
+                                      const sessPrice =
+                                        sel.sessions > 0
+                                          ? (sel.allocatedPrice || 0) /
+                                            sel.sessions
+                                          : 0;
                                       return (
-                                        <div key={sel.treatmentSlug} className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm">
+                                        <div
+                                          key={sel.treatmentSlug}
+                                          className="bg-white border border-violet-200 rounded-lg p-2.5 shadow-sm"
+                                        >
                                           <div className="flex items-center justify-between mb-2">
-                                            <span className="text-xs font-semibold text-violet-700">{sel.treatmentName}</span>
-                                            <button type="button" onClick={() => setPkgSelectedTreatments((prev) => prev.filter((t) => t.treatmentSlug !== sel.treatmentSlug))} className="text-red-400 hover:text-red-600 transition-colors"><XIcon size={13} /></button>
+                                            <span className="text-xs font-semibold text-violet-700">
+                                              {sel.treatmentName}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setPkgSelectedTreatments(
+                                                  (prev) =>
+                                                    prev.filter(
+                                                      (t) =>
+                                                        t.treatmentSlug !==
+                                                        sel.treatmentSlug,
+                                                    ),
+                                                )
+                                              }
+                                              className="text-red-400 hover:text-red-600 transition-colors"
+                                            >
+                                              <XIcon size={13} />
+                                            </button>
                                           </div>
                                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                             <div>
-                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Price</label>
-                                              <input type="number" min="0" step="0.01" value={sel.allocatedPrice || ""} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, allocatedPrice: parseFloat(e.target.value) || 0 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400" placeholder="0.00" />
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                                Price
+                                              </label>
+                                              <input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={sel.allocatedPrice || ""}
+                                                onChange={(e) =>
+                                                  setPkgSelectedTreatments(
+                                                    (prev) =>
+                                                      prev.map((t) =>
+                                                        t.treatmentSlug ===
+                                                        sel.treatmentSlug
+                                                          ? {
+                                                              ...t,
+                                                              allocatedPrice:
+                                                                parseFloat(
+                                                                  e.target
+                                                                    .value,
+                                                                ) || 0,
+                                                            }
+                                                          : t,
+                                                      ),
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                                placeholder="0.00"
+                                              />
                                             </div>
                                             <div>
-                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">Sessions</label>
-                                              <input type="number" min="1" value={sel.sessions} onChange={(e) => setPkgSelectedTreatments((prev) => prev.map((t) => t.treatmentSlug === sel.treatmentSlug ? { ...t, sessions: parseInt(e.target.value) || 1 } : t))} className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400" />
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                                Sessions
+                                              </label>
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                value={sel.sessions}
+                                                onChange={(e) =>
+                                                  setPkgSelectedTreatments(
+                                                    (prev) =>
+                                                      prev.map((t) =>
+                                                        t.treatmentSlug ===
+                                                        sel.treatmentSlug
+                                                          ? {
+                                                              ...t,
+                                                              sessions:
+                                                                parseInt(
+                                                                  e.target
+                                                                    .value,
+                                                                ) || 1,
+                                                            }
+                                                          : t,
+                                                      ),
+                                                  )
+                                                }
+                                                className="w-full px-2 py-1.5 text-xs border border-violet-200 rounded-md text-center focus:outline-none focus:ring-1 focus:ring-violet-400"
+                                              />
                                             </div>
                                             <div>
-                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">/Session</label>
-                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">{sessPrice.toFixed(2)}</div>
+                                              <label className="block text-[9px] text-violet-600 font-medium mb-0.5">
+                                                /Session
+                                              </label>
+                                              <div className="px-2 py-1.5 text-xs font-bold text-center bg-violet-100 rounded-md text-violet-700 border border-violet-200">
+                                                {sessPrice.toFixed(2)}
+                                              </div>
                                             </div>
                                           </div>
                                         </div>
@@ -6857,17 +11240,42 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     })}
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 bg-violet-100 rounded-lg px-3 py-2.5">
                                       <div className="text-center">
-                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Pkg Price</p>
-                                        <p className="text-xs font-bold text-violet-800">{parseFloat(pkgModalPrice) || 0}</p>
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                          Pkg Price
+                                        </p>
+                                        <p className="text-xs font-bold text-violet-800">
+                                          {parseFloat(pkgModalPrice) || 0}
+                                        </p>
                                       </div>
                                       <div className="text-center">
-                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Allocated</p>
-                                        <p className="text-xs font-bold text-violet-800">{pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0).toFixed(2)}</p>
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                          Allocated
+                                        </p>
+                                        <p className="text-xs font-bold text-violet-800">
+                                          {pkgSelectedTreatments
+                                            .reduce(
+                                              (sum, t) =>
+                                                sum + (t.allocatedPrice || 0),
+                                              0,
+                                            )
+                                            .toFixed(2)}
+                                        </p>
                                       </div>
                                       <div className="text-center">
-                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">Remaining</p>
-                                        <p className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}>
-                                          {((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
+                                        <p className="text-[9px] text-violet-600 font-medium mb-0.5">
+                                          Remaining
+                                        </p>
+                                        <p
+                                          className={`text-xs font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01 ? "text-teal-600" : "text-amber-600"}`}
+                                        >
+                                          {(
+                                            (parseFloat(pkgModalPrice) || 0) -
+                                            pkgSelectedTreatments.reduce(
+                                              (sum, t) =>
+                                                sum + (t.allocatedPrice || 0),
+                                              0,
+                                            )
+                                          ).toFixed(2)}
                                         </p>
                                       </div>
                                     </div>
@@ -6875,14 +11283,48 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 )}
                               </div>
                             </div>
-                            {pkgError && (<div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2"><AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" /><p className="text-xs text-red-700">{pkgError}</p></div>)}
-                            {pkgSuccess && (<div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-600" /><p className="text-xs text-green-700 font-medium">{pkgSuccess}</p></div>)}
+                            {pkgError && (
+                              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs text-red-700">
+                                  {pkgError}
+                                </p>
+                              </div>
+                            )}
+                            {pkgSuccess && (
+                              <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <p className="text-xs text-green-700 font-medium">
+                                  {pkgSuccess}
+                                </p>
+                              </div>
+                            )}
                             <div className="flex gap-3">
-                              <button type="button" onClick={() => handleCreatePackageModal(false)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Package size={14} />{pkgSubmitting ? "Creating..." : "Create Package"}
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(false)}
+                                disabled={
+                                  pkgSubmitting || addingPackageToPatient
+                                }
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Package size={14} />
+                                {pkgSubmitting
+                                  ? "Creating..."
+                                  : "Create Package"}
                               </button>
-                              <button type="button" onClick={() => handleCreatePackageModal(true)} disabled={pkgSubmitting || addingPackageToPatient} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Plus size={14} />{addingPackageToPatient ? "Adding..." : "Create & Add to Patient"}
+                              <button
+                                type="button"
+                                onClick={() => handleCreatePackageModal(true)}
+                                disabled={
+                                  pkgSubmitting || addingPackageToPatient
+                                }
+                                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Plus size={14} />
+                                {addingPackageToPatient
+                                  ? "Adding..."
+                                  : "Create & Add to Patient"}
                               </button>
                             </div>
                           </div>
@@ -6895,9 +11337,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
                                 <Package className="w-10 h-10 text-gray-400" />
                               </div>
-                              <p className="text-sm font-medium text-gray-600 mb-1">No services added yet</p>
-                              <p className="text-xs text-gray-400 mb-4">Click "Add Service" to begin building your treatment plan</p>
-                              <button type="button" onClick={() => { setShowAddServiceDropdown(true); if (allServices.length === 0) fetchAllServices(); }} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md">
+                              <p className="text-sm font-medium text-gray-600 mb-1">
+                                No services added yet
+                              </p>
+                              <p className="text-xs text-gray-400 mb-4">
+                                Click "Add Service" to begin building your
+                                treatment plan
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowAddServiceDropdown(true);
+                                  if (allServices.length === 0)
+                                    fetchAllServices();
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all shadow-md"
+                              >
                                 <Plus size={16} /> Browse Services
                               </button>
                             </div>
@@ -6905,14 +11360,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <div className="space-y-3">
                               <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-gray-900">Selected Treatments</span>
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">{selectedServices.length}</span>
+                                  <span className="text-sm font-bold text-gray-900">
+                                    Selected Treatments
+                                  </span>
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                                    {selectedServices.length}
+                                  </span>
                                 </div>
                               </div>
                               {selectedServices.map((svc, i) => {
-                                const isRecentlyAdded = recentlyAddedServices[svc._id] && (Date.now() - recentlyAddedServices[svc._id] < 3000);
+                                const isRecentlyAdded =
+                                  recentlyAddedServices[svc._id] &&
+                                  Date.now() - recentlyAddedServices[svc._id] <
+                                    3000;
                                 return (
-                                  <div key={svc._id} className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? 'border-green-400 bg-green-50 shadow-md ring-2 ring-green-300' : 'border-gray-200 bg-white hover:shadow-md'}`}>
+                                  <div
+                                    key={svc._id}
+                                    className={`group relative rounded-xl border p-4 shadow-sm transition-all duration-500 ${isRecentlyAdded ? "border-green-400 bg-green-50 shadow-md ring-2 ring-green-300" : "border-gray-200 bg-white hover:shadow-md"}`}
+                                  >
                                     {isRecentlyAdded && (
                                       <div className="absolute -top-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full bg-green-500 text-white text-[10px] font-bold shadow-lg animate-bounce">
                                         <Check size={10} />
@@ -6922,14 +11387,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     <div className="flex items-start justify-between">
                                       <div className="flex items-start gap-3 flex-1">
                                         {/* Icon */}
-                                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100'}`}>
-                                          <Package className={`w-6 h-6 ${isRecentlyAdded ? 'text-green-600' : 'text-blue-600'}`} />
+                                        <div
+                                          className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 border ${isRecentlyAdded ? "bg-gradient-to-br from-green-50 to-emerald-50 border-green-200" : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100"}`}
+                                        >
+                                          <Package
+                                            className={`w-6 h-6 ${isRecentlyAdded ? "text-green-600" : "text-blue-600"}`}
+                                          />
                                         </div>
 
                                         {/* Info */}
                                         <div className="flex-1">
                                           <div className="flex items-center gap-2 mb-1">
-                                            <h4 className="text-sm font-bold text-gray-900">{svc.name}</h4>
+                                            <h4 className="text-sm font-bold text-gray-900">
+                                              {svc.name}
+                                            </h4>
                                             {isRecentlyAdded ? (
                                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">
                                                 Smart Recommendation
@@ -6940,19 +11411,30 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               </span>
                                             )}
                                           </div>
-                                          <p className="text-xs text-gray-500 mb-2">Service #{i + 1}  ID: {svc._id.slice(-6)}</p>
+                                          <p className="text-xs text-gray-500 mb-2">
+                                            Service #{i + 1} ID:{" "}
+                                            {svc._id.slice(-6)}
+                                          </p>
 
                                           {/* Price and Quantity Controls */}
                                           <div className="flex items-center gap-4">
                                             <div className="flex items-center gap-2">
-                                              <label className="text-xs text-gray-600 font-medium">Price:</label>
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Price:
+                                              </label>
                                               <div className="relative">
-                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">{getCurrencySymbol(currency)}</span>
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">
+                                                  {getCurrencySymbol(currency)}
+                                                </span>
                                                 <input
                                                   type="number"
                                                   min="0"
                                                   step="0.01"
-                                                  value={(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                                  value={(svc.clinicPrice !=
+                                                  null
+                                                    ? svc.clinicPrice
+                                                    : svc.price
+                                                  ).toFixed(2)}
                                                   readOnly
                                                   className="w-32 pl-9 pr-3 py-1.5 text-xs font-semibold text-gray-900 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-gray-50 transition-all"
                                                 />
@@ -6961,21 +11443,34 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
                                             {/* Quantity Controls */}
                                             <div className="flex items-center gap-2">
-                                              <label className="text-xs text-gray-600 font-medium">Qty:</label>
+                                              <label className="text-xs text-gray-600 font-medium">
+                                                Qty:
+                                              </label>
                                               <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
                                                 <button
                                                   type="button"
                                                   onClick={() => {
-                                                    setSelectedServices((prev) =>
-                                                      prev.map((s) =>
-                                                        s._id === svc._id
-                                                          ? { ...s, quantity: Math.max(1, (s.quantity || 1) - 1) }
-                                                          : s
-                                                      )
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  Math.max(
+                                                                    1,
+                                                                    (s.quantity ||
+                                                                      1) - 1,
+                                                                  ),
+                                                              }
+                                                            : s,
+                                                        ),
                                                     );
                                                   }}
                                                   className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
-                                                  disabled={(svc.quantity || 1) <= 1}
+                                                  disabled={
+                                                    (svc.quantity || 1) <= 1
+                                                  }
                                                 >
                                                   -
                                                 </button>
@@ -6984,11 +11479,23 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   min="1"
                                                   value={svc.quantity || 1}
                                                   onChange={(e) => {
-                                                    const newQty = Math.max(1, parseInt(e.target.value) || 1);
-                                                    setSelectedServices((prev) =>
-                                                      prev.map((s) =>
-                                                        s._id === svc._id ? { ...s, quantity: newQty } : s
-                                                      )
+                                                    const newQty = Math.max(
+                                                      1,
+                                                      parseInt(
+                                                        e.target.value,
+                                                      ) || 1,
+                                                    );
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  newQty,
+                                                              }
+                                                            : s,
+                                                        ),
                                                     );
                                                   }}
                                                   className="w-12 px-1 py-1 text-xs font-semibold text-center border-0 focus:outline-none focus:ring-0"
@@ -6996,12 +11503,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                 <button
                                                   type="button"
                                                   onClick={() => {
-                                                    setSelectedServices((prev) =>
-                                                      prev.map((s) =>
-                                                        s._id === svc._id
-                                                          ? { ...s, quantity: (s.quantity || 1) + 1 }
-                                                          : s
-                                                      )
+                                                    setSelectedServices(
+                                                      (prev) =>
+                                                        prev.map((s) =>
+                                                          s._id === svc._id
+                                                            ? {
+                                                                ...s,
+                                                                quantity:
+                                                                  (s.quantity ||
+                                                                    1) + 1,
+                                                              }
+                                                            : s,
+                                                        ),
                                                     );
                                                   }}
                                                   className="px-2 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
@@ -7018,12 +11531,24 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       <div className="flex items-center gap-2">
                                         <div className="text-right">
                                           <p className="text-sm font-bold text-gray-900">
-                                            {getCurrencySymbol(currency)} {(((svc.clinicPrice != null ? svc.clinicPrice : svc.price) * (svc.quantity || 1))).toFixed(2)}
+                                            {getCurrencySymbol(currency)}{" "}
+                                            {(
+                                              (svc.clinicPrice != null
+                                                ? svc.clinicPrice
+                                                : svc.price) *
+                                              (svc.quantity || 1)
+                                            ).toFixed(2)}
                                           </p>
                                         </div>
                                         <button
                                           type="button"
-                                          onClick={() => setSelectedServices((prev) => prev.filter((s) => s._id !== svc._id))}
+                                          onClick={() =>
+                                            setSelectedServices((prev) =>
+                                              prev.filter(
+                                                (s) => s._id !== svc._id,
+                                              ),
+                                            )
+                                          }
                                           className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50"
                                           title="Remove service"
                                         >
@@ -7037,13 +11562,25 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               <div className="mt-3 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 shadow-md">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center"><ClipboardList className="w-5 h-5 text-white" /></div>
+                                    <div className="w-8 h-8 rounded-lg bg-white bg-opacity-20 flex items-center justify-center">
+                                      <ClipboardList className="w-5 h-5 text-white" />
+                                    </div>
                                     <div>
-                                      <p className="text-xs font-medium text-blue-100">Total Bill</p>
-                                      <p className="text-[10px] text-blue-200">{selectedServices.length} {selectedServices.length === 1 ? "treatment" : "treatments"}</p>
+                                      <p className="text-xs font-medium text-blue-100">
+                                        Total Bill
+                                      </p>
+                                      <p className="text-[10px] text-blue-200">
+                                        {selectedServices.length}{" "}
+                                        {selectedServices.length === 1
+                                          ? "treatment"
+                                          : "treatments"}
+                                      </p>
                                     </div>
                                   </div>
-                                  <p className="text-lg font-bold text-white">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</p>
+                                  <p className="text-lg font-bold text-white">
+                                    {getCurrencySymbol(currency)}{" "}
+                                    {totalBill.toFixed(2)}
+                                  </p>
                                 </div>
                               </div>
                             </div>
@@ -7054,21 +11591,46 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {/* Clinical Checklist */}
                       <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm px-3 sm:px-4 py-3">
                         <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" /> Clinical Checklist
+                          <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />{" "}
+                          Clinical Checklist
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {CHECKLIST_ITEMS.map((item) => (
-                            <label key={item} className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}>
-                              <input type="checkbox" checked={checklist[item]} onChange={() => setChecklist((prev) => ({ ...prev, [item]: !prev[item] }))} className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer" />
-                              <span className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}>{item}</span>
-                              {checklist[item] && <Check size={12} className="ml-auto text-green-500" />}
+                            <label
+                              key={item}
+                              className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${checklist[item] ? "border-green-300 bg-green-50" : "border-gray-200 bg-white hover:bg-gray-50"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checklist[item]}
+                                onChange={() =>
+                                  setChecklist((prev) => ({
+                                    ...prev,
+                                    [item]: !prev[item],
+                                  }))
+                                }
+                                className="w-3.5 h-3.5 rounded accent-green-500 cursor-pointer"
+                              />
+                              <span
+                                className={`text-xs font-medium ${checklist[item] ? "text-green-700" : "text-gray-700"}`}
+                              >
+                                {item}
+                              </span>
+                              {checklist[item] && (
+                                <Check
+                                  size={12}
+                                  className="ml-auto text-green-500"
+                                />
+                              )}
                             </label>
                           ))}
                         </div>
                         {checklistError && (
                           <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
                             <AlertTriangle className="w-3.5 h-3.5 text-red-500 mt-0.5" />
-                            <p className="text-xs text-red-700">{checklistError}</p>
+                            <p className="text-xs text-red-700">
+                              {checklistError}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -7077,7 +11639,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {consentStatuses.length > 0 && (
                         <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3 mb-3">
                           <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-blue-600" /> Consent Forms
+                            <FileText className="w-4 h-4 text-blue-600" />{" "}
+                            Consent Forms
                           </h3>
                           <div className="space-y-2">
                             {consentStatuses.map((consent) => (
@@ -7128,26 +11691,76 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       )}
 
                       {/* Stock Used (All Sessions) */}
-                      {previousComplaints.some((c) => Array.isArray(c.items) && c.items.length > 0) && (
+                      {previousComplaints.some(
+                        (c) => Array.isArray(c.items) && c.items.length > 0,
+                      ) && (
                         <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm px-3 sm:px-4 py-3">
-                          <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" /> Stock Used (All Sessions)</h3>
+                          <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />{" "}
+                            Stock Used (All Sessions)
+                          </h3>
                           <div className="rounded-lg border border-gray-100 overflow-x-auto">
                             <table className="w-full text-[10px] sm:text-xs min-w-[400px]">
-                              <thead className="bg-gray-50"><tr>
-                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Item</th>
-                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
-                                <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">UOM</th>
-                              </tr></thead>
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    Date
+                                  </th>
+                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    Item
+                                  </th>
+                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
+                                    Qty
+                                  </th>
+                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                    UOM
+                                  </th>
+                                </tr>
+                              </thead>
                               <tbody className="divide-y divide-gray-100 bg-white">
-                                {previousComplaints.filter((c) => Array.isArray(c.items) && c.items.length > 0).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).flatMap((c) => (c.items as NonNullable<typeof c.items>).map((item, idx) => ({ date: c.createdAt, item, key: `rx-${c._id}-${idx}` }))).map(({ date, item, key }) => (
-                                  <tr key={key} className="hover:bg-gray-50">
-                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">{new Date(date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 font-medium text-gray-800">{item.name}</td>
-                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-700">{item.quantity}</td>
-                                    <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500">{item.uom || "-"}</td>
-                                  </tr>
-                                ))}
+                                {previousComplaints
+                                  .filter(
+                                    (c) =>
+                                      Array.isArray(c.items) &&
+                                      c.items.length > 0,
+                                  )
+                                  .sort(
+                                    (a, b) =>
+                                      new Date(b.createdAt).getTime() -
+                                      new Date(a.createdAt).getTime(),
+                                  )
+                                  .flatMap((c) =>
+                                    (
+                                      c.items as NonNullable<typeof c.items>
+                                    ).map((item, idx) => ({
+                                      date: c.createdAt,
+                                      item,
+                                      key: `rx-${c._id}-${idx}`,
+                                    })),
+                                  )
+                                  .map(({ date, item, key }) => (
+                                    <tr key={key} className="hover:bg-gray-50">
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">
+                                        {new Date(date).toLocaleDateString(
+                                          "en-GB",
+                                          {
+                                            day: "2-digit",
+                                            month: "short",
+                                            year: "numeric",
+                                          },
+                                        )}
+                                      </td>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 font-medium text-gray-800">
+                                        {item.name}
+                                      </td>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-700">
+                                        {item.quantity}
+                                      </td>
+                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500">
+                                        {item.uom || "-"}
+                                      </td>
+                                    </tr>
+                                  ))}
                               </tbody>
                             </table>
                           </div>
@@ -7159,86 +11772,150 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               )}
             </div>
 
-    
             <div className="w-full lg:w-72 flex-shrink-0 border-l border-gray-200 overflow-y-auto scrollbar-hide bg-white lg:border-t-0 border-t max-h-[40vh] lg:max-h-none">
               <div className="p-3 sm:p-4 space-y-3">
-
                 {/* Revenue Insights */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Revenue Insights</span>
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        Revenue Insights
+                      </span>
                     </div>
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     {loadingPatientStats ? (
-                      <div className="py-3 text-center text-xs text-gray-400">Loading billing data</div>
+                      <div className="py-3 text-center text-xs text-gray-400">
+                        Loading billing data
+                      </div>
                     ) : patientStats ? (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Total Paid (All-Time)</span>
-                          <span className="text-base font-bold text-gray-900">{getCurrencySymbol(currency)} {patientStats.totalSpend.toLocaleString()}</span>
+                          <span className="text-xs text-gray-500">
+                            Total Paid (All-Time)
+                          </span>
+                          <span className="text-base font-bold text-gray-900">
+                            {getCurrencySymbol(currency)}{" "}
+                            {patientStats.totalSpend.toLocaleString()}
+                          </span>
                         </div>
                         {/* <div className="flex items-center justify-between">
                           <span className="text-xs text-gray-500">Total Billed</span>
                           <span className="text-xs font-semibold text-gray-700">{getCurrencySymbol(currency)} {patientStats.totalBilled.toLocaleString()}</span>
                         </div> */}
-                        {(patientBalance.pendingBalance > 0 || patientBalance.pendingClaim > 0) && (
+                        {(patientBalance.pendingBalance > 0 ||
+                          patientBalance.pendingClaim > 0) && (
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">Outstanding</span>
-                            <span className="text-xs font-semibold text-red-500">{getCurrencySymbol(currency)} {(patientBalance.pendingBalance + patientBalance.pendingClaim).toLocaleString()}</span>
+                            <span className="text-xs text-gray-500">
+                              Outstanding
+                            </span>
+                            <span className="text-xs font-semibold text-red-500">
+                              {getCurrencySymbol(currency)}{" "}
+                              {(
+                                patientBalance.pendingBalance +
+                                patientBalance.pendingClaim
+                              ).toLocaleString()}
+                            </span>
                           </div>
                         )}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
-                          <span className="text-xs text-gray-500">Total Invoices</span>
-                          <span className="text-xs font-semibold text-gray-700">{patientStats.billingCount}</span>
+                          <span className="text-xs text-gray-500">
+                            Total Invoices
+                          </span>
+                          <span className="text-xs font-semibold text-gray-700">
+                            {patientStats.billingCount}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">This Session</span>
-                          <span className="text-xs font-semibold text-blue-600">{getCurrencySymbol(currency)} {totalBill.toFixed(2)}</span>
+                          <span className="text-xs text-gray-500">
+                            This Session
+                          </span>
+                          <span className="text-xs font-semibold text-blue-600">
+                            {getCurrencySymbol(currency)} {totalBill.toFixed(2)}
+                          </span>
                         </div>
                         {patientStats.recentBillings.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-100">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Recent Billing</p>
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
+                              Recent Billing
+                            </p>
                             {patientStats.recentBillings.map((b, i) => (
-                              <div key={i} className="flex items-center justify-between py-0.5 text-xs">
-                                <span className="text-gray-600 truncate flex-1 mr-2">{b.label}</span>
+                              <div
+                                key={i}
+                                className="flex items-center justify-between py-0.5 text-xs"
+                              >
+                                <span className="text-gray-600 truncate flex-1 mr-2">
+                                  {b.label}
+                                </span>
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-gray-800 font-medium whitespace-nowrap">{getCurrencySymbol(currency)} {(b.amount||0).toLocaleString()}</span>
-                                  {(b.paid || 0) === 0 && (b.pending || 0) > 0 && (
-                                    <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-semibold rounded border border-amber-200">Unpaid</span>
-                                  )}
-                                  {(b.paid || 0) > 0 && (b.pending || 0) > 0 && (
-                                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-semibold rounded border border-blue-200">Partial</span>
-                                  )}
+                                  <span className="text-gray-800 font-medium whitespace-nowrap">
+                                    {getCurrencySymbol(currency)}{" "}
+                                    {(b.amount || 0).toLocaleString()}
+                                  </span>
+                                  {(b.paid || 0) === 0 &&
+                                    (b.pending || 0) > 0 && (
+                                      <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-semibold rounded border border-amber-200">
+                                        Unpaid
+                                      </span>
+                                    )}
+                                  {(b.paid || 0) > 0 &&
+                                    (b.pending || 0) > 0 && (
+                                      <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[9px] font-semibold rounded border border-blue-200">
+                                        Partial
+                                      </span>
+                                    )}
                                 </div>
                               </div>
                             ))}
                           </div>
                         )}
-                        {smartDepartments.flatMap((d) => d.services).slice(0, 2).length > 0 && (
+                        {smartDepartments.flatMap((d) => d.services).slice(0, 2)
+                          .length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-100">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Upsell Potential</p>
-                            {smartDepartments.flatMap((d) => d.services).slice(0, 2).map((svc) => (
-                              <div key={svc._id} className="flex items-center justify-between py-1 text-xs">
-                                <span className="text-gray-600 truncate flex-1 mr-2">{svc.name}</span>
-                                <span className="text-blue-600 font-medium whitespace-nowrap">+{getCurrencySymbol(currency)} {svc.clinicPrice != null ? svc.clinicPrice : svc.price}</span>
-                              </div>
-                            ))}
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
+                              Upsell Potential
+                            </p>
+                            {smartDepartments
+                              .flatMap((d) => d.services)
+                              .slice(0, 2)
+                              .map((svc) => (
+                                <div
+                                  key={svc._id}
+                                  className="flex items-center justify-between py-1 text-xs"
+                                >
+                                  <span className="text-gray-600 truncate flex-1 mr-2">
+                                    {svc.name}
+                                  </span>
+                                  <span className="text-blue-600 font-medium whitespace-nowrap">
+                                    +{getCurrencySymbol(currency)}{" "}
+                                    {svc.clinicPrice != null
+                                      ? svc.clinicPrice
+                                      : svc.price}
+                                  </span>
+                                </div>
+                              ))}
                           </div>
                         )}
                       </>
                     ) : (
                       <>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">This Session Bill</span>
-                          <span className="text-base font-bold text-gray-900">{getCurrencySymbol(currency)}
-                             {totalBill.toFixed(2)}</span>
+                          <span className="text-xs text-gray-500">
+                            This Session Bill
+                          </span>
+                          <span className="text-base font-bold text-gray-900">
+                            {getCurrencySymbol(currency)}
+                            {totalBill.toFixed(2)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Services Added</span>
-                          <span className="text-xs font-semibold text-gray-700">{selectedServices.length}</span>
+                          <span className="text-xs text-gray-500">
+                            Services Added
+                          </span>
+                          <span className="text-xs font-semibold text-gray-700">
+                            {selectedServices.length}
+                          </span>
                         </div>
                       </>
                     )}
@@ -7250,12 +11927,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Activity className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Treatment History</span>
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        Treatment History
+                      </span>
                     </div>
                     {doctorDiscount && (
                       <button
                         type="button"
-                        onClick={() => setIsDoctorDiscountApplied(!isDoctorDiscountApplied)}
+                        onClick={() =>
+                          setIsDoctorDiscountApplied(!isDoctorDiscountApplied)
+                        }
                         className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
                           isDoctorDiscountApplied
                             ? "bg-green-100 text-green-700 border border-green-200"
@@ -7263,7 +11944,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         }`}
                       >
                         <TrendingUp size={10} />
-                        {isDoctorDiscountApplied ? "Discount Applied" : "Apply Discount"}
+                        {isDoctorDiscountApplied
+                          ? "Discount Applied"
+                          : "Apply Discount"}
                       </button>
                     )}
                   </div>
@@ -7274,74 +11957,109 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <span className="text-xs font-bold text-gray-800">{previousComplaints.length}</span>
                       </div> */}
                       {/* <div className="w-full bg-gray-100 rounded-full h-2"> */}
-                        {/* <div
+                      {/* <div
                           className="bg-blue-500 h-2 rounded-full transition-all"
                           style={{ width: `${Math.min((previousComplaints.length / Math.max(previousComplaints.length + 2, 5)) * 100, 100)}%` }}
                         /> */}
                       {/* </div> */}
                     </div>
-                    {details?.serviceNames && details.serviceNames.length > 0 && (
-                      <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">Active Treatments</p>
-                        {details.serviceNames.map((name, i) => {
-                          const serviceId = details.serviceIds?.[i];
-                          const isDeleting = deletingTreatmentId === serviceId;
-                          return (
-                            <div key={i} className="flex items-center justify-between gap-2 py-1 group">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                                <span className="text-xs text-gray-700 truncate">{name}</span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTreatment(i)}
-                                disabled={isDeleting}
-                                title="Remove treatment"
-                                className="text-red-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    {details?.serviceNames &&
+                      details.serviceNames.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
+                            Active Treatments
+                          </p>
+                          {details.serviceNames.map((name, i) => {
+                            const serviceId = details.serviceIds?.[i];
+                            const isDeleting =
+                              deletingTreatmentId === serviceId;
+                            return (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between gap-2 py-1 group"
                               >
-                                {isDeleting ? (
-                                  <Loader2 size={14} className="animate-spin" />
-                                ) : (
-                                  <Trash2 size={14} />
-                                )}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                   
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                                  <span className="text-xs text-gray-700 truncate">
+                                    {name}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTreatment(i)}
+                                  disabled={isDeleting}
+                                  title="Remove treatment"
+                                  className="text-red-400 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  {isDeleting ? (
+                                    <Loader2
+                                      size={14}
+                                      className="animate-spin"
+                                    />
+                                  ) : (
+                                    <Trash2 size={14} />
+                                  )}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
                     {/* Last 5 Selected Treatments */}
                     {selectedServices.length > 0 && (
                       <div>
                         <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
-                          Selected Treatments {selectedServices.length > 5 ? `(Last 5 of ${selectedServices.length})` : ''}
+                          Selected Treatments{" "}
+                          {selectedServices.length > 5
+                            ? `(Last 5 of ${selectedServices.length})`
+                            : ""}
                         </p>
                         <div className="space-y-1.5">
                           {selectedServices.slice(-5).map((svc) => (
-                            <div key={svc._id} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50 border border-gray-100">
+                            <div
+                              key={svc._id}
+                              className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-gray-50 border border-gray-100"
+                            >
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
-                                <span className="text-xs text-gray-700 truncate flex-1">{svc.name}</span>
+                                <span className="text-xs text-gray-700 truncate flex-1">
+                                  {svc.name}
+                                </span>
                               </div>
                               <span className="text-xs font-bold text-blue-600 ml-2 flex-shrink-0">
-                                {getCurrencySymbol(currency)} {(svc.clinicPrice != null ? svc.clinicPrice : svc.price).toFixed(2)}
+                                {getCurrencySymbol(currency)}{" "}
+                                {(svc.clinicPrice != null
+                                  ? svc.clinicPrice
+                                  : svc.price
+                                ).toFixed(2)}
                               </span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
-                   
+
                     <div className="pt-1 border-t border-gray-100">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">Next Session Date</p>
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                        Next Session Date
+                      </p>
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-blue-500" />
                         <span className="text-xs font-semibold text-gray-700">
                           {(() => {
-                            const nextFollowUp = filteredUpcomingAppointments?.find(appt => appt.followType === "follow up");
+                            const nextFollowUp =
+                              filteredUpcomingAppointments?.find(
+                                (appt) => appt.followType === "follow up",
+                              );
                             return nextFollowUp
-                              ? new Date(nextFollowUp.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                              ? new Date(
+                                  nextFollowUp.startDate,
+                                ).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })
                               : "Not scheduled";
                           })()}
                         </span>
@@ -7355,50 +12073,66 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
                     <div className="flex items-center gap-2">
                       <Stethoscope className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Next Best Action</span>
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        Next Best Action
+                      </span>
                     </div>
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     {!report && (
                       <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                        <p className="text-xs text-blue-700">Record patient vitals for this appointment</p>
+                        <p className="text-xs text-blue-700">
+                          Record patient vitals for this appointment
+                        </p>
                       </div>
                     )}
                     {!complaints.trim() && (
                       <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                        <p className="text-xs text-blue-600">Document chief complaints</p>
+                        <p className="text-xs text-blue-600">
+                          Document chief complaints
+                        </p>
                       </div>
                     )}
                     {!selectedConsentId && (
                       <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                        <p className="text-xs text-blue-600">Send consent form to patient</p>
+                        <p className="text-xs text-blue-600">
+                          Send consent form to patient
+                        </p>
                       </div>
                     )}
                     {selectedServices.length === 0 && (
                       <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                        <p className="text-xs text-blue-600">Add services to the appointment</p>
+                        <p className="text-xs text-blue-600">
+                          Add services to the appointment
+                        </p>
                       </div>
                     )}
                     {!nextSessionBooked && (
                       <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
                         <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                        <p className="text-xs text-blue-600">Schedule the next session</p>
+                        <p className="text-xs text-blue-600">
+                          Schedule the next session
+                        </p>
                       </div>
                     )}
-                    {report && complaints.trim() && selectedServices.length > 0 && nextSessionBooked && selectedConsentId && (
-                      <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
-                        <Check className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                        <p className="text-xs text-blue-700 font-medium">All recommended actions completed!</p>
-                      </div>
-                    )}
+                    {report &&
+                      complaints.trim() &&
+                      selectedServices.length > 0 &&
+                      nextSessionBooked &&
+                      selectedConsentId && (
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
+                          <Check className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                          <p className="text-xs text-blue-700 font-medium">
+                            All recommended actions completed!
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
-
-             
 
                 {/* Previous History Accordion */}
                 {/* <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -7440,14 +12174,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
                     <div className="flex items-center gap-2">
                       <Send className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Communication Log</span>
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        Communication Log
+                      </span>
                     </div>
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     {loadingConsentStatus ? (
                       <div className="flex flex-col items-center justify-center py-6 gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                        <span className="text-[10px] font-medium text-gray-500 italic">Syncing communication log...</span>
+                        <span className="text-[10px] font-medium text-gray-500 italic">
+                          Syncing communication log...
+                        </span>
                       </div>
                     ) : consentStatuses.length > 0 ? (
                       <div className="space-y-2">
@@ -7460,11 +12198,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 : "border-blue-200 bg-blue-50"
                             }`}
                           >
-                            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                              consent.status === "signed"
-                                ? "bg-green-100"
-                                : "bg-blue-100"
-                            }`}>
+                            <div
+                              className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                consent.status === "signed"
+                                  ? "bg-green-100"
+                                  : "bg-blue-100"
+                              }`}
+                            >
                               {consent.status === "signed" ? (
                                 <CheckCircle className="w-3 h-3 text-green-600" />
                               ) : (
@@ -7476,12 +12216,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 {consent.consentFormName}
                               </p>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
-                                  consent.status === "signed"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-blue-100 text-blue-700"
-                                }`}>
-                                  {consent.status === "signed" ? "SIGNED" : "SENT"}
+                                <span
+                                  className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                                    consent.status === "signed"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {consent.status === "signed"
+                                    ? "SIGNED"
+                                    : "SENT"}
                                 </span>
                                 <span className="text-[10px] text-gray-400">
                                   {consent.date}
@@ -7500,21 +12244,25 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           <Check className="w-3 h-3 text-green-600" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-gray-700">Consent Form Sent</p>
-                          <p className="text-[10px] text-gray-400">{new Date().toLocaleString()}</p>
+                          <p className="text-xs font-semibold text-gray-700">
+                            Consent Form Sent
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {new Date().toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 text-center py-2">No communication logged yet.</p>
+                      <p className="text-xs text-gray-400 text-center py-2">
+                        No communication logged yet.
+                      </p>
                     )}
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
 
-      
           <div className="flex items-center justify-between border-t border-gray-200 px-3 sm:px-4 md:px-5 py-2 sm:py-3 bg-white flex-shrink-0 gap-2">
             <button
               type="button"
@@ -7536,27 +12284,49 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           {isEditModalOpen && editingComplaint && (
             <EditComplaintModal
               complaint={editingComplaint}
-              onClose={() => { setIsEditModalOpen(false); setEditingComplaint(null); }}
+              onClose={() => {
+                setIsEditModalOpen(false);
+                setEditingComplaint(null);
+              }}
               onSaved={(updated) => {
-                setPreviousComplaints((prev) => prev.map((pc) => pc._id === updated._id ? { 
-                  ...pc, 
-                  complaints: updated.complaints, 
-                  items: updated.items || [], 
-                  createdAt: (updated as any).createdAt || pc.createdAt,
-                  beforeImage: (updated.beforeImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
-                  afterImage: (updated.afterImage || "").trim().replace(/^`|`$/g, ""), // Trim and remove backticks
-                  consentLogs: updated.consentLogs || pc.consentLogs || [],
-                } : pc));
-                setIsEditModalOpen(false); setEditingComplaint(null);
+                setPreviousComplaints((prev) =>
+                  prev.map((pc) =>
+                    pc._id === updated._id
+                      ? {
+                          ...pc,
+                          complaints: updated.complaints,
+                          items: updated.items || [],
+                          createdAt: (updated as any).createdAt || pc.createdAt,
+                          beforeImage: (updated.beforeImage || "")
+                            .trim()
+                            .replace(/^`|`$/g, ""), // Trim and remove backticks
+                          afterImage: (updated.afterImage || "")
+                            .trim()
+                            .replace(/^`|`$/g, ""), // Trim and remove backticks
+                          consentLogs:
+                            updated.consentLogs || pc.consentLogs || [],
+                          checklist: updated.checklist || pc.checklist || {},
+                          createdPackage:
+                            updated.createdPackage || pc.createdPackage || null,
+                        }
+                      : pc,
+                  ),
+                );
+                setIsEditModalOpen(false);
+                setEditingComplaint(null);
               }}
               onConsentSent={() => {
                 // Refresh previous complaints when consent is sent
-                const patientId = typeof editingComplaint.patientId === 'object' ? editingComplaint.patientId?._id : editingComplaint.patientId;
+                const patientId =
+                  typeof editingComplaint.patientId === "object"
+                    ? editingComplaint.patientId?._id
+                    : editingComplaint.patientId;
                 if (patientId) {
                   fetchPreviousComplaints(patientId);
                 }
               }}
               getAuthHeaders={getAuthHeaders}
+              isSpecificClinic={isSpecificClinic}
             />
           )}
         </div>
@@ -7573,12 +12343,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         cancelText="No, Keep"
       />
       {isOpenViewComplaintModal && (
-        <ComplaintDetailModal onClose={() => setIsOpenViewComplaintModal(false)} complaint={selectedComplaint} />
+        <ComplaintDetailModal
+          onClose={() => setIsOpenViewComplaintModal(false)}
+          complaint={selectedComplaint}
+          isSpecificClinic={isSpecificClinic}
+        />
       )}
       <AddStockTransferRequestModal
         isOpen={isOpenStockTransferModal}
         onClose={() => setIsOpenStockTransferModal(false)}
-        onSuccess={() => { fetchAllocatedItems(); setIsOpenStockTransferModal(false); }}
+        onSuccess={() => {
+          fetchAllocatedItems();
+          setIsOpenStockTransferModal(false);
+        }}
       />
     </>
   );
@@ -7590,7 +12367,15 @@ const EditComplaintModal: React.FC<{
   onSaved: (updated: PreviousComplaint) => void;
   getAuthHeaders: () => Record<string, string>;
   onConsentSent?: () => void; // Optional callback when consent is sent
-}> = ({ complaint, onClose, onSaved, getAuthHeaders, onConsentSent }) => {
+  isSpecificClinic: boolean;
+}> = ({
+  complaint,
+  onClose,
+  onSaved,
+  getAuthHeaders,
+  onConsentSent,
+  isSpecificClinic,
+}) => {
   const token = getTokenByPath() || "";
   const { stockItems } = useStockItems();
   const { uoms, loading: uomsLoading } = useUoms({ token });
@@ -7606,10 +12391,28 @@ const EditComplaintModal: React.FC<{
   const [items, setItems] = useState<StockRow[]>(
     Array.isArray(complaint.items) ? (complaint.items as any) : [],
   );
-  const [beforeImage, setBeforeImage] = useState<string>(complaint.beforeImage || "");
-  const [afterImage, setAfterImage] = useState<string>(complaint.afterImage || "");
+  const [beforeImage, setBeforeImage] = useState<string>(
+    complaint.beforeImage || "",
+  );
+  const [afterImage, setAfterImage] = useState<string>(
+    complaint.afterImage || "",
+  );
   const [uploadingBefore, setUploadingBefore] = useState<boolean>(false);
   const [uploadingAfter, setUploadingAfter] = useState<boolean>(false);
+  const CHECKLIST_ITEMS = [
+    "Consent Signed",
+    "Allergy Checked",
+    "Photos Uploaded",
+    "Notes Completed",
+  ] as const;
+  const [checklist, setChecklist] = useState<Record<string, boolean>>(
+    (complaint as any).checklist || {
+      "Consent Signed": false,
+      "Allergy Checked": false,
+      "Photos Uploaded": false,
+      "Notes Completed": false,
+    },
+  );
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
     code: "",
@@ -7634,37 +12437,67 @@ const EditComplaintModal: React.FC<{
   const [progressNotes, setProgressNotes] = useState<ProgressNoteEntry[]>([]);
   const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
   const [progressError, setProgressError] = useState<string>("");
-  const [editingProgressNoteId, setEditingProgressNoteId] = useState<string | null>(null);
-  const [editingProgressNoteData, setEditingProgressNoteData] = useState<{ note: string; noteDate: string } | null>(null);
+  const [editingProgressNoteId, setEditingProgressNoteId] = useState<
+    string | null
+  >(null);
+  const [editingProgressNoteData, setEditingProgressNoteData] = useState<{
+    note: string;
+    noteDate: string;
+  } | null>(null);
   const [savingEditedProgress, setSavingEditedProgress] = useState(false);
   const [addingNewEntry, setAddingNewEntry] = useState(false);
   const [newEntryText, setNewEntryText] = useState<string>("");
-  const [newEntryDate, setNewEntryDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [newEntryDate, setNewEntryDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [savingProgress, setSavingProgress] = useState(false);
 
   // Prescription state
   interface PrescriptionHistoryEntry {
     _id: string;
-    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    medicines: Array<{
+      _id?: string;
+      medicineName: string;
+      dosage?: string;
+      duration?: string;
+      notes?: string;
+    }>;
     aftercareInstructions?: string;
     includeInPdf?: boolean;
     doctorId?: { _id?: string; name?: string; email?: string } | string | null;
     createdAt: string;
     updatedAt: string;
   }
-  const [prescriptionHistory, setPrescriptionHistory] = useState<PrescriptionHistoryEntry[]>([]);
-  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] = useState(false);
+  const [prescriptionHistory, setPrescriptionHistory] = useState<
+    PrescriptionHistoryEntry[]
+  >([]);
+  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] =
+    useState(false);
   const [prescriptionError, setPrescriptionError] = useState<string>("");
-  const [editingPrescriptionId, setEditingPrescriptionId] = useState<string | null>(null);
+  const [editingPrescriptionId, setEditingPrescriptionId] = useState<
+    string | null
+  >(null);
   const [editingPrescriptionData, setEditingPrescriptionData] = useState<{
-    medicines: Array<{ _id?: string; medicineName: string; dosage?: string; duration?: string; notes?: string }>;
+    medicines: Array<{
+      _id?: string;
+      medicineName: string;
+      dosage?: string;
+      duration?: string;
+      notes?: string;
+    }>;
     aftercareInstructions?: string;
   } | null>(null);
-  const [savingEditedPrescription, setSavingEditedPrescription] = useState(false);
-  const [expandedPrescription, setExpandedPrescription] = useState<Record<string, boolean>>({});
+  const [savingEditedPrescription, setSavingEditedPrescription] =
+    useState(false);
+  const [expandedPrescription, setExpandedPrescription] = useState<
+    Record<string, boolean>
+  >({});
 
   // consent form
-  interface ConsentFormOption { _id: string; formName: string; }
+  interface ConsentFormOption {
+    _id: string;
+    formName: string;
+  }
   const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
   const [selectedConsentId, setSelectedConsentId] = useState<string>("");
   const [sendingConsent, setSendingConsent] = useState<boolean>(false);
@@ -7686,7 +12519,10 @@ const EditComplaintModal: React.FC<{
   useEffect(() => {
     fetchConsentForms();
     // Fetch progress notes and prescriptions when modal opens
-    const patientId = typeof complaint.patientId === 'object' ? complaint.patientId?._id : complaint.patientId;
+    const patientId =
+      typeof complaint.patientId === "object"
+        ? complaint.patientId?._id
+        : complaint.patientId;
     if (patientId) {
       fetchProgressNotes(patientId);
       fetchPrescriptionHistory(patientId);
@@ -7697,7 +12533,8 @@ const EditComplaintModal: React.FC<{
   const isWithin24Hours = (createdAt: string) => {
     const now = new Date();
     const createdDate = new Date(createdAt);
-    const hoursDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+    const hoursDiff =
+      (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
     return hoursDiff < 24;
   };
 
@@ -7745,7 +12582,9 @@ const EditComplaintModal: React.FC<{
     setEditingProgressNoteId(entry._id);
     setEditingProgressNoteData({
       note: entry.note,
-      noteDate: entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10),
+      noteDate: entry.noteDate
+        ? new Date(entry.noteDate).toISOString().slice(0, 10)
+        : new Date(entry.createdAt).toISOString().slice(0, 10),
     });
   };
 
@@ -7755,26 +12594,39 @@ const EditComplaintModal: React.FC<{
   };
 
   const saveEditedProgressNote = async (noteId: string) => {
-    if (!editingProgressNoteData || !editingProgressNoteData.note.trim()) return;
+    if (!editingProgressNoteData || !editingProgressNoteData.note.trim())
+      return;
     setSavingEditedProgress(true);
     try {
       const headers = getAuthHeaders();
-      await axios.put("/api/clinic/progress-notes", {
-        noteId,
-        note: editingProgressNoteData.note.trim(),
-        noteDate: editingProgressNoteData.noteDate,
-      }, { headers });
+      await axios.put(
+        "/api/clinic/progress-notes",
+        {
+          noteId,
+          note: editingProgressNoteData.note.trim(),
+          noteDate: editingProgressNoteData.noteDate,
+        },
+        { headers },
+      );
 
-      setProgressNotes(prev => prev.map(n => {
-        if (n._id === noteId) {
-          return { ...n, note: editingProgressNoteData.note.trim(), noteDate: editingProgressNoteData.noteDate };
-        }
-        return n;
-      }));
+      setProgressNotes((prev) =>
+        prev.map((n) => {
+          if (n._id === noteId) {
+            return {
+              ...n,
+              note: editingProgressNoteData.note.trim(),
+              noteDate: editingProgressNoteData.noteDate,
+            };
+          }
+          return n;
+        }),
+      );
       setEditingProgressNoteId(null);
       setEditingProgressNoteData(null);
     } catch (error: any) {
-      setProgressError(error.response?.data?.message || "Failed to update progress note");
+      setProgressError(
+        error.response?.data?.message || "Failed to update progress note",
+      );
     } finally {
       setSavingEditedProgress(false);
     }
@@ -7782,20 +12634,30 @@ const EditComplaintModal: React.FC<{
 
   const addProgressNote = async () => {
     if (!newEntryText.trim()) return;
-    const patientId = typeof complaint.patientId === 'object' ? complaint.patientId?._id : complaint.patientId;
-    const appointmentId = typeof complaint.appointmentId === 'object' ? complaint.appointmentId?._id : complaint.appointmentId;
+    const patientId =
+      typeof complaint.patientId === "object"
+        ? complaint.patientId?._id
+        : complaint.patientId;
+    const appointmentId =
+      typeof complaint.appointmentId === "object"
+        ? complaint.appointmentId?._id
+        : complaint.appointmentId;
     if (!patientId) return;
 
     setSavingProgress(true);
     setProgressError("");
     try {
       const headers = getAuthHeaders();
-      const res = await axios.post("/api/clinic/progress-notes", {
-        appointmentId,
-        patientId,
-        note: newEntryText.trim(),
-        noteDate: newEntryDate,
-      }, { headers });
+      const res = await axios.post(
+        "/api/clinic/progress-notes",
+        {
+          appointmentId,
+          patientId,
+          note: newEntryText.trim(),
+          noteDate: newEntryDate,
+        },
+        { headers },
+      );
       if (res.data?.success && res.data.note) {
         setProgressNotes((prev) => [res.data.note, ...prev]);
       }
@@ -7803,7 +12665,9 @@ const EditComplaintModal: React.FC<{
       setNewEntryDate(new Date().toISOString().slice(0, 10));
       setAddingNewEntry(false);
     } catch (err: any) {
-      setProgressError(err.response?.data?.message || "Failed to save progress note");
+      setProgressError(
+        err.response?.data?.message || "Failed to save progress note",
+      );
     } finally {
       setSavingProgress(false);
     }
@@ -7812,7 +12676,10 @@ const EditComplaintModal: React.FC<{
   const deleteProgressNote = async (noteId: string) => {
     try {
       const headers = getAuthHeaders();
-      await axios.delete("/api/clinic/progress-notes", { headers, params: { noteId } });
+      await axios.delete("/api/clinic/progress-notes", {
+        headers,
+        params: { noteId },
+      });
       setProgressNotes((prev) => prev.filter((n) => n._id !== noteId));
     } catch {
       setProgressError("Failed to delete progress note");
@@ -7823,7 +12690,7 @@ const EditComplaintModal: React.FC<{
   const startEditPrescription = (entry: PrescriptionHistoryEntry) => {
     setEditingPrescriptionId(entry._id);
     setEditingPrescriptionData({
-      medicines: entry.medicines.map(m => ({
+      medicines: entry.medicines.map((m) => ({
         _id: m._id,
         medicineName: m.medicineName || "",
         dosage: m.dosage || "",
@@ -7845,30 +12712,42 @@ const EditComplaintModal: React.FC<{
     setSavingEditedPrescription(true);
     try {
       const headers = getAuthHeaders();
-      const validMeds = editingPrescriptionData.medicines.filter(m => m.medicineName.trim());
-      
-      await axios.put("/api/clinic/prescriptions", {
-        prescriptionId,
-        medicines: validMeds,
-        aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
-      }, { headers });
+      const validMeds = editingPrescriptionData.medicines.filter((m) =>
+        m.medicineName.trim(),
+      );
 
-      setPrescriptionHistory(prev => prev.map(p => {
-        if (p._id === prescriptionId) {
-          return {
-            ...p,
-            medicines: validMeds,
-            aftercareInstructions: editingPrescriptionData.aftercareInstructions || "",
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return p;
-      }));
+      await axios.put(
+        "/api/clinic/prescriptions",
+        {
+          prescriptionId,
+          medicines: validMeds,
+          aftercareInstructions:
+            editingPrescriptionData.aftercareInstructions || "",
+        },
+        { headers },
+      );
+
+      setPrescriptionHistory((prev) =>
+        prev.map((p) => {
+          if (p._id === prescriptionId) {
+            return {
+              ...p,
+              medicines: validMeds,
+              aftercareInstructions:
+                editingPrescriptionData.aftercareInstructions || "",
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return p;
+        }),
+      );
 
       setEditingPrescriptionId(null);
       setEditingPrescriptionData(null);
     } catch (error: any) {
-      setPrescriptionError(error.response?.data?.message || "Failed to update prescription");
+      setPrescriptionError(
+        error.response?.data?.message || "Failed to update prescription",
+      );
     } finally {
       setSavingEditedPrescription(false);
     }
@@ -7877,8 +12756,13 @@ const EditComplaintModal: React.FC<{
   const deletePrescription = async (prescriptionId: string) => {
     try {
       const headers = getAuthHeaders();
-      await axios.delete("/api/clinic/prescriptions", { headers, params: { prescriptionId } });
-      setPrescriptionHistory((prev) => prev.filter((p) => p._id !== prescriptionId));
+      await axios.delete("/api/clinic/prescriptions", {
+        headers,
+        params: { prescriptionId },
+      });
+      setPrescriptionHistory((prev) =>
+        prev.filter((p) => p._id !== prescriptionId),
+      );
     } catch {
       setPrescriptionError("Failed to delete prescription");
     }
@@ -7911,25 +12795,27 @@ const EditComplaintModal: React.FC<{
       toast.error(
         <div className="flex flex-col gap-1">
           <span className="font-semibold"> Incomplete Item</span>
-          <span className="text-xs opacity-80">Please complete item selection, quantity and UOM</span>
+          <span className="text-xs opacity-80">
+            Please complete item selection, quantity and UOM
+          </span>
         </div>,
         {
           duration: 3000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
+            primary: "#fff",
+            secondary: "#ef4444",
           },
-        }
+        },
       );
       return;
     }
@@ -8018,6 +12904,8 @@ const EditComplaintModal: React.FC<{
           items,
           beforeImage,
           afterImage,
+          checklist: checklist || {}, // Save clinical checklist
+          createdPackage: complaint.createdPackage || null, // Preserve existing package
         },
         { headers },
       );
@@ -8040,46 +12928,59 @@ const EditComplaintModal: React.FC<{
     setSendingConsent(true);
     try {
       const headers = getAuthHeaders();
-      const patientId = typeof complaint.patientId === 'object' ? complaint.patientId?._id : complaint.patientId;
-      const patientName = typeof complaint.patientId === 'object' ? complaint.patientId?.firstName || complaint.patientId?.name || 'Patient' : 'Patient';
-      const appointmentId = typeof complaint.appointmentId === 'object' ? complaint.appointmentId?._id : complaint.appointmentId;
+      const patientId =
+        typeof complaint.patientId === "object"
+          ? complaint.patientId?._id
+          : complaint.patientId;
+      const patientName =
+        typeof complaint.patientId === "object"
+          ? complaint.patientId?.firstName ||
+            complaint.patientId?.name ||
+            "Patient"
+          : "Patient";
+      const appointmentId =
+        typeof complaint.appointmentId === "object"
+          ? complaint.appointmentId?._id
+          : complaint.appointmentId;
 
       // First, fetch patient data to get WhatsApp number
-      const patientRes = await axios.get("/api/clinic/patient-information", { 
+      const patientRes = await axios.get("/api/clinic/patient-information", {
         headers,
-        params: { id: patientId }
+        params: { id: patientId },
       });
       const patient = patientRes.data?.patient;
       const patientWhatsapp = patient?.mobileNumber || patient?.phone;
       if (!patientWhatsapp) {
         toast.error("Patient doesn't have a WhatsApp number", {
           duration: 5000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
-          }
+            primary: "#fff",
+            secondary: "#ef4444",
+          },
         });
         return;
       }
 
       // Get consent form details
-      const selectedForm = consentForms.find((f) => f._id === selectedConsentId);
+      const selectedForm = consentForms.find(
+        (f) => f._id === selectedConsentId,
+      );
       if (!selectedForm) return;
 
       // Prepare message
       const greeting = `Hello ${patientName}!`;
       // // You might want to get this from somewhere
-      const consentUrl = `${window.location.origin}/consent-form/${selectedConsentId}?patientId=${patientId}&appointmentId=${appointmentId || ''}`;
+      const consentUrl = `${window.location.origin}/consent-form/${selectedConsentId}?patientId=${patientId}&appointmentId=${appointmentId || ""}`;
       const message = `${greeting}\n\nPlease review and sign the consent form: "${selectedForm.formName}"\n\n${consentUrl}\n\nThank you!`;
 
       // Log the sent consent form - link to current complaint!
@@ -8109,25 +13010,27 @@ const EditComplaintModal: React.FC<{
       toast.success(
         <div className="flex flex-col gap-1">
           <span className="font-semibold">✅ Consent Form Sent!</span>
-          <span className="text-xs opacity-80">Consent form "{selectedForm.formName}" has been sent to the patient</span>
+          <span className="text-xs opacity-80">
+            Consent form "{selectedForm.formName}" has been sent to the patient
+          </span>
         </div>,
         {
           duration: 5000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#10b981',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#10b981",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#10b981',
-          }
-        }
+            primary: "#fff",
+            secondary: "#10b981",
+          },
+        },
       );
 
       // Update state to indicate consent was sent
@@ -8136,31 +13039,32 @@ const EditComplaintModal: React.FC<{
       setSelectedConsentId("");
       // Call onConsentSent callback to refresh parent
       onConsentSent && onConsentSent();
-
     } catch (error: any) {
       console.error("Error sending consent message:", error);
       toast.error(
         <div className="flex flex-col gap-1">
           <span className="font-semibold">❌ Failed to send consent form</span>
-          <span className="text-xs opacity-80">{error.message || "Please try again"}</span>
+          <span className="text-xs opacity-80">
+            {error.message || "Please try again"}
+          </span>
         </div>,
         {
           duration: 5000,
-          position: 'top-right',
+          position: "top-right",
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            padding: '16px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#ef4444",
+            color: "#fff",
+            padding: "16px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
             zIndex: 9999,
-            maxWidth: '500px',
+            maxWidth: "500px",
           },
           iconTheme: {
-            primary: '#fff',
-            secondary: '#ef4444',
-          }
-        }
+            primary: "#fff",
+            secondary: "#ef4444",
+          },
+        },
       );
     } finally {
       setSendingConsent(false);
@@ -8204,48 +13108,101 @@ const EditComplaintModal: React.FC<{
               Send Consent Form
             </label>
             <div className="flex flex-wrap items-center gap-2">
-              <select value={selectedConsentId} onChange={(e) => { setSelectedConsentId(e.target.value); setConsentSent(false); }} className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
+              <select
+                value={selectedConsentId}
+                onChange={(e) => {
+                  setSelectedConsentId(e.target.value);
+                  setConsentSent(false);
+                }}
+                className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
                 <option value="">Select Consent Form</option>
                 {consentForms.map((cf) => (
-                  <option key={cf._id} value={cf._id}>{cf.formName}</option>
+                  <option key={cf._id} value={cf._id}>
+                    {cf.formName}
+                  </option>
                 ))}
               </select>
-              <button type="button" disabled={!selectedConsentId || sendingConsent || consentSent}
+              <button
+                type="button"
+                disabled={!selectedConsentId || sendingConsent || consentSent}
                 onClick={handleSendConsentMsgOnWhatsapp}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}>
-                {consentSent ? <><Check size={16} /> Sent</> : sendingConsent ? <><RefreshCw size={16} className="animate-spin" /> Sending...</> : <><Send size={16} /> Send Consent</>}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}
+              >
+                {consentSent ? (
+                  <>
+                    <Check size={16} /> Sent
+                  </>
+                ) : sendingConsent ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" /> Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} /> Send Consent
+                  </>
+                )}
               </button>
             </div>
           </div>
           <div className="space-y-2">
             <label className="block text-sm font-bold text-gray-900">
-              Before/After Images
+              {isSpecificClinic
+                ? "Static/Dynamic Scans (Images/PDFs)"
+                : "Before/After Images/PDFs"}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Before Image</p>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  {isSpecificClinic
+                    ? "Static Scan (Image/PDF)"
+                    : "Before (Image/PDF)"}
+                </p>
                 <div className="relative flex items-center gap-2">
-                  <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                  <div
+                    className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
+                  >
                     {beforeImage && (
                       <button
                         onClick={() => setBeforeImage("")}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                        title="Remove image"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                        title="Remove file"
                       >
                         <X size={14} />
                       </button>
                     )}
                     {beforeImage ? (
-                      <img src={beforeImage} alt="Before" className="w-full h-full object-cover" />
+                      beforeImage.toLowerCase().endsWith(".pdf") ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                          <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                          <a
+                            href={beforeImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
+                          >
+                            View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img
+                          src={beforeImage}
+                          alt={isSpecificClinic ? "Static Scan" : "Before"}
+                          className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
+                        />
+                      )
                     ) : (
                       <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                     )}
                     {uploadingBefore && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                         <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                       </div>
                     )}
-                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
@@ -8259,29 +13216,56 @@ const EditComplaintModal: React.FC<{
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">After Image</p>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  {isSpecificClinic
+                    ? "Dynamic Scan (Image/PDF)"
+                    : "After (Image/PDF)"}
+                </p>
                 <div className="relative flex items-center gap-2">
-                  <div className="w-full sm:w-32 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                  <div
+                    className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
+                  >
                     {afterImage && (
                       <button
                         onClick={() => setAfterImage("")}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10"
-                        title="Remove image"
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                        title="Remove file"
                       >
                         <X size={14} />
                       </button>
                     )}
                     {afterImage ? (
-                      <img src={afterImage} alt="After" className="w-full h-full object-cover" />
+                      afterImage.toLowerCase().endsWith(".pdf") ? (
+                        <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                          <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                          <a
+                            href={afterImage}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
+                          >
+                            View PDF
+                          </a>
+                        </div>
+                      ) : (
+                        <img
+                          src={afterImage}
+                          alt={isSpecificClinic ? "Dynamic Scan" : "After"}
+                          className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
+                        />
+                      )
                     ) : (
                       <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
                     )}
                     {uploadingAfter && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
                         <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
                       </div>
                     )}
-                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer"
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
@@ -8294,6 +13278,34 @@ const EditComplaintModal: React.FC<{
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          {/* Clinical Checklist */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-blue-500" />
+              Clinical Checklist
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {CHECKLIST_ITEMS.map((item) => (
+                <label
+                  key={item}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checklist[item]}
+                    onChange={(e) =>
+                      setChecklist((prev) => ({
+                        ...prev,
+                        [item]: e.target.checked,
+                      }))
+                    }
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">{item}</span>
+                </label>
+              ))}
             </div>
           </div>
           <div className="space-y-2">
@@ -8561,44 +13573,81 @@ const EditComplaintModal: React.FC<{
               <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-blue-500" />
                 Progress Notes
-                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{progressNotes.length}</span>
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                  {progressNotes.length}
+                </span>
               </h4>
             </div>
             {progressError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{progressError}</div>
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                {progressError}
+              </div>
             )}
             {loadingProgressNotes ? (
-              <div className="py-4 text-center text-gray-400 text-xs">Loading progress notes...</div>
+              <div className="py-4 text-center text-gray-400 text-xs">
+                Loading progress notes...
+              </div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {progressNotes.length === 0 ? (
-                  <div className="py-4 text-center text-gray-400 text-xs">No progress notes found.</div>
+                  <div className="py-4 text-center text-gray-400 text-xs">
+                    No progress notes found.
+                  </div>
                 ) : (
                   progressNotes.map((entry) => {
-                    const dateStr = entry.noteDate ? new Date(entry.noteDate).toISOString().slice(0, 10) : new Date(entry.createdAt).toISOString().slice(0, 10);
-                    const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                    const dateStr = entry.noteDate
+                      ? new Date(entry.noteDate).toISOString().slice(0, 10)
+                      : new Date(entry.createdAt).toISOString().slice(0, 10);
+                    const doctorName =
+                      typeof entry.doctorId === "object" && entry.doctorId?.name
+                        ? entry.doctorId.name
+                        : null;
                     return (
-                      <div key={entry._id} className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
-                        {editingProgressNoteId === entry._id && editingProgressNoteData ? (
+                      <div
+                        key={entry._id}
+                        className="rounded-lg border border-gray-200 bg-white p-3 space-y-2"
+                      >
+                        {editingProgressNoteId === entry._id &&
+                        editingProgressNoteData ? (
                           // Edit Mode
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-blue-700">Edit Progress Note</span>
-                              <button type="button" onClick={cancelEditProgressNote} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                              <span className="text-xs font-semibold text-blue-700">
+                                Edit Progress Note
+                              </span>
+                              <button
+                                type="button"
+                                onClick={cancelEditProgressNote}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
                             </div>
                             <div className="flex items-center gap-2">
-                              <label className="text-xs text-gray-600 font-medium">Date:</label>
+                              <label className="text-xs text-gray-600 font-medium">
+                                Date:
+                              </label>
                               <input
                                 type="date"
                                 value={editingProgressNoteData.noteDate}
-                                onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, noteDate: e.target.value })}
+                                onChange={(e) =>
+                                  setEditingProgressNoteData({
+                                    ...editingProgressNoteData,
+                                    noteDate: e.target.value,
+                                  })
+                                }
                                 className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
                               />
                             </div>
                             <textarea
                               autoFocus
                               value={editingProgressNoteData.note}
-                              onChange={(e) => setEditingProgressNoteData({ ...editingProgressNoteData, note: e.target.value })}
+                              onChange={(e) =>
+                                setEditingProgressNoteData({
+                                  ...editingProgressNoteData,
+                                  note: e.target.value,
+                                })
+                              }
                               rows={3}
                               placeholder="Describe patient's progress..."
                               className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
@@ -8606,8 +13655,13 @@ const EditComplaintModal: React.FC<{
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                disabled={savingEditedProgress || !editingProgressNoteData.note.trim()}
-                                onClick={() => saveEditedProgressNote(entry._id)}
+                                disabled={
+                                  savingEditedProgress ||
+                                  !editingProgressNoteData.note.trim()
+                                }
+                                onClick={() =>
+                                  saveEditedProgressNote(entry._id)
+                                }
                                 className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                               >
                                 {savingEditedProgress ? "Saving..." : "Save"}
@@ -8626,21 +13680,37 @@ const EditComplaintModal: React.FC<{
                           <div>
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-blue-600">{dateStr}</span>
-                                {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
+                                <span className="text-xs font-semibold text-blue-600">
+                                  {dateStr}
+                                </span>
+                                {doctorName && (
+                                  <span className="text-xs text-gray-400">
+                                    Dr. {doctorName}
+                                  </span>
+                                )}
                               </div>
                               <div className="flex items-center gap-2">
                                 {isWithin24Hours(entry.createdAt) && (
-                                  <button type="button" onClick={() => startEditProgressNote(entry)} className="p-1 text-gray-300 hover:text-blue-500 transition-colors">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditProgressNote(entry)}
+                                    className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                                  >
                                     <Edit2 size={12} />
                                   </button>
                                 )}
-                                <button type="button" onClick={() => deleteProgressNote(entry._id)} className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                                <button
+                                  type="button"
+                                  onClick={() => deleteProgressNote(entry._id)}
+                                  className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                >
                                   <Trash2 size={12} />
                                 </button>
                               </div>
                             </div>
-                            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed mt-1">{entry.note}</p>
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed mt-1">
+                              {entry.note}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -8653,25 +13723,61 @@ const EditComplaintModal: React.FC<{
             {addingNewEntry ? (
               <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/60 p-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-blue-700 flex items-center gap-1"><Plus size={12} /> New Progress Entry</span>
+                  <span className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                    <Plus size={12} /> New Progress Entry
+                  </span>
                   <span className="text-xs text-blue-600">{newEntryDate}</span>
                 </div>
-                <textarea autoFocus value={newEntryText} onChange={(e) => setNewEntryText(e.target.value)} rows={3} placeholder="Describe patient's progress..." className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none" />
+                <textarea
+                  autoFocus
+                  value={newEntryText}
+                  onChange={(e) => setNewEntryText(e.target.value)}
+                  rows={3}
+                  placeholder="Describe patient's progress..."
+                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                />
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-blue-700 font-medium">Date:</label>
-                    <input type="date" value={newEntryDate} onChange={(e) => setNewEntryDate(e.target.value)} className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" />
+                    <label className="text-xs text-blue-700 font-medium">
+                      Date:
+                    </label>
+                    <input
+                      type="date"
+                      value={newEntryDate}
+                      onChange={(e) => setNewEntryDate(e.target.value)}
+                      className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    />
                   </div>
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => { setAddingNewEntry(false); setNewEntryText(""); setProgressError(""); }} className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
-                    <button type="button" disabled={savingProgress || !newEntryText.trim()} onClick={addProgressNote} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddingNewEntry(false);
+                        setNewEntryText("");
+                        setProgressError("");
+                      }}
+                      className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingProgress || !newEntryText.trim()}
+                      onClick={addProgressNote}
+                      className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    >
                       {savingProgress ? "Saving..." : "Save"}
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
-              <button type="button" onClick={() => { setAddingNewEntry(true); setNewEntryDate(new Date().toISOString().slice(0, 10)); }}
+              <button
+                type="button"
+                onClick={() => {
+                  setAddingNewEntry(true);
+                  setNewEntryDate(new Date().toISOString().slice(0, 10));
+                }}
                 className="w-full flex items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 py-2 text-xs font-medium text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors bg-white"
               >
                 <Plus size={12} /> Add Progress Note
@@ -8685,97 +13791,284 @@ const EditComplaintModal: React.FC<{
               <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <Pill className="w-4 h-4 text-purple-500" />
                 Prescriptions
-                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">{prescriptionHistory.length}</span>
+                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
+                  {prescriptionHistory.length}
+                </span>
               </h4>
             </div>
             {prescriptionError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{prescriptionError}</div>
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                {prescriptionError}
+              </div>
             )}
             {loadingPrescriptionHistory ? (
-              <div className="py-4 text-center text-gray-400 text-xs">Loading prescriptions...</div>
+              <div className="py-4 text-center text-gray-400 text-xs">
+                Loading prescriptions...
+              </div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {prescriptionHistory.length === 0 ? (
-                  <div className="py-4 text-center text-gray-400 text-xs">No prescriptions found.</div>
+                  <div className="py-4 text-center text-gray-400 text-xs">
+                    No prescriptions found.
+                  </div>
                 ) : (
                   prescriptionHistory.map((entry) => {
                     const isExpanded = !!expandedPrescription[entry._id];
-                    const doctorName = typeof entry.doctorId === "object" && entry.doctorId?.name ? entry.doctorId.name : null;
+                    const doctorName =
+                      typeof entry.doctorId === "object" && entry.doctorId?.name
+                        ? entry.doctorId.name
+                        : null;
                     return (
-                      <div key={entry._id} className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-                        <button type="button" onClick={() => setExpandedPrescription((prev) => ({ ...prev, [entry._id]: !prev[entry._id] }))} className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50">
+                      <div
+                        key={entry._id}
+                        className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedPrescription((prev) => ({
+                              ...prev,
+                              [entry._id]: !prev[entry._id],
+                            }))
+                          }
+                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50"
+                        >
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200"><Pill size={10} />{entry.medicines.length} med{entry.medicines.length !== 1 ? "s" : ""}</span>
-                            <span className="text-xs text-gray-400">{new Date(entry.createdAt).toLocaleDateString()}</span>
-                            {doctorName && <span className="text-xs text-gray-400">Dr. {doctorName}</span>}
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                              <Pill size={10} />
+                              {entry.medicines.length} med
+                              {entry.medicines.length !== 1 ? "s" : ""}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {new Date(entry.createdAt).toLocaleDateString()}
+                            </span>
+                            {doctorName && (
+                              <span className="text-xs text-gray-400">
+                                Dr. {doctorName}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {isWithin24Hours(entry.createdAt) && (
-                              <button type="button" onClick={(e) => { e.stopPropagation(); startEditPrescription(entry); }} className="p-1 text-gray-300 hover:text-blue-500">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditPrescription(entry);
+                                }}
+                                className="p-1 text-gray-300 hover:text-blue-500"
+                              >
                                 <Edit2 size={12} />
                               </button>
                             )}
-                            <button type="button" onClick={(e) => { e.stopPropagation(); deletePrescription(entry._id); }} className="p-1 text-gray-300 hover:text-red-500">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deletePrescription(entry._id);
+                              }}
+                              className="p-1 text-gray-300 hover:text-red-500"
+                            >
                               <Trash2 size={12} />
                             </button>
-                            {isExpanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+                            {isExpanded ? (
+                              <ChevronUp size={12} className="text-gray-400" />
+                            ) : (
+                              <ChevronDown
+                                size={12}
+                                className="text-gray-400"
+                              />
+                            )}
                           </div>
                         </button>
                         {isExpanded && (
                           <div className="border-t border-gray-100 px-3 py-2 bg-gray-50/50 space-y-2">
-                            {editingPrescriptionId === entry._id && editingPrescriptionData ? (
+                            {editingPrescriptionId === entry._id &&
+                            editingPrescriptionData ? (
                               // Edit Mode
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <h5 className="text-xs font-semibold text-blue-700">Edit Prescription</h5>
-                                  <button type="button" onClick={cancelEditPrescription} className="text-xs text-gray-500 hover:text-gray-700">Cancel</button>
+                                  <h5 className="text-xs font-semibold text-blue-700">
+                                    Edit Prescription
+                                  </h5>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditPrescription}
+                                    className="text-xs text-gray-500 hover:text-gray-700"
+                                  >
+                                    Cancel
+                                  </button>
                                 </div>
                                 <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
                                   <table className="w-full text-xs">
                                     <thead className="bg-gray-100">
                                       <tr>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">#</th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Medicine</th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Dosage</th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Duration</th>
-                                        <th className="px-2 py-1.5 text-center font-semibold text-gray-500 w-12">Action</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          #
+                                        </th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          Medicine
+                                        </th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          Dosage
+                                        </th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          Duration
+                                        </th>
+                                        <th className="px-2 py-1.5 text-center font-semibold text-gray-500 w-12">
+                                          Action
+                                        </th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                      {editingPrescriptionData.medicines.map((med, mIdx) => (
-                                        <tr key={med._id || mIdx}>
-                                          <td className="px-2 py-1.5 text-gray-400">{mIdx + 1}</td>
-                                          <td className="px-2 py-1.5">
-                                            <input type="text" value={med.medicineName} onChange={(e) => { const newMeds = [...editingPrescriptionData.medicines]; newMeds[mIdx].medicineName = e.target.value; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} placeholder="Medicine" className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            <input type="text" value={med.dosage || ""} onChange={(e) => { const newMeds = [...editingPrescriptionData.medicines]; newMeds[mIdx].dosage = e.target.value; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} placeholder="Dosage" className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
-                                          </td>
-                                          <td className="px-2 py-1.5">
-                                            <input type="text" value={med.duration || ""} onChange={(e) => { const newMeds = [...editingPrescriptionData.medicines]; newMeds[mIdx].duration = e.target.value; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} placeholder="Duration" className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300" />
-                                          </td>
-                                          <td className="px-2 py-1.5 text-center">
-                                            <button type="button" onClick={() => { const newMeds = editingPrescriptionData.medicines.filter((_, idx) => idx !== mIdx); setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} className="text-red-500 hover:text-red-700 p-0.5">
-                                              <Trash2 size={10} />
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      ))}
+                                      {editingPrescriptionData.medicines.map(
+                                        (med, mIdx) => (
+                                          <tr key={med._id || mIdx}>
+                                            <td className="px-2 py-1.5 text-gray-400">
+                                              {mIdx + 1}
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                              <input
+                                                type="text"
+                                                value={med.medicineName}
+                                                onChange={(e) => {
+                                                  const newMeds = [
+                                                    ...editingPrescriptionData.medicines,
+                                                  ];
+                                                  newMeds[mIdx].medicineName =
+                                                    e.target.value;
+                                                  setEditingPrescriptionData({
+                                                    ...editingPrescriptionData,
+                                                    medicines: newMeds,
+                                                  });
+                                                }}
+                                                placeholder="Medicine"
+                                                className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                              />
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                              <input
+                                                type="text"
+                                                value={med.dosage || ""}
+                                                onChange={(e) => {
+                                                  const newMeds = [
+                                                    ...editingPrescriptionData.medicines,
+                                                  ];
+                                                  newMeds[mIdx].dosage =
+                                                    e.target.value;
+                                                  setEditingPrescriptionData({
+                                                    ...editingPrescriptionData,
+                                                    medicines: newMeds,
+                                                  });
+                                                }}
+                                                placeholder="Dosage"
+                                                className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                              />
+                                            </td>
+                                            <td className="px-2 py-1.5">
+                                              <input
+                                                type="text"
+                                                value={med.duration || ""}
+                                                onChange={(e) => {
+                                                  const newMeds = [
+                                                    ...editingPrescriptionData.medicines,
+                                                  ];
+                                                  newMeds[mIdx].duration =
+                                                    e.target.value;
+                                                  setEditingPrescriptionData({
+                                                    ...editingPrescriptionData,
+                                                    medicines: newMeds,
+                                                  });
+                                                }}
+                                                placeholder="Duration"
+                                                className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                              />
+                                            </td>
+                                            <td className="px-2 py-1.5 text-center">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const newMeds =
+                                                    editingPrescriptionData.medicines.filter(
+                                                      (_, idx) => idx !== mIdx,
+                                                    );
+                                                  setEditingPrescriptionData({
+                                                    ...editingPrescriptionData,
+                                                    medicines: newMeds,
+                                                  });
+                                                }}
+                                                className="text-red-500 hover:text-red-700 p-0.5"
+                                              >
+                                                <Trash2 size={10} />
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        ),
+                                      )}
                                     </tbody>
                                   </table>
                                 </div>
-                                <button type="button" onClick={() => { const newMeds = [...editingPrescriptionData.medicines, { medicineName: "", dosage: "", duration: "", notes: "" }]; setEditingPrescriptionData({ ...editingPrescriptionData, medicines: newMeds }); }} className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newMeds = [
+                                      ...editingPrescriptionData.medicines,
+                                      {
+                                        medicineName: "",
+                                        dosage: "",
+                                        duration: "",
+                                        notes: "",
+                                      },
+                                    ];
+                                    setEditingPrescriptionData({
+                                      ...editingPrescriptionData,
+                                      medicines: newMeds,
+                                    });
+                                  }}
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                >
                                   <Plus size={10} /> Add Medicine
                                 </button>
                                 <div>
-                                  <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">Aftercare</label>
-                                  <textarea value={editingPrescriptionData.aftercareInstructions || ""} onChange={(e) => setEditingPrescriptionData({ ...editingPrescriptionData, aftercareInstructions: e.target.value })} rows={2} placeholder="Aftercare instructions..." className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none" />
+                                  <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">
+                                    Aftercare
+                                  </label>
+                                  <textarea
+                                    value={
+                                      editingPrescriptionData.aftercareInstructions ||
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      setEditingPrescriptionData({
+                                        ...editingPrescriptionData,
+                                        aftercareInstructions: e.target.value,
+                                      })
+                                    }
+                                    rows={2}
+                                    placeholder="Aftercare instructions..."
+                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none"
+                                  />
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <button type="button" disabled={savingEditedPrescription} onClick={() => saveEditedPrescription(entry._id)} className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50">
-                                    {savingEditedPrescription ? "Saving..." : "Save"}
+                                  <button
+                                    type="button"
+                                    disabled={savingEditedPrescription}
+                                    onClick={() =>
+                                      saveEditedPrescription(entry._id)
+                                    }
+                                    className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                                  >
+                                    {savingEditedPrescription
+                                      ? "Saving..."
+                                      : "Save"}
                                   </button>
-                                  <button type="button" onClick={cancelEditPrescription} className="px-3 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300">Cancel</button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditPrescription}
+                                    className="px-3 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300"
+                                  >
+                                    Cancel
+                                  </button>
                                 </div>
                               </div>
                             ) : (
@@ -8785,19 +14078,35 @@ const EditComplaintModal: React.FC<{
                                   <table className="w-full text-xs">
                                     <thead className="bg-gray-100">
                                       <tr>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">#</th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Medicine</th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Dosage</th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">Duration</th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          #
+                                        </th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          Medicine
+                                        </th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          Dosage
+                                        </th>
+                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                          Duration
+                                        </th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 bg-white">
                                       {entry.medicines.map((med, mIdx) => (
                                         <tr key={mIdx}>
-                                          <td className="px-2 py-1.5 text-gray-400">{mIdx + 1}</td>
-                                          <td className="px-2 py-1.5 font-medium text-gray-800">{med.medicineName}</td>
-                                          <td className="px-2 py-1.5 text-gray-600">{med.dosage || "-"}</td>
-                                          <td className="px-2 py-1.5 text-gray-600">{med.duration || "-"}</td>
+                                          <td className="px-2 py-1.5 text-gray-400">
+                                            {mIdx + 1}
+                                          </td>
+                                          <td className="px-2 py-1.5 font-medium text-gray-800">
+                                            {med.medicineName}
+                                          </td>
+                                          <td className="px-2 py-1.5 text-gray-600">
+                                            {med.dosage || "-"}
+                                          </td>
+                                          <td className="px-2 py-1.5 text-gray-600">
+                                            {med.duration || "-"}
+                                          </td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -8805,8 +14114,12 @@ const EditComplaintModal: React.FC<{
                                 </div>
                                 {entry.aftercareInstructions && (
                                   <div className="mt-2">
-                                    <p className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5">Aftercare</p>
-                                    <p className="text-xs text-gray-600 whitespace-pre-wrap">{entry.aftercareInstructions}</p>
+                                    <p className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5">
+                                      Aftercare
+                                    </p>
+                                    <p className="text-xs text-gray-600 whitespace-pre-wrap">
+                                      {entry.aftercareInstructions}
+                                    </p>
                                   </div>
                                 )}
                               </div>
@@ -8924,13 +14237,290 @@ const DeleteConfirmationModal: React.FC<{
 const ComplaintDetailModal: React.FC<{
   complaint: any;
   onClose: () => void;
-}> = ({ complaint, onClose }) => {
+  isSpecificClinic: boolean;
+}> = ({ complaint, onClose, isSpecificClinic }) => {
   if (!complaint) return null;
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleString("en-US", {
       dateStyle: "full",
       timeStyle: "short",
     });
+  };
+
+  const handleDownloadPDF = () => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 20;
+      let y = 20;
+
+      // Helper function to extract filename from URL
+      const getFileNameFromUrl = (url: string): string => {
+        try {
+          const urlObj = new URL(url);
+          const pathParts = urlObj.pathname.split("/");
+          const fileName = pathParts[pathParts.length - 1];
+          return decodeURIComponent(fileName.split("?")[0]);
+        } catch {
+          return url;
+        }
+      };
+
+      // === HEADER WITH COLORED BACKGROUND ===
+      doc.setFillColor(25, 118, 210);
+      doc.roundedRect(0, 0, pageWidth, 35, 0, 0, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text("APPOINTMENT COMPLAINT REPORT", pageWidth / 2, 22, {
+        align: "center",
+      });
+      doc.setTextColor(0, 0, 0);
+      y = 45;
+
+      // === PATIENT INFO ===
+      doc.setFillColor(248, 249, 250);
+      doc.roundedRect(
+        margin - 5,
+        y - 5,
+        pageWidth - 2 * (margin - 5),
+        50,
+        3,
+        3,
+        "F",
+      );
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(33, 37, 41);
+      doc.text("Patient Information", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(73, 80, 87);
+      const patientName = complaint.patientId
+        ? `${complaint.patientId.firstName || ""} ${complaint.patientId.lastName || ""}`.trim()
+        : "N/A";
+      doc.text(`Patient Name: ${patientName}`, margin, y);
+      y += 6;
+      doc.text(
+        `EMR Number: ${complaint.patientId?.emrNumber || "N/A"}`,
+        margin,
+        y,
+      );
+      y += 6;
+      const doctorName = complaint.doctorId?.name || "N/A";
+      doc.text(`Doctor: Dr. ${doctorName}`, margin, y);
+      y += 6;
+      const apptDate = complaint.createdAt
+        ? new Date(complaint.createdAt).toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "N/A";
+      doc.text(`Date: ${apptDate}`, margin, y);
+      doc.setTextColor(0, 0, 0);
+      y += 15;
+
+      // === DIVIDER ===
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(222, 226, 230);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 10;
+
+      // === COMPLAINT SECTION ===
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("Complaint Notes", margin, y);
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      if (complaint.complaints) {
+        const splitComplaint = doc.splitTextToSize(
+          complaint.complaints,
+          pageWidth - margin * 2,
+        );
+        doc.text(splitComplaint, margin, y);
+        y += splitComplaint.length * 6 + 5;
+      } else {
+        doc.text("No complaint notes added.", margin, y);
+        y += 11;
+      }
+
+      // === ACTIVE TREATMENTS ===
+      if (complaint.serviceNames && complaint.serviceNames.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Active Treatments", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        complaint.serviceNames.forEach((name: string, i: number) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(`${i + 1}. ${name}`, margin, y);
+          y += 6;
+        });
+        y += 5;
+      }
+
+      // === BEFORE/AFTER MEDIA ===
+      if (complaint.beforeImage || complaint.afterImage) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Documents", margin, y);
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        if (complaint.beforeImage) {
+          doc.text(
+            `Before File: ${getFileNameFromUrl(complaint.beforeImage)}`,
+            margin,
+            y,
+          );
+          y += 6;
+        }
+        if (complaint.afterImage) {
+          doc.text(
+            `After File: ${getFileNameFromUrl(complaint.afterImage)}`,
+            margin,
+            y,
+          );
+          y += 6;
+        }
+        y += 5;
+      }
+
+      // === CLINICAL CHECKLIST ===
+      if (complaint.checklist && Object.keys(complaint.checklist).length > 0) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Clinical Checklist", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        Object.entries(complaint.checklist).forEach(([item, checked]) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          const status = checked ? "[X] Completed" : "[ ] Pending";
+          doc.text(`${item}: ${status}`, margin, y);
+          y += 6;
+        });
+        y += 6;
+      }
+
+      // === ADDED PACKAGE ===
+      if (complaint.createdPackage && complaint.createdPackage.name) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Added Package", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`1. ${complaint.createdPackage.name}`, margin, y);
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        const pkgPrice = parseFloat(complaint.createdPackage.totalPrice || 0);
+        const currency = "INR"; // Default to INR as fallback
+        doc.text(`   Price: ${currency} ${pkgPrice.toFixed(2)}`, margin + 5, y);
+        y += 8;
+
+        // Show package treatments if available
+        if (
+          complaint.createdPackage.treatments &&
+          complaint.createdPackage.treatments.length > 0
+        ) {
+          doc.setFont("helvetica", "bold");
+          doc.text("   Included Treatments:", margin + 5, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          complaint.createdPackage.treatments.forEach(
+            (treatment: any, i: number) => {
+              if (y > doc.internal.pageSize.getHeight() - 20) {
+                doc.addPage();
+                y = 20;
+              }
+              doc.text(
+                `      ${i + 1}. ${treatment.treatmentName} - Sessions: ${treatment.sessions}, Price: ${currency} ${treatment.allocatedPrice.toFixed(2)}`,
+                margin + 5,
+                y,
+              );
+              y += 6;
+            },
+          );
+        }
+        y += 5;
+      }
+
+      // === ITEMS USED ===
+      if (complaint.items && complaint.items.length > 0) {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("Items/Stock Used", margin, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        complaint.items.forEach((item: any, i: number) => {
+          if (y > doc.internal.pageSize.getHeight() - 20) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i + 1}. ${item.name}`, margin, y);
+          y += 6;
+          doc.setFont("helvetica", "normal");
+          doc.text(
+            `   Quantity: ${item.quantity}, UOM: ${item.uom || "N/A"}`,
+            margin + 5,
+            y,
+          );
+          y += 8;
+        });
+      }
+
+      // === FOOTER ===
+      const date = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "italic");
+      doc.text(
+        `Generated on: ${date}`,
+        margin,
+        doc.internal.pageSize.getHeight() - 10,
+      );
+
+      // === DOWNLOAD ===
+      const fileName = `Complaint_Report_${patientName.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+      doc.save(fileName);
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
+    }
   };
 
   const getTimeAgo = (date: string) => {
@@ -9099,38 +14689,90 @@ const ComplaintDetailModal: React.FC<{
             </div>
           </div>
 
-          {/* Before/After Images */}
+          {/* Before/After Images/PDFs or Static/Dynamic Scans */}
           {(complaint.beforeImage || complaint.afterImage) && (
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center">
                   <Camera className="w-4 h-4 text-white" />
                 </div>
-                <h3 className="font-semibold text-gray-900">Before/After Images</h3>
+                <h3 className="font-semibold text-gray-900">
+                  {isSpecificClinic
+                    ? "Static/Dynamic Scans (Images/PDFs)"
+                    : "Before/After Images/PDFs"}
+                </h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {complaint.beforeImage && (() => {
-                  const cleanUrl = complaint.beforeImage.trim().replace(/^`|`$/g, "");
-                  return (
-                    <div className="bg-white rounded-xl border border-gray-200 p-4">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Before</p>
-                      <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={cleanUrl} alt="Before" className="w-full h-64 object-cover rounded-lg" />
-                      </a>
-                    </div>
-                  );
-                })()}
-                {complaint.afterImage && (() => {
-                  const cleanUrl = complaint.afterImage.trim().replace(/^`|`$/g, "");
-                  return (
-                    <div className="bg-white rounded-xl border border-gray-200 p-4">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">After</p>
-                      <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="block">
-                        <img src={cleanUrl} alt="After" className="w-full h-64 object-cover rounded-lg" />
-                      </a>
-                    </div>
-                  );
-                })()}
+                {complaint.beforeImage &&
+                  (() => {
+                    const cleanUrl = complaint.beforeImage
+                      .trim()
+                      .replace(/^`|`$/g, "");
+                    const isPdf = cleanUrl.toLowerCase().endsWith(".pdf");
+                    return (
+                      <div className="bg-white rounded-xl border border-gray-200 p-4">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                          {isSpecificClinic ? "Static Scan" : "Before"}
+                        </p>
+                        <a
+                          href={cleanUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          {isPdf ? (
+                            <div className="w-full h-64 bg-gray-100 rounded-lg flex flex-col items-center justify-center gap-2">
+                              <FileText className="w-12 h-12 text-gray-400" />
+                              <span className="text-sm text-blue-600 hover:underline">
+                                View PDF
+                              </span>
+                            </div>
+                          ) : (
+                            <img
+                              src={cleanUrl}
+                              alt={isSpecificClinic ? "Static Scan" : "Before"}
+                              className={`w-full h-64 ${isSpecificClinic ? "object-contain" : "object-cover"} rounded-lg`}
+                            />
+                          )}
+                        </a>
+                      </div>
+                    );
+                  })()}
+                {complaint.afterImage &&
+                  (() => {
+                    const cleanUrl = complaint.afterImage
+                      .trim()
+                      .replace(/^`|`$/g, "");
+                    const isPdf = cleanUrl.toLowerCase().endsWith(".pdf");
+                    return (
+                      <div className="bg-white rounded-xl border border-gray-200 p-4">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                          {isSpecificClinic ? "Dynamic Scan" : "After"}
+                        </p>
+                        <a
+                          href={cleanUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          {isPdf ? (
+                            <div className="w-full h-64 bg-gray-100 rounded-lg flex flex-col items-center justify-center gap-2">
+                              <FileText className="w-12 h-12 text-gray-400" />
+                              <span className="text-sm text-blue-600 hover:underline">
+                                View PDF
+                              </span>
+                            </div>
+                          ) : (
+                            <img
+                              src={cleanUrl}
+                              alt={isSpecificClinic ? "Dynamic Scan" : "After"}
+                              className={`w-full h-64 ${isSpecificClinic ? "object-contain" : "object-cover"} rounded-lg`}
+                            />
+                          )}
+                        </a>
+                      </div>
+                    );
+                  })()}
               </div>
             </div>
           )}
@@ -9243,12 +14885,21 @@ const ComplaintDetailModal: React.FC<{
                 </span>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Close
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownloadPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Download size={16} />
+                Download PDF
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       </div>

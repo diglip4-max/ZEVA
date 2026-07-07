@@ -27,14 +27,17 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
       try {
         const authHeaders = getAuthHeaders();
         if (!authHeaders) return; // user not logged in — keep default
+
+        // Use myallClinic API which works for ALL user roles (clinic, agent, doctorStaff, staff, admin, doctor)
         const res = await axios.get("/api/clinics/myallClinic", {
           headers: authHeaders,
         });
         if (res.data.success && res.data.clinic?.currency) {
           setCurrencyState(res.data.clinic.currency);
         }
-      } catch {
-        // Not authenticated or not a clinic user — keep default "INR"
+      } catch (error) {
+        console.error("Error fetching clinic currency:", error);
+        // Keep default "INR" if anything fails
       }
     };
 

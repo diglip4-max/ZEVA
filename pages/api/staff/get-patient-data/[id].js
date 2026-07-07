@@ -157,6 +157,7 @@ export default async function handler(req, res) {
           gender,
           email,
           mobileNumber,
+          city,
           referredBy,
           patientType,
           insurance,
@@ -188,6 +189,7 @@ export default async function handler(req, res) {
         if (gender !== undefined) invoice.gender = gender;
         if (email !== undefined) invoice.email = email;
         if (mobileNumber !== undefined) invoice.mobileNumber = mobileNumber;
+        if (city !== undefined) invoice.city = city;
         invoice.referredBy = referredBy || "";
         invoice.patientType = patientType || invoice.patientType;
 

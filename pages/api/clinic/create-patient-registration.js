@@ -872,6 +872,17 @@ export default async function handler(req, res) {
       });
     }
 
+    // Get invoicedByRate from AgentProfile if available
+    let invoicedByRate = 0;
+    try {
+      const agentProfile = await AgentProfile.findOne({ userId: clinicUser._id }).lean();
+      if (agentProfile && agentProfile.commissionPercentage) {
+        invoicedByRate = agentProfile.commissionPercentage;
+      }
+    } catch (profileError) {
+      console.error("[CreatePatientRegistration] Error fetching agent profile for rate:", profileError);
+    }
+
     // Build multiplePayments array: include user-provided payments plus advance, claim, pending, cashback usage
     const finalMultiPayArr = [
       ...multiPayArr.map((mp) => ({
@@ -914,6 +925,8 @@ export default async function handler(req, res) {
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
+      invoicedByRole: clinicUser.role,
+      invoicedByRate: invoicedByRate,
       appointmentId: appointment._id,
       patientId: patientRegistration._id,
       invoiceNumber,
@@ -921,6 +934,7 @@ export default async function handler(req, res) {
       invoicedBy: clinicUser.name || "Clinic Staff",
       invoicedById: clinicUser._id,
       doctorId: appointment.doctorId || null,
+      doctorName: doctor || "",
       service,
       // Treatments AND a Package can now be billed in the same invoice. Preserve whatever the frontend sends.
       treatment: treatment || "",
@@ -1884,10 +1898,22 @@ export default async function handler(req, res) {
             );
             
             if (packageIndex !== -1) {
-              // Update the package payment status to Full
-              patient.packages[packageIndex].paymentStatus = 'Full';
-              patient.packages[packageIndex].paidAmount = amount || patient.packages[packageIndex].totalPrice;
+              // Update the package payment status - ADD the amount to existing paidAmount
+              const currentPaid = patient.packages[packageIndex].paidAmount || 0;
+              const newPaidAmount = currentPaid + (amount || 0);
+              const totalPrice = patient.packages[packageIndex].totalPrice || 0;
+              
+              patient.packages[packageIndex].paidAmount = newPaidAmount;
               patient.packages[packageIndex].paymentMethod = paymentMethod || 'Cash';
+              
+              // Update payment status based on new paid amount
+              if (newPaidAmount >= totalPrice) {
+                patient.packages[packageIndex].paymentStatus = 'Full';
+              } else if (newPaidAmount > 0) {
+                patient.packages[packageIndex].paymentStatus = 'Partial';
+              } else {
+                patient.packages[packageIndex].paymentStatus = 'Unpaid';
+              }
               
              
               

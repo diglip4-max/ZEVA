@@ -75,6 +75,7 @@ export default async function handler(req, res) {
       // Build query: doctors within the clinic; optional branchId filter if present on User
       const query = {
         $or: [{ role: "doctor" }, { role: "doctorStaff" }],
+        clinicId: clinicId,
       };
 
       if (req.query.branchId) {

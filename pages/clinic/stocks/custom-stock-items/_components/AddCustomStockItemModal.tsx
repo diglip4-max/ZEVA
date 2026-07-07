@@ -3,6 +3,7 @@ import { PlusCircle, X } from "lucide-react";
 import axios from "axios";
 import { CustomStockItem as CustomStockItemType } from "../../../../../types/stocks";
 import useUoms from "@/hooks/useUoms";
+import toast from "react-hot-toast";
 
 interface AddCustomStockItemModalProps {
   token: string;
@@ -32,17 +33,20 @@ interface FormDataValues {
   freeQuantityExpiryDate?: string;
   level0: {
     price?: number;
+    salePrice?: number;
     uom?: string;
   };
   packagingStructure: {
     level1: {
       quantity: number;
       price?: number;
+      salePrice?: number;
       uom?: string;
     };
     level2: {
       quantity: number;
       price?: number;
+      salePrice?: number;
       uom?: string;
     };
   };
@@ -75,17 +79,20 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
     freeQuantity: 0,
     level0: {
       price: 0,
+      salePrice: 0,
       uom: "",
     },
     packagingStructure: {
       level1: {
         quantity: 1,
         price: 0,
+        salePrice: 0,
         uom: "",
       },
       level2: {
         quantity: 1,
         price: 0,
+        salePrice: 0,
         uom: "",
       },
     },
@@ -135,6 +142,10 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
             prev.level0.price && prev.packagingStructure.level1.quantity > 0
               ? prev.level0.price / prev.packagingStructure.level1.quantity
               : 0,
+          salePrice:
+            prev.level0.salePrice && prev.packagingStructure.level1.quantity > 0
+              ? prev.level0.salePrice / prev.packagingStructure.level1.quantity
+              : 0,
         },
         level2: {
           ...prev.packagingStructure.level2,
@@ -142,6 +153,12 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
             prev.packagingStructure.level1.price &&
             prev.packagingStructure.level2.quantity > 0
               ? prev.packagingStructure.level1.price /
+                prev.packagingStructure.level2.quantity
+              : 0,
+          salePrice:
+            prev.packagingStructure.level1.salePrice &&
+            prev.packagingStructure.level2.quantity > 0
+              ? prev.packagingStructure.level1.salePrice /
                 prev.packagingStructure.level2.quantity
               : 0,
         },
@@ -158,26 +175,25 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
     const { name, value, type } = e.target;
 
     if (name.includes(".")) {
-      const [parent, child] = name.split(".");
-      if (parent === "level0") {
+      const parts = name.split(".");
+      if (parts[0] === "level0") {
         setFormData((prev) => ({
           ...prev,
           level0: {
             ...prev.level0,
-            [child]: type === "number" ? parseFloat(value) || 0 : value,
+            [parts[1]]: type === "number" ? parseFloat(value) || 0 : value,
           },
         }));
-      } else if (parent.startsWith("packagingStructure")) {
-        const [, level, field] = name.split(".");
+      } else if (parts[0] === "packagingStructure") {
         setFormData((prev) => ({
           ...prev,
           packagingStructure: {
             ...prev.packagingStructure,
-            [level]: {
+            [parts[1]]: {
               ...prev.packagingStructure[
-                level as keyof typeof prev.packagingStructure
+                parts[1] as keyof typeof prev.packagingStructure
               ],
-              [field]: type === "number" ? parseFloat(value) || 0 : value,
+              [parts[2]]: type === "number" ? parseFloat(value) || 0 : value,
             },
           },
         }));
@@ -192,6 +208,7 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
               level0: {
                 ...prev.level0,
                 price: parseFloat(value) || 0,
+                salePrice: parseFloat(value) || 0,
               },
             }
           : {}),
@@ -215,6 +232,7 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
     if (
       [
         "level0.price",
+        "level0.salePrice",
         "packagingStructure.level1.quantity",
         "packagingStructure.level2.quantity",
       ].includes(name)
@@ -232,6 +250,7 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
   }, [
     formData,
     formData.level0.price,
+    formData.level0.salePrice,
     formData.packagingStructure.level1.quantity,
     formData.packagingStructure.level2.quantity,
   ]);
@@ -248,6 +267,10 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
           price:
             prev.level0.price && quantity > 0
               ? prev.level0.price / quantity
+              : 0,
+          salePrice:
+            prev.level0.salePrice && quantity > 0
+              ? prev.level0.salePrice / quantity
               : 0,
         },
       },
@@ -269,6 +292,10 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
             ...prev.packagingStructure.level2,
             quantity,
             price: level1Price && quantity > 0 ? level1Price / quantity : 0,
+            salePrice:
+              prev.packagingStructure.level1.salePrice && quantity > 0
+                ? prev.packagingStructure.level1.salePrice / quantity
+                : 0,
           },
         },
       };
@@ -278,6 +305,15 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) return;
+
+    if (formData.level0.price === 0) {
+      toast.error("Please enter base price");
+      return;
+    }
+    if (formData.level0.salePrice === 0) {
+      toast.error("Please enter sale price");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -297,6 +333,11 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
       }
     } catch (error: any) {
       console.error("Error adding custom stock item:", error?.message || "");
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to add custom stock item",
+      );
     } finally {
       setLoading(false);
     }
@@ -322,17 +363,20 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
       freeQuantity: 0,
       level0: {
         price: 0,
+        salePrice: 0,
         uom: "",
       },
       packagingStructure: {
         level1: {
           quantity: 1,
           price: 0,
+          salePrice: 0,
           uom: "",
         },
         level2: {
           quantity: 1,
           price: 0,
+          salePrice: 0,
           uom: "",
         },
       },
@@ -699,10 +743,10 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
                   <h4 className="text-xs font-semibold text-gray-700 mb-2">
                     Level 0 (Base)
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border rounded-lg p-3 border-gray-200 bg-gray-50">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border rounded-lg p-3 border-gray-200 bg-gray-50">
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">
-                        Price
+                        Base Price
                       </label>
                       <input
                         type="number"
@@ -713,6 +757,22 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
                         className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                         disabled={true}
                         min={0}
+                        step={0.01}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-900">
+                        Sale Price
+                      </label>
+                      <input
+                        type="number"
+                        name="level0.salePrice"
+                        value={formData.level0.salePrice}
+                        onChange={handleInputChange}
+                        placeholder="Enter sale price"
+                        className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={loading}
+                        min={formData.level0.price || 0}
                         step={0.01}
                       />
                     </div>
@@ -765,7 +825,7 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">
-                        Price
+                        Base Price
                       </label>
                       <input
                         type="number"
@@ -774,6 +834,22 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
                         readOnly
                         placeholder="Enter level 1 price"
                         className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-900">
+                        Sale Price
+                      </label>
+                      <input
+                        type="number"
+                        name="packagingStructure.level1.salePrice"
+                        value={formData.packagingStructure.level1.salePrice}
+                        onChange={handleInputChange}
+                        placeholder="Enter level 1 sale price"
+                        className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        min={formData.packagingStructure.level1.price || 0}
+                        step={0.01}
                         disabled
                       />
                     </div>
@@ -826,7 +902,7 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
                     </div>
                     <div className="space-y-2">
                       <label className="block text-sm font-bold text-gray-900">
-                        Price
+                        Base Price
                       </label>
                       <input
                         type="number"
@@ -835,6 +911,22 @@ const AddCustomStockItemModal: React.FC<AddCustomStockItemModalProps> = ({
                         readOnly
                         placeholder="Enter level 2 price"
                         className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-900">
+                        Sale Price
+                      </label>
+                      <input
+                        type="number"
+                        name="packagingStructure.level2.salePrice"
+                        value={formData.packagingStructure.level2.salePrice}
+                        onChange={handleInputChange}
+                        placeholder="Enter level 2 sale price"
+                        className="w-full px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        min={formData.packagingStructure.level2.price || 0}
+                        step={0.01}
                         disabled
                       />
                     </div>

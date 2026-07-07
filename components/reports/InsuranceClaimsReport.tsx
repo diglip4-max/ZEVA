@@ -15,6 +15,8 @@ import {
   Line,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -59,19 +61,6 @@ interface PatientClaims {
   advanceAmount?: number;
 }
 
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
-
 function formatNumber(n: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(n || 0);
 }
@@ -91,6 +80,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default function InsuranceClaimsReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [topDoctors, setTopDoctors] = useState<DoctorClaims[]>([]);
@@ -102,6 +92,13 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
   const [allPatients, setAllPatients] = useState<PatientClaims[]>([]);
   const [claimsByDepartment, setClaimsByDepartment] = useState<any[]>([]);
   const [recentClaims, setRecentClaims] = useState<any[]>([]);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -201,17 +198,17 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
         { "Metric": "Completed Claims", "Value": stats.completedClaims },
         { "Metric": "Rejected Claims", "Value": stats.rejectedClaims },
         { "Metric": "Advance Claims", "Value": stats.advanceClaims },
-        { "Metric": "Total Claim Amount (AED)", "Value": Math.round(stats.totalClaimAmount) },
-        { "Metric": "Pending Claim Amount (AED)", "Value": Math.round(stats.pendingClaimAmount) },
+        { "Metric": `Total Claim Amount (${currency})`, "Value": Math.round(stats.totalClaimAmount) },
+        { "Metric": `Pending Claim Amount (${currency})`, "Value": Math.round(stats.pendingClaimAmount) },
       ] : [],
     },
     {
       title: "Top 5 Doctors by Claims",
-      headers: ["Doctor", "Claims Count", "Total Amount (AED)", "Pending", "Approved", "Released", "Completed"],
+      headers: ["Doctor", "Claims Count", `Total Amount (${currency})`, "Pending", "Approved", "Released", "Completed"],
       data: topDoctors.map(d => ({
         "Doctor": d.doctorName,
         "Claims Count": d.claimsCount,
-        "Total Amount (AED)": Math.round(d.totalClaimAmount),
+        [`Total Amount (${currency})`]: Math.round(d.totalClaimAmount),
         "Pending": d.pendingClaims,
         "Approved": d.approvedClaims,
         "Released": d.releasedClaims,
@@ -220,66 +217,66 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
     },
     {
       title: "Claims by Status",
-      headers: ["Status", "Count", "Amount (AED)"],
+      headers: ["Status", "Count", `Amount (${currency})`],
       data: claimsByStatus.map(s => ({
         "Status": s.status,
         "Count": s.count,
-        "Amount (AED)": Math.round(s.amount),
+        [`Amount (${currency})`]: Math.round(s.amount),
       })),
     },
     {
       title: "Claims by Type",
-      headers: ["Type", "Count", "Amount (AED)"],
+      headers: ["Type", "Count", `Amount (${currency})`],
       data: claimsByType.map(t => ({
         "Type": t.type,
         "Count": t.count,
-        "Amount (AED)": Math.round(t.amount),
+        [`Amount (${currency})`]: Math.round(t.amount),
       })),
     },
     {
       title: "Patients with Pending/Advance Claims",
-      headers: ["Patient", "Mobile", "Total Claims", "Pending", "Advance", "Total Amount (AED)", "Pending Amount (AED)"],
+      headers: ["Patient", "Mobile", "Total Claims", "Pending", "Advance", `Total Amount (${currency})`, `Pending Amount (${currency})`],
       data: patientsWithPending.map(p => ({
         "Patient": p.patientName,
         "Mobile": p.patientMobile,
         "Total Claims": p.totalClaims,
         "Pending": p.pendingClaims,
         "Advance": p.advanceClaims,
-        "Total Amount (AED)": Math.round(p.totalAmount),
-        "Pending Amount (AED)": Math.round(p.pendingAmount),
+        [`Total Amount (${currency})`]: Math.round(p.totalAmount),
+        [`Pending Amount (${currency})`]: Math.round(p.pendingAmount),
       })),
     },
     {
       title: "All Patients Claims Summary",
-      headers: ["Patient", "Mobile", "Total Claims", "Pending", "Advance", "Total Amount (AED)"],
+      headers: ["Patient", "Mobile", "Total Claims", "Pending", "Advance", `Total Amount (${currency})`],
       data: allPatients.map(p => ({
         "Patient": p.patientName,
         "Mobile": p.patientMobile,
         "Total Claims": p.totalClaims,
         "Pending": p.pendingClaims,
         "Advance": p.advanceClaims,
-        "Total Amount (AED)": Math.round(p.totalAmount),
+        [`Total Amount (${currency})`]: Math.round(p.totalAmount),
       })),
     },
     {
       title: "Claims by Department",
-      headers: ["Department", "Count", "Amount (AED)"],
+      headers: ["Department", "Count", `Amount (${currency})`],
       data: claimsByDepartment.map(d => ({
         "Department": d.department,
         "Count": d.count,
-        "Amount (AED)": Math.round(d.amount),
+        [`Amount (${currency})`]: Math.round(d.amount),
       })),
     },
     {
       title: "Claims by Insurance Provider",
-      headers: ["Provider", "Count", "Amount (AED)"],
+      headers: ["Provider", "Count", `Amount (${currency})`],
       data: claimsByProvider.map(p => ({
         "Provider": p.provider,
         "Count": p.count,
-        "Amount (AED)": Math.round(p.amount),
+        [`Amount (${currency})`]: Math.round(p.amount),
       })),
     },
-  ], [stats, topDoctors, claimsByStatus, claimsByType, patientsWithPending, allPatients, claimsByDepartment, claimsByProvider]);
+  ], [stats, topDoctors, claimsByStatus, claimsByType, patientsWithPending, allPatients, claimsByDepartment, claimsByProvider, currency]);
 
   return (
     <div className="space-y-6">
@@ -311,7 +308,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
           <div className="bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl p-4 text-white shadow-lg">
             <div className="text-xs font-medium opacity-80">Pending</div>
             <div className="text-2xl font-bold mt-1">{formatNumber(stats.pendingClaims)}</div>
-            <div className="text-xs opacity-70 mt-1">{currency(stats.pendingClaimAmount)}</div>
+            <div className="text-xs opacity-70 mt-1">{formatCurrency(stats.pendingClaimAmount)}</div>
           </div>
           <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-xl p-4 text-white shadow-lg">
             <div className="text-xs font-medium opacity-80">Approved</div>
@@ -343,7 +340,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
               </div>
               <div>
                 <div className="text-sm text-gray-500 font-medium">Total Claim Amount</div>
-                <div className="text-3xl font-bold text-gray-900">{currency(stats.totalClaimAmount)}</div>
+                <div className="text-3xl font-bold text-gray-900">{formatCurrency(stats.totalClaimAmount)}</div>
               </div>
             </div>
             <div className="flex gap-8">
@@ -561,7 +558,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                   <td className="px-4 py-3 text-sm font-medium text-gray-500">{index + 1}</td>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">{doctor.doctorName}</td>
                   <td className="px-4 py-3 text-center text-sm font-bold text-teal-600">{doctor.claimsCount}</td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{currency(doctor.totalClaimAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(doctor.totalClaimAmount)}</td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                       {doctor.pendingClaims}
@@ -627,8 +624,8 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                       {patient.advanceClaims}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{currency(patient.totalAmount)}</td>
-                  <td className="px-4 py-3 text-right text-sm font-medium text-amber-600">{currency(patient.pendingAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(patient.totalAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-amber-600">{formatCurrency(patient.pendingAmount)}</td>
                 </tr>
               )) : (
                 <tr>
@@ -681,7 +678,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{currency(patient.totalAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(patient.totalAmount)}</td>
                 </tr>
               )) : (
                 <tr>
@@ -704,7 +701,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
               <div key={dept.department} className={`rounded-lg p-4 ${index % 2 === 0 ? "bg-teal-50" : "bg-gray-50"}`}>
                 <div className="text-xs text-gray-500 font-medium truncate">{dept.department || "Unknown"}</div>
                 <div className="text-xl font-bold text-gray-900 mt-1">{dept.count}</div>
-                <div className="text-xs text-gray-500 mt-1">{currency(dept.amount)}</div>
+                <div className="text-xs text-gray-500 mt-1">{formatCurrency(dept.amount)}</div>
               </div>
             ))}
           </div>
@@ -751,7 +748,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                       {claim.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{currency(claim.claimAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(claim.claimAmount)}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{claim.createdAt ? new Date(claim.createdAt).toLocaleDateString() : "-"}</td>
                 </tr>
               )) : (

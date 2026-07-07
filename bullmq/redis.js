@@ -9,7 +9,7 @@ const redisOptions = {
   keepAlive: 10000, // ✅ Help prevent idle timeouts
   connectTimeout: 10000, // ✅ Fail faster if connection is blocked
   // ⚠️ Add this - helps with BullMQ
-  lazyConnect: false,
+  lazyConnect: true, // ✅ Only connect when actually needed (queues/jobs)
   // ⚠️ Add these for better BullMQ compatibility
   enableAutoPipelining: true,
   retryStrategy(times) {

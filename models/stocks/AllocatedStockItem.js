@@ -98,6 +98,10 @@ const AllocatedStockItemSchema = new mongoose.Schema(
           type: String,
           trim: true,
         },
+        salePrice: {
+          type: Number,
+          default: 0,
+        },
       },
       packagingStructure: {
         level1: {
@@ -113,6 +117,10 @@ const AllocatedStockItemSchema = new mongoose.Schema(
             type: String,
             trim: true,
           },
+          salePrice: {
+            type: Number,
+            default: 0,
+          },
         },
         level2: {
           quantity: {
@@ -126,6 +134,10 @@ const AllocatedStockItemSchema = new mongoose.Schema(
           uom: {
             type: String,
             trim: true,
+          },
+          salePrice: {
+            type: Number,
+            default: 0,
           },
         },
       },

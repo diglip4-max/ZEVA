@@ -167,7 +167,7 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", countryCode: "+91", gender: "", patientType: "New", referredBy: "No"
+  mobileNumber: "", countryCode: "+91", gender: "", patientType: "New", referredBy: "No", city: ""
 };
 
 const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => {
@@ -426,7 +426,8 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
             mobileNumber: f.mobileNumber || "",
             gender: f.gender || "",
             patientType: f.patientType || "New",
-            referredBy: f.referredBy || "No"
+            referredBy: f.referredBy || "No",
+            city: f.city || ""
           }));
         showToast("Patient details loaded successfully", "success");
       } else {
@@ -447,10 +448,9 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
     else if (usedEMRNumbers.has(emrNumber)) newErrors.emrNumber = "Already exists";
 
     if (isSpecificClinic) {
-      // Make ALL fields mandatory for specific clinic
+      // Make most fields mandatory for specific clinic except email
       if (!firstName.trim()) newErrors.firstName = "Required";
       if (!lastName.trim()) newErrors.lastName = "Required";
-      if (!email.trim()) newErrors.email = "Required";
       if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
       if (!gender.trim()) newErrors.gender = "Required";
       if (!patientType.trim()) newErrors.patientType = "Required";
@@ -785,26 +785,41 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                   </div>
 
                   {/* Email Field */}
-                  <div className="mb-3">
-                    <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
-                      Email {isSpecificClinic ? <span className="text-red-500">*</span> : "(Optional)"}
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 ${errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                      placeholder="patient@email.com"
-                    />
-                    {errors.email && (
-                      <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
-                        <AlertCircle className="w-2.5 h-2.5" />{errors.email}
-                      </p>
-                    )}
-                  </div>
+          <div className="mb-3">
+            <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+              Email (Optional)
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 ${errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+              placeholder="patient@email.com"
+            />
+            {errors.email && (
+              <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                <AlertCircle className="w-2.5 h-2.5" />{errors.email}
+              </p>
+            )}
+          </div>
 
-                  {/* EMR Number Display - Auto-generated */}
+          {/* City Field */}
+          <div className="mb-3">
+            <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+              City (Optional)
+            </label>
+            <input
+              type="text"
+              name="city"
+              value={formData.city}
+              onChange={handleInputChange}
+              className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 border-gray-300`}
+              placeholder="Enter city"
+            />
+          </div>
+
+          {/* EMR Number Display - Auto-generated */}
                   <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-3 border-t border-gray-200">
                     <div className="flex items-center gap-2 bg-teal-50 px-3 py-2 rounded-md border border-teal-200 w-full sm:w-auto">
                       <FileText className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />

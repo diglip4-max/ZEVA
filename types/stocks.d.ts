@@ -67,17 +67,20 @@ export type PurchaseRecordItem = {
   level0?: {
     price?: number;
     uom?: string;
+    salePrice?: number;
   };
   packagingStructure?: {
     level1?: {
       quantity?: number;
       price?: number;
       uom?: string;
+      salePrice?: number;
     };
     level2?: {
       quantity?: number;
       price?: number;
       uom?: string;
+      salePrice?: number;
     };
   };
 };
@@ -147,17 +150,20 @@ export type CustomStockItem = {
   level0?: {
     price?: number;
     uom?: string;
+    salePrice?: number;
   };
   packagingStructure?: {
     level1?: {
       quantity?: number;
       price?: number;
       uom?: string;
+      salePrice?: number;
     };
     level2?: {
       quantity?: number;
       price?: number;
       uom?: string;
+      salePrice?: number;
     };
   };
   createdAt: Date | string;

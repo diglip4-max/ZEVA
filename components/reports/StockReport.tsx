@@ -20,6 +20,8 @@ import {
   ZAxis,
 } from "recharts";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
 
@@ -81,12 +83,20 @@ interface TopSupplier {
 }
 
 function SupplierReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [totalSuppliers, setTotalSuppliers] = useState(0);
   const [statusStats, setStatusStats] = useState<SupplierStats[]>([]);
   const [overallStats, setOverallStats] = useState<OverallStats | null>(null);
   const [openingBalanceByType, setOpeningBalanceByType] = useState<OpeningBalanceByType[]>([]);
   const [topSuppliers, setTopSuppliers] = useState<TopSupplier[]>([]);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -198,7 +208,7 @@ function SupplierReport({ startDate, endDate, headers }: Props) {
             {topSuppliers.map((supplier, index) => (
               <li key={index} className="flex justify-between items-center">
                 <span className="text-gray-600">{supplier.name}</span>
-                <span className="font-bold text-gray-800">{supplier.invoiceTotal.toLocaleString()}</span>
+                <span className="font-bold text-gray-800">{formatCurrency(supplier.invoiceTotal)}</span>
               </li>
             ))}
           </ul>
@@ -210,6 +220,7 @@ function SupplierReport({ startDate, endDate, headers }: Props) {
 
 
 export default function StockReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<StockItem[]>([]);
   const [typeStats, setTypeStats] = useState<{ name: string; count: number }[]>([]);
@@ -263,6 +274,13 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
   });
   const [minQtyFilter, setMinQtyFilter] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -1217,7 +1235,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                           <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
                             <span className="text-[10px] text-gray-400">Items: {grn.items?.length || 0}</span>
                             <span className="text-xs font-bold text-gray-800">
-                              {grn.items?.reduce((acc: number, item: any) => acc + (item.totalPrice || 0), 0).toLocaleString()} AED
+                              {formatCurrency(grn.items?.reduce((acc: number, item: any) => acc + (item.totalPrice || 0), 0))}
                             </span>
                           </div>
                         </div>
@@ -1288,7 +1306,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                           <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200">
                             <span className="text-[10px] text-gray-400">Status: {pi.status}</span>
                             <span className="text-xs font-bold text-gray-800">
-                              {pi.paidAmount?.toLocaleString()} / {(pi.paidAmount + pi.remainingAmount).toLocaleString()} AED
+                              {formatCurrency(pi.paidAmount)} / {formatCurrency(pi.paidAmount + pi.remainingAmount)}
                             </span>
                           </div>
                         </div>

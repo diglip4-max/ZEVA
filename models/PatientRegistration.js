@@ -11,7 +11,18 @@ const paymentHistorySchema = new mongoose.Schema({
   paying: { type: Number, default: 0, min: 0 },
   paymentMethod: {
     type: String,
-    enum: ["Cash", "Card", "BT", "Tabby", "Tamara", "Advance Balance", "Insurance Claim", "Pending Claim", "Cashback Wallet", "Package Full Paid"],
+    enum: [
+      "Cash",
+      "Card",
+      "BT",
+      "Tabby",
+      "Tamara",
+      "Advance Balance",
+      "Insurance Claim",
+      "Pending Claim",
+      "Cashback Wallet",
+      "Package Full Paid",
+    ],
     required: true,
   },
   status: {
@@ -54,11 +65,15 @@ const patientRegistrationSchema = new mongoose.Schema(
     gender: { type: String, enum: ["Male", "Female", "Other"] },
     email: { type: String, trim: true, lowercase: true },
     mobileNumber: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    referredBy: { type: String, trim: true },
+            type: String,
+            required: true,
+            trim: true,
+        },
+        city: {
+            type: String,
+            trim: true,
+        },
+        referredBy: { type: String, trim: true },
     patientType: {
       type: String,
       enum: ["New", "Old"],
@@ -110,7 +125,11 @@ const patientRegistrationSchema = new mongoose.Schema(
     packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
     packageTotalPrice: { type: Number, default: 0 },
     packagePaidAmount: { type: Number, default: 0 },
-    packagePaymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
+    packagePaymentStatus: {
+      type: String,
+      enum: ["Unpaid", "Partial", "Full"],
+      default: "Unpaid",
+    },
     packagePaymentMethod: { type: String, default: "" },
     notes: { type: String, trim: true },
     rejectionNote: { type: String, trim: true },
@@ -125,7 +144,11 @@ const patientRegistrationSchema = new mongoose.Schema(
         },
         startDate: { type: Date },
         endDate: { type: Date },
-        paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
+        paymentStatus: {
+          type: String,
+          enum: ["Unpaid", "Partial", "Full"],
+          default: "Unpaid",
+        },
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
       },
@@ -135,14 +158,21 @@ const patientRegistrationSchema = new mongoose.Schema(
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
         packageName: { type: String, trim: true }, // Store package name for quick display
         packageSoldBy: { type: String, trim: true }, // Name of the person who added the package
-        packageSoldByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // User ID of the person who added the package
+        packageSoldByUserId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        }, // User ID of the person who added the package
         assignedDate: { type: Date, default: Date.now },
         validityInMonths: { type: Number, default: 0 },
         startDate: { type: Date },
         endDate: { type: Date },
         totalPrice: { type: Number, default: 0 },
         paidAmount: { type: Number, default: 0 },
-        paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
+        paymentStatus: {
+          type: String,
+          enum: ["Unpaid", "Partial", "Full"],
+          default: "Unpaid",
+        },
         paymentMethod: { type: String, default: "" },
         // --- Enterprise Package Snapshot ---
         // Full copy of the Package master data at the time of assignment.
@@ -174,12 +204,19 @@ const patientRegistrationSchema = new mongoose.Schema(
         packageId: { type: mongoose.Schema.Types.ObjectId, ref: "UserPackage" },
         packageName: { type: String, trim: true },
         packageSoldBy: { type: String, trim: true }, // Name of the person who added the package
-        packageSoldByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // User ID of the person who added the package
+        packageSoldByUserId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        }, // User ID of the person who added the package
         totalSessions: { type: Number, min: 0 },
         remainingSessions: { type: Number, min: 0 },
         totalPrice: { type: Number, min: 0 },
         assignedDate: { type: Date, default: Date.now },
-        approvalStatus: { type: String, enum: ["pending", "approved", "rejected"], default: "approved" },
+        approvalStatus: {
+          type: String,
+          enum: ["pending", "approved", "rejected"],
+          default: "approved",
+        },
       },
     ],
     membershipTransfers: [
@@ -208,7 +245,11 @@ const patientRegistrationSchema = new mongoose.Schema(
           min: 0,
           max: 100,
         },
-        paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
+        paymentStatus: {
+          type: String,
+          enum: ["Unpaid", "Partial", "Full"],
+          default: "Unpaid",
+        },
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
@@ -234,7 +275,11 @@ const patientRegistrationSchema = new mongoose.Schema(
           ref: "PatientRegistration",
         },
         transferredSessions: { type: Number, default: 0, min: 0 },
-        paymentStatus: { type: String, enum: ["Unpaid", "Partial", "Full"], default: "Unpaid" },
+        paymentStatus: {
+          type: String,
+          enum: ["Unpaid", "Partial", "Full"],
+          default: "Unpaid",
+        },
         paidAmount: { type: Number, default: 0 },
         paymentMethod: { type: String, default: "" },
         transferDate: { type: Date, default: Date.now },
@@ -251,15 +296,27 @@ const patientRegistrationSchema = new mongoose.Schema(
     walletTransactions: [
       {
         amount: { type: Number, required: true, min: 0 },
-        type: { type: String, enum: ['credit', 'debit'], required: true },
-        source: { type: String, enum: ['cashback', 'refund', 'manual', 'payment'], required: true },
-        offerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Offer', default: null },
+        type: { type: String, enum: ["credit", "debit"], required: true },
+        source: {
+          type: String,
+          enum: ["cashback", "refund", "manual", "payment"],
+          required: true,
+        },
+        offerId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Offer",
+          default: null,
+        },
         offerName: { type: String, default: null },
-        billingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Billing', default: null },
+        billingId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Billing",
+          default: null,
+        },
         invoiceNumber: { type: String, default: null },
-        description: { type: String, trim: true, default: '' },
-        createdAt: { type: Date, default: Date.now }
-      }
+        description: { type: String, trim: true, default: "" },
+        createdAt: { type: Date, default: Date.now },
+      },
     ],
     // map with lead
     leadId: {

@@ -3,20 +3,10 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ExportButtons from "./ExportButtons";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 type HeadersRecord = Record<string, string>;
-
-function currency(n: number) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: "AED",
-      maximumFractionDigits: 0,
-    }).format(n || 0);
-  } catch {
-    return String(Math.round(n || 0));
-  }
-}
 
 interface Props {
   startDate: string;
@@ -25,6 +15,7 @@ interface Props {
 }
 
 export default function AppointmentReport({ startDate, endDate, headers }: Props) {
+  const { currency } = useCurrency();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({ totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 });
   const [doctorReport, setDoctorReport] = useState<any[]>([]);
@@ -38,6 +29,13 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
   const [noShowAppointments, setNoShowAppointments] = useState<any[]>([]);
   const [isCancelledSidebarOpen, setIsCancelledSidebarOpen] = useState(false);
   const [isNoShowSidebarOpen, setIsNoShowSidebarOpen] = useState(false);
+
+  const currencyFormatter = (n: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (n: number) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -121,11 +119,11 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
     },
     {
       title: "Doctor Revenue Report",
-      headers: ["Doctor Name", "Total Appointments", "Revenue (AED)"],
+      headers: ["Doctor Name", "Total Appointments", `Revenue (${currency})`],
       data: doctorReport.map(d => ({
         "Doctor Name": d.doctorName || "Unknown",
         "Total Appointments": d.totalAppointments || 0,
-        "Revenue (AED)": Math.round(d.revenue || 0),
+        [`Revenue (${currency})`]: Math.round(d.revenue || 0),
       })),
     },
     {
@@ -330,9 +328,9 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-                <Tooltip formatter={(v: any) => currency(Number(v || 0))} />
-                <Legend verticalAlign="top" height={36}/>
-                <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Revenue (AED)" />
+                <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
+                  <Legend verticalAlign="top" height={36}/>
+                  <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -350,7 +348,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                   <tr key={String(d.doctorId)}>
                     <td className="px-4 py-2 text-sm">{d.doctorName || "Unknown"}</td>
                     <td className="px-4 py-2 text-sm">{d.totalAppointments || 0}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{currency(d.revenue || 0)}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(d.revenue || 0)}</td>
                   </tr>
                 ))}
                 {!doctorReport.length && (

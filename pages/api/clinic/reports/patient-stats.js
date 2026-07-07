@@ -115,6 +115,7 @@ export default async function handler(req, res) {
     const d = new Date(val);
     return isNaN(d.getTime()) ? null : d;
   };
+  
   const qStart = parseDate(req.query.startDate);
   const qEnd = parseDate(req.query.endDate);
   const targetClinicId =

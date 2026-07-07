@@ -472,6 +472,15 @@ export default async function handler(req, res) {
       },
       { $unwind: { path: "$svc", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "users",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctor",
+        },
+      },
+      { $unwind: { path: "$doctor", preserveNullAndEmptyArrays: true } },
+      {
         $project: {
           invoiceNumber: "$invoiceNumber",
           dueDate: "$invoicedDate",
@@ -503,6 +512,9 @@ export default async function handler(req, res) {
               },
             },
           },
+          doctorName: {
+            $ifNull: ["$doctorName", { $ifNull: ["$doctor.name", "—"] }],
+          },
         },
       },
     ];
@@ -518,6 +530,7 @@ export default async function handler(req, res) {
       invoiceNumber: p.invoiceNumber || "",
       patientName: p.patientName || "",
       serviceName: p.serviceName || "Unknown",
+      doctorName: p.doctorName || "—",
       totalAmount: Math.round(Number(p.totalAmount || 0)),
       paidAmount: Math.round(Number(p.paidAmount || 0)),
       pendingAmount: Math.round(Number(p.pendingAmount || 0)),
@@ -643,11 +656,14 @@ export default async function handler(req, res) {
           invoicedDate: "$invoicedDate",
           paid: { $ifNull: ["$paid", 0] },
           pending: { $ifNull: ["$pending", 0] },
+          originalAmount: { $ifNull: ["$originalAmount", "$amount"] },
           patientId: "$patientId",
           serviceType: "$service",
           packageName: "$package",
           treatmentName: "$treatment",
           appointmentId: "$appointmentId",
+          doctorId: "$doctorId",
+          doctorName: "$doctorName",
           advanceUsed: { $ifNull: ["$advanceUsed", 0] },
           claimAmountUsed: { $ifNull: ["$claimAmountUsed", 0] },
           cashbackWalletUsed: { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -661,11 +677,14 @@ export default async function handler(req, res) {
           invoicedDate: 1,
           paid: 1,
           pending: 1,
+          originalAmount: 1,
           patientId: 1,
           serviceType: 1,
           packageName: 1,
           treatmentName: 1,
           appointmentId: 1,
+          doctorId: 1,
+          doctorName: 1,
           totalFromPayments: {
             $reduce: {
               input: "$multiplePayments",
@@ -691,11 +710,14 @@ export default async function handler(req, res) {
           invoicedDate: 1,
           paid: 1,
           pending: 1,
+          originalAmount: 1,
           patientId: 1,
           serviceType: 1,
           packageName: 1,
           treatmentName: 1,
           appointmentId: 1,
+          doctorId: 1,
+          doctorName: 1,
           difference: { $max: [0, { $subtract: ["$totalExpected", "$totalFromPayments"] }] },
           paymentMethod: 1,
           multiplePayments: 1
@@ -707,11 +729,14 @@ export default async function handler(req, res) {
           invoicedDate: 1,
           paid: 1,
           pending: 1,
+          originalAmount: 1,
           patientId: 1,
           serviceType: 1,
           packageName: 1,
           treatmentName: 1,
           appointmentId: 1,
+          doctorId: 1,
+          doctorName: 1,
           payments: {
             $cond: [
               { $gt: ["$difference", 0] },
@@ -767,10 +792,20 @@ export default async function handler(req, res) {
       },
       { $unwind: { path: "$apptService", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: "users",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctor",
+        },
+      },
+      { $unwind: { path: "$doctor", preserveNullAndEmptyArrays: true } },
+      {
         $project: {
           invoiceNumber: 1,
           paymentDate: "$invoicedDate",
           amount: { $ifNull: ["$payments.amount", 0] },
+          originalAmount: 1,
           method: "$payments.paymentMethod",
           transactionType: "$payments.transactionType",
           serviceName: {
@@ -797,6 +832,9 @@ export default async function handler(req, res) {
               },
             },
           },
+          doctorName: {
+            $ifNull: ["$doctorName", { $ifNull: ["$doctor.name", "—"] }],
+          },
           paid: 1,
           pending: 1,
         },
@@ -821,7 +859,9 @@ export default async function handler(req, res) {
         invoiceNumber: p.invoiceNumber || "",
         patientName: p.patientName || "",
         service: p.serviceName || "Unknown",
-        amount: Math.round(Number(p.amount || 0)),
+        doctorName: p.doctorName || "—",
+        amount: Math.round(Number(p.originalAmount || p.amount || 0)),
+        paidAmount: paid,
         paymentMethod: normalizeMethod(p.method),
         transactionType: normalizeTxnType(p.transactionType),
         paymentStatus: status,

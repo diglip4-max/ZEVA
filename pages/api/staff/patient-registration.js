@@ -84,6 +84,7 @@ export default async function handler(req, res) {
         gender,
         email,
         mobileNumber,
+        city,
         referredBy,
         patientType,
         insurance,
@@ -162,6 +163,7 @@ export default async function handler(req, res) {
         if (gender !== undefined) existingPatient.gender = gender;
         if (email !== undefined) existingPatient.email = email;
         if (mobileNumber !== undefined) existingPatient.mobileNumber = mobileNumber;
+        if (city !== undefined) existingPatient.city = city;
         if (referredBy !== undefined) existingPatient.referredBy = referredBy;
         if (patientType !== undefined && String(patientType).trim() !== "") {
           existingPatient.patientType = patientType;
@@ -216,6 +218,7 @@ export default async function handler(req, res) {
         gender: gender || undefined, // Leave undefined if not provided
         email: email || "",
         mobileNumber,
+        city: city || "",
         referredBy: referredBy || "",
         patientType: normalizedPatientType || "New",
         insurance: insurance || "No",

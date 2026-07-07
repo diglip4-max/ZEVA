@@ -547,10 +547,10 @@ function ClinicReferralPage() {
           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Calendar className="w-8 h-8 text-yellow-600" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
             Access Denied
           </h3>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
             You do not have permission to view or create referrals. Please contact your administrator.
           </p>
         </div>
@@ -573,8 +573,8 @@ function ClinicReferralPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-teal-900">Referral Management</h2>
-              <p className="text-[10px] sm:text-xs text-teal-700">Create, update, and delete referral contacts</p>
+              <h2 className="text-sm sm:text-base font-bold text-teal-900 dark:text-teal-500">Referral Management</h2>
+              <p className="text-[10px] sm:text-xs text-teal-700 dark:text-teal-400">Create, update, and delete referral contacts</p>
             </div>
             <div className="flex gap-2">
               <button
@@ -599,20 +599,20 @@ function ClinicReferralPage() {
           <div>
             <div className="border rounded-lg p-3">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-teal-900">Referrals</h3>
-                <button className="px-2 py-1 text-[10px] border border-gray-300 rounded-md" onClick={load}>
+                <h3 className="text-xs font-semibold text-teal-900 dark:text-teal-500">Referrals</h3>
+                <button className="px-2 py-1 text-[10px] border border-gray-300 dark:text-gray-500 rounded-md" onClick={load}>
                   Refresh
                 </button>
               </div>
               {loading ? (
-                <div className="text-xs text-gray-700">Loading...</div>
+                <div className="text-xs text-gray-700 dark:text-gray-300">Loading...</div>
               ) : items.length === 0 ? (
-                <div className="text-xs text-gray-700">No referrals</div>
+                <div className="text-xs text-gray-700 dark:text-gray-300">No referrals</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-[10px]">
                     <thead>
-                      <tr className="text-left text-gray-600">
+                      <tr className="text-left text-gray-600 dark:text-gray-500">
                         <th className="px-2 py-1">Name</th>
                         <th className="px-2 py-1">Phone</th>
                         <th className="px-2 py-1">Email</th>
@@ -622,21 +622,21 @@ function ClinicReferralPage() {
                     </thead>
                     <tbody>
                       {items.map((it) => (
-                        <tr key={it._id} className="border-t">
+                        <tr key={it._id} className="border-t dark:text-gray-900">
                           <td className="px-2 py-1">{[it.firstName, it.lastName].filter(Boolean).join(" ")}</td>
-                          <td className="px-2 py-1">{it.phone}</td>
-                          <td className="px-2 py-1">{it.email || "—"}</td>
-                          <td className="px-2 py-1">{it.referralPercent ?? 0}</td>
+                          <td className="px-2 py-1 dark:text-gray-700">{it.phone}</td>
+                          <td className="px-2 py-1 dark:text-gray-700">{it.email || "—"}</td>
+                          <td className="px-2 py-1 dark:text-gray-700">{it.referralPercent ?? 0}</td>
                           <td className="px-2 py-1">
                             <div className="flex items-center gap-2">
                               {permissions.canUpdate && (
                                 <button className="p-1 rounded hover:bg-teal-100" onClick={() => startEdit(it)} title="Edit">
-                                  <Edit2 className="w-3 h-3 text-teal-700" />
+                                  <Edit2 className="w-3 h-3 text-teal-700 dark:text-teal-300" />
                                 </button>
                               )}
                               {permissions.canDelete && (
                                 <button className="p-1 rounded hover:bg-red-100" onClick={() => handleDelete(it._id)} title="Delete">
-                                  <Trash2 className="w-3 h-3 text-red-600" />
+                                  <Trash2 className="w-3 h-3 text-red-600 dark:text-red-400" />
                                 </button>
                               )}
                             </div>
@@ -660,7 +660,7 @@ function ClinicReferralPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-3 py-3 border-b border-gray-200 flex-shrink-0">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-teal-900 truncate">
+                <h3 className="text-sm font-bold text-teal-900 dark:text-teal-500 truncate">
                   {editing ? "Edit Referral" : "Create Referral"}
                 </h3>
               </div>
@@ -671,7 +671,7 @@ function ClinicReferralPage() {
                   resetForm();
                 }}
               >
-                <X className="w-4 h-4 text-gray-500" />
+                <X className="w-4 h-4 text-gray-500 dark:text-gray-300" />
               </button>
             </div>
             
@@ -679,46 +679,46 @@ function ClinicReferralPage() {
             <div className="p-3 overflow-y-auto flex-1">
               <div className="space-y-2">
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-0.5">First Name <span className="text-red-500">*</span></label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-600 mb-0.5">First Name <span className="text-red-500">*</span></label>
                   <input
                     name="firstName"
                     value={form.firstName}
                     onChange={handleChange}
-                    className={`w-full px-2 py-1 text-[10px] border rounded-md ${errors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                    className={`w-full px-2 py-1  dark:text-gray-600  text-[10px] border rounded-md ${errors.firstName ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                   />
                   {errors.firstName && <p className="text-red-500 text-[9px] mt-0.5">{errors.firstName}</p>}
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Last Name</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-600 mb-0.5">Last Name</label>
                   <input
                     name="lastName"
                     value={form.lastName}
                     onChange={handleChange}
-                    className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md"
+                    className="w-full px-2 py-1  dark:text-gray-600 text-[10px] border border-gray-300 rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Phone <span className="text-red-500">*</span></label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-600 mb-0.5">Phone <span className="text-red-500">*</span></label>
                   <input
                     name="phone"
                     value={form.phone}
                     onChange={handleChange}
-                    className={`w-full px-2 py-1 text-[10px] border rounded-md ${errors.phone ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                    className={`w-full px-2 py-1 text-[10px] dark:text-gray-600 border rounded-md ${errors.phone ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                   />
                   {errors.phone && <p className="text-red-500 text-[9px] mt-0.5">{errors.phone}</p>}
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Email</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-600 mb-0.5">Email</label>
                   <input
                     type="email"
                     name="email"
                     value={form.email}
                     onChange={handleChange}
-                    className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md"
+                    className="w-full px-2 py-1 text-[10px] dark:text-gray-600 border border-gray-300 rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-0.5">Referral %</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-600 mb-0.5">Referral %</label>
                   <input
                     type="number"
                     name="referralPercent"
@@ -726,7 +726,7 @@ function ClinicReferralPage() {
                     onChange={handleChange}
                     min={0}
                     max={100}
-                    className={`w-full px-2 py-1 text-[10px] border rounded-md ${errors.referralPercent ? "border-red-500 bg-red-50" : "border-gray-300"}`}
+                    className={`w-full px-2 py-1 text-[10px] dark:text-gray-600 border rounded-md ${errors.referralPercent ? "border-red-500 bg-red-50" : "border-gray-300"}`}
                   />
                   {errors.referralPercent && <p className="text-red-500 text-[9px] mt-0.5">{errors.referralPercent}</p>}
                 </div>
@@ -740,12 +740,12 @@ function ClinicReferralPage() {
                       onChange={handleChange}
                       className="h-3 w-3 border-gray-300 rounded"
                     />
-                    <label htmlFor="addExpense" className="text-[10px] text-gray-700">
+                    <label htmlFor="addExpense" className="text-[10px] text-gray-700 dark:text-gray-600">
                       Add an expense
                     </label>
                   </div>
                   <button 
-                    className="px-3 py-1 border border-gray-300 rounded-md text-[10px]"
+                    className="px-3 py-1 border border-gray-300 rounded-md text-[10px] dark:text-gray-700"
                     onClick={() => {
                       setShowModal(false);
                       resetForm();

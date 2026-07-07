@@ -397,6 +397,7 @@ export default async function handler(req, res) {
           gender: gender || undefined, // Leave undefined if not provided
           email: patientEmail, // Optional - already normalized above
           mobileNumber: patientPhone, // Required - validated above
+          city: mapped.city ? String(mapped.city).trim() : "",
           referredBy: mapped.referredBy ? String(mapped.referredBy).trim() : "",
           patientType: mapped.patientType && ["New", "Old"].includes(String(mapped.patientType).trim()) 
             ? String(mapped.patientType).trim() 
