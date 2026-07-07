@@ -18,12 +18,12 @@ from langchain_core.messages import (
     ToolMessage,
     trim_messages,
 )
+from cache import redis_client
 from fastapi import Header
 from urllib.parse import urlencode
 import asyncio
 from psycopg.rows import dict_row
 from langchain_core.runnables import RunnableConfig
-import redis.asyncio as aioredis
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -63,7 +63,6 @@ class KakaResponse(BaseModel):
 clinic_token_var: ContextVar[str] = ContextVar("clinic_token")
 conversation_id_var: ContextVar[str] = ContextVar("conversation_id")
 clinic_name_var: ContextVar[str] = ContextVar("clinic_name")
-redis_client: aioredis.Redis = None
 AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -79,10 +78,6 @@ def get_context(config: RunnableConfig) -> tuple[str, str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global redis_client
-    redis_client = aioredis.from_url(
-        os.getenv("REDIS_URL"), encoding="utf-8", decode_responses=True, protocol=2
-    )
     checkpointer_conn = await AsyncConnection.connect(
         os.getenv("DATABASE_URL"), autocommit=True, prepare_threshold=None
     )
@@ -359,8 +354,8 @@ def format_for_whatsapp(text: str) -> str:
 
     cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(result))
     return cleaned.strip()
-
-
+                                               
+                                               
 def normalize_doctor_name(name: str) -> str:
     cleaned = re.sub(
         r"^(dr\.?|prof\.?|mr\.?|mrs\.?|ms\.?)\s+",
@@ -446,7 +441,10 @@ async def fetch_patient_MobNumber(conversation_id: str, clinicToken: str):
 @traceable
 async def fetch_clinic_name(clinicToken: str) -> str:
     cache_key = f"clinic_name:{clinicToken}"
-    cached = await redis_client.get(cache_key)
+    try:
+        cached = await redis_client.get(cache_key)
+    except Exception:
+        cached = None
     if cached:
         return cached
     try:
@@ -831,9 +829,6 @@ async def get_clinic_timings_tool(config: RunnableConfig) -> dict:
     return result
 
 
-
-
-
 tools = [
     book_appointment,
     reschedule_appointment,
@@ -849,24 +844,81 @@ agent = llm.bind_tools(tools)
 MAX_TOKENS = 2000
 
 
+def safe_trim_messages(messages, max_tokens, token_counter):
+    """
+    Trim messages while keeping AI tool calls and ToolMessage responses together.
+    Also drops orphan AIMessage(tool_calls) if matching ToolMessages are missing.
+    """
+    groups = []
+    i = 0
+
+    while i < len(messages):
+        msg = messages[i]
+
+        if isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None):
+            group = [msg]
+            required_ids = {tc["id"] for tc in msg.tool_calls if tc.get("id")}
+            found_ids = set()
+            i += 1
+
+            while i < len(messages) and isinstance(messages[i], ToolMessage):
+                tool_call_id = getattr(messages[i], "tool_call_id", None)
+                if tool_call_id:
+                    found_ids.add(tool_call_id)
+                group.append(messages[i])
+                i += 1
+
+            # Important: skip broken/orphan tool-call groups
+            if required_ids and required_ids.issubset(found_ids):
+                groups.append(group)
+
+            continue
+
+        if isinstance(msg, ToolMessage):
+            # Skip orphan ToolMessage without preceding AIMessage tool call
+            i += 1
+            continue
+
+        groups.append([msg])
+        i += 1
+
+    kept = []
+    total = 0
+
+    for group in reversed(groups):
+        group_tokens = sum(
+            token_counter.get_num_tokens(str(getattr(m, "content", ""))) for m in group
+        )
+
+        if total + group_tokens > max_tokens and kept:
+            break
+
+        kept = group + kept
+        total += group_tokens
+
+    while kept and not isinstance(kept[0], HumanMessage):
+        kept.pop(0)
+
+    return kept
+
+
 def build_workflow(checkpointer):
     async def chat_node(state: ChatState):
         system_message = SystemMessage(content=build_system_prompt())
-        trimmed = trim_messages(
-            state["messages"],
-            max_tokens=MAX_TOKENS,
-            strategy="last",
-            token_counter=llm,
-            include_system=False,
-            allow_partial=False,
-            start_on=HumanMessage,
-        )
+        trimmed = safe_trim_messages(state["messages"], MAX_TOKENS, llm)
 
         last = state["messages"][-1] if state["messages"] else None
 
         # ── Post-tool path: tools just ran, generate final reply then tag ──
         if isinstance(last, ToolMessage):
-            response = await agent.ainvoke([system_message] + trimmed)
+            try:
+                response = await agent.ainvoke([system_message] + trimmed)
+            except Exception as e:
+                print(f"[AI] agent.ainvoke failed: {type(e).__name__}: {e}")
+
+                response = AIMessage(
+                    content="Sorry, I had trouble processing that. Could you try again?"
+                )
             if not response.tool_calls:
                 patient_text = next(
                     (
@@ -894,7 +946,14 @@ def build_workflow(checkpointer):
                 }
             return {"messages": [response]}
 
-        response = await agent.ainvoke([system_message] + trimmed)
+        try:
+            response = await agent.ainvoke([system_message] + trimmed)
+        except Exception as e:
+            print(f"[AI] agent.ainvoke failed: {type(e).__name__}: {e}")
+
+            response = AIMessage(
+                content="Sorry, I had trouble processing that. Could you try again?"
+            )
 
         if not response.tool_calls:
             patient_text = next(
@@ -942,12 +1001,18 @@ def build_workflow(checkpointer):
 
 async def get_clinic_id_cached(clinicToken: str) -> str | None:
     cache_key = f"clinic_id:{clinicToken}"
-    cached = await redis_client.get(cache_key)
+    try:
+        cached = await redis_client.get(cache_key)
+    except Exception:
+        cached = None
     if cached:
         return cached
     clinic_id = await fetch_clinic_id(clinicToken, get_header)
     if clinic_id:
-        await redis_client.setex(cache_key, 900, clinic_id)  # 15min TTL
+        try:
+            await redis_client.setex(cache_key, 900, clinic_id)
+        except Exception:
+            pass  # 15min TTL
     return clinic_id
 
 
@@ -1534,4 +1599,3 @@ async def analytics_day_detail(date: str, clinicToken: str = Depends(get_clinic_
         "hourly": hourly,
         "scenario_breakdown": scenario_breakdown,
     }
-
