@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 export const loadSegmentOptions = async (
   inputValue: string,
-  token: string
+  token: string,
 ): Promise<OptionType[]> => {
   let options: OptionType[] = [];
   try {
@@ -28,7 +28,7 @@ export const loadSegmentOptions = async (
 };
 
 export const getChannelTitle = (
-  channel: "sms" | "whatsapp" | "voice" | "email" | "chat"
+  channel: "sms" | "whatsapp" | "voice" | "email" | "chat",
 ) => {
   switch (channel) {
     case "sms":
@@ -59,6 +59,29 @@ export const getFormatedTime = (timestamp: string) => {
     return minutes === 1 ? "1 min ago" : `${minutes} min ago`;
   } else if (diffInDays === 0) {
     return createdAt.format("h:mm A"); // Show time if today
+  } else if (diffInDays === 1) {
+    return "Yesterday"; // Show "Yesterday" if it's from the previous day
+  } else if (diffInDays < 7) {
+    return createdAt.format("dddd"); // Show the weekday if within the last week
+  } else {
+    return createdAt.format("MM/DD/YYYY"); // Show full date for older timestamps
+  }
+};
+export const getFormatedTimeForEmailMsgs = (timestamp: string) => {
+  if (!timestamp) return "";
+
+  const now = moment();
+  const createdAt = moment(timestamp);
+  const diffInSeconds = now.diff(createdAt, "seconds");
+  const diffInDays = now.diff(createdAt, "days");
+
+  if (diffInSeconds < 60) {
+    return "Today";
+  } else if (diffInSeconds < 3600) {
+    // const minutes = moment.duration(diffInSeconds, "seconds").minutes();
+    return "Today";
+  } else if (diffInDays === 0) {
+    return "Today"; // Show time if today
   } else if (diffInDays === 1) {
     return "Yesterday"; // Show "Yesterday" if it's from the previous day
   } else if (diffInDays < 7) {
@@ -108,10 +131,10 @@ export const handleUpload = async (file: File) => {
   try {
     const formData = new FormData();
     formData.append("file", file);
-    
+
     // Get auth headers if available
     const authHeaders = getAuthHeaders() || {};
-    
+
     const { data } = await axios.post("/api/upload", formData, {
       headers: {
         ...authHeaders,
@@ -126,7 +149,7 @@ export const handleUpload = async (file: File) => {
 };
 
 export function getMediaTypeFromFile(
-  file?: File | null
+  file?: File | null,
 ): "image" | "video" | "document" | "file" {
   if (!file) return "file";
 
@@ -193,7 +216,7 @@ export function getMediaTypeFromFile(
 export const formatScheduledTime = (
   scheduleDate: string,
   scheduleTime: string,
-  timezone: string
+  timezone: string,
 ): string => {
   try {
     if (!scheduleDate || !scheduleTime || !timezone) {
@@ -204,7 +227,7 @@ export const formatScheduledTime = (
     const scheduledMoment = momentTimezone.tz(
       `${scheduleDate} ${scheduleTime}`,
       "YYYY-MM-DD HH:mm",
-      timezone
+      timezone,
     );
 
     if (!scheduledMoment.isValid()) {
@@ -298,7 +321,8 @@ export const getAuthHeaders = () => {
   if (pathname?.includes("/clinic")) {
     token = localStorage.getItem("clinicToken");
   } else if (pathname?.includes("/staff") || pathname?.includes("/agent")) {
-    token = localStorage.getItem("agentToken") || localStorage.getItem("staffToken");
+    token =
+      localStorage.getItem("agentToken") || localStorage.getItem("staffToken");
   } else if (pathname?.includes("/doctor")) {
     token = localStorage.getItem("doctorToken");
   } else {
@@ -321,7 +345,7 @@ export const getUserRole = () => {
   if (typeof window === "undefined") return null;
 
   const pathname = window.location.pathname;
-  
+
   if (pathname?.includes("/clinic")) return "clinic";
   if (pathname?.includes("/staff")) return "staff";
   if (pathname?.includes("/agent")) return "agent";

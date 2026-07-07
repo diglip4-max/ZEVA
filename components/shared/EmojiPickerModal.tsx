@@ -6,6 +6,7 @@ import Picker from "@emoji-mart/react";
 interface EmojiPickerModalProps {
   setValue?: React.Dispatch<React.SetStateAction<string>>;
   inputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement>;
+  contentEditableRef?: React.RefObject<HTMLDivElement | null>;
   triggerButton?: React.ReactNode;
   position?: Placement;
   align?: "start" | "center" | "end";
@@ -141,6 +142,26 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
 
   const handleEmojiSelect = (emoji: any) => {
     const emojiChar = emoji.native;
+
+    if (contentEditableRef?.current) {
+      const editor = contentEditableRef.current;
+      editor.focus();
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const node = document.createTextNode(emojiChar);
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.setEndAfter(node);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        editor.appendChild(document.createTextNode(emojiChar));
+      }
+      if (setValue) setValue(editor.innerHTML);
+      return;
+    }
 
     if (inputRef?.current) {
       const input = inputRef.current;
