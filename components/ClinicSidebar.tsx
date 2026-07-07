@@ -1692,6 +1692,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   "package",
                 ),
                 createItem(
+                  "Custom Stock Items",
+                  "/clinic/stocks/custom-stock-items",
+                  "package",
+                ),
+                createItem(
                   "Sale Products",
                   "/clinic/stocks/product-sales",
                   "🛒",
