@@ -934,6 +934,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Create Agent": "clinic_create_agent",
     "Create Lead": "clinic_create_lead",
     Inbox: "clinic_inbox",
+    "Email Inbox": "clinic_email_inbox",
     "KAKA Customization": "clinic_kaka_customization",
 
     Templates: "clinic_templates",
@@ -1580,6 +1581,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               children: nonNull(
                 createItem("Create Lead", "/clinic/create-lead", "➕"),
                 createItem("Inbox", "/clinic/inbox", "📨"),
+                createItem("Email Inbox", "/clinic/email-inbox", "📨"),
                 createItem("Templates", "/clinic/all-templates", "📝"),
                 createItem("Providers", "/clinic/providers", "👥"),
                 createItem("Reviews", "/clinic/getAllReview", "⭐"),
