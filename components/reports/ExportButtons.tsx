@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileText, File as FilePdf, ChevronDown, Download } from "lucide-react";
+import { FileText, File as FilePdf, ChevronDown, Download, FileSpreadsheet } from "lucide-react";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -57,6 +57,21 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
     document.body.removeChild(link);
   };
 
+  // ── Excel ────────────────────────────────────────────────────────────────────
+  const exportToExcel = () => {
+    const workbook = XLSX.utils.book_new();
+    allSections.forEach((section) => {
+      const rows = section.data.map((item: any) =>
+        section.headers.reduce((acc: any, h) => { acc[h] = item[h] ?? ""; return acc; }, {})
+      );
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header: section.headers });
+      // Sanitize sheet name (Excel has restrictions)
+      const sheetName = section.title.replace(/[\\/?*[\]]/g, "").substring(0, 31);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+    XLSX.writeFile(workbook, `${filename}.xlsx`);
+  };
+
   // ── PDF ────────────────────────────────────────────────────────────────────
   const exportToPDF = () => {
     const doc = new jsPDF();
@@ -92,6 +107,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
 
   const exportFunctions = {
     CSV: exportToCSV,
+    Excel: exportToExcel,
     PDF: exportToPDF
   };
 
@@ -117,6 +133,7 @@ const ExportButtons: React.FC<ExportButtonsProps> = ({ data, filename, headers, 
               className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
             >
               {format === 'CSV' && <FileText className="w-4 h-4 text-green-600" />}
+              {format === 'Excel' && <FileSpreadsheet className="w-4 h-4 text-blue-600" />}
               {format === 'PDF' && <FilePdf className="w-4 h-4 text-red-600" />}
               {format}
             </button>

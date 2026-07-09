@@ -86,6 +86,13 @@ export const clinicNavigationItems = [
         order: 4,
       },
       {
+        label: "Invoices",
+        path: "/clinic/invoices",
+        icon: "receipt",
+        description: "View complaint invoices",
+        order: 5,
+      },
+      {
         label: "Add EOD Task",
         path: "/clinic/eodNotes",
         icon: "file-text",
