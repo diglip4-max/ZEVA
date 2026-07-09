@@ -51,6 +51,8 @@ interface SubModule {
     read: boolean;
     update: boolean;
     delete: boolean;
+    import: boolean;
+    export: boolean;
   };
 }
 
@@ -63,6 +65,8 @@ interface ModulePermission {
     read: boolean;
     update: boolean;
     delete: boolean;
+    import: boolean;
+    export: boolean;
   };
 }
 
@@ -105,7 +109,7 @@ interface NavigationItem {
   }>;
 }
 
-const ACTION_KEYS: Array<keyof ModulePermission['actions']> = ['all', 'create', 'read', 'update', 'delete'];
+const ACTION_KEYS: Array<keyof ModulePermission['actions']> = ['all', 'create', 'read', 'update', 'delete', 'import', 'export'];
 
 interface Toast {
   id: string;
@@ -232,6 +236,8 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
     read: false,
     update: false,
     delete: false,
+    import: false,
+    export: false,
   });
 
   const sanitizeModulePermissions = useCallback(

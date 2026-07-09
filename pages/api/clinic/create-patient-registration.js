@@ -253,6 +253,12 @@ export default async function handler(req, res) {
     console.log('[BundleAPI] Extracted offerFreeSession:', offerFreeSession);
     console.log('[BundleAPI] Extracted freeOfferSessionCount:', freeOfferSessionCount);
 
+    // Calculate total unpaid packages amount
+    const totalUnpaidPackagesAmount = Array.isArray(unpaidPackagesPaid)
+      ? unpaidPackagesPaid.reduce((sum, pkg) => sum + (parseFloat(pkg.amount) || 0), 0)
+      : 0;
+    console.log("totalUnpaidPackagesAmount:", totalUnpaidPackagesAmount);
+
     // Validate required fields
     if (
       !invoiceNumber ||
@@ -816,9 +822,11 @@ export default async function handler(req, res) {
       claimAmountUsedNum,
       totalPastAdvanceUsed,
       pendingUsedNum,
+      totalUnpaidPackagesAmount,
       frontendAdvance: parseFloat(advance) || 0
     });
 
+    // Adjust for unpaid packages: only subtract the actual paid (not unpaid packages amount)
     const netDue = Math.max(
       0,
       amountNum - advanceUsedNum - claimAmountUsedNum - totalPastAdvanceUsed,
@@ -826,20 +834,32 @@ export default async function handler(req, res) {
 
     console.log('[AdvanceDebug] Calculated netDue:', netDue);
 
-    if (paidNum > netDue) {
-      finalAdvance = paidNum - netDue;
-      finalPending = 0;
-    } else {
+    // If unpaid packages are present, then pending should be netDue - paidNum (excluding unpaid packages)
+    if (totalUnpaidPackagesAmount > 0) {
       finalPending = netDue - paidNum;
       finalAdvance = 0;
-    }
+      console.log('[AdvanceDebug] Using unpaid packages adjustment:', {
+        finalPending,
+        finalAdvance,
+        paidNum
+      });
+    } else {
+      // Original logic for no unpaid packages
+      if (paidNum > netDue) {
+        finalAdvance = paidNum - netDue;
+        finalPending = 0;
+      } else {
+        finalPending = netDue - paidNum;
+        finalAdvance = 0;
+      }
 
-    console.log('[AdvanceDebug] Final calculated values:', {
-      finalAdvance,
-      finalPending,
-      paidNum,
-      netDue
-    });
+      console.log('[AdvanceDebug] Final calculated values (no unpaid packages):', {
+        finalAdvance,
+        finalPending,
+        paidNum,
+        netDue
+      });
+    }
 
     // Use the calculated final values for storage
     const pendingToStore = finalPending;
@@ -883,7 +903,9 @@ export default async function handler(req, res) {
       console.error("[CreatePatientRegistration] Error fetching agent profile for rate:", profileError);
     }
 
-    // Build multiplePayments array: include user-provided payments plus advance, claim, pending, cashback usage
+    // Build multiplePayments array: include user-provided payments plus advance, claim, pending (adjusted for unpaid packages), cashback usage
+    // For pendingUsed: subtract totalUnpaidPackagesAmount first, because that's for unpaid packages (separate)
+    const adjustedPendingUsed = Math.max(0, pendingUsedNum - totalUnpaidPackagesAmount);
     const finalMultiPayArr = [
       ...multiPayArr.map((mp) => ({
         paymentMethod: mp.paymentMethod,
@@ -906,9 +928,9 @@ export default async function handler(req, res) {
         paidBy: clinicUser._id,
         transactionType: "CLAIM_USAGE"
       }] : []),
-      ...(pendingUsedNum > 0 ? [{
+      ...(adjustedPendingUsed > 0 ? [{
         paymentMethod: paymentMethod || "Cash",
-        amount: pendingUsedNum,
+        amount: adjustedPendingUsed,
         paidAt: new Date(),
         paidBy: clinicUser._id,
         transactionType: "PENDING_CLEARANCE"
@@ -921,6 +943,7 @@ export default async function handler(req, res) {
         transactionType: "CASHBACK_USAGE"
       }] : [])
     ];
+    console.log("finalMultiPayArr (after unpaid packages adjustment):", finalMultiPayArr);
 
     // Create billing record
     const billingData = {
@@ -1607,7 +1630,7 @@ export default async function handler(req, res) {
     console.log("totalPackageSessionValue:", totalPackageSessionValue);
     
     // Calculate commissionable amounts:
-    let commissionablePaidAmount = Math.max(0, paidNum - pendingUsedNum - pendingClaimUsedNum);
+    let commissionablePaidAmount = Math.max(0, paidNum - adjustedPendingUsed - pendingClaimUsedNum);
     commissionablePaidAmount = Math.min(commissionablePaidAmount, amountNum);
     
     console.log("commissionablePaidAmount (before service split):", commissionablePaidAmount);
@@ -1932,9 +1955,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Update existing pending invoices if pendingUsedNum > 0
-    if (pendingUsedNum > 0) {
-      // console.log('[CreatePatientRegistration] Updating pending invoices with pendingUsed:', pendingUsedNum);
+    // Update existing pending invoices if adjustedPendingUsed > 0
+    if (adjustedPendingUsed > 0) {
+      console.log('[CreatePatientRegistration] Updating pending invoices with adjustedPendingUsed:', adjustedPendingUsed);
       
       // Fetch all pending invoices (oldest first)
       const pendingInvoices = await Billing.find({
@@ -1944,7 +1967,7 @@ export default async function handler(req, res) {
         isAdvanceOnly: { $ne: true }
       }).sort({ invoicedDate: 1, createdAt: 1 });
 
-      let remainingPendingUsed = pendingUsedNum;
+      let remainingPendingUsed = adjustedPendingUsed;
 
       for (const invoice of pendingInvoices) {
         if (remainingPendingUsed <= 0) break;
@@ -2016,7 +2039,7 @@ export default async function handler(req, res) {
           .lean();
 
         const allocations = [];
-        let remainingLedger = pendingUsedNum;
+        let remainingLedger = adjustedPendingUsed;
         for (const l of openLedgers) {
           if (remainingLedger <= 0) break;
           const take = Math.min(

@@ -54,8 +54,7 @@ export default async function handler(req, res) {
             read: true,
             update: true,
             delete: true,
-            approve: true,
-            print: true,
+            import: true,
             export: true
           },
           subModules: []
@@ -111,9 +110,8 @@ export default async function handler(req, res) {
       read: toBool(actions.read),
       update: toBool(actions.update),
       delete: toBool(actions.delete),
-      print: toBool(actions.print),
+      import: toBool(actions.import),
       export: toBool(actions.export),
-      approve: toBool(actions.approve),
     };
 
     console.log('[API DEBUG] Normalized actions:', JSON.stringify(normalizedActions, null, 2));
