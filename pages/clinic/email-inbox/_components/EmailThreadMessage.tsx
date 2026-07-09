@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Paperclip, ChevronDown, ChevronUp } from "lucide-react";
 import EmailAvatar from "./EmailAvatar";
 import { MessageType } from "@/types/conversations";
+import { capitalize, formatScheduledTime } from "@/lib/helper";
 
 interface EmailThreadMessageProps {
   message: MessageType;
@@ -16,7 +17,7 @@ export default function EmailThreadMessage({
   leadName,
   isExpanded = true,
   onToggleExpand,
-  isLast = false,
+  // isLast = false,
 }: EmailThreadMessageProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const isOutgoing = (message as any).direction === "outgoing";
@@ -56,7 +57,7 @@ export default function EmailThreadMessage({
     <div
       className={`pi-thread-message ${!isExpanded ? "pi-thread-collapsed" : ""}`}
     >
-      <div className="pi-reading-from">
+      <div onClick={onToggleExpand} className="pi-reading-from">
         <EmailAvatar name={fromName} />
         <div className="pi-reading-from-text">
           <div className="pi-reading-from-name">{`${fromName} <${fromEmail}>`}</div>
@@ -93,9 +94,24 @@ export default function EmailThreadMessage({
                   <span>{message.subject || "(no subject)"}</span>
                 </div>
                 <div className="pi-thread-info-row">
+                  <span>Status</span>
+                  <span>{capitalize(message.status || " ")}</span>
+                </div>
+                <div className="pi-thread-info-row">
                   <span>Date</span>
                   <span>{messageDate}</span>
                 </div>
+                {
+                  message.status === "scheduled" &&
+                  <div className="pi-thread-info-row">
+                    <span>Scheduled at: </span>
+                    <span>{formatScheduledTime(
+                      message?.schedule?.date,
+                      message?.schedule?.time,
+                      message?.schedule?.timezone,
+                    )}</span>
+                  </div>
+                }
               </div>
             )}
           </div>
@@ -106,16 +122,6 @@ export default function EmailThreadMessage({
             : ""}
         </div>
       </div>
-
-      {!isLast && (
-        <button
-          className="pi-thread-expand-toggle"
-          onClick={onToggleExpand}
-          aria-expanded={isExpanded}
-        >
-          {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-      )}
 
       <div
         className={`pi-thread-content ${!isExpanded ? "pi-thread-content-collapsed" : ""}`}

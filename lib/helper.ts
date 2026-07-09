@@ -352,3 +352,8 @@ export const getUserRole = () => {
   if (pathname?.includes("/doctor")) return "doctor";
   return "user";
 };
+
+export const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};

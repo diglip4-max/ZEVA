@@ -3,13 +3,14 @@ import {
   Plus,
   Inbox,
   Mail,
-  FolderOpen,
   Archive,
   Trash2,
   SendHorizontal,
   Star,
   ChevronsLeft,
   ChevronsRight,
+  MailOpen,
+  MousePointerClick,
 } from "lucide-react";
 import { EMAIL_FOLDERS, EmailFolderKey } from "@/hooks/useEmailInbox";
 
@@ -19,7 +20,8 @@ const ICONS: Record<EmailFolderKey, React.ReactNode> = {
   starred: <Star size={17} strokeWidth={1.6} />,
   outgoing: <SendHorizontal size={17} strokeWidth={1.6} />,
   unread: <Mail size={17} strokeWidth={1.6} />,
-  open: <FolderOpen size={17} strokeWidth={1.6} />,
+  opened: <MailOpen size={17} strokeWidth={1.6} />,
+  clicked: <MousePointerClick size={17} strokeWidth={1.6} />,
   archived: <Archive size={17} strokeWidth={1.6} />,
   trashed: <Trash2 size={17} strokeWidth={1.6} />,
 };

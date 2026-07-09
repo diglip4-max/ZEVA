@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import debounce from "lodash.debounce";
+import debounce from "lodash/debounce";
 import {
   formatFileSize,
   getMediaTypeFromMime,
   getTokenByPath,
   handleError,
+  validateEmail,
 } from "@/lib/helper";
 import useProvider from "@/hooks/useProvider";
-import { MessageType } from "@/types/conversations";
+import { ConversationType, MessageType } from "@/types/conversations";
+import useAgents from "@/hooks/useAgents";
+import { User } from "@/types/users";
+import useTags from "@/hooks/useTags";
 
 export type EmailFolderKey =
   | "all"
@@ -16,7 +20,8 @@ export type EmailFolderKey =
   | "starred"
   | "outgoing"
   | "unread"
-  | "open"
+  | "opened"
+  | "clicked"
   | "archived"
   | "trashed";
 
@@ -26,7 +31,8 @@ export const EMAIL_FOLDERS: { key: EmailFolderKey; label: string }[] = [
   { key: "starred", label: "Starred" },
   { key: "outgoing", label: "Sent" },
   { key: "unread", label: "Unread" },
-  { key: "open", label: "Open" },
+  { key: "opened", label: "Opened" },
+  { key: "clicked", label: "Clicked" },
   { key: "archived", label: "Archived" },
   { key: "trashed", label: "Trash" },
 ];
@@ -111,21 +117,25 @@ export type Attachment = {
 export default function useEmailInbox() {
   const token = getTokenByPath();
   const { emailProviders } = useProvider();
+  const { state: agentsState } = useAgents({ role: "agent" });
+  const { agents, loading: agentFetchLoading } = agentsState;
+
+  // Conversation assignment
+  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
 
   // ---- conversation list --------------------------------------------------
-  const [messagePage, setMessagePage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [folder, setFolder] = useState<EmailFolderKey>("all");
   const [search, setSearch] = useState("");
+  const [filterOwnerId, setFilterOwnerId] = useState<string | null>(null);
   const conversationListRef = useRef<HTMLDivElement | null>(null);
+  const currentPageRef = useRef(1);
 
   //   attachments
   const [attachedFiles, setAttachedFiles] = useState<Attachment[]>([]);
 
   // ---- selected conversation / thread --------------------------------------
-  const [selectedConversationId, setSelectedConversationId] = useState<
-    string | null
-  >(null);
+
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [threadMessages, setThreadMessages] = useState<MessageType[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(
@@ -135,8 +145,11 @@ export default function useEmailInbox() {
     null,
   );
 
+  // ---- selected conversation ----------------------------------------------
+  const [selectedConversation, setSelectedConversation] =
+    useState<ConversationType | null>(null);
+
   const [fetchThreadMsgsLoading, setFetchThreadMsgsLoading] = useState(false);
-  const [fetchMsgLoading, setFetchMsgLoading] = useState(false);
   const [fetchMsgsLoading, setFetchMsgsLoading] = useState(false);
 
   // ---- compose --------------------------------------------------------------
@@ -161,6 +174,18 @@ export default function useEmailInbox() {
   // ---- starring (local only, see notes above) ------------------------------
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
 
+  // modal
+  const [isOpenDeleteConfirmModal, setIsOpenDeleteConfirmModal] =
+    useState(false);
+  const [pendingDeleteMessageId, setPendingDeleteMessageId] = useState<
+    string | null
+  >(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+
+  // tags
+  const [isAddTagModalOpen, setIsAddTagModalOpen] = useState(false);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+
   // ---- toast ------------------------------------------------------------------
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,6 +199,18 @@ export default function useEmailInbox() {
     () => emailProviders?.find((p) => p._id === compose.providerId) || null,
     [emailProviders, compose.providerId],
   );
+
+  const leadId = useMemo(() => {
+    if (selectedConversation?.leadId?._id)
+      return selectedConversation.leadId._id;
+    if (selectedMessage) {
+      const msg = selectedMessage as any;
+      return msg?.recipientId?._id;
+    }
+    return "";
+  }, [selectedConversation, selectedMessage]);
+
+  const { tags, setTags } = useTags({ leadId });
 
   // Set the provider in compose
   useEffect(() => {
@@ -227,11 +264,6 @@ export default function useEmailInbox() {
   const fetchEmailMessagesImmediate = useCallback(
     async (pageToFetch = 1) => {
       if (!token) return;
-      const scrollEl = conversationListRef.current;
-      const previousHeight =
-        pageToFetch > 1 && scrollEl ? scrollEl.scrollHeight : 0;
-      const previousScrollTop =
-        pageToFetch > 1 && scrollEl ? scrollEl.scrollTop : 0;
 
       try {
         if (pageToFetch === 1) {
@@ -244,6 +276,7 @@ export default function useEmailInbox() {
             limit: PAGE_LIMIT || 20,
             status: folder === "all" ? "all" : folder,
             search,
+            ownerId: filterOwnerId || undefined,
           },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -280,11 +313,11 @@ export default function useEmailInbox() {
 
               if (index !== -1) {
                 merged[index].messages = [
-                  ...uniqueMessages,
                   ...merged[index].messages,
+                  ...uniqueMessages,
                 ];
               } else {
-                merged.unshift({
+                merged.push({
                   ...newGroup,
                   messages: uniqueMessages,
                 });
@@ -294,14 +327,6 @@ export default function useEmailInbox() {
             });
 
             return merged;
-          });
-
-          requestAnimationFrame(() => {
-            if (conversationListRef.current) {
-              const newHeight = conversationListRef.current.scrollHeight;
-              conversationListRef.current.scrollTop =
-                previousScrollTop + (newHeight - previousHeight);
-            }
           });
         }
 
@@ -313,7 +338,7 @@ export default function useEmailInbox() {
         setFetchMsgsLoading(false);
       }
     },
-    [token, search, folder],
+    [token, search, folder, filterOwnerId],
   );
 
   const fetchEmailMessages = useMemo(
@@ -339,6 +364,9 @@ export default function useEmailInbox() {
         }
         const threadMsgs: MessageType[] = res.data?.data || [];
         setThreadMessages(threadMsgs);
+        if (threadMsgs.length > 0) {
+          setSelectedMessage(threadMsgs[0]);
+        }
       } catch (error) {
         setThreadMessages([]);
       } finally {
@@ -348,64 +376,164 @@ export default function useEmailInbox() {
     [token],
   );
 
+  const fetchConversation = useCallback(
+    async (conversationId: string) => {
+      try {
+        if (!token || !conversationId) return;
+
+        const { data } = await axios.get(
+          `/api/conversations/${conversationId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (data && data?.success && data?.conversation) {
+          let conv: ConversationType | null = data?.conversation || null;
+          const selectedOwner = agents.find((a) => a._id === conv?.ownerId);
+          setSelectedConversation(conv || null);
+          if (selectedOwner) {
+            setSelectedAgent(selectedOwner);
+          } else {
+            setSelectedAgent(null);
+          }
+        } else {
+          setSelectedConversation(null);
+          setSelectedAgent(null);
+        }
+      } catch (error) {
+        console.error("Error fetching conversation:", error);
+        setSelectedConversation(null);
+        setSelectedAgent(null);
+      }
+    },
+    [token, agents],
+  );
+
   const selectMessage = async (messageId: string) => {
     setSelectedMessageId(messageId);
-
-    try {
-      setFetchMsgLoading(true);
-      const { data } = await axios.get(`/api/messages/${messageId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log({ data, messageId, messages });
-      if (data && data?.success && data?.data) {
-        let msg: MessageType | null = data?.data || null;
-
-        console.log({ msg, messageId, messages });
-        setSelectedMessage(msg || null);
-      }
-    } catch (error) {
-      console.error("Error selecting message:", error);
-      setSelectedMessage(null);
-    } finally {
-      setFetchMsgLoading(false);
-    }
   };
 
   // --------------------------------------------------------------------------
   // Conversation status actions -> map onto folders (archive / trash)
   // --------------------------------------------------------------------------
-  const updateConversationStatus = useCallback(
-    async (conversationId: string, status: string) => {
+  const updateMessageStatus = useCallback(
+    async (messageId: string, status: string) => {
       if (!token) return;
       try {
-        const { data } = await axios.patch(
-          `/api/conversations/update-conversation/${conversationId}`,
-          { status },
+        let updatedData = {};
+        if (status === "starred") {
+          updatedData = { isStarred: true };
+        } else if (status === "unstarred") {
+          updatedData = { isStarred: false };
+        } else if (status === "archived") {
+          updatedData = { isArchived: true };
+        } else if (status === "unarchived") {
+          updatedData = { isArchived: false };
+        } else if (status === "trashed") {
+          updatedData = { isTrashed: true };
+        } else if (status === "untrashed") {
+          updatedData = { isTrashed: false };
+        }
+        if (!updatedData) return;
+        setThreadMessages((prev) => {
+          return prev.map((p) => ({
+            ...p,
+            ...updatedData,
+          }));
+        });
+        setSelectedMessage(threadMessages[0]);
+        const { data } = await axios.put(
+          `/api/messages/${messageId}`,
+          {
+            ...(status === "starred" ? { isStarred: true } : {}),
+            ...(status === "unstarred" ? { isStarred: false } : {}),
+            ...(status === "archived" ? { isArchived: true } : {}),
+            ...(status === "unarchived" ? { isArchived: false } : {}),
+            ...(status === "trashed" ? { isTrashed: true } : {}),
+            ...(status === "untrashed" ? { isTrashed: false } : {}),
+          },
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (data?.success) {
-          if (["trashed", "archived", "closed"].includes(status)) {
-            if (selectedConversationId === conversationId) {
-              setSelectedConversationId(null);
-              setMessages([]);
-            }
-          } else {
-          }
+          const currentMsg = data?.data || {};
+          setThreadMessages((prev) => {
+            return prev.map((p) => ({
+              ...p,
+              isStarred: currentMsg.isStarred || false,
+              isArchived: currentMsg.isArchived || false,
+              isTrashed: currentMsg.isTrashed || false,
+            }));
+          });
+          setSelectedMessage(currentMsg);
+
+          fetchEmailMessages();
         }
       } catch (error) {
         handleError(error);
       }
     },
-    [token, selectedConversationId],
+    [token, fetchEmailMessages],
   );
 
-  const archiveConversation = (id: string) => {
-    updateConversationStatus(id, "archived");
+  const archiveMessage = (id: string) => {
+    updateMessageStatus(id, "archived");
     showToast("Archived");
   };
-  const trashConversation = (id: string) => {
-    updateConversationStatus(id, "trashed");
+  const trashMessage = (id: string) => {
+    updateMessageStatus(id, "trashed");
     showToast("Moved to trash");
+  };
+
+  const starMessage = (id: string) => {
+    if (selectedMessage?.isStarred) {
+      updateMessageStatus(id, "unstarred");
+      showToast("Unstarred");
+    } else {
+      updateMessageStatus(id, "starred");
+      showToast("Starred");
+    }
+  };
+  const restoreFromTrash = (id: string) => {
+    updateMessageStatus(id, "untrashed");
+    showToast("Restored from trash");
+  };
+  const restoreFromArchive = (id: string) => {
+    updateMessageStatus(id, "unarchived");
+    showToast("Restored from archive");
+  };
+  const closeDeleteConfirmModal = () => {
+    if (isDeletingMessage) return;
+    setIsOpenDeleteConfirmModal(false);
+    setPendingDeleteMessageId(null);
+  };
+
+  const deleteMessage = (id: string) => {
+    setPendingDeleteMessageId(id);
+    setIsOpenDeleteConfirmModal(true);
+  };
+
+  const deleteMessageForever = async (id?: string) => {
+    const deleteId = id || pendingDeleteMessageId;
+    if (!deleteId) return;
+
+    try {
+      setIsDeletingMessage(true);
+      const { data } = await axios.delete(`/api/messages/${deleteId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data?.success) {
+        showToast("Deleted permanently");
+        setIsOpenDeleteConfirmModal(false);
+        setPendingDeleteMessageId(null);
+        setSelectedMessage(null);
+        setThreadMessages([]);
+        fetchEmailMessages();
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsDeletingMessage(false);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -417,6 +545,75 @@ export default function useEmailInbox() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  // Agent assignment
+  const handleAgentSelect = async (
+    agent: User | null,
+    conversationId: string,
+  ) => {
+    setSelectedAgent(agent);
+    if (!agent) return;
+    try {
+      const { data } = await axios.post(
+        `/api/conversations/assign-conversation/${conversationId}`,
+        {
+          ownerId: agent?._id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (data && data?.success) {
+        // Update conversation in state if needed (but email inbox doesn't track full conversation objects yet
+        showToast("Conversation assigned successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  // Tags
+  const handleAddTagToConversation = async (lId: string, tag: string) => {
+    if (!token) return;
+    try {
+      setIsAddingTag(true);
+      const { data } = await axios.post(
+        `/api/tags/${lId}`,
+        { tag },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data && data?.success) {
+        const newTags = data?.tags || [];
+        setTags(newTags);
+        setIsAddTagModalOpen(false);
+        showToast("Tag added successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsAddingTag(false);
+    }
+  };
+
+  const handleRemoveTagFromConversation = async (lId: string, tag: string) => {
+    if (!token) return;
+    try {
+      const { data } = await axios.post(
+        `/api/tags/remove/${lId}`,
+        { tag },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data && data?.success) {
+        const newTags = data?.tags || [];
+        setTags(newTags);
+        showToast("Tag removed successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -496,16 +693,17 @@ export default function useEmailInbox() {
   // --------------------------------------------------------------------------
   const sendEmail = async () => {
     console.log({
-      selectedConversationId,
       selectedProvider,
       compose,
       selectedMessageId,
     });
-    const effectiveConversationId =
-      compose.conversationId || selectedConversationId;
+    const effectiveConversationId = compose.conversationId || "";
     const effectiveLeadId = compose.leadId;
 
-    if (!effectiveConversationId || !effectiveLeadId) {
+    if (
+      (!effectiveConversationId || !effectiveLeadId) &&
+      !validateEmail(compose.to)
+    ) {
       showToast(
         "Select a contact from the To field or open an existing conversation first",
       );
@@ -525,8 +723,10 @@ export default function useEmailInbox() {
       const { data } = await axios.post(
         "/api/messages/send-email-message",
         {
+          from: compose.from || selectedProvider?.email || "",
+          to: compose.to || "",
           conversationId: effectiveConversationId,
-          recipientIds: [effectiveLeadId],
+          recipientIds: effectiveLeadId ? [effectiveLeadId] : [],
           channel: "email",
           subject: compose.subject || "(no subject)",
           content: compose.body,
@@ -546,24 +746,33 @@ export default function useEmailInbox() {
 
       if (data?.success && data?.data) {
         const currentMsg = data?.data;
-        const currentMsgDate = new Date(currentMsg?.createdAt)
-          .toISOString()
-          .split("T")[0];
-        let findGroup = messages?.find((g) => g?.date === currentMsgDate);
-        let updatedMsgs = messages || [];
-        if (findGroup) {
-          updatedMsgs = updatedMsgs?.map((g) =>
-            g?.date === currentMsgDate
-              ? { ...g, messages: [currentMsg, ...g.messages] }
-              : g,
-          );
+
+        if (compose.replyToMessageId || currentMsg?.replyToMessageId) {
+          console.log({ currentMsg });
+          // Reply message should be in Email Thread Messages
+          let updatedThreadMsgs = [...threadMessages, currentMsg];
+          setThreadMessages(updatedThreadMsgs);
         } else {
-          updatedMsgs = [
-            { date: currentMsgDate, messages: [currentMsg] },
-            ...updatedMsgs,
-          ];
+          // New message should be in Email List
+          const currentMsgDate = new Date(currentMsg?.createdAt)
+            .toISOString()
+            .split("T")[0];
+          let findGroup = messages?.find((g) => g?.date === currentMsgDate);
+          let updatedMsgs = messages || [];
+          if (findGroup) {
+            updatedMsgs = updatedMsgs?.map((g) =>
+              g?.date === currentMsgDate
+                ? { ...g, messages: [currentMsg, ...g.messages] }
+                : g,
+            );
+          } else {
+            updatedMsgs = [
+              { date: currentMsgDate, messages: [currentMsg] },
+              ...updatedMsgs,
+            ];
+          }
+          setMessages(updatedMsgs);
         }
-        setMessages(updatedMsgs);
         setComposeOpen(false);
         setCompose({
           from: selectedProvider?.email || "",
@@ -591,37 +800,97 @@ export default function useEmailInbox() {
     scheduledTime: string;
     scheduledTimezone: string;
   }) => {
-    if (!selectedConversationId || !selectedProvider) {
-      showToast("Open a conversation and configure an email provider first");
+    const effectiveConversationId = compose.conversationId || "";
+    const effectiveLeadId = compose.leadId;
+
+    if (
+      (!effectiveConversationId || !effectiveLeadId) &&
+      !validateEmail(compose.to)
+    ) {
+      showToast(
+        "Select a contact from the To field or open an existing conversation first",
+      );
       return;
     }
+    if (!compose.providerId || !selectedProvider) {
+      showToast("No email provider configured");
+      return;
+    }
+    if (!compose.subject.trim() && !compose.body.trim()) {
+      showToast("Write a subject or message first");
+      return;
+    }
+
     setSending(true);
     try {
       const { data } = await axios.post(
         "/api/messages/schedule-email-message",
         {
-          conversationId: compose.conversationId || selectedConversationId,
-          recipientIds: [(compose.leadId as any)?._id],
+          from: compose.from || selectedProvider?.email || "",
+          to: compose.to || "",
+          conversationId: effectiveConversationId,
+          recipientIds: effectiveLeadId ? [effectiveLeadId] : [],
           channel: "email",
           subject: compose.subject || "(no subject)",
           content: compose.body,
           source: "Zeva",
-          providerId: selectedProvider._id,
+          providerId: compose.providerId || selectedProvider?._id,
           replyToMessageId: compose.replyToMessageId,
+          attachments: attachedFiles.map((f) => ({
+            fileName: f?.name,
+            fileSize: formatFileSize(f?.originalFile?.size || 0),
+            mimeType: f?.originalFile?.type || "",
+            mediaUrl: f?.url,
+            mediaType: getMediaTypeFromMime(f?.originalFile?.type || ""),
+          })),
           ...schedule,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (data?.success) {
+
+      if (data?.success && data?.data) {
+        const currentMsg = data?.data;
+
+        if (compose.replyToMessageId || currentMsg?.replyToMessageId) {
+          console.log({ currentMsg });
+          // Reply message should be in Email Thread Messages
+          let updatedThreadMsgs = [...threadMessages, currentMsg];
+          setThreadMessages(updatedThreadMsgs);
+        } else {
+          // New message should be in Email List
+          const currentMsgDate = new Date(currentMsg?.createdAt)
+            .toISOString()
+            .split("T")[0];
+          let findGroup = messages?.find((g) => g?.date === currentMsgDate);
+          let updatedMsgs = messages || [];
+          if (findGroup) {
+            updatedMsgs = updatedMsgs?.map((g) =>
+              g?.date === currentMsgDate
+                ? { ...g, messages: [currentMsg, ...g.messages] }
+                : g,
+            );
+          } else {
+            updatedMsgs = [
+              { date: currentMsgDate, messages: [currentMsg] },
+              ...updatedMsgs,
+            ];
+          }
+          setMessages(updatedMsgs);
+        }
         setComposeOpen(false);
         setCompose({
           from: selectedProvider?.email || "",
           to: "",
           subject: "",
           body: "",
-          providerId: selectedProvider?._id || "",
+          conversationId: undefined,
+          leadId: undefined,
+          providerId: compose.providerId || selectedProvider?._id || "",
         });
-        showToast("Message scheduled");
+        setAttachedFiles([]);
+        showToast("Email scheduled successfully");
+      } else {
+        showToast("Failed to schedule message");
       }
     } catch (error) {
       handleError(error);
@@ -633,24 +902,22 @@ export default function useEmailInbox() {
   // --------------------------------------------------------------------------
   // Effects
   // --------------------------------------------------------------------------
+
   useEffect(() => {
-    setMessagePage(1);
+    currentPageRef.current = 1;
     setHasMoreMessages(true);
-    fetchEmailMessages(1);
+    fetchEmailMessagesImmediate(1);
 
     return () => {
       fetchEmailMessages.cancel?.();
     };
-  }, [folder, search, fetchEmailMessages]);
-
-  useEffect(() => {
-    if (messagePage > 1) fetchEmailMessagesImmediate(messagePage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messagePage]);
+  }, [folder, search, filterOwnerId, fetchEmailMessagesImmediate]);
 
   const loadMoreEmailMessages = () => {
     if (!hasMoreMessages || fetchMsgsLoading) return;
-    setMessagePage((p) => p + 1);
+    const nextPage = currentPageRef.current + 1;
+    currentPageRef.current = nextPage;
+    fetchEmailMessagesImmediate(nextPage);
   };
 
   const unreadCountFor = (_f: EmailFolderKey) => 0;
@@ -664,31 +931,52 @@ export default function useEmailInbox() {
     search,
     setSearch,
     unreadCountFor,
+    filterOwnerId,
+    setFilterOwnerId,
+
+    // agents
+    agents,
+    selectedAgent,
+    agentFetchLoading,
+    handleAgentSelect,
 
     // attachments
     attachedFiles,
     setAttachedFiles,
 
-    // selection / thread
-    selectedConversationId,
+    // selection / thread / conversation
+    selectedConversation,
+    setSelectedConversation,
     selectedMessageId,
-    selectMessage,
     selectedMessage,
+    selectMessage,
     messages,
     threadMessages,
     fetchMsgsLoading,
-    fetchMsgLoading,
     fetchThreadMsgsLoading,
 
     // fetching
+    fetchConversation,
     fetchEmailMessages,
     fetchThreadMessages,
 
     // actions
-    archiveConversation,
-    trashConversation,
+    archiveMessage,
+    trashMessage,
+    starMessage,
     toggleStar,
     starredIds,
+    restoreFromTrash,
+    restoreFromArchive,
+    deleteMessage,
+    deleteMessageForever,
+
+    // modals
+    isOpenDeleteConfirmModal,
+    setIsOpenDeleteConfirmModal,
+    pendingDeleteMessageId,
+    isDeletingMessage,
+    closeDeleteConfirmModal,
 
     // compose
     composeOpen,
@@ -712,5 +1000,14 @@ export default function useEmailInbox() {
     toastMessage,
     showToast,
     selectedProvider,
+
+    // tags
+    leadId,
+    tags,
+    isAddTagModalOpen,
+    setIsAddTagModalOpen,
+    isAddingTag,
+    handleAddTagToConversation,
+    handleRemoveTagFromConversation,
   };
 }

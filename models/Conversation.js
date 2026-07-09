@@ -20,7 +20,7 @@ const ConversationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["open", "closed", "trashed", "blocked", "archived"],
+      enum: ["open", "closed", "starred", "trashed", "blocked", "archived"],
       default: "open",
     },
     recentMessage: {

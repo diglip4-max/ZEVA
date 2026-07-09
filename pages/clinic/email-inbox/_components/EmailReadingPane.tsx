@@ -7,19 +7,41 @@ import {
   Reply,
   Forward,
   Mail,
+  Undo2,
+  ArchiveRestore,
+  Plus,
+  X,
 } from "lucide-react";
 import EmailThreadMessage from "./EmailThreadMessage";
+import AssignConversation from "./AssignConversation";
 import { MessageType } from "@/types/conversations";
+import { User } from "@/types/users";
+import { getTagColor } from "@/hooks/useInbox";
 
 interface EmailReadingPaneProps {
   messages: MessageType[];
   loading: boolean;
   starred: boolean;
+  archived: boolean;
+  trashed: boolean;
   onToggleStar: (id: string) => void;
   onArchive: (id: string) => void;
   onTrash: (id: string) => void;
   onReply: (message: MessageType) => void;
   onForward: (message: MessageType) => void;
+  onDelete: (id: string) => void;
+  onRestoreFromTrash: (id: string) => void;
+  onRestoreFromArchive: (id: string) => void;
+  agents: User[];
+  selectedAgent: User | null;
+  onAgentSelect: (agent: User | null, conversationId: string) => void;
+  agentFetchLoading: boolean;
+
+  // Tags
+  tags: string[];
+  onAddTag: () => void;
+  onRemoveTag: (tag: string) => void;
+  leadId: string;
 }
 
 function EmailReadingSkeleton() {
@@ -68,11 +90,24 @@ export default function EmailReadingPane({
   messages,
   loading,
   starred,
+  archived,
+  trashed,
   onToggleStar,
   onArchive,
   onTrash,
   onReply,
   onForward,
+  onDelete,
+  onRestoreFromTrash,
+  onRestoreFromArchive,
+  agents,
+  selectedAgent,
+  onAgentSelect,
+  agentFetchLoading,
+  tags,
+  onAddTag,
+  onRemoveTag,
+  leadId,
 }: EmailReadingPaneProps) {
   // Track which messages are expanded
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
@@ -124,31 +159,112 @@ export default function EmailReadingPane({
   return (
     <section className="pi-reading">
       <div className="pi-reading-toolbar">
-        <button
-          className="pi-icon-btn"
-          onClick={() => onArchive(conversationId)}
-          aria-label="Archive"
-          disabled={!message || loading}
-        >
-          <Archive size={17} />
-        </button>
-        <button
-          className="pi-icon-btn danger"
-          onClick={() => onTrash(conversationId)}
-          aria-label="Delete"
-          disabled={!message || loading}
-        >
-          <Trash2 size={17} />
-        </button>
-        <button
-          className={`pi-icon-btn ${starred ? "gold-active" : ""}`}
-          onClick={() => onToggleStar(conversationId)}
-          aria-label="Star"
-          disabled={!message || loading}
-        >
-          <Star size={17} fill={starred ? "currentColor" : "none"} />
-        </button>
+        {!archived && !trashed && (
+          <>
+            <button
+              className="pi-icon-btn"
+              onClick={() => onArchive(message._id)}
+              aria-label="Archivearchive"
+              disabled={!message || loading}
+              title="Move to Archive"
+            >
+              <Archive size={17} />
+            </button>
+            <button
+              className={`pi-icon-btn ${starred ? "gold-active" : ""}`}
+              onClick={() => onToggleStar(message._id)}
+              aria-label="Star"
+              disabled={!message || loading}
+              title={starred ? "Remove Star" : "Add Star"}
+            >
+              <Star size={17} fill={starred ? "currentColor" : "none"} />
+            </button>
+          </>
+        )}
+        {archived && (
+          <button
+            className="pi-icon-btn"
+            onClick={() => onRestoreFromArchive(message._id)}
+            aria-label="Restore from Archive"
+            disabled={!message || loading}
+            title="Restore from Archive"
+          >
+            <ArchiveRestore size={17} />
+          </button>
+        )}
+        {!trashed && (
+          <button
+            className="pi-icon-btn danger"
+            onClick={() => onTrash(message._id)}
+            aria-label="Delete"
+            disabled={!message || loading}
+            title="Move to Trash"
+          >
+            <Trash2 size={17} />
+          </button>
+        )}
+        {trashed && (
+          <>
+            <button
+              className="pi-icon-btn"
+              onClick={() => onRestoreFromTrash(message._id)}
+              aria-label="Restore"
+              disabled={!message || loading}
+              title="Restore from Trash"
+            >
+              <Undo2 size={17} />
+            </button>
+            <button
+              className="pi-icon-btn danger"
+              onClick={() => onDelete(message._id)}
+              aria-label="Delete"
+              disabled={!message || loading}
+              title="Delete"
+            >
+              <Trash2 size={17} />
+            </button>
+          </>
+        )}
+
         <div className="pi-toolbar-spacer" />
+
+        {/* Add tag button stays in toolbar */}
+        {message && leadId && (
+          <button
+            onClick={onAddTag}
+            style={{
+              paddingTop: "8px",
+              paddingBottom: "8px",
+              paddingLeft: "12px",
+              paddingRight: "15px",
+              fontSize: "13px",
+              background: "var(--panel)",
+              border: "1px solid var(--border)",
+              borderRadius: "10px",
+              textAlign: "left",
+              outline: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              opacity: "1",
+              transition: "all 0.12s ease",
+            }}
+          >
+            <Plus size={14} />
+            <span>Add tag</span>
+          </button>
+        )}
+
+        {message && (
+          <AssignConversation
+            agents={agents}
+            selectedAgent={selectedAgent}
+            onAgentSelect={(agent) => onAgentSelect(agent, conversationId)}
+            loading={agentFetchLoading}
+            placeholder="Assign to agent..."
+          />
+        )}
         <button className="pi-icon-btn" aria-label="More" disabled={loading}>
           <MoreHorizontal size={17} />
         </button>
@@ -162,6 +278,30 @@ export default function EmailReadingPane({
             <div className="pi-reading-subject">
               {message?.subject || "(no subject)"}
             </div>
+
+            {/* Tags display */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium border ${getTagColor(tag)}`}
+                  >
+                    {tag}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveTag(tag);
+                      }}
+                      className="ml-2 hover:opacity-70"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
             <div className="pi-gold-rule">
               <div className="pi-gold-rule-dot" />
             </div>

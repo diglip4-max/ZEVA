@@ -10,6 +10,9 @@ import EmailReadingPane from "./_components/EmailReadingPane";
 import ComposeWindow from "./_components/ComposeWindow";
 import EmailToast from "./_components/EmailToast";
 import useEmailInbox from "@/hooks/useEmailInbox";
+import DeleteConfirmModal from "./_components/DeleteConfirmModal";
+import AddTagModal from "./_components/AddTagModal";
+import FilterModal from "./_components/FilterModal";
 
 /**
  * EmailInboxPage
@@ -22,12 +25,12 @@ import useEmailInbox from "@/hooks/useEmailInbox";
  */
 const EmailInboxPage: NextPageWithLayout = () => {
   const inbox = useEmailInbox();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   return (
     <div className="pi-root">
       <EmailInboxStyles />
-
       <EmailSidebar
         folder={inbox.folder}
         onFolderChange={inbox.setFolder}
@@ -36,7 +39,6 @@ const EmailInboxPage: NextPageWithLayout = () => {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
       />
-
       <EmailList
         folder={inbox.folder}
         messages={inbox.messages}
@@ -44,32 +46,44 @@ const EmailInboxPage: NextPageWithLayout = () => {
         search={inbox.search}
         onSearchChange={inbox.setSearch}
         selectedMessageId={inbox.selectedMessageId}
-        starredIds={inbox.starredIds}
-        onSelect={(_conversationId, messageId) => {
+        onSelect={(conversationId, messageId) => {
+          inbox.fetchConversation(conversationId);
           inbox.selectMessage(messageId);
           inbox.fetchThreadMessages(messageId);
         }}
-        onToggleStar={inbox.toggleStar}
+        onToggleStar={inbox.starMessage}
         hasMore={inbox.hasMoreMessages}
         onLoadMore={inbox.loadMoreEmailMessages}
         listRef={inbox.conversationListRef as any}
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        hasActiveFilters={!!inbox.filterOwnerId}
       />
-
       <EmailReadingPane
         messages={inbox.threadMessages}
         loading={inbox.fetchThreadMsgsLoading}
-        starred={
-          inbox.selectedConversationId
-            ? inbox.starredIds.has(inbox.selectedConversationId)
-            : false
-        }
-        onToggleStar={inbox.toggleStar}
-        onArchive={inbox.archiveConversation}
-        onTrash={inbox.trashConversation}
+        starred={inbox.selectedMessage?.isStarred || false}
+        archived={inbox.selectedMessage?.isArchived || false}
+        trashed={inbox.selectedMessage?.isTrashed || false}
+        onToggleStar={inbox.starMessage}
+        onArchive={inbox.archiveMessage}
+        onTrash={inbox.trashMessage}
+        onDelete={inbox.deleteMessage}
+        onRestoreFromTrash={inbox.restoreFromTrash}
+        onRestoreFromArchive={inbox.restoreFromArchive}
         onReply={(m) => inbox.startCompose("reply", m)}
         onForward={(m) => inbox.startCompose("forward", m)}
+        agents={inbox.agents}
+        selectedAgent={inbox.selectedAgent}
+        onAgentSelect={inbox.handleAgentSelect}
+        agentFetchLoading={inbox.agentFetchLoading}
+        // Tags
+        tags={inbox.tags}
+        onAddTag={() => inbox.setIsAddTagModalOpen(true)}
+        onRemoveTag={(tag) =>
+          inbox.handleRemoveTagFromConversation(inbox.leadId, tag)
+        }
+        leadId={inbox.leadId}
       />
-
       {inbox.composeOpen && (
         <ComposeWindow
           emailProviders={inbox.emailProviders}
@@ -85,9 +99,38 @@ const EmailInboxPage: NextPageWithLayout = () => {
           sending={inbox.sending}
           onClose={inbox.closeCompose}
           onSend={inbox.sendEmail}
+          onSchedule={inbox.scheduleEmail}
         />
       )}
-
+      {/* Delete confirm modal */}
+      <DeleteConfirmModal
+        isOpen={inbox.isOpenDeleteConfirmModal}
+        loading={inbox.isDeletingMessage}
+        onClose={inbox.closeDeleteConfirmModal}
+        onConfirm={async () => {
+          await inbox.deleteMessageForever();
+        }}
+      />
+      {/* Add tag modal */}
+      <AddTagModal
+        isOpen={inbox.isAddTagModalOpen}
+        onClose={() => inbox.setIsAddTagModalOpen(false)}
+        leadId={inbox.leadId}
+        conversationTitle={inbox.selectedMessage?.subject || "Email"}
+        existingTags={inbox.tags}
+        handleAddTagToConversation={inbox.handleAddTagToConversation}
+        loading={inbox.isAddingTag}
+      />
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        agents={inbox.agents}
+        selectedAgentId={inbox.filterOwnerId}
+        onAgentSelect={inbox.setFilterOwnerId}
+        onApplyFilters={() => inbox.fetchEmailMessages(1)}
+        loading={inbox.fetchMsgsLoading}
+      />
       <EmailToast message={inbox.toastMessage} />
     </div>
   );

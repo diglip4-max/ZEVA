@@ -1283,7 +1283,10 @@ const InboxPage: NextPageWithLayout = () => {
                         </div>
 
                         {/* Footer with Add New Provider button */}
-                        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
+                        <div
+                          onClick={() => router.push("/clinic/providers")}
+                          className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-xl"
+                        >
                           <button
                             onClick={() => {
                               // Add your add provider logic here

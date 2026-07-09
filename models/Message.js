@@ -231,6 +231,11 @@ const MessageSchema = new mongoose.Schema(
       time: String,
       timezone: String,
     },
+
+    // for starred messages
+    isStarred: { type: Boolean, default: false },
+    isArchived: { type: Boolean, default: false },
+    isTrashed: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

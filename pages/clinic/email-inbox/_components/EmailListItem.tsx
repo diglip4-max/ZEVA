@@ -2,6 +2,7 @@ import React from "react";
 import { Star, Paperclip } from "lucide-react";
 import EmailAvatar from "./EmailAvatar";
 import { MessageType } from "@/types/conversations";
+import { getTagColor } from "@/hooks/useInbox";
 
 interface EmailListItemProps {
   message: MessageType;
@@ -42,6 +43,7 @@ export default function EmailListItem({
   const lead = message.recipientId as any;
   const recent = message as any;
   const unread = message.status !== "sent" && message.direction === "incoming";
+  const tags = lead?.tags || [];
 
   return (
     <div
@@ -62,17 +64,25 @@ export default function EmailListItem({
         <div className="pi-row-preview">
           {stripHtml(recent?.content).slice(0, 90)}
         </div>
-        <div className="pi-row-meta">
+        <div className="pi-row-meta flex items-center gap-2">
           {!!recent?.attachments?.length && (
             <Paperclip size={12} className="pi-clip" />
           )}
+          {tags.slice(0, 3).map((tag: string) => (
+            <span
+              key={tag}
+              className={`inline-flex items-center px-2 py-1 rounded-lg text-xs font-medium border ${getTagColor(tag)}`}
+            >
+              {tag}
+            </span>
+          ))}{" "}
         </div>
       </div>
       <button
         className={`pi-row-star ${starred ? "active" : ""}`}
         onClick={(e) => {
           e.stopPropagation();
-          onToggleStar(message.conversationId);
+          onToggleStar(message._id);
         }}
         aria-label="Toggle star"
       >

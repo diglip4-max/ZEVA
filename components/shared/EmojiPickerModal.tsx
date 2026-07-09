@@ -32,6 +32,7 @@ type Placement =
 
 const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
   setValue,
+  contentEditableRef,
   inputRef,
   triggerButton,
   position = "bottom-left",

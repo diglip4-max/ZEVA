@@ -46,16 +46,16 @@ interface DecodedToken {
 }
 
 export const TAG_COLORS = [
-  "bg-blue-100 text-blue-800 border-blue-200",
-  "bg-green-100 text-green-800 border-green-200",
-  "bg-yellow-100 text-yellow-800 border-yellow-200",
-  "bg-purple-100 text-purple-800 border-purple-200",
-  "bg-pink-100 text-pink-800 border-pink-200",
-  "bg-indigo-100 text-indigo-800 border-indigo-200",
-  "bg-red-100 text-red-800 border-red-200",
-  "bg-teal-100 text-teal-800 border-teal-200",
-  "bg-orange-100 text-orange-800 border-orange-200",
-  "bg-cyan-100 text-cyan-800 border-cyan-200",
+  "bg-blue-900/50 text-blue-300 border-blue-700",
+  "bg-green-900/50 text-green-300 border-green-700",
+  "bg-yellow-900/50 text-yellow-300 border-yellow-700",
+  "bg-purple-900/50 text-purple-300 border-purple-700",
+  "bg-pink-900/50 text-pink-300 border-pink-700",
+  "bg-indigo-900/50 text-indigo-300 border-indigo-700",
+  "bg-red-900/50 text-red-300 border-red-700",
+  "bg-teal-900/50 text-teal-300 border-teal-700",
+  "bg-orange-900/50 text-orange-300 border-orange-700",
+  "bg-cyan-900/50 text-cyan-300 border-cyan-700",
 ];
 
 export const getTagColor = (tag: string) => {
@@ -74,7 +74,10 @@ let socket: Socket | null = null;
 
 const useInbox = () => {
   const { user } = useAuth();
-  const { providers } = useProvider();
+  const { providers: providersData } = useProvider();
+  const providers = (providersData || []).filter(
+    (p) => !p.type.includes("email"),
+  );
   const { templates } = useTemplate();
   const { agents, loading: agentFetchLoading } = useAgents({
     role: "agent",
@@ -1499,7 +1502,6 @@ const useInbox = () => {
       setSubject("");
     }
   }, [selectedTemplate]);
- 
 
   const state = {
     user,

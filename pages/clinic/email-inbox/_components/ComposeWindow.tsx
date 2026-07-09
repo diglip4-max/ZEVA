@@ -17,6 +17,10 @@ import {
   ChevronDown,
   Search,
   Paperclip,
+  Clock,
+  Calendar,
+  Globe,
+  Zap,
 } from "lucide-react";
 import { getTokenByPath } from "@/lib/helper";
 import { Attachment, ComposeDraft } from "@/hooks/useEmailInbox";
@@ -116,6 +120,11 @@ interface ComposeWindowProps {
   sending: boolean;
   onClose: () => void;
   onSend: () => void;
+  onSchedule: (schedule: {
+    scheduledDate: string;
+    scheduledTime: string;
+    scheduledTimezone: string;
+  }) => void;
 }
 
 export default function ComposeWindow({
@@ -132,6 +141,7 @@ export default function ComposeWindow({
   sending,
   onClose,
   onSend,
+  onSchedule,
 }: ComposeWindowProps) {
   const [fromOpen, setFromOpen] = useState(false);
   const [toSuggestions, setToSuggestions] = useState<ConversationType[]>([]);
@@ -139,6 +149,7 @@ export default function ComposeWindow({
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [appliedTemplate, setAppliedTemplate] = useState<Template | null>(null);
   const [activeFormats, setActiveFormats] = useState<Set<string>>(new Set());
+  const [sendModalOpen, setSendModalOpen] = useState(false);
 
   // Preview + full screen are purely presentational, so they're kept local
   // to this component rather than lifted into useEmailInbox.
@@ -791,7 +802,7 @@ export default function ComposeWindow({
 
                   <button
                     className="pi-send-btn"
-                    onClick={onSend}
+                    onClick={() => setSendModalOpen(true)}
                     disabled={sending}
                   >
                     <span>{sending ? "Sending…" : "Send"}</span>
@@ -803,6 +814,325 @@ export default function ComposeWindow({
           )}
         </div>
       )}
+
+      {/* ── Send Options Modal ── */}
+      {sendModalOpen && (
+        <SendOptionsModal
+          onClose={() => setSendModalOpen(false)}
+          onSendNow={() => {
+            setSendModalOpen(false);
+            onSend();
+          }}
+          onSchedule={(schedule) => {
+            setSendModalOpen(false);
+            onSchedule(schedule);
+          }}
+          compose={compose}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SendOptionsModal
+   ───────────────────────────────────────────────────────────── */
+
+const TIMEZONES = [
+  { label: "(UTC-12:00) International Date Line West", value: "Etc/GMT+12" },
+  { label: "(UTC-11:00) Coordinated Universal Time-11", value: "Etc/GMT+11" },
+  { label: "(UTC-10:00) Hawaii", value: "Pacific/Honolulu" },
+  { label: "(UTC-09:00) Alaska", value: "America/Anchorage" },
+  { label: "(UTC-08:00) Pacific Time (US & Canada)", value: "America/Los_Angeles" },
+  { label: "(UTC-07:00) Mountain Time (US & Canada)", value: "America/Denver" },
+  { label: "(UTC-06:00) Central Time (US & Canada)", value: "America/Chicago" },
+  { label: "(UTC-05:00) Eastern Time (US & Canada)", value: "America/New_York" },
+  { label: "(UTC-04:00) Atlantic Time (Canada)", value: "America/Halifax" },
+  { label: "(UTC-03:00) Brasilia", value: "America/Sao_Paulo" },
+  { label: "(UTC-02:00) Coordinated Universal Time-02", value: "Etc/GMT+2" },
+  { label: "(UTC-01:00) Azores", value: "Atlantic/Azores" },
+  { label: "(UTC+00:00) London, Dublin, Edinburgh", value: "Europe/London" },
+  { label: "(UTC+01:00) Amsterdam, Berlin, Paris, Rome", value: "Europe/Paris" },
+  { label: "(UTC+02:00) Athens, Bucharest, Istanbul", value: "Europe/Athens" },
+  { label: "(UTC+03:00) Moscow, St. Petersburg", value: "Europe/Moscow" },
+  { label: "(UTC+03:30) Tehran", value: "Asia/Tehran" },
+  { label: "(UTC+04:00) Abu Dhabi, Muscat, Dubai", value: "Asia/Dubai" },
+  { label: "(UTC+04:30) Kabul", value: "Asia/Kabul" },
+  { label: "(UTC+05:00) Islamabad, Karachi, Tashkent", value: "Asia/Karachi" },
+  { label: "(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi", value: "Asia/Kolkata" },
+  { label: "(UTC+05:45) Kathmandu", value: "Asia/Kathmandu" },
+  { label: "(UTC+06:00) Astana, Dhaka", value: "Asia/Dhaka" },
+  { label: "(UTC+06:30) Yangon (Rangoon)", value: "Asia/Yangon" },
+  { label: "(UTC+07:00) Bangkok, Hanoi, Jakarta", value: "Asia/Bangkok" },
+  { label: "(UTC+08:00) Beijing, Hong Kong, Singapore", value: "Asia/Singapore" },
+  { label: "(UTC+09:00) Tokyo, Seoul, Osaka", value: "Asia/Tokyo" },
+  { label: "(UTC+09:30) Adelaide, Darwin", value: "Australia/Adelaide" },
+  { label: "(UTC+10:00) Sydney, Melbourne, Brisbane", value: "Australia/Sydney" },
+  { label: "(UTC+11:00) Solomon Islands, New Caledonia", value: "Pacific/Guadalcanal" },
+  { label: "(UTC+12:00) Auckland, Wellington, Fiji", value: "Pacific/Auckland" },
+];
+
+function guessLocalTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function todayDateString(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function nowTimeString(): string {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + 30);
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${h}:${min}`;
+}
+
+interface SendOptionsModalProps {
+  onClose: () => void;
+  onSendNow: () => void;
+  onSchedule: (schedule: {
+    scheduledDate: string;
+    scheduledTime: string;
+    scheduledTimezone: string;
+  }) => void;
+  compose: { to: string; subject: string; from: string };
+}
+
+function SendOptionsModal({
+  onClose,
+  onSendNow,
+  onSchedule,
+  compose,
+}: SendOptionsModalProps) {
+  const [tab, setTab] = useState<"now" | "later">("now");
+  const [scheduledDate, setScheduledDate] = useState(todayDateString);
+  const [scheduledTime, setScheduledTime] = useState(nowTimeString);
+  const [scheduledTimezone, setScheduledTimezone] = useState(guessLocalTimezone);
+  const [tzSearch, setTzSearch] = useState("");
+  const [tzOpen, setTzOpen] = useState(false);
+  const tzRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredTz = TIMEZONES.filter(
+    (tz) =>
+      tz.label.toLowerCase().includes(tzSearch.toLowerCase()) ||
+      tz.value.toLowerCase().includes(tzSearch.toLowerCase()),
+  );
+
+  const selectedTzLabel =
+    TIMEZONES.find((t) => t.value === scheduledTimezone)?.label ||
+    scheduledTimezone;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!tzRef.current?.contains(e.target as Node)) setTzOpen(false);
+    };
+    if (tzOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tzOpen]);
+
+  const handleScheduleConfirm = () => {
+    if (!scheduledDate || !scheduledTime || !scheduledTimezone) return;
+    onSchedule({ scheduledDate, scheduledTime, scheduledTimezone });
+  };
+
+  return (
+    <div
+      className="pi-som-backdrop"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="pi-som" role="dialog" aria-modal="true" aria-labelledby="pi-som-title">
+
+        {/* Header */}
+        <div className="pi-som-header">
+          <div className="pi-som-header-inner">
+            <div className="pi-som-icon-ring">
+              <Send size={16} />
+            </div>
+            <div>
+              <div className="pi-som-title" id="pi-som-title">Send Message</div>
+              <div className="pi-som-subtitle">
+                To: <span>{compose.to || "—"}</span>
+                {compose.subject ? (
+                  <>
+                    &nbsp;·&nbsp;<span>{compose.subject}</span>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <button
+            className="pi-icon-btn subtle"
+            onClick={onClose}
+            aria-label="Close"
+            type="button"
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="pi-som-tabs">
+          <button
+            type="button"
+            className={`pi-som-tab ${tab === "now" ? "active" : ""}`}
+            onClick={() => setTab("now")}
+          >
+            <Zap size={14} />
+            Send Now
+          </button>
+          <button
+            type="button"
+            className={`pi-som-tab ${tab === "later" ? "active" : ""}`}
+            onClick={() => setTab("later")}
+          >
+            <Clock size={14} />
+            Schedule for Later
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="pi-som-body">
+          {tab === "now" ? (
+            <div className="pi-som-now-panel">
+              <div className="pi-som-now-icon">
+                <Zap size={32} />
+              </div>
+              <div className="pi-som-now-copy">
+                <strong>Ready to go?</strong>
+                <p>Your message will be delivered immediately to <em>{compose.to || "the recipient"}</em>.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="pi-som-later-panel">
+              <p className="pi-som-later-hint">
+                Pick a date, time, and timezone — we'll deliver your message right on schedule.
+              </p>
+
+              {/* Date */}
+              <div className="pi-som-field">
+                <label className="pi-som-label" htmlFor="pi-som-date">
+                  <Calendar size={13} /> Date
+                </label>
+                <input
+                  id="pi-som-date"
+                  type="date"
+                  className="pi-som-input"
+                  value={scheduledDate}
+                  min={todayDateString()}
+                  onChange={(e) => setScheduledDate(e.target.value)}
+                />
+              </div>
+
+              {/* Time */}
+              <div className="pi-som-field">
+                <label className="pi-som-label" htmlFor="pi-som-time">
+                  <Clock size={13} /> Time
+                </label>
+                <input
+                  id="pi-som-time"
+                  type="time"
+                  className="pi-som-input"
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                />
+              </div>
+
+              {/* Timezone */}
+              <div className="pi-som-field">
+                <label className="pi-som-label">
+                  <Globe size={13} /> Timezone
+                </label>
+                <div className="pi-som-tz-anchor" ref={tzRef}>
+                  <button
+                    type="button"
+                    className="pi-som-tz-btn"
+                    onClick={() => setTzOpen((o) => !o)}
+                    aria-expanded={tzOpen}
+                  >
+                    <span className="pi-som-tz-label">{selectedTzLabel}</span>
+                    <ChevronDown size={13} className={tzOpen ? "open" : ""} />
+                  </button>
+                  {tzOpen && (
+                    <div className="pi-som-tz-menu">
+                      <div className="pi-som-tz-search-wrap">
+                        <Search size={12} />
+                        <input
+                          type="text"
+                          className="pi-som-tz-search"
+                          placeholder="Search timezones…"
+                          value={tzSearch}
+                          onChange={(e) => setTzSearch(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                      <div className="pi-som-tz-list">
+                        {filteredTz.length === 0 ? (
+                          <div className="pi-som-tz-empty">No results</div>
+                        ) : (
+                          filteredTz.map((tz) => (
+                            <button
+                              key={tz.value}
+                              type="button"
+                              className={`pi-som-tz-item ${scheduledTimezone === tz.value ? "active" : ""}`}
+                              onClick={() => {
+                                setScheduledTimezone(tz.value);
+                                setTzOpen(false);
+                                setTzSearch("");
+                              }}
+                            >
+                              {tz.label}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="pi-som-footer">
+          <button
+            type="button"
+            className="pi-secondary-btn"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          {tab === "now" ? (
+            <button
+              type="button"
+              className="pi-send-btn"
+              onClick={onSendNow}
+            >
+              <span>Send Now</span>
+              <Send size={14} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="pi-som-schedule-btn"
+              onClick={handleScheduleConfirm}
+              disabled={!scheduledDate || !scheduledTime || !scheduledTimezone}
+            >
+              <Clock size={14} />
+              <span>Schedule Send</span>
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
