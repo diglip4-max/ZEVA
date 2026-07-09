@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
@@ -11304,6 +11305,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           pendingBalance={balance.pendingBalance}
           onSuccess={async (_paymentData: any) => {
+            toast.success("Payment recorded successfully!");
             // Store the previous pending balance before update
             const prevBalance = balance.pendingBalance;
            
@@ -12045,13 +12047,13 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                         if (updatedBalance) setBalance(updatedBalance as typeof balance);
                         await fetchBillingHistory();
                        
-                        alert("Payment recorded successfully!");
+                        toast.success("Payment recorded successfully!");
                       } else {
-                        alert(res.data.message || "Payment failed");
+                        toast.error(res.data.message || "Payment failed");
                       }
                     } catch (err: any) {
                       console.error("Error paying invoice pending:", err);
-                      alert(err.response?.data?.message || "Payment failed");
+                      toast.error(err.response?.data?.message || "Payment failed");
                     } finally {
                       setPayingInvoicePending(false);
                     }

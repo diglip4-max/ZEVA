@@ -259,8 +259,8 @@ const handlePrevPage = () => {
         {/* Right Card: Cancellation Reasons */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Cancellation Reasons</h3>
-            <p className="text-sm text-gray-500 mt-1">Why patients cancel</p>
+            <h3 className="text-lg font-bold text-gray-900">Cancellation Analytics</h3>
+            {/* <p className="text-sm text-gray-500 mt-1">Why patients cancel</p> */}
           </div>
 
           <div className="h-72">
@@ -296,7 +296,7 @@ const handlePrevPage = () => {
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
                   <AlertCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-500 text-sm">No cancellation reasons recorded</p>
+                  <p className="text-gray-500 text-sm">No cancellation data recorded</p>
                 </div>
               </div>
             )}

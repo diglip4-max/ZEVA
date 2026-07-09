@@ -39,7 +39,23 @@ export default async function handler(req, res) {
         });
       }
       const memberships = await MembershipPlan.find({ clinicId }).sort({ createdAt: -1 }).lean();
-      return res.status(200).json({ success: true, memberships });
+      const now = new Date();
+      const enriched = memberships.map((m) => {
+        const startDate = m.createdAt
+          ? new Date(m.createdAt).toISOString().slice(0, 10)
+          : null;
+        let endDate = null;
+        let status = "Active";
+        if (startDate && m.durationMonths) {
+          const start = new Date(m.createdAt);
+          const end = new Date(start);
+          end.setMonth(end.getMonth() + m.durationMonths);
+          endDate = end.toISOString().slice(0, 10);
+          status = end >= now ? "Active" : "Expired";
+        }
+        return { ...m, startDate, endDate, status };
+      });
+      return res.status(200).json({ success: true, memberships: enriched });
     } catch {
       return res.status(500).json({ success: false, message: "Failed to fetch memberships" });
     }

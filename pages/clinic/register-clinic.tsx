@@ -564,7 +564,15 @@ const RegisterClinic = (): React.ReactNode => {
         password: ownerPassword,
         name: contactInfo.name,
         phone: countryCode + contactInfo.phone,
+      }, {
+        validateStatus: (status) => status < 500, // Don't throw on 4xx errors
       });
+      
+      if (ownerResponse.status === 409) {
+        showToastMessage("This email is already registered. Please use a different email or login.", "error");
+        setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
+        return;
+      }
       
       if (!ownerResponse.data.success) {
         showToastMessage(ownerResponse.data.message || "Owner registration failed", "error");
@@ -575,12 +583,7 @@ const RegisterClinic = (): React.ReactNode => {
     } catch (err: any) {
       const errorMessage =
         err?.response?.data?.message || "Unknown error occurred while registering owner.";
-      if (err?.response?.status === 409) {
-        showToastMessage("This email is already registered. Please use a different email or login.", "error");
-        setErrors((prev) => ({ ...prev, email: "This email is already registered" }));
-      } else {
-        showToastMessage(`Registration failed: ${errorMessage}`, "error");
-      }
+      showToastMessage(`Registration failed: ${errorMessage}`, "error");
       console.error("Owner registration error:", err);
       return;
     }

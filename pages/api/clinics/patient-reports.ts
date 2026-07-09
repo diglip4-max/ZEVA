@@ -388,6 +388,8 @@ export default async function handler(
       success: true,
       data: {
         newVsReturning,
+        totalNewPatients,
+        totalOldPatients,
         genderDistribution,
         patientVisitFrequency,
         topPatients: topPatientsArray,
