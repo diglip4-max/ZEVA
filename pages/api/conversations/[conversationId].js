@@ -75,10 +75,7 @@ export default async function handler(req, res) {
     try {
       const { conversationId } = req.query;
 
-      const conversation = await Conversation.findOne({
-        conversationId,
-        clinicId: clinic._id,
-      })
+      const conversation = await Conversation.findById(conversationId)
         .populate({
           path: "leadId",
           select: "_id name email phone createdAt",
@@ -99,13 +96,13 @@ export default async function handler(req, res) {
         conversation,
       });
     } catch (error) {
-      console.error("Error fetching provider:", error);
+      console.error("Error fetching conversation:", error);
       return res
         .status(500)
-        .json({ success: false, message: "Failed to fetch providers" });
+        .json({ success: false, message: "Failed to fetch conversation" });
     }
   } catch (error) {
-    console.error("Get Providers error: ", error);
+    console.error("Get Conversation error: ", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",

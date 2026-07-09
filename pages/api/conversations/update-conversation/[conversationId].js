@@ -89,7 +89,13 @@ export default async function handler(req, res) {
       });
     }
 
-    const allowedStatuses = ["open", "closed", "archived", "trashed"];
+    const allowedStatuses = [
+      "open",
+      "closed",
+      "starred",
+      "archived",
+      "trashed",
+    ];
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
