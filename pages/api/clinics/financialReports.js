@@ -98,10 +98,10 @@ export default async function handler(req, res) {
         sessions: randomInt(15, 60)
       })).sort((a, b) => b.revenue - a.revenue);
       
-      // Mock Top Services
-      const services = ['General Consultation', 'Dental Checkup', 'Eye Examination', 'Physical Therapy', 'Lab Tests', 'X-Ray', 'Blood Test'];
-      const topServicesData = services.slice(0, 5).map(service => ({
-        name: service,
+      // Mock Top Packages
+      const packages = ['Starter Package', 'Premium Package', 'Wellness Package', 'Dental Package', 'Family Package'];
+      const topServicesData = packages.slice(0, 5).map(pkg => ({
+        name: pkg,
         sessions: randomInt(10, 50),
         revenue: randomInt(3000, 15000)
       }));
@@ -379,79 +379,28 @@ export default async function handler(req, res) {
 
     // No dummy fallback; zero-revenue doctors are included above
 
-    // 4. Top Services Revenue - EXACT same basis as Doctor Revenue
-    // Use Billing joined to Appointments, filter to staff doctors (clinicDoctors)
+    // 4. Top Packages Revenue
+    // Use Billing records only, include only Package billings, and aggregate by package name
     let topServicesStats = [];
     try {
-      const doctorIds = (clinicDoctors || []).map(d => d._id);
       const matchStage = {
         clinicId: clinic._id,
         $or: [
           { createdAt: { $gte: startOfYear, $lte: endOfYear } },
           { invoicedDate: { $gte: startOfYear, $lte: endOfYear } }
         ],
+        service: 'Package',
         // Exclude advance/past-advance
         invoiceNumber: { $not: /^(PAST-ADV|ADV-)/ }
       };
-      const pipeline = [
+      const agg = await Billing.aggregate([
         { $match: matchStage },
-        // Join by appointmentId if present
-        {
-          $lookup: {
-            from: 'appointments',
-            localField: 'appointmentId',
-            foreignField: '_id',
-            as: 'aptById'
-          }
-        },
-        // Fallback by patientId
-        {
-          $lookup: {
-            from: 'appointments',
-            localField: 'patientId',
-            foreignField: 'patientId',
-            as: 'aptByPatient'
-          }
-        },
-        {
-          $addFields: {
-            refApt: {
-              $cond: [
-                { $gt: [{ $size: "$aptById" }, 0] },
-                { $arrayElemAt: ["$aptById", 0] },
-                { $arrayElemAt: ["$aptByPatient", 0] }
-              ]
-            }
-          }
-        },
-        { $match: { "refApt.clinicId": clinic._id } },
-      ];
-      // Filter to staff doctors if we have any
-      if (doctorIds.length > 0) {
-        pipeline.push({ $match: { "refApt.doctorId": { $in: doctorIds } } });
-      }
-      pipeline.push(
         {
           $project: {
-            serviceName: {
+            packageName: {
               $trim: {
                 input: {
-                  $ifNull: [
-                    {
-                      $cond: [
-                        { $ifNull: ["$treatment", false] },
-                        "$treatment",
-                        {
-                          $cond: [
-                            { $ifNull: ["$package", false] },
-                            "$package",
-                            "$service"
-                          ]
-                        }
-                      ]
-                    },
-                    "Unknown Service"
-                  ]
+                  $ifNull: ["$package", ""]
                 }
               }
             },
@@ -459,37 +408,41 @@ export default async function handler(req, res) {
           }
         },
         {
+          $match: {
+            packageName: { $nin: ["", null] }
+          }
+        },
+        {
           $group: {
-            _id: "$serviceName",
+            _id: "$packageName",
             sessions: { $sum: 1 },
             revenue: { $sum: "$paid" }
           }
         },
         { $sort: { revenue: -1 } }
-      );
-      const agg = await Billing.aggregate(pipeline);
+      ]);
       topServicesStats = agg.map(row => ({
-        _id: row._id || 'Unknown Service',
+        _id: row._id || 'Unknown Package',
         sessions: Number(row.sessions || 0),
         revenue: Number(row.revenue || 0),
         count: Number(row.sessions || 0)
       }));
     } catch (err) {
-      console.error('❌ Error computing top services from doctor-revenue basis:', err);
+      console.error('❌ Error computing top packages from billing data:', err);
     }
 
-    // Calculate top services (without growth)
+    // Calculate top packages (without growth)
     let topServicesData = [];
     try {
       topServicesData = topServicesStats.map((stat) => ({
-        name: stat._id || 'Unknown Service',
+        name: stat._id || 'Unknown Package',
         sessions: stat.sessions || stat.count,
         revenue: stat.revenue
       }));
     } catch (err) {
-      console.error('❌ Error processing top services:', err);
+      console.error('❌ Error processing top packages:', err);
       topServicesData = topServicesStats.map(stat => ({
-        name: stat._id || 'Unknown Service',
+        name: stat._id || 'Unknown Package',
         sessions: stat.sessions || stat.count,
         revenue: stat.revenue
       }));

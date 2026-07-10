@@ -146,11 +146,7 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
         <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="font-semibold text-gray-800 mb-1">{data.doctorName}</p>
           {payload[0].name === 'Appointments' && (
-            <>
-              <p className="text-sm text-blue-600">Total Appointments: <span className="font-bold">{data.appointmentCount}</span></p>
-              <p className="text-sm text-green-600">Completed: <span className="font-bold">{data.completedAppointments}</span></p>
-              <p className="text-sm text-orange-600">Pending: <span className="font-bold">{data.pendingAppointments}</span></p>
-            </>
+            <p className="text-sm text-blue-600">Appointments: <span className="font-bold">{data.appointmentCount}</span></p>
           )}
           {payload[0].name === 'Revenue' && (
             <>

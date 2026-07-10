@@ -1850,7 +1850,7 @@ function ServicesSetupPage() {
                                     setEditingPrice(String(s.price ?? ""));
                                     setEditingDuration(String(s.durationMinutes ?? ""));
                                     setEditingClinicPrice(s.clinicPrice !== undefined && s.clinicPrice !== null ? String(s.clinicPrice) : "");
-                                    setEditingDepartmentId(s.departmentId ? String(s.departmentId) : "");
+                                    setEditingDepartmentId(s.departmentId ? (typeof s.departmentId === 'object' ? String(s.departmentId._id || '') : String(s.departmentId)) : "");
                                     setEditingActive(Boolean(s.isActive));
                                   }}
                                   className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-teal-100 text-teal-700 text-xs font-medium rounded-md hover:bg-teal-200 transition-colors"

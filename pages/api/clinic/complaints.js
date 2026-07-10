@@ -67,6 +67,7 @@ export default async function handler(req, res) {
         fromDate,
         toDate,
         doctorId,
+        status,
         page = 1,
         limit = 10,
       } = req.query;
@@ -156,9 +157,9 @@ export default async function handler(req, res) {
             select: "name email",
           })
           .populate({
-            path: "appointmentId",
-            model: "Appointment",
-            select: "startDate fromTime toTime serviceId serviceIds services",
+  path: "appointmentId",
+  model: "Appointment",
+  select: "startDate fromTime toTime status serviceId serviceIds services",
             populate: [
               { path: "serviceId", model: "Service", select: "name" },
               { path: "serviceIds", model: "Service", select: "name" },
@@ -169,6 +170,7 @@ export default async function handler(req, res) {
           .skip(skip)
           .limit(limitNum)
           .lean();
+          
       } catch (err) {
         console.error("Error fetching complaints:", err);
         return res.status(500).json({
@@ -349,7 +351,7 @@ export default async function handler(req, res) {
 
             return Array.from(existingServices.values());
           })(),
-          status: "invoiced",
+      status: appointment.status || "Booked",
           followType: "",
           referral: "direct",
           emergency: "no",

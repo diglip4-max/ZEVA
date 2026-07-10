@@ -91,7 +91,7 @@ const RoomUtilization: React.FC<RoomUtilizationProps> = ({
           <p className="font-semibold text-gray-800 mb-1">{data.roomName}</p>
           <p className="text-sm text-gray-600">Utilization: <span className="font-bold text-teal-600">{data.utilization}%</span></p>
           <p className="text-xs text-gray-500 mt-1">Appointments: {data.appointmentCount}</p>
-          <p className="text-xs text-gray-500">Booked Hours: {data.bookedHours}h</p>
+          {/* <p className="text-xs text-gray-500">Booked Hours: {data.bookedHours}h</p> */}
         </div>
       );
     }
@@ -214,3 +214,5 @@ const RoomUtilization: React.FC<RoomUtilizationProps> = ({
 };
 
 export default RoomUtilization;
+
+
