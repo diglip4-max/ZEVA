@@ -692,13 +692,38 @@ function InvoicesPage() {
                     <div className="text-xs font-semibold text-green-800 uppercase tracking-wide mb-2">
                       Services/Treatments:
                     </div>
-                    {bill.treatment ? (
-                      <div className="text-sm text-green-900">{bill.treatment}</div>
-                    ) : bill.service === "Package" && bill.package ? (
-                      <div className="text-sm text-green-900">{bill.package}</div>
-                    ) : (
-                      <div className="text-sm text-green-900">-</div>
-                    )}
+                    <div className="text-sm text-green-900 space-y-1">
+                      {/* Show selected treatments first! */}
+                      {Array.isArray(bill.selectedTreatments) && bill.selectedTreatments.length > 0 && (
+                        bill.selectedTreatments.map((t, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            {t.treatmentName}
+                            {t.quantity > 1 && (
+                              <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded-full">x{t.quantity}</span>
+                            )}
+                          </div>
+                        ))
+                      )}
+                      {/* Show treatment if no selected treatments */}
+                      {!Array.isArray(bill.selectedTreatments) || bill.selectedTreatments.length === 0 ? (
+                        <>
+                          {bill.treatment ? <div>{bill.treatment}</div> : null}
+                          {bill.service === "Package" && bill.package ? <div>{bill.package}</div> : null}
+                        </>
+                      ) : null}
+                      {/* Show unpaid packages paid */}
+                      {Array.isArray(bill.unpaidPackagesPaid) && bill.unpaidPackagesPaid.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs text-green-700 font-medium mb-1">Unpaid Packages:</div>
+                          {bill.unpaidPackagesPaid.map((pkg, pkgIdx) => (
+                            <div key={pkgIdx} className="flex items-center justify-between">
+                              <span>{pkg.packageName}</span>
+                              <span className="font-medium">{formatCurrency(pkg.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Package Treatments */}
