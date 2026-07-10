@@ -101,6 +101,7 @@
     const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
       (contextOverride || "clinic") as "clinic" | "agent"
     );
+    
     const [userRole, setUserRole] = useState<string | null>(null);
     const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
     useEffect(() => {
