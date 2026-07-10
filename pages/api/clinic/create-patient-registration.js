@@ -1949,6 +1949,60 @@ export default async function handler(req, res) {
             }
           }
         }
+
+        // Now clear pending ledger entries for these unpaid packages!
+        try {
+          const { default: PatientPendingLedger } = await import(
+            "../../../models/PatientPendingLedger"
+          );
+          const { applyClearance } = await import("../../../lib/pendingLedger");
+
+          // First find all Open/Partial ledgers for these unpaid packages
+          const openPackageLedgers = await PatientPendingLedger.find({
+            patientId: patientRegistration._id,
+            clinicId: clinic._id,
+            status: { $in: ["Open", "Partial"] },
+            packageId: { $in: unpaidPackagesPaid.map(p => p.packageId) } // filter packages we are paying
+          }).sort({ createdAt: 1 }).lean();
+
+          if (openPackageLedgers.length > 0) {
+            let remainingUnpaidAmount = unpaidPackagesPaid.reduce((sum, p) => sum + (Number(p.amount ||0)), 0);
+            let packageAllocations = [];
+
+            for (let l of openPackageLedgers) {
+              if (remainingUnpaidAmount <=0) break;
+              const take = Math.min(remainingUnpaidAmount, Number(l.remainingAmount ||0));
+              if (take > 0) {
+                packageAllocations.push({ ledgerId: l.ledgerId, amount: take });
+                remainingUnpaidAmount = Number((remainingUnpaidAmount - take).toFixed(2));
+              }
+            }
+
+            if (packageAllocations.length > 0) {
+              const clearanceResult = await applyClearance({
+                allocations: packageAllocations,
+                clearingBillingId: billing._id,
+                clearingInvoiceNumber: invoiceNumber,
+                paymentMethod: paymentMethod || "Cash",
+                paidBy: clinicUser._id,
+                paidByName: clinicUser.name || "Clinic Staff",
+                transactionType: "PENDING_CLEARANCE",
+                notes: `Cleared unpaid package via invoice ${invoiceNumber}`,
+                useTransaction: false
+              });
+              
+              if (clearanceResult && clearanceResult.breakdown && clearanceResult.breakdown.length > 0) {
+                // Add to billing's pendingClearedBreakdown
+                await Billing.findByIdAndUpdate(billing._id, {
+                  $push: { pendingClearedBreakdown: { $each: clearanceResult.breakdown } }
+                });
+              }
+            }
+          }
+        } catch (ledgerErr) {
+          console.error('[CreatePatientRegistration] Error clearing unpaid package ledgers:', ledgerErr);
+        }
+
       } catch (packageUpdateError) {
         // console.error('[PackagePaymentAPI] Error updating package payment status:', packageUpdateError);
         // Don't fail the billing if package update fails

@@ -3,8 +3,8 @@ import PatientComplains from "../../../models/PatientComplains";
 import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
+import Billing from "../../../models/Billing";
 import { getUserFromReq } from "../lead-ms/auth";
-import axios from "axios";
 
 export default async function handler(req, res) {
   try {
@@ -178,6 +178,72 @@ export default async function handler(req, res) {
         });
       }
 
+      // First, get all unique patient IDs and appointment IDs
+      const patientIds = [...new Set(complaints.map(c => String(c.patientId._id || c.patientId)).filter(Boolean))];
+      const appointmentIds = [...new Set(complaints.map(c => String(c.appointmentId._id || c.appointmentId)).filter(Boolean))];
+
+      // Now fetch all the billings in one query!
+      let allBillings = [];
+      if (patientIds.length > 0) {
+        allBillings = await Billing.find({
+          patientId: { $in: patientIds },
+          clinicId: clinicId,
+          isAdvanceOnly: { $ne: true },
+        })
+          .populate({
+            path: "doctorId",
+            select: "name",
+            model: User
+          })
+          .sort({ createdAt: -1 })
+          .lean();
+      }
+
+      // Now process all the billings once
+      // First, process cleared package invoices
+      const clearedPackageInvoices = new Set();
+      for (const b of allBillings) {
+        if (b.service === "Treatment" && Array.isArray(b.pendingClearedBreakdown)) {
+          for (const pcb of b.pendingClearedBreakdown) {
+            if (pcb.invoiceNumber && pcb.service === "Package") {
+              clearedPackageInvoices.add(pcb.invoiceNumber);
+            }
+          }
+        }
+      }
+      // Filter out cleared packages
+      allBillings = allBillings.filter((b) => {
+        if (b.service === "Package" && clearedPackageInvoices.has(b.invoiceNumber)) {
+          return false;
+        }
+        return true;
+      });
+      // Now set doctor name on all billings
+      allBillings = allBillings.map(billing => {
+        const doctorName = billing.doctorName || billing.doctorId?.name || "—";
+        return { ...billing, doctorName };
+      });
+
+      // Now group billings by appointmentId for quick lookup!
+      const billingsByAppointmentId = {};
+      for (const b of allBillings) {
+        let apptId;
+        if (!b.appointmentId) {
+          continue; // Skip if no appointmentId at all
+        }
+        if (typeof b.appointmentId === "object" && b.appointmentId._id) {
+          apptId = String(b.appointmentId._id);
+        } else {
+          apptId = String(b.appointmentId);
+        }
+        if (apptId) {
+          if (!billingsByAppointmentId[apptId]) {
+            billingsByAppointmentId[apptId] = [];
+          }
+          billingsByAppointmentId[apptId].push(b);
+        }
+      }
+
       const formatted = [];
 
       for (const comp of complaints) {
@@ -209,23 +275,11 @@ export default async function handler(req, res) {
             })
           : "-";
 
-        // Fetch billing history for this patient to check if this appointment has billing
+        // Now quickly get billings for this appointment
         let billingsForAppointment = [];
-        if (patient._id && appointment._id) {
-          try {
-            const billingRes = await axios.get(
-              `${req.protocol}://${req.get('host')}/api/clinic/billing-history/${patient._id}`,
-              { headers: { Authorization: req.headers.authorization } }
-            );
-            if (billingRes.data.success && Array.isArray(billingRes.data.billings)) {
-              billingsForAppointment = billingRes.data.billings.filter((b) =>
-                String(b.appointmentId) === String(appointment._id) ||
-                String(b.appointmentId?._id) === String(appointment._id)
-              );
-            }
-          } catch (billingErr) {
-            console.error('Error fetching billing history:', billingErr);
-          }
+        if (appointment._id) {
+          const apptIdString = String(appointment._id);
+          billingsForAppointment = billingsByAppointmentId[apptIdString] || [];
         }
 
         // Format appointment like all-appointments API
