@@ -6,7 +6,7 @@ export type ConversationType = {
   clinicId: string;
   ownerId: string;
   leadId: Lead;
-  status: "open" | "closed" | "trashed" | "blocked" | "archived";
+  status: "open" | "closed" | "starred" | "trashed" | "blocked" | "archived";
   recentMessage: Message;
   unreadMessages: string[];
   tags: string[];
@@ -105,6 +105,11 @@ export type MessageType = {
     time: string;
     timezone: strng;
   };
+
+  // message status
+  isStarred: boolean;
+  isArchived: boolean;
+  isTrashed: boolean;
   createdAt: string;
   updatedAt: string;
 };

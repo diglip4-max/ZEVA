@@ -111,21 +111,52 @@ export default async function handler(req, res) {
     });
   }
 
-  if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "At least one recipientId is required",
-    });
-  }
-
-  if (!providerId) {
-    return res.status(400).json({
-      success: false,
-      message: "Provider is required",
-    });
-  }
-
   try {
+    // If Only given toEmail, then find lead with that email if not then create lead and find conversation and then used
+    if (recipientIds?.length === 0 && rest.to && !conversationId) {
+      const findLead = await Lead.findOne({
+        clinicId: clinicId,
+        email: rest.to,
+      }).select("_id email");
+
+      if (findLead) {
+        recipientIds.push(findLead._id);
+      } else {
+        const lead = new Lead({
+          clinicId,
+          name: rest.to,
+          email: rest.to,
+          source: "Other",
+        });
+        await lead.save();
+        recipientIds.push(lead._id);
+      }
+
+      // Find conversation with that lead
+      let conversation = await Conversation.findOne({
+        clinicId,
+        leadId: recipientIds[0],
+      }).select("_id");
+
+      if (!conversation) {
+        conversation = new Conversation({
+          leadId: recipientIds[0],
+          clinicId,
+          ownerId: me._id,
+        });
+        await conversation.save();
+      }
+
+      conversationId = conversation._id;
+    }
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provider is required",
+      });
+    }
+
     let lastMessageId = "";
     if (recipientIds?.length === 0) {
       return res.status(400).json({

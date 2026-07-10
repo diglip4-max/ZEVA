@@ -934,6 +934,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Create Agent": "clinic_create_agent",
     "Create Lead": "clinic_create_lead",
     Inbox: "clinic_inbox",
+    "Email Inbox": "clinic_email_inbox",
     "KAKA Customization": "clinic_kaka_customization",
 
     Templates: "clinic_templates",
@@ -966,6 +967,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     // "Transfer Stock": "clinic_stock_transfer_on_request",
     "Allocated Stock Items": "clinic_stock_allocated_stock_items",
     "Custom Stock Items": "custom_stock_items",
+    "Sale Products": "custom_product_sales",
 
     "Policy & Compliance": "clinic_compliance",
     Authentication: "clinic_authentication",
@@ -1262,7 +1264,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           (labelTrimmed === "pass by doctor" &&
                             smNameTrimmed === "pass by doctor") ||
                           (labelTrimmed === "release requested" &&
-                            smNameTrimmed === "release requested")
+                            smNameTrimmed === "release requested") ||
+                          // Sale Products special case
+                          (labelTrimmed === "sale products" &&
+                            smNameTrimmed === "sale products")
                         );
                       },
                     );
@@ -1342,6 +1347,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 "clinic_stock_transfer_on_request",
                 "clinic_stock_allocated_stock_items",
                 "clinic_stock_purchase_return",
+                "custom_product_sales",
               ].includes(moduleKey) ||
               // Also check by label if moduleKey not set
               label.includes("uom") ||
@@ -1362,6 +1368,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               // console.log('[localShouldShowItem] clinic_stock parent allowed:', parentAllowed);
               if (!parentAllowed) {
                 return false;
+              }
+              // Bypass for new modules that don't have backend permissions yet
+              if (moduleKey === "custom_product_sales") {
+                return true;
               }
               // Check if this specific stock submodule has permission
               return localHasModulePermission(moduleKey || "", item.label);
@@ -1571,6 +1581,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               children: nonNull(
                 createItem("Create Lead", "/clinic/create-lead", "➕"),
                 createItem("Inbox", "/clinic/inbox", "📨"),
+                createItem("Email Inbox", "/clinic/email-inbox", "📨"),
                 createItem("Templates", "/clinic/all-templates", "📝"),
                 createItem("Providers", "/clinic/providers", "👥"),
                 createItem("Reviews", "/clinic/getAllReview", "⭐"),
@@ -1681,6 +1692,16 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   "Allocated Stock Items",
                   "/clinic/stocks/allocated-stock-items",
                   "package",
+                ),
+                createItem(
+                  "Custom Stock Items",
+                  "/clinic/stocks/custom-stock-items",
+                  "package",
+                ),
+                createItem(
+                  "Sale Products",
+                  "/clinic/stocks/product-sales",
+                  "🛒",
                 ),
               ),
               order: 135,

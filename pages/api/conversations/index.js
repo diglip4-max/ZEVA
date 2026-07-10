@@ -106,14 +106,16 @@ export default async function handler(req, res) {
         query.ownerId = me._id;
       }
 
-      console.log({ meUser: me });
-
       // Search by contact name or phone number
       let leadIdsFromSearch = null;
       if (search) {
         const searchRegex = new RegExp(search, "i");
         const matchingLeads = await Lead.find({
-          $or: [{ name: searchRegex }, { phone: searchRegex }],
+          $or: [
+            { name: searchRegex },
+            { phone: searchRegex },
+            { email: searchRegex },
+          ],
         }).select("_id");
 
         leadIdsFromSearch = matchingLeads.map((c) => c._id).filter(Boolean);

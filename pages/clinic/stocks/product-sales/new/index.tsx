@@ -158,7 +158,10 @@ const formatExpiryDate = (dateString?: string): string => {
 
 const NewProductSalesPage: NextPageWithLayout = () => {
   const router = useRouter();
-  const { doctorId } = router.query as { doctorId: string };
+  const { doctorId, patientId } = router.query as {
+    doctorId: string;
+    patientId: string;
+  };
   // State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -366,6 +369,19 @@ const NewProductSalesPage: NextPageWithLayout = () => {
     fetchClinicId();
   }, [fetchClinicId]);
 
+  // Fetch patient by ID when patientId is present in query
+  useEffect(() => {
+    if (patientId && clinicId) {
+      const loadPatient = async () => {
+        const patient = await fetchPatientById(patientId);
+        if (patient) {
+          handlePatientSelect(patient);
+        }
+      };
+      loadPatient();
+    }
+  }, [patientId, clinicId]);
+
   // Fetch items when clinicId is available
   useEffect(() => {
     if (clinicId) {
@@ -393,6 +409,23 @@ const NewProductSalesPage: NextPageWithLayout = () => {
 
     // Fetch patient balances when a patient is selected
     fetchPatientBalances(patient._id);
+  };
+
+  // Fetch patient by ID
+  const fetchPatientById = async (patientId: string) => {
+    try {
+      const token = getTokenByPath();
+      const response = await axios.get(`/api/clinic/patient-information`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { id: patientId },
+      });
+      if (response.data?.success && response.data?.patient) {
+        return response.data.patient;
+      }
+    } catch (error) {
+      console.error("Error fetching patient by ID:", error);
+    }
+    return null;
   };
 
   // Fetch patient balances (advance/pending)
@@ -978,15 +1011,17 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         {selectedPatient.age && ` • Age ${selectedPatient.age}`}
                       </div>
                     </div>
-                    <button
-                      onClick={clearPatientSelection}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    {!patientId && (
+                      <button
+                        onClick={clearPatientSelection}
+                        className="text-gray-400 hover:text-red-500"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
-              ) : (
+              ) : !patientId ? (
                 <div className="relative" ref={patientSearchRef}>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -1030,7 +1065,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     </div>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 
