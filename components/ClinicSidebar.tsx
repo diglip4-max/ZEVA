@@ -981,6 +981,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "KAKA Analytics": "clinic_kaka_analytics",
     "Workflow Guide": "workflow_guide",
     Membership: "membership",
+    Invoices: "clinic_invoices",
   };
 
   // Check if item should be shown
@@ -1739,6 +1740,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   "Scheduled Appointments",
                   "/clinic/all-appointment",
                   "calendar",
+                ),
+                createItem(
+                  "Invoices",
+                  "/clinic/invoices",
+                  "📋",
                 ),
                 createItem(
                   "Patient Registration",

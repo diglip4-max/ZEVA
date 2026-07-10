@@ -94,14 +94,14 @@ export default async function handler(req, res) {
     // total revenue – from ALL billings (not just those with appointments)
     const totalRevenueAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $group: { _id: null, total: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } } } },
     ]);
     const totalRevenue = Math.round(Number(totalRevenueAgg[0]?.total || 0));
 
     // revenue component: package billing (all Package billings)
     const packageRevenueAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $group: { _id: null, total: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } } } },
     ]);
     const packageRevenue = Math.round(Number(packageRevenueAgg[0]?.total || 0));
 
@@ -134,14 +134,14 @@ export default async function handler(req, res) {
     // revenue component: treatment/service (current pipeline – billings with appointments)
     const treatmentRevenueAgg = await Billing.aggregate([
       ...basePipeline,
-      { $group: { _id: null, total: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $group: { _id: null, total: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } } } },
     ]);
     const treatmentRevenue = Math.round(Number(treatmentRevenueAgg[0]?.total || 0));
 
     // revenue by doctor
     const byDoctorAgg = await Billing.aggregate([
       ...basePipeline,
-      { $group: { _id: "$appointment.doctorId", amount: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $group: { _id: "$appointment.doctorId", amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } } } },
       { $sort: { amount: -1 } },
     ]);
     const doctorIds = byDoctorAgg.map((d) => d._id).filter(Boolean);
@@ -200,12 +200,12 @@ export default async function handler(req, res) {
           },
         },
       },
-      // 4. Group by the resolved service name and sum `paid` per service
+      // 4. Group by the resolved service name and sum `paid` + pendingUsed + pendingClaimUsed per service
       //    (same shape as the $group in service-performance.js)
       {
         $group: {
           _id: "$resolvedServiceName",
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
         },
       },
       { $sort: { amount: -1 } },
@@ -219,7 +219,7 @@ export default async function handler(req, res) {
     // revenue by package (all Package billings grouped by package name)
     const byPackageAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
-      { $group: { _id: { $ifNull: ["$package", "Unknown"] }, amount: { $sum: { $ifNull: ["$paid", 0] } } } },
+      { $group: { _id: { $ifNull: ["$package", "Unknown"] }, amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } } } },
       { $sort: { amount: -1 } },
     ]);
     const revenueByPackage = byPackageAgg.map((p) => ({
@@ -282,13 +282,13 @@ export default async function handler(req, res) {
           },
         },
       },
-      // 5. Group by service name first to sum paid per service
+      // 5. Group by service name first to sum paid + pendingUsed + pendingClaimUsed per service
       //    (matches the first $group in department-performance.js)
       {
         $group: {
           _id: "$resolvedServiceName",
           clinicId: { $first: "$clinicId" },
-          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
+          totalRevenue: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
         },
       },
       // 6. Lookup service doc by clinicId + name to get departmentId
@@ -386,7 +386,9 @@ export default async function handler(req, res) {
               "$paid",
               "$advanceUsed",
               "$claimAmountUsed",
-              "$cashbackWalletUsed"
+              "$cashbackWalletUsed",
+              "$pendingUsed",
+              { $ifNull: ["$pendingClaimUsed", 0] }
             ]
           },
           paymentMethod: 1,
@@ -876,7 +878,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$invoicedDate" } },
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
         },
       },
       { $sort: { _id: 1 } },
@@ -891,7 +893,7 @@ export default async function handler(req, res) {
             year: { $isoWeekYear: "$invoicedDate" },
             week: { $isoWeek: "$invoicedDate" },
           },
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
         },
       },
       { $sort: { "_id.year": 1, "_id.week": 1 } },
@@ -906,7 +908,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m", date: "$invoicedDate" } },
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
         },
       },
       { $sort: { _id: 1 } },
@@ -918,7 +920,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: { $dateToString: { format: "%Y", date: "$invoicedDate" } },
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
         },
       },
       { $sort: { _id: 1 } },

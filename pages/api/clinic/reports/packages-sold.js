@@ -285,8 +285,8 @@ export default async function handler(req, res) {
           packageName: { $first: "$__packageName" },
           // Use paid amount directly. When pending is cleared via treatment pay,
           // Treatment billing's paid field contains the cash collected for the package.
-          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
-          totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+          totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+          totalPending: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
           sessionsUsed: { $sum: "$__usedSessions" },
           firstPurchaseDate: { $min: "$createdAt" },
           lastActivityDate: { $max: "$createdAt" },
@@ -872,8 +872,8 @@ export default async function handler(req, res) {
             _id: { patientId: "$patientId", package: "$__packageName" },
             // Use paid amount directly. When pending is cleared via treatment pay,
             // Treatment billing's paid field contains the cash collected for the package.
-            totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
-            totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+            totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+            totalPending: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },
           },

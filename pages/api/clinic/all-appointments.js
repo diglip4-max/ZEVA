@@ -298,6 +298,10 @@ export default async function handler(req, res) {
             referral: appointment.referral || "direct",
             emergency: appointment.emergency || "no",
             notes: appointment.notes || "",
+            // Booked by information
+            bookedByRole: appointment.bookedByRole || null,
+            bookedByUserId: appointment.bookedByUserId?.toString() || null,
+            bookedByName: appointment.bookedByName || null,
             registeredDate,
             registeredTime,
             invoicedDate,
@@ -474,6 +478,11 @@ export default async function handler(req, res) {
       // If we have appointment ID matches (visitId search), add them
       if (matchingAppointmentIds.length > 0) {
         queryConditions.push({ _id: { $in: matchingAppointmentIds } });
+      }
+
+      // Search by bookedByName (person who booked the appointment)
+      if (search) {
+        queryConditions.push({ bookedByName: { $regex: search, $options: "i" } });
       }
 
       // If we have patient search conditions, find matching patient IDs
@@ -748,6 +757,10 @@ export default async function handler(req, res) {
           referral: apt.referral || "direct",
           emergency: apt.emergency || "no",
           notes: apt.notes || "",
+          // Booked by information
+          bookedByRole: apt.bookedByRole || null,
+          bookedByUserId: apt.bookedByUserId?.toString() || null,
+          bookedByName: apt.bookedByName || null,
           // Date & Time fields
           registeredDate,
           registeredTime,

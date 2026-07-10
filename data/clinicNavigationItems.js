@@ -72,6 +72,14 @@ export const clinicNavigationItems = [
     order: 10,
   },
   {
+    label: "Invoices",
+    path: "/clinic/invoices",
+    icon: "📋",
+    description: "View invoices",
+    moduleKey: "clinic_invoices",
+    order: 56,
+  },
+  {
     label: "Staff Management",
     icon: "users",
     description: "Manage Staff",
@@ -84,13 +92,6 @@ export const clinicNavigationItems = [
         icon: "clipboard-list",
         description: "Manage clinic",
         order: 4,
-      },
-      {
-        label: "Invoices",
-        path: "/clinic/invoices",
-        icon: "receipt",
-        description: "View complaint invoices",
-        order: 5,
       },
       {
         label: "Add EOD Task",

@@ -7345,7 +7345,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             const totalAdvanceUsedFromBillings = packageBillings.reduce(
                               (sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0
                             );
-                            const totalPaidFromBillings = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
+                            
+                            // Also include payments from Treatment invoices that paid for this package via unpaidPackagesPaid
+                            const treatmentPackagePayments = (billingHistory || []).filter(
+                              (b: any) => 
+                                b.service === "Treatment" && 
+                                b.unpaidPackagesPaid && 
+                                b.unpaidPackagesPaid.some((p: any) => 
+                                  (p.packageName === packageName) || 
+                                  (packages.find((pkg: any) => String(pkg._id) === String(p.packageId))?.name === packageName)
+                                )
+                            );
+                            const totalCashPaidFromTreatments = treatmentPackagePayments.reduce(
+                              (sum: number, b: any) => sum + (Number(b.paid) || 0), 0
+                            );
+                            const totalAdvanceUsedFromTreatments = treatmentPackagePayments.reduce(
+                              (sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0
+                            );
+                            
+                            const totalPaidFromBillings = 
+                              totalCashPaidFromBillings + totalAdvanceUsedFromBillings +
+                              totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments;
                             const packagePrice = packageDef?.totalPrice || pkg.totalPrice || 0;
                            
                             // Determine correct payment status based on total paid (cash + advance)

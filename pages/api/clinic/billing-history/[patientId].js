@@ -21,10 +21,10 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const { patientId } = req.query;
+    const { patientId: id } = req.query;
 
-    if (!patientId) {
-      return res.status(400).json({ success: false, message: "Patient ID is required" });
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Patient or Appointment ID is required" });
     }
 
     // Determine clinicId
@@ -45,13 +45,15 @@ export default async function handler(req, res) {
       }
     }
 
-    // Fetch all billing records for this patient and clinic, excluding pure balance adjustments
-    // BUT include advance payment records for tracking purposes
-    let billings = await Billing.find({
-      patientId: patientId,
+    // Check if the id is an appointmentId or patientId
+    // First, try to find any billings with this appointmentId
+    let query = Billing.find({
       clinicId: clinicId,
       isAdvanceOnly: { $ne: true },
-    })
+    });
+
+    // First, try appointmentId
+    let billings = await query.clone().where('appointmentId').equals(id)
       .populate({
         path: "doctorId",
         select: "name",
@@ -60,26 +62,20 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 }) // Most recent first
       .lean();
 
-    // Filter out Package service billings that have been cleared by a Treatment billing.
-    // When a package payment is made via a Treatment billing (with unpaidPackagesPaid),
-    // the Treatment billing's pendingClearedBreakdown references the Package invoice.
-    // We only show the Treatment billing (the actual invoice), not the Package billing.
-    const clearedPackageInvoices = new Set();
-    for (const b of billings) {
-      if (b.service === "Treatment" && Array.isArray(b.pendingClearedBreakdown)) {
-        for (const pcb of b.pendingClearedBreakdown) {
-          if (pcb.invoiceNumber && pcb.service === "Package") {
-            clearedPackageInvoices.add(pcb.invoiceNumber);
-          }
-        }
-      }
+    // If no billings found, try patientId
+    if (!billings || billings.length === 0) {
+      billings = await query.clone().where('patientId').equals(id)
+        .populate({
+          path: "doctorId",
+          select: "name",
+          model: User
+        })
+        .sort({ createdAt: -1 }) // Most recent first
+        .lean();
     }
-    billings = billings.filter((b) => {
-      if (b.service === "Package" && clearedPackageInvoices.has(b.invoiceNumber)) {
-        return false; // Exclude cleared Package billings
-      }
-      return true;
-    });
+
+    // No longer filter out Package invoices, even when referenced in Treatment invoices' pendingClearedBreakdown
+    // Show all billings to maintain full history visibility
 
     // Now map through each billing to set doctorName (using either stored doctorName or from populated doctorId)
     const billingsWithDoctorName = billings.map(billing => {
