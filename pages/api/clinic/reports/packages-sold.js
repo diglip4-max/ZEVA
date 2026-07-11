@@ -194,35 +194,118 @@ export default async function handler(req, res) {
     const pipeline = [
       { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
       {
-        $lookup: {
-          from: "appointments",
-          localField: "appointmentId",
-          foreignField: "_id",
-          as: "appointment",
-        },
-      },
-      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
-      // Lookup appointment's service (needed for service.departmentId)
-      {
-        $lookup: {
-          from: "services",
-          localField: "appointment.serviceId",
-          foreignField: "_id",
-          as: "service",
-        },
-      },
-      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-      {
         $addFields: {
-          effectiveDoctorId: {
-            $ifNull: ["$doctorId", "$appointment.doctorId"]
-          },
           __packageName: {
             $cond: {
               if: { $eq: ["$service", "Treatment"] },
               then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
               else: "$package"
             }
+          },
+          __patientId: "$patientId"
+        }
+      },
+      // First group by patientId + packageName
+      {
+        $group: {
+          _id: {
+            patientId: "$__patientId",
+            packageName: "$__packageName"
+          },
+          totalPaidForPackage: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+          totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
+          totalAmountForPackage: { $first: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$amount", 0] }, else: 0 } } },
+          firstPurchaseDate: { $min: "$createdAt" },
+          lastActivityDate: { $max: "$createdAt" },
+          appointmentIds: { $addToSet: "$appointmentId" },
+          doctorIds: { $addToSet: { $ifNull: ["$doctorId", null] } },
+          selectedPackageTreatmentsArray: { $push: { $ifNull: ["$selectedPackageTreatments", []] } }
+        }
+      },
+      // Now look up appointments for those appointmentIds to get serviceId
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentIds",
+          foreignField: "_id",
+          as: "appointments"
+        }
+      },
+      { $unwind: { path: "$appointments", preserveNullAndEmptyArrays: true } },
+      // Look up appointment's service
+      {
+        $lookup: {
+          from: "services",
+          localField: "appointments.serviceId",
+          foreignField: "_id",
+          as: "service"
+        }
+      },
+      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          totalPaidForPackage: { $first: "$totalPaidForPackage" },
+          totalPendingForPackage: { $first: "$totalPendingForPackage" },
+          totalAmountForPackage: { $first: "$totalAmountForPackage" },
+          firstPurchaseDate: { $first: "$firstPurchaseDate" },
+          lastActivityDate: { $first: "$lastActivityDate" },
+          serviceId: { $first: "$appointments.serviceId" },
+          doctorIds: { $first: "$doctorIds" }
+        }
+      },
+      // Now look up PatientRegistration
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$patientId"] } } },
+            { $unwind: "$packages" },
+            { $match: { $expr: { $eq: ["$packages.packageName", "$$packageName"] } } },
+            { $limit: 1 },
+            { $project: { 
+              "packages.packageSoldBy": 1, 
+              "packages.packageSoldByUserId": 1, 
+              "packages.totalPrice": 1, 
+              "packages.paidAmount": 1,
+              "clinicId": 1
+            } }
+          ],
+          as: "__patientReg"
+        }
+      },
+      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } },
+      // Now calculate final fields
+      {
+        $addFields: {
+          patientId: "$_id.patientId",
+          packageName: "$_id.packageName",
+          soldBy: { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+          clinicId: { $ifNull: ["$__patientReg.clinicId", null] },
+          totalAmount: { 
+            $ifNull: [
+              { $cond: { if: { $ne: ["$totalAmountForPackage", 0] }, then: "$totalAmountForPackage", else: "$__patientReg.packages.totalPrice" } },
+              0
+            ]
+          },
+          totalPaid: {
+            $ifNull: [
+              { $cond: { if: { $ne: ["$__patientReg.packages.paidAmount", null] }, then: "$__patientReg.packages.paidAmount", else: "$totalPaidForPackage" } },
+              "$totalPaidForPackage"
+            ]
+          },
+          totalPending: {
+            $subtract: [
+              { $ifNull: [
+                { $cond: { if: { $ne: ["$totalAmountForPackage", 0] }, then: "$totalAmountForPackage", else: "$__patientReg.packages.totalPrice" } },
+                0
+              ] },
+              { $ifNull: [
+                { $cond: { if: { $ne: ["$__patientReg.packages.paidAmount", null] }, then: "$__patientReg.packages.paidAmount", else: "$totalPaidForPackage" } },
+                "$totalPaidForPackage"
+              ] }
+            ]
           }
         }
       }
@@ -235,7 +318,7 @@ export default async function handler(req, res) {
     // When includeUnpaid=false (main report/export), keep the original behavior.
     if (doctorId && !shouldIncludeUnpaid) {
       pipeline.push({
-        $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) },
+        $match: { doctorIds: new mongoose.Types.ObjectId(String(doctorId)) },
       });
     }
 
@@ -243,8 +326,7 @@ export default async function handler(req, res) {
       pipeline.push(...buildDepartmentFilterStages());
     }
 
-    // Sales staff filter: always apply to Billing pipeline using invoicedBy (name)
-    // so the modal only shows packages invoiced by the selected sales staff.
+    // Sales staff filter: filter by packageSoldBy or packageSoldByUserId from PatientRegistration
     // When includeUnpaid=true, the PatientRegistration pipeline also filters by
     // packageSoldBy to capture unpaid packages for the same person.
     if (salesStaffId) {
@@ -252,50 +334,54 @@ export default async function handler(req, res) {
       const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
       
       if (isValidObjectId) {
-        // Match by user ID
+        // Match by user ID (packageSoldByUserId)
         pipeline.push({
-          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+          $match: {
+            "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId))
+          }
         });
       } else {
-        // Match by user name (e.g., "pihu", "muskan")
+        // Match by user name (packageSoldBy)
         pipeline.push({
-          $match: { invoicedBy: String(salesStaffId) },
+          $match: {
+            "__patientReg.packages.packageSoldBy": String(salesStaffId)
+          }
         });
       }
     }
 
     pipeline.push(
+      // Calculate sessions used
       {
         $addFields: {
-          __usedSessions: {
-            $sum: {
-              $map: {
-                input: { $ifNull: ["$selectedPackageTreatments", []] },
-                as: "t",
-                in: { $ifNull: ["$$t.sessions", 0] },
-              },
-            },
-          },
-        },
+          __flattenedTreatments: {
+            $reduce: {
+              input: "$selectedPackageTreatmentsArray",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          }
+        }
       },
       {
-        $group: {
-          _id: { patientId: "$patientId", package: "$__packageName" },
-          patientId: { $first: "$patientId" },
-          packageName: { $first: "$__packageName" },
-          // Use paid amount directly. When pending is cleared via treatment pay,
-          // Treatment billing's paid field contains the cash collected for the package.
-          totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
-          totalPending: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
-          sessionsUsed: { $sum: "$__usedSessions" },
-          firstPurchaseDate: { $min: "$createdAt" },
-          lastActivityDate: { $max: "$createdAt" },
-          doctorIds: { $addToSet: "$effectiveDoctorId" },
-          // Fields required by the Package Registry table columns (Staff, Branch, Dept)
-          soldBy: { $first: "$invoicedBy" },
-          clinicId: { $first: "$clinicId" },
-          serviceId: { $first: "$appointment.serviceId" },
-        },
+        $addFields: {
+          sessionsUsed: {
+            $sum: {
+              $map: {
+                input: "$__flattenedTreatments",
+                as: "t",
+                in: { $ifNull: ["$$t.sessions", 0] }
+              }
+            }
+          },
+          patientId: "$_id.patientId",
+          packageName: "$_id.packageName",
+          serviceId: { $arrayElemAt: ["$appointments.serviceId", 0] },
+          firstPurchaseDate: "$firstPurchaseDate",
+          lastActivityDate: "$lastActivityDate",
+          totalPaid: "$totalPaid",
+          totalPending: "$totalPending"
+        }
       },
       // Resolve doctor names
       {
@@ -698,37 +784,70 @@ export default async function handler(req, res) {
 
     // For count, we need to apply the same filters
     const countPipeline = [
-      { $match: match },
+      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+      {
+        $addFields: {
+          __packageName: {
+            $cond: {
+              if: { $eq: ["$service", "Treatment"] },
+              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+              else: "$package"
+            }
+          },
+          __patientId: "$patientId"
+        }
+      },
+      // First group by patientId + packageName to avoid duplicates
+      {
+        $group: {
+          _id: {
+            patientId: "$__patientId",
+            packageName: "$__packageName"
+          },
+          appointmentIds: { $addToSet: "$appointmentId" },
+          doctorIds: { $addToSet: { $ifNull: ["$doctorId", null] } }
+        }
+      },
+      // Look up appointments to get serviceIds
       {
         $lookup: {
           from: "appointments",
-          localField: "appointmentId",
+          localField: "appointmentIds",
           foreignField: "_id",
-          as: "appointment",
-        },
+          as: "appointments"
+        }
       },
-      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$appointments", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
           from: "services",
-          localField: "appointment.serviceId",
+          localField: "appointments.serviceId",
           foreignField: "_id",
-          as: "service",
-        },
+          as: "service"
+        }
       },
       { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+      // Look up PatientRegistration
       {
-        $addFields: {
-          effectiveDoctorId: {
-            $ifNull: ["$doctorId", "$appointment.doctorId"]
-          }
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$patientId"] } } },
+            { $unwind: "$packages" },
+            { $match: { $expr: { $eq: ["$packages.packageName", "$$packageName"] } } },
+            { $limit: 1 },
+            { $project: { "packages.packageSoldBy": 1, "packages.packageSoldByUserId": 1 } }
+          ],
+          as: "__patientReg"
         }
-      }
+      },
+      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } }
     ];
 
-    if (doctorId) {
+    if (doctorId && !shouldIncludeUnpaid) {
       countPipeline.push({
-        $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) },
+        $match: { doctorIds: new mongoose.Types.ObjectId(String(doctorId)) },
       });
     }
 
@@ -742,11 +861,15 @@ export default async function handler(req, res) {
       
       if (isValidObjectId) {
         countPipeline.push({
-          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+          $match: {
+          "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId)) 
+          }
         });
       } else {
         countPipeline.push({
-          $match: { invoicedBy: String(salesStaffId) },
+          $match: {
+          "__patientReg.packages.packageSoldBy": String(salesStaffId)
+          }
         });
       }
     }
@@ -754,7 +877,7 @@ export default async function handler(req, res) {
     countPipeline.push(
       {
         $group: {
-          _id: { patientId: "$patientId", package: "$package" },
+          _id: { patientId: "$patientId", package: "$__packageName" },
         },
       },
       { $count: "total" }
