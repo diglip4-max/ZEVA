@@ -14,6 +14,7 @@ import {
   DollarSign,
   Clock,
   User,
+  Lock,
 } from "lucide-react";
 import AppointmentBillingModal from "../../components/AppointmentBillingModal";
 
@@ -51,6 +52,13 @@ const getUserRole = () => {
 };
 
 function InvoicesPage() {
+  const [permissions, setPermissions] = useState({
+    canRead: true,
+    canCreate: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [complaints, setComplaints] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +90,130 @@ function InvoicesPage() {
   const [billingsModalOpen, setBillingsModalOpen] = useState(false);
   const [patientBalances, setPatientBalances] = useState({});
 const [activeCard, setActiveCard] = useState(null);
+  // Fetch permissions
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      let isMounted = true;
+      const role = getUserRole();
+      const headers = getAuthHeaders();
+      const token = headers?.Authorization?.replace("Bearer ", "");
+
+      // Admin gets full access
+      if (role === "admin") {
+        if (!isMounted) return;
+        setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      // Clinic and doctor roles use sidebar-permissions API
+      if (role === "clinic" || role === "doctor") {
+        try {
+          if (!token) {
+            if (!isMounted) return;
+            setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+            setPermissionsLoaded(true);
+            return;
+          }
+
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!isMounted) return;
+
+          if (res.data.success) {
+            if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+              // No admin restrictions - default to full access
+              setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+            } else {
+              const modulePermission = res.data.permissions.find((p) => {
+                if (!p?.module) return false;
+                if (p.module === "clinic_invoices") return true;
+                if (p.module === "clinic_Invoices") return true;
+                return false;
+              });
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                setPermissions({
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                });
+              } else {
+                // Module not found in permissions array - default to read-only
+                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
+              }
+            }
+          } else {
+            setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+          }
+        } catch (err) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          if (isMounted) {
+            setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+          }
+        } finally {
+          if (isMounted) setPermissionsLoaded(true);
+        }
+        return;
+      }
+
+      // Agent/doctorStaff roles use agent permissions API
+      if (!["agent", "doctorStaff"].includes(role || "")) {
+        if (!isMounted) return;
+        setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      try {
+        const res = await axios.get(
+          "/api/agent/get-module-permissions?moduleKey=clinic_invoices",
+          { headers }
+        );
+        if (res.data?.success && res.data.permissions) {
+          const actions = res.data.permissions.actions || {};
+          const canAll =
+            actions.all === true ||
+            actions.all === "true" ||
+            String(actions.all).toLowerCase() === "true";
+          if (!isMounted) return;
+          setPermissions({
+            canRead: canAll || actions.read === true,
+            canCreate: canAll || actions.create === true,
+            canUpdate: canAll || actions.update === true,
+            canDelete: canAll || actions.delete === true,
+          });
+        } else {
+          if (!isMounted) return;
+          setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+        }
+      } catch (err) {
+        console.error("Error fetching permissions:", err);
+        if (!isMounted) return;
+        setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
+      } finally {
+        if (isMounted) setPermissionsLoaded(true);
+      }
+
+      return () => { isMounted = false; };
+    };
+
+    fetchPermissions();
+  }, []);
+
   const fetchFilterData = useCallback(async () => {
+    if (!permissionsLoaded) return;
+    if (!permissions.canRead) return;
     try {
       const headers = getAuthHeaders();
       if (!headers) return;
@@ -93,7 +224,7 @@ const [activeCard, setActiveCard] = useState(null);
     } catch (err) {
       console.error("Failed to fetch filter data:", err);
     }
-  }, []);
+  }, [permissionsLoaded, permissions.canRead]);
 
   const fetchPatientBalance = useCallback(async (patientId) => {
     try {
@@ -122,6 +253,14 @@ const advancePatients = complaints.filter((item) => {
   return balance && balance.advanceAmount > 0;
 });
   const fetchComplaints = useCallback(async () => {
+    if (!permissionsLoaded) return;
+    if (!permissions.canRead) {
+      setComplaints([]);
+      setTotal(0);
+      setTotalPages(1);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -170,7 +309,7 @@ const advancePatients = complaints.filter((item) => {
     } finally {
       setLoading(false);
     }
-  }, [filters, page, patientBalances, fetchPatientBalance]);
+  }, [filters, page, patientBalances, fetchPatientBalance, permissionsLoaded, permissions.canRead]);
 
   useEffect(() => {
     fetchFilterData();
@@ -258,6 +397,27 @@ const APPOINTMENT_STATUS_OPTIONS = [
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-green-50" style={{ width: '100%', padding: '0', margin: '0' }}>
+      {!permissionsLoaded ? (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <p className="text-sm text-green-700">Loading permissions...</p>
+        </div>
+      ) : !permissions.canRead ? (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-green-900 mb-2">Access Denied</h2>
+            <p className="text-sm text-green-700 mb-4">
+              You do not have permission to view patient invoices.
+            </p>
+            <p className="text-xs text-green-600">
+              Please contact your administrator to request access to the Invoices module.
+            </p>
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="p-2 sm:p-3 md:p-4 lg:p-6" style={{ width: '100%', minWidth: '100%' }}>
         <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
           {/* Header Section */}
@@ -746,6 +906,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
                                     onClick={() => setOpenActionMenu(null)}
                                   />
                                   <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                    {permissions.canCreate && (
                                     <button
                                       onClick={() => handleBillingClick(comp.appointment)}
                                       className="w-full text-left px-4 py-3 text-sm text-green-900 hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
@@ -753,6 +914,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
                                       <Receipt className="h-4 w-4" />
                                       Billing
                                     </button>
+                                    )}
                                   </div>
                                 </>
                               )}
@@ -818,6 +980,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
                                   onClick={() => setOpenActionMenu(null)}
                                 />
                                 <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                  {permissions.canCreate && (
                                   <button
                                     onClick={() => handleBillingClick(comp.appointment)}
                                     className="w-full text-left px-4 py-3 text-sm text-green-900 hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
@@ -825,6 +988,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
                                     <Receipt className="h-4 w-4" />
                                     Billing
                                   </button>
+                                  )}
                                 </div>
                               </>
                             )}
@@ -1153,6 +1317,8 @@ const APPOINTMENT_STATUS_OPTIONS = [
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );

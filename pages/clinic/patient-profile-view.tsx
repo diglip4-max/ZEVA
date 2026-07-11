@@ -5286,7 +5286,7 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                     billing.unpaidPackagesPaid && 
                                     billing.unpaidPackagesPaid.some((pkgPayment: any) => 
                                       (pkgPayment.packageName === pkg?.name) || 
-                                      (allPackages?.find((masterPkg: any) => String(masterPkg._id) === String(pkgPayment.packageId))?.name === pkg?.name)
+                                      (allAvailablePackages?.find((masterPkg: any) => String(masterPkg._id) === String(pkgPayment.packageId))?.name === pkg?.name)
                                     )
                                   ) || [];
                                   const totalCashPaidFromTreatments = treatmentPackagePayments.reduce(

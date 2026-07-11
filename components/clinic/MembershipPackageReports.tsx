@@ -44,7 +44,7 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
   const [loading, setLoading] = useState(true);
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
   const [membershipRevenue, setMembershipRevenue] = useState<RevenueData[]>([]);
-  const [packageUsage, setPackageUsage] = useState<PackageUsage[]>([]);
+  const [_packageUsage, setPackageUsage] = useState<PackageUsage[]>([]);
   const [packageRevenueMonthWise, setPackageRevenueMonthWise] = useState<RevenueData[]>([]);
   const [clinicCurrency, setClinicCurrency] = useState<string>('INR');
 
