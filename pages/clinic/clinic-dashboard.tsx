@@ -4362,14 +4362,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
           params.date = selectedDate.toISOString().split("T")[0];
           console.log("📅 Today filter:", params.date);
         } else if (timeRangeFilter === "week") {
-          // Last 7 days
-          const endDate = new Date(selectedDate);
-          const startDate = new Date(selectedDate);
-          startDate.setDate(startDate.getDate() - 6); // 7 days including today
-          params.startDate = startDate.toISOString().split("T")[0];
-          params.endDate = endDate.toISOString().split("T")[0];
+          // Monday to Sunday week range
+          const range = getWeekRangeMondaySunday(selectedDate);
+          params.startDate = range.start.toISOString().split("T")[0];
+          params.endDate = range.end.toISOString().split("T")[0];
           console.log(
-            "📅 Week filter:",
+            "📅 Week filter (Monday-Sunday):",
             params.startDate,
             "to",
             params.endDate,

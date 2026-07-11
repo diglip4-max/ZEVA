@@ -136,6 +136,7 @@ const advancePatients = complaints.filter((item) => {
       if (filters.fromDate) params.fromDate = filters.fromDate;
       if (filters.toDate) params.toDate = filters.toDate;
       if (filters.doctorId) params.doctorId = filters.doctorId;
+      if (filters.status) params.status = filters.status;
 
       const res = await axios.get("/api/clinic/complaints", {
         headers,
@@ -194,6 +195,7 @@ const advancePatients = complaints.filter((item) => {
       fromDate: "",
       toDate: "",
       doctorId: "",
+      status: "",
     };
     setPendingFilters(emptyFilters);
     setFilters(emptyFilters);
@@ -214,6 +216,7 @@ const advancePatients = complaints.filter((item) => {
         setSelectedAppointment(appointment);
         setBillingModalOpen(true);
         setOpenActionMenu(null);
+        setActiveCard(null);
       };
 
   const formatCurrency = (amount) => {
@@ -352,10 +355,10 @@ const APPOINTMENT_STATUS_OPTIONS = [
                         Status
                       </label>
                       <select
-                      className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200"
-    >
-  value={pendingFilters.status}
-  onChange={(e) => handleFilterChange("status", e.target.value)}
+                        value={pendingFilters.status}
+                        onChange={(e) => handleFilterChange("status", e.target.value)}
+                        className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200"
+                      >
 
   <option value="">All Status</option>
 
@@ -389,21 +392,22 @@ const APPOINTMENT_STATUS_OPTIONS = [
             
           )}
 
-<div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+<div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm mb-4 sm:mb-6 relative z-[9990]">
   <h3 className="text-sm font-semibold text-gray-700 mb-3">
     Today's Status:
   </h3>
 
-  <div className="flex gap-3">
+  <div className="flex flex-col sm:flex-row gap-3">
 
     {/* Pending */}
-    <div className="relative">
+    <div className="relative w-full sm:w-auto z-[9990]">
 
       <button
-        onClick={() =>
-          setActiveCard(activeCard === "pending" ? null : "pending")
-        }
-        className="flex items-center gap-3 px-6 py-2 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100"
+        onClick={() => {
+          setOpenActionMenu(null);
+          setActiveCard(activeCard === "pending" ? null : "pending");
+        }}
+        className="w-full sm:w-auto flex items-center justify-center gap-3 px-4 sm:px-6 py-2 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100"
       >
         <span className="text-purple-700 font-semibold">
           Pending Amount
@@ -415,7 +419,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
       </button>
 
       {activeCard === "pending" && (
-        <div className="absolute mt-2 w-80 bg-white rounded-lg shadow-xl border z-50">
+        <div className="fixed left-4 right-4 sm:absolute sm:left-auto sm:right-auto sm:w-80 mt-2 bg-white rounded-lg shadow-xl border z-[9999]">
 
           <div className="flex justify-between px-4 py-3 border-b bg-gray-50">
             <span className="font-semibold">
@@ -425,52 +429,34 @@ const APPOINTMENT_STATUS_OPTIONS = [
             <span>{pendingPatients.length} records</span>
           </div>
 
-          <table className="w-full text-sm">
-
-            <thead className="bg-green-50">
-              <tr>
-                <th className="text-left px-3 py-2">
-                  Patient
-                </th>
-
-                <th className="text-left px-3 py-2">
-                  Pending Amount
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {pendingPatients.map((item) => (
-                <tr key={item._id} className="border-t">
-
-                  <td className="px-3 py-2">
-                    {item.patientName}
-                  </td>
-
-                  <td className="px-3 py-2 font-semibold text-red-600">
-  {formatCurrency(
-    patientBalances[item.patientId]?.pendingAmount || 0
-  )}
-</td>
-
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
+          <div className="max-h-60 overflow-y-auto">
+            {pendingPatients.map((item) => (
+              <div key={item._id} className="flex justify-between items-center px-3 py-3 border-t">
+                <div className="text-sm font-medium text-gray-900">
+                  {item.patientName}
+                </div>
+                <div className="text-sm font-semibold text-red-600">
+                  {formatCurrency(
+                    patientBalances[item.patientId]?.pendingAmount || 0
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
 
     {/* Advance */}
 
-    <div className="relative">
+    <div className="relative w-full sm:w-auto z-[9990]">
 
       <button
-        onClick={() =>
-          setActiveCard(activeCard === "advance" ? null : "advance")
-        }
-        className="flex items-center gap-3 px-6 py-2 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100"
+        onClick={() => {
+          setOpenActionMenu(null);
+          setActiveCard(activeCard === "advance" ? null : "advance");
+        }}
+        className="w-full sm:w-auto flex items-center justify-center gap-3 px-4 sm:px-6 py-2 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100"
       >
         <span className="text-teal-700 font-semibold">
           Advance Amount
@@ -482,7 +468,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
       </button>
 
       {activeCard === "advance" && (
-        <div className="absolute mt-2 w-80 bg-white rounded-lg shadow-xl border z-50">
+        <div className="fixed left-4 right-4 sm:absolute sm:left-auto sm:right-auto sm:w-80 mt-2 bg-white rounded-lg shadow-xl border z-[9999]">
 
           <div className="flex justify-between px-4 py-3 border-b bg-gray-50">
             <span className="font-semibold">
@@ -492,39 +478,20 @@ const APPOINTMENT_STATUS_OPTIONS = [
             <span>{advancePatients.length} records</span>
           </div>
 
-          <table className="w-full text-sm">
-
-            <thead className="bg-green-50">
-              <tr>
-                <th className="text-left px-3 py-2">
-                  Patient
-                </th>
-
-                <th className="text-left px-3 py-2">
-                  Advance Amount
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {advancePatients.map((item) => (
-                <tr key={item._id} className="border-t">
-
-                  <td className="px-3 py-2">
-                    {item.patientName}
-                  </td>
-
-                 <td className="px-3 py-2 font-semibold text-green-600">
-  {formatCurrency(
-    patientBalances[item.patientId]?.advanceAmount || 0
-  )}
-</td>
-
-                </tr>
-              ))}
-            </tbody>
-
-          </table>
+          <div className="max-h-60 overflow-y-auto">
+            {advancePatients.map((item) => (
+              <div key={item._id} className="flex justify-between items-center px-3 py-3 border-t">
+                <div className="text-sm font-medium text-gray-900">
+                  {item.patientName}
+                </div>
+                <div className="text-sm font-semibold text-green-600">
+                  {formatCurrency(
+                    patientBalances[item.patientId]?.advanceAmount || 0
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -581,157 +548,164 @@ const APPOINTMENT_STATUS_OPTIONS = [
 
 
           ) : (
-            /* Main Table Section */
+            /* Main Content Section */
             <div className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div className="px-6 py-3 bg-gradient-to-r from-green-50 to-green-50 border-b border-green-100 text-xs sm:text-sm text-green-700 flex items-center justify-center gap-2">
-                <span className="hidden md:inline">← Scroll horizontally to view all columns →</span>
-                <span className="hidden sm:inline md:hidden">← Scroll to view all →</span>
-                <span className="sm:hidden">← Swipe →</span>
-              </div>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block">
+                <div className="px-6 py-3 bg-gradient-to-r from-green-50 to-green-50 border-b border-green-100 text-xs sm:text-sm text-green-700 flex items-center justify-center gap-2">
+                  <span className="hidden md:inline">← Scroll horizontally to view all columns →</span>
+                  <span className="hidden sm:inline md:hidden">← Scroll to view all →</span>
+                </div>
 
-              <div
-                className="overflow-x-auto overflow-y-auto"
-                style={{
-                  height: '500px',
-                  maxHeight: '500px',
-                  WebkitOverflowScrolling: 'touch',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: '#4f46e5 #f1f1f1',
-                  width: '100%',
-                  display: 'block',
-                  position: 'relative',
-                  maxWidth: '100%'
-                }}
-              >
-                <table className="min-w-full" style={{ minWidth: '1400px', tableLayout: 'auto', display: 'table' }}>
-                  <thead className="bg-gradient-to-r from-green-600 to-green-600 text-white sticky top-0 z-10">
-                    <tr>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[180px]">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Patient Details
-                        </div>
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[180px]">
-                        Doctor
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
-                        Appointment Time
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
-                        Services
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
-                        Complaint Note
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Pending Amount
-                        </div>
-                      </th>
-                      <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Advance Amount
-                        </div>
-                      </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                <div
+                  className="overflow-x-auto overflow-y-auto"
+                  style={{
+                    height: '500px',
+                    maxHeight: '500px',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#4f46e5 #f1f1f1',
+                    width: '100%',
+                    display: 'block',
+                    position: 'relative',
+                    maxWidth: '100%'
+                  }}
+                >
+                  <table className="min-w-full" style={{ minWidth: '1400px', tableLayout: 'auto', display: 'table' }}>
+                    <thead className="bg-gradient-to-r from-green-600 to-green-600 text-white sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[180px]">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            Patient Details
+                          </div>
+                        </th>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[180px]">
+                          Doctor
+                        </th>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
+                          Appointment Time
+                        </th>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
+                          Services
+                        </th>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[200px]">
+                          Complaint Note
+                        </th>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4" />
+                            Pending Amount
+                          </div>
+                        </th>
+                        <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4" />
+                            Advance Amount
+                          </div>
+                        </th>
+                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
   Status
 </th>
-                      <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[80px]">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {complaints.map((comp, index) => {
-                      const balance = patientBalances[comp.patientId] || { pendingAmount: 0, advanceAmount: 0 };
-                      const apptDetails = comp.appointment || {};
-                      const isEven = index % 2 === 0;
-                      
-                      return (
-                        <tr 
-                          key={comp._id} 
-                          className={`transition-all duration-200 ${isEven ? 'bg-white' : 'bg-green-50/30'} hover:bg-gradient-to-r from-green-50 to-green-50 cursor-default`}
-                        >
-                          <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                            <div className="text-sm">
-                              <div className="font-semibold text-green-900 text-base">{comp.patientName}</div>
-                              <div className="text-green-600 text-xs mt-1 flex items-center gap-2 flex-wrap">
-                                <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
-                                  EMR: {comp.emrNumber || "-"}
-                                </span>
-                                {comp.isInvoiced && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedBillings(comp.billings);
-                                      setBillingsModalOpen(true);
-                                    }}
-                                    className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium hover:bg-green-200 transition cursor-pointer"
-                                  >
-                                    INVOICED
-                                  </button>
+                        <th className="px-4 py-4 text-center text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[80px]">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {complaints.map((comp, index) => {
+                        const balance = patientBalances[comp.patientId] || { pendingAmount: 0, advanceAmount: 0 };
+                        const apptDetails = comp.appointment || {};
+                        const isEven = index % 2 === 0;
+                        
+                        return (
+                          <tr 
+                            key={comp._id} 
+                            className={`transition-all duration-200 ${isEven ? 'bg-white' : 'bg-green-50/30'} hover:bg-gradient-to-r from-green-50 to-green-50 cursor-default`}
+                          >
+                            <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                              <div className="text-sm">
+                                <div className="font-semibold text-green-900 text-base">{comp.patientName}</div>
+                                <div className="text-green-600 text-xs mt-1 flex items-center gap-2 flex-wrap">
+                                  <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
+                                    EMR: {comp.emrNumber || "-"}
+                                  </span>
+                                  {comp.isInvoiced && (
+                                    <button
+                                      onClick={() => {
+                                        setOpenActionMenu(null);
+                                        setActiveCard(null);
+                                        setSelectedBillings(comp.billings);
+                                        setBillingsModalOpen(true);
+                                      }}
+                                      className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium hover:bg-green-200 transition cursor-pointer"
+                                    >
+                                      INVOICED
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                              <div className="text-sm text-green-900 font-medium">{comp.doctorName}</div>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                              <div className="text-sm">
+                                <div className="text-green-900 flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-green-400" />
+                                  {apptDetails.startDate 
+                                    ? new Date(apptDetails.startDate).toLocaleDateString("en-GB", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric"
+                                      }) 
+                                    : comp.appointmentDate || "-"}
+                                </div>
+                                {apptDetails.fromTime && apptDetails.toTime && (
+                                  <div className="text-green-600 text-xs mt-1">
+                                    {apptDetails.fromTime} - {apptDetails.toTime}
+                                  </div>
                                 )}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                            <div className="text-sm text-green-900 font-medium">{comp.doctorName}</div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                            <div className="text-sm">
-                              <div className="text-green-900 flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-green-400" />
-                                {apptDetails.startDate 
-                                  ? new Date(apptDetails.startDate).toLocaleDateString("en-GB", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric"
-                                    }) 
-                                  : comp.appointmentDate || "-"}
+                            </td>
+                            <td className="px-4 py-4 border-b border-green-100">
+                              <div className="text-sm text-green-900 max-w-[200px]">
+                                {comp.services && comp.services.length > 0 
+                                  ? comp.services.slice(0, 2).join(", ") + (comp.services.length > 2 ? "..." : "") 
+                                  : "-"}
                               </div>
-                              {apptDetails.fromTime && apptDetails.toTime && (
-                                <div className="text-green-600 text-xs mt-1">
-                                  {apptDetails.fromTime} - {apptDetails.toTime}
+                            </td>
+                            <td className="px-4 py-4 border-b border-green-100">
+                              {comp.complaintNote && comp.complaintNote.length > 50 ? (
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenu(null);
+                                    setActiveCard(null);
+                                    setSelectedComplaintNote({
+                                      patientName: comp.patientName,
+                                      note: comp.complaintNote
+                                    });
+                                  }}
+                                  className="text-left text-sm text-green-700 hover:text-green-900 hover:underline font-medium max-w-[180px] truncate"
+                                >
+                                  {comp.complaintNote.substring(0, 50)}...
+                                </button>
+                              ) : (
+                                <div className="text-sm text-green-900 max-w-[180px]">
+                                  {comp.complaintNote || "-"}
                                 </div>
                               )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 border-b border-green-100">
-                            <div className="text-sm text-green-900 max-w-[200px]">
-                              {comp.services && comp.services.length > 0 
-                                ? comp.services.slice(0, 2).join(", ") + (comp.services.length > 2 ? "..." : "") 
-                                : "-"}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 border-b border-green-100">
-                            {comp.complaintNote && comp.complaintNote.length > 50 ? (
-                              <button
-                                onClick={() => setSelectedComplaintNote({
-                                  patientName: comp.patientName,
-                                  note: comp.complaintNote
-                                })}
-                                className="text-left text-sm text-green-700 hover:text-green-900 hover:underline font-medium max-w-[180px] truncate"
-                              >
-                                {comp.complaintNote.substring(0, 50)}...
-                              </button>
-                            ) : (
-                              <div className="text-sm text-green-900 max-w-[180px]">
-                                {comp.complaintNote || "-"}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                              <div className="text-sm font-semibold text-orange-600">
+                                {formatCurrency(balance.pendingAmount)}
                               </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                            <div className="text-sm font-semibold text-orange-600">
-                              {formatCurrency(balance.pendingAmount)}
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                            <div className="text-sm font-semibold text-green-600">
-                              {formatCurrency(balance.advanceAmount)}
-                            </div>
-                          </td>
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
+                              <div className="text-sm font-semibold text-green-600">
+                                {formatCurrency(balance.advanceAmount)}
+                              </div>
+                            </td>
 <td className="px-4 py-4 border-b border-green-100">
   <span
     className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
@@ -755,20 +729,23 @@ const APPOINTMENT_STATUS_OPTIONS = [
   </span>
 </td>
               <td className="px-4 py-4 whitespace-nowrap border-b border-green-100 text-center">
-                            <div className="relative inline-block">
-                              <button
-                                onClick={() => handleActionClick(comp._id)}
-                                className="p-2 text-green-600 hover:text-green-900 rounded-full hover:bg-green-100 transition-all duration-200"
-                              >
+                <div className="relative inline-block">
+                  <button
+                    onClick={() => {
+                      setActiveCard(null);
+                      handleActionClick(comp._id);
+                    }}
+                    className="p-2 text-green-600 hover:text-green-900 rounded-full hover:bg-green-100 transition-all duration-200"
+                  >
                                 <MoreVertical className="h-5 w-5" />
                               </button>
                               {openActionMenu === comp._id && (
                                 <>
                                   <div
-                                    className="fixed inset-0 z-40"
+                                    className="fixed inset-0 z-[9998]"
                                     onClick={() => setOpenActionMenu(null)}
                                   />
-                                  <div className="absolute right-0 top-full mt-2 z-50 bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                  <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
                                     <button
                                       onClick={() => handleBillingClick(comp.appointment)}
                                       className="w-full text-left px-4 py-3 text-sm text-green-900 hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
@@ -787,6 +764,143 @@ const APPOINTMENT_STATUS_OPTIONS = [
                   </tbody>
                 </table>
               </div>
+            </div>
+
+              {/* Mobile Card View */}
+              <div className="sm:hidden">
+                <div className="divide-y divide-green-100">
+                  {complaints.map((comp, index) => {
+                    const balance = patientBalances[comp.patientId] || { pendingAmount: 0, advanceAmount: 0 };
+                    const apptDetails = comp.appointment || {};
+                    const isEven = index % 2 === 0;
+                    return (
+                      <div 
+                        key={comp._id} 
+                        className={`p-4 ${isEven ? 'bg-white' : 'bg-green-50/30'} hover:bg-green-50 transition-all duration-200`}
+                      >
+                        {/* Patient Info */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-semibold text-green-900 text-base">{comp.patientName}</h3>
+                            <div className="text-green-600 text-xs mt-1 flex flex-wrap gap-2">
+                              <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                EMR: {comp.emrNumber || "-"}
+                              </span>
+                              {comp.isInvoiced && (
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenu(null);
+                                    setActiveCard(null);
+                                    setSelectedBillings(comp.billings);
+                                    setBillingsModalOpen(true);
+                                  }}
+                                  className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium text-xs"
+                                >
+                                  INVOICED
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                setActiveCard(null);
+                                handleActionClick(comp._id);
+                              }}
+                              className="p-2 text-green-600 hover:text-green-900 hover:bg-green-100 rounded-full transition-all duration-200"
+                            >
+                              <MoreVertical className="h-5 w-5" />
+                            </button>
+                            {openActionMenu === comp._id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-[9998]"
+                                  onClick={() => setOpenActionMenu(null)}
+                                />
+                                <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                  <button
+                                    onClick={() => handleBillingClick(comp.appointment)}
+                                    className="w-full text-left px-4 py-3 text-sm text-green-900 hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
+                                  >
+                                    <Receipt className="h-4 w-4" />
+                                    Billing
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Doctor and Time */}
+                        <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
+                          <div>
+                            <span className="text-green-700 font-semibold">Doctor:</span>
+                            <span className="text-green-900 ml-1">{comp.doctorName}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-green-900">
+                            <Clock className="h-3.5 w-3.5 text-green-400" />
+                            {apptDetails.startDate 
+                              ? new Date(apptDetails.startDate).toLocaleDateString("en-GB", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "numeric"
+                                }) 
+                              : comp.appointmentDate || "-"}
+                            {apptDetails.fromTime && apptDetails.toTime && (
+                              <span className="text-green-600 text-xs ml-1">
+                                @ {apptDetails.fromTime}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Amounts */}
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5">
+                            <div className="text-xs font-semibold text-orange-700">Pending</div>
+                            <div className="text-sm font-bold text-orange-600">{formatCurrency(balance.pendingAmount)}</div>
+                          </div>
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-2.5">
+                            <div className="text-xs font-semibold text-green-700">Advance</div>
+                            <div className="text-sm font-bold text-green-600">{formatCurrency(balance.advanceAmount)}</div>
+                          </div>
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+  comp?.appointment?.status?.toLowerCase() === "active"
+    ? "bg-green-100 text-green-700"
+    : comp?.appointment?.status?.toLowerCase() === "invoiced"
+    ? "bg-blue-100 text-blue-700"
+    : comp?.appointment?.status?.toLowerCase() === "pending"
+    ? "bg-yellow-100 text-yellow-700"
+    : comp?.appointment?.status?.toLowerCase() === "cancelled"
+    ? "bg-red-100 text-red-700"
+    : comp?.appointment?.status?.toLowerCase() === "completed"
+    ? "bg-emerald-100 text-emerald-700"
+    : "bg-gray-100 text-gray-700"
+}`}
+  >
+   {comp?.appointment?.status
+  ? comp.appointment.status.charAt(0).toUpperCase() +
+    comp.appointment.status.slice(1).toLowerCase()
+  : "-"}
+  </span>
+                          {comp.services && comp.services.length > 0 && (
+                            <div className="text-xs text-green-700 text-right">
+                              {comp.services.slice(0, 2).join(", ")}
+                              {comp.services.length > 2 && " +" + (comp.services.length - 2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
 
               {/* Pagination */}
               {totalPages > 1 && (
@@ -835,7 +949,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
 
       {/* Complaint Note Modal */}
       {selectedComplaintNote && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-gradient-to-r from-green-600 to-green-600 px-6 py-4 flex items-center justify-between">
               <div>
@@ -875,7 +989,7 @@ const APPOINTMENT_STATUS_OPTIONS = [
 
       {/* Billings Modal */}
       {billingsModalOpen && selectedBillings && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-4 flex items-center justify-between">
               <div>

@@ -85,11 +85,17 @@ export default async function handler(
         computedEnd = new Date(now);
         computedEnd.setHours(23, 59, 59, 999);
       } else if (filter === 'week') {
-        computedEnd = new Date(now);
-        computedEnd.setHours(23, 59, 59, 999);
-        computedStart = new Date(now);
-        computedStart.setDate(computedStart.getDate() - 6);
+        // Calculate Monday to Sunday week range
+        const base = new Date(now);
+        base.setHours(0, 0, 0, 0);
+        const dayOfWeek = base.getDay();
+        const diffToMonday = (dayOfWeek + 6) % 7;
+        computedStart = new Date(base);
+        computedStart.setDate(base.getDate() - diffToMonday);
         computedStart.setHours(0, 0, 0, 0);
+        computedEnd = new Date(computedStart);
+        computedEnd.setDate(computedStart.getDate() + 6);
+        computedEnd.setHours(23, 59, 59, 999);
       } else if (filter === 'month') {
         computedStart = new Date(now.getFullYear(), now.getMonth(), 1);
         computedStart.setHours(0, 0, 0, 0);
@@ -280,7 +286,7 @@ export default async function handler(
       }));
 
     // 4. Top Patients (VIP) - Based on billing revenue from Billing model (date-aware)
-    // Build a date filter that prefers invoicedDate but falls back to createdAt
+    // Build date filter using createdAt
     let billingDateFilter: any = {};
     if (date) {
       const selectedDate = new Date(date as string);
@@ -289,26 +295,17 @@ export default async function handler(
       const endOfDay = new Date(selectedDate);
       endOfDay.setHours(23, 59, 59, 999);
       billingDateFilter = {
-        $or: [
-          { invoicedDate: { $gte: startOfDay, $lte: endOfDay } },
-          { createdAt:    { $gte: startOfDay, $lte: endOfDay } },
-        ],
+        createdAt: { $gte: startOfDay, $lte: endOfDay },
       };
     } else if (startDate && endDate) {
       const s = new Date(startDate as string);
       const e = new Date(endDate as string);
       billingDateFilter = {
-        $or: [
-          { invoicedDate: { $gte: s, $lte: e } },
-          { createdAt:    { $gte: s, $lte: e } },
-        ],
+        createdAt: { $gte: s, $lte: e },
       };
     } else if (computedStart && computedEnd) {
       billingDateFilter = {
-        $or: [
-          { invoicedDate: { $gte: computedStart, $lte: computedEnd } },
-          { createdAt:    { $gte: computedStart, $lte: computedEnd } },
-        ],
+        createdAt: { $gte: computedStart, $lte: computedEnd },
       };
     }
 
@@ -322,6 +319,14 @@ export default async function handler(
       .lean();
 
     console.log('💰 Found', billings.length, 'billing records');
+    console.log('📅 Billing date filter applied:', billingDateFilter);
+    // Log first 5 billings for verification
+    if (billings.length > 0) {
+      console.log('📄 Sample billings:');
+      billings.slice(0, 5).forEach(b => 
+        console.log('-', b.invoiceNumber, '|', (b.invoicedDate || b.createdAt), '| Paid:', b.paid)
+      );
+    }
 
     // Group billings by patient and calculate total revenue and count
     const patientBillingStats = new Map();
@@ -345,16 +350,11 @@ export default async function handler(
       // Increment billing count
       patientBillingStats.get(patientKey).billingCount++;
       
-      // Add revenue - prefer invoice 'paid' field, fallback to paymentHistory sum
-      const paidFromInvoice = Number(billing.paid || 0);
-      let paidFromHistory = 0;
-      if (Array.isArray(billing.paymentHistory)) {
-        paidFromHistory = billing.paymentHistory.reduce(
-          (sum: number, payment: any) => sum + Number(payment.paid || payment.amount || 0),
-          0
-        );
-      }
-      patientBillingStats.get(patientKey).totalRevenue += paidFromInvoice || paidFromHistory;
+      // Add revenue - use 'paid' field from billing (matches billing history API)
+      const revenue = Number(billing.paid || 0);
+      patientBillingStats.get(patientKey).totalRevenue += revenue;
+      
+      console.log('💰 Billing:', billing.invoiceNumber, 'Paid:', revenue, 'Patient:', patientBillingStats.get(patientKey).name);
       
       // Update last billing date if this is more recent
       const billingDate = new Date(billing.invoicedDate || billing.createdAt);
@@ -364,12 +364,14 @@ export default async function handler(
     });
 
     console.log('📊 Patient billing stats size:', patientBillingStats.size);
+    const eligiblePatients = Array.from(patientBillingStats.values()).filter(p => p.totalRevenue > 0);
+    console.log('✅ Eligible patients (revenue > 0):', eligiblePatients.length);
 
-    // Convert map to array and sort by billing count and revenue
+    // Convert map to array, filter only those with revenue > 0, sort by revenue descending (top 10)
     let topPatientsArray = Array.from(patientBillingStats.values())
+      .filter(patient => patient.totalRevenue > 0)
       .sort((a, b) => {
-        // Sort by billing count first, then by total revenue
-        if (b.billingCount !== a.billingCount) return b.billingCount - a.billingCount;
+        // Sort by total revenue descending only
         return b.totalRevenue - a.totalRevenue;
       })
       .slice(0, 10); // Get top 10 patients

@@ -124,11 +124,14 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
         <input
           type="tel"
           value={localNumber}
-          onChange={e => onPhoneChange(e.target.value)}
-          maxLength={15}
+          onChange={e => {
+            const sanitized = e.target.value.replace(/[^\d]/g, "").slice(0, 10);
+            onPhoneChange(sanitized);
+          }}
+          maxLength={10}
           inputMode="numeric"
           className="flex-1 px-2 py-1 text-[10px] focus:outline-none"
-          placeholder="Enter mobile number"
+          placeholder="Enter 10-digit number"
         />
       </div>
       {open && (
@@ -442,10 +445,23 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
 
   const validateForm = useCallback(() => {
     const newErrors = {};
-    const { emrNumber, firstName, lastName, email, mobileNumber, gender, patientType, referredBy } = formData;
+    const { emrNumber, firstName, lastName, email, mobileNumber, countryCode, gender, patientType, referredBy } = formData;
     
     if (!emrNumber.trim()) newErrors.emrNumber = "Required";
     else if (usedEMRNumbers.has(emrNumber)) newErrors.emrNumber = "Already exists";
+
+    // Validate mobile number is exactly 10 digits (without country code)
+    if (mobileNumber) {
+      let localNum = mobileNumber;
+      if (localNum.startsWith(countryCode)) {
+        localNum = localNum.slice(countryCode.length);
+      } else {
+        localNum = localNum.replace(/^\+\d+/, '');
+      }
+      if (!/^\d{10}$/.test(localNum)) {
+        newErrors.mobileNumber = "Mobile number must be exactly 10 digits";
+      }
+    }
 
     if (isSpecificClinic) {
       // Make most fields mandatory for specific clinic except email
@@ -720,7 +736,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                           });
                         }}
                         onPhoneChange={(val) => {
-                          const sanitized = val.replace(/[^\d]/g, "").slice(0, 15);
+                          const sanitized = val.replace(/[^\d]/g, "").slice(0, 10);
                           const fullNumber = formData.countryCode + sanitized;
                           setFormData(prev => ({ ...prev, mobileNumber: fullNumber }));
                           if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: "" }));

@@ -14,6 +14,10 @@ interface SubModule {
     read: boolean;
     update: boolean;
     delete: boolean;
+    import?: boolean;
+    export?: boolean;
+    print?: boolean;
+    approve?: boolean;
   };
 }
 
@@ -29,6 +33,7 @@ interface ModulePermission {
     print?: boolean;
     export?: boolean;
     approve?: boolean;
+    import?: boolean;
   };
 }
 
