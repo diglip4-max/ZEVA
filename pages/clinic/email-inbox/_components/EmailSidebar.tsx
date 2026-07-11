@@ -33,6 +33,7 @@ interface EmailSidebarProps {
   unreadCountFor: (f: EmailFolderKey) => number;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  canCreate?: boolean;
 }
 
 export default function EmailSidebar({
@@ -42,6 +43,7 @@ export default function EmailSidebar({
   unreadCountFor,
   collapsed,
   onToggleCollapse,
+  canCreate = true,
 }: EmailSidebarProps) {
   return (
     <aside className={`pi-sidebar ${collapsed ? "pi-collapsed" : ""}`}>
@@ -52,10 +54,16 @@ export default function EmailSidebar({
         {!collapsed && <div className="pi-logo-text">Inbox</div>}
       </div>
 
-      <button className="pi-compose-launch" onClick={onCompose} title="Compose">
-        <Plus size={16} strokeWidth={2.2} />
-        {!collapsed && <span>Compose</span>}
-      </button>
+      {canCreate && (
+        <button
+          className="pi-compose-launch"
+          onClick={onCompose}
+          title="Compose"
+        >
+          <Plus size={16} strokeWidth={2.2} />
+          {!collapsed && <span>Compose</span>}
+        </button>
+      )}
 
       <nav className="pi-nav">
         {EMAIL_FOLDERS.map((f) => (
