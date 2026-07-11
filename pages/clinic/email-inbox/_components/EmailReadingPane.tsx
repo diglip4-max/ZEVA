@@ -42,6 +42,12 @@ interface EmailReadingPaneProps {
   onAddTag: () => void;
   onRemoveTag: (tag: string) => void;
   leadId: string;
+
+  // Permissions
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+  canAssign?: boolean;
 }
 
 function EmailReadingSkeleton() {
@@ -108,6 +114,10 @@ export default function EmailReadingPane({
   onAddTag,
   onRemoveTag,
   leadId,
+  canCreate = true,
+  canUpdate = true,
+  canDelete = true,
+  canAssign = true,
 }: EmailReadingPaneProps) {
   // Track which messages are expanded
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
@@ -161,15 +171,17 @@ export default function EmailReadingPane({
       <div className="pi-reading-toolbar">
         {!archived && !trashed && (
           <>
-            <button
-              className="pi-icon-btn"
-              onClick={() => onArchive(message._id)}
-              aria-label="Archivearchive"
-              disabled={!message || loading}
-              title="Move to Archive"
-            >
-              <Archive size={17} />
-            </button>
+            {canUpdate && (
+              <button
+                className="pi-icon-btn"
+                onClick={() => onArchive(message._id)}
+                aria-label="Archivearchive"
+                disabled={!message || loading}
+                title="Move to Archive"
+              >
+                <Archive size={17} />
+              </button>
+            )}
             <button
               className={`pi-icon-btn ${starred ? "gold-active" : ""}`}
               onClick={() => onToggleStar(message._id)}
@@ -181,7 +193,7 @@ export default function EmailReadingPane({
             </button>
           </>
         )}
-        {archived && (
+        {archived && canUpdate && (
           <button
             className="pi-icon-btn"
             onClick={() => onRestoreFromArchive(message._id)}
@@ -192,7 +204,7 @@ export default function EmailReadingPane({
             <ArchiveRestore size={17} />
           </button>
         )}
-        {!trashed && (
+        {!trashed && canUpdate && (
           <button
             className="pi-icon-btn danger"
             onClick={() => onTrash(message._id)}
@@ -205,31 +217,35 @@ export default function EmailReadingPane({
         )}
         {trashed && (
           <>
-            <button
-              className="pi-icon-btn"
-              onClick={() => onRestoreFromTrash(message._id)}
-              aria-label="Restore"
-              disabled={!message || loading}
-              title="Restore from Trash"
-            >
-              <Undo2 size={17} />
-            </button>
-            <button
-              className="pi-icon-btn danger"
-              onClick={() => onDelete(message._id)}
-              aria-label="Delete"
-              disabled={!message || loading}
-              title="Delete"
-            >
-              <Trash2 size={17} />
-            </button>
+            {canUpdate && (
+              <button
+                className="pi-icon-btn"
+                onClick={() => onRestoreFromTrash(message._id)}
+                aria-label="Restore"
+                disabled={!message || loading}
+                title="Restore from Trash"
+              >
+                <Undo2 size={17} />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                className="pi-icon-btn danger"
+                onClick={() => onDelete(message._id)}
+                aria-label="Delete"
+                disabled={!message || loading}
+                title="Delete"
+              >
+                <Trash2 size={17} />
+              </button>
+            )}
           </>
         )}
 
         <div className="pi-toolbar-spacer" />
 
         {/* Add tag button stays in toolbar */}
-        {message && leadId && (
+        {message && leadId && canUpdate && (
           <button
             onClick={onAddTag}
             style={{
@@ -256,7 +272,7 @@ export default function EmailReadingPane({
           </button>
         )}
 
-        {message && (
+        {message && canAssign && (
           <AssignConversation
             agents={agents}
             selectedAgent={selectedAgent}
@@ -288,15 +304,17 @@ export default function EmailReadingPane({
                     className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium border ${getTagColor(tag)}`}
                   >
                     {tag}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveTag(tag);
-                      }}
-                      className="ml-2 hover:opacity-70"
-                    >
-                      <X size={12} />
-                    </button>
+                    {canUpdate && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveTag(tag);
+                        }}
+                        className="ml-2 hover:opacity-70"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -321,7 +339,7 @@ export default function EmailReadingPane({
               ))
             )}
 
-            {message && (
+            {message && canCreate && (
               <div className="pi-reading-actions">
                 <button
                   className="pi-reply-btn"
