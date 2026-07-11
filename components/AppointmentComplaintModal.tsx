@@ -2013,6 +2013,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       return;
     }
     setPkgSubmitting(true);
+    if (addToPatient) {
+      setAddingPackageToPatient(true);
+    }
     try {
       const headers = getAuthHeaders();
       const res = await axios.post(
@@ -2031,7 +2034,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         const newPkgId = res.data.package?._id || res.data.packageId || null;
         const createdPkgData = res.data.package || null;
         if (addToPatient && newPkgId && details?.patientId) {
-          setAddingPackageToPatient(true);
           try {
             await axios.post(
               "/api/clinic/assign-package-to-patient",
@@ -2089,8 +2091,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               ...createdPkgData,
               treatments: pkgSelectedTreatments,
             });
-          } finally {
-            setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
@@ -2113,6 +2113,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setPkgError(err.response?.data?.message || "Failed to create package");
     } finally {
       setPkgSubmitting(false);
+      setAddingPackageToPatient(false);
     }
   };
 
@@ -4757,7 +4758,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 }
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Package size={14} />
+                                {pkgSubmitting ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Package size={14} />
+                                )}
                                 {pkgSubmitting
                                   ? "Creating..."
                                   : "Create Package"}
@@ -4770,9 +4775,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 }
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Plus size={14} />
-                                {addingPackageToPatient
-                                  ? "Adding..."
+                                {(pkgSubmitting || addingPackageToPatient) ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Plus size={14} />
+                                )}
+                                {(pkgSubmitting || addingPackageToPatient)
+                                  ? "Processing..."
                                   : "Create & Add to Patient"}
                               </button>
                             </div>

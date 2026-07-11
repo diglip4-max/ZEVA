@@ -4,6 +4,8 @@ import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
 import Billing from "../../../models/Billing";
+import Appointment from "../../../models/Appointment";
+import Service from "../../../models/Service";
 import { getUserFromReq } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -102,6 +104,35 @@ export default async function handler(req, res) {
         query.doctorId = doctorId;
       }
 
+      // Handle status filter
+      if (status) {
+        // Find all appointments that match the status (case-insensitive)
+        const matchingAppointments = await Appointment.find(
+          { 
+            clinicId, 
+            status: { $regex: new RegExp(`^${status}$`, 'i') } 
+          },
+          { _id: 1 }
+        ).lean();
+        
+        // Extract the appointment IDs
+        const matchingAppointmentIds = matchingAppointments.map(appt => appt._id);
+        
+        // If no matching appointments, return empty result
+        if (matchingAppointmentIds.length === 0) {
+          return res.status(200).json({
+            success: true,
+            complaints: [],
+            total: 0,
+            page: parseInt(page),
+            totalPages: 0,
+          });
+        }
+        
+        // Add to our query
+        query.appointmentId = { $in: matchingAppointmentIds };
+      }
+
       let patientQuery = {};
       let matchingPatientIds = [];
 
@@ -181,8 +212,27 @@ export default async function handler(req, res) {
       }
 
       // First, get all unique patient IDs and appointment IDs
-      const patientIds = [...new Set(complaints.map(c => String(c.patientId._id || c.patientId)).filter(Boolean))];
-      const appointmentIds = [...new Set(complaints.map(c => String(c.appointmentId._id || c.appointmentId)).filter(Boolean))];
+      const patientIds = [...new Set(complaints.map(c => {
+        if (c.patientId) {
+          if (typeof c.patientId === 'object' && c.patientId._id) {
+            return String(c.patientId._id);
+          } else {
+            return String(c.patientId);
+          }
+        }
+        return null;
+      }).filter(Boolean))];
+      
+      const appointmentIds = [...new Set(complaints.map(c => {
+        if (c.appointmentId) {
+          if (typeof c.appointmentId === 'object' && c.appointmentId._id) {
+            return String(c.appointmentId._id);
+          } else {
+            return String(c.appointmentId);
+          }
+        }
+        return null;
+      }).filter(Boolean))];
 
       // Now fetch all the billings in one query!
       let allBillings = [];
@@ -249,9 +299,9 @@ export default async function handler(req, res) {
       const formatted = [];
 
       for (const comp of complaints) {
-        const patient = comp.patientId || {};
-        const doctor = comp.doctorId || {};
-        const appointment = comp.appointmentId || {};
+        const patient = (typeof comp.patientId === 'object' && comp.patientId) ? comp.patientId : {};
+        const doctor = (typeof comp.doctorId === 'object' && comp.doctorId) ? comp.doctorId : {};
+        const appointment = (typeof comp.appointmentId === 'object' && comp.appointmentId) ? comp.appointmentId : {};
 
         const serviceNames = (() => {
           const names = new Set();

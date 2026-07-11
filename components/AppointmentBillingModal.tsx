@@ -5031,7 +5031,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-0 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
         <div
           className="bg-white rounded-none sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[96vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
           style={{ minHeight: "600px" }}

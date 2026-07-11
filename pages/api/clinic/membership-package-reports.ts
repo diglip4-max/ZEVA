@@ -447,7 +447,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // NEW: Generate month-wise package revenue data (last 6 months, like membership revenue)
-      // Query Billing model where service is Package
+      // Only use Billing records where service is Package
       if (timeRange === 'today') {
         // Today
         const dayDate = new Date(startDate);

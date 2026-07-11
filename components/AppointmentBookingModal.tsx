@@ -10,7 +10,6 @@ import {
   Calendar,
   Building2,
   AlertCircle,
-  ChevronDown,
   Check,
 } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
@@ -41,10 +40,17 @@ interface Patient {
   firstName: string;
   lastName: string;
   fullName: string;
+  countryCode?: string;
   mobileNumber: string;
   email: string;
   emrNumber: string;
   gender: string;
+}
+
+interface CountryCode {
+  code: string;
+  name: string;
+  flag: string;
 }
 
 interface AddPatientForm {
@@ -53,10 +59,159 @@ interface AddPatientForm {
   lastName: string;
   gender: string;
   email: string;
+  countryCode: string;
   mobileNumber: string;
   referredBy: string;
   patientType: string;
 }
+
+const COUNTRY_CODES: CountryCode[] = [
+  { code: "+1", name: "United States", flag: "🇺🇸" },
+  { code: "+1", name: "Canada", flag: "🇨🇦" },
+  { code: "+7", name: "Russia", flag: "🇷🇺" },
+  { code: "+7", name: "Kazakhstan", flag: "🇰🇿" },
+  { code: "+20", name: "Egypt", flag: "🇪🇬" },
+  { code: "+27", name: "South Africa", flag: "🇿🇦" },
+  { code: "+30", name: "Greece", flag: "🇬🇷" },
+  { code: "+31", name: "Netherlands", flag: "🇳🇱" },
+  { code: "+32", name: "Belgium", flag: "🇧🇪" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+40", name: "Romania", flag: "🇷🇴" },
+  { code: "+41", name: "Switzerland", flag: "🇨🇭" },
+  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+45", name: "Denmark", flag: "🇩🇰" },
+  { code: "+46", name: "Sweden", flag: "🇸🇪" },
+  { code: "+47", name: "Norway", flag: "🇳🇴" },
+  { code: "+48", name: "Poland", flag: "🇵🇱" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+52", name: "Mexico", flag: "🇲🇽" },
+  { code: "+55", name: "Brazil", flag: "🇧🇷" },
+  { code: "+60", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+61", name: "Australia", flag: "🇦🇺" },
+  { code: "+62", name: "Indonesia", flag: "🇮🇩" },
+  { code: "+63", name: "Philippines", flag: "🇵🇭" },
+  { code: "+64", name: "New Zealand", flag: "🇳🇿" },
+  { code: "+65", name: "Singapore", flag: "🇸🇬" },
+  { code: "+66", name: "Thailand", flag: "🇹🇭" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+82", name: "South Korea", flag: "🇰🇷" },
+  { code: "+84", name: "Vietnam", flag: "🇻🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+90", name: "Turkey", flag: "🇹🇷" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+93", name: "Afghanistan", flag: "🇦🇫" },
+  { code: "+94", name: "Sri Lanka", flag: "🇱🇰" },
+  { code: "+95", name: "Myanmar", flag: "🇲🇲" },
+  { code: "+98", name: "Iran", flag: "🇮🇷" },
+  { code: "+971", name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "+972", name: "Israel", flag: "🇮🇱" },
+  { code: "+973", name: "Bahrain", flag: "🇧🇭" },
+  { code: "+974", name: "Qatar", flag: "🇶🇦" },
+  { code: "+975", name: "Bhutan", flag: "🇧🇹" },
+  { code: "+976", name: "Mongolia", flag: "🇲🇳" },
+  { code: "+977", name: "Nepal", flag: "🇳🇵" },
+  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+994", name: "Azerbaijan", flag: "🇦🇿" },
+  { code: "+996", name: "Kyrgyzstan", flag: "🇰🇬" },
+];
+
+// Country + Phone input with searchable dropdown
+interface CountryPhoneInputProps {
+  countryCode: string;
+  phone: string;
+  onCountryChange: (code: string) => void;
+  onPhoneChange: (phone: string) => void;
+}
+
+const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange }: CountryPhoneInputProps) => {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const options = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COUNTRY_CODES;
+    return COUNTRY_CODES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.code.replace("+", "").includes(q)
+    );
+  }, [query]);
+  const selected = React.useMemo(() => COUNTRY_CODES.find((c) => c.code === countryCode) || COUNTRY_CODES.find((c) => c.code === "+91"), [countryCode]);
+  
+  // Extract local number (without country code) for display
+  const localNumber = React.useMemo(() => {
+    if (!phone) return '';
+    if (phone.startsWith(countryCode)) {
+      return phone.slice(countryCode.length);
+    }
+    // If it doesn't start with country code, return as is
+    return phone.replace(/^\+\d+/, '');
+  }, [phone, countryCode]);
+  
+  return (
+    <div className="relative w-full">
+      <div className={`flex items-center border border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-teal-600`}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className="flex items-center gap-2 px-2 py-1 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className="text-lg leading-none">{selected?.flag || "🏳️"}</span>
+          <span className="text-[10px] text-gray-800">{selected?.code || "+91"}</span>
+          <svg className="w-3 h-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"/></svg>
+        </button>
+        <input
+  type="tel"
+  value={localNumber}
+  onChange={(e) => {
+    const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    onPhoneChange(value);
+  }}
+  maxLength={10}
+  inputMode="numeric"
+  pattern="[0-9]{10}"
+  className="flex-1 px-2 py-1 text-[7px] focus:outline-none"
+  placeholder="Enter 10-digit number"
+/>
+      </div>
+      {open && (
+        <div className="absolute z-[10000] mt-1 w-full max-h-56 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search country or code"
+              className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-600"
+              autoFocus
+            />
+          </div>
+          <ul role="listbox">
+            {options.map((c, idx) => (
+              <li
+                key={`${c.code}-${c.name}-${idx}`}
+                role="option"
+                onClick={() => {
+                  onCountryChange(c.code);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-50 ${c.code === selected?.code ? 'bg-teal-50' : ''}`}
+              >
+                <span className="text-lg leading-none">{c.flag}</span>
+                <span className="text-[11px] text-gray-800 flex-1">{c.name}</span>
+                <span className="text-[11px] text-gray-600">{c.code}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface DoctorDepartment {
   _id: string;
@@ -132,6 +287,7 @@ export default function AppointmentBookingModal({
     lastName: "",
     gender: "",
     email: "",
+    countryCode: "+91",
     mobileNumber: "",
     referredBy: "",
     patientType: "New",
@@ -399,6 +555,17 @@ export default function AppointmentBookingModal({
       setError("Please fill all required fields: First Name and Mobile Number");
       return;
     }
+    // Extract local number without country code to check length
+    let localNum = addPatientForm.mobileNumber;
+    if (localNum.startsWith(addPatientForm.countryCode)) {
+      localNum = localNum.slice(addPatientForm.countryCode.length);
+    } else {
+      localNum = localNum.replace(/^\+\d+/, '');
+    }
+    if (localNum.length !== 10) {
+      setError("Mobile Number must be exactly 10 digits");
+      return;
+    }
 
     try {
       setAddingPatient(true);
@@ -417,6 +584,7 @@ export default function AppointmentBookingModal({
           lastName: "",
           gender: "",
           email: "",
+          countryCode: "+91",
           mobileNumber: "",
           referredBy: "",
           patientType: "New",
@@ -817,6 +985,17 @@ export default function AppointmentBookingModal({
     setFieldErrors({});
     setServicesSearch("");
     setIsServicesOpen(false);
+    setAddPatientForm({
+      emrNumber: "",
+      firstName: "",
+      lastName: "",
+      gender: "",
+      email: "",
+      countryCode: "+91",
+      mobileNumber: "",
+      referredBy: "",
+      patientType: "New",
+    });
   };
 
   // Wrap onClose to reset form when modal closes
@@ -1144,7 +1323,7 @@ export default function AppointmentBookingModal({
                     </span>
                   )}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isServicesOpen ? "rotate-180" : ""}`} />
+                {/* <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isServicesOpen ? "rotate-180" : ""}`} /> */}
               </div>
 
               {isServicesOpen && (
@@ -1490,17 +1669,26 @@ export default function AppointmentBookingModal({
                     <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                       Mobile Number <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="tel"
-                      value={addPatientForm.mobileNumber}
-                      onChange={(e) =>
-                        setAddPatientForm({
-                          ...addPatientForm,
-                          mobileNumber: e.target.value,
-                        })
-                      }
-                      className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                      required
+                    <CountryPhoneInput
+                      countryCode={addPatientForm.countryCode}
+                      phone={addPatientForm.mobileNumber}
+                      onCountryChange={(newCode) => {
+                        setAddPatientForm((prev) => {
+                          let localNum = prev.mobileNumber;
+                          if (localNum.startsWith(prev.countryCode)) {
+                            localNum = localNum.slice(prev.countryCode.length);
+                          } else {
+                            localNum = localNum.replace(/^\+\d+/, '');
+                          }
+                          const newMobile = newCode + localNum;
+                          return { ...prev, countryCode: newCode, mobileNumber: newMobile };
+                        });
+                      }}
+                      onPhoneChange={(val) => {
+                        const sanitized = val.replace(/[^\d]/g, "").slice(0, 15);
+                        const fullNumber = addPatientForm.countryCode + sanitized;
+                        setAddPatientForm((prev) => ({ ...prev, mobileNumber: fullNumber }));
+                      }}
                     />
                   </div>
                   <div>
