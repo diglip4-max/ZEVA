@@ -2268,7 +2268,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               statLabel = "Total Enquiries";
               hasData = (dashboardStatsData?.totalEnquiries || 0) > 0;
               break;
-            default:
+                 default:
               // For other modules, try to get from dashboardStatsData if available
               const moduleKeyLower = item.moduleKey.toLowerCase();
               if (moduleKeyLower.includes("enquiry")) {
