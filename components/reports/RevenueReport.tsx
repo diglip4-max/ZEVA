@@ -817,7 +817,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedDoctor.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => {
+                  {[...selectedDoctor.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     return (
                       <tr key={index}>
                         <td className="px-4 py-2 text-sm">
@@ -974,7 +974,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedService.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => {
+                  {[...selectedService.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     const revenue = Number(detail.paid || 0);
                     return (
                     <tr key={index}>
@@ -1118,7 +1118,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedPackage.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => {
+                  {[...selectedPackage.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     const revenue = Number(detail.paid || 0);
                     return (
                     <tr key={index}>

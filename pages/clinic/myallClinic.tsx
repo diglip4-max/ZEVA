@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ReactElement, useMemo } from "react";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import axios from "axios";
 import {
   Building2,

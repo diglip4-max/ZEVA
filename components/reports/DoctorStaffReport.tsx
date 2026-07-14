@@ -476,7 +476,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedPackageStaff.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                  {[...selectedPackageStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
                         <button
@@ -554,7 +554,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedRevenueStaff.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                  {[...selectedRevenueStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
                         <button
@@ -644,7 +644,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedMembershipStaff.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                  {[...selectedMembershipStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
                         <button
@@ -863,7 +863,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedDoctorStaffCommission.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                  {[...selectedDoctorStaffCommission.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
                         <button
@@ -927,7 +927,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {[...selectedAgentCommission.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                  {[...selectedAgentCommission.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
                         <button
