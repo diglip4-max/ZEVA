@@ -7,6 +7,7 @@ import Clinic from '../../../models/Clinic';
 import { getUserFromReq } from '../lead-ms/auth';
 import { getClinicIdFromUser } from '../lead-ms/permissions-helper';
 import { isNewClinicInMockPeriod, generateMockPatientDemographics } from '../../../lib/mockDataGenerator';
+import dayjs from 'dayjs';
 
 export default async function handler(
   req: NextApiRequest,
@@ -21,7 +22,7 @@ export default async function handler(
   try {
     // Get authenticated user
     const authUser = await getUserFromReq(req);
-    
+
     if (!authUser) {
       console.error('❌ No authenticated user found');
       return res.status(401).json({ success: false, message: 'Unauthorized - Please log in' });
@@ -34,7 +35,7 @@ export default async function handler(
     const result: any = await getClinicIdFromUser(authUser);
     const clinicId = result['clinicId'];
     const error = result['error'];
-    
+
     if (error) {
       console.error('❌ Error getting clinic ID:', error);
       return res.status(404).json({ success: false, message: error });
@@ -54,11 +55,11 @@ export default async function handler(
     if (clinic && isNewClinicInMockPeriod(clinic.registeredAt)) {
       // Check if they have any real patient data
       const patientCount = await PatientRegistration.countDocuments({ clinicId });
-      
+
       if (patientCount === 0) {
         console.log('📊 Returning mock patient reports for new clinic:', clinic._id);
         const mockData = generateMockPatientDemographics();
-        
+
         return res.status(200).json({
           success: true,
           data: mockData,
@@ -105,19 +106,20 @@ export default async function handler(
       }
     }
     if (date) {
-      const selectedDate = new Date(date as string);
-      const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
+      const startOfDay = dayjs(date as string).startOf('day').toDate();
+      const endOfDay = dayjs(date as string).endOf('day').toDate();
       dateFilter = { createdAt: { $gte: startOfDay, $lte: endOfDay } };
       console.log('📅 Using single date filter:', startOfDay.toISOString(), 'to', endOfDay.toISOString());
     } else if (startDate && endDate) {
+      const start = dayjs(startDate as string).startOf('day').toDate();
+      const end = dayjs(endDate as string).endOf('day').toDate();
       dateFilter = {
         createdAt: {
-          $gte: new Date(startDate as string),
-          $lte: new Date(endDate as string),
+          $gte: start,
+          $lte: end,
         },
       };
-      console.log('📅 Using date range filter:', new Date(startDate as string).toISOString(), 'to', new Date(endDate as string).toISOString());
+      console.log('📅 Using date range filter:', start.toISOString(), 'to', end.toISOString());
     } else if (computedStart && computedEnd) {
       dateFilter = {
         createdAt: { $gte: computedStart, $lte: computedEnd }
@@ -131,18 +133,44 @@ export default async function handler(
 
     console.log('📅 Final dateFilter:', Object.keys(dateFilter).length > 0 ? dateFilter : 'NONE (showing all data)');
 
-    // Fetch all patients for the clinic within the date range
+    // Build billingDateFilter for billings
+    let billingDateFilter: any = {};
+    if (date) {
+      const startOfDay = dayjs(date as string).startOf('day').toDate();
+      const endOfDay = dayjs(date as string).endOf('day').toDate();
+      billingDateFilter = { createdAt: { $gte: startOfDay, $lte: endOfDay } };
+    } else if (startDate && endDate) {
+      const s = dayjs(startDate as string).startOf('day').toDate();
+      const e = dayjs(endDate as string).endOf('day').toDate();
+      billingDateFilter = { createdAt: { $gte: s, $lte: e } };
+    } else if (computedStart && computedEnd) {
+      billingDateFilter = { createdAt: { $gte: computedStart, $lte: computedEnd } };
+    }
+
+    // Fetch appointments for this period
+    const appointments = await Appointment.find({ clinicId, ...dateFilter }).select('patientId').lean();
+
+    // Fetch billings for this period
+    const billings = await Billing.find({
+      clinicId,
+      ...(Object.keys(billingDateFilter).length ? billingDateFilter : {}),
+      // Exclude advance/past-advance adjustment rows from "billings" count
+      invoiceNumber: { $not: /^(PAST-ADV|ADV-)/ },
+    }).populate('patientId', 'firstName lastName mobileNumber').lean();
+
+    // Get unique active patient IDs from both appointments and billings
+    const activePatientIds = new Set([
+      ...appointments.map((a: any) => a.patientId?.toString()).filter(Boolean),
+      ...billings.map((b: any) => b.patientId?._id?.toString()).filter(Boolean)
+    ]);
+
+    // Fetch gender data for these active patients
     const patients = await PatientRegistration.find({
       clinicId,
-      ...dateFilter,
-    }).lean();
+      _id: { $in: Array.from(activePatientIds) }
+    }).select('gender').lean();
 
-    console.log('✅ Found', patients.length, 'patients in date range');
-    if (patients.length > 0) {
-      const firstPatientDate = patients[0].createdAt;
-      const lastPatientDate = patients[patients.length - 1].createdAt;
-      console.log('📊 Patient date range:', firstPatientDate, 'to', lastPatientDate);
-    }
+    console.log('✅ Found', patients.length, 'active patients in date range for gender distribution');
 
     // 1. New vs Old Patients - Based on patientType field from PatientRegistration
     // Filter data based on the selected time range from "Select Calendar"
@@ -157,11 +185,11 @@ export default async function handler(
 
     console.log('📊 Found', patientHistory.length, 'patients for New vs Old analysis');
     console.log('📋 Sample patients:', JSON.stringify(patientHistory.slice(0, 5), null, 2));
-    
+
     // Count total new and old patients
     const totalNewPatients = patientHistory.filter(p => p.patientType === 'New').length;
     const totalOldPatients = patientHistory.filter(p => p.patientType === 'Old').length;
-    
+
     console.log('📈 Total New Patients:', totalNewPatients);
     console.log('📈 Total Old Patients:', totalOldPatients);
 
@@ -171,15 +199,15 @@ export default async function handler(
       const patientDate = new Date(patient.createdAt);
       const monthKey = `${patientDate.getFullYear()}-${String(patientDate.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = patientDate.toLocaleString('default', { month: 'short', year: '2-digit' });
-      
+
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { 
-          month: monthLabel, 
-          newPatients: 0, 
-          returningPatients: 0 
+        monthlyData[monthKey] = {
+          month: monthLabel,
+          newPatients: 0,
+          returningPatients: 0
         };
       }
-      
+
       // Count based on patientType: "New" or "Old"
       if (patient.patientType === 'New') {
         monthlyData[monthKey].newPatients++;
@@ -189,16 +217,16 @@ export default async function handler(
     });
 
     console.log('📊 Monthly data breakdown:', JSON.stringify(monthlyData, null, 2));
-    
+
     const newVsReturning = Object.values(monthlyData);
     console.log('📈 Final New vs Returning data:', newVsReturning);
 
     // 2. Gender Distribution - Using gender field from PatientRegistration
     console.log('👥 Fetching gender data from PatientRegistration...');
-    
+
     // Count all gender values from the patients
     const genderCounts: any = {};
-    
+
     patients.forEach((patient: any) => {
       const gender = patient.gender;
       // Only count valid genders (Male, Female, Other), skip Unknown/null/undefined
@@ -209,14 +237,14 @@ export default async function handler(
         genderCounts[gender]++;
       }
     });
-    
+
     console.log('👥 Raw gender counts:', genderCounts);
     console.log('📋 Sample patient genders:', patients.slice(0, 10).map((p: any) => p.gender));
-    
+
     const totalPatientsWithGender = Object.values(genderCounts).reduce((sum: number, count) => sum + (count as number), 0);
-    
+
     console.log('👥 Total patients with valid gender data:', totalPatientsWithGender);
-    
+
     // Only include Male, Female, Other that have data
     const genderDistribution = Object.entries(genderCounts)
       .filter(([_, count]) => (count as number) > 0)
@@ -230,18 +258,11 @@ export default async function handler(
     console.log('📊 Final Gender distribution:', genderDistribution);
 
     // 3. Patient Visit Frequency - Based on number of appointments per patient
-    const appointments = await Appointment.find({
-      clinicId,
-      ...dateFilter,
-    })
-      .select('patientId')
-      .lean();
-
     console.log('💼 Found', appointments.length, 'appointments');
 
     // Count appointments per patient
     const patientVisitCounts = new Map<string, number>();
-    
+
     appointments.forEach((appointment: any) => {
       const patientKey = appointment.patientId.toString();
       if (!patientVisitCounts.has(patientKey)) {
@@ -286,56 +307,24 @@ export default async function handler(
       }));
 
     // 4. Top Patients (VIP) - Based on billing revenue from Billing model (date-aware)
-    // Build date filter using createdAt
-    let billingDateFilter: any = {};
-    if (date) {
-      const selectedDate = new Date(date as string);
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      billingDateFilter = {
-        createdAt: { $gte: startOfDay, $lte: endOfDay },
-      };
-    } else if (startDate && endDate) {
-      const s = new Date(startDate as string);
-      const e = new Date(endDate as string);
-      billingDateFilter = {
-        createdAt: { $gte: s, $lte: e },
-      };
-    } else if (computedStart && computedEnd) {
-      billingDateFilter = {
-        createdAt: { $gte: computedStart, $lte: computedEnd },
-      };
-    }
-
-    const billings = await Billing.find({
-      clinicId,
-      ...(Object.keys(billingDateFilter).length ? billingDateFilter : {}),
-      // Exclude advance/past-advance adjustment rows from "billings" count
-      invoiceNumber: { $not: /^(PAST-ADV|ADV-)/ },
-    })
-      .populate('patientId', 'firstName lastName mobileNumber')
-      .lean();
-
     console.log('💰 Found', billings.length, 'billing records');
     console.log('📅 Billing date filter applied:', billingDateFilter);
     // Log first 5 billings for verification
     if (billings.length > 0) {
       console.log('📄 Sample billings:');
-      billings.slice(0, 5).forEach(b => 
+      billings.slice(0, 5).forEach(b =>
         console.log('-', b.invoiceNumber, '|', (b.invoicedDate || b.createdAt), '| Paid:', b.paid)
       );
     }
 
     // Group billings by patient and calculate total revenue and count
     const patientBillingStats = new Map();
-    
+
     billings.forEach((billing: any) => {
       if (!billing.patientId) return;
-      
+
       const patientKey = billing.patientId._id.toString();
-      
+
       if (!patientBillingStats.has(patientKey)) {
         patientBillingStats.set(patientKey, {
           _id: patientKey,
@@ -346,16 +335,16 @@ export default async function handler(
           lastBillingDate: billing.invoicedDate || billing.createdAt,
         });
       }
-      
+
       // Increment billing count
       patientBillingStats.get(patientKey).billingCount++;
-      
+
       // Add revenue - use 'paid' field from billing (matches billing history API)
       const revenue = Number(billing.paid || 0);
       patientBillingStats.get(patientKey).totalRevenue += revenue;
-      
+
       console.log('💰 Billing:', billing.invoiceNumber, 'Paid:', revenue, 'Patient:', patientBillingStats.get(patientKey).name);
-      
+
       // Update last billing date if this is more recent
       const billingDate = new Date(billing.invoicedDate || billing.createdAt);
       if (billingDate > new Date(patientBillingStats.get(patientKey).lastBillingDate)) {
@@ -375,7 +364,7 @@ export default async function handler(
         return b.totalRevenue - a.totalRevenue;
       })
       .slice(0, 10); // Get top 10 patients
-    
+
     // Add badges based on ranking
     topPatientsArray = topPatientsArray.map((patient: any, index) => ({
       ...patient,
@@ -383,7 +372,7 @@ export default async function handler(
       billingCount: patient.billingCount,
       totalRevenue: patient.totalRevenue,
     }));
-    
+
     console.log('🏆 Top patients count:', topPatientsArray.length);
 
     res.status(200).json({
@@ -399,9 +388,9 @@ export default async function handler(
     });
   } catch (error: any) {
     console.error('Error fetching patient reports:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to fetch patient reports' 
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch patient reports'
     });
   }
 }

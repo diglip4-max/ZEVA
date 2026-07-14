@@ -91,11 +91,12 @@ export default async function handler(req, res) {
       queryStartDate = baseDate.startOf('day').toDate();
       queryEndDate = baseDate.endOf('day').toDate();
     } else if (filter === 'week') {
-      // Last 7 days (including today)
-      const end = date ? dayjs(date) : dayjs();
-      const start = end.subtract(6, 'day');
-      queryStartDate = start.startOf('day').toDate();
-      queryEndDate = end.endOf('day').toDate();
+      // Monday to Sunday of the week containing the date
+      const baseDate = date ? dayjs(date) : dayjs();
+      const day = baseDate.day(); // 0 is Sunday, 1 is Monday, etc.
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      queryStartDate = baseDate.add(diffToMonday, 'day').startOf('day').toDate();
+      queryEndDate = dayjs(queryStartDate).add(6, 'day').endOf('day').toDate();
     } else if (filter === 'month') {
       // Last 30 days
       const end = date ? dayjs(date) : dayjs();
@@ -103,11 +104,9 @@ export default async function handler(req, res) {
       queryStartDate = start.startOf('day').toDate();
       queryEndDate = end.endOf('day').toDate();
     } else if (filter === 'overall') {
-      // Year-to-date to align with dashboard
-      const end = date ? dayjs(date) : dayjs();
-      const start = end.startOf('year');
-      queryStartDate = start.startOf('day').toDate();
-      queryEndDate = end.endOf('day').toDate();
+      // For overall, get data since clinic registration
+      queryStartDate = clinic?.registeredAt ? dayjs(clinic.registeredAt).startOf('day').toDate() : dayjs().subtract(1, 'year').startOf('day').toDate();
+      queryEndDate = dayjs().endOf('day').toDate();
     } else if (filter === 'all' || filter === 'lifetime') {
        // Lifetime: no date restrictions (all-time)
        queryStartDate = null;
@@ -305,12 +304,12 @@ export default async function handler(req, res) {
             estimatedRevenue: realRevenue,
           };
         })
-        // Sort by performance score first, then by appointment count for tie-breaking
+        // Sort by estimated revenue first, then by appointment count for tie-breaking
         .sort((a, b) => {
-          if (b.performanceScore !== a.performanceScore) {
-            return b.performanceScore - a.performanceScore; // Higher score first
+          if (b.estimatedRevenue !== a.estimatedRevenue) {
+            return b.estimatedRevenue - a.estimatedRevenue; // Higher revenue first
           }
-          return b.appointmentCount - a.appointmentCount; // More appointments first if same score
+          return b.appointmentCount - a.appointmentCount; // More appointments first if same revenue
         })
         .slice(0, 10) // Top 10 doctors
         .map((doctor, index) => ({
