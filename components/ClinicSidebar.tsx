@@ -1370,10 +1370,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               if (!parentAllowed) {
                 return false;
               }
-              // Bypass for new modules that don't have backend permissions yet
-              if (moduleKey === "custom_product_sales") {
-                return true;
-              }
               // Check if this specific stock submodule has permission
               return localHasModulePermission(moduleKey || "", item.label);
             }

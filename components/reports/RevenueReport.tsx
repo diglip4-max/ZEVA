@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import {
   BarChart,
   Bar,
@@ -20,15 +21,68 @@ interface Props {
   headers: HeadersRecord;
 }
 
-type DoctorRow = { doctorId: string; name: string; amount: number };
-type ServiceRow = { serviceId: string; name: string; amount: number };
-type PackageRow = { packageName: string; amount: number };
+type DoctorDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+};
+
+type DoctorRow = {
+  doctorId: string;
+  name: string;
+  amount: number;
+  details: DoctorDetail[];
+};
+type ServiceDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+  pendingUsed: number;
+  pendingClaimUsed: number;
+};
+type ServiceRow = { serviceId: string; name: string; amount: number; details: ServiceDetail[] };
+type PackageDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+  pendingUsed: number;
+  pendingClaimUsed: number;
+};
+type PackageRow = { packageName: string; amount: number; details: PackageDetail[] };
 type DepartmentRow = { departmentId: string; name: string; amount: number };
 type PaymentRow = { method: string; amount: number };
 type ViewRow = { label: string; amount: number };
 
 export default function RevenueReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [treatmentRevenue, setTreatmentRevenue] = useState(0);
@@ -56,13 +110,17 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   type TopPatientRow = { patientId: string; name: string; amount: number };
   const [topPendingPatients, setTopPendingPatients] = useState<TopPatientRow[]>([]);
   const [topAdvancePatients, setTopAdvancePatients] = useState<TopPatientRow[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<DoctorRow | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceRow | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<PackageRow | null>(null);
 
-  const currencyFormatter = (n: number) => {
+  const currencyFormatter = (n: number | null | undefined) => {
     const symbol = getCurrencySymbol(currency);
-    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    const value = n ?? 0;
+    return `${symbol}${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
-  const fmtCurrency = (n: number) => currencyFormatter(n);
+  const fmtCurrency = (n: number | null | undefined) => currencyFormatter(n);
 
   useEffect(() => {
     fetchData();
@@ -347,6 +405,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -354,10 +413,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <tr key={r.doctorId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedDoctor(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!revenueByDoctor.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -400,6 +467,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -407,10 +475,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <tr key={r.serviceId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedService(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!revenueByService.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -425,6 +501,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -432,10 +509,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <tr key={r.packageName}>
                   <td className="px-4 py-2 text-sm">{r.packageName}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedPackage(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!revenueByPackage.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -682,6 +767,458 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Modal for doctor details */}
+      {selectedDoctor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedDoctor.name}
+              </h2>
+              <button
+                onClick={() => setSelectedDoctor(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Paid
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Pending
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Advance
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedDoctor.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => {
+                    return (
+                      <tr key={index}>
+                        <td className="px-4 py-2 text-sm">
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/clinic/patient-profile-view?id=${detail.patientId}`
+                              )
+                            }
+                            className="text-blue-600 hover:text-blue-800 font-medium underline"
+                          >
+                            {detail.patientName?.trim() || "Unknown"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.emrNumber || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.service === "Package" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                Package
+                              </span>
+                              <span>{detail.packageName || "Package"}</span>
+                            </div>
+                          ) : detail.service === "Treatment" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Treatment
+                              </span>
+                              <span>{detail.treatmentName || "Treatment"}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                {detail.service || "Service"}
+                              </span>
+                              <span>{detail.treatmentName || detail.service || "Service"}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.invoiceNumber || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.invoicedDate
+                            ? new Date(detail.invoicedDate).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {fmtCurrency(detail.amount)}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {fmtCurrency(detail.paid)}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {fmtCurrency(detail.pending)}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {fmtCurrency(detail.advance)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td
+                      className="px-4 py-2 text-sm font-semibold"
+                      colSpan={5}
+                    >
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedDoctor.details.reduce(
+                          (sum, d) => sum + Number(d.amount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(selectedDoctor.amount)}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedDoctor.details.reduce(
+                          (sum, d) => sum + Number(d.pending || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedDoctor.details.reduce(
+                          (sum, d) => sum + Number(d.advance || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal for service details */}
+      {selectedService && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedService.name}
+              </h2>
+              <button
+                onClick={() => setSelectedService(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Revenue
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Pending
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Advance
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedService.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => {
+                    const revenue = Number(detail.paid || 0);
+                    return (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() =>
+                            router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)
+                          }
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {detail.patientName?.trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.service === "Package" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                              Package
+                            </span>
+                            <span>{detail.packageName || "Package"}</span>
+                          </div>
+                        ) : detail.service === "Treatment" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                              Treatment
+                            </span>
+                            <span>{detail.treatmentName || "Treatment"}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                              {detail.service || "Service"}
+                            </span>
+                            <span>{detail.treatmentName || detail.service || "Service"}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate
+                          ? new Date(detail.invoicedDate).toLocaleDateString()
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">{fmtCurrency(revenue)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.advance)}</td>
+                    </tr>
+                  );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedService.details.reduce(
+                          (sum, d) => sum + Number(d.amount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                      {fmtCurrency(selectedService.amount)}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedService.details.reduce(
+                          (sum, d) => sum + Number(d.pending || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedService.details.reduce(
+                          (sum, d) => sum + Number(d.advance || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal for package details */}
+      {selectedPackage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedPackage.packageName}
+              </h2>
+              <button
+                onClick={() => setSelectedPackage(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Revenue
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Paid
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Pending
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Advance
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedPackage.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => {
+                    const revenue = Number(detail.paid || 0);
+                    return (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() =>
+                            router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)
+                          }
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {detail.patientName?.trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.service === "Package" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                              Package
+                            </span>
+                            <span>{detail.packageName || "Package"}</span>
+                          </div>
+                        ) : detail.service === "Treatment" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                              Treatment
+                            </span>
+                            <span>{detail.treatmentName || "Treatment"}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                              {detail.service || "Service"}
+                            </span>
+                            <span>{detail.treatmentName || detail.service || "Service"}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate
+                          ? new Date(detail.invoicedDate).toLocaleDateString()
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">{fmtCurrency(revenue)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.advance)}</td>
+                    </tr>
+                  );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedPackage.details.reduce(
+                          (sum, d) => sum + Number(d.amount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                      {fmtCurrency(selectedPackage.amount)}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedPackage.details.reduce(
+                          (sum, d) => sum + Number(d.paid || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedPackage.details.reduce(
+                          (sum, d) => sum + Number(d.pending || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedPackage.details.reduce(
+                          (sum, d) => sum + Number(d.advance || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

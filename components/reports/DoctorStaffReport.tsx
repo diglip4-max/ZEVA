@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import {
   BarChart,
   Bar,
@@ -23,7 +24,22 @@ interface Props {
   headers: HeadersRecord;
 }
 
-type RevenueRow = { staffId: string; staffName: string; revenue: number; invoices: number };
+type RevenueDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+};
+
+type RevenueRow = { staffId: string; staffName: string; revenue: number; invoices: number; details: RevenueDetail[] };
 type DetailRow = {
   staffId: string;
   staffName: string;
@@ -36,11 +52,64 @@ type DetailRow = {
   totalPatients: number;
 };
 
+type PackageDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+  packageName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+};
+
+type MembershipDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+  isFreeConsultation: boolean;
+  membershipDiscountApplied: number;
+};
+
 type BillingRow = {
   staffId: string;
   name: string;
   amount: number;
   count: number;
+  details: PackageDetail[];
+};
+
+type MembershipBillingRow = {
+  staffId: string;
+  name: string;
+  amount: number;
+  count: number;
+  details: MembershipDetail[];
+};
+
+type CommissionDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amountPaid: number;
+  commissionAmount: number;
+  totalAmount: number;
+  paid: number;
+  pending: number;
+  advance: number;
 };
 
 type CommissionRow = {
@@ -48,10 +117,12 @@ type CommissionRow = {
   name: string;
   totalCommission: number;
   entries: number;
+  details: CommissionDetail[];
 };
 
 export default function DoctorStaffReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'doctor' | 'sales'>('doctor');
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
@@ -59,15 +130,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const [topDoctorStaffCommission, setTopDoctorStaffCommission] = useState<CommissionRow[]>([]);
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
   const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
-  const [topMembershipBilling, setTopMembershipBilling] = useState<BillingRow[]>([]);
+  const [topMembershipBilling, setTopMembershipBilling] = useState<MembershipBillingRow[]>([]);
   const [_salesStaff, setSalesStaff] = useState<any[]>([]);
+  const [selectedPackageStaff, setSelectedPackageStaff] = useState<BillingRow | null>(null);
+  const [selectedRevenueStaff, setSelectedRevenueStaff] = useState<RevenueRow | null>(null);
+  const [selectedMembershipStaff, setSelectedMembershipStaff] = useState<MembershipBillingRow | null>(null);
+  const [selectedDoctorStaffCommission, setSelectedDoctorStaffCommission] = useState<CommissionRow | null>(null);
+  const [selectedAgentCommission, setSelectedAgentCommission] = useState<CommissionRow | null>(null);
 
-  const currencyFormatter = (n: number) => {
+  const currencyFormatter = (n: number | null | undefined) => {
     const symbol = getCurrencySymbol(currency);
-    return `${symbol}${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    const value = n ?? 0;
+    return `${symbol}${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
-  const formatCurrency = (n: number) => currencyFormatter(n);
+  const formatCurrency = (n: number | null | undefined) => currencyFormatter(n);
 
   useEffect(() => {
     if (activeTab === 'doctor') {
@@ -292,32 +369,41 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </ResponsiveContainer>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {revenues.map((r) => (
-                  <tr key={r.staffId}>
-                    <td className="px-4 py-2 text-sm">{r.staffName}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.revenue)}</td>
-                    <td className="px-4 py-2 text-sm">{r.invoices}</td>
-                  </tr>
-                ))}
-                {!revenues.length && (
-                  <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
-                      No revenue data for selected period
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {revenues.map((r) => (
+                          <tr key={r.staffId}>
+                            <td className="px-4 py-2 text-sm">{r.staffName}</td>
+                            <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.revenue)}</td>
+                            <td className="px-4 py-2 text-sm">{r.invoices}</td>
+                            <td className="px-4 py-2 text-sm">
+                              <button
+                                onClick={() => setSelectedRevenueStaff(r)}
+                                className="text-blue-600 hover:text-blue-800 font-medium underline"
+                              >
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {!revenues.length && (
+                          <tr>
+                            <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
+                              No revenue data for selected period
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
         </div>
       </div>
 
@@ -330,6 +416,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Revenue</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">View</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -338,11 +425,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
                   <td className="px-4 py-2 text-sm">{r.count}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedPackageStaff(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!topPackageBilling.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
                     No package billing data for selected period
                   </td>
                 </tr>
@@ -351,6 +446,256 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           </table>
         </div>
       </div>
+
+      {/* Modal for package details */}
+      {selectedPackageStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">Package Billing Details - {selectedPackageStaff.name}</h2>
+              <button
+                onClick={() => setSelectedPackageStaff(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedPackageStaff.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {(detail.patientName || "").trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Package</span>
+                          <span>{detail.packageName || "-"}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedPackageStaff.amount)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for revenue details */}
+      {selectedRevenueStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">Revenue Details - {selectedRevenueStaff.staffName}</h2>
+              <button
+                onClick={() => setSelectedRevenueStaff(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service/Package</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedRevenueStaff.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {(detail.patientName || "").trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.service === "Package" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Package</span>
+                            <span>{detail.packageName || "Package"}</span>
+                          </div>
+                        ) : detail.service === "Treatment" ? (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">Treatment</span>
+                            <span>{detail.treatmentName || detail.service || "Treatment"}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">{detail.service || "Service"}</span>
+                            <span>{detail.treatmentName || detail.service || "Service"}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedRevenueStaff.revenue)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for membership details */}
+      {selectedMembershipStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">Membership Billing Details - {selectedMembershipStaff.name}</h2>
+              <button
+                onClick={() => setSelectedMembershipStaff(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedMembershipStaff.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {(detail.patientName || "").trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">Membership</span>
+                          <span>
+                            {detail.isFreeConsultation 
+                              ? "Free Consultation" 
+                              : detail.treatmentName || detail.packageName || detail.service || "Service"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedMembershipStaff.amount)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Highest Billing in Memberships</h3>
@@ -361,6 +706,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Membership Revenue</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -369,11 +715,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
                   <td className="px-4 py-2 text-sm">{r.count}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedMembershipStaff(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!topMembershipBilling.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
                     No membership billing data for selected period
                   </td>
                 </tr>
@@ -409,6 +763,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -417,11 +772,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
                   <td className="px-4 py-2 text-sm">{r.entries}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedDoctorStaffCommission(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!topDoctorStaffCommission.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
                     No commission data for selected period
                   </td>
                 </tr>
@@ -440,6 +803,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Agent</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -448,11 +812,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
                   <td className="px-4 py-2 text-sm">{r.entries}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedAgentCommission(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!topAgentCommission.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
                     No commission data for selected period
                   </td>
                 </tr>
@@ -461,6 +833,134 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           </table>
         </div>
       </div>
+
+      {/* Modal for doctor staff commission details */}
+      {selectedDoctorStaffCommission && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">Doctor Staff Commission Details - {selectedDoctorStaffCommission.name}</h2>
+              <button
+                onClick={() => setSelectedDoctorStaffCommission(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Commission</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedDoctorStaffCommission.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {(detail.patientName || "").trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.totalAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.commissionAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={8}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedDoctorStaffCommission.totalCommission)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for agent commission details */}
+      {selectedAgentCommission && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">Agent Commission Details - {selectedAgentCommission.name}</h2>
+              <button
+                onClick={() => setSelectedAgentCommission(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Commission</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedAgentCommission.details].sort((a, b) => new Date(b.invoicedDate) - new Date(a.invoicedDate)).map((detail, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm">
+                        <button
+                          onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
+                          className="text-blue-600 hover:text-blue-800 font-medium underline"
+                        >
+                          {(detail.patientName || "").trim() || "Unknown"}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm">
+                        {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.totalAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.commissionAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={8}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedAgentCommission.totalCommission)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
