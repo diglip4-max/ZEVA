@@ -8,6 +8,7 @@ import Service from '../../../models/Service';
 import { getUserFromReq } from '../lead-ms/auth';
 import { getClinicIdFromUser } from '../lead-ms/permissions-helper';
 import { isNewClinicInMockPeriod } from '../../../lib/mockDataGenerator';
+import dayjs from 'dayjs';
 
 // Helper function for random integers
 const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -120,8 +121,8 @@ export default async function handler(req, res) {
     try {
       // Only use custom dates if both are provided and valid
       if (startDate && endDate) {
-        const customStart = new Date(startDate);
-        const customEnd = new Date(endDate);
+        const customStart = dayjs(startDate).startOf('day').toDate();
+        const customEnd = dayjs(endDate).endOf('day').toDate();
         
         if (!isNaN(customStart.getTime()) && !isNaN(customEnd.getTime())) {
           startOfYear = customStart;
@@ -191,14 +192,64 @@ export default async function handler(req, res) {
           }
         },
         {
-          $group: {
-            _id: "$paymentMethod",
-            count: { $sum: 1 },
-            totalAmount: { $sum: "$paid" }
+          $project: {
+            paid: { $ifNull: ["$paid", 0] },
+            paymentMethod: { $ifNull: ["$paymentMethod", "Cash"] },
+            multiplePayments: { $ifNull: ["$multiplePayments", []] }
           }
         },
         {
-          $sort: { count: -1 }
+          $project: {
+            totalFromPayments: {
+              $reduce: {
+                input: "$multiplePayments",
+                initialValue: 0,
+                in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+              }
+            },
+            paid: 1,
+            paymentMethod: 1,
+            multiplePayments: 1
+          }
+        },
+        {
+          $project: {
+            difference: { $max: [0, { $subtract: ["$paid", "$totalFromPayments"] }] },
+            paymentMethod: 1,
+            multiplePayments: 1
+          }
+        },
+        {
+          $project: {
+            payments: {
+              $cond: [
+                { $gt: ["$difference", 0] },
+                {
+                  $concatArrays: [
+                    "$multiplePayments",
+                    [
+                      {
+                        paymentMethod: "$paymentMethod",
+                        amount: "$difference"
+                      }
+                    ]
+                  ]
+                },
+                "$multiplePayments"
+              ]
+            }
+          }
+        },
+        { $unwind: "$payments" },
+        {
+          $group: {
+            _id: "$payments.paymentMethod",
+            count: { $sum: 1 },
+            totalAmount: { $sum: { $ifNull: ["$payments.amount", 0] } }
+          }
+        },
+        {
+          $sort: { totalAmount: -1 }
         }
       ]);
       console.log('💳 Payment Methods Stats:', paymentMethodsStats);
@@ -210,9 +261,16 @@ export default async function handler(req, res) {
     const paymentMethodColors = {
       'Cash': '#10b981',
       'Card': '#3b82f6',
+      'Card Payment': '#3b82f6',
       'BT': '#f59e0b',
+      'Bank Transfer': '#f59e0b',
+      'Online Transfer': '#f59e0b',
       'Tabby': '#8b5cf6',
-      'Tamara': '#ec4899'
+      'Tamara': '#ec4899',
+      'Advance Balance': '#14b8a6',
+      'Insurance Claim': '#f43f5e',
+      'Cashback Wallet': '#e11d48',
+      'Pending Clearance': '#6b7280'
     };
 
     const paymentMethodsData = paymentMethodsStats.length > 0 
@@ -220,20 +278,21 @@ export default async function handler(req, res) {
           // Calculate total count for percentage calculation
           const totalCount = paymentMethodsStats.reduce((sum, stat) => sum + stat.count, 0);
           
-          return paymentMethodsStats.map(stat => ({
-            name: stat._id === 'BT' ? 'Bank Transfer' : stat._id,
-            value: totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0, // Calculate percentage
-            count: stat.count,
-            totalAmount: stat.totalAmount,
-            color: paymentMethodColors[stat._id] || '#6b7280'
-          }));
+          return paymentMethodsStats.map(stat => {
+            const rawName = stat._id || 'Unknown';
+            let name = rawName;
+            if (rawName === 'BT') name = 'Bank Transfer';
+            
+            return {
+              name,
+              value: totalCount > 0 ? Math.round((stat.count / totalCount) * 100) : 0, // Calculate percentage
+              count: stat.count,
+              totalAmount: stat.totalAmount,
+              color: paymentMethodColors[rawName] || paymentMethodColors[name] || '#6b7280'
+            };
+          });
         })()
-      : [
-          { name: 'Card Payment', value: 35, color: '#3b82f6' },
-          { name: 'Cash', value: 25, color: '#10b981' },
-          { name: 'Online Transfer', value: 30, color: '#f59e0b' },
-          { name: 'Tabby', value: 10, color: '#8b5cf6' }
-        ];
+      : [];
 
     // 3. Doctor Revenue - Fetch from Billing model for staff doctors of this clinic
     let doctorRevenueStats = [];

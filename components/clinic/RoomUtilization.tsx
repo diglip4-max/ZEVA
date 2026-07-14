@@ -13,7 +13,7 @@ interface RoomUtilizationData {
 }
 
 interface RoomUtilizationProps {
-  timeRange: 'week' | 'month' | 'overall';
+  timeRange: 'today' | 'week' | 'month' | 'overall';
   selectedDate?: Date;
 }
 
@@ -42,7 +42,9 @@ const RoomUtilization: React.FC<RoomUtilizationProps> = ({
        const params: any = { filter: timeRange };
         
         // Add date parameters based on filter
-       if (timeRange === 'week' && selectedDate) {
+       if (timeRange === 'today' && selectedDate) {
+         params.date = selectedDate.toISOString().split('T')[0];
+       } else if (timeRange === 'week' && selectedDate) {
          params.date = selectedDate.toISOString().split('T')[0];
         } else if (timeRange === 'month' && selectedDate) {
          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
@@ -112,6 +114,7 @@ const RoomUtilization: React.FC<RoomUtilizationProps> = ({
       <div className="mb-4">
         <h3 className="text-lg font-bold text-gray-900">Room Utilization</h3>
         <p className="text-sm text-gray-500 mt-1">
+          {timeRange === 'today' && 'Today usage percentage'}
           {timeRange === 'week' && 'Weekly usage percentage'}
           {timeRange === 'month' && 'Monthly usage percentage'}
           {timeRange === 'overall' && 'Overall usage percentage'}

@@ -85,10 +85,11 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
         params.date = selectedDate.toISOString().split('T')[0];
         params.filter = 'today'; // Explicitly tell backend it's today's data
       } else if (timeRange === 'week' && selectedDate) {
-        // For week, calculate start and end of the week
+        // For week, calculate Monday to Sunday
         const curr = new Date(selectedDate);
-        const first = curr.getDate() - curr.getDay();
-        const firstDay = new Date(curr.setDate(first));
+        const day = curr.getDay();
+        const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+        const firstDay = new Date(curr.setDate(diff));
         const lastDay = new Date(firstDay);
         lastDay.setDate(firstDay.getDate() + 6);
         params.startDate = firstDay.toISOString().split('T')[0];
