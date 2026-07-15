@@ -13,7 +13,8 @@ import {
 
 interface MembershipPackageReportsProps {
   clinicId?: string;
-  timeRange?: 'week' | 'month' | 'overall';
+  timeRange?: 'today' | 'week' | 'month' | 'overall';
+  selectedDate?: Date;
 }
 
 interface SummaryStats {
@@ -37,22 +38,62 @@ interface PackageUsage {
   color?: string;
 }
 
-interface SessionsRemaining {
-  patientName: string;
-  packageName: string;
-  totalSessions: number;
-  remainingSessions: number;
-  progressPercentage: number;
-  color: string;
-}
 
-const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ clinicId, timeRange = 'month' }) => {
+
+const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ clinicId, timeRange = 'month', selectedDate }) => {
   const [loading, setLoading] = useState(true);
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
   const [membershipRevenue, setMembershipRevenue] = useState<RevenueData[]>([]);
-  const [packageUsage, setPackageUsage] = useState<PackageUsage[]>([]);
-  const [sessionsRemaining, setSessionsRemaining] = useState<SessionsRemaining[]>([]);
+  const [_packageUsage, setPackageUsage] = useState<PackageUsage[]>([]);
+  const [packageRevenueMonthWise, setPackageRevenueMonthWise] = useState<RevenueData[]>([]);
   const [clinicCurrency, setClinicCurrency] = useState<string>('INR');
+
+  // Helper functions
+  const pad2 = (n: number) => n.toString().padStart(2, '0');
+  const toDateKey = (date: Date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  const getWeekRangeMondaySunday = (date: Date) => {
+    const base = new Date(date);
+    base.setHours(0, 0, 0, 0);
+    const dayOfWeek = base.getDay();
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const start = new Date(base);
+    start.setDate(start.getDate() - diffToMonday);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
+  const getMonthRange = (date: Date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
+  const buildDateKeysInRange = (start: Date, end: Date) => {
+    const keys: string[] = [];
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(end);
+    endDay.setHours(0, 0, 0, 0);
+    while (cursor <= endDay) {
+      keys.push(toDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return keys;
+  };
+  const normalizeRevenueTrendData = (raw: any[], keys: string[]) => {
+    const map = new Map<string, any>();
+    (raw || []).forEach((item) => {
+      if (item?.name) map.set(String(item.name), item);
+    });
+    return keys.map((key) => ({
+      name: key,
+      revenue: Number(map.get(key)?.revenue ?? 0),
+    }));
+  };
 
   // Fetch clinic currency
   useEffect(() => {
@@ -103,10 +144,47 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
           return;
         }
         
+        // Calculate date range based on filter
+        const now = new Date();
+        const effectiveDate = selectedDate || now;
+        let startDate = new Date(effectiveDate);
+        let endDate = new Date(effectiveDate);
+
+        if (timeRange === 'today') {
+          // Today - set to start of day
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Today filter: Current day');
+        } else if (timeRange === 'week') {
+          const range = getWeekRangeMondaySunday(effectiveDate);
+          startDate = range.start;
+          endDate = range.end;
+          console.log('📅 Week filter: Monday-Sunday calendar week');
+        } else if (timeRange === 'month') {
+          const range = getMonthRange(effectiveDate);
+          startDate = range.start;
+          endDate = range.end;
+          console.log('📅 Month filter: Full calendar month');
+        } else if (timeRange === 'overall') {
+          // Overall - use start of year
+          startDate = new Date(new Date().getFullYear(), 0, 1);
+          startDate.setHours(0, 0, 0, 0);
+          console.log('📅 Overall filter: Start of year');
+        }
+
+        // Set end time to end of day
+        if (timeRange === 'today' || timeRange === 'overall') {
+          endDate.setHours(23, 59, 59, 999);
+        }
+
+        const startDateParam = toDateKey(startDate);
+        const endDateParam = toDateKey(endDate);
+
         const res = await axios.get('/api/clinic/membership-package-reports', {
           params: {
             clinicId: clinicId || storedClinicId,
             timeRange: timeRange,
+            startDate: startDateParam,
+            endDate: endDateParam,
           },
           headers: {
             Authorization: `Bearer ${token}`,
@@ -120,7 +198,7 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
           setSummaryStats(res.data.data.summaryStats);
           setMembershipRevenue(res.data.data.membershipRevenue);
           setPackageUsage(res.data.data.packageUsage);
-          setSessionsRemaining(res.data.data.sessionsRemaining);
+          setPackageRevenueMonthWise(res.data.data.packageRevenueMonthWise || []);
         }
       } catch (error: any) {
         console.error('Error fetching membership and package reports:', error.message);
@@ -130,12 +208,43 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
     };
 
     fetchReports();
-  }, [clinicId, timeRange]);
+  }, [clinicId, timeRange, selectedDate]);
 
   // Debug: Log when timeRange changes
   useEffect(() => {
     console.log('📅 MembershipPackageReports - timeRange changed to:', timeRange);
   }, [timeRange]);
+
+  // Create normalized chart data using same logic as Revenue Trend
+  const membershipChartData = React.useMemo(() => {
+    const raw = membershipRevenue;
+    if (timeRange !== 'week' && timeRange !== 'month') return raw;
+    const looksLikeDateKey = (v: any) =>
+      typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const hasDateKeys = raw.some((d: any) => looksLikeDateKey(d?.name));
+    if (!hasDateKeys && raw.length > 0) return raw;
+    const range =
+      timeRange === 'week'
+        ? getWeekRangeMondaySunday(selectedDate || new Date())
+        : getMonthRange(selectedDate || new Date());
+    const keys = buildDateKeysInRange(range.start, range.end);
+    return normalizeRevenueTrendData(raw, keys);
+  }, [membershipRevenue, timeRange, selectedDate]);
+
+  const packageChartData = React.useMemo(() => {
+    const raw = packageRevenueMonthWise;
+    if (timeRange !== 'week' && timeRange !== 'month') return raw;
+    const looksLikeDateKey = (v: any) =>
+      typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const hasDateKeys = raw.some((d: any) => looksLikeDateKey(d?.name));
+    if (!hasDateKeys && raw.length > 0) return raw;
+    const range =
+      timeRange === 'week'
+        ? getWeekRangeMondaySunday(selectedDate || new Date())
+        : getMonthRange(selectedDate || new Date());
+    const keys = buildDateKeysInRange(range.start, range.end);
+    return normalizeRevenueTrendData(raw, keys);
+  }, [packageRevenueMonthWise, timeRange, selectedDate]);
 
   if (loading) {
     return (
@@ -303,21 +412,24 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <div className="mb-4">
             <h4 className="text-base font-bold text-gray-800">Membership Revenue</h4>
-            <p className="text-xs text-gray-500 mt-1">Monthly revenue trend</p>
+            <p className="text-xs text-gray-500 mt-1">{timeRange === 'today' ? "Today's Revenue Trend" : timeRange === 'week' ? "Weekly Revenue Trend" : timeRange === 'month' ? "Monthly Revenue Trend" : "Overall Revenue Trend"}</p>
           </div>
           <div className="h-72">
-            {membershipRevenue.length > 0 ? (
+            {membershipChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={membershipRevenue} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                <LineChart data={membershipChartData} margin={{ top: 20, right: 20, left: 0, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis
-                    dataKey={membershipRevenue[0].day ? 'day' : 'month'}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                    stroke="#9ca3af"
+                    dataKey="name"
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                    stroke="#6b7280"
                   />
                   <YAxis
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                    stroke="#9ca3af"
+                    tick={{ fontSize: 10, fill: '#374151' }}
+                    stroke="#6b7280"
                     tickFormatter={(value) => `${getCurrencySymbol(clinicCurrency)}${value}`}
                   />
                   <Tooltip
@@ -325,22 +437,18 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
                       backgroundColor: '#fff',
                       border: '1px solid #e5e7eb',
                       borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                     }}
+                    labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
                     formatter={(value: any) => [`${getCurrencySymbol(clinicCurrency)}${value}`, 'Revenue']}
-                    labelFormatter={(label, payload) => {
-                      if (payload && payload[0] && payload[0].payload.date) {
-                        return `${label} - ${payload[0].payload.date}`;
-                      }
-                      return label;
-                    }}
                   />
                   <Line
                     type="monotone"
                     dataKey="revenue"
                     stroke="#8b5cf6"
                     strokeWidth={3}
-                    dot={{ fill: '#8b5cf6', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                    dot={{ fill: '#8b5cf6', r: 5 }}
                     activeDot={{ r: 7 }}
                   />
                 </LineChart>
@@ -353,126 +461,61 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
           </div>
         </div>
 
-        {/* Package Usage */}
+        {/* Package Revenue */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
           <div className="mb-4">
-            <h4 className="text-base font-bold text-gray-800">Package Usage</h4>
-            <p className="text-xs text-gray-500 mt-1">Utilization rates</p>
+            <h4 className="text-base font-bold text-gray-800">Package Revenue</h4>
+            <p className="text-xs text-gray-500 mt-1">{timeRange === 'today' ? "Today's Revenue Trend" : timeRange === 'week' ? "Weekly Revenue Trend" : timeRange === 'month' ? "Monthly Revenue Trend" : "Overall Revenue Trend"}</p>
           </div>
-          <div className="space-y-4 max-h-72 overflow-y-auto">
-            {packageUsage.length > 0 ? (
-              packageUsage.map((pkg, index) => {
-                // Color based on package name or position
-                const colors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
-                const barColor = pkg.color || colors[index % colors.length];
-                
-                return (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-800">{pkg.packageName}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          Revenue: {getCurrencySymbol(clinicCurrency)}{pkg.revenue}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-gray-800">{Math.round(pkg.usagePercentage)}%</p>
-                      </div>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div
-                        className="h-2.5 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${pkg.usagePercentage}%`,
-                          backgroundColor: barColor,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
+          <div className="h-72">
+            {packageChartData && packageChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={packageChartData} margin={{ top: 20, right: 20, left: 0, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="name"
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                    tick={{ fontSize: 10, fill: '#374151', fontWeight: '500' }}
+                    stroke="#6b7280"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#374151' }}
+                    stroke="#6b7280"
+                    tickFormatter={(value) => `${getCurrencySymbol(clinicCurrency)}${value}`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    }}
+                    labelStyle={{ fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}
+                    formatter={(value: any) => [`${getCurrencySymbol(clinicCurrency)}${value}`, 'Revenue']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#f59e0b"
+                    strokeWidth={3}
+                    dot={{ fill: '#f59e0b', r: 5 }}
+                    activeDot={{ r: 7 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-400">
-                <p className="text-sm">No package usage data available</p>
+                <p className="text-sm">No package revenue data available</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Sessions Remaining Tracker */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-        <div className="mb-4">
-          <h4 className="text-base font-bold text-gray-800">Sessions Remaining Tracker</h4>
-          <p className="text-xs text-gray-500 mt-1">Patient package sessions</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Patient Name
-                </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Package
-                </th>
-                <th className="text-center py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Remaining
-                </th>
-                <th className="text-center py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Progress
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessionsRemaining.length > 0 ? (
-                sessionsRemaining.map((row, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-sm text-gray-800">{row.patientName}</td>
-                    <td className="py-3 px-4 text-sm text-gray-800">{row.packageName}</td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
-                        {row.remainingSessions}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center text-sm text-gray-600">
-                      {row.totalSessions}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2">
-                          <div
-                            className="h-2 rounded-full transition-all duration-500"
-                            style={{
-                              width: `${row.progressPercentage}%`,
-                              backgroundColor: row.color || '#3b82f6',
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-600 font-medium min-w-[40px]">
-                          {Math.round(row.progressPercentage)}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400 text-sm">
-                    No session data available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
     </div>
   );
 };

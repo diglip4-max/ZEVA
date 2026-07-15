@@ -981,6 +981,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "KAKA Analytics": "clinic_kaka_analytics",
     "Workflow Guide": "workflow_guide",
     Membership: "membership",
+    Invoices: "clinic_invoices",
   };
 
   // Check if item should be shown
@@ -1369,10 +1370,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               if (!parentAllowed) {
                 return false;
               }
-              // Bypass for new modules that don't have backend permissions yet
-              if (moduleKey === "custom_product_sales") {
-                return true;
-              }
               // Check if this specific stock submodule has permission
               return localHasModulePermission(moduleKey || "", item.label);
             }
@@ -1739,6 +1736,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   "Scheduled Appointments",
                   "/clinic/all-appointment",
                   "calendar",
+                ),
+                createItem(
+                  "Invoices",
+                  "/clinic/invoices",
+                  "📋",
                 ),
                 createItem(
                   "Patient Registration",

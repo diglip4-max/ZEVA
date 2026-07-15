@@ -116,6 +116,7 @@ export default async function handler(req, res) {
 
     if (req.method === "GET") {
       const {
+        id,
         search,
         emrNumber,
         patientNumber,
@@ -132,6 +133,202 @@ export default async function handler(req, res) {
         page = 1,
         limit = 50,
       } = req.query;
+
+      // If id is provided, return just that single appointment
+      if (id) {
+        try {
+          const appointment = await Appointment.findOne({ _id: id, clinicId })
+            .populate({
+              path: "patientId",
+              model: "PatientRegistration",
+              select: "firstName lastName mobileNumber email emrNumber invoiceNumber gender invoicedDate",
+            })
+            .populate({
+              path: "doctorId",
+              model: "User",
+              select: "name email",
+            })
+            .populate({
+              path: "roomId",
+              model: "Room",
+              select: "name",
+            })
+            .populate({
+              path: "serviceId",
+              model: "Service",
+              select: "name price clinicPrice",
+            })
+            .populate({
+              path: "serviceIds",
+              model: "Service",
+              select: "name price clinicPrice",
+            })
+            .populate({
+              path: "services.serviceId",
+              model: "Service",
+              select: "name price clinicPrice",
+            })
+            .lean();
+
+          if (!appointment) {
+            return res.status(200).json({
+              success: true,
+              appointments: [],
+              total: 0,
+              page: 1,
+              totalPages: 0,
+            });
+          }
+
+          // Format the single appointment the same way we format multiple
+          const patient = appointment.patientId || {};
+          const doctor = appointment.doctorId || {};
+          const room = appointment.roomId || {};
+          const visitId = appointment._id.toString().slice(-4);
+          const registeredDate = appointment.startDate
+            ? new Date(appointment.startDate).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })
+            : "-";
+          const registeredTime =
+            appointment.fromTime && appointment.toTime ? `${appointment.fromTime} - ${appointment.toTime}` : "-";
+          const invoicedDate = patient.invoicedDate
+            ? new Date(patient.invoicedDate).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })
+            : "01-01-1900";
+          const invoicedTime = patient.invoicedDate
+            ? new Date(patient.invoicedDate).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "01:19 AM";
+
+          const formattedAppointment = {
+            _id: appointment._id.toString(),
+            visitId,
+            patientId: patient._id?.toString() || "",
+            patientName:
+              `${patient.firstName || ""} ${patient.lastName || ""}`.trim() ||
+              "Unknown",
+            patientNumber: patient.mobileNumber || "",
+            patientEmail: patient.email || "",
+            emrNumber: patient.emrNumber || "",
+            invoiceNumber: patient.invoiceNumber || "",
+            gender: patient.gender || "",
+            doctorId: doctor._id?.toString() || "",
+            doctorName: doctor.name || "Unknown",
+            doctorEmail: doctor.email || "",
+            roomId: room._id?.toString() || "",
+            roomName: room.name || "-",
+            serviceId: appointment.serviceId?._id?.toString() || "",
+            serviceName: appointment.serviceId?.name || "",
+            serviceIds: Array.isArray(appointment.serviceIds)
+              ? appointment.serviceIds.map((s) => s?._id?.toString()).filter(Boolean)
+              : [],
+            serviceNames: (() => {
+              const fromServiceIds = Array.isArray(appointment.serviceIds)
+                ? appointment.serviceIds.map((s) => s?.name || "").filter(Boolean)
+                : [];
+              const fromServiceId = appointment.serviceId?.name || "";
+              const combined = fromServiceId
+                ? [
+                    fromServiceId,
+                    ...fromServiceIds.filter((n) => n !== fromServiceId),
+                  ]
+                : fromServiceIds;
+              return combined;
+            })(),
+            services: (() => {
+              const existingServices = new Map();
+
+              if (Array.isArray(appointment.services)) {
+                appointment.services.forEach(s => {
+                  if (s.serviceId?._id) {
+                    existingServices.set(s.serviceId._id.toString(), {
+                      serviceId: s.serviceId._id.toString(),
+                      quantity: s.quantity || 1,
+                      name: s.serviceId?.name,
+                      price: s.serviceId?.price,
+                      clinicPrice: s.serviceId?.clinicPrice
+                    });
+                  }
+                });
+              }
+
+              if (appointment.serviceId?._id) {
+                const id = appointment.serviceId._id.toString();
+                if (!existingServices.has(id)) {
+                  existingServices.set(id, {
+                    serviceId: id,
+                    quantity: 1,
+                    name: appointment.serviceId?.name,
+                    price: appointment.serviceId?.price,
+                    clinicPrice: appointment.serviceId?.clinicPrice
+                  });
+                }
+              }
+
+              if (Array.isArray(appointment.serviceIds)) {
+                appointment.serviceIds.forEach(s => {
+                  if (s?._id) {
+                    const id = s._id.toString();
+                    if (!existingServices.has(id)) {
+                      existingServices.set(id, {
+                        serviceId: id,
+                        quantity: 1,
+                        name: s?.name,
+                        price: s?.price,
+                        clinicPrice: s?.clinicPrice
+                      });
+                    }
+                  }
+                });
+              }
+
+              return Array.from(existingServices.values());
+            })(),
+            status: appointment.status,
+            followType: appointment.followType,
+            referral: appointment.referral || "direct",
+            emergency: appointment.emergency || "no",
+            notes: appointment.notes || "",
+            // Booked by information
+            bookedByRole: appointment.bookedByRole || null,
+            bookedByUserId: appointment.bookedByUserId?.toString() || null,
+            bookedByName: appointment.bookedByName || null,
+            registeredDate,
+            registeredTime,
+            invoicedDate,
+            invoicedTime,
+            startDate: appointment.startDate ? appointment.startDate.toISOString() : null,
+            fromTime: appointment.fromTime,
+            toTime: appointment.toTime,
+            createdAt: appointment.createdAt ? appointment.createdAt.toISOString() : null,
+            updatedAt: appointment.updatedAt ? appointment.updatedAt.toISOString() : null,
+          };
+
+          return res.status(200).json({
+            success: true,
+            appointments: [formattedAppointment],
+            total: 1,
+            page: 1,
+            totalPages: 1,
+          });
+        } catch (err) {
+          console.error("Error fetching single appointment:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Error fetching appointment",
+            error: err.message,
+          });
+        }
+      }
 
       // Build query
       let query = { clinicId };
@@ -281,6 +478,11 @@ export default async function handler(req, res) {
       // If we have appointment ID matches (visitId search), add them
       if (matchingAppointmentIds.length > 0) {
         queryConditions.push({ _id: { $in: matchingAppointmentIds } });
+      }
+
+      // Search by bookedByName (person who booked the appointment)
+      if (search) {
+        queryConditions.push({ bookedByName: { $regex: search, $options: "i" } });
       }
 
       // If we have patient search conditions, find matching patient IDs
@@ -555,6 +757,10 @@ export default async function handler(req, res) {
           referral: apt.referral || "direct",
           emergency: apt.emergency || "no",
           notes: apt.notes || "",
+          // Booked by information
+          bookedByRole: apt.bookedByRole || null,
+          bookedByUserId: apt.bookedByUserId?.toString() || null,
+          bookedByName: apt.bookedByName || null,
           // Date & Time fields
           registeredDate,
           registeredTime,

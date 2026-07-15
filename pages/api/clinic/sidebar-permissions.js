@@ -175,6 +175,7 @@ export default async function handler(req, res) {
             modulePerm.moduleActions.update === true ||
             modulePerm.moduleActions.delete === true ||
             modulePerm.moduleActions.print === true ||
+            modulePerm.moduleActions.import === true ||
             modulePerm.moduleActions.export === true ||
             modulePerm.moduleActions.approve === true);
 

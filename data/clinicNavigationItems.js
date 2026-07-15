@@ -72,6 +72,14 @@ export const clinicNavigationItems = [
     order: 10,
   },
   {
+    label: "Invoices",
+    path: "/clinic/invoices",
+    icon: "📋",
+    description: "View invoices",
+    moduleKey: "clinic_invoices",
+    order: 56,
+  },
+  {
     label: "Staff Management",
     icon: "users",
     description: "Manage Staff",

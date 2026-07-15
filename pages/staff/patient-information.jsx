@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useRouter } from "next/router";
@@ -6,6 +6,7 @@ import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 import AddPatientAdvancePaymentModal from "@/components/patient/AddPatientAdvancePaymentModal";
 import AddPatientPastAdvancePaymentModal from "@/components/patient/AddPatientPastAdvancePaymentModal";
+import ExportButtons from "@/components/reports/ExportButtons";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -1182,10 +1183,236 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [deleteSuccessModal, setDeleteSuccessModal] = useState({ isOpen: false, patientName: "" });
   const [packageUsageModal, setPackageUsageModal] = useState({ isOpen: false, patient: null, data: null, loading: false });
   const [membershipUsageMap, setMembershipUsageMap] = useState({});
+  const [exportPermissions, setExportPermissions] = useState({ canExport: true });
+  const [exportPermissionsLoaded, setExportPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/"));
+    } else if (router?.pathname) {
+      setIsClinicContext(router.pathname.startsWith("/clinic/"));
+    }
+  }, [router?.pathname]);
+
+  // Fetch clinic permissions for export
+  const fetchClinicExportPermissions = useCallback(async () => {
+    if (!isClinicContext) {
+      setExportPermissionsLoaded(true);
+      return;
+    }
+
+    try {
+      setExportPermissionsLoaded(false);
+      const token = getStoredToken();
+      if (!token) {
+        setExportPermissions({ canExport: false });
+        setExportPermissionsLoaded(true);
+        return;
+      }
+
+      const res = await axios.get("/api/clinic/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.data) {
+        // Find patient management module
+        const modulePermission = data.data.permissions?.find((p) => {
+          if (!p?.module) return false;
+          const normalized = p.module.startsWith("clinic_")
+            ? p.module.slice(7)
+            : p.module.startsWith("admin_")
+            ? p.module.slice(6)
+            : p.module;
+          return normalized === "patient_information" || normalized === "patient_management" || normalized === "patient_registration" || normalized === "patient";
+        });
+
+        if (modulePermission) {
+          const actions = modulePermission.actions || {};
+          const moduleAll = actions.all === true || 
+                           actions.all === "true" || 
+                           String(actions.all).toLowerCase() === "true";
+
+          // Find patient related submodule
+          const patientSubModule = modulePermission.subModules?.find(
+            (sm) => {
+              const subModuleName = (sm?.name || "").trim().toLowerCase();
+              const subModulePath = (sm?.path || "").trim().toLowerCase();
+              return subModuleName.includes("patient") || subModulePath.includes("patient");
+            }
+          );
+
+          if (patientSubModule) {
+            const subModuleActions = patientSubModule.actions || {};
+            const subModuleAll = subModuleActions.all === true || 
+                                subModuleActions.all === "true" || 
+                                String(subModuleActions.all).toLowerCase() === "true";
+
+            const checkExportPermission = () => {
+              // Priority 1: Submodule explicit export permission
+              if (subModuleActions && subModuleActions.hasOwnProperty("export")) {
+                const actionValue = subModuleActions["export"];
+                if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              
+              // Priority 2: Submodule all
+              if (subModuleAll) return true;
+              
+              // Priority 3: Module explicit export
+              if (actions && actions.hasOwnProperty("export")) {
+                const moduleActionValue = actions["export"];
+                if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              
+              // Priority 4: Module all
+              if (moduleAll) return true;
+              
+              // Default
+              return false;
+            };
+
+            setExportPermissions({ canExport: checkExportPermission() });
+          } else {
+            const checkExportPermission = () => {
+              if (moduleAll) return true;
+              
+              const moduleActionValue = actions["export"];
+              if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                return true;
+              }
+              if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                return false;
+              }
+              
+              return false;
+            };
+
+            setExportPermissions({ canExport: checkExportPermission() });
+          }
+        } else {
+          setExportPermissions({ canExport: false });
+        }
+      } else {
+        setExportPermissions({ canExport: false });
+      }
+    } catch (error) {
+      console.error("Error fetching clinic export permissions:", error);
+      setExportPermissions({ canExport: false });
+    } finally {
+      setExportPermissionsLoaded(true);
+    }
+  }, [isClinicContext]);
+
+  // Fetch agent/doctor staff permissions for export
+  const fetchAgentExportPermissions = useCallback(async () => {
+    if (isClinicContext) {
+      return;
+    }
+
+    try {
+      setExportPermissionsLoaded(false);
+      const token = getStoredToken();
+      if (!token) {
+        setExportPermissions({ canExport: false });
+        setExportPermissionsLoaded(true);
+        return;
+      }
+
+      // Call get-module-permissions for patient module
+      const res = await axios.get("/api/agent/get-module-permissions", {
+        params: { moduleKey: "patient_information" },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.permissions?.actions) {
+        const actions = data.permissions.actions;
+        const moduleAll = actions.all === true || 
+                         actions.all === "true" || 
+                         String(actions.all).toLowerCase() === "true";
+
+        const checkExportPermission = () => {
+          if (moduleAll) return true;
+          
+          const actionValue = actions["export"];
+          if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+            return true;
+          }
+          if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+            return false;
+          }
+          
+          return false;
+        };
+
+        setExportPermissions({ canExport: checkExportPermission() });
+      } else {
+        // Fallback: try with other possible module keys
+        const fallbackKeys = ["patient_management", "patient_registration", "patient"];
+        let foundPermission = false;
+        
+        for (const key of fallbackKeys) {
+          try {
+            const fallbackRes = await axios.get("/api/agent/get-module-permissions", {
+              params: { moduleKey: key },
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            
+            const fallbackData = fallbackRes.data;
+            if (fallbackData.success && fallbackData.permissions?.actions) {
+              const fallbackActions = fallbackData.permissions.actions;
+              const fallbackAll = fallbackActions.all === true || 
+                                 fallbackActions.all === "true" || 
+                                 String(fallbackActions.all).toLowerCase() === "true";
+
+              if (fallbackAll || fallbackActions.export === true || fallbackActions.export === "true" || String(fallbackActions.export).toLowerCase() === "true") {
+                setExportPermissions({ canExport: true });
+                foundPermission = true;
+                break;
+              }
+            }
+          } catch (err) {
+            console.warn(`Failed to fetch fallback permission for ${key}`, err);
+          }
+        }
+
+        if (!foundPermission) {
+          setExportPermissions({ canExport: false });
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching agent export permissions:", error);
+      setExportPermissions({ canExport: false });
+    } finally {
+      setExportPermissionsLoaded(true);
+    }
+  }, [isClinicContext]);
+
+  // Fetch permissions based on context
+  useEffect(() => {
+    if (isClinicContext) {
+      fetchClinicExportPermissions();
+    } else {
+      fetchAgentExportPermissions();
+    }
+  }, [isClinicContext, fetchClinicExportPermissions, fetchAgentExportPermissions]);
 
   // Filter patients by search query and additional filters
   const filteredPatients = useMemo(() => {
@@ -1699,13 +1926,21 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                 </select>
               </div>
 
-              {/* <button
-                onClick={exportPatientsToCSV}
-                className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
-              >
-                <Download className="h-4 w-4" />
-                <span>Export</span>
-              </button> */}
+              {exportPermissions.canExport && (
+                <ExportButtons
+                  filename={`patients_export_${new Date().toISOString().split("T")[0]}`}
+                  title="Patients Export"
+                  headers={["Name", "EMR Number", "Gender", "Email", "Mobile", "Type"]}
+                  data={patients.map(p => ({
+                    "Name": `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+                    "EMR Number": p.emrNumber || "",
+                    "Gender": p.gender || "",
+                    "Email": p.email || "",
+                    "Mobile": p.mobileNumber || "",
+                    "Type": p.patientType || ""
+                  }))}
+                />
+              )}
             </div>
           </div>
 

@@ -64,6 +64,11 @@ const patientRegistrationSchema = new mongoose.Schema(
     lastName: { type: String, trim: true },
     gender: { type: String, enum: ["Male", "Female", "Other"] },
     email: { type: String, trim: true, lowercase: true },
+    countryCode: {
+      type: String,
+      trim: true,
+      default: "+91",
+    },
     mobileNumber: {
             type: String,
             required: true,

@@ -20,6 +20,7 @@ import {
   Eye,
   EyeOff,
   Upload,
+  Search,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -55,6 +56,7 @@ const ManageAgentsPage = () => {
   const router = useRouter();
   const [agents, setAgents] = useState([]);
   const [doctorStaff, setDoctorStaff] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('agents');
   const [menuAgentId, setMenuAgentId] = useState(null);
   const [profileAgent, setProfileAgent] = useState(null);
@@ -1030,7 +1032,17 @@ const ManageAgentsPage = () => {
     }
   }
 
-  const currentList = activeView === 'agents' ? agents : doctorStaff;
+  const baseList = activeView === 'agents' ? agents : doctorStaff;
+  const currentList = useMemo(() => {
+    if (!searchQuery) return baseList;
+    const lower = searchQuery.toLowerCase();
+    return baseList.filter(item => {
+      const n = (item.name || '').toLowerCase();
+      const e = (item.email || '').toLowerCase();
+      const m = String(item.mobileNumber || '').toLowerCase();
+      return n.includes(lower) || e.includes(lower) || m.includes(lower);
+    });
+  }, [baseList, searchQuery]);
   const totalAgents = agents.length;
   const approvedAgents = useMemo(() => agents.filter((a) => a.isApproved).length, [agents]);
   const declinedAgents = useMemo(() => agents.filter((a) => a.declined).length, [agents]);
@@ -1244,15 +1256,27 @@ const ManageAgentsPage = () => {
                 </button>
               </div>
             </div>
-            {canCreate === true && (
-              <button
-                onClick={handleCreateClick}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
-              >
-                <UserPlus className="w-4 h-4" />
-                Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
-              </button>
-            )}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder={activeView === 'agents' ? 'Search Agents...' : 'Search Doctors...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              </div>
+              {canCreate === true && (
+                <button
+                  onClick={handleCreateClick}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center whitespace-nowrap"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

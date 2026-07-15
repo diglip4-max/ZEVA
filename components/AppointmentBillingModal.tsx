@@ -4863,6 +4863,50 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   );
 
   // Combine regular packages with userPackages and transferred-in packages for the dropdown
+  // Recalculate paymentStatus for each package using billingHistory (same logic as Active Packages section).
+  // The backend /api/clinic/package-usage/ only considers Package service billings, but Treatment invoices
+  // can also pay for packages via unpaidPackagesPaid. Without this recalculation, the dropdown shows
+  // "Partial" while Active Packages correctly shows "Full Paid" for the same package.
+  const recalculatePackagePaymentStatus = (packageName: string, packagePrice: number): string | null => {
+    if (!billingHistoryFetched || packagePrice <= 0) return null;
+
+    // 1. Package service billings for this package
+    const packageBillings = (billingHistory || []).filter(
+      (b: any) => b.service === "Package" && b.package === packageName
+    );
+    const totalCashPaidFromBillings = packageBillings.reduce(
+      (sum: number, b: any) => sum + (Number(b.paid) || 0), 0
+    );
+    const totalAdvanceUsedFromBillings = packageBillings.reduce(
+      (sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0
+    );
+
+    // 2. Treatment invoices that paid for this package via unpaidPackagesPaid
+    const treatmentPackagePayments = (billingHistory || []).filter(
+      (b: any) =>
+        b.service === "Treatment" &&
+        b.unpaidPackagesPaid &&
+        b.unpaidPackagesPaid.some((p: any) =>
+          (p.packageName === packageName) ||
+          (packages.find((pkg: any) => String(pkg._id) === String(p.packageId))?.name === packageName)
+        )
+    );
+    const totalCashPaidFromTreatments = treatmentPackagePayments.reduce(
+      (sum: number, b: any) => sum + (Number(b.paid) || 0), 0
+    );
+    const totalAdvanceUsedFromTreatments = treatmentPackagePayments.reduce(
+      (sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0
+    );
+
+    const totalPaidFromBillings =
+      totalCashPaidFromBillings + totalAdvanceUsedFromBillings +
+      totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments;
+
+    if (totalPaidFromBillings >= packagePrice) return "Full";
+    if (totalPaidFromBillings > 0) return "Partial";
+    return null; // No billing data — keep existing status
+  };
+
   const allPackagesForDropdown: Package[] = [
     ...packages
       .filter((pkg: any) => !transferredInNamesForDropdown.has(pkg.name))
@@ -4884,6 +4928,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       } else if (isMainPackage) {
         paymentStatus = patientDetails?.packagePaymentStatus || "Unpaid";
       }
+
+      // Override with billingHistory-based recalculation to include Treatment invoice payments
+      // (unpaidPackagesPaid) that the backend package-usage API does not consider.
+      const packagePrice = pkg.totalPrice || 0;
+      const recalculatedStatus = recalculatePackagePaymentStatus(pkg.name, packagePrice);
+      if (recalculatedStatus) {
+        paymentStatus = recalculatedStatus;
+      }
      
       return {
         ...pkg,
@@ -4893,23 +4945,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }),
     ...userPackages
       .filter((pkg: any) => !transferredInNamesForDropdown.has(pkg.packageName))
-      .map((pkg: any) => ({
-      _id: pkg._id,
-      name: pkg.packageName,
-      totalPrice: pkg.totalPrice,
-      totalSessions: pkg.totalSessions,
-      sessionPrice: pkg.sessionPrice || (pkg.totalSessions > 0 ? pkg.totalPrice / pkg.totalSessions : 0),
-      treatments: pkg.treatments || [],
-      isUserPackage: true,
-      remainingSessions: pkg.remainingSessions,
-      patientPackageId: pkg.patientPackageId,
-      patientPackageSubId: pkg.patientPackageSubId,
-      paymentStatus: pkg.paymentStatus || "Unpaid"
-    })),
+      .map((pkg: any) => {
+      const packagePrice = pkg.totalPrice || 0;
+      const recalculatedStatus = recalculatePackagePaymentStatus(pkg.packageName, packagePrice);
+      return {
+        _id: pkg._id,
+        name: pkg.packageName,
+        totalPrice: pkg.totalPrice,
+        totalSessions: pkg.totalSessions,
+        sessionPrice: pkg.sessionPrice || (pkg.totalSessions > 0 ? pkg.totalPrice / pkg.totalSessions : 0),
+        treatments: pkg.treatments || [],
+        isUserPackage: true,
+        remainingSessions: pkg.remainingSessions,
+        patientPackageId: pkg.patientPackageId,
+        patientPackageSubId: pkg.patientPackageSubId,
+        paymentStatus: recalculatedStatus || pkg.paymentStatus || "Unpaid"
+      };
+    }),
     ...activePackageUsage
       .filter((u: any) => u.isTransferred && u.transferredFrom)
       .map((u: any) => {
         const pkgDef = packages.find(p => p.name === u.packageName);
+        const packagePrice = u.packagePrice || pkgDef?.totalPrice || 0;
+        const recalculatedStatus = recalculatePackagePaymentStatus(u.packageName, packagePrice);
         return {
           _id: `transferred-${u.packageName}`,
           name: u.packageName,
@@ -4921,7 +4979,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           remainingSessions: u.remainingSessions ?? u.transferredSessions ?? 0,
           patientPackageId: null,
           patientPackageSubId: null,
-          paymentStatus: u.paymentStatus || "Unpaid",
+          paymentStatus: recalculatedStatus || u.paymentStatus || "Unpaid",
           isTransferred: true
         };
       })
@@ -5031,7 +5089,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-[200] flex items-center justify-center p-0 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-0 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
         <div
           className="bg-white rounded-none sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-h-[96vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
           style={{ minHeight: "600px" }}
@@ -7345,7 +7403,27 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             const totalAdvanceUsedFromBillings = packageBillings.reduce(
                               (sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0
                             );
-                            const totalPaidFromBillings = totalCashPaidFromBillings + totalAdvanceUsedFromBillings;
+                            
+                            // Also include payments from Treatment invoices that paid for this package via unpaidPackagesPaid
+                            const treatmentPackagePayments = (billingHistory || []).filter(
+                              (b: any) => 
+                                b.service === "Treatment" && 
+                                b.unpaidPackagesPaid && 
+                                b.unpaidPackagesPaid.some((p: any) => 
+                                  (p.packageName === packageName) || 
+                                  (packages.find((pkg: any) => String(pkg._id) === String(p.packageId))?.name === packageName)
+                                )
+                            );
+                            const totalCashPaidFromTreatments = treatmentPackagePayments.reduce(
+                              (sum: number, b: any) => sum + (Number(b.paid) || 0), 0
+                            );
+                            const totalAdvanceUsedFromTreatments = treatmentPackagePayments.reduce(
+                              (sum: number, b: any) => sum + (Number(b.advanceUsed) || 0), 0
+                            );
+                            
+                            const totalPaidFromBillings = 
+                              totalCashPaidFromBillings + totalAdvanceUsedFromBillings +
+                              totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments;
                             const packagePrice = packageDef?.totalPrice || pkg.totalPrice || 0;
                            
                             // Determine correct payment status based on total paid (cash + advance)

@@ -239,6 +239,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-release-requested-claims": () =>
     import("../clinic/release-requested-claims"),
   "all-claims": () => import("../clinic/all-claims"),
+  "clinic-invoices": () => import("../clinic/invoices"),
 };
 
 const StaffDynamicPage = () => {
