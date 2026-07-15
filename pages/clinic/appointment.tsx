@@ -3811,7 +3811,7 @@ function AppointmentPage({
               )}
 
               <div
-                className="border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50"
+                className="relative z-10 border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50"
                 style={{ maxHeight: "75vh" }}
               >
                 {/* Unified grid container with single scroll */}
