@@ -13,6 +13,15 @@ export const sendTestEmailBySmtp = async ({
   from,
   to,
 }) => {
+  console.log({
+    from,
+    to,
+    smtpHost,
+    smtpPort,
+    smtpSecure,
+    smtpUsername,
+    smtpPassword,
+  });
   try {
     const transporter = nodemailer.createTransport({
       host: smtpHost,
@@ -21,6 +30,9 @@ export const sendTestEmailBySmtp = async ({
       auth: {
         user: smtpUsername,
         pass: smtpPassword,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 
@@ -33,7 +45,7 @@ export const sendTestEmailBySmtp = async ({
 
     return true;
   } catch (error) {
-    console.error("SMTP Test Email Error:", error.message);
+    console.error("SMTP Test Email Error:", error);
     return false;
   }
 };
@@ -67,6 +79,9 @@ export const sendEmailViaSmtpMultiple = async ({
       auth: {
         user: smtpUsername,
         pass: smtpPassword,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 
@@ -114,6 +129,9 @@ export const sendBatchEmailBySmtp = async ({
       auth: {
         user: smtpUsername,
         pass: smtpPassword,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 

@@ -13,6 +13,7 @@ import { ConversationType, MessageType } from "@/types/conversations";
 import useAgents from "@/hooks/useAgents";
 import { User } from "@/types/users";
 import useTags from "@/hooks/useTags";
+import toast from "react-hot-toast";
 
 export type EmailFolderKey =
   | "all"
@@ -922,6 +923,20 @@ export default function useEmailInbox() {
 
   const unreadCountFor = (_f: EmailFolderKey) => 0;
 
+  const handleRefreshConversations = async () => {
+    if (!token) return;
+    try {
+      const { data } = await axios.get(`/api/conversations/refresh`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data && data?.success) {
+        toast.success("Conversations refreshed successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
   return {
     // list
     emailProviders,
@@ -1009,5 +1024,8 @@ export default function useEmailInbox() {
     isAddingTag,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
+
+    // refresh
+    handleRefreshConversations,
   };
 }

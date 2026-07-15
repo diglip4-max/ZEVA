@@ -509,6 +509,7 @@ const EmailInboxPage: NextPageWithLayout = () => {
         listRef={inbox.conversationListRef as any}
         onFilterClick={() => setIsFilterModalOpen(true)}
         hasActiveFilters={!!inbox.filterOwnerId}
+        handleRefreshConversations={inbox.handleRefreshConversations}
       />
       <EmailReadingPane
         messages={inbox.threadMessages}
