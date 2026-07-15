@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from "react";
-import { Search, Mail, Filter } from "lucide-react";
+import { Search, Mail, Filter, RefreshCcw } from "lucide-react";
 import EmailListItem from "./EmailListItem";
 import {
   EMAIL_FOLDERS,
@@ -23,6 +23,7 @@ interface EmailListProps {
   listRef: React.RefObject<HTMLDivElement>;
   onFilterClick: () => void;
   hasActiveFilters: boolean;
+  handleRefreshConversations: () => void;
 }
 
 export default function EmailList({
@@ -39,6 +40,7 @@ export default function EmailList({
   listRef,
   onFilterClick,
   hasActiveFilters,
+  handleRefreshConversations,
 }: EmailListProps) {
   const folderLabel =
     EMAIL_FOLDERS.find((f) => f.key === folder)?.label || "Mail";
@@ -68,7 +70,15 @@ export default function EmailList({
     <section className="pi-listcol">
       <div className="pi-list-header">
         <div className="pi-list-title-row">
-          <div className="pi-list-title">{folderLabel}</div>
+          <div className="pi-list-title-container">
+            <div className="pi-list-title">{folderLabel}</div>
+            <button
+              onClick={handleRefreshConversations}
+              className="pi-refresh-btn"
+            >
+              <RefreshCcw className="h-3 w-3" />
+            </button>
+          </div>
           <div className="pi-list-sub">{totalEmailsLenth} emails</div>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -91,12 +101,16 @@ export default function EmailList({
               height: "42px",
               borderRadius: "12px",
               border: "1px solid var(--border)",
-              background: hasActiveFilters ? "var(--primary-soft)" : "var(--panel)",
-              color: hasActiveFilters ? "var(--primary-bright)" : "var(--text-dim)",
+              background: hasActiveFilters
+                ? "var(--primary-soft)"
+                : "var(--panel)",
+              color: hasActiveFilters
+                ? "var(--primary-bright)"
+                : "var(--text-dim)",
               cursor: "pointer",
               transition: "all 0.15s ease",
               position: "relative",
-              flexShrink: 0
+              flexShrink: 0,
             }}
           >
             <Filter size={18} />
@@ -115,7 +129,7 @@ export default function EmailList({
                   borderRadius: "50%",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center"
+                  justifyContent: "center",
                 }}
               >
                 1

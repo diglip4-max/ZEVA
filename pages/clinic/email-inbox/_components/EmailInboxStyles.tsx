@@ -271,6 +271,26 @@ export default function EmailInboxStyles() {
         display: flex; align-items: baseline; justify-content: space-between;
         margin-bottom: 16px;
       }
+      .pi-list-title-container {
+          display: flex; align-items: center; gap: 8px;
+      }
+          .pi-refresh-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 6px;
+            color: var(--text-faint);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.12s ease;
+            color: var(--text-dim);
+          }
+          .pi-refresh-btn:hover {
+            background: var(--panel-2);
+            color: var(--text-dim);
+          }
       .pi-list-title {
         font-family: 'Inter', sans-serif;
         font-size: 22px;
