@@ -124,10 +124,35 @@ export default async function handler(req, res) {
         },
       },
       {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient"
+        }
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      {
         $group: {
           _id: "$doctorId",
           revenue: { $sum: { $ifNull: ["$paid", 0] } },
           invoices: { $sum: 1 },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "$service",
+              packageName: "$package",
+              treatmentName: "$treatment",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: { $ifNull: ["$amount", 0] },
+              paid: { $ifNull: ["$paid", 0] },
+              pending: { $ifNull: ["$pending", 0] },
+              advance: { $ifNull: ["$advance", 0] },
+            }
+          }
         },
       },
       { $sort: { revenue: -1 } },
@@ -139,6 +164,7 @@ export default async function handler(req, res) {
       staffName: staffMap.get(String(r._id))?.name || "Unknown",
       revenue: Math.round(Number(r.revenue || 0)),
       invoices: r.invoices || 0,
+      details: r.details || [],
     }));
     console.log("bookingsAggCount", bookingsAgg.length);
     console.log("revenueByStaffCount", revenueByStaff.length);
@@ -180,12 +206,31 @@ export default async function handler(req, res) {
       { $lookup: { from: "users", localField: "staffId", foreignField: "_id", as: "user" } },
       { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
       { $match: { "user.role": "doctorStaff" } },
+      { $lookup: { from: "patientregistrations", localField: "patientId", foreignField: "_id", as: "patient" } },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "billings", localField: "billingId", foreignField: "_id", as: "billing" } },
+      { $unwind: { path: "$billing", preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: "$staffId",
           totalCommission: { $sum: commissionAmountExpr },
           entries: { $sum: 1 },
           name: { $first: "$user.name" },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              invoiceNumber: "$billing.invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amountPaid: { $ifNull: ["$amountPaid", 0] },
+              commissionAmount: commissionAmountExpr,
+              totalAmount: { $ifNull: ["$billing.amount", 0] },
+              paid: { $ifNull: ["$billing.paid", 0] },
+              pending: { $ifNull: ["$billing.pending", 0] },
+              advance: { $ifNull: ["$billing.advance", 0] },
+            }
+          }
         },
       },
       { $sort: { totalCommission: -1 } },
@@ -198,12 +243,31 @@ export default async function handler(req, res) {
       { $lookup: { from: "users", localField: "staffId", foreignField: "_id", as: "user" } },
       { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
       { $match: { "user.role": "agent" } },
+      { $lookup: { from: "patientregistrations", localField: "patientId", foreignField: "_id", as: "patient" } },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "billings", localField: "billingId", foreignField: "_id", as: "billing" } },
+      { $unwind: { path: "$billing", preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: "$staffId",
           totalCommission: { $sum: commissionAmountExpr },
           entries: { $sum: 1 },
           name: { $first: "$user.name" },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              invoiceNumber: "$billing.invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amountPaid: { $ifNull: ["$amountPaid", 0] },
+              commissionAmount: commissionAmountExpr,
+              totalAmount: { $ifNull: ["$billing.amount", 0] },
+              paid: { $ifNull: ["$billing.paid", 0] },
+              pending: { $ifNull: ["$billing.pending", 0] },
+              advance: { $ifNull: ["$billing.advance", 0] },
+            }
+          }
         },
       },
       { $sort: { totalCommission: -1 } },
@@ -250,12 +314,31 @@ export default async function handler(req, res) {
         },
       },
       { $unwind: { path: "$user", preserveNullAndEmptyArrays: false } },
+      { $lookup: { from: "patientregistrations", localField: "patientId", foreignField: "_id", as: "patient" } },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      { $lookup: { from: "billings", localField: "billingId", foreignField: "_id", as: "billing" } },
+      { $unwind: { path: "$billing", preserveNullAndEmptyArrays: true } },
       {
         $group: {
           _id: "$user._id",
           totalCommission: { $sum: commissionAmountExpr },
           entries: { $sum: 1 },
           name: { $first: "$user.name" },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              invoiceNumber: "$billing.invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amountPaid: { $ifNull: ["$amountPaid", 0] },
+              commissionAmount: commissionAmountExpr,
+              totalAmount: { $ifNull: ["$billing.amount", 0] },
+              paid: { $ifNull: ["$billing.paid", 0] },
+              pending: { $ifNull: ["$billing.pending", 0] },
+              advance: { $ifNull: ["$billing.advance", 0] },
+            }
+          }
         },
       },
       { $sort: { totalCommission: -1 } },
@@ -281,6 +364,7 @@ export default async function handler(req, res) {
       name: r.name || "Unknown",
       totalCommission: Math.round(Number(r.totalCommission || 0)),
       entries: r.entries || 0,
+      details: r.details || [],
     }));
 
     const combinedAgentMap = new Map();
@@ -290,14 +374,22 @@ export default async function handler(req, res) {
       const existing = combinedAgentMap.get(key);
       const total = Math.round(Number(r.totalCommission || 0));
       const entries = r.entries || 0;
+      const details = r.details || [];
       if (!existing) {
-        combinedAgentMap.set(key, { staffId: key, name: r.name || "Unknown", totalCommission: total, entries });
+        combinedAgentMap.set(key, { 
+        staffId: key, 
+        name: r.name || "Unknown", 
+        totalCommission: total, 
+        entries,
+        details: details
+      });
       } else {
         combinedAgentMap.set(key, {
           staffId: key,
           name: existing.name || r.name || "Unknown",
           totalCommission: existing.totalCommission + total,
           entries: (existing.entries || 0) + entries,
+          details: [...(existing.details || []), ...details]
         });
       }
     });
@@ -306,7 +398,7 @@ export default async function handler(req, res) {
       .slice(0, 5);
     console.log("topAgentCommissionResultCount", topAgentCommission.length, "ids", topAgentCommission.map((x) => x.staffId));
 
-    // New: Highest billing in memberships and packages per doctor staff
+    // New: Highest billing in memberships and packages per doctor staff with details
     const packageBillingAgg = await Billing.aggregate([
       {
         $match: {
@@ -317,10 +409,33 @@ export default async function handler(req, res) {
         }
       },
       {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient"
+        }
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      {
         $group: {
           _id: "$doctorId",
           amount: { $sum: { $ifNull: ["$paid", 0] } },
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              amount: { $ifNull: ["$amount", 0] },
+              paid: { $ifNull: ["$paid", 0] },
+              pending: { $ifNull: ["$pending", 0] },
+              advance: { $ifNull: ["$advance", 0] },
+              packageName: "$package",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate"
+            }
+          }
         }
       },
       { $sort: { amount: -1 } },
@@ -331,7 +446,8 @@ export default async function handler(req, res) {
       staffId: String(r._id || ""),
       name: staffMap.get(String(r._id))?.name || "Unknown",
       amount: Math.round(Number(r.amount || 0)),
-      count: r.count
+      count: r.count,
+      details: r.details || []
     }));
 
     const membershipBillingAgg = await Billing.aggregate([
@@ -347,10 +463,37 @@ export default async function handler(req, res) {
         }
       },
       {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient"
+        }
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      {
         $group: {
           _id: "$doctorId",
           amount: { $sum: { $ifNull: ["$paid", 0] } },
-          count: { $sum: 1 }
+          count: { $sum: 1 },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "$service",
+              packageName: "$package",
+              treatmentName: "$treatment",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: { $ifNull: ["$amount", 0] },
+              paid: { $ifNull: ["$paid", 0] },
+              pending: { $ifNull: ["$pending", 0] },
+              advance: { $ifNull: ["$advance", 0] },
+              isFreeConsultation: "$isFreeConsultation",
+              membershipDiscountApplied: "$membershipDiscountApplied"
+            }
+          }
         }
       },
       { $sort: { amount: -1 } },
@@ -361,7 +504,8 @@ export default async function handler(req, res) {
       staffId: String(r._id || ""),
       name: staffMap.get(String(r._id))?.name || "Unknown",
       amount: Math.round(Number(r.amount || 0)),
-      count: r.count
+      count: r.count,
+      details: r.details || []
     }));
 
     return res.status(200).json({

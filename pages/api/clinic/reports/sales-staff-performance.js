@@ -144,7 +144,7 @@ export default async function handler(req, res) {
             patientId: "$__patientId",
             packageName: "$__packageName"
           },
-          totalPaidForPackage: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+          totalPaidForPackage: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] } },
           totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
           totalAmountForPackage: { $first: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$amount", 0] }, else: 0 } } },
           firstInvoicedDate: { $min: "$invoicedDate" }
@@ -174,20 +174,61 @@ export default async function handler(req, res) {
             { $cond: { if: { $ne: ["$totalAmountForPackage", 0] }, then: "$totalAmountForPackage", else: "$__patientReg.packages.totalPrice" } },
             0
           ] },
-          totalPaid: { $ifNull: [
-            { $cond: { if: { $ne: ["$__patientReg.packages.paidAmount", null] }, then: "$__patientReg.packages.paidAmount", else: "$totalPaidForPackage" } },
-            "$totalPaidForPackage"
-          ] },
-          totalPending: { $subtract: [
-            { $ifNull: [
-              { $cond: { if: { $ne: ["$totalAmountForPackage", 0] }, then: "$totalAmountForPackage", else: "$__patientReg.packages.totalPrice" } },
-              0
-            ] },
-            { $ifNull: [
-              { $cond: { if: { $ne: ["$__patientReg.packages.paidAmount", null] }, then: "$__patientReg.packages.paidAmount", else: "$totalPaidForPackage" } },
-              "$totalPaidForPackage"
-            ] }
-          ] }
+          totalPaid: {
+            // EDGE CASE: When a Package billing is paid via Advance Balance (advanceUsed > 0),
+            // PatientRegistration.packages.paidAmount may not reflect the advance portion
+            // (PR is typically updated only on direct cash payments). The Billing-driven
+            // totalPaidForPackage now sums advanceUsed as well. Using $max ensures the
+            // advance is counted as paid revenue without double-counting if PR already
+            // includes it. Existing flow (cash-only, partial payments, pending clearings)
+            // is preserved because PR.paidAmount remains the source of truth when it is
+            // greater than or equal to totalPaidForPackage.
+            $max: [
+              { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
+              { $ifNull: ["$totalPaidForPackage", 0] }
+            ]
+          },
+          totalPending: {
+            // EDGE CASE: When a Package billing is created with both package
+            // amount AND a separately selected treatment (not in package), the
+            // billing's `amount` covers BOTH the package + treatment while
+            // the PatientRegistration's `paidAmount` reflects only the package
+            // portion. With a fully-paid billing (pending = 0), subtracting
+            // PR.paidAmount from billing.amount incorrectly leaves the
+            // treatment price as "outstanding". Guard the calculation so that
+            // when no actual pending exists on the billing(s), totalPending
+            // is 0. Existing flow (partial payments, split payments,
+            // unpaidPackagesPaid treatment clearings) is preserved.
+            $cond: {
+              if: { $lte: [{ $ifNull: ["$totalPendingForPackage", 0] }, 0] },
+              then: 0,
+              else: {
+                $subtract: [
+                  {
+                    $ifNull: [
+                      {
+                        $cond: [
+                          { $ne: ["$totalAmountForPackage", 0] },
+                          "$totalAmountForPackage",
+                          "$__patientReg.packages.totalPrice"
+                        ]
+                      },
+                      0
+                    ]
+                  },
+                  {
+                    // Inner totalPaid in the totalPending subtract — mirror the standalone
+                    // totalPaid $max logic so the pending calculation also accounts for
+                    // advanceUsed when the package is partially paid via advance balance.
+                    $max: [
+                      { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
+                      { $ifNull: ["$totalPaidForPackage", 0] }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
         }
       },
       // Now group by soldBy
