@@ -1341,7 +1341,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       {/* Membership and Package Section - Side by Side */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Membership Card */}
-                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm max-h-[400px] overflow-y-auto">
                           <h3 className="text-[14px] font-bold text-indigo-700 mb-2 flex items-center gap-1">
                             <User className="w-4 h-4 text-indigo-600" />
                             Membership
@@ -1572,7 +1572,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         </div>
 
                         {/* Package Card */}
-                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm max-h-[400px] overflow-y-auto">
                           <h3 className="text-[14px] font-bold text-purple-700 mb-2 flex items-center gap-1">
                             <FileText className="w-4 h-4 text-purple-600" />
                             Package

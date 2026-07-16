@@ -18,6 +18,10 @@ const RoomSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
@@ -25,5 +29,10 @@ const RoomSchema = new mongoose.Schema(
 // Ensure unique room names per clinic
 RoomSchema.index({ clinicId: 1, name: 1 }, { unique: true });
 
-export default mongoose.models.Room || mongoose.model("Room", RoomSchema);
+// Prevent caching of model schema in Next.js development hot-reloading
+if (mongoose.models.Room) {
+  delete mongoose.models.Room;
+}
+
+export default mongoose.model("Room", RoomSchema);
 

@@ -7249,7 +7249,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                         <span className="text-[10px] text-gray-500">Loading packages...</span>
                       </div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                         {/* Combine regular packages, userPackages, and transferred-in packages */}
                         {(() => {
                           // Create a map of active package usage for quick lookup
@@ -7576,7 +7576,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     ) : last3Billings.length === 0 ? (
                       <div className="text-[10px] text-gray-400 py-2">No payment history found</div>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                         {last3Billings.map((billing) => (
                           <div key={billing._id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100">
                             <div className="flex items-center gap-3">

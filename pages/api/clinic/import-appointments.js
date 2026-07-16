@@ -175,7 +175,10 @@ export default async function handler(req, res) {
       isApproved: true,
     }).select("_id name email").lean();
 
-    const rooms = await Room.find({ clinicId: clinicId }).select("_id name").lean();
+    const rooms = await Room.find({
+      clinicId: clinicId,
+      isDeleted: { $ne: true },
+    }).select("_id name").lean();
 
     // Helper function to generate invoice number
     const generateInvoiceNumber = () => {

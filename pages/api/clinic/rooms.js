@@ -49,7 +49,10 @@ export default async function handler(req, res) {
         });
       }
 
-      const rooms = await Room.find({ clinicId })
+      const rooms = await Room.find({
+        clinicId,
+        isDeleted: { $ne: true }
+      })
         .sort({ createdAt: -1 })
         .lean();
 
@@ -96,6 +99,7 @@ export default async function handler(req, res) {
       const existingRoom = await Room.findOne({
         clinicId,
         name: name.trim(),
+        isDeleted: { $ne: true },
       });
 
       if (existingRoom) {
@@ -170,6 +174,7 @@ export default async function handler(req, res) {
         clinicId,
         name: normalizedName,
         _id: { $ne: roomId },
+        isDeleted: { $ne: true },
       });
 
       if (duplicateRoom) {
@@ -228,7 +233,16 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Room not found" });
       }
 
-      await Room.findByIdAndDelete(roomId);
+      // Soft delete: set isDeleted to true
+      await Room.updateOne(
+        { _id: roomId },
+        {
+          $set: {
+            isDeleted: true,
+            name: `${room.name}`
+          }
+        }
+      );
 
       return res.status(200).json({
         success: true,
