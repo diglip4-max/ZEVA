@@ -34,6 +34,11 @@ type DoctorDetail = {
   paid: number;
   pending: number;
   advance: number;
+  advanceUsed: number;
+  claimAmountUsed: number;
+  cashbackWalletUsed: number;
+  pendingUsed: number;
+  pendingClaimUsed: number;
 };
 
 type DoctorRow = {
@@ -57,6 +62,9 @@ type ServiceDetail = {
   advance: number;
   pendingUsed: number;
   pendingClaimUsed: number;
+  advanceUsed: number;
+  claimAmountUsed: number;
+  cashbackWalletUsed: number;
 };
 type ServiceRow = { serviceId: string; name: string; amount: number; details: ServiceDetail[] };
 type PackageDetail = {
@@ -74,10 +82,37 @@ type PackageDetail = {
   advance: number;
   pendingUsed: number;
   pendingClaimUsed: number;
+  advanceUsed: number;
+  claimAmountUsed: number;
+  cashbackWalletUsed: number;
 };
 type PackageRow = { packageName: string; amount: number; details: PackageDetail[] };
-type DepartmentRow = { departmentId: string; name: string; amount: number };
-type PaymentRow = { method: string; amount: number };
+type DepartmentDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  totalAmount: number;
+  revenue: number;
+};
+type DepartmentRow = { departmentId: string; name: string; amount: number; details: DepartmentDetail[] };
+type PaymentMethodDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  treatment: string;
+  package: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  totalAmount: number;
+  revenue: number;
+};
+type PaymentRow = { method: string; amount: number; details: PaymentMethodDetail[] };
 type ViewRow = { label: string; amount: number };
 
 export default function RevenueReport({ startDate, endDate, headers }: Props) {
@@ -113,6 +148,8 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorRow | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceRow | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<PackageRow | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentRow | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentRow | null>(null);
 
   const currencyFormatter = (n: number | null | undefined) => {
     const symbol = getCurrencySymbol(currency);
@@ -535,6 +572,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Department</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -542,10 +580,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <tr key={r.departmentId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedDepartment(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!revenueByDepartment.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -560,6 +606,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Method</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -567,10 +614,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <tr key={r.method}>
                   <td className="px-4 py-2 text-sm">{r.method}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => setSelectedPaymentMethod(r)}
+                      className="text-blue-600 hover:text-blue-800 font-medium underline"
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               ))}
               {!revenueByPaymentMethod.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -975,7 +1030,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedService.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
-                    const revenue = Number(detail.paid || 0);
+                    const revenue = Number(detail.paid || 0) + Number(detail.advanceUsed || 0) + Number(detail.claimAmountUsed || 0) + Number(detail.cashbackWalletUsed || 0);
                     return (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
@@ -1119,7 +1174,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedPackage.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
-                    const revenue = Number(detail.paid || 0);
+                    const revenue = Number(detail.paid || 0) + Number(detail.advanceUsed || 0) + Number(detail.claimAmountUsed || 0) + Number(detail.cashbackWalletUsed || 0);
                     return (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm">
@@ -1211,6 +1266,262 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                           0
                         )
                       )}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal for department details */}
+      {selectedDepartment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedDepartment.name}
+              </h2>
+              <button
+                onClick={() => setSelectedDepartment(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Revenue
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedDepartment.details]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.invoicedDate).getTime() -
+                        new Date(a.invoicedDate).getTime()
+                    )
+                    .map((detail, index) => {
+                      return (
+                        <tr key={index}>
+                          <td className="px-4 py-2 text-sm">
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/clinic/patient-profile-view?id=${detail.patientId}`
+                                )
+                              }
+                              className="text-blue-600 hover:text-blue-800 font-medium underline"
+                            >
+                              {detail.patientName?.trim() || "Unknown"}
+                            </button>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.emrNumber || "-"}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.service === "Package" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                  Package
+                                </span>
+                                <span>{detail.packageName || "Package"}</span>
+                              </div>
+                            ) : detail.service === "Treatment" ? (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                  Treatment
+                                </span>
+                                <span>{detail.treatmentName || "Treatment"}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                  {detail.service || "Service"}
+                                </span>
+                                <span>
+                                  {detail.treatmentName || detail.service || "Service"}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.invoiceNumber || "-"}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.invoicedDate
+                              ? new Date(detail.invoicedDate).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium">
+                            {fmtCurrency(detail.totalAmount)}
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">
+                            {fmtCurrency(detail.revenue)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedDepartment.details.reduce(
+                          (sum, d) => sum + Number(d.totalAmount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                      {fmtCurrency(selectedDepartment.amount)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal for payment method details */}
+      {selectedPaymentMethod && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedPaymentMethod.method}
+              </h2>
+              <button
+                onClick={() => setSelectedPaymentMethod(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Revenue
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...selectedPaymentMethod.details]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.invoicedDate).getTime() -
+                        new Date(a.invoicedDate).getTime()
+                    )
+                    .map((detail, index) => {
+                      const serviceLabel = detail.package ? "Package" : detail.service === "Treatment" ? "Treatment" : "Service";
+                      const serviceName = detail.package || detail.treatment || detail.service || "Service";
+                      return (
+                        <tr key={index}>
+                          <td className="px-4 py-2 text-sm">
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/clinic/patient-profile-view?id=${detail.patientId}`
+                                )
+                              }
+                              className="text-blue-600 hover:text-blue-800 font-medium underline"
+                            >
+                              {detail.patientName?.trim() || "Unknown"}
+                            </button>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.emrNumber || "-"}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                serviceLabel === "Package" ? "bg-blue-100 text-blue-800" :
+                                serviceLabel === "Treatment" ? "bg-green-100 text-green-800" :
+                                "bg-purple-100 text-purple-800"
+                              }`}>
+                                {serviceLabel}
+                              </span>
+                              <span>{serviceName}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.invoiceNumber || "-"}
+                          </td>
+                          <td className="px-4 py-2 text-sm">
+                            {detail.invoicedDate
+                              ? new Date(detail.invoicedDate).toLocaleDateString()
+                              : "-"}
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium">
+                            {fmtCurrency(detail.totalAmount)}
+                          </td>
+                          <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">
+                            {fmtCurrency(detail.revenue)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {fmtCurrency(
+                        selectedPaymentMethod.details.reduce(
+                          (sum, d) => sum + Number(d.totalAmount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                      {fmtCurrency(selectedPaymentMethod.amount)}
                     </td>
                   </tr>
                 </tfoot>

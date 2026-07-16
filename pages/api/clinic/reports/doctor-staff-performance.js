@@ -135,7 +135,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: "$doctorId",
-          revenue: { $sum: { $ifNull: ["$paid", 0] } },
+          revenue: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] } ] } },
           invoices: { $sum: 1 },
           details: {
             $push: {
@@ -420,7 +420,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: "$doctorId",
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] } ] } },
           count: { $sum: 1 },
           details: {
             $push: {
@@ -474,7 +474,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: "$doctorId",
-          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] } ] } },
           count: { $sum: 1 },
           details: {
             $push: {
