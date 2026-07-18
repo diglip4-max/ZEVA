@@ -305,18 +305,18 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
                                 {(pkg.billingHistory || [])
                                   .filter((b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                                   .map((billing, bIndex) => (
-                                  <tr key={bIndex} className="border-b border-gray-100 last:border-0 hover:bg-white/50">
-                                    <td className="py-1.5 px-1.5 font-medium text-gray-900">{billing.invoiceNumber}</td>
-                                    <td className="py-1.5 px-1.5 text-gray-600">{new Date(billing.date).toLocaleDateString()}</td>
-                                    <td className="py-1.5 px-1.5 text-center">
-                                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal-100 text-teal-700 font-medium text-[9px]">
-                                        {billing.sessions || 0}
-                                      </span>
-                                    </td>
-                                    <td className="py-1.5 px-1.5 text-right font-medium text-gray-900">د.إ{billing.amount?.toLocaleString() || 0}</td>
-                                    <td className="py-1.5 px-1.5 text-right text-green-600 font-medium">د.إ{billing.paid?.toLocaleString() || 0}</td>
-                                  </tr>
-                                ))}
+                                    <tr key={bIndex} className="border-b border-gray-100 last:border-0 hover:bg-white/50">
+                                      <td className="py-1.5 px-1.5 font-medium text-gray-900">{billing.invoiceNumber}</td>
+                                      <td className="py-1.5 px-1.5 text-gray-600">{new Date(billing.date).toLocaleDateString()}</td>
+                                      <td className="py-1.5 px-1.5 text-center">
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal-100 text-teal-700 font-medium text-[9px]">
+                                          {billing.sessions || 0}
+                                        </span>
+                                      </td>
+                                      <td className="py-1.5 px-1.5 text-right font-medium text-gray-900">د.إ{billing.amount?.toLocaleString() || 0}</td>
+                                      <td className="py-1.5 px-1.5 text-right text-green-600 font-medium">د.إ{billing.paid?.toLocaleString() || 0}</td>
+                                    </tr>
+                                  ))}
                               </tbody>
                             </table>
                           </div>
@@ -719,7 +719,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                 {(() => {
                                   const key = `${m.membershipId}|${m.startDate}|${m.endDate}`;
                                   const usage = membershipUsageMap[key];
-                                  
+
                                   return (
                                     <div className="space-y-3">
                                       {/* Membership Benefits Section */}
@@ -753,7 +753,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                                 {usage && !usage.isExpired && usage.totalFreeConsultations > 0 && (
                                                   <>
                                                     <div className="w-full h-2 bg-blue-200 rounded-full overflow-hidden mb-1">
-                                                      <div 
+                                                      <div
                                                         className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
                                                         style={{ width: `${Math.min(100, ((usage.usedFreeConsultations || 0) / usage.totalFreeConsultations) * 100)}%` }}
                                                       />
@@ -770,7 +770,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                                 )}
                                               </div>
                                             )}
-                                            
+
                                             {/* Discount Percentage */}
                                             {plan.benefits.discountPercentage > 0 && (
                                               <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
@@ -782,7 +782,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                                 </div>
                                               </div>
                                             )}
-                                            
+
                                             {/* Priority Booking */}
                                             {plan.benefits.priorityBooking && (
                                               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
@@ -795,7 +795,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                           </div>
                                         </div>
                                       )}
-                                      
+
                                       {/* Transfer Information */}
                                       {usage?.isTransferred && (
                                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3">
@@ -823,7 +823,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                           </div>
                                         </div>
                                       )}
-                                      
+
                                       {/* Usage History Details */}
                                       {usage?.freeConsultationDetails && usage.freeConsultationDetails.length > 0 && (
                                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -977,7 +977,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                     <span className="font-bold text-gray-900 text-sm">د.إ{pkg.sessionPrice?.toLocaleString()}</span>
                                   </div>
                                 </div>
-                                
+
                                 {/* Treatment Breakdown */}
                                 {pkg.treatments && pkg.treatments.length > 0 && (
                                   <div className="bg-white rounded-lg border border-gray-200 p-2.5">
@@ -998,7 +998,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                     </div>
                                   </div>
                                 )}
-                                
+
                                 {/* Transfer Information for Package */}
                                 {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).length > 0 && (
                                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-2.5">
@@ -1183,6 +1183,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [deleteSuccessModal, setDeleteSuccessModal] = useState({ isOpen: false, patientName: "" });
   const [packageUsageModal, setPackageUsageModal] = useState({ isOpen: false, patient: null, data: null, loading: false });
   const [membershipUsageMap, setMembershipUsageMap] = useState({});
+  const [activePatientsCount, setActivePatientsCount] = useState(0);
   const [exportPermissions, setExportPermissions] = useState({ canExport: true });
   const [exportPermissionsLoaded, setExportPermissionsLoaded] = useState(false);
   const [isClinicContext, setIsClinicContext] = useState(false);
@@ -1229,16 +1230,16 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           const normalized = p.module.startsWith("clinic_")
             ? p.module.slice(7)
             : p.module.startsWith("admin_")
-            ? p.module.slice(6)
-            : p.module;
+              ? p.module.slice(6)
+              : p.module;
           return normalized === "patient_information" || normalized === "patient_management" || normalized === "patient_registration" || normalized === "patient";
         });
 
         if (modulePermission) {
           const actions = modulePermission.actions || {};
-          const moduleAll = actions.all === true || 
-                           actions.all === "true" || 
-                           String(actions.all).toLowerCase() === "true";
+          const moduleAll = actions.all === true ||
+            actions.all === "true" ||
+            String(actions.all).toLowerCase() === "true";
 
           // Find patient related submodule
           const patientSubModule = modulePermission.subModules?.find(
@@ -1251,9 +1252,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 
           if (patientSubModule) {
             const subModuleActions = patientSubModule.actions || {};
-            const subModuleAll = subModuleActions.all === true || 
-                                subModuleActions.all === "true" || 
-                                String(subModuleActions.all).toLowerCase() === "true";
+            const subModuleAll = subModuleActions.all === true ||
+              subModuleActions.all === "true" ||
+              String(subModuleActions.all).toLowerCase() === "true";
 
             const checkExportPermission = () => {
               // Priority 1: Submodule explicit export permission
@@ -1266,10 +1267,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   return false;
                 }
               }
-              
+
               // Priority 2: Submodule all
               if (subModuleAll) return true;
-              
+
               // Priority 3: Module explicit export
               if (actions && actions.hasOwnProperty("export")) {
                 const moduleActionValue = actions["export"];
@@ -1280,10 +1281,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   return false;
                 }
               }
-              
+
               // Priority 4: Module all
               if (moduleAll) return true;
-              
+
               // Default
               return false;
             };
@@ -1292,7 +1293,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           } else {
             const checkExportPermission = () => {
               if (moduleAll) return true;
-              
+
               const moduleActionValue = actions["export"];
               if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
                 return true;
@@ -1300,7 +1301,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
                 return false;
               }
-              
+
               return false;
             };
 
@@ -1344,13 +1345,13 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       const data = res.data;
       if (data.success && data.permissions?.actions) {
         const actions = data.permissions.actions;
-        const moduleAll = actions.all === true || 
-                         actions.all === "true" || 
-                         String(actions.all).toLowerCase() === "true";
+        const moduleAll = actions.all === true ||
+          actions.all === "true" ||
+          String(actions.all).toLowerCase() === "true";
 
         const checkExportPermission = () => {
           if (moduleAll) return true;
-          
+
           const actionValue = actions["export"];
           if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
             return true;
@@ -1358,7 +1359,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
             return false;
           }
-          
+
           return false;
         };
 
@@ -1367,20 +1368,20 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         // Fallback: try with other possible module keys
         const fallbackKeys = ["patient_management", "patient_registration", "patient"];
         let foundPermission = false;
-        
+
         for (const key of fallbackKeys) {
           try {
             const fallbackRes = await axios.get("/api/agent/get-module-permissions", {
               params: { moduleKey: key },
               headers: { Authorization: `Bearer ${token}` },
             });
-            
+
             const fallbackData = fallbackRes.data;
             if (fallbackData.success && fallbackData.permissions?.actions) {
               const fallbackActions = fallbackData.permissions.actions;
-              const fallbackAll = fallbackActions.all === true || 
-                                 fallbackActions.all === "true" || 
-                                 String(fallbackActions.all).toLowerCase() === "true";
+              const fallbackAll = fallbackActions.all === true ||
+                fallbackActions.all === "true" ||
+                String(fallbackActions.all).toLowerCase() === "true";
 
               if (fallbackAll || fallbackActions.export === true || fallbackActions.export === "true" || String(fallbackActions.export).toLowerCase() === "true") {
                 setExportPermissions({ canExport: true });
@@ -1510,6 +1511,23 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       const { data } = await axios.get(apiEndpoint, { headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
+
+      // Fetch appointments to calculate active patients
+      try {
+        const { data: aptData } = await axios.get("/api/clinic/all-appointments?limit=100000", { headers });
+        if (aptData.success && aptData.appointments) {
+          const uniquePatients = new Set(
+            aptData.appointments.map(apt => apt.patientId).filter(Boolean)
+          );
+          setActivePatientsCount(uniquePatients.size);
+        } else {
+          setActivePatientsCount(0);
+        }
+      } catch (aptErr) {
+        console.error("Error fetching appointments for stats:", aptErr);
+        setActivePatientsCount(0);
+      }
+
       if (showSuccessToast) {
         addToast("Data loaded successfully", "success");
       }
@@ -1962,7 +1980,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-1">Active Patients</p>
-                  <p className="text-xl font-bold text-green-600">{activePatients}</p>
+                  <p className="text-xl font-bold text-green-600">{activePatientsCount}</p>
                 </div>
                 <div className="bg-green-100 p-2.5 rounded-md">
                   <TrendingUp className="h-5 w-5 text-green-600" />

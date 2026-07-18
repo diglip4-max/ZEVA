@@ -50,10 +50,23 @@ export default async function handler(req, res) {
         });
       }
 
-      const packages = await Package.find({
+      const { includeExpired } = req.query;
+      const nowDate = new Date();
+      
+      const query = {
         clinicId,
         isDeleted: { $ne: true }
-      })
+      };
+
+      if (includeExpired !== "true") {
+        query.$or = [
+          { endDate: { $exists: false } },
+          { endDate: null },
+          { endDate: { $gte: nowDate } }
+        ];
+      }
+
+      const packages = await Package.find(query)
         .sort({ createdAt: -1 })
         .lean();
 

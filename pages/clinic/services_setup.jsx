@@ -722,7 +722,7 @@ function ServicesSetupPage() {
       }
       (async () => {
         try {
-          const res = await axios.get("/api/clinic/packages", { headers });
+          const res = await axios.get("/api/clinic/packages", { headers, params: { includeExpired: "true" } });
           if (res.data.success) {
             setPackages(res.data.packages || []);
           } else {

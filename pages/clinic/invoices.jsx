@@ -69,6 +69,7 @@ function InvoicesPage() {
     toDate: new Date().toISOString().split("T")[0],
     doctorId: "",
     status: "",
+    isInvoiced: "",
   });
 
   const [pendingFilters, setPendingFilters] = useState({
@@ -77,6 +78,7 @@ function InvoicesPage() {
     toDate: new Date().toISOString().split("T")[0],
     doctorId: "",
     status: "",
+    isInvoiced: "",
   });
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
@@ -276,7 +278,7 @@ function InvoicesPage() {
       if (filters.toDate) params.toDate = filters.toDate;
       if (filters.doctorId) params.doctorId = filters.doctorId;
       if (filters.status) params.status = filters.status;
-
+      if (filters.isInvoiced) params.isInvoiced = filters.isInvoiced;
       const res = await axios.get("/api/clinic/complaints", {
         headers,
         params,
@@ -348,6 +350,7 @@ function InvoicesPage() {
       toDate: "",
       doctorId: "",
       status: "",
+      isInvoiced: "",
     };
     setPendingFilters(emptyFilters);
     setFilters(emptyFilters);
@@ -392,6 +395,18 @@ function InvoicesPage() {
     { value: "No Show", label: "No Show" },
 
   ];
+
+  const Invoiced__options = [
+    { value: "Invoiced", label: "Invoiced" },
+    { value: "Remaining", label: "Remaining" },
+  ]
+
+
+
+
+
+
+
   const formatDateTime = (date, time) => {
     let result = "";
     if (date) {
@@ -483,7 +498,7 @@ function InvoicesPage() {
                       Filter Options
                     </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                       <div
                         className="cursor-pointer"
                         onClick={(e) => {
@@ -566,10 +581,33 @@ function InvoicesPage() {
                           ))}
                         </select>
                       </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-green-700 mb-2 uppercase tracking-wider">
+                          Invoice Status
+                        </label>
+                        <select
+                          value={pendingFilters.isInvoiced}
+                          onChange={(e) => handleFilterChange("isInvoiced", e.target.value)}
+                          className="w-full px-4 py-2.5 text-sm border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-green-900 bg-white transition-all duration-200"
+                        >
+                          <option value="">All Invoice Status</option>
+
+                          {Invoiced__options.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
                     </div>
 
                   </div>
+
+
+
+
+
                   <div className="mt-6 flex justify-end gap-3">
                     <button
                       onClick={clearFilters}
@@ -828,7 +866,7 @@ function InvoicesPage() {
                                         <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
                                           EMR: {comp.emrNumber || "-"}
                                         </span>
-                                        {comp.isInvoiced && (
+                                        {comp.isInvoiced ? (
                                           <button
                                             onClick={() => {
                                               setOpenActionMenu(null);
@@ -840,6 +878,10 @@ function InvoicesPage() {
                                           >
                                             INVOICED
                                           </button>
+                                        ) : (
+                                          <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full text-xs font-medium">
+                                            REMAINING
+                                          </span>
                                         )}
                                       </div>
                                     </div>
@@ -907,16 +949,16 @@ function InvoicesPage() {
                                   <td className="px-4 py-4 border-b border-green-100">
                                     <span
                                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${comp?.appointment?.status?.toLowerCase() === "active"
-                                          ? "bg-green-100 text-green-700"
-                                          : comp?.appointment?.status?.toLowerCase() === "invoiced"
-                                            ? "bg-blue-100 text-blue-700"
-                                            : comp?.appointment?.status?.toLowerCase() === "pending"
-                                              ? "bg-yellow-100 text-yellow-700"
-                                              : comp?.appointment?.status?.toLowerCase() === "cancelled"
-                                                ? "bg-red-100 text-red-700"
-                                                : comp?.appointment?.status?.toLowerCase() === "completed"
-                                                  ? "bg-emerald-100 text-emerald-700"
-                                                  : "bg-gray-100 text-gray-700"
+                                        ? "bg-green-100 text-green-700"
+                                        : comp?.appointment?.status?.toLowerCase() === "invoiced"
+                                          ? "bg-blue-100 text-blue-700"
+                                          : comp?.appointment?.status?.toLowerCase() === "pending"
+                                            ? "bg-yellow-100 text-yellow-700"
+                                            : comp?.appointment?.status?.toLowerCase() === "cancelled"
+                                              ? "bg-red-100 text-red-700"
+                                              : comp?.appointment?.status?.toLowerCase() === "completed"
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : "bg-gray-100 text-gray-700"
                                         }`}
                                     >
                                       {comp?.appointment?.status
@@ -985,7 +1027,7 @@ function InvoicesPage() {
                                   <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
                                     EMR: {comp.emrNumber || "-"}
                                   </span>
-                                  {comp.isInvoiced && (
+                                  {comp.isInvoiced ? (
                                     <button
                                       onClick={() => {
                                         setOpenActionMenu(null);
@@ -993,10 +1035,14 @@ function InvoicesPage() {
                                         setSelectedBillings(comp.billings);
                                         setBillingsModalOpen(true);
                                       }}
-                                      className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium text-xs"
+                                      className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium text-xs hover:bg-green-200 transition cursor-pointer"
                                     >
                                       INVOICED
                                     </button>
+                                  ) : (
+                                    <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium text-xs">
+                                      REMAINING
+                                    </span>
                                   )}
                                 </div>
                               </div>
@@ -1071,16 +1117,16 @@ function InvoicesPage() {
                             <div className="flex items-center justify-between">
                               <span
                                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${comp?.appointment?.status?.toLowerCase() === "active"
-                                    ? "bg-green-100 text-green-700"
-                                    : comp?.appointment?.status?.toLowerCase() === "invoiced"
-                                      ? "bg-blue-100 text-blue-700"
-                                      : comp?.appointment?.status?.toLowerCase() === "pending"
-                                        ? "bg-yellow-100 text-yellow-700"
-                                        : comp?.appointment?.status?.toLowerCase() === "cancelled"
-                                          ? "bg-red-100 text-red-700"
-                                          : comp?.appointment?.status?.toLowerCase() === "completed"
-                                            ? "bg-emerald-100 text-emerald-700"
-                                            : "bg-gray-100 text-gray-700"
+                                  ? "bg-green-100 text-green-700"
+                                  : comp?.appointment?.status?.toLowerCase() === "invoiced"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : comp?.appointment?.status?.toLowerCase() === "pending"
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : comp?.appointment?.status?.toLowerCase() === "cancelled"
+                                        ? "bg-red-100 text-red-700"
+                                        : comp?.appointment?.status?.toLowerCase() === "completed"
+                                          ? "bg-emerald-100 text-emerald-700"
+                                          : "bg-gray-100 text-gray-700"
                                   }`}
                               >
                                 {comp?.appointment?.status
