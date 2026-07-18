@@ -47,12 +47,12 @@ export default async function handler(req, res) {
   endAt.setHours(23, 59, 59, 999);
 
   try {
-    console.log("doctor-staff-performance", {
-      clinicId: clinicId ? String(clinicId) : null,
-      role: me.role,
-      startAt: startAt.toISOString(),
-      endAt: endAt.toISOString(),
-    });
+    // console.log("doctor-staff-performance", {
+    //   clinicId: clinicId ? String(clinicId) : null,
+    //   role: me.role,
+    //   startAt: startAt.toISOString(),
+    //   endAt: endAt.toISOString(),
+    // });
     let staffFilter = { role: "doctorStaff", ...(clinicId ? { clinicId: clinicId } : {}) };
     let staffList = await User.find(staffFilter).select("_id name email").lean();
     // Fallback: if no doctorStaff found with clinic scoping, use all doctorStaff (legacy data)
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     }
     const staffIds = staffList.map((s) => s._id);
     const staffMap = new Map(staffList.map((s) => [String(s._id), { name: s.name || "Unknown", email: s.email || "" }]));
-    console.log("staffListCount", staffList.length);
+    // console.log("staffListCount", staffList.length);
 
     const baseAppointmentFilter = {
       ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
@@ -114,15 +114,113 @@ export default async function handler(req, res) {
       totalAppointments: row.totalAppointments || 0,
     }));
 
-    const revenueAgg = await Billing.aggregate([
+    // Define clinicMatch and dateMatch for revenue calculations
+    const clinicMatch = clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {};
+    const dateMatch = {
+      $or: [
+        { invoicedDate: { $gte: startAt, $lte: endAt } },
+        { invoicedDate: null, createdAt: { $gte: startAt, $lte: endAt } },
+      ],
+    };
+
+    // Revenue by doctor - ONLY appointment-based billings
+    // (where treatment comes from appointment and matches appointment's services)
+    // This mirrors the commission logic: if treatment is from appointment → doctor's revenue
+    const basePipeline = [
+      { $match: { ...clinicMatch, ...dateMatch } },
+      // Must have appointmentId to be considered for doctor's revenue
+      { $match: { appointmentId: { $ne: null } } },
       {
-        $match: {
-          ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
-          invoicedDate: { $gte: startAt, $lte: endAt },
-          doctorId: { $in: staffIds },
-          doctorId: { $ne: null },
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
         },
       },
+      { $unwind: "$appointment" },
+      // Filter by doctorStaff - only include billings where appointment has a doctorStaff
+      { $match: { "appointment.doctorId": { $in: staffIds } } },
+      // Check if treatment/service matches appointment's services
+      // This ensures we only count revenue from treatments that were actually in the appointment
+      {
+        $addFields: {
+          // Extract treatmentServiceIds from selectedTreatments array
+          billingServiceIds: {
+            $map: {
+              input: { $ifNull: ["$selectedTreatments", []] },
+              as: "st",
+              in: { $toString: "$$st.treatmentServiceId" },
+            },
+          },
+          // Extract serviceIds from appointment (both serviceIds array and services array)
+          appointmentServiceIds: {
+            $concatArrays: [
+              { $map: {
+                input: { $ifNull: ["$appointment.serviceIds", []] },
+                as: "sid",
+                in: { $toString: "$$sid" },
+              }},
+              { $map: {
+                input: { $ifNull: ["$appointment.services", []] },
+                as: "s",
+                in: { $toString: "$$s.serviceId" },
+              }},
+              // Also include single serviceId if present
+              { $cond: [{ $ifNull: ["$appointment.serviceId", false] }, [{ $toString: "$appointment.serviceId" }], []] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          // Check if any of the billing's treatment service IDs are in the appointment's service IDs
+          isFromAppointment: {
+            $and: [
+              // Must have appointment
+              { $ne: [{ $ifNull: ["$appointment", null] }, null] },
+              // Must have appointmentServiceIds
+              { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
+              // Check if any billingServiceId is in appointmentServiceIds
+              // OR if service is Package and package matches appointment's package
+              {
+                $or: [
+                  // Check if any treatment service ID matches
+                  {
+                    $gt: [
+                      {
+                        $size: {
+                          $filter: {
+                            input: "$billingServiceIds",
+                            as: "bsid",
+                            cond: { $in: ["$$bsid", "$appointmentServiceIds"] },
+                          },
+                        },
+                      },
+                      0,
+                    ],
+                  },
+                  // Package billing where package matches appointment's package
+                  {
+                    $and: [
+                      { $eq: ["$service", "Package"] },
+                      { $eq: ["$package", { $ifNull: ["$appointment.package", null] }] },
+                      { $ne: ["$package", ""] },
+                      { $ne: ["$package", null] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      // Only include billings where treatment/service is from appointment
+      { $match: { isFromAppointment: true } },
+    ];
+
+    const revenueAgg = await Billing.aggregate([
+      ...basePipeline,
       {
         $lookup: {
           from: "patientregistrations",
@@ -132,28 +230,401 @@ export default async function handler(req, res) {
         }
       },
       { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      // Extract packageSoldBy from patient's packages array (for Package billings)
+      {
+        $addFields: {
+          packageSoldBy: {
+            $arrayElemAt: [{
+              $filter: {
+                input: { $ifNull: ["$patient.packages", []] },
+                as: "pkg",
+                cond: { $and: [
+                  { $eq: ["$$pkg.packageName", "$package"] },
+                  { $ne: ["$$pkg.packageName", ""] },
+                  { $ne: ["$$pkg.packageName", null] },
+                ]},
+              },
+            }, 0],
+          },
+        },
+      },
+      {
+        $addFields: {
+          packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
+          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
+        },
+      },
+      // Lookup user to get role of packageSoldBy person
+      {
+        $lookup: {
+          from: "users",
+          localField: "packageSoldByUserId",
+          foreignField: "_id",
+          as: "packageSoldByUser",
+        },
+      },
+      {
+        $addFields: {
+          packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+        },
+      },
+      // Filter: For Package billings, only include if seller is a doctor
+      {
+        $match: {
+          $or: [
+            { service: { $ne: "Package" } },
+            { $and: [{ service: "Package" }, { packageSoldByRole: "doctor" }] }
+          ]
+        }
+      },
+      // $facet to split the billings into two streams so we can produce
+      // TWO rows for mixed billings: one for the cleared amount (attributed
+      // to the original billing's doctor) and one for the package portion
+      // (attributed to the billing's own doctor).
+      {
+        $facet: {
+          // Stream 1: cleared items – one row per breakdown item, attributed
+          // to the ORIGINAL billing's doctor with amount = amountCleared.
+          cleared: [
+            // Only billings WITH a breakdown
+            {
+              $match: {
+                $expr: {
+                  $gt: [
+                    { $size: { $ifNull: ["$pendingClearedBreakdown", []] } },
+                    0,
+                  ],
+                },
+              },
+            },
+            { $unwind: "$pendingClearedBreakdown" },
+            // Lookup the ORIGINAL billing by invoiceNumber to fetch its doctorId.
+            {
+              $lookup: {
+                from: "billings",
+                let: {
+                  invNum: "$pendingClearedBreakdown.invoiceNumber",
+                },
+                pipeline: [
+                  { $match: { $expr: { $eq: ["$invoiceNumber", "$$invNum"] } } },
+                  { $project: { doctorId: 1, invoiceNumber: 1 } },
+                ],
+                as: "originalBilling",
+              },
+            },
+            {
+              $addFields: {
+                isClearedItem: { $literal: true },
+                effectiveDoctorId: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $gt: [{ $size: "$originalBilling" }, 0] },
+                        { $ne: [{ $arrayElemAt: ["$originalBilling.doctorId", 0] }, null] },
+                      ],
+                    },
+                    { $arrayElemAt: ["$originalBilling.doctorId", 0] },
+                    "$appointment.doctorId",
+                  ],
+                },
+                effectiveAmount: { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+              },
+            },
+          ],
+          // Stream 2: non-cleared items – one row per non-cleared billing.
+          // For mixed billings, this stream ALSO produces a row for the
+          // PACKAGE portion (paid - cleared) attributed to the billing's
+          // own doctor. This is added via $unionWith below.
+          nonCleared: [
+            // Non-cleared billings (no breakdown)
+            {
+              $match: {
+                $expr: {
+                  $lte: [
+                    { $size: { $ifNull: ["$pendingClearedBreakdown", []] } },
+                    0,
+                  ],
+                },
+              },
+            },
+            {
+              $addFields: {
+                isClearedItem: { $literal: false },
+                // For Package billings, use packageSoldByUserId as effectiveDoctorId
+                effectiveDoctorId: {
+                  $cond: [
+                    { $eq: ["$service", "Package"] },
+                    { $ifNull: ["$packageSoldByUserId", "$appointment.doctorId"] },
+                    "$appointment.doctorId"
+                  ]
+                },
+                effectiveAmount: {
+                  $subtract: [
+                    {
+                      $add: [
+                        { $ifNull: ["$paid", 0] },
+                        { $ifNull: ["$advanceUsed", 0] },
+                        { $ifNull: ["$claimAmountUsed", 0] },
+                        { $ifNull: ["$cashbackWalletUsed", 0] },
+                      ],
+                    },
+                    // Subtract treatment amount for mixed billings (Package + Treatment)
+                    {
+                      $cond: [
+                        {
+                          $and: [
+                            { $eq: ["$service", "Package"] },
+                            { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                          ],
+                        },
+                        {
+                          $sum: {
+                            $map: {
+                              input: "$selectedTreatments",
+                              as: "st",
+                              in: {
+                                $multiply: [
+                                  { $ifNull: ["$$st.price", 0] },
+                                  { $ifNull: ["$$st.quantity", 1] },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            // Add mixed billings (as non-cleared) via $unionWith so they
+            // contribute a row for the PACKAGE portion (paid - cleared)
+            // attributed to the billing's own doctor.
+            {
+              $unionWith: {
+                coll: "billings",
+                pipeline: [
+                  // Match clinic + date range
+                  { $match: { ...clinicMatch, ...dateMatch } },
+                  // Only mixed billings (breakdown exists AND invoiceNumber
+                  // does not match the breakdown's first invoiceNumber)
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          {
+                            $gt: [
+                              { $size: { $ifNull: ["$pendingClearedBreakdown", []] } },
+                              0,
+                            ],
+                          },
+                          {
+                            $ne: [
+                              "$invoiceNumber",
+                              { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                  // Same lookups as basePipeline
+                  {
+                    $lookup: {
+                      from: "appointments",
+                      localField: "appointmentId",
+                      foreignField: "_id",
+                      as: "appointment",
+                    },
+                  },
+                  { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+                  {
+                    $lookup: {
+                      from: "patientregistrations",
+                      localField: "patientId",
+                      foreignField: "_id",
+                      as: "patient",
+                    },
+                  },
+                  { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+                  // Extract packageSoldBy from patient's packages array
+                  {
+                    $addFields: {
+                      packageSoldBy: {
+                        $arrayElemAt: [{
+                          $filter: {
+                            input: { $ifNull: ["$patient.packages", []] },
+                            as: "pkg",
+                            cond: { $and: [
+                              { $eq: ["$$pkg.packageName", "$package"] },
+                              { $ne: ["$$pkg.packageName", ""] },
+                              { $ne: ["$$pkg.packageName", null] },
+                            ]},
+                          },
+                        }, 0],
+                      },
+                    },
+                  },
+                  {
+                    $addFields: {
+                      packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
+                      packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
+                    },
+                  },
+                  {
+                    $lookup: {
+                      from: "users",
+                      localField: "packageSoldByUserId",
+                      foreignField: "_id",
+                      as: "packageSoldByUser",
+                    },
+                  },
+                  {
+                    $addFields: {
+                      packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+                    },
+                  },
+                  // Filter: For Package billings, only include if seller is a doctor
+                  {
+                    $match: {
+                      $or: [
+                        { service: { $ne: "Package" } },
+                        { $and: [{ service: "Package" }, { packageSoldByRole: "doctor" }] }
+                      ]
+                    }
+                  },
+                  // Compute effective doctor and amount for the package portion
+                  {
+                    $addFields: {
+                      isClearedItem: { $literal: false },
+                      // For Package billings, use packageSoldByUserId as effectiveDoctorId
+                      effectiveDoctorId: {
+                        $cond: [
+                          { $eq: ["$service", "Package"] },
+                          { $ifNull: ["$packageSoldByUserId", "$appointment.doctorId"] },
+                          "$appointment.doctorId"
+                        ]
+                      },
+                      effectiveAmount: {
+                        $subtract: [
+                          {
+                            $subtract: [
+                              {
+                                $add: [
+                                  { $ifNull: ["$paid", 0] },
+                                  { $ifNull: ["$advanceUsed", 0] },
+                                  { $ifNull: ["$claimAmountUsed", 0] },
+                                  { $ifNull: ["$cashbackWalletUsed", 0] },
+                                ],
+                              },
+                              // Subtract treatment amount for mixed billings (Package + Treatment)
+                              {
+                                $cond: [
+                                  {
+                                    $and: [
+                                      { $eq: ["$service", "Package"] },
+                                      { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                                    ],
+                                  },
+                                  {
+                                    $sum: {
+                                      $map: {
+                                        input: "$selectedTreatments",
+                                        as: "st",
+                                        in: {
+                                          $multiply: [
+                                            { $ifNull: ["$$st.price", 0] },
+                                            { $ifNull: ["$$st.quantity", 1] },
+                                          ],
+                                        },
+                                      },
+                                    },
+                                  },
+                                  0,
+                                ],
+                              },
+                            ],
+                          },
+                          { $arrayElemAt: ["$pendingClearedBreakdown.amountCleared", 0] },
+                        ],
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      // Combine the two streams into a single array of rows.
+      {
+        $project: {
+          combined: { $concatArrays: ["$cleared", "$nonCleared"] },
+        },
+      },
+      { $unwind: "$combined" },
+      { $replaceRoot: { newRoot: "$combined" } },
       {
         $group: {
-          _id: "$doctorId",
-          revenue: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] } ] } },
+          _id: "$effectiveDoctorId",
+          revenue: { $sum: "$effectiveAmount" },
           invoices: { $sum: 1 },
           details: {
             $push: {
               patientId: "$patientId",
               patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
               emrNumber: "$patient.emrNumber",
-              service: "$service",
-              packageName: "$package",
-              treatmentName: "$treatment",
-              invoiceNumber: "$invoiceNumber",
+              service: { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.service", "$service"] }, "$service"] },
+              packageName: {
+                $cond: [
+                  "$isClearedItem",
+                  { $ifNull: ["$pendingClearedBreakdown.packageName", null] },
+                  "$package",
+                ],
+              },
+              treatmentName: {
+                $cond: [
+                  "$isClearedItem",
+                  { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] },
+                  "$treatment",
+                ],
+              },
+              invoiceNumber: {
+                $cond: [
+                  "$isClearedItem",
+                  { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", "$invoiceNumber"] },
+                  "$invoiceNumber",
+                ],
+              },
               invoicedDate: "$invoicedDate",
-              amount: { $ifNull: ["$amount", 0] },
-              paid: { $ifNull: ["$paid", 0] },
-              pending: { $ifNull: ["$pending", 0] },
-              advance: { $ifNull: ["$advance", 0] },
+              amount: "$effectiveAmount",
+              paid: {
+                $cond: [
+                  // Clearance billing: use effectiveAmount (amountCleared)
+                  "$isClearedItem",
+                  "$effectiveAmount",
+                  // Non-cleared Package billing with selectedTreatments: use effectiveAmount (package portion)
+                  {
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ["$service", "Package"] },
+                          { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                        ],
+                      },
+                      "$effectiveAmount",
+                      // Regular non-cleared billing: use billing's own paid
+                      "$paid",
+                    ],
+                  },
+                ],
+              },
+              pending: { $cond: ["$isClearedItem", 0, "$pending"] },
+              advance: { $cond: ["$isClearedItem", 0, "$advance"] },
             }
           }
-        },
+        }
       },
       { $sort: { revenue: -1 } },
       { $limit: 5 },
@@ -166,8 +637,304 @@ export default async function handler(req, res) {
       invoices: r.invoices || 0,
       details: r.details || [],
     }));
-    console.log("bookingsAggCount", bookingsAgg.length);
-    console.log("revenueByStaffCount", revenueByStaff.length);
+    // console.log("bookingsAggCount", bookingsAgg.length);
+    // console.log("revenueByStaffCount", revenueByStaff.length);
+
+    // Revenue by agent/staff - ONLY direct billings (no appointment OR treatment not from appointment)
+    // This mirrors the commission logic: if treatment is NOT from appointment → agent's revenue
+    const directBillingPipeline = [
+      { $match: { ...clinicMatch, ...dateMatch } },
+      // Lookup appointment to check if treatment matches
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
+      },
+      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+      // Lookup patient for details
+      {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient",
+        },
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      // Extract packageSoldBy from patient's packages array (for Package billings)
+      {
+        $addFields: {
+          packageSoldBy: {
+            $arrayElemAt: [{
+              $filter: {
+                input: { $ifNull: ["$patient.packages", []] },
+                as: "pkg",
+                cond: { $and: [
+                  { $eq: ["$$pkg.packageName", "$package"] },
+                  { $ne: ["$$pkg.packageName", ""] },
+                  { $ne: ["$$pkg.packageName", null] },
+                ]},
+              },
+            }, 0],
+          },
+        },
+      },
+      {
+        $addFields: {
+          packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
+          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
+        },
+      },
+      // Lookup user to get role of packageSoldBy person
+      {
+        $lookup: {
+          from: "users",
+          localField: "packageSoldByUserId",
+          foreignField: "_id",
+          as: "packageSoldByUser",
+        },
+      },
+      {
+        $addFields: {
+          packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+        },
+      },
+      // Filter: For Package billings, only include if seller is an agent
+      {
+        $match: {
+          $or: [
+            { service: { $ne: "Package" } },
+            { $and: [{ service: "Package" }, { packageSoldByRole: "agent" }] }
+          ]
+        }
+      },
+      // Determine if this is a direct billing (no appointment OR treatment doesn't match)
+      {
+        $addFields: {
+          // Extract treatmentServiceIds from selectedTreatments array
+          billingServiceIds: {
+            $map: {
+              input: { $ifNull: ["$selectedTreatments", []] },
+              as: "st",
+              in: { $toString: "$$st.treatmentServiceId" },
+            },
+          },
+          // Extract serviceIds from appointment (both serviceIds array and services array)
+          appointmentServiceIds: {
+            $concatArrays: [
+              { $map: {
+                input: { $ifNull: ["$appointment.serviceIds", []] },
+                as: "sid",
+                in: { $toString: "$$sid" },
+              }},
+              { $map: {
+                input: { $ifNull: ["$appointment.services", []] },
+                as: "s",
+                in: { $toString: "$$s.serviceId" },
+              }},
+              // Also include single serviceId if present
+              { $cond: [{ $ifNull: ["$appointment.serviceId", false] }, [{ $toString: "$appointment.serviceId" }], []] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          // Check if this is a direct billing (NOT from appointment)
+          isDirectBilling: {
+            $not: {
+              $and: [
+                // Must have appointment
+                { $ne: [{ $ifNull: ["$appointment", null] }, null] },
+                // Must have appointmentServiceIds
+                { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
+                // Check if any billingServiceId is in appointmentServiceIds
+                // OR if service is Package and package matches appointment's package
+                {
+                  $or: [
+                    // Check if any treatment service ID matches
+                    {
+                      $gt: [
+                        {
+                          $size: {
+                            $filter: {
+                              input: "$billingServiceIds",
+                              as: "bsid",
+                              cond: { $in: ["$$bsid", "$appointmentServiceIds"] },
+                            },
+                          },
+                        },
+                        0,
+                      ],
+                    },
+                    // Package billing where package matches appointment's package
+                    {
+                      $and: [
+                        { $eq: ["$service", "Package"] },
+                        { $eq: ["$package", { $ifNull: ["$appointment.package", null] }] },
+                        { $ne: ["$package", ""] },
+                        { $ne: ["$package", null] },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      },
+      // Only include direct billings (no appointment OR treatment doesn't match appointment)
+      { $match: { isDirectBilling: true } },
+      // Include all billings to match Revenue Report (no filtering by invoicedById or appointment.doctorId)
+      // For Package billings, override invoicedById to use packageSoldByUserId
+      {
+        $addFields: {
+          effectiveInvoicedById: {
+            $cond: [
+              { $eq: ["$service", "Package"] },
+              { $ifNull: ["$packageSoldByUserId", "$invoicedById"] },
+              // For non-Package billings, use invoicedById
+              "$invoicedById"
+            ]
+          },
+          effectiveInvoicedByName: {
+            $cond: [
+              { $eq: ["$service", "Package"] },
+              { $ifNull: ["$packageSoldByName", ""] },
+              ""
+            ]
+          },
+          // Calculate effective revenue (match Revenue Report - include full amount)
+          effectiveRevenue: {
+            $add: [
+              { $ifNull: ["$paid", 0] },
+              { $ifNull: ["$advanceUsed", 0] },
+              { $ifNull: ["$claimAmountUsed", 0] },
+              { $ifNull: ["$cashbackWalletUsed", 0] },
+              { $subtract: [0, { $ifNull: ["$pendingUsed", 0] }] },
+            ],
+          },
+          // Calculate effective amount for display (match Revenue Report - include full amount)
+          effectiveAmount: { $ifNull: ["$amount", 0] },
+          // Calculate effective paid for display (match Revenue Report)
+          effectivePaid: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] },
+        },
+      },
+      {
+        $group: {
+          _id: "$effectiveInvoicedById",
+          revenue: { $sum: "$effectiveRevenue" },
+          invoices: { $sum: 1 },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "$service",
+              packageName: "$package",
+              treatmentName: "$treatment",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: "$effectiveAmount",
+              paid: "$effectivePaid",
+              pending: { $ifNull: ["$pending", 0] },
+              advance: { $ifNull: ["$advance", 0] },
+              // For mixed billings (Package with selectedTreatments), include treatment breakdown
+              selectedTreatments: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$service", "Package"] },
+                      { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                    ],
+                  },
+                  {
+                    $map: {
+                      input: "$selectedTreatments",
+                      as: "st",
+                      in: {
+                        treatmentName: "$$st.treatmentName",
+                        price: { $ifNull: ["$$st.price", 0] },
+                        quantity: { $ifNull: ["$$st.quantity", 1] },
+                        total: {
+                          $multiply: [
+                            { $ifNull: ["$$st.price", 0] },
+                            { $ifNull: ["$$st.quantity", 1] },
+                          ],
+                        },
+                      },
+                    },
+                  },
+                  [],
+                ],
+              },
+              packageAmount: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$service", "Package"] },
+                      { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                    ],
+                  },
+                  {
+                    $subtract: [
+                      { $ifNull: ["$amount", 0] },
+                      {
+                        $sum: {
+                          $map: {
+                            input: "$selectedTreatments",
+                            as: "st",
+                            in: {
+                              $multiply: [
+                                { $ifNull: ["$$st.price", 0] },
+                                { $ifNull: ["$$st.quantity", 1] },
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                  { $ifNull: ["$amount", 0] },
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+    ];
+
+    const directBillingAgg = await Billing.aggregate(directBillingPipeline);
+    // console.log("directBillingAggCount", directBillingAgg.length);
+    // console.log("directBillingAggData", JSON.stringify(directBillingAgg, null, 2));
+
+    // Lookup agent users to get their names
+    const agentIds = directBillingAgg.map((r) => r._id).filter(Boolean);
+    console.log("agentIds", agentIds);
+    const agentMap = agentIds.length
+      ? new Map(
+          (await User.find({ _id: { $in: agentIds } }).select("_id name").lean()).map((u) => [
+            String(u._id),
+            u.name || "Unknown",
+          ])
+        )
+      : new Map();
+    // console.log("agentMap", Array.from(agentMap.entries()));
+
+    const revenueByAgent = directBillingAgg.map((r) => ({
+      staffId: String(r._id),
+      staffName: agentMap.get(String(r._id)) || staffMap.get(String(r._id))?.name || "Unknown",
+      revenue: Math.round(Number(r.revenue || 0)),
+      invoices: r.invoices || 0,
+      details: r.details || [],
+    }));
+    // console.log("revenueByAgentCount", revenueByAgent.length);
+    // console.log("revenueByAgentData", JSON.stringify(revenueByAgent, null, 2));
 
     const detailsTop5 = bookingsAgg.slice(0, 5).map((row) => ({
       staffId: String(row._id),
@@ -182,13 +949,6 @@ export default async function handler(req, res) {
     }));
 
     // Top commissions (doctorStaff and agents)
-    const clinicMatch = clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {};
-    const dateMatch = {
-      $or: [
-        { invoicedDate: { $gte: startAt, $lte: endAt } },
-        { invoicedDate: null, createdAt: { $gte: startAt, $lte: endAt } },
-      ],
-    };
     const commissionAmountExpr = {
       $cond: [
         { $gt: ["$finalCommissionAmount", 0] },
@@ -196,10 +956,10 @@ export default async function handler(req, res) {
         "$commissionAmount",
       ],
     };
-    console.log("commissionQueryFilters", {
-      clinicMatch,
-      dateMatch,
-    });
+    // console.log("commissionQueryFilters", {
+    //   clinicMatch,
+    //   dateMatch,
+    // });
 
     const topDoctorStaffCommissionAgg = await Commission.aggregate([
       { $match: { ...clinicMatch, source: "staff", ...dateMatch } },
@@ -236,7 +996,7 @@ export default async function handler(req, res) {
       { $sort: { totalCommission: -1 } },
       { $limit: 5 },
     ]);
-    console.log("topDoctorStaffCommissionAggCount", topDoctorStaffCommissionAgg.length);
+    // console.log("topDoctorStaffCommissionAggCount", topDoctorStaffCommissionAgg.length);
 
     const topAgentCommissionAggStaff = await Commission.aggregate([
       { $match: { ...clinicMatch, source: "staff", ...dateMatch, staffId: { $ne: null } } },
@@ -272,7 +1032,7 @@ export default async function handler(req, res) {
       },
       { $sort: { totalCommission: -1 } },
     ]);
-    console.log("topAgentCommissionAggStaffCount", topAgentCommissionAggStaff.length);
+    // console.log("topAgentCommissionAggStaffCount", topAgentCommissionAggStaff.length);
 
     const topAgentCommissionAggReferral = await Commission.aggregate([
       { $match: { ...clinicMatch, source: "referral", ...dateMatch } },
@@ -343,20 +1103,20 @@ export default async function handler(req, res) {
       },
       { $sort: { totalCommission: -1 } },
     ]);
-    console.log("topAgentCommissionAggReferralCount", topAgentCommissionAggReferral.length);
+    // console.log("topAgentCommissionAggReferralCount", topAgentCommissionAggReferral.length);
     const referralTotal = await Commission.countDocuments({ ...clinicMatch, source: "referral", ...dateMatch });
     const referralWithStaffId = await Commission.countDocuments({ ...clinicMatch, source: "referral", ...dateMatch, staffId: { $ne: null } });
-    console.log("referralCommissionStats", { referralTotal, referralWithStaffId });
+    // console.log("referralCommissionStats", { referralTotal, referralWithStaffId });
     const sampleRefComms = await Commission.find({ ...clinicMatch, source: "referral", ...dateMatch }).limit(3).select("referralId staffId").lean();
     for (const c of sampleRefComms) {
       const ReferralModel = (await import("../../../../models/Referral")).default;
       const ref = c.referralId ? await ReferralModel.findById(c.referralId).lean() : null;
-      console.log("sampleReferralCommission", {
-        staffId: c.staffId ? String(c.staffId) : null,
-        referralId: c.referralId ? String(c.referralId) : null,
-        email: ref?.email || null,
-        phone: ref?.phone || null,
-      });
+      // console.log("sampleReferralCommission", {
+      //   staffId: c.staffId ? String(c.staffId) : null,
+      //   referralId: c.referralId ? String(c.referralId) : null,
+      //   email: ref?.email || null,
+      //   phone: ref?.phone || null,
+      // });
     }
 
     const topDoctorStaffCommission = topDoctorStaffCommissionAgg.map((r) => ({
@@ -396,44 +1156,307 @@ export default async function handler(req, res) {
     const topAgentCommission = Array.from(combinedAgentMap.values())
       .sort((a, b) => b.totalCommission - a.totalCommission)
       .slice(0, 5);
-    console.log("topAgentCommissionResultCount", topAgentCommission.length, "ids", topAgentCommission.map((x) => x.staffId));
+    // console.log("topAgentCommissionResultCount", topAgentCommission.length, "ids", topAgentCommission.map((x) => x.staffId));
 
     // New: Highest billing in memberships and packages per doctor staff with details
+        // Highest billing in packages - mirrors the Revenue Report's byPackageAgg logic
+    // to handle clearance billings and mixed billings properly
     const packageBillingAgg = await Billing.aggregate([
+      // 1. Match clinic + date range (do not pre-filter by service type)
+      { $match: { ...clinicMatch, ...dateMatch } },
+      // 2. Lookup appointment to get doctorId
       {
-        $match: {
-          ...(clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {}),
-          invoicedDate: { $gte: startAt, $lte: endAt },
-          service: "Package",
-          doctorId: { $ne: null },
-        }
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentId",
+          foreignField: "_id",
+          as: "appointment",
+        },
       },
+      { $unwind: "$appointment" },
+      // Filter by doctorStaff
+      { $match: { "appointment.doctorId": { $in: staffIds } } },
+      // 3. Lookup patient registration
       {
         $lookup: {
           from: "patientregistrations",
           localField: "patientId",
           foreignField: "_id",
-          as: "patient"
-        }
+          as: "patient",
+        },
       },
       { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      // Extract packageSoldBy from patient's packages array
+      {
+        $addFields: {
+          packageSoldBy: {
+            $arrayElemAt: [{
+              $filter: {
+                input: { $ifNull: ["$patient.packages", []] },
+                as: "pkg",
+                cond: { $and: [
+                  { $eq: ["$$pkg.packageName", "$package"] },
+                  { $ne: ["$$pkg.packageName", ""] },
+                  { $ne: ["$$pkg.packageName", null] },
+                ]},
+              },
+            }, 0],
+          },
+        },
+      },
+      {
+        $addFields: {
+          packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
+          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "packageSoldByUserId",
+          foreignField: "_id",
+          as: "packageSoldByUser",
+        },
+      },
+      {
+        $addFields: {
+          packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+        },
+      },
+      // 4. Capture breakdown info BEFORE $unwind
+      {
+        $addFields: {
+          _origBreakdownAmount: { $arrayElemAt: ["$pendingClearedBreakdown.amountCleared", 0] },
+          _origBreakdownInvoiceNumber: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
+          _isMixedBilling: {
+            $and: [
+              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+              { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+            ],
+          },
+        },
+      },
+      // 5. Unwind pendingClearedBreakdown
+      {
+        $unwind: {
+          path: "$pendingClearedBreakdown",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      // 6. Derive effective service/package/amount for each row
+      {
+        $addFields: {
+          isClearedItem: { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+          effectiveService: {
+            $cond: [
+              { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+              { $ifNull: ["$pendingClearedBreakdown.service", "Unknown"] },
+              "$service",
+            ],
+          },
+          effectivePackageName: {
+            $cond: [
+              { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+              { $ifNull: ["$pendingClearedBreakdown.packageName", "Unknown"] },
+              "$package",
+            ],
+          },
+          effectiveAmount: {
+            $cond: [
+              // isClearedItem=true branch
+              { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+              {
+                $cond: [
+                  // Mixed billing: Package billing with breakdown pointing to DIFFERENT invoice
+                  {
+                    $and: [
+                      { $eq: ["$service", "Package"] },
+                      { $eq: ["$_isMixedBilling", true] },
+                    ],
+                  },
+                  {
+                    $subtract: [
+                      {
+                        $add: [
+                          { $ifNull: ["$paid", 0] },
+                          { $ifNull: ["$advanceUsed", 0] },
+                          { $ifNull: ["$claimAmountUsed", 0] },
+                          { $ifNull: ["$cashbackWalletUsed", 0] },
+                        ],
+                      },
+                      { $ifNull: ["$_origBreakdownAmount", 0] },
+                    ],
+                  },
+                  // Otherwise (clearance billing): use amountCleared
+                  { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+                ],
+              },
+              // isClearedItem=false branch (non-cleared Package billing)
+              {
+                $subtract: [
+                  {
+                    $subtract: [
+                      {
+                        $add: [
+                          { $ifNull: ["$paid", 0] },
+                          { $ifNull: ["$advanceUsed", 0] },
+                          { $ifNull: ["$claimAmountUsed", 0] },
+                          { $ifNull: ["$cashbackWalletUsed", 0] },
+                        ],
+                      },
+                      // Subtract treatment amount for mixed billings (Package + Treatment)
+                      {
+                        $cond: [
+                          {
+                            $and: [
+                              { $eq: ["$service", "Package"] },
+                              { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                            ],
+                          },
+                          {
+                            $sum: {
+                              $map: {
+                                input: "$selectedTreatments",
+                                as: "st",
+                                in: {
+                                  $multiply: [
+                                    { $ifNull: ["$$st.price", 0] },
+                                    { $ifNull: ["$$st.quantity", 1] },
+                                  ],
+                                },
+                              },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    $cond: [
+                      { $eq: ["$_isMixedBilling", true] },
+                      { $ifNull: ["$_origBreakdownAmount", 0] },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      // 7. Keep only Package rows
+      {
+        $match: {
+          $or: [
+            { isClearedItem: false, service: "Package" },
+            { isClearedItem: true, effectiveService: "Package" },
+            { isClearedItem: true, service: "Package", _isMixedBilling: true },
+          ],
+        },
+      },
+      // 8. Resolve final group key
+      {
+        $addFields: {
+          resolvedPackageName: {
+            $cond: [
+              // Clearance billing (isClearedItem=true AND NOT mixed billing)
+              {
+                $and: [
+                  "$isClearedItem",
+                  { $not: "$_isMixedBilling" },
+                ],
+              },
+              { $ifNull: ["$effectivePackageName", "Unknown"] },
+              // Otherwise: use billing's own package name
+              { $ifNull: ["$package", "Unknown"] },
+            ],
+          },
+        },
+      },
+      // 9. Group by packageSoldByUserId (the person who sold the package)
       {
         $group: {
-          _id: "$doctorId",
-          amount: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] } ] } },
+          _id: {
+            $cond: [
+              { $eq: ["$service", "Package"] },
+              { $ifNull: ["$packageSoldByUserId", "$appointment.doctorId"] },
+              "$appointment.doctorId"
+            ]
+          },
+          amount: { $sum: "$effectiveAmount" },
           count: { $sum: 1 },
           details: {
             $push: {
               patientId: "$patientId",
               patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
               emrNumber: "$patient.emrNumber",
-              amount: { $ifNull: ["$amount", 0] },
-              paid: { $ifNull: ["$paid", 0] },
-              pending: { $ifNull: ["$pending", 0] },
-              advance: { $ifNull: ["$advance", 0] },
-              packageName: "$package",
-              invoiceNumber: "$invoiceNumber",
-              invoicedDate: "$invoicedDate"
+              service: {
+                $cond: [
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$service",
+                  { $cond: ["$isClearedItem", "$effectiveService", "$service"] },
+                ],
+              },
+              packageName: {
+                $cond: [
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$package",
+                  { $cond: ["$isClearedItem", "$effectivePackageName", "$package"] },
+                ],
+              },
+              treatmentName: {
+                $cond: [
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$treatment",
+                  { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] }, "$treatment"] },
+                ],
+              },
+              invoiceNumber: {
+                $cond: [
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$invoiceNumber",
+                  { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", "$invoiceNumber"] }, "$invoiceNumber"] },
+                ],
+              },
+              invoicedDate: "$invoicedDate",
+              amount: "$effectiveAmount",
+              paid: {
+                $cond: [
+                  // Mixed billing (cleared): use billing's own paid
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$paid",
+                  // Non-cleared Package billing with selectedTreatments: use effectiveAmount (package portion)
+                  {
+                    $cond: [
+                      {
+                        $and: [
+                          { $not: "$isClearedItem" },
+                          { $eq: ["$service", "Package"] },
+                          { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                        ],
+                      },
+                      "$effectiveAmount",
+                      // Clearance billing: 0
+                      { $cond: ["$isClearedItem", 0, "$paid"] },
+                    ],
+                  },
+                ],
+              },
+              pending: {
+                $cond: [
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$pending",
+                  { $cond: ["$isClearedItem", 0, "$pending"] },
+                ],
+              },
+              advance: {
+                $cond: [
+                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                  "$advance",
+                  { $cond: ["$isClearedItem", 0, "$advance"] },
+                ],
+              },
             }
           }
         }
@@ -442,9 +1465,20 @@ export default async function handler(req, res) {
       { $limit: 5 }
     ]);
 
+    // Lookup users for package billing (could be agents, not just doctorStaff)
+    const packageStaffIds = packageBillingAgg.map((r) => r._id).filter(Boolean);
+    const packageStaffMap = packageStaffIds.length
+      ? new Map(
+          (await User.find({ _id: { $in: packageStaffIds } }).select("_id name").lean()).map((u) => [
+            String(u._id),
+            u.name || "Unknown",
+          ])
+        )
+      : new Map();
+
     const topPackageBilling = packageBillingAgg.map(r => ({
       staffId: String(r._id || ""),
-      name: staffMap.get(String(r._id))?.name || "Unknown",
+      name: packageStaffMap.get(String(r._id)) || "Unknown",
       amount: Math.round(Number(r.amount || 0)),
       count: r.count,
       details: r.details || []
@@ -513,11 +1547,19 @@ export default async function handler(req, res) {
       data: {
         leaderboard,
         top5Revenue: revenueByStaff,
+        top5AgentRevenue: revenueByAgent,
         top5Details: detailsTop5,
         topDoctorStaffCommission,
         topAgentCommission,
         topPackageBilling,
-        topMembershipBilling
+        topMembershipBilling,
+        // Debug info
+        debug: {
+          directBillingAggCount: directBillingAgg.length,
+          directBillingAggData: directBillingAgg,
+          revenueByAgentCount: revenueByAgent.length,
+          revenueByAgentData: revenueByAgent,
+        },
       },
     });
   } catch (err) {

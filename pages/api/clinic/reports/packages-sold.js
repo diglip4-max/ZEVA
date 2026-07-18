@@ -212,9 +212,29 @@ export default async function handler(req, res) {
             patientId: "$__patientId",
             packageName: "$__packageName"
           },
-          totalPaidForPackage: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] } },
+          // For mixed billings (Package + Treatment), only count package portion
+          totalPaidForPackage: { $sum: { $subtract: [
+            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] },
+            { $cond: [
+              { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+              { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+              0,
+            ] },
+          ] } },
           totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
-          totalAmountForPackage: { $first: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$amount", 0] }, else: 0 } } },
+          // For mixed billings (Package + Treatment), only count package amount
+          totalAmountForPackage: { $first: { $cond: { 
+            if: { $eq: ["$service", "Package"] }, 
+            then: { $subtract: [
+              { $ifNull: ["$amount", 0] },
+              { $cond: [
+                { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+                { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+                0,
+              ] },
+            ] },
+            else: 0 
+          } } },
           firstPurchaseDate: { $min: "$createdAt" },
           lastActivityDate: { $max: "$createdAt" },
           appointmentIds: { $addToSet: "$appointmentId" },
@@ -1032,7 +1052,15 @@ export default async function handler(req, res) {
             _id: { patientId: "$patientId", package: "$__packageName" },
             // Use paid amount directly. When pending is cleared via treatment pay,
             // Treatment billing's paid field contains the cash collected for the package.
-            totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+            // For mixed billings (Package + Treatment), only count package portion
+            totalPaid: { $sum: { $subtract: [
+              { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
+              { $cond: [
+                { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
+                { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
+                0,
+              ] },
+            ] } },
             totalPending: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },
