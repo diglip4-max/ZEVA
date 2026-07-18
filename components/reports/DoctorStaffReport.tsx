@@ -37,6 +37,13 @@ type RevenueDetail = {
   paid: number;
   pending: number;
   advance: number;
+  packageAmount?: number;
+  selectedTreatments?: Array<{
+    treatmentName: string;
+    price: number;
+    quantity: number;
+    total: number;
+  }>;
 };
 
 type RevenueRow = { staffId: string; staffName: string; revenue: number; invoices: number; details: RevenueDetail[] };
@@ -126,6 +133,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'doctor' | 'sales'>('doctor');
   const [revenues, setRevenues] = useState<RevenueRow[]>([]);
+  const [agentRevenues, setAgentRevenues] = useState<RevenueRow[]>([]);
   const [details, setDetails] = useState<DetailRow[]>([]);
   const [topDoctorStaffCommission, setTopDoctorStaffCommission] = useState<CommissionRow[]>([]);
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
@@ -147,11 +155,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const formatCurrency = (n: number | null | undefined) => currencyFormatter(n);
 
   useEffect(() => {
-    if (activeTab === 'doctor') {
-      fetchData();
-    } else {
-      fetchSalesStaff();
-    }
+    // Always fetch from doctor-staff-performance API which now includes both doctor and agent revenue
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, activeTab]);
 
@@ -165,6 +170,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       if (res.ok && json.success) {
         setSalesStaff(json.data || []);
         setRevenues([]);
+        setAgentRevenues([]);
         setDetails([]);
         setTopDoctorStaffCommission([]);
         setTopAgentCommission([]);
@@ -192,6 +198,14 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
         return;
       }
       setRevenues(json.data?.top5Revenue || []);
+      setAgentRevenues(json.data?.top5AgentRevenue || []);
+      console.log("top5Revenue:", json.data?.top5Revenue);
+      console.log("top5AgentRevenue:", json.data?.top5AgentRevenue);
+      console.log("DEBUG - directBillingAggCount:", json.data?.debug?.directBillingAggCount);
+      console.log("DEBUG - directBillingAggData:", json.data?.debug?.directBillingAggData);
+      console.log("DEBUG - revenueByAgentCount:", json.data?.debug?.revenueByAgentCount);
+      console.log("DEBUG - revenueByAgentData:", JSON.stringify(json.data?.debug?.revenueByAgentData, null, 2));
+      console.log("DEBUG - agentRevenues state:", json.data?.top5AgentRevenue);
       setDetails(json.data?.top5Details || []);
       setTopDoctorStaffCommission(json.data?.topDoctorStaffCommission || []);
       setTopAgentCommission(json.data?.topAgentCommission || []);
@@ -211,14 +225,17 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
     [details]
   );
 
+  // Use appropriate revenue data based on active tab
+  const currentRevenues = activeTab === 'doctor' ? revenues : agentRevenues;
+
   const chartRevenue = useMemo(() => {
-    const maxRevenue = Math.max(...revenues.map((r) => r.revenue));
-    return (revenues || []).map((d) => ({
+    const maxRevenue = Math.max(...currentRevenues.map((r) => r.revenue));
+    return (currentRevenues || []).map((d) => ({
       name: d.staffName || "Unknown",
       revenue: Math.round(d.revenue || 0),
       normalizedRevenue: maxRevenue > 0 ? (d.revenue / maxRevenue) * 100 : 0,
     }));
-  }, [revenues]);
+  }, [currentRevenues]);
 
   const chartPatients = useMemo(
     () =>
@@ -336,7 +353,9 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Top 5 Doctor Staff Revenue</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            {activeTab === 'doctor' ? 'Top 5 Doctor Staff Revenue' : 'Top 5 Agent/Staff Revenue (Direct Billings)'}
+          </h3>
         </div>
         <div className="grid grid-cols-1 gap-6">
           <div className="w-full" style={{ height: 320 }}>
@@ -372,14 +391,16 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                            {activeTab === 'doctor' ? 'Doctor Staff' : 'Agent/Staff'}
+                          </th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-100">
-                        {revenues.map((r) => (
+                        {currentRevenues.map((r) => (
                           <tr key={r.staffId}>
                             <td className="px-4 py-2 text-sm">{r.staffName}</td>
                             <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.revenue)}</td>
@@ -394,7 +415,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                             </td>
                           </tr>
                         ))}
-                        {!revenues.length && (
+                        {!currentRevenues.length && (
                           <tr>
                             <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
                               No revenue data for selected period
@@ -530,7 +551,9 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-800">Revenue Details - {selectedRevenueStaff.staffName}</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                            {activeTab === 'doctor' ? 'Doctor Revenue Details' : 'Agent/Staff Revenue Details'} - {selectedRevenueStaff.staffName}
+                          </h2>
               <button
                 onClick={() => setSelectedRevenueStaff(null)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -567,9 +590,34 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
                       <td className="px-4 py-2 text-sm">
                         {detail.service === "Package" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Package</span>
-                            <span>{detail.packageName || "Package"}</span>
+                          <div className="flex flex-col gap-1">
+                            {/* Show package portion */}
+                            {detail.packageAmount !== undefined && detail.packageAmount > 0 && (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Package</span>
+                                <span>{detail.packageName || "Package"}</span>
+                                <span className="text-xs text-gray-500">({formatCurrency(detail.packageAmount)})</span>
+                              </div>
+                            )}
+                            {/* Show treatment breakdown if available */}
+                            {detail.selectedTreatments && detail.selectedTreatments.length > 0 && (
+                              <>
+                                {detail.selectedTreatments.map((t: any, tIdx: number) => (
+                                  <div key={tIdx} className="flex items-center gap-2 ml-4">
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">Treatment</span>
+                                    <span>{t.treatmentName}</span>
+                                    <span className="text-xs text-gray-500">({formatCurrency(t.total)})</span>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                            {/* Fallback for regular package billings */}
+                            {!detail.packageAmount && (!detail.selectedTreatments || detail.selectedTreatments.length === 0) && (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Package</span>
+                                <span>{detail.packageName || "Package"}</span>
+                              </div>
+                            )}
                           </div>
                         ) : detail.service === "Treatment" ? (
                           <div className="flex items-center gap-2">
