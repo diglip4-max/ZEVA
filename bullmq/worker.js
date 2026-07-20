@@ -3146,7 +3146,17 @@ const listImapIncomingEmailWorker = new Worker(
               let conversation = await Conversation.findOne({
                 clinicId: provider.clinicId,
                 leadId: lead._id,
+                status: { $ne: "trashed" },
               });
+
+              // if conversation is closed then open it
+              if (
+                conversation?.status === "closed" ||
+                conversation?.status === "archived"
+              ) {
+                conversation.status = "open";
+                await conversation.save();
+              }
 
               if (!conversation) {
                 conversation = new Conversation({
@@ -3156,6 +3166,16 @@ const listImapIncomingEmailWorker = new Worker(
                 await conversation.save();
                 console.log(`Created new conversation for lead ${lead._id}`);
               }
+
+              // find union of provider owners and conv owners
+              const owners = provider.owners || [];
+              const convOwners = conversation.owners || [];
+              const allOwners = new Set([
+                ...(owners?.map((i) => i.toString()) || []),
+                ...(convOwners?.map((i) => i.toString()) || []),
+              ]);
+              conversation.owners = [...allOwners];
+              await conversation.save();
 
               // Find reply-to message if this is a reply
               let replyToMessageId = null;

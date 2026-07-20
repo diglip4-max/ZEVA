@@ -520,13 +520,13 @@ const EmailInboxPage: NextPageWithLayout = () => {
         onToggleStar={inbox.starMessage}
         onArchive={inbox.archiveMessage}
         onTrash={inbox.trashMessage}
-        onDelete={inbox.deleteMessage}
+        onDelete={inbox.deleteMessageForever}
         onRestoreFromTrash={inbox.restoreFromTrash}
         onRestoreFromArchive={inbox.restoreFromArchive}
         onReply={(m) => inbox.startCompose("reply", m)}
         onForward={(m) => inbox.startCompose("forward", m)}
         agents={inbox.agents}
-        selectedAgent={inbox.selectedAgent}
+        selectedAgents={inbox.selectedAgents}
         onAgentSelect={inbox.handleAgentSelect}
         agentFetchLoading={inbox.agentFetchLoading}
         // Tags

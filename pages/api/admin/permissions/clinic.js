@@ -7,34 +7,42 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { checkAgentPermission } from "../../agent/permissions-helper";
+import ClinicNavigationItem from "../../../../models/ClinicNavigationItem";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  const allowedRoles = ['admin', 'clinic', 'doctor'];
+  const allowedRoles = ["admin", "clinic", "doctor"];
 
   // Get the logged-in user
   const me = await getUserFromReq(req);
   if (!me) {
-    return res.status(401).json({ success: false, message: "Unauthorized: Missing or invalid token" });
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized: Missing or invalid token",
+    });
   }
 
   // Verify admin token (for backward compatibility)
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const token = req.headers.authorization?.replace("Bearer ", "");
   if (!token) {
-    return res.status(401).json({ success: false, message: 'No token provided' });
+    return res
+      .status(401)
+      .json({ success: false, message: "No token provided" });
   }
 
   let adminPayload;
 
   try {
     adminPayload = jwt.verify(token, process.env.JWT_SECRET);
-    if (adminPayload.role !== 'admin' && me.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
+    if (adminPayload.role !== "admin" && me.role !== "admin") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Admin access required" });
     }
   } catch (error) {
     // console.error('Invalid admin token for clinic permissions:', error);
-    return res.status(401).json({ success: false, message: 'Invalid token' });
+    return res.status(401).json({ success: false, message: "Invalid token" });
   }
 
   const resolveAdminIdCandidates = (payload) => {
@@ -77,8 +85,8 @@ export default async function handler(req, res) {
       }
 
       const adminUser = await User.findOne(
-        { _id: candidateId, role: 'admin' },
-        { _id: 1 }
+        { _id: candidateId, role: "admin" },
+        { _id: 1 },
       );
 
       if (adminUser?._id) {
@@ -88,8 +96,8 @@ export default async function handler(req, res) {
 
     for (const candidateEmail of emails) {
       const adminUser = await User.findOne(
-        { email: candidateEmail, role: 'admin' },
-        { _id: 1 }
+        { email: candidateEmail, role: "admin" },
+        { _id: 1 },
       );
 
       if (adminUser?._id) {
@@ -100,18 +108,27 @@ export default async function handler(req, res) {
     return null;
   };
 
-  if (req.method === 'GET') {
+  if (req.method === "GET") {
     // Check permissions for agents - admins bypass all checks
-    if (me.role === 'agent' || me.role === 'doctorStaff') {
-      const { hasPermission } = await checkAgentPermission(me._id, "admin_staff_management", "read", "Manage Clinic Permissions");
+    if (me.role === "agent" || me.role === "doctorStaff") {
+      const { hasPermission } = await checkAgentPermission(
+        me._id,
+        "admin_staff_management",
+        "read",
+        "Manage Clinic Permissions",
+      );
       if (!hasPermission) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          message: "Permission denied: You do not have read permission for Manage Clinic Permissions submodule" 
+          message:
+            "Permission denied: You do not have read permission for Manage Clinic Permissions submodule",
         });
       }
-    } else if (me.role !== 'admin') {
-      return res.status(403).json({ success: false, message: "Access denied. Admin or agent role required" });
+    } else if (me.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin or agent role required",
+      });
     }
 
     try {
@@ -128,113 +145,204 @@ export default async function handler(req, res) {
       if (role) {
         const normalizedRole = String(role).toLowerCase();
         if (!allowedRoles.includes(normalizedRole)) {
-          return res.status(400).json({ success: false, message: 'Invalid role parameter' });
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid role parameter" });
         }
-        
+
         // For clinic role, also include legacy documents without role field
-        if (normalizedRole === 'clinic') {
+        if (normalizedRole === "clinic") {
           // Build $or condition that includes role='clinic' OR legacy documents (no role field)
           // Each condition must also match baseConditions (isActive and clinicId if provided)
-          const clinicRoleCondition = { ...baseConditions, role: normalizedRole };
-          const legacyCondition1 = { ...baseConditions, role: { $exists: false } };
+          const clinicRoleCondition = {
+            ...baseConditions,
+            role: normalizedRole,
+          };
+          const legacyCondition1 = {
+            ...baseConditions,
+            role: { $exists: false },
+          };
           const legacyCondition2 = { ...baseConditions, role: null };
-          
+
           combinedFilter = {
-            $or: [clinicRoleCondition, legacyCondition1, legacyCondition2]
+            $or: [clinicRoleCondition, legacyCondition1, legacyCondition2],
           };
         } else {
           // For doctor or admin role, simple filter
           combinedFilter = { ...baseConditions, role: normalizedRole };
         }
-      } else if (includeAdmin !== 'true') {
+      } else if (includeAdmin !== "true") {
         // Exclude admin role, include clinic and doctor
-        combinedFilter = { ...baseConditions, role: { $ne: 'admin' } };
+        combinedFilter = { ...baseConditions, role: { $ne: "admin" } };
       }
 
       if (clinicId) {
         // Get specific clinic permissions
-        const permissions = await ClinicPermission.findOne(combinedFilter).populate('clinicId', 'name');
+        const permissions = await ClinicPermission.findOne(
+          combinedFilter,
+        ).populate("clinicId", "name");
         return res.status(200).json({ success: true, data: permissions });
       } else {
-        // Get all clinic permissions
-        const permissions = await ClinicPermission.find(combinedFilter)
-          .populate('clinicId', 'name')
-          .populate('grantedBy', 'name email');
+        // Get all clinic permissions with valid clinicId
+
+        // Create a robust clinicId filter: exists, not null
+        // Don't use $ne: "" because that causes CastError with ObjectId type
+        const validClinicIdFilter = {
+          clinicId: {
+            $exists: true,
+            $ne: null,
+          },
+        };
+
+        let finalFilter;
+        if (combinedFilter.$or) {
+          // If we have an $or filter, we need to add validClinicIdFilter to each condition in the $or array
+          finalFilter = {
+            $or: combinedFilter.$or.map((condition) => ({
+              ...condition,
+              ...validClinicIdFilter,
+            })),
+          };
+        } else {
+          // Simple case - just add validClinicIdFilter to the filter
+          finalFilter = {
+            ...combinedFilter,
+            ...validClinicIdFilter,
+          };
+        }
+
+        // console.log("Final filter:", JSON.stringify(finalFilter));
+        let permissions = await ClinicPermission.find(finalFilter)
+          .populate("clinicId", "name")
+          .populate("grantedBy", "name email");
+
+        // Extra layer of protection: filter out any permissions with null/undefined clinicId in memory
+        permissions = permissions.filter((p) => p.clinicId != null);
+
+        // Log the results to confirm
+        // console.log("Permissions found after DB query:", permissions.length);
+        permissions.forEach((p, i) => {
+          if (!p.clinicId) {
+            // console.log(
+            //   `Permission ${i} still has clinicId:`,
+            //   p.clinicId,
+            //   "id:",
+            //   p._id,
+            // );
+          }
+        });
+
         return res.status(200).json({ success: true, data: permissions });
       }
     } catch (error) {
-      // console.error('Error fetching clinic permissions:', error);
-      return res.status(500).json({ success: false, message: 'Internal server error' });
+      console.error("Error fetching clinic permissions:", error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
   }
 
-  if (req.method === 'POST') {
+  if (req.method === "POST") {
     // Check permissions for agents - admins bypass all checks
-    if (me.role === 'agent' || me.role === 'doctorStaff') {
-      const { hasPermission } = await checkAgentPermission(me._id, "admin_staff_management", "update", "Manage Clinic Permissions");
+    if (me.role === "agent" || me.role === "doctorStaff") {
+      const { hasPermission } = await checkAgentPermission(
+        me._id,
+        "admin_staff_management",
+        "update",
+        "Manage Clinic Permissions",
+      );
       if (!hasPermission) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           success: false,
-          message: "Permission denied: You do not have update permission for Manage Clinic Permissions submodule" 
+          message:
+            "Permission denied: You do not have update permission for Manage Clinic Permissions submodule",
         });
       }
-    } else if (me.role !== 'admin') {
-      return res.status(403).json({ success: false, message: "Access denied. Admin or agent role required" });
+    } else if (me.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin or agent role required",
+      });
     }
 
     try {
-      const { clinicId, permissions, role = 'clinic' } = req.body;
+      const { clinicId, permissions, role = "clinic" } = req.body;
 
       const normalizedRole = String(role).toLowerCase();
       if (!allowedRoles.includes(normalizedRole)) {
-        return res.status(400).json({ success: false, message: 'Invalid role provided' });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid role provided" });
       }
 
-      // Note: Clinic role permissions can now be managed. 
+      // Note: Clinic role permissions can now be managed.
       // If you want clinic to have full access by default, ensure permissions are set accordingly.
 
       // console.log('Received clinic permission request:', { clinicId, role: normalizedRole, permissions });
 
       if (!clinicId || !permissions) {
-        return res.status(400).json({ success: false, message: 'Clinic ID and permissions are required' });
+        return res.status(400).json({
+          success: false,
+          message: "Clinic ID and permissions are required",
+        });
       }
 
       // Validate permissions structure
       if (!Array.isArray(permissions)) {
-        return res.status(400).json({ success: false, message: 'Permissions must be an array' });
+        return res
+          .status(400)
+          .json({ success: false, message: "Permissions must be an array" });
       }
 
       // Validate each permission object
       for (const permission of permissions) {
-        if (!permission.module || typeof permission.module !== 'string') {
-          return res.status(400).json({ success: false, message: 'Each permission must have a valid module' });
+        if (!permission.module || typeof permission.module !== "string") {
+          return res.status(400).json({
+            success: false,
+            message: "Each permission must have a valid module",
+          });
         }
-        
-        if (!permission.actions || typeof permission.actions !== 'object') {
-          return res.status(400).json({ success: false, message: 'Each permission must have actions object' });
+
+        if (!permission.actions || typeof permission.actions !== "object") {
+          return res.status(400).json({
+            success: false,
+            message: "Each permission must have actions object",
+          });
         }
 
         // Validate actions structure
-        const requiredActions = ['all', 'create', 'read', 'update', 'delete'];
+        const requiredActions = ["all", "create", "read", "update", "delete"];
         for (const action of requiredActions) {
-          if (typeof permission.actions[action] !== 'boolean') {
-            return res.status(400).json({ success: false, message: `Action '${action}' must be a boolean` });
+          if (typeof permission.actions[action] !== "boolean") {
+            return res.status(400).json({
+              success: false,
+              message: `Action '${action}' must be a boolean`,
+            });
           }
         }
 
         // Validate sub-modules if present
         if (permission.subModules && Array.isArray(permission.subModules)) {
           for (const subModule of permission.subModules) {
-            if (!subModule.name || typeof subModule.name !== 'string') {
-              return res.status(400).json({ success: false, message: 'Sub-module must have a valid name' });
+            if (!subModule.name || typeof subModule.name !== "string") {
+              return res.status(400).json({
+                success: false,
+                message: "Sub-module must have a valid name",
+              });
             }
-            if (!subModule.actions || typeof subModule.actions !== 'object') {
-              return res.status(400).json({ success: false, message: 'Sub-module must have actions object' });
+            if (!subModule.actions || typeof subModule.actions !== "object") {
+              return res.status(400).json({
+                success: false,
+                message: "Sub-module must have actions object",
+              });
             }
 
             for (const action of requiredActions) {
-              if (typeof subModule.actions[action] !== 'boolean') {
-                return res.status(400).json({ success: false, message: `Sub-module action '${action}' must be a boolean` });
+              if (typeof subModule.actions[action] !== "boolean") {
+                return res.status(400).json({
+                  success: false,
+                  message: `Sub-module action '${action}' must be a boolean`,
+                });
               }
             }
           }
@@ -244,7 +352,9 @@ export default async function handler(req, res) {
       // Verify clinic exists
       const clinic = await Clinic.findById(clinicId);
       if (!clinic) {
-        return res.status(404).json({ success: false, message: 'Clinic not found' });
+        return res
+          .status(404)
+          .json({ success: false, message: "Clinic not found" });
       }
 
       // Get admin user ID from verified token payload
@@ -252,7 +362,9 @@ export default async function handler(req, res) {
 
       if (!adminObjectId) {
         // console.error('Unable to resolve admin id from token payload:', adminPayload);
-        return res.status(401).json({ success: false, message: 'Invalid admin token payload' });
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid admin token payload" });
       }
 
       // Backfill legacy documents without role or grantedBy to prevent duplicate key violations
@@ -266,18 +378,41 @@ export default async function handler(req, res) {
             lastModified: new Date(),
           },
         },
-        { runValidators: false }
+        { runValidators: false },
       );
 
       // console.log('Creating/updating clinic permissions for clinic:', clinicId);
-      
+
+      const navigationItems = await ClinicNavigationItem.find({
+        isActive: true,
+      }).lean();
+
+      const updatedPermissions = permissions.map((p) => {
+        const findModule = navigationItems.find(
+          (item) => item.moduleKey === p.module,
+        );
+        return {
+          ...p,
+          subModules: p.subModules.map((subModule) => {
+            const findSubModule = findModule?.subModules?.find(
+              (item) => item.path === subModule.path,
+            );
+            console.log({ findModule, findSubModule });
+            return {
+              ...subModule,
+              moduleKey: findSubModule?.moduleKey || "",
+            };
+          }),
+        };
+      });
+
       // Create or update clinic permissions
       const clinicPermission = await ClinicPermission.findOneAndUpdate(
         { clinicId, role: normalizedRole },
         {
           clinicId,
           role: normalizedRole,
-          permissions,
+          permissions: updatedPermissions,
           grantedBy: adminObjectId,
           lastModified: new Date(),
           isActive: true,
@@ -287,50 +422,62 @@ export default async function handler(req, res) {
           upsert: true,
           setDefaultsOnInsert: true,
           runValidators: true,
-          context: 'query',
-        }
+          context: "query",
+        },
       );
 
       // console.log('Clinic permission saved successfully:', clinicPermission._id);
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Clinic permissions updated successfully',
-        data: clinicPermission 
+      return res.status(200).json({
+        success: true,
+        message: "Clinic permissions updated successfully",
+        data: clinicPermission,
+        updatedPermissions,
+        navigationItems,
       });
     } catch (error) {
       // console.error('Error updating clinic permissions:', error);
-      return res.status(500).json({ success: false, message: 'Internal server error' });
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
   }
 
-  if (req.method === 'DELETE') {
+  if (req.method === "DELETE") {
     try {
       const { clinicId, role } = req.body;
 
       if (!clinicId || !role) {
-        return res.status(400).json({ success: false, message: 'Clinic ID and role are required' });
+        return res
+          .status(400)
+          .json({ success: false, message: "Clinic ID and role are required" });
       }
 
       const normalizedRole = String(role).toLowerCase();
       if (!allowedRoles.includes(normalizedRole)) {
-        return res.status(400).json({ success: false, message: 'Invalid role provided' });
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid role provided" });
       }
 
       await ClinicPermission.findOneAndUpdate(
         { clinicId, role: normalizedRole },
-        { isActive: false }
+        { isActive: false },
       );
 
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Clinic permissions deactivated successfully' 
+      return res.status(200).json({
+        success: true,
+        message: "Clinic permissions deactivated successfully",
       });
     } catch (error) {
       // console.error('Error deactivating clinic permissions:', error);
-      return res.status(500).json({ success: false, message: 'Internal server error' });
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
   }
 
-  return res.status(405).json({ success: false, message: 'Method not allowed' });
+  return res
+    .status(405)
+    .json({ success: false, message: "Method not allowed" });
 }

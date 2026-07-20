@@ -122,7 +122,7 @@ export default function useEmailInbox() {
   const { agents, loading: agentFetchLoading } = agentsState;
 
   // Conversation assignment
-  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
+  const [selectedAgents, setSelectedAgents] = useState<User[]>([]);
 
   // ---- conversation list --------------------------------------------------
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
@@ -390,21 +390,34 @@ export default function useEmailInbox() {
         );
         if (data && data?.success && data?.conversation) {
           let conv: ConversationType | null = data?.conversation || null;
-          const selectedOwner = agents.find((a) => a._id === conv?.ownerId);
-          setSelectedConversation(conv || null);
-          if (selectedOwner) {
-            setSelectedAgent(selectedOwner);
+          // Check if conversation has owners array first
+          if (conv?.owners && conv.owners.length > 0) {
+            const convOwners = agents.filter((a) =>
+              conv.owners.includes(a._id),
+            );
+            setSelectedConversation(conv || null);
+            setSelectedAgents(convOwners);
+          } else if (conv?.ownerId) {
+            // Fallback to single ownerId for backward compatibility
+            const selectedOwner = agents.find((a) => a._id === conv?.ownerId);
+            setSelectedConversation(conv || null);
+            if (selectedOwner) {
+              setSelectedAgents([selectedOwner]);
+            } else {
+              setSelectedAgents([]);
+            }
           } else {
-            setSelectedAgent(null);
+            setSelectedConversation(conv || null);
+            setSelectedAgents([]);
           }
         } else {
           setSelectedConversation(null);
-          setSelectedAgent(null);
+          setSelectedAgents([]);
         }
       } catch (error) {
         console.error("Error fetching conversation:", error);
         setSelectedConversation(null);
-        setSelectedAgent(null);
+        setSelectedAgents([]);
       }
     },
     [token, agents],
@@ -549,17 +562,13 @@ export default function useEmailInbox() {
   };
 
   // Agent assignment
-  const handleAgentSelect = async (
-    agent: User | null,
-    conversationId: string,
-  ) => {
-    setSelectedAgent(agent);
-    if (!agent) return;
+  const handleAgentSelect = async (agents: User[], conversationId: string) => {
+    setSelectedAgents(agents);
     try {
       const { data } = await axios.post(
         `/api/conversations/assign-conversation/${conversationId}`,
         {
-          ownerId: agent?._id,
+          ownerIds: agents.map((a) => a._id),
         },
         {
           headers: {
@@ -951,7 +960,7 @@ export default function useEmailInbox() {
 
     // agents
     agents,
-    selectedAgent,
+    selectedAgents,
     agentFetchLoading,
     handleAgentSelect,
 

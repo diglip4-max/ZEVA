@@ -1,4 +1,4 @@
-﻿import {
+import {
   ConversationType,
   MessageData,
   MessageType,
@@ -259,7 +259,7 @@ const useInbox = () => {
   })();
 
   // Conversation assignment logic
-  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
+  const [selectedAgents, setSelectedAgents] = useState<User[]>([]);
 
   // schedule message state
   const [isScheduleModalOpen, setIsScheduleModalOpen] =
@@ -1161,19 +1161,15 @@ const useInbox = () => {
     }
   };
 
-  const handleAgentSelect = async (
-    agent: User | null,
-    conversationId: string,
-  ) => {
-    setSelectedAgent(agent);
+  const handleAgentSelect = async (agents: User[], conversationId: string) => {
+    setSelectedAgents(agents);
     // Here you would typically make an API call to assign the conversation
-    console.log("Assigned conversation to:", agent);
-    if (!agent) return;
+    console.log("Assigned conversation to:", agents);
     try {
       const { data } = await axios.post(
         `/api/conversations/assign-conversation/${conversationId}`,
         {
-          ownerId: agent?._id,
+          ownerIds: agents.map((a) => a._id),
         },
         {
           headers: {
@@ -1184,14 +1180,25 @@ const useInbox = () => {
       if (data && data?.success) {
         // Update conversation in state
         const updatedConversations = conversations.map((conv) =>
-          conv._id === conversationId ? { ...conv, ownerId: agent?._id } : conv,
+          conv._id === conversationId
+            ? {
+                ...conv,
+                ownerId: agents.length > 0 ? agents[0]._id : null, // backward compatibility
+                owners: agents.map((a) => a._id),
+              }
+            : conv,
         );
-        setSelectedConversation((prev) =>
+        setSelectedConversation((prev: any) =>
           prev && prev._id === conversationId
-            ? { ...prev, ownerId: agent?._id }
+            ? {
+                ...prev,
+                ownerId: agents.length > 0 ? agents[0]._id : null, // backward compatibility
+                owners: agents.map((a) => a._id),
+              }
             : prev,
         );
-        setConversations(updatedConversations);
+        // @ts-ignore
+        setConversations(updatedConversations as any);
         toast.success("Conversation assigned successfully");
       }
     } catch (err) {
@@ -1238,14 +1245,30 @@ const useInbox = () => {
     }
   };
 
-  // select agent by default based on selected conversation
+  // select agents by default based on selected conversation
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
-      const findConvOwner = agents?.find(
-        (agent) => agent?._id === selectedConversation?.ownerId,
-      );
-      if (findConvOwner) setSelectedAgent(findConvOwner);
-      else setSelectedAgent(null);
+      // Check if conversation has owners array first
+      if (
+        selectedConversation.owners &&
+        selectedConversation.owners.length > 0
+      ) {
+        const convOwners = agents.filter((agent) =>
+          selectedConversation.owners.includes(agent._id),
+        );
+        setSelectedAgents(convOwners);
+      } else if (selectedConversation.ownerId) {
+        // Fallback to single ownerId for backward compatibility
+        const findConvOwner = agents?.find(
+          (agent) => agent?._id === selectedConversation?.ownerId,
+        );
+        if (findConvOwner) setSelectedAgents([findConvOwner]);
+        else setSelectedAgents([]);
+      } else {
+        setSelectedAgents([]);
+      }
+    } else {
+      setSelectedAgents([]);
     }
   }, [agents, selectedConversation]);
 
@@ -1554,7 +1577,7 @@ const useInbox = () => {
     canSend,
     canSchedule,
     agents,
-    selectedAgent,
+    selectedAgents,
     agentFetchLoading,
     isScheduleModalOpen,
     isFilterModalOpen,
@@ -1603,7 +1626,6 @@ const useInbox = () => {
     setIsDeleteConversationModalOpen,
     setIsDeletingConversation,
     setIsAddingTag,
-    setSelectedAgent,
     setIsScheduleModalOpen,
     setIsFilterModalOpen,
     setIsOpenBookAppointmentModal,
