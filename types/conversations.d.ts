@@ -5,6 +5,7 @@ export type ConversationType = {
   _id: string;
   clinicId: string;
   ownerId: string;
+  owners: string[];
   leadId: Lead;
   status: "open" | "closed" | "starred" | "trashed" | "blocked" | "archived";
   recentMessage: Message;

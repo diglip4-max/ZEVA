@@ -144,7 +144,7 @@ export default async function handler(req, res) {
       if (ownerIdFilter) {
         const matchingConversations = await Conversation.find({
           clinicId: clinic._id,
-          ownerId: ownerIdFilter,
+          owners: { $in: [ownerIdFilter] },
         }).distinct("_id");
 
         if (matchingConversations.length === 0) {

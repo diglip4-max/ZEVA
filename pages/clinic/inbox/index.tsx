@@ -601,7 +601,7 @@ const InboxPage: NextPageWithLayout = () => {
     canSend,
     canSchedule,
     agents,
-    selectedAgent,
+    selectedAgents,
     agentFetchLoading,
     isScheduleModalOpen,
     isFilterModalOpen,
@@ -915,20 +915,20 @@ const InboxPage: NextPageWithLayout = () => {
                   />
                   <AssignConversation
                     agents={agents}
-                    selectedAgent={selectedAgent}
-                    onAgentSelect={(agent) =>
-                      handleAgentSelect(agent, selectedConversation?._id)
+                    selectedAgents={selectedAgents}
+                    onAgentsSelect={(agents) =>
+                      handleAgentSelect(agents, selectedConversation?._id)
                     }
                     loading={agentFetchLoading}
-                    placeholder="Assign to agent..."
+                    placeholder="Assign to agents..."
                   />
 
                   {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
-                  <Info className="h-5 w-5" />
-                </button>
-                <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
-                  <MoreVertical className="h-5 w-5" />
-                </button> */}
+              <Info className="h-5 w-5" />
+            </button>
+            <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
+              <MoreVertical className="h-5 w-5" />
+            </button> */}
                 </div>
               ) : (
                 <div>

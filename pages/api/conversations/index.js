@@ -98,12 +98,12 @@ export default async function handler(req, res) {
 
       // fetch by filters of ownerId
       if (req.query.ownerId) {
-        query.ownerId = req.query.ownerId;
+        query.owners = req.query.ownerId;
       }
 
       // if role is agent then only show assigned conversations
       if (me.role === "agent" || me.role === "doctorStaff") {
-        query.ownerId = me._id;
+        query.owners = me._id;
       }
 
       // Search by contact name or phone number
