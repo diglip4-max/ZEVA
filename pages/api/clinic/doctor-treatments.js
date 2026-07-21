@@ -5,7 +5,10 @@ import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import mongoose from "mongoose";
 import { getUserFromReq } from "../lead-ms/auth";
-import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
+import {
+  getClinicIdFromUser,
+  checkClinicPermission,
+} from "../lead-ms/permissions-helper";
 import {
   formatDoctorTreatments,
   ensureUniqueTreatmentSlug,
@@ -22,7 +25,11 @@ export default async function handler(req, res) {
     if (!clinicAdmin) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (!["clinic", "doctor", "admin", "agent", "doctorStaff", "staff"].includes(clinicAdmin.role)) {
+    if (
+      !["clinic", "doctor", "admin", "agent", "doctorStaff", "staff"].includes(
+        clinicAdmin.role,
+      )
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
   } catch (error) {
@@ -41,73 +48,107 @@ export default async function handler(req, res) {
     // Default to "clinic_Appointment" for backward compatibility
     // When accessed from create-agent page, it should check "clinic_create_agent"
     const moduleToCheck = req.query.module || "clinic_Appointment";
-    
+
     // ✅ Check permission for reading doctor treatments
     // For agent/doctorStaff roles, check clinic permissions if module is provided, otherwise use agent permissions
-    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
+    if (
+      !isAdmin &&
+      clinicId &&
+      ["agent", "doctorStaff"].includes(clinicAdmin.role)
+    ) {
       // If module starts with "clinic_", use checkClinicPermission
       if (moduleToCheck.startsWith("clinic_")) {
         const { hasPermission, error: permError } = await checkClinicPermission(
           clinicId,
           moduleToCheck,
-          "read"
+          "read",
         );
-        
+
         if (!hasPermission) {
           return res.status(403).json({
             success: false,
-            message: permError || "You do not have permission to view doctor treatments"
+            message:
+              permError ||
+              "You do not have permission to view doctor treatments",
           });
         }
       } else {
         // Use agent permissions for other modules
-        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const { checkAgentPermission } =
+          await import("../agent/permissions-helper");
         const result = await checkAgentPermission(
           clinicAdmin._id,
           moduleToCheck,
-          "read"
+          "read",
         );
 
         // If module doesn't exist in permissions yet, allow access by default
-        if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-          console.log(`[doctor-treatments] Module ${moduleToCheck} not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+        if (
+          !result.hasPermission &&
+          result.error &&
+          result.error.includes("not found in agent permissions")
+        ) {
+          console.log(
+            `[doctor-treatments] Module ${moduleToCheck} not found in permissions for user ${clinicAdmin._id}, allowing access by default`,
+          );
         } else if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
-            message: result.error || "You do not have permission to view doctor treatments"
+            message:
+              result.error ||
+              "You do not have permission to view doctor treatments",
           });
         }
       }
     }
     if (!doctorStaffId) {
-      return res.status(400).json({ success: false, message: "doctorStaffId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "doctorStaffId is required" });
     }
 
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(doctorStaffId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
-        return res.status(404).json({ success: false, message: "Doctor staff not found" });
+      if (
+        !doctorStaff ||
+        !["doctorStaff", "agent"].includes(doctorStaff.role)
+      ) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Doctor staff not found" });
       }
 
       // Verify clinic access for non-admin roles
       if (clinicAdmin.role === "clinic") {
         // Clinic users don't have clinicId - find their clinic by owner
-        const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select("_id");
+        const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select(
+          "_id",
+        );
         if (!clinic) {
-          return res.status(403).json({ success: false, message: "Clinic not found" });
+          return res
+            .status(403)
+            .json({ success: false, message: "Clinic not found" });
         }
         const clinicId = clinic._id;
         if (doctorStaff.clinicId?.toString() !== clinicId?.toString()) {
-          return res.status(403).json({ success: false, message: "Access denied" });
+          return res
+            .status(403)
+            .json({ success: false, message: "Access denied" });
         }
       } else if (["agent", "doctorStaff", "staff"].includes(clinicAdmin.role)) {
         // For agent, doctorStaff, and staff, verify they belong to the same clinic
         if (!clinicAdmin.clinicId) {
-          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+          return res
+            .status(403)
+            .json({ success: false, message: "User not linked to a clinic" });
         }
-        if (doctorStaff.clinicId?.toString() !== clinicAdmin.clinicId?.toString()) {
-          return res.status(403).json({ success: false, message: "Access denied" });
+        if (
+          doctorStaff.clinicId?.toString() !== clinicAdmin.clinicId?.toString()
+        ) {
+          return res
+            .status(403)
+            .json({ success: false, message: "Access denied" });
         }
       }
 
@@ -115,7 +156,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, treatments });
     } catch (error) {
       console.error("Error fetching doctor treatments:", error);
-      return res.status(500).json({ success: false, message: "Failed to load treatments" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to load treatments" });
     }
   }
 
@@ -123,80 +166,116 @@ export default async function handler(req, res) {
     // Determine which module to check permissions for based on query parameter or body
     // Default to "clinic_Appointment" for backward compatibility
     // When accessed from create-agent page, it should check "clinic_create_agent"
-    const moduleToCheck = req.query.module || req.body.module || "clinic_Appointment";
-    
+    const moduleToCheck =
+      req.query.module || req.body.module || "clinic_Appointment";
+
     // ✅ Check permission for creating/updating doctor treatments
     // For agent/doctorStaff roles, check clinic permissions if module is provided, otherwise use agent permissions
     if (!isAdmin && clinicId) {
       if (["agent", "doctorStaff"].includes(clinicAdmin.role)) {
         // If module starts with "clinic_", use checkClinicPermission
         if (moduleToCheck.startsWith("clinic_")) {
-          const { hasPermission, error: permError } = await checkClinicPermission(
-            clinicId,
-            moduleToCheck,
-            "update"
-          );
-          
+          const { hasPermission, error: permError } =
+            await checkClinicPermission(clinicId, moduleToCheck, "update");
+
           if (!hasPermission) {
             return res.status(403).json({
               success: false,
-              message: permError || "You do not have permission to update doctor treatments"
+              message:
+                permError ||
+                "You do not have permission to update doctor treatments",
             });
           }
         } else {
           // Use agent permissions for other modules
-          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const { checkAgentPermission } =
+            await import("../agent/permissions-helper");
           const result = await checkAgentPermission(
             clinicAdmin._id,
             moduleToCheck,
-            "update"
+            "update",
           );
 
           // If module doesn't exist in permissions yet, allow access by default
-          if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-            console.log(`[doctor-treatments] Module ${moduleToCheck} not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+          if (
+            !result.hasPermission &&
+            result.error &&
+            result.error.includes("not found in agent permissions")
+          ) {
+            console.log(
+              `[doctor-treatments] Module ${moduleToCheck} not found in permissions for user ${clinicAdmin._id}, allowing access by default`,
+            );
           } else if (!result.hasPermission) {
             return res.status(403).json({
               success: false,
-              message: result.error || "You do not have permission to update doctor treatments"
+              message:
+                result.error ||
+                "You do not have permission to update doctor treatments",
             });
           }
         }
       }
     }
 
-    const { doctorStaffId: bodyDoctorStaffId, treatmentId, treatmentName, subTreatments, subcategoryIds, price, department } = req.body;
+    const {
+      doctorStaffId: bodyDoctorStaffId,
+      treatmentId,
+      treatmentName,
+      subTreatments,
+      subcategoryIds,
+      price,
+      department,
+    } = req.body;
     const targetDoctorStaffId = doctorStaffId || bodyDoctorStaffId;
 
     if (!targetDoctorStaffId) {
-      return res.status(400).json({ success: false, message: "doctorStaffId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "doctorStaffId is required" });
     }
 
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(targetDoctorStaffId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
-        return res.status(404).json({ success: false, message: "Doctor staff not found" });
+      if (
+        !doctorStaff ||
+        !["doctorStaff", "agent"].includes(doctorStaff.role)
+      ) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Doctor staff not found" });
       }
 
       // Verify clinic access for non-admin roles
       if (clinicAdmin.role === "clinic") {
         // Clinic users don't have clinicId - find their clinic by owner
-        const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select("_id");
+        const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select(
+          "_id",
+        );
         if (!clinic) {
-          return res.status(403).json({ success: false, message: "Clinic not found" });
+          return res
+            .status(403)
+            .json({ success: false, message: "Clinic not found" });
         }
         const clinicId = clinic._id;
         if (doctorStaff.clinicId?.toString() !== clinicId?.toString()) {
-          return res.status(403).json({ success: false, message: "Access denied" });
+          return res
+            .status(403)
+            .json({ success: false, message: "Access denied" });
         }
       } else if (["agent", "doctorStaff", "staff"].includes(clinicAdmin.role)) {
         // For agent, doctorStaff, and staff, verify they belong to the same clinic
         if (!clinicAdmin.clinicId) {
-          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+          return res
+            .status(403)
+            .json({ success: false, message: "User not linked to a clinic" });
         }
-        if (doctorStaff.clinicId?.toString() !== clinicAdmin.clinicId?.toString()) {
-          return res.status(403).json({ success: false, message: "Access denied" });
+        if (
+          doctorStaff.clinicId?.toString() !== clinicAdmin.clinicId?.toString()
+        ) {
+          return res
+            .status(403)
+            .json({ success: false, message: "Access denied" });
         }
       }
 
@@ -205,7 +284,9 @@ export default async function handler(req, res) {
       // If creating custom treatment
       if (treatmentName && !treatmentId) {
         if (!treatmentName.trim()) {
-          return res.status(400).json({ success: false, message: "Treatment name is required" });
+          return res
+            .status(400)
+            .json({ success: false, message: "Treatment name is required" });
         }
 
         const treatmentSlug = await ensureUniqueTreatmentSlug(treatmentName);
@@ -216,7 +297,10 @@ export default async function handler(req, res) {
               .map((sub) => ({
                 name: sub.name.trim(),
                 slug: slugifyValue(sub.name),
-                price: sub.price && !Number.isNaN(Number(sub.price)) ? Number(sub.price) : 0,
+                price:
+                  sub.price && !Number.isNaN(Number(sub.price))
+                    ? Number(sub.price)
+                    : 0,
               }))
           : [];
 
@@ -230,7 +314,12 @@ export default async function handler(req, res) {
       }
 
       if (!finalTreatmentId) {
-        return res.status(400).json({ success: false, message: "Treatment ID or name is required" });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Treatment ID or name is required",
+          });
       }
 
       // Verify treatment exists - handle both ObjectId and slug formats
@@ -240,15 +329,19 @@ export default async function handler(req, res) {
         treatmentExists = await Treatment.findById(finalTreatmentId).lean();
       } else {
         // Not a valid ObjectId - likely a slug, look up by slug
-        treatmentExists = await Treatment.findOne({ slug: finalTreatmentId }).lean();
+        treatmentExists = await Treatment.findOne({
+          slug: finalTreatmentId,
+        }).lean();
         if (treatmentExists) {
           // Update finalTreatmentId to the actual ObjectId
           finalTreatmentId = treatmentExists._id;
         }
       }
-      
+
       if (!treatmentExists) {
-        return res.status(404).json({ success: false, message: "Treatment not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Treatment not found" });
       }
 
       const payload = {
@@ -256,13 +349,19 @@ export default async function handler(req, res) {
         treatmentId: finalTreatmentId,
         subcategoryIds: Array.isArray(subcategoryIds)
           ? subcategoryIds.filter(Boolean)
-          : treatmentExists.subcategories?.map((sub) => sub.slug || sub.name) || [],
+          : treatmentExists.subcategories?.map((sub) => sub.slug || sub.name) ||
+            [],
       };
 
       if (price !== undefined && price !== null && price !== "") {
         const parsedPrice = Number(price);
         if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-          return res.status(400).json({ success: false, message: "Price must be a positive number" });
+          return res
+            .status(400)
+            .json({
+              success: false,
+              message: "Price must be a positive number",
+            });
         }
         payload.price = parsedPrice;
       }
@@ -272,13 +371,19 @@ export default async function handler(req, res) {
         const Department = (await import("../../../models/Department")).default;
         // Verify department belongs to clinic
         if (clinicAdmin.role === "clinic") {
-          const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select("_id");
+          const clinic = await Clinic.findOne({
+            owner: clinicAdmin._id,
+          }).select("_id");
           if (clinic) {
-            const dept = await Department.findOne({ _id: department, clinicId: clinic._id });
+            const dept = await Department.findOne({
+              _id: department,
+              clinicId: clinic._id,
+            });
             if (!dept) {
               return res.status(400).json({
                 success: false,
-                message: "Department not found or does not belong to this clinic",
+                message:
+                  "Department not found or does not belong to this clinic",
               });
             }
           }
@@ -289,23 +394,28 @@ export default async function handler(req, res) {
       await DoctorTreatment.findOneAndUpdate(
         { doctorId: targetDoctorStaffId, treatmentId: finalTreatmentId },
         payload,
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
       const treatments = await formatDoctorTreatments(targetDoctorStaffId);
 
       return res.status(201).json({
         success: true,
-        message: treatmentName ? "Custom treatment created and assigned successfully" : "Treatment assigned successfully",
+        message: treatmentName
+          ? "Custom treatment created and assigned successfully"
+          : "Treatment assigned successfully",
         treatments,
       });
     } catch (error) {
       console.error("Error saving doctor treatment:", error);
-      return res.status(500).json({ success: false, message: "Failed to save treatment" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to save treatment" });
     }
   }
 
   res.setHeader("Allow", ["GET", "POST"]);
-  return res.status(405).json({ success: false, message: "Method not allowed" });
+  return res
+    .status(405)
+    .json({ success: false, message: "Method not allowed" });
 }
-

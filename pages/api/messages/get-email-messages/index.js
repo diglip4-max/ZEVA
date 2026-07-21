@@ -75,12 +75,17 @@ export default async function handler(req, res) {
       const skip = (page - 1) * limit;
       const status = req.query.status || "all"; // Default to "all" if not provided
       const search = req.query.search?.trim()?.toLowerCase() || ""; // Default to empty string if not provided
+      const providerId = req.query.providerId || null; // New: providerId filter
 
       let query = {
         clinicId: clinic._id,
         channel: "email",
         replyToMessageId: null,
       }; // Only fetch top-level email messages (not replies)
+
+      if (providerId) {
+        query.provider = providerId; // New: add provider filter to query
+      }
 
       if (status === "all") {
         query.isTrashed = { $ne: true };
@@ -164,8 +169,118 @@ export default async function handler(req, res) {
         query.conversationId = { $in: matchingConversations };
       }
 
+      // Helper to calculate folder counts
+      const calculateFolderCounts = async (baseQuery) => {
+        const counts = {};
+
+        // All
+        counts.all = await Message.countDocuments({
+          ...baseQuery,
+          isTrashed: { $ne: true },
+          isArchived: { $ne: true },
+        });
+
+        // Incoming
+        counts.incoming = await Message.countDocuments({
+          ...baseQuery,
+          direction: "incoming",
+        });
+
+        // Outgoing
+        counts.outgoing = await Message.countDocuments({
+          ...baseQuery,
+          direction: "outgoing",
+        });
+
+        // Starred
+        counts.starred = await Message.countDocuments({
+          ...baseQuery,
+          isStarred: true,
+        });
+
+        // Unread (assuming unread is when status is 'received' or similar, adjust if needed)
+        counts.unread = await Message.countDocuments({
+          ...baseQuery,
+          status: "received",
+        });
+
+        // Opened
+        counts.opened = await Message.countDocuments({
+          ...baseQuery,
+          direction: "outgoing",
+          status: { $ne: "sent" },
+        });
+
+        // Clicked
+        counts.clicked = await Message.countDocuments({
+          ...baseQuery,
+          direction: "outgoing",
+          status: "clicked",
+        });
+
+        // Archived
+        counts.archived = await Message.countDocuments({
+          ...baseQuery,
+          isArchived: true,
+        });
+
+        // Trashed
+        counts.trashed = await Message.countDocuments({
+          ...baseQuery,
+          isTrashed: true,
+        });
+
+        return Object.entries(counts).map(([key, count]) => ({
+          key,
+          label: {
+            all: "All Mail",
+            incoming: "Inbox",
+            outgoing: "Sent",
+            starred: "Starred",
+            unread: "Unread",
+            opened: "Opened",
+            clicked: "Clicked",
+            archived: "Archived",
+            trashed: "Trash",
+          }[key],
+          count,
+        }));
+      };
+
+      // Build base query for counts (without pagination, status, skip, limit)
+      let baseCountQuery = {
+        clinicId: clinic._id,
+        channel: "email",
+        replyToMessageId: null,
+      };
+
+      if (providerId) {
+        baseCountQuery.provider = providerId;
+      }
+
+      // Handle search and ownerId filter for counts as well
+      if (search) {
+        // Reuse the same lead search logic
+        const searchRegex = new RegExp(search, "i");
+        const matchingLeadIds = await Lead.find({
+          clinicId: clinic._id,
+          $or: [{ name: searchRegex }, { email: searchRegex }],
+        }).distinct("_id");
+        baseCountQuery.recipientId = { $in: matchingLeadIds };
+      }
+
+      if (ownerIdFilter) {
+        const matchingConversations = await Conversation.find({
+          clinicId: clinic._id,
+          owners: { $in: [ownerIdFilter] },
+        }).distinct("_id");
+        baseCountQuery.conversationId = { $in: matchingConversations };
+      }
+
+      const folderCounts = await calculateFolderCounts(baseCountQuery);
+
       let messages = await Message.find(query)
-        .sort({ createdAt: -1 })
+        .sort({ emailReceivedAt: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .populate("senderId", "name email phone")
@@ -185,8 +300,10 @@ export default async function handler(req, res) {
       const groupedMessages = {};
 
       messages.forEach((message) => {
-        if (!message.createdAt) return;
-        const date = new Date(message.createdAt).toISOString().split("T")[0];
+        if (!message.emailReceivedAt && !message.createdAt) return;
+        const date = new Date(message.emailReceivedAt || message.createdAt)
+          .toISOString()
+          .split("T")[0];
         if (!groupedMessages[date]) groupedMessages[date] = [];
         groupedMessages[date].push(message);
       });
@@ -211,6 +328,7 @@ export default async function handler(req, res) {
           limit,
           hasMore,
         },
+        folderCounts,
       });
     } catch (error) {
       console.error("Error fetching messages of conversation:", error);

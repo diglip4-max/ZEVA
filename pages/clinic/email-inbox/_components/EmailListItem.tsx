@@ -12,14 +12,15 @@ interface EmailListItemProps {
   onToggleStar: (id: string) => void;
 }
 
-function formatTime(dateStr?: string) {
+export function formatTime(dateStr?: string | Date) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  return sameDay
-    ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-    : d.toLocaleDateString([], { month: "short", day: "numeric" });
+
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+  // Output: "15:20"
 }
 
 function stripHtml(html?: string) {
@@ -56,7 +57,9 @@ export default function EmailListItem({
           <div className="pi-row-name">
             {lead?.name || lead?.email || "Unknown"}
           </div>
-          <div className="pi-row-time">{formatTime(recent?.createdAt)}</div>
+          <div className="pi-row-time">
+            {formatTime(recent?.emailReceivedAt || recent?.createdAt)}
+          </div>
         </div>
         <div className="pi-row-subject">
           {recent?.subject || "(no subject)"}
