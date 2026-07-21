@@ -41,9 +41,10 @@ export default function EmailThreadMessage({
   const displayTo = isOutgoing
     ? `${fromName}${recipientEmail ? ` <${recipientEmail}>` : ""}`
     : (message as any).provider?.email || `Unknown recipient`;
-  const messageDate = message?.createdAt
-    ? new Date(message.createdAt).toLocaleString()
-    : "";
+  const messageDate =
+    message?.emailReceivedAt || message?.createdAt
+      ? new Date(message.emailReceivedAt || message.createdAt).toLocaleString()
+      : "";
 
   // Generate a short preview when collapsed
   const getPreview = () => {
@@ -119,11 +120,7 @@ export default function EmailThreadMessage({
             )}
           </div>
         </div>
-        <div className="pi-reading-time">
-          {(message as any).createdAt
-            ? new Date((message as any).createdAt).toLocaleString()
-            : ""}
-        </div>
+        <div className="pi-reading-time">{messageDate}</div>
       </div>
 
       <div

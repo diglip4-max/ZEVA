@@ -34,17 +34,23 @@ interface EmailSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   canCreate?: boolean;
+  folderCounts?: Array<{ key: EmailFolderKey; label: string; count: number }>;
 }
 
 export default function EmailSidebar({
   folder,
   onFolderChange,
   onCompose,
-  unreadCountFor,
+  // unreadCountFor,
   collapsed,
   onToggleCollapse,
   canCreate = true,
+  folderCounts = [],
 }: EmailSidebarProps) {
+  const getCountFor = (key: EmailFolderKey) => {
+    const found = folderCounts.find((c) => c.key === key);
+    return found?.count ?? 0;
+  };
   return (
     <aside className={`pi-sidebar ${collapsed ? "pi-collapsed" : ""}`}>
       <div className="pi-logo">
@@ -75,8 +81,8 @@ export default function EmailSidebar({
           >
             {ICONS[f.key]}
             {!collapsed && <span className="pi-nav-label">{f.label}</span>}
-            {!collapsed && unreadCountFor(f.key) > 0 && (
-              <span className="pi-nav-count">{unreadCountFor(f.key)}</span>
+            {!collapsed && getCountFor(f.key) > 0 && (
+              <span className="pi-nav-count">{getCountFor(f.key)}</span>
             )}
           </button>
         ))}

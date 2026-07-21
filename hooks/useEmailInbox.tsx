@@ -129,6 +129,8 @@ export default function useEmailInbox() {
   const [folder, setFolder] = useState<EmailFolderKey>("all");
   const [search, setSearch] = useState("");
   const [filterOwnerId, setFilterOwnerId] = useState<string | null>(null);
+  const [filterProviderId, setFilterProviderId] = useState<string | null>(null);
+  const [folderCounts, setFolderCounts] = useState<any[]>([]);
   const conversationListRef = useRef<HTMLDivElement | null>(null);
   const currentPageRef = useRef(1);
 
@@ -278,6 +280,7 @@ export default function useEmailInbox() {
             status: folder === "all" ? "all" : folder,
             search,
             ownerId: filterOwnerId || undefined,
+            providerId: filterProviderId || undefined,
           },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -289,9 +292,11 @@ export default function useEmailInbox() {
         }
 
         const incomingGroups: MessageData[] = res.data?.data || [];
+        const counts = res.data?.folderCounts || [];
 
         if (pageToFetch === 1) {
           setMessages(incomingGroups);
+          setFolderCounts(counts);
         } else {
           setMessages((prev) => {
             const merged = prev.map((g) => ({
@@ -339,7 +344,7 @@ export default function useEmailInbox() {
         setFetchMsgsLoading(false);
       }
     },
-    [token, search, folder, filterOwnerId],
+    [token, search, folder, filterOwnerId, filterProviderId],
   );
 
   const fetchEmailMessages = useMemo(
@@ -921,7 +926,13 @@ export default function useEmailInbox() {
     return () => {
       fetchEmailMessages.cancel?.();
     };
-  }, [folder, search, filterOwnerId, fetchEmailMessagesImmediate]);
+  }, [
+    folder,
+    search,
+    filterOwnerId,
+    filterProviderId,
+    fetchEmailMessagesImmediate,
+  ]);
 
   const loadMoreEmailMessages = () => {
     if (!hasMoreMessages || fetchMsgsLoading) return;
@@ -957,6 +968,9 @@ export default function useEmailInbox() {
     unreadCountFor,
     filterOwnerId,
     setFilterOwnerId,
+    filterProviderId,
+    setFilterProviderId,
+    folderCounts,
 
     // agents
     agents,

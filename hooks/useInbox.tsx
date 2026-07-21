@@ -131,16 +131,16 @@ const useInbox = () => {
 
   // conversation status options
   const [conversationStatusOptions, setConversationStatusOptions] = useState<
-    { label: string; value: string }[]
+    { label: string; value: string; count: number }[]
   >([
-    { label: "All", value: "all" },
-    { label: "Read", value: "read" },
-    { label: "Unread", value: "unread" },
-    { label: "Open", value: "open" },
-    { label: "Closed", value: "closed" },
-    { label: "Archived", value: "archived" },
-    { label: "Blocked", value: "blocked" },
-    { label: "Trashed", value: "trashed" },
+    { label: "All", value: "all", count: 0 },
+    { label: "Read", value: "read", count: 0 },
+    { label: "Unread", value: "unread", count: 0 },
+    { label: "Open", value: "open", count: 0 },
+    { label: "Closed", value: "closed", count: 0 },
+    { label: "Archived", value: "archived", count: 0 },
+    { label: "Blocked", value: "blocked", count: 0 },
+    { label: "Trashed", value: "trashed", count: 0 },
   ]);
   const [filters, setFilters] = useState<IState["filters"]>({
     status: "all",
@@ -336,6 +336,15 @@ const useInbox = () => {
                 ? new Date(b.recentMessage.createdAt).getTime()
                 : 0;
               return dateB - dateA;
+            });
+            const stats = res.data.stats || {};
+            setConversationStatusOptions((prev) => {
+              return prev.map((item) => {
+                return {
+                  ...item,
+                  count: stats[item.value] || 0,
+                };
+              });
             });
             setConversations(sortedConvs);
           } else {

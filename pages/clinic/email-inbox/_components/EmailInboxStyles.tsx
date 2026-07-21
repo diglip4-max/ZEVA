@@ -2,8 +2,7 @@ import React from "react";
 
 /**
  * All CSS for the premium email inbox, scoped under `.pi-root`.
- * Rendered once from EmailInboxPage. Kept in its own file so the
- * layout/logic components above stay readable.
+ * Light mode version matching the analytics dashboard style.
  */
 export default function EmailInboxStyles() {
   return (
@@ -11,20 +10,22 @@ export default function EmailInboxStyles() {
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
       .pi-root {
-        --bg: #0f172a;
-        --panel: #1e293b;
-        --panel-2: #334155;
-        --panel-3: #475569;
-        --border: #475569;
-        --border-soft: #334155;
-        --text: #f8fafc;
-        --text-dim: #cbd5e1;
-        --text-faint: #94a3b8;
+        --bg: #f1f5f9;
+        --panel: #ffffff;
+        --panel-2: #f8fafc;
+        --panel-3: #e2e8f0;
+        --border: #cbd5e1;
+        --border-soft: #e2e8f0;
+        --text: #0f172a;
+        --text-dim: #1e293b;
+        --text-faint: #64748b;
         --primary: #6366f1;
         --primary-bright: #818cf8;
-        --primary-soft: rgba(99, 102, 241, 0.14);
+        --primary-soft: rgba(99, 102, 241, 0.12);
         --primary-line: rgba(99, 102, 241, 0.25);
         --danger: #ef4444;
+        --success: #10b981;
+        --warning: #f59e0b;
         --sidebar-width: 248px;
         --sidebar-collapsed-width: 72px;
         --base-font-size: 14px;
@@ -46,7 +47,7 @@ export default function EmailInboxStyles() {
       .pi-root ::selection { background: var(--primary-soft); }
       .pi-root a,
       .pi-root a:visited {
-        color: var(--primary-bright);
+        color: var(--primary);
         text-decoration: none;
       }
       .pi-root a:hover {
@@ -95,6 +96,7 @@ export default function EmailInboxStyles() {
         font-size: 18px;
         font-weight: 600;
         letter-spacing: -0.2px;
+        color: var(--text);
       }
       .pi-sidebar.pi-collapsed .pi-logo-text {
         display: none;
@@ -114,7 +116,7 @@ export default function EmailInboxStyles() {
         font-size: 14px;
         border: none;
         cursor: pointer;
-        box-shadow: 0 8px 24px -8px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 8px 24px -8px rgba(99, 102, 241, 0.4);
         transition: transform .15s ease, box-shadow .15s ease, width .18s ease, padding .18s ease;
       }
       .pi-sidebar.pi-collapsed .pi-compose-launch {
@@ -125,7 +127,7 @@ export default function EmailInboxStyles() {
       .pi-sidebar.pi-collapsed .pi-compose-launch span {
         display: none;
       }
-      .pi-compose-launch:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(99, 102, 241, 0.6); }
+      .pi-compose-launch:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(99, 102, 241, 0.5); }
       .pi-compose-launch:active { transform: translateY(0); }
 
       .pi-nav { display: flex; flex-direction: column; gap: 4px; }
@@ -154,7 +156,7 @@ export default function EmailInboxStyles() {
       .pi-nav-item:hover { background: var(--panel-2); color: var(--text); }
       .pi-nav-item.active {
         background: var(--primary-soft);
-        color: var(--primary-bright);
+        color: var(--primary);
       }
       .pi-nav-item .pi-nav-label { flex: 1; }
       .pi-nav-count {
@@ -168,7 +170,7 @@ export default function EmailInboxStyles() {
         font-weight: 600;
         font-family: 'JetBrains Mono', monospace;
       }
-      .pi-nav-item.active .pi-nav-count { background: var(--primary-soft); color: var(--primary-bright); }
+      .pi-nav-item.active .pi-nav-count { background: var(--primary-soft); color: var(--primary); }
 
       /* ---------- Message Details ---------- */
       .pi-reading-to-row {
@@ -192,21 +194,21 @@ export default function EmailInboxStyles() {
         color: var(--text-dim);
       }
       .pi-thread-details-toggle:hover {
-        background: var(--panel-2);
-        color: var(--text-dim);
+        background: var(--panel-3);
+        color: var(--text);
       }
       .pi-thread-info-card {
         position: absolute;
         top: 100%;
         left: 0;
         margin-top: 8px;
-        background: var(--panel-2);
+        background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 16px;
         z-index: 10;
         min-width: 280px;
-        box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4);
+        box-shadow: 0 8px 24px -8px rgba(0,0,0,0.15);
       }
       .pi-thread-info-row {
         display: flex;
@@ -245,12 +247,12 @@ export default function EmailInboxStyles() {
         justify-content: center;
         cursor: pointer;
         z-index: 10;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         transition: all .15s ease;
       }
       .pi-sidebar-toggle:hover {
         background: var(--panel-2);
-        color: var(--primary-bright);
+        color: var(--primary);
         transform: scale(1.1);
       }
       .pi-sidebar.pi-collapsed .pi-sidebar-toggle {
@@ -289,13 +291,14 @@ export default function EmailInboxStyles() {
           }
           .pi-refresh-btn:hover {
             background: var(--panel-2);
-            color: var(--text-dim);
+            color: var(--text);
           }
       .pi-list-title {
         font-family: 'Inter', sans-serif;
         font-size: 22px;
         font-weight: 600;
         letter-spacing: -0.3px;
+        color: var(--text);
       }
       .pi-list-sub {
         font-size: 12px;
@@ -346,7 +349,7 @@ export default function EmailInboxStyles() {
         font-weight: 600; color: rgba(255,255,255,0.95);
         font-family: 'Inter', sans-serif;
         letter-spacing: 0.02em;
-        background: linear-gradient(135deg, var(--panel-2), var(--panel-3));
+        background: linear-gradient(135deg, var(--panel-3), var(--border));
         font-size: 16px;
       }
       .pi-avatar-dot {
@@ -389,7 +392,7 @@ export default function EmailInboxStyles() {
         min-width: 0;
       }
         .pi-reading-to-row {position: relative; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
-        
+
       .pi-reading-toolbar {
         display: flex; align-items: center; gap: 6px;
         padding: 16px 28px;
@@ -407,7 +410,7 @@ export default function EmailInboxStyles() {
       .pi-icon-btn.subtle:hover { color: var(--text); background: var(--panel-2); }
       .pi-icon-btn.danger:hover { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
       .pi-icon-btn.gold-active {
-        color: var(--primary-bright);
+        color: var(--primary);
         background: var(--primary-soft);
       }
       .pi-toolbar-spacer { flex: 1; }
@@ -449,12 +452,14 @@ export default function EmailInboxStyles() {
       .pi-delete-modal-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.75);
+        background: rgba(15, 23, 42, 0.45);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 110;
         padding: 20px;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
       }
       .pi-delete-modal {
         width: min(480px, 100%);
@@ -462,7 +467,7 @@ export default function EmailInboxStyles() {
         border: 1px solid var(--border-soft);
         border-radius: 24px;
         padding: 26px 26px 22px;
-        box-shadow: 0 36px 100px rgba(15, 23, 42, 0.45);
+        box-shadow: 0 36px 100px rgba(15, 23, 42, 0.2);
       }
       .pi-delete-modal-header {
         display: flex;
@@ -502,6 +507,7 @@ export default function EmailInboxStyles() {
         line-height: 1.2;
         letter-spacing: -0.5px;
         margin-bottom: 24px;
+        color: var(--text);
       }
       .pi-reading-from {
         display: flex; gap: 16px; align-items: flex-start;
@@ -619,7 +625,7 @@ export default function EmailInboxStyles() {
         border: 1px solid var(--border);
         border-bottom: none;
         border-radius: 16px 16px 0 0;
-        box-shadow: 0 -16px 48px -12px rgba(0,0,0,0.6);
+        box-shadow: 0 -16px 48px -12px rgba(0,0,0,0.15);
         display: flex;
         flex-direction: column;
         z-index: 40;
@@ -667,11 +673,11 @@ export default function EmailInboxStyles() {
       .pi-compose-main { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
       .pi-compose-editor-area { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; margin-top: 8px; }
       .pi-rich-text-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
-      .pi-rich-editable { flex: 1; min-height: 0; overflow-y: auto; max-height: none; padding: 8px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel-2); }
+      .pi-rich-editable { flex: 1; min-height: 0; overflow-y: auto; max-height: none; padding: 8px; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
       .pi-rich-editable a,
       .pi-reading-body a,
       .pi-compose-body a {
-        color: var(--primary-bright);
+        color: var(--primary);
         text-decoration: underline;
       }
       .pi-rich-editable a:hover,
@@ -688,7 +694,7 @@ export default function EmailInboxStyles() {
       }
       .pi-compose-field input::placeholder { color: var(--text-faint); }
 
-      /* ---------- From provider select (inline, ComposeWindow-owned) ---------- */
+      /* ---------- From provider select ---------- */
       .pi-from-field { position: relative; }
       .pi-from-select { position: relative; flex: 1; min-width: 0; }
       .pi-from-select-button {
@@ -713,8 +719,8 @@ export default function EmailInboxStyles() {
       }
       .pi-from-select-menu {
         position: absolute; top: calc(100% + 8px); left: 0; right: 0;
-        background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
-        box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6); padding: 8px; z-index: 60;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+        box-shadow: 0 16px 40px -12px rgba(0,0,0,0.15); padding: 8px; z-index: 60;
         max-height: 240px; overflow-y: auto;
       }
       .pi-from-select-item {
@@ -722,7 +728,7 @@ export default function EmailInboxStyles() {
         padding: 10px 12px; border-radius: 10px; border: none; background: none;
         cursor: pointer; text-align: left; transition: background .1s ease;
       }
-      .pi-from-select-item:hover { background: var(--panel); }
+      .pi-from-select-item:hover { background: var(--panel-2); }
       .pi-from-select-item.active { background: var(--primary-soft); }
       .pi-from-item-info { flex: 1; min-width: 0; }
       .pi-from-item-label {
@@ -739,13 +745,13 @@ export default function EmailInboxStyles() {
         margin-right: 8px;
       }
 
-      /* ---------- To autocomplete (lead/conversation suggestions) ---------- */
+      /* ---------- To autocomplete ---------- */
       .pi-to-field { position: relative; }
       .pi-to-autocomplete { position: relative; flex: 1; min-width: 0; }
       .pi-to-suggestion-list {
         position: absolute; top: calc(100% + 8px); left: 0; right: 0;
-        background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
-        box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6); padding: 8px; z-index: 60;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+        box-shadow: 0 16px 40px -12px rgba(0,0,0,0.15); padding: 8px; z-index: 60;
         max-height: 220px; overflow-y: auto;
       }
       .pi-to-suggestion-item {
@@ -753,7 +759,7 @@ export default function EmailInboxStyles() {
         padding: 10px 12px; border-radius: 10px; border: none; background: none;
         cursor: pointer; text-align: left; transition: background .1s ease;
       }
-      .pi-to-suggestion-item:hover { background: var(--panel); }
+      .pi-to-suggestion-item:hover { background: var(--panel-2); }
       .pi-to-suggestion-content { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
       .pi-to-suggestion-name {
         font-size: 14px; font-weight: 600; color: var(--text);
@@ -778,7 +784,7 @@ export default function EmailInboxStyles() {
       .pi-attachment-icon {
         width: 40px; height: 40px; border-radius: 10px;
         display: flex; align-items: center; justify-content: center;
-        background: var(--primary-soft); color: var(--primary-bright);
+        background: var(--primary-soft); color: var(--primary);
         font-size: 11px; font-weight: 700; letter-spacing: .02em;
       }
       .pi-attachment-body { flex: 1; min-width: 0; }
@@ -787,7 +793,7 @@ export default function EmailInboxStyles() {
         font-size: 13px; font-weight: 600; color: var(--text);
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .pi-attachment-status { font-size: 11px; color: var(--primary-bright); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+      .pi-attachment-status { font-size: 11px; color: var(--primary); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
       .pi-attachment-meta { display: flex; gap: 8px; margin-top: 4px; }
       .pi-attachment-size, .pi-attachment-mime { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
       .pi-attachment-actions { flex-shrink: 0; }
@@ -807,55 +813,6 @@ export default function EmailInboxStyles() {
       .pi-compose-preview-empty { color: var(--text-faint); font-style: italic; }
       .pi-compose-preview-attachments { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
       .pi-compose-preview-note { font-size: 12px; color: var(--text-faint); font-style: italic; }
-
-      /* ---------- From provider switcher ---------- */
-      .pi-compose-field-from { position: relative; }
-      .pi-from-select { position: relative; flex: 1; min-width: 0; }
-      .pi-from-trigger {
-        display: flex; align-items: center; gap: 12px; width: 100%;
-        background: none; border: none; cursor: pointer; padding: 6px 4px;
-        border-radius: 8px;
-        transition: background .12s ease;
-      }
-      .pi-from-trigger:hover { background: var(--panel-2); }
-      .pi-from-badge {
-        width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.95);
-        font-family: 'Inter', sans-serif;
-      }
-      .pi-from-badge-gmail { background: linear-gradient(135deg, #c1554f, #d97757); }
-      .pi-from-badge-outlook { background: linear-gradient(135deg, #2f5f8f, #5088b8); }
-      .pi-from-badge-other { background: linear-gradient(135deg, #4a556b, #7d8fb0); }
-
-      .pi-from-text { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; flex: 1; }
-      .pi-from-name {
-        font-size: 14px; font-weight: 600; color: var(--text);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
-      }
-      .pi-from-email {
-        font-size: 12px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
-      }
-      .pi-from-placeholder { display: flex; align-items: center; gap: 12px; color: var(--text-faint); font-size: 14px; }
-      .pi-from-chevron { color: var(--text-faint); margin-left: auto; flex-shrink: 0; transition: transform .15s ease; }
-      .pi-from-chevron.open { transform: rotate(180deg); }
-
-      .pi-from-menu {
-        position: absolute; top: calc(100% + 8px); left: 0; right: 0;
-        background: var(--panel-2); border: 1px solid var(--border);
-        border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6);
-        padding: 8px; z-index: 60; max-height: 260px; overflow-y: auto;
-      }
-      .pi-from-option {
-        display: flex; align-items: center; gap: 12px; width: 100%;
-        padding: 10px 12px; border-radius: 10px; border: none; background: none;
-        cursor: pointer; text-align: left; transition: background .1s ease;
-      }
-      .pi-from-option:hover { background: var(--panel); }
-      .pi-from-option.active { background: var(--primary-soft); }
-      .pi-from-check { color: var(--primary); margin-left: auto; flex-shrink: 0; }
-      .pi-from-empty { padding: 16px; text-align: center; color: var(--text-faint); font-size: 13px; }
 
       .pi-compose-textarea {
         margin-top: 14px;
@@ -881,25 +838,24 @@ export default function EmailInboxStyles() {
         background: var(--primary-soft); border: 1px solid var(--primary-line);
         border-radius: 10px; font-size: 13px; color: var(--text-dim);
       }
-      .pi-compose-template-banner strong { color: var(--primary-bright); font-weight: 600; }
+      .pi-compose-template-banner strong { color: var(--primary); font-weight: 600; }
       .pi-link-button {
         background: none; border: none; cursor: pointer; padding: 0;
-        font-size: 12px; font-weight: 600; color: var(--primary-bright);
+        font-size: 12px; font-weight: 600; color: var(--primary);
         text-decoration: underline; text-underline-offset: 2px;
       }
       .pi-link-button:hover { color: var(--text); }
 
-      /* ---------- Template picker (anchored dropdown, not a full modal) ---------- */
       .pi-tpl-picker {
         position: absolute;
         bottom: calc(100% + 12px);
         left: 0;
         width: 340px;
         max-height: 400px;
-        background: var(--panel-2);
+        background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 16px;
-        box-shadow: 0 -20px 56px -16px rgba(0,0,0,0.7);
+        box-shadow: 0 -20px 56px -16px rgba(0,0,0,0.15);
         z-index: 70;
         display: flex;
         flex-direction: column;
@@ -924,7 +880,7 @@ export default function EmailInboxStyles() {
         border: none; background: none; cursor: pointer; text-align: left;
         transition: background .1s ease;
       }
-      .pi-tpl-picker-item:hover { background: var(--panel); }
+      .pi-tpl-picker-item:hover { background: var(--panel-2); }
       .pi-tpl-picker-item-main { min-width: 0; }
       .pi-tpl-picker-item-name {
         font-size: 14px; font-weight: 600; color: var(--text);
@@ -936,7 +892,7 @@ export default function EmailInboxStyles() {
       }
       .pi-tpl-picker-item-badge {
         flex-shrink: 0; font-size: 11px; padding: 4px 10px; border-radius: 999px;
-        background: var(--primary-soft); color: var(--primary-bright);
+        background: var(--primary-soft); color: var(--primary);
         font-family: 'JetBrains Mono', monospace;
       }
       .pi-tpl-picker-empty {
@@ -960,7 +916,7 @@ export default function EmailInboxStyles() {
       .pi-tpl-picker-var-label { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
       .pi-tpl-picker-var-input-wrap { display: flex; align-items: center; gap: 8px; }
       .pi-tpl-picker-var-input-wrap input {
-        flex: 1; background: var(--panel); border: 1px solid var(--border-soft);
+        flex: 1; background: var(--panel-2); border: 1px solid var(--border-soft);
         border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 14px; outline: none;
       }
       .pi-tpl-picker-var-input-wrap input:focus { border-color: var(--primary-line); }
@@ -973,19 +929,19 @@ export default function EmailInboxStyles() {
       }
       .pi-tpl-picker-apply:disabled { opacity: .5; cursor: not-allowed; }
 
-      /* ---------- Quick merge-field popover (used inside template variables) ---------- */
+      /* ---------- Quick merge-field popover ---------- */
       .pi-qfp { position: relative; flex-shrink: 0; }
       .pi-qfp-menu {
         position: absolute; bottom: calc(100% + 10px); right: 0; width: 240px;
-        background: var(--panel-2); border: 1px solid var(--border); border-radius: 12px;
-        box-shadow: 0 -16px 40px -12px rgba(0,0,0,0.6); padding: 8px; z-index: 80;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+        box-shadow: 0 -16px 40px -12px rgba(0,0,0,0.15); padding: 8px; z-index: 80;
       }
       .pi-qfp-item {
         display: flex; align-items: center; justify-content: space-between; gap: 10px;
         width: 100%; padding: 8px 10px; border-radius: 8px; border: none;
         background: none; cursor: pointer; text-align: left;
       }
-      .pi-qfp-item:hover { background: var(--panel); }
+      .pi-qfp-item:hover { background: var(--panel-2); }
       .pi-qfp-item span:first-child { font-size: 12px; color: var(--text-dim); }
       .pi-qfp-token { font-size: 11px; color: var(--text-faint); font-family: 'JetBrains Mono', monospace; }
 
@@ -997,7 +953,7 @@ export default function EmailInboxStyles() {
         padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
         transition: transform .12s ease, box-shadow .12s ease;
       }
-      .pi-send-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -8px rgba(99, 102, 241, 0.5); }
+      .pi-send-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px -8px rgba(99, 102, 241, 0.4); }
       .pi-send-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
 
       /* ---------- Toast ---------- */
@@ -1013,7 +969,7 @@ export default function EmailInboxStyles() {
         border-radius: 12px;
         font-size: 14px;
         display: flex; align-items: center; gap: 12px;
-        box-shadow: 0 12px 40px -12px rgba(0,0,0,0.6);
+        box-shadow: 0 12px 40px -12px rgba(0,0,0,0.2);
         z-index: 50;
         animation: pi-toast-in .22s ease;
       }
@@ -1042,12 +998,14 @@ export default function EmailInboxStyles() {
       .pi-add-tag-modal-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.75);
+        background: rgba(15, 23, 42, 0.45);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 110;
         padding: 20px;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
       }
       .pi-add-tag-modal {
         width: min(520px, 100%);
@@ -1055,7 +1013,7 @@ export default function EmailInboxStyles() {
         border: 1px solid var(--border-soft);
         border-radius: 24px;
         padding: 26px;
-        box-shadow: 0 36px 100px rgba(15, 23, 42, 0.45);
+        box-shadow: 0 36px 100px rgba(15, 23, 42, 0.2);
         max-height: 90vh;
         overflow-y: auto;
       }
@@ -1141,12 +1099,12 @@ export default function EmailInboxStyles() {
       .pi-add-tag-modal-tag:hover {
         background: var(--primary-soft);
         border-color: var(--primary-line);
-        color: var(--primary-bright);
+        color: var(--primary);
       }
       .pi-add-tag-modal-tag.selected {
         background: var(--primary-soft);
         border-color: var(--primary-line);
-        color: var(--primary-bright);
+        color: var(--primary);
       }
       .pi-add-tag-modal-actions {
         display: flex;
@@ -1169,7 +1127,7 @@ export default function EmailInboxStyles() {
       }
       .pi-add-tag-modal-primary-btn:hover:enabled {
         transform: translateY(-1px);
-        box-shadow: 0 8px 20px -8px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 8px 20px -8px rgba(99, 102, 241, 0.4);
       }
       .pi-add-tag-modal-primary-btn:disabled {
         opacity: 0.6;
@@ -1178,15 +1136,13 @@ export default function EmailInboxStyles() {
         box-shadow: none;
       }
 
-      /* ─────────────────────────────────────────────────────────────
-         Send Options Modal  (.pi-som-*)
-         ───────────────────────────────────────────────────────────── */
+      /* ---------- Send Options Modal ---------- */
       .pi-som-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
         z-index: 200;
         display: flex;
         align-items: center;
@@ -1204,7 +1160,7 @@ export default function EmailInboxStyles() {
         background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 20px;
-        box-shadow: 0 32px 80px -20px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.08);
+        box-shadow: 0 32px 80px -20px rgba(0,0,0,0.15), 0 0 0 1px rgba(99,102,241,0.06);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -1216,14 +1172,13 @@ export default function EmailInboxStyles() {
         to   { opacity: 1; transform: translateY(0) scale(1); }
       }
 
-      /* Header */
       .pi-som-header {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
         gap: 14px;
         padding: 20px 20px 16px 20px;
-        background: linear-gradient(135deg, var(--panel-2) 0%, rgba(99,102,241,.06) 100%);
+        background: linear-gradient(135deg, var(--panel-2) 0%, rgba(99,102,241,.04) 100%);
         border-bottom: 1px solid var(--border-soft);
       }
       .pi-som-header-inner {
@@ -1236,7 +1191,7 @@ export default function EmailInboxStyles() {
         background: linear-gradient(135deg, var(--primary-bright), var(--primary));
         display: flex; align-items: center; justify-content: center;
         color: #fff;
-        box-shadow: 0 6px 18px -6px rgba(99,102,241,.6);
+        box-shadow: 0 6px 18px -6px rgba(99,102,241,.4);
       }
       .pi-som-title {
         font-size: 16px; font-weight: 700; color: var(--text); line-height: 1.2;
@@ -1249,7 +1204,6 @@ export default function EmailInboxStyles() {
       }
       .pi-som-subtitle span { color: var(--text-dim); }
 
-      /* Tabs */
       .pi-som-tabs {
         display: flex;
         gap: 4px;
@@ -1267,16 +1221,13 @@ export default function EmailInboxStyles() {
       }
       .pi-som-tab:hover { color: var(--text); background: var(--panel-2); }
       .pi-som-tab.active {
-        color: var(--primary-bright);
+        color: var(--primary);
         background: var(--primary-soft);
         border-color: var(--primary-line);
       }
       .pi-som-tab svg { flex-shrink: 0; }
 
-      /* Body */
       .pi-som-body { padding: 20px; }
-
-      /* Send Now panel */
       .pi-som-now-panel {
         display: flex;
         align-items: center;
@@ -1289,18 +1240,17 @@ export default function EmailInboxStyles() {
       .pi-som-now-icon {
         width: 60px; height: 60px; border-radius: 16px; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(135deg, rgba(251,191,36,.15), rgba(251,191,36,.05));
-        border: 1px solid rgba(251,191,36,.2);
-        color: #fbbf24;
+        background: linear-gradient(135deg, rgba(251,191,36,.12), rgba(251,191,36,.04));
+        border: 1px solid rgba(251,191,36,.15);
+        color: #f59e0b;
       }
       .pi-som-now-copy { flex: 1; }
       .pi-som-now-copy strong {
         display: block; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px;
       }
       .pi-som-now-copy p { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin: 0; }
-      .pi-som-now-copy em { color: var(--primary-bright); font-style: normal; font-weight: 600; }
+      .pi-som-now-copy em { color: var(--primary); font-style: normal; font-weight: 600; }
 
-      /* Schedule Later panel */
       .pi-som-later-panel { display: flex; flex-direction: column; gap: 16px; }
       .pi-som-later-hint {
         font-size: 13px; color: var(--text-faint); line-height: 1.6; margin: 0;
@@ -1322,14 +1272,13 @@ export default function EmailInboxStyles() {
         border-radius: 10px; padding: 10px 14px;
         color: var(--text); font-size: 14px; font-family: 'Inter', sans-serif;
         outline: none; transition: border-color .14s, box-shadow .14s;
-        color-scheme: dark;
+        color-scheme: light;
       }
       .pi-som-input:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 3px var(--primary-soft);
       }
 
-      /* Timezone dropdown */
       .pi-som-tz-anchor { position: relative; flex: 1; }
       .pi-som-tz-btn {
         width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -1347,8 +1296,8 @@ export default function EmailInboxStyles() {
       }
       .pi-som-tz-menu {
         position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
-        background: var(--panel-2); border: 1px solid var(--border);
-        border-radius: 14px; box-shadow: 0 20px 48px -12px rgba(0,0,0,.6);
+        background: var(--panel); border: 1px solid var(--border);
+        border-radius: 14px; box-shadow: 0 20px 48px -12px rgba(0,0,0,.15);
         overflow: hidden;
         animation: pi-som-fade-in .14s ease;
       }
@@ -1371,13 +1320,12 @@ export default function EmailInboxStyles() {
         transition: background .1s, color .1s;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .pi-som-tz-item:hover { background: var(--panel); color: var(--text); }
+      .pi-som-tz-item:hover { background: var(--panel-3); color: var(--text); }
       .pi-som-tz-item.active {
-        background: var(--primary-soft); color: var(--primary-bright); font-weight: 600;
+        background: var(--primary-soft); color: var(--primary); font-weight: 600;
       }
       .pi-som-tz-empty { padding: 16px; text-align: center; color: var(--text-faint); font-size: 13px; }
 
-      /* Footer */
       .pi-som-footer {
         display: flex; align-items: center; justify-content: flex-end; gap: 10px;
         padding: 16px 20px;
@@ -1385,7 +1333,6 @@ export default function EmailInboxStyles() {
         background: var(--panel);
       }
 
-      /* Schedule button */
       .pi-som-schedule-btn {
         display: flex; align-items: center; gap: 8px;
         background: linear-gradient(135deg, #10b981, #059669);
@@ -1396,13 +1343,12 @@ export default function EmailInboxStyles() {
       }
       .pi-som-schedule-btn:hover:enabled {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px -8px rgba(16, 185, 129, 0.55);
+        box-shadow: 0 8px 20px -8px rgba(16, 185, 129, 0.4);
       }
       .pi-som-schedule-btn:disabled {
         opacity: .45; cursor: not-allowed; transform: none; box-shadow: none;
       }
 
-      /* Shared secondary btn (reused here) */
       .pi-secondary-btn {
         display: flex; align-items: center; gap: 6px;
         background: var(--panel-2); color: var(--text-dim);
@@ -1417,7 +1363,7 @@ export default function EmailInboxStyles() {
       .pi-filter-modal-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.75);
+        background: rgba(15, 23, 42, 0.45);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1432,7 +1378,7 @@ export default function EmailInboxStyles() {
         border: 1px solid var(--border-soft);
         border-radius: 24px;
         padding: 26px;
-        box-shadow: 0 36px 100px rgba(15, 23, 42, 0.45);
+        box-shadow: 0 36px 100px rgba(15, 23, 42, 0.2);
         overflow: visible;
       }
       .pi-filter-modal-header {
@@ -1452,7 +1398,7 @@ export default function EmailInboxStyles() {
         height: 36px;
         border-radius: 10px;
         background: var(--primary-soft);
-        color: var(--primary-bright);
+        color: var(--primary);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1543,10 +1489,10 @@ export default function EmailInboxStyles() {
         top: calc(100% + 6px);
         left: 0;
         right: 0;
-        background: var(--panel-2);
+        background: var(--panel);
         border: 1px solid var(--border);
         border-radius: 12px;
-        box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6);
+        box-shadow: 0 16px 40px -12px rgba(0,0,0,0.15);
         padding: 6px;
         z-index: 60;
         max-height: 220px;
@@ -1566,7 +1512,7 @@ export default function EmailInboxStyles() {
         transition: background .1s ease, color .1s ease;
       }
       .pi-filter-modal-custom-item:hover {
-        background: var(--panel);
+        background: var(--panel-2);
       }
       .pi-filter-modal-custom-item.active {
         background: var(--primary-soft);
@@ -1592,7 +1538,7 @@ export default function EmailInboxStyles() {
         text-overflow: ellipsis;
       }
       .pi-filter-modal-item-check {
-        color: var(--primary-bright);
+        color: var(--primary);
         flex-shrink: 0;
       }
       .pi-filter-modal-active-box {
@@ -1633,7 +1579,7 @@ export default function EmailInboxStyles() {
       }
       .pi-filter-modal-primary-btn:hover:enabled {
         transform: translateY(-1px);
-        box-shadow: 0 8px 20px -8px rgba(99, 102, 241, 0.5);
+        box-shadow: 0 8px 20px -8px rgba(99, 102, 241, 0.4);
       }
       .pi-filter-modal-primary-btn:disabled {
         opacity: 0.6;

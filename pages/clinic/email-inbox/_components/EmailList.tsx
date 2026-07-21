@@ -23,6 +23,7 @@ interface EmailListProps {
   listRef: React.RefObject<HTMLDivElement>;
   onFilterClick: () => void;
   hasActiveFilters: boolean;
+  filterCount: number;
   handleRefreshConversations: () => void;
 }
 
@@ -40,6 +41,7 @@ export default function EmailList({
   listRef,
   onFilterClick,
   hasActiveFilters,
+  filterCount,
   handleRefreshConversations,
 }: EmailListProps) {
   const folderLabel =
@@ -114,7 +116,7 @@ export default function EmailList({
             }}
           >
             <Filter size={18} />
-            {hasActiveFilters && (
+            {hasActiveFilters && filterCount > 0 && (
               <span
                 style={{
                   position: "absolute",
@@ -132,7 +134,7 @@ export default function EmailList({
                   justifyContent: "center",
                 }}
               >
-                1
+                {filterCount}
               </span>
             )}
           </button>
