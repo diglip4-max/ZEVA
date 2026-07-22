@@ -230,10 +230,10 @@ interface ChartComponent {
   type: "pie" | "bar" | "line" | "combo";
   title: string;
   section:
-    | "status-charts"
-    | "services-overview"
-    | "membership-overview"
-    | "analytics-overview";
+  | "status-charts"
+  | "services-overview"
+  | "membership-overview"
+  | "analytics-overview";
   order: number;
   visible: boolean;
 }
@@ -451,6 +451,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Patient Reports Data
   const [patientDemographics, setPatientDemographics] = useState({
     newVsReturning: [] as any[],
+    totalNewPatients: 0 as number,
+    totalOldPatients: 0 as number,
     genderDistribution: [] as any[],
     patientVisitFrequency: [] as any[],
     topPatients: [] as any[],
@@ -603,6 +605,58 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
+  const pad2 = (n: number) => n.toString().padStart(2, "0");
+
+  const toDateKey = (date: Date) =>
+    `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+  const getWeekRangeMondaySunday = (date: Date) => {
+    const base = new Date(date);
+    base.setHours(0, 0, 0, 0);
+    const dayOfWeek = base.getDay();
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const start = new Date(base);
+    start.setDate(start.getDate() - diffToMonday);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
+
+  const getMonthRange = (date: Date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
+
+  const buildDateKeysInRange = (start: Date, end: Date) => {
+    const keys: string[] = [];
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    const endDay = new Date(end);
+    endDay.setHours(0, 0, 0, 0);
+    while (cursor <= endDay) {
+      keys.push(toDateKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return keys;
+  };
+
+  const normalizeRevenueTrendData = (raw: any[], keys: string[]) => {
+    const map = new Map<string, any>();
+    (raw || []).forEach((item) => {
+      if (item?.name) map.set(String(item.name), item);
+    });
+    return keys.map((key) => ({
+      name: key,
+      revenue: Number(map.get(key)?.revenue ?? 0),
+      target: Number(map.get(key)?.target ?? 0),
+    }));
+  };
+
   const navigateMonth = (direction: "prev" | "next") => {
     const newDate = new Date(selectedDate);
     if (direction === "prev") {
@@ -667,13 +721,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
           key={day}
           onClick={() => !isFuture && selectDate(day)}
           disabled={isFuture}
-          className={`h-8 w-8 rounded-full text-sm font-medium transition-all ${
-            isFuture
-              ? "text-gray-300 cursor-not-allowed"
-              : isDateSelected(day)
-                ? "bg-blue-500 text-white"
-                : "text-gray-700 hover:text-blue-600 hover:bg-blue-100"
-          }`}
+          className={`h-8 w-8 rounded-full text-sm font-medium transition-all ${isFuture
+            ? "text-gray-300 cursor-not-allowed"
+            : isDateSelected(day)
+              ? "bg-blue-500 text-white"
+              : "text-gray-700 hover:text-blue-600 hover:bg-blue-100"
+            }`}
         >
           {day}
         </button>,
@@ -695,6 +748,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
     waiting: 0,
     rejected: 0,
     completed: 0,
+    invoiced: 0,
+    noshow: 0,
     daily: {
       patients: 0,
       jobs: 0,
@@ -742,7 +797,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       if (saved) {
         try {
           return JSON.parse(saved);
-        } catch {}
+        } catch { }
       }
     }
     return {
@@ -1522,27 +1577,27 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     const role = getUserRole();
@@ -2601,7 +2656,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     const jobsCount = stats.totalJobs || 0;
 
     return [
-      { name: "Appointments", value: stats.totalAppointments || 0 },
+      // { name: "Appointments", value: stats.totalAppointments || 0 },
       { name: "Leads", value: stats.totalLeads || 0 },
       { name: "Offers", value: stats.totalOffers || 0 },
       { name: "Jobs", value: jobsCount },
@@ -3924,8 +3979,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
         console.log("Billing Stats Response:", res.data);
         if (res.data.success) {
           // Handle both real data and mock data field names
-          const packagesData =
-            res.data.topPackagesData || res.data.topPackages || [];
+          const packagesData = (
+            res.data.topPackagesData || res.data.topPackages || []
+          ).filter(
+            (pkg: any) =>
+              pkg.name &&
+              pkg.name.toLowerCase() !== "unknown" &&
+              pkg.name.toLowerCase() !== "unknown package"
+          );
           const servicesData =
             res.data.topServicesData || res.data.topServices || [];
 
@@ -4104,23 +4165,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
         console.log("📊 Fetching financial reports for", timeRangeFilter);
 
         // Calculate date range based on filter
-        const endDate = new Date();
-        let startDate = new Date();
+        const now = new Date();
+        let startDate = new Date(now);
+        let endDate = new Date(now);
 
         if (timeRangeFilter === "today") {
           // Today - set to start of day
           startDate.setHours(0, 0, 0, 0);
           console.log("📅 Today filter: Current day");
         } else if (timeRangeFilter === "week") {
-          // Last 7 days
-          startDate.setDate(endDate.getDate() - 7);
-          startDate.setHours(0, 0, 0, 0);
-          console.log("📅 Week filter: Last 7 days");
+          const range = getWeekRangeMondaySunday(selectedDate);
+          startDate = range.start;
+          endDate = range.end;
+          console.log("📅 Week filter: Monday-Sunday calendar week");
         } else if (timeRangeFilter === "month") {
-          // Last 30 days
-          startDate.setDate(endDate.getDate() - 30);
-          startDate.setHours(0, 0, 0, 0);
-          console.log("📅 Month filter: Last 30 days");
+          const range = getMonthRange(selectedDate);
+          startDate = range.start;
+          endDate = range.end;
+          console.log("📅 Month filter: Full calendar month");
         } else if (timeRangeFilter === "overall") {
           // Overall - use start of year
           startDate = new Date(new Date().getFullYear(), 0, 1);
@@ -4136,12 +4198,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
         }
 
         // Set end time to end of day
-        endDate.setHours(23, 59, 59, 999);
+        if (timeRangeFilter === "today" || timeRangeFilter === "overall") {
+          endDate.setHours(23, 59, 59, 999);
+        }
+
+        const startDateParam = toDateKey(startDate);
+        const endDateParam = toDateKey(endDate);
 
         console.log("📅 Calculated date range:", {
           filter: timeRangeFilter,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate: startDateParam,
+          endDate: endDateParam,
           startDateReadable: startDate.toLocaleDateString(),
           endDateReadable: endDate.toLocaleDateString(),
         });
@@ -4158,8 +4225,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
             {
               headers: { Authorization: `Bearer ${token}` },
               params: {
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString(),
+                startDate: startDateParam,
+                endDate: endDateParam,
                 filter: timeRangeFilter,
               },
             },
@@ -4179,7 +4246,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
         try {
           const resPerf = await axios.get("/api/clinics/doctor-performance", {
             headers: { Authorization: `Bearer ${token}` },
-            params: { filter: timeRangeFilter },
+            params: {
+              filter: timeRangeFilter,
+              startDate: startDateParam,
+              endDate: endDateParam,
+            },
           });
           perfData = resPerf.data || {};
           console.log("✅ Doctor Performance Trend Response:", perfData);
@@ -4265,7 +4336,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
 
     fetchFinancialReports();
-  }, [timeRangeFilter]);
+  }, [timeRangeFilter, selectedDate]);
+
+  const revenueTrendChartData = useMemo(() => {
+    const raw = financialData.revenueTrendData || [];
+    if (timeRangeFilter !== "week" && timeRangeFilter !== "month") return raw;
+    const looksLikeDateKey = (v: any) =>
+      typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const hasDateKeys = raw.some((d: any) => looksLikeDateKey(d?.name));
+    if (!hasDateKeys && raw.length > 0) return raw;
+    const range =
+      timeRangeFilter === "week"
+        ? getWeekRangeMondaySunday(selectedDate)
+        : getMonthRange(selectedDate);
+    const keys = buildDateKeysInRange(range.start, range.end);
+    return normalizeRevenueTrendData(raw, keys);
+  }, [financialData.revenueTrendData, timeRangeFilter, selectedDate]);
 
   // Fetch Patient Reports Data (uses timeRangeFilter like other sections)
   useEffect(() => {
@@ -4283,14 +4369,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
           params.date = selectedDate.toISOString().split("T")[0];
           console.log("📅 Today filter:", params.date);
         } else if (timeRangeFilter === "week") {
-          // Last 7 days
-          const endDate = new Date(selectedDate);
-          const startDate = new Date(selectedDate);
-          startDate.setDate(startDate.getDate() - 6); // 7 days including today
-          params.startDate = startDate.toISOString().split("T")[0];
-          params.endDate = endDate.toISOString().split("T")[0];
+          // Monday to Sunday week range
+          const range = getWeekRangeMondaySunday(selectedDate);
+          params.startDate = range.start.toISOString().split("T")[0];
+          params.endDate = range.end.toISOString().split("T")[0];
           console.log(
-            "📅 Week filter:",
+            "📅 Week filter (Monday-Sunday):",
             params.startDate,
             "to",
             params.endDate,
@@ -4325,26 +4409,44 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
         console.log("🏥 Fetching patient reports with clinicId:", clinicId);
 
-        const res = await axios.get("/api/clinics/patient-reports", {
-          params: {
-            ...params,
-            clinicId, // Pass as query param as fallback
-          },
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-clinic-id": clinicId || "",
-          },
-        });
-
-        if (res.data.success) {
-          setPatientDemographics(
-            res.data.data || {
-              newVsReturning: [],
-              genderDistribution: [],
-              patientVisitFrequency: [],
-              topPatients: [],
+        // Fetch both patient-reports and patient-information
+        const [patientReportsRes, patientInfoRes] = await Promise.all([
+          axios.get("/api/clinics/patient-reports", {
+            params: {
+              ...params,
+              clinicId, // Pass as query param as fallback
             },
-          );
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "x-clinic-id": clinicId || "",
+            },
+          }),
+          axios.get("/api/clinic/patient-information", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
+        ]);
+
+        if (patientReportsRes.data.success) {
+          // Count patientType from patient-information API
+          let totalNew = 0;
+          let totalOld = 0;
+          if (patientInfoRes.data.success && Array.isArray(patientInfoRes.data.data)) {
+            patientInfoRes.data.data.forEach((patient: any) => {
+              if (patient.patientType === "New") {
+                totalNew++;
+              } else if (patient.patientType === "Old") {
+                totalOld++;
+              }
+            });
+          }
+
+          setPatientDemographics({
+            ...(patientReportsRes.data.data || {}),
+            totalNewPatients: totalNew,
+            totalOldPatients: totalOld,
+          });
         }
       } catch (error: any) {
         console.error("❌ Error fetching patient reports:", error.message);
@@ -4352,6 +4454,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
         // Set empty data on error to prevent UI crashes
         setPatientDemographics({
           newVsReturning: [],
+          totalNewPatients: 0,
+          totalOldPatients: 0,
           genderDistribution: [],
           patientVisitFrequency: [],
           topPatients: [],
@@ -4370,28 +4474,33 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
         const token =
           localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken");
+          sessionStorage.getItem("clinicToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken") ||
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken");
         if (!token) return;
 
         // Calculate date range based on timeRangeFilter
         const params: any = {};
-        if (timeRangeFilter === "week") {
-          params.date = selectedDate.toISOString().split("T")[0];
+        if (timeRangeFilter === "today") {
+          params.date = toDateKey(selectedDate);
+        } else if (timeRangeFilter === "week") {
+          const range = getWeekRangeMondaySunday(selectedDate);
+          params.startDate = toDateKey(range.start);
+          params.endDate = toDateKey(range.end);
         } else if (timeRangeFilter === "month") {
-          const startDate = new Date(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth(),
-            1,
-          );
-          const endDate = new Date(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth() + 1,
-            0,
-          );
-          params.startDate = startDate.toISOString().split("T")[0];
-          params.endDate = endDate.toISOString().split("T")[0];
+          const range = getMonthRange(selectedDate);
+          params.startDate = toDateKey(range.start);
+          params.endDate = toDateKey(range.end);
+        } else if (timeRangeFilter === "overall") {
+          const year = selectedDate.getFullYear();
+          const start = new Date(year, 0, 1);
+          const end = new Date(year, 11, 31);
+          params.startDate = toDateKey(start);
+          params.endDate = toDateKey(end);
         }
-        // For 'overall', no date params - shows all data
+        // For 'overall', show full calendar year (Jan 1 - Dec 31)
 
         // Get clinic ID from localStorage
         const clinicId =
@@ -5095,51 +5204,51 @@ const ClinicDashboard: NextPageWithLayout = () => {
             {chartComponents["analytics-overview"].find(
               (c) => c.id === "chart-daily-appointment",
             )?.visible && (
-              <div className="h-80 mt-6 border-t border-gray-100 pt-6">
-                <h3 className="text-base font-semibold text-teal-800 mb-4">
-                  Daily Appointment Status
-                </h3>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={dailyAppointmentChartData}
-                    margin={{ top: 10, right: 20, left: 10, bottom: 40 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: "#6b7280", fontSize: 11 }}
-                      axisLine={{ stroke: "#d1d5db" }}
-                      tickLine={{ stroke: "#d1d5db" }}
-                    />
-                    <YAxis
-                      tick={{ fill: "#6b7280", fontSize: 11 }}
-                      axisLine={{ stroke: "#d1d5db" }}
-                      tickLine={{ stroke: "#d1d5db" }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#fff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "6px",
-                        fontSize: "11px",
-                      }}
-                    />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      <LabelList
-                        dataKey="value"
-                        position="top"
-                        fill="#1f2937"
-                        fontSize={11}
-                        fontWeight={500}
+                <div className="h-80 mt-6 border-t border-gray-100 pt-6">
+                  <h3 className="text-base font-semibold text-teal-800 mb-4">
+                    Daily Appointment Status
+                  </h3>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dailyAppointmentChartData}
+                      margin={{ top: 10, right: 20, left: 10, bottom: 40 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        axisLine={{ stroke: "#d1d5db" }}
+                        tickLine={{ stroke: "#d1d5db" }}
                       />
-                      {dailyAppointmentChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
+                      <YAxis
+                        tick={{ fill: "#6b7280", fontSize: 11 }}
+                        axisLine={{ stroke: "#d1d5db" }}
+                        tickLine={{ stroke: "#d1d5db" }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#fff",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "6px",
+                          fontSize: "11px",
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                        <LabelList
+                          dataKey="value"
+                          position="top"
+                          fill="#1f2937"
+                          fontSize={11}
+                          fontWeight={500}
+                        />
+                        {dailyAppointmentChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
           </div>
         )}
         <div className={isEditMode ? "pl-14" : ""}>{children}</div>
@@ -5872,9 +5981,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     height="100%"
                                   >
                                     <LineChart
-                                      data={
-                                        financialData.revenueTrendData || []
-                                      }
+                                      data={revenueTrendChartData}
                                       margin={{
                                         top: 20,
                                         right: 20,
@@ -5965,73 +6072,86 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   </p>
                                 </div>
                                 <div className="h-72 sm:h-72">
-                                  <ResponsiveContainer
-                                    width="100%"
-                                    height="100%"
-                                  >
-                                    <PieChart>
-                                      <Pie
-                                        data={
-                                          financialData.paymentMethodsData || []
-                                        }
-                                        cx={isMobile ? "50%" : "40%"}
-                                        cy="50%"
-                                        innerRadius={isMobile ? 40 : 50}
-                                        outerRadius={isMobile ? 70 : 80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                        nameKey="name"
-                                        labelLine={false}
-                                      >
-                                        {(
-                                          financialData.paymentMethodsData || []
-                                        ).map((entry: any, index: number) => (
-                                          <Cell
-                                            key={`cell-${index}`}
-                                            fill={entry.color}
-                                          />
-                                        ))}
-                                      </Pie>
-                                      <Tooltip
-                                        contentStyle={{
-                                          backgroundColor: "#fff",
-                                          border: "1px solid #e5e7eb",
-                                          borderRadius: "8px",
-                                          fontSize: "12px",
-                                          boxShadow:
-                                            "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                        }}
-                                        formatter={(value: any, name: any) => [
-                                          `${value}%`,
-                                          name || "Payment Method",
-                                        ]}
-                                      />
-                                      <Legend
-                                        layout={
-                                          isMobile ? "horizontal" : "vertical"
-                                        }
-                                        verticalAlign={
-                                          isMobile ? "bottom" : "middle"
-                                        }
-                                        align={isMobile ? "center" : "right"}
-                                        wrapperStyle={{
-                                          fontSize: isMobile ? "10px" : "11px",
-                                          paddingLeft: isMobile
-                                            ? "0px"
-                                            : "20px",
-                                          color: "#4b5563",
-                                          lineHeight: "20px",
-                                        }}
-                                        formatter={(value: any) => {
-                                          const item = (
-                                            financialData.paymentMethodsData ||
-                                            []
-                                          ).find((d: any) => d.name === value);
-                                          return `${value}: ${item ? item.value : 0}%`;
-                                        }}
-                                      />
-                                    </PieChart>
-                                  </ResponsiveContainer>
+                                  {financialData.paymentMethodsData &&
+                                    financialData.paymentMethodsData.length > 0 ? (
+                                    <ResponsiveContainer
+                                      width="100%"
+                                      height="100%"
+                                    >
+                                      <PieChart>
+                                        <Pie
+                                          data={
+                                            financialData.paymentMethodsData || []
+                                          }
+                                          cx={isMobile ? "50%" : "40%"}
+                                          cy="50%"
+                                          innerRadius={isMobile ? 40 : 50}
+                                          outerRadius={isMobile ? 70 : 80}
+                                          paddingAngle={5}
+                                          dataKey="value"
+                                          nameKey="name"
+                                          labelLine={false}
+                                        >
+                                          {(
+                                            financialData.paymentMethodsData || []
+                                          ).map((entry: any, index: number) => (
+                                            <Cell
+                                              key={`cell-${index}`}
+                                              fill={entry.color}
+                                            />
+                                          ))}
+                                        </Pie>
+                                        <Tooltip
+                                          contentStyle={{
+                                            backgroundColor: "#fff",
+                                            border: "1px solid #e5e7eb",
+                                            borderRadius: "8px",
+                                            fontSize: "12px",
+                                            boxShadow:
+                                              "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                          }}
+                                          formatter={(value: any, name: any) => [
+                                            `${value}%`,
+                                            name || "Payment Method",
+                                          ]}
+                                        />
+                                        <Legend
+                                          layout={
+                                            isMobile ? "horizontal" : "vertical"
+                                          }
+                                          verticalAlign={
+                                            isMobile ? "bottom" : "middle"
+                                          }
+                                          align={isMobile ? "center" : "right"}
+                                          wrapperStyle={{
+                                            fontSize: isMobile ? "10px" : "11px",
+                                            paddingLeft: isMobile
+                                              ? "0px"
+                                              : "20px",
+                                            color: "#4b5563",
+                                            lineHeight: "20px",
+                                          }}
+                                          formatter={(value: any) => {
+                                            const item = (
+                                              financialData.paymentMethodsData ||
+                                              []
+                                            ).find((d: any) => d.name === value);
+                                            return `${value}: ${item ? item.value : 0}%`;
+                                          }}
+                                        />
+                                      </PieChart>
+                                    </ResponsiveContainer>
+                                  ) : (
+                                    <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-lg border border-dashed border-gray-200 p-4">
+                                      <CreditCard className="w-10 h-10 stroke-[1.5] mb-2 text-gray-300" />
+                                      <p className="text-sm font-semibold text-gray-500">
+                                        No Payment Data Available
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1 text-center">
+                                        There are no transactions recorded for {timeRangeFilter === "today" ? "today" : "this period"}.
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
@@ -6053,7 +6173,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     <BarChart
                                       data={
                                         financialData.doctorRevenueData.length >
-                                        0
+                                          0
                                           ? financialData.doctorRevenueData
                                           : []
                                       }
@@ -6061,7 +6181,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         top: 5,
                                         right: 20,
                                         left: 0,
-                                        bottom: 60,
+                                        bottom: 100,
                                       }}
                                     >
                                       <CartesianGrid
@@ -6071,10 +6191,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       />
                                       <XAxis
                                         dataKey="name"
-                                        tick={{ fontSize: 10, fill: "#6b7280" }}
+                                        tick={{ fontSize: 11, fill: "#6b7280" }}
                                         angle={-45}
                                         textAnchor="end"
-                                        height={80}
+                                        interval={0}
+                                        height={100}
                                       />
                                       <YAxis
                                         tick={{ fontSize: 10, fill: "#6b7280" }}
@@ -6123,22 +6244,25 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 </div>
                               </div>
 
-                              {/* Card 4: Top Services Revenue (Table) */}
+                              {/* Card 4: Top Packages Revenue (Table) */}
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                                 <div className="mb-4">
                                   <h3 className="text-base font-bold text-black">
-                                    Top Services Revenue
+                                    Top Packages Revenue
                                   </h3>
                                   <p className="text-xs text-gray-500 mt-1">
-                                    Best-performing services by revenue
+                                    Best-performing packages by revenue
                                   </p>
                                 </div>
-                                <div className="overflow-x-auto">
-                                  <table className="min-w-full">
+                                <div
+                                  className="overflow-x-auto"
+                                  style={{ maxHeight: "420px", overflowY: "auto" }}
+                                >
+                                  <table className="min-w-full table-fixed">
                                     <thead className="bg-gray-50 sticky top-0">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                          Service Name
+                                          Package Name
                                         </th>
                                         <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                           Sessions
@@ -6150,32 +6274,32 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {financialData.topServicesData.length >
-                                      0 ? (
+                                        0 ? (
                                         financialData.topServicesData
-                                          .slice(0, 5)
+                                          .slice(0, 10)
                                           .map((service, index) => (
                                             <tr
                                               key={index}
                                               className="hover:bg-gray-50 transition-colors"
                                             >
-                                              <td className="px-4 py-3 whitespace-nowrap">
+                                              <td className="w-1/2 px-4 py-3 whitespace-nowrap">
                                                 <span className="text-sm font-medium text-gray-900">
                                                   {service.name || "N/A"}
                                                 </span>
                                               </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-center">
+                                              <td className="w-1/4 px-4 py-3 whitespace-nowrap text-center">
                                                 <span className="text-sm text-gray-700">
                                                   {typeof service.sessions ===
-                                                  "number"
+                                                    "number"
                                                     ? service.sessions
                                                     : 0}
                                                 </span>
                                               </td>
-                                              <td className="px-4 py-3 whitespace-nowrap text-right">
+                                              <td className="w-1/4 px-4 py-3 whitespace-nowrap text-right">
                                                 <span className="text-sm font-semibold text-teal-600">
                                                   {getCurrencySymbol(currency)}
                                                   {(typeof service.revenue ===
-                                                  "number"
+                                                    "number"
                                                     ? service.revenue
                                                     : 0
                                                   ).toLocaleString(undefined, {
@@ -6192,7 +6316,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                             colSpan={3}
                                             className="px-4 py-8 text-center text-gray-500"
                                           >
-                                            No service data available
+                                            No package data available
                                           </td>
                                         </tr>
                                       )}
@@ -6393,7 +6517,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         {/* Content */}
                                         <div className="text-center w-full">
                                           {card.moduleKey ===
-                                          "daily_appointments" ? (
+                                            "daily_appointments" ? (
                                             <>
                                               <h4 className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1 line-clamp-2 min-h-[20px]">
                                                 Appointments
@@ -6693,7 +6817,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
                               {/* Card 3: Doctor Revenue (Bar Chart) */}
                               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                                <div className="mb-4">
+                                <div className="mb-4 ">
                                   <h3 className="text-base font-bold text-black">
                                     Doctor Revenue
                                   </h3>
@@ -6709,7 +6833,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     <BarChart
                                       data={
                                         financialData.doctorRevenueData.length >
-                                        0
+                                          0
                                           ? financialData.doctorRevenueData
                                           : []
                                       }
@@ -6717,7 +6841,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         top: 5,
                                         right: 20,
                                         left: 0,
-                                        bottom: 60,
+                                        bottom: 100,
                                       }}
                                     >
                                       <CartesianGrid
@@ -6727,10 +6851,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       />
                                       <XAxis
                                         dataKey="name"
-                                        tick={{ fontSize: 10, fill: "#6b7280" }}
+                                        tick={{ fontSize: 11, fill: "#6b7280" }}
                                         angle={-45}
                                         textAnchor="end"
-                                        height={80}
+                                        interval={0}
+                                        height={100}
                                       />
                                       <YAxis
                                         tick={{ fontSize: 10, fill: "#6b7280" }}
@@ -6806,7 +6931,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                       {financialData.topServicesData.length >
-                                      0 ? (
+                                        0 ? (
                                         financialData.topServicesData
                                           .slice(0, 5)
                                           .map((service, index) => (
@@ -6822,7 +6947,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                               <td className="px-4 py-3 whitespace-nowrap text-center">
                                                 <span className="text-sm text-gray-700">
                                                   {typeof service.sessions ===
-                                                  "number"
+                                                    "number"
                                                     ? service.sessions
                                                     : 0}
                                                 </span>
@@ -6831,7 +6956,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                 <span className="text-sm font-semibold text-teal-600">
                                                   {getCurrencySymbol(currency)}
                                                   {(typeof service.revenue ===
-                                                  "number"
+                                                    "number"
                                                     ? service.revenue
                                                     : 0
                                                   ).toLocaleString(undefined, {
@@ -6879,9 +7004,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}
                                       >
                                         {action.iconNode &&
-                                        React.isValidElement(
-                                          action.iconNode,
-                                        ) ? (
+                                          React.isValidElement(
+                                            action.iconNode,
+                                          ) ? (
                                           React.cloneElement(action.iconNode, {
                                             className: "w-4 h-4 text-white",
                                           })
@@ -6908,19 +7033,20 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         );
 
                       case "appointment-status-overview":
-                        // Prepare data for bar chart (Consultation, Waiting, Rescheduled, Discharge, Rejected, Cancelled)
+                        // Prepare data for bar chart (Consultation, Waiting, Rescheduled, Discharge, No Show, Rejected, Cancelled)
                         const barChartData =
                           filteredAppointmentData.length > 0
                             ? filteredAppointmentData.filter((item) =>
-                                [
-                                  "Consultation",
-                                  "Waiting",
-                                  "Rescheduled",
-                                  "Discharge",
-                                  "Rejected",
-                                  "Cancelled",
-                                ].includes(item.name),
-                              )
+                              [
+                                "Consultation",
+                                "Waiting",
+                                "Rescheduled",
+                                "Discharge",
+                                "No Show",
+                                "Rejected",
+                                "Cancelled",
+                              ].includes(item.name),
+                            )
                             : [
                                 {
                                   name: "Consultation",
@@ -6943,6 +7069,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   fill: "#ec4899",
                                 },
                                 {
+                                  name: "No Show",
+                                  value: dailyStats.noshow || 0,
+                                  fill: "#6b7280",
+                                },
+                                {
                                   name: "Rejected",
                                   value: dailyStats.rejected,
                                   fill: "#64748b",
@@ -6954,67 +7085,73 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 },
                               ];
 
-                        // Prepare data for line chart (remaining statuses)
+                        // Prepare data for line chart (remaining statuses: Booked, Enquiry, Approved, Arrived, Invoiced, Completed)
                         const lineChartData =
                           filteredAppointmentData.length > 0
                             ? filteredAppointmentData
-                                .filter(
-                                  (item) =>
-                                    ![
-                                      "Consultation",
-                                      "Waiting",
-                                      "Rescheduled",
-                                      "Discharge",
-                                      "Rejected",
-                                      "Cancelled",
-                                    ].includes(item.name),
-                                )
-                                .map((item) => ({
-                                  ...item,
-                                  target: Math.max(item.value * 1.2, 100), // Target is 20% higher or minimum 100
-                                }))
+                              .filter(
+                                (item) =>
+                                  ![
+                                    "Consultation",
+                                    "Waiting",
+                                    "Rescheduled",
+                                    "Discharge",
+                                    "No Show",
+                                    "Rejected",
+                                    "Cancelled",
+                                  ].includes(item.name),
+                              )
+                              .map((item) => ({
+                                ...item,
+                                target: Math.max(item.value * 1.2, 100), // Target is 20% higher or minimum 100
+                              }))
                             : [
-                                {
-                                  name: "Booked",
-                                  value: dailyStats.booked,
-                                  target: Math.max(
-                                    dailyStats.booked * 1.2,
-                                    100,
-                                  ),
-                                },
-                                {
-                                  name: "Enquiry",
-                                  value: dailyStats.enquiry,
-                                  target: Math.max(
-                                    dailyStats.enquiry * 1.2,
-                                    100,
-                                  ),
-                                },
-                                {
-                                  name: "Approved",
-                                  value: dailyStats.approved,
-                                  target: Math.max(
-                                    dailyStats.approved * 1.2,
-                                    100,
-                                  ),
-                                },
-                                {
-                                  name: "Arrived",
-                                  value: dailyStats.arrived,
-                                  target: Math.max(
-                                    dailyStats.arrived * 1.2,
-                                    100,
-                                  ),
-                                },
-                                {
-                                  name: "Completed",
-                                  value: dailyStats.completed,
-                                  target: Math.max(
-                                    dailyStats.completed * 1.2,
-                                    100,
-                                  ),
-                                },
-                              ];
+                               {
+                                 name: "Booked",
+                                 value: dailyStats.booked,
+                                 target: Math.max(
+                                   dailyStats.booked * 1.2,
+                                   100,
+                                 ),
+                               },
+                               {
+                                 name: "Enquiry",
+                                 value: dailyStats.enquiry,
+                                 target: Math.max(
+                                   dailyStats.enquiry * 1.2,
+                                   100,
+                                 ),
+                               },
+                               {
+                                 name: "Approved",
+                                 value: dailyStats.approved,
+                                 target: Math.max(
+                                   dailyStats.approved * 1.2,
+                                   100,
+                                 ),
+                               },
+                               {
+                                 name: "Arrived",
+                                 value: dailyStats.arrived,
+                                 target: Math.max(
+                                   dailyStats.arrived * 1.2,
+                                   100,
+                                 ),
+                               },
+                               {
+                                 name: "Invoiced",
+                                 value: dailyStats.invoiced || 0,
+                                 target: 100,
+                               },
+                               {
+                                 name: "Completed",
+                                 value: dailyStats.completed,
+                                 target: Math.max(
+                                   dailyStats.completed * 1.2,
+                                   100,
+                                 ),
+                               },
+                             ];
 
                         // Calculate totals (commented out as unused)
                         // const totalBarChart = barChartData.reduce((sum, item) => sum + item.value, 0);
@@ -7242,16 +7379,37 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     "Today patient acquisition trends"}
                                 </p>
                               </div>
+
+                              {/* Total Counts */}
+                              {(patientDemographics.totalNewPatients !== undefined || patientDemographics.totalOldPatients !== undefined) && (
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+                                    <p className="text-sm font-medium text-blue-900 mb-1">New Patients</p>
+                                    <p className="text-3xl font-bold text-blue-600">{patientDemographics.totalNewPatients || 0}</p>
+                                  </div>
+                                  <div className="p-4 bg-green-50 rounded-lg border border-green-100">
+                                    <p className="text-sm font-medium text-green-900 mb-1">Old Patients</p>
+                                    <p className="text-3xl font-bold text-green-600">{patientDemographics.totalOldPatients || 0}</p>
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="h-72">
-                                {patientDemographics.newVsReturning &&
-                                patientDemographics.newVsReturning.length >
+                                {patientDemographics.totalNewPatients &&
+                                  patientDemographics.totalNewPatients >
                                   0 ? (
                                   <ResponsiveContainer
                                     width="100%"
                                     height="100%"
                                   >
                                     <BarChart
-                                      data={patientDemographics.newVsReturning}
+                                      data={[
+                                        {
+                                          date: "",
+                                          newPatients: patientDemographics.totalNewPatients || 0,
+                                          returningPatients: patientDemographics.totalOldPatients || 0,
+                                        },
+                                      ]}
                                       margin={{
                                         top: 20,
                                         right: 20,
@@ -7259,69 +7417,113 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         bottom: 60,
                                       }}
                                     >
+
                                       <CartesianGrid
                                         strokeDasharray="3 3"
                                         stroke="#e5e7eb"
                                       />
-                                      <XAxis
-                                        dataKey="month"
-                                        angle={-45}
-                                        textAnchor="end"
-                                        height={60}
-                                        tick={{
-                                          fontSize: 10,
-                                          fill: "#374151",
-                                          fontWeight: "500",
-                                        }}
-                                        stroke="#6b7280"
-                                      />
-                                      <YAxis
-                                        tick={{ fontSize: 10, fill: "#374151" }}
-                                        stroke="#6b7280"
-                                        allowDecimals={false}
-                                      />
-                                      <Tooltip
-                                        contentStyle={{
-                                          backgroundColor: "#fff",
-                                          border: "1px solid #e5e7eb",
-                                          borderRadius: "8px",
-                                          fontSize: "12px",
-                                          boxShadow:
-                                            "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                        }}
-                                        labelStyle={{
-                                          fontWeight: "bold",
-                                          color: "#1f2937",
-                                          marginBottom: "4px",
-                                        }}
-                                      />
-                                      <Legend
-                                        wrapperStyle={{
-                                          fontSize: "10px",
-                                          paddingTop: "10px",
-                                          color: "#4b5563",
-                                        }}
-                                      />
+                                      <XAxis dataKey="date" />
+
+                                      <YAxis allowDecimals={false} />
+
+                                      <Tooltip />
+
+                                      <Legend />
+
                                       <Bar
                                         dataKey="newPatients"
-                                        fill="#3b82f6"
                                         name="New Patients"
-                                        radius={[4, 4, 0, 0]}
+                                        fill="#2563eb"
+                                        radius={[6, 6, 0, 0]}
                                       />
+
                                       <Bar
                                         dataKey="returningPatients"
-                                        fill="#10b981"
                                         name="Old Patients"
-                                        radius={[4, 4, 0, 0]}
+                                        fill="#10b981"
+                                        radius={[6, 6, 0, 0]}
                                       />
                                     </BarChart>
                                   </ResponsiveContainer>
                                 ) : (
-                                  <div className="h-full flex items-center justify-center text-gray-400">
-                                    <p className="text-sm">
-                                      Loading patient data...
-                                    </p>
-                                  </div>
+                                  (patientDemographics.totalNewPatients > 0 || patientDemographics.totalOldPatients > 0) ? (
+                                    <ResponsiveContainer
+                                      width="100%"
+                                      height="100%"
+                                    >
+                                      <BarChart
+                                        data={[
+                                          {
+                                            name: "New Patients",
+                                            count:
+                                              patientDemographics.totalNewPatients || 0,
+                                          },
+                                          {
+                                            name: "Old Patients",
+                                            count:
+                                              patientDemographics.totalOldPatients || 0,
+                                          },
+                                        ]}
+                                        margin={{
+                                          top: 20,
+                                          right: 20,
+                                          left: 0,
+                                          bottom: 20,
+                                        }}
+                                      >
+                                        <CartesianGrid
+                                          strokeDasharray="3 3"
+                                          stroke="#e5e7eb"
+                                        />
+                                        <XAxis
+                                          dataKey="name"
+                                          tick={{
+                                            fontSize: 11,
+                                            fill: "#374151",
+                                            fontWeight: "500",
+                                          }}
+                                          stroke="#6b7280"
+                                        />
+                                        <YAxis
+                                          tick={{ fontSize: 10, fill: "#374151" }}
+                                          stroke="#6b7280"
+                                          allowDecimals={false}
+                                        />
+                                        <Tooltip
+                                          contentStyle={{
+                                            backgroundColor: "#fff",
+                                            border: "1px solid #e5e7eb",
+                                            borderRadius: "8px",
+                                            fontSize: "12px",
+                                            boxShadow:
+                                              "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                          }}
+                                        />
+                                        <Bar
+                                          dataKey="count"
+                                          radius={[4, 4, 0, 0]}
+                                        >
+                                          <Cell fill="#3b82f6" />
+                                          <Cell fill="#10b981" />
+                                          <LabelList
+                                            dataKey="count"
+                                            position="top"
+                                            style={{
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              fill: "#374151",
+                                            }}
+                                          />
+                                        </Bar>
+                                      </BarChart>
+                                    </ResponsiveContainer>
+                                  ) : (
+                                    <div className="h-full flex items-center justify-center text-gray-400">
+                                      <p className="text-sm">
+                                        No patient data available for this period
+                                      </p>
+                                    </div>
+                                  )
                                 )}
                               </div>
                             </div>
@@ -7331,7 +7533,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {/* Left - Gender Distribution Donut Chart */}
                               {patientDemographics.genderDistribution &&
-                              patientDemographics.genderDistribution.length >
+                                patientDemographics.genderDistribution.length >
                                 0 ? (
                                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                                   <div className="mb-4">
@@ -7363,7 +7565,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                             isMobile
                                               ? false
                                               : ({ name, value }) =>
-                                                  `${name}: ${((value || 0) * 100).toFixed(0)}%`
+                                                `${name}: ${((value || 0) * 100).toFixed(0)}%`
                                           }
                                           labelLine={false}
                                         >
@@ -7373,7 +7575,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                 key={`cell-${index}`}
                                                 fill={
                                                   ["#ec4899", "#3b82f6"][
-                                                    index % 2
+                                                  index % 2
                                                   ]
                                                 }
                                               />
@@ -7411,7 +7613,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   >
                                     <div className="mb-4">
                                       <h3 className="text-base font-bold text-black">
-                                        Top Patients (VIP)
+                                        Top Patients
                                       </h3>
                                       <p className="text-xs text-gray-500 mt-1">
                                         Highest billing revenue generators
@@ -7425,21 +7627,21 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       }}
                                     >
                                       {patientDemographics.topPatients &&
-                                      patientDemographics.topPatients.length >
+                                        patientDemographics.topPatients.length >
                                         0 ? (
-                                        <table className="min-w-full">
+                                        <table className="min-w-full table-fixed">
                                           <thead className="bg-gray-50 sticky top-0">
                                             <tr>
-                                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                              <th className="w-1/3 px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                 Patient Name
                                               </th>
-                                              <th className="px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                              <th className="w-1/6 px-4 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                 Billings
                                               </th>
-                                              <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                              <th className="w-1/4 px-8 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                 Revenue
                                               </th>
-                                              <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                              <th className="w-1/4 px-8 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                 Last Billing
                                               </th>
                                             </tr>
@@ -7451,37 +7653,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                   key={index}
                                                   className="hover:bg-gray-50 transition-colors"
                                                 >
-                                                  <td className="px-4 py-3 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                      <span className="text-sm font-medium text-gray-900">
-                                                        {patient.name}
-                                                      </span>
-                                                      {patient.badge ===
-                                                        "VIP" && (
-                                                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
-                                                          VIP
-                                                        </span>
-                                                      )}
-                                                      {patient.badge ===
-                                                        "Gold" && (
-                                                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full">
-                                                          Gold
-                                                        </span>
-                                                      )}
-                                                      {patient.badge ===
-                                                        "Silver" && (
-                                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
-                                                          Silver
-                                                        </span>
-                                                      )}
-                                                    </div>
+                                                  <td className="w-1/3 px-4 py-3 whitespace-nowrap">
+                                                    <span className="text-sm font-medium text-gray-900">
+                                                      {patient.name}
+                                                    </span>
                                                   </td>
-                                                  <td className="px-4 py-3 whitespace-nowrap text-center">
+                                                  <td className="w-1/6 px-4 py-3 whitespace-nowrap text-center">
                                                     <span className="text-sm font-semibold text-teal-600 block">
                                                       {patient.billingCount}
                                                     </span>
                                                   </td>
-                                                  <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                  <td className="w-1/4 px-8 py-3 whitespace-nowrap text-right">
                                                     <span className="text-sm font-semibold text-teal-600">
                                                       {getCurrencySymbol(
                                                         currency,
@@ -7489,7 +7671,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                       {patient.totalRevenue?.toLocaleString()}
                                                     </span>
                                                   </td>
-                                                  <td className="px-4 py-3 whitespace-nowrap">
+                                                  <td className="w-1/4 px-8 py-3 whitespace-nowrap">
                                                     <span className="text-sm text-gray-600">
                                                       {new Date(
                                                         patient.lastBillingDate,
@@ -7532,8 +7714,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               </div>
                               <div className="h-72">
                                 {patientDemographics.patientVisitFrequency &&
-                                patientDemographics.patientVisitFrequency
-                                  .length > 0 ? (
+                                  patientDemographics.patientVisitFrequency
+                                    .length > 0 ? (
                                   <ResponsiveContainer
                                     width="100%"
                                     height="100%"
@@ -7655,8 +7837,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </div>
                                     <div className="h-72 flex items-center justify-center">
                                       {servicePerformance.mostBookedServices &&
-                                      servicePerformance.mostBookedServices
-                                        .length > 0 ? (
+                                        servicePerformance.mostBookedServices
+                                          .length > 0 ? (
                                         <ResponsiveContainer
                                           width="100%"
                                           height="100%"
@@ -7759,8 +7941,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </div>
                                     <div className="space-y-2 max-h-72 overflow-y-auto">
                                       {servicePerformance.leastBookedServices &&
-                                      servicePerformance.leastBookedServices
-                                        .length > 0 ? (
+                                        servicePerformance.leastBookedServices
+                                          .length > 0 ? (
                                         servicePerformance.leastBookedServices.map(
                                           (service: any, index: number) => {
                                             const getStatusColor = () => {
@@ -7782,22 +7964,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                   </p>
                                                   <p className="text-xs text-gray-600 mt-0.5">
                                                     {service.bookings} bookings
-                                                    this month
+
                                                   </p>
-                                                </div>
-                                                <div
-                                                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                    service.change < -5
-                                                      ? "bg-red-100 text-red-700"
-                                                      : service.change < 0
-                                                        ? "bg-yellow-100 text-yellow-700"
-                                                        : "bg-blue-100 text-blue-700"
-                                                  }`}
-                                                >
-                                                  {service.change > 0
-                                                    ? "+"
-                                                    : ""}
-                                                  {service.change}%
                                                 </div>
                                               </div>
                                             );
@@ -7828,8 +7996,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </div>
                                     <div className="overflow-x-auto">
                                       {servicePerformance.serviceRevenueData &&
-                                      servicePerformance.serviceRevenueData
-                                        .length > 0 ? (
+                                        servicePerformance.serviceRevenueData
+                                          .length > 0 ? (
                                         <table className="min-w-full">
                                           <thead className="bg-gray-50 sticky top-0">
                                             <tr>
@@ -7838,9 +8006,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                               </th>
                                               <th className="px-3 py-2 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                 Bookings
-                                              </th>
-                                              <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                                Avg Price
                                               </th>
                                               <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                                 Revenue
@@ -7872,14 +8037,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                                     <td className="px-3 py-2 whitespace-nowrap text-center">
                                                       <span className="text-sm text-gray-700">
                                                         {service.bookings}
-                                                      </span>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-right">
-                                                      <span className="text-sm text-gray-700">
-                                                        {getCurrencySymbol(
-                                                          currency,
-                                                        )}
-                                                        {service.avgPrice?.toLocaleString()}
                                                       </span>
                                                     </td>
                                                     <td className="px-3 py-2 whitespace-nowrap text-right">
@@ -7917,8 +8074,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     </div>
                                     <div className="h-72">
                                       {servicePerformance.conversionRateData &&
-                                      servicePerformance.conversionRateData
-                                        .length > 0 ? (
+                                        servicePerformance.conversionRateData
+                                          .length > 0 ? (
                                         <ResponsiveContainer
                                           width="100%"
                                           height="100%"
@@ -8027,10 +8184,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <MembershipPackageReports
                                 timeRange={
                                   timeRangeFilter as
-                                    | "week"
-                                    | "month"
-                                    | "overall"
+                                  | "today"
+                                  | "week"
+                                  | "month"
+                                  | "overall"
                                 }
+                                selectedDate={selectedDate}
                               />
                             </div>
 
@@ -8039,9 +8198,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <DoctorPerformance
                                 timeRange={
                                   timeRangeFilter as
-                                    | "week"
-                                    | "month"
-                                    | "overall"
+                                  | "week"
+                                  | "month"
+                                  | "overall"
                                 }
                                 selectedDate={selectedDate}
                               />
@@ -8052,9 +8211,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <RoomUtilization
                                 timeRange={
                                   timeRangeFilter as
-                                    | "week"
-                                    | "month"
-                                    | "overall"
+                                  | "today"
+                                  | "week"
+                                  | "month"
+                                  | "overall"
                                 }
                                 selectedDate={selectedDate}
                               />
@@ -8065,9 +8225,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               <CancellationReports
                                 timeRange={
                                   timeRangeFilter as
-                                    | "week"
-                                    | "month"
-                                    | "overall"
+                                  | "week"
+                                  | "month"
+                                  | "overall"
                                 }
                                 selectedDate={selectedDate}
                               />
@@ -8153,8 +8313,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           const pct =
                                             total > 0
                                               ? ((value / total) * 100).toFixed(
-                                                  0,
-                                                )
+                                                0,
+                                              )
                                               : 0;
                                           return [`${value} (${pct}%)`, name];
                                         }}
@@ -8181,10 +8341,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           const pct =
                                             total > 0
                                               ? (
-                                                  ((entry.payload?.value || 0) /
-                                                    total) *
-                                                  100
-                                                ).toFixed(0)
+                                                ((entry.payload?.value || 0) /
+                                                  total) *
+                                                100
+                                              ).toFixed(0)
                                               : 0;
                                           return `${value}: ${pct}%`;
                                         }}
@@ -8249,8 +8409,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           const pct =
                                             total > 0
                                               ? ((value / total) * 100).toFixed(
-                                                  0,
-                                                )
+                                                0,
+                                              )
                                               : 0;
                                           return [`${value} (${pct}%)`, name];
                                         }}
@@ -8277,10 +8437,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           const pct =
                                             total > 0
                                               ? (
-                                                  ((entry.payload?.value || 0) /
-                                                    total) *
-                                                  100
-                                                ).toFixed(0)
+                                                ((entry.payload?.value || 0) /
+                                                  total) *
+                                                100
+                                              ).toFixed(0)
                                               : 0;
                                           return `${value}: ${pct}%`;
                                         }}
@@ -8435,10 +8595,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         const pct =
                                           total > 0
                                             ? (
-                                                ((entry.payload?.value || 0) /
-                                                  total) *
-                                                100
-                                              ).toFixed(0)
+                                              ((entry.payload?.value || 0) /
+                                                total) *
+                                              100
+                                            ).toFixed(0)
                                             : 0;
                                         return `${value}: ${pct}%`;
                                       }}
@@ -8488,12 +8648,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         topPackagesData.length > 0
                                           ? topPackagesData
                                           : [
-                                              {
-                                                name: "No Data",
-                                                totalAmount: 0,
-                                                count: 0,
-                                              },
-                                            ]
+                                            {
+                                              name: "No Data",
+                                              totalAmount: 0,
+                                              count: 0,
+                                            },
+                                          ]
                                       }
                                     >
                                       <CartesianGrid
@@ -8577,12 +8737,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                         topServicesData.length > 0
                                           ? topServicesData
                                           : [
-                                              {
-                                                name: "No Data",
-                                                totalAmount: 0,
-                                                count: 0,
-                                              },
-                                            ]
+                                            {
+                                              name: "No Data",
+                                              totalAmount: 0,
+                                              count: 0,
+                                            },
+                                          ]
                                       }
                                     >
                                       <CartesianGrid
@@ -8701,12 +8861,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       membershipData.length > 0
                                         ? membershipData
                                         : [
-                                            {
-                                              name: "No Data",
-                                              count: 0,
-                                              totalRevenue: 0,
-                                            },
-                                          ]
+                                          {
+                                            name: "No Data",
+                                            count: 0,
+                                            totalRevenue: 0,
+                                          },
+                                        ]
                                     }
                                   >
                                     <defs>
@@ -8949,11 +9109,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                             )
                                           }
                                           disabled={commissionPage === 1}
-                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                                            commissionPage === 1
-                                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                              : "bg-teal-600 text-white hover:bg-teal-700"
-                                          }`}
+                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${commissionPage === 1
+                                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                            : "bg-teal-600 text-white hover:bg-teal-700"
+                                            }`}
                                         >
                                           ← Previous
                                         </button>
@@ -8967,11 +9126,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                             onClick={() =>
                                               setCommissionPage(page)
                                             }
-                                            className={`px-3 py-1 text-xs font-medium rounded transition-colors min-w-[32px] ${
-                                              commissionPage === page
-                                                ? "bg-teal-700 text-white"
-                                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                            }`}
+                                            className={`px-3 py-1 text-xs font-medium rounded transition-colors min-w-[32px] ${commissionPage === page
+                                              ? "bg-teal-700 text-white"
+                                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                              }`}
                                           >
                                             {page}
                                           </button>
@@ -8986,11 +9144,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                           disabled={
                                             commissionPage === totalPages
                                           }
-                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                                            commissionPage === totalPages
-                                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                              : "bg-teal-600 text-white hover:bg-teal-700"
-                                          }`}
+                                          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${commissionPage === totalPages
+                                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                            : "bg-teal-600 text-white hover:bg-teal-700"
+                                            }`}
                                         >
                                           Next →
                                         </button>
@@ -9210,9 +9367,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             {/* Analytics Cards Grid */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                               {/* Left Side - Bar Chart Box (Appointments, Leads, Offers & Jobs) */}
-                              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                              <div className="bg-white mb-9 rounded-lg border border-gray-200 shadow-sm p-4">
                                 <h3 className="text-base font-bold text-black">
-                                  Appointments, Leads, Offers & Jobs
+                                  Leads, Offers & Jobs
                                 </h3>
                                 <div className="h-72">
                                   {modulesChartData.length > 0 ? (
@@ -9223,7 +9380,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       <BarChart
                                         data={modulesChartData}
                                         margin={{
-                                          top: 10,
+                                          top: 20,
                                           right: 20,
                                           left: 10,
                                           bottom: 40,
@@ -9384,7 +9541,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                       },
                                     ]}
                                     margin={{
-                                      top: 10,
+                                      top: 20,
                                       right: 20,
                                       left: 10,
                                       bottom: 10,
@@ -9513,7 +9670,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 </div>
                                 <div className="mt-2 text-xs text-gray-600">
                                   {subscriptionSummary.subscriptionPercentage >
-                                  0 ? (
+                                    0 ? (
                                     <span className="text-green-600 font-medium">
                                       ? Fully operational
                                     </span>
@@ -9693,9 +9850,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             </SortableContext>
                             <DragOverlay>
                               {activeStatsSectionId &&
-                              sortedStatsSections.find(
-                                (s) => s.id === activeStatsSectionId,
-                              ) ? (
+                                sortedStatsSections.find(
+                                  (s) => s.id === activeStatsSectionId,
+                                ) ? (
                                 <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90">
                                   <div className="flex items-center gap-2">
                                     <GripVertical className="w-3 h-3 text-teal-500" />
@@ -9823,3 +9980,4 @@ const ProtectedDashboard: NextPageWithLayout = withClinicAuth(ClinicDashboard);
 
 ProtectedDashboard.getLayout = ClinicDashboard.getLayout;
 export default ProtectedDashboard;
+

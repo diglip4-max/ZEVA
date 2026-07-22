@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import {
   Calendar, User, DollarSign, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
@@ -5278,9 +5279,26 @@ const [loadingCreatedPackages, setLoadingCreatedPackages] = useState(false);
                                   const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
                                     (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
                                   );
+                                  
+                                  // Also include payments from Treatment invoices that paid for this package via unpaidPackagesPaid
+                                  const treatmentPackagePayments = billingHistory?.filter((billing: any) => 
+                                    billing.service === "Treatment" && 
+                                    billing.unpaidPackagesPaid && 
+                                    billing.unpaidPackagesPaid.some((pkgPayment: any) => 
+                                      (pkgPayment.packageName === pkg?.name) || 
+                                      (allAvailablePackages?.find((masterPkg: any) => String(masterPkg._id) === String(pkgPayment.packageId))?.name === pkg?.name)
+                                    )
+                                  ) || [];
+                                  const totalCashPaidFromTreatments = treatmentPackagePayments.reduce(
+                                    (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
+                                  );
+                                  const totalAdvanceUsedFromTreatments = treatmentPackagePayments.reduce(
+                                    (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
+                                  );
+                                  
                                   // Fall back to package's own payment data when billing history has no matching records
-                                  const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings) > 0
-                                    ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings
+                                  const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments) > 0
+                                    ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments
                                     : (p.paidAmount || 0) + (p.advanceBalanceUsed || 0);
                                   
                                   // Determine correct payment status based on total paid (cash + advance) vs price
@@ -11304,6 +11322,7 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
           patientName={`${patientData.firstName} ${patientData.lastName}`}
           pendingBalance={balance.pendingBalance}
           onSuccess={async (_paymentData: any) => {
+            toast.success("Payment recorded successfully!");
             // Store the previous pending balance before update
             const prevBalance = balance.pendingBalance;
            
@@ -12045,13 +12064,13 @@ const pendingClaimUsed = billing.pendingClaimUsed || 0;
                         if (updatedBalance) setBalance(updatedBalance as typeof balance);
                         await fetchBillingHistory();
                        
-                        alert("Payment recorded successfully!");
+                        toast.success("Payment recorded successfully!");
                       } else {
-                        alert(res.data.message || "Payment failed");
+                        toast.error(res.data.message || "Payment failed");
                       }
                     } catch (err: any) {
                       console.error("Error paying invoice pending:", err);
-                      alert(err.response?.data?.message || "Payment failed");
+                      toast.error(err.response?.data?.message || "Payment failed");
                     } finally {
                       setPayingInvoicePending(false);
                     }

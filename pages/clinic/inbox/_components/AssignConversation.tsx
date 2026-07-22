@@ -4,8 +4,8 @@ import { ChevronDown, Check, User as UserIcon, Search, X } from "lucide-react";
 
 interface AssignConversationProps {
   agents: User[];
-  selectedAgent: User | null;
-  onAgentSelect: (agent: User | null) => void;
+  selectedAgents: User[];
+  onAgentsSelect: (agents: User[]) => void;
   placeholder?: string;
   loading?: boolean;
   disabled?: boolean;
@@ -13,9 +13,9 @@ interface AssignConversationProps {
 
 const AssignConversation: React.FC<AssignConversationProps> = ({
   agents,
-  selectedAgent,
-  onAgentSelect,
-  placeholder = "Assign to agent",
+  selectedAgents,
+  onAgentsSelect,
+  placeholder = "Assign to agents",
   loading = false,
   disabled = false,
 }) => {
@@ -46,14 +46,18 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
       agent.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSelect = (agent: User) => {
-    onAgentSelect(agent);
-    setIsOpen(false);
-    setSearchTerm("");
+  const handleToggleAgent = (agent: User) => {
+    const isSelected = selectedAgents.some(a => a._id === agent._id);
+    if (isSelected) {
+      onAgentsSelect(selectedAgents.filter(a => a._id !== agent._id));
+    } else {
+      onAgentsSelect([...selectedAgents, agent]);
+    }
   };
 
-  const handleClear = () => {
-    onAgentSelect(null);
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAgentsSelect([]);
   };
 
   return (
@@ -73,13 +77,15 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
         `}
       >
         <div className="flex items-center gap-2 truncate">
-          {selectedAgent ? (
+          {selectedAgents.length > 0 ? (
             <>
               <UserIcon className="w-4 h-4 text-gray-600 flex-shrink-0" />
               <span className="truncate font-medium">
-                {selectedAgent.name?.length > 12
-                  ? `${selectedAgent?.name?.slice(0, 12)}...`
-                  : selectedAgent?.name}
+                {selectedAgents.length === 1
+                  ? (selectedAgents[0].name?.length > 12
+                    ? `${selectedAgents[0].name?.slice(0, 12)}...`
+                    : selectedAgents[0].name)
+                  : `${selectedAgents.length} agents`}
               </span>
             </>
           ) : (
@@ -91,13 +97,10 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          {selectedAgent && (
+          {selectedAgents.length > 0 && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClear();
-              }}
+              onClick={handleClearAll}
               className="p-0.5 hover:bg-gray-100 rounded"
             >
               <X className="w-3 h-3 text-gray-400 hover:text-gray-600" />
@@ -143,51 +146,55 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
               </div>
             ) : (
               <ul className="py-1">
-                {filteredAgents.map((agent) => (
-                  <li
-                    key={agent._id}
-                    className="border-b border-gray-100 last:border-b-0"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(agent)}
-                      className={`
-                        w-full flex items-center gap-3 px-3 py-2
-                        text-left hover:bg-gray-50 transition-colors text-sm
-                        ${selectedAgent?._id === agent._id ? "bg-gray-50" : ""}
-                      `}
+                {filteredAgents.map((agent) => {
+                  const isSelected = selectedAgents.some(a => a._id === agent._id);
+                  return (
+                    <li
+                      key={agent._id}
+                      className="border-b border-gray-100 last:border-b-0"
                     >
-                      {/* Checkmark for selected */}
-                      <div className="flex-shrink-0">
-                        {selectedAgent?._id === agent._id ? (
-                          <div className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center">
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                        ) : (
-                          <div className="w-5 h-5 border border-gray-300 rounded-full"></div>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAgent(agent)}
+                        className={`
+                          w-full flex items-center gap-3 px-3 py-2
+                          text-left hover:bg-gray-50 transition-colors text-sm
+                          ${isSelected ? "bg-gray-50" : ""}
+                        `}
+                      >
+                        {/* Checkmark for selected */}
+                        <div className="flex-shrink-0">
+                          {isSelected ? (
+                            <div className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          ) : (
+                            <div className="w-5 h-5 border border-gray-300 rounded-full"></div>
+                          )}
+                        </div>
 
-                      {/* Agent Name & Email Only */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
-                          {agent.name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {agent.email}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                ))}
+                        {/* Agent Name & Email Only */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">
+                            {agent.name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {agent.email}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
           {/* Simple Footer */}
           {filteredAgents.length > 0 && (
-            <div className="px-3 py-2 bg-gray-50 border-t border-t-gray-200 text-xs text-gray-500">
-              {filteredAgents.length} agents
+            <div className="px-3 py-2 bg-gray-50 border-t border-t-gray-200 text-xs text-gray-500 flex justify-between">
+              <span>{selectedAgents.length} selected</span>
+              <span>{filteredAgents.length} agents</span>
             </div>
           )}
         </div>

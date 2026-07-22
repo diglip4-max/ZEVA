@@ -189,6 +189,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
 
   // Inbox
   "clinic-inbox": () => import("../clinic/inbox"),
+  "clinic-email-inbox": () => import("../clinic/email-inbox"),
   "clinic-all-templates": () => import("../clinic/all-templates"),
   "clinic-providers": () => import("../clinic/providers"),
   "clinic-referal": () => import("../clinic/referal"),
@@ -229,14 +230,17 @@ const routeMap: { [key: string]: () => Promise<any> } = {
     import("../clinic/stocks/stock-transfer/transfer-stock"),
   "clinic-stocks-allocated-stock-items": () =>
     import("../clinic/stocks/allocated-stock-items"),
+  "clinic-stocks-custom-stock-items": () =>
+    import("../clinic/stocks/custom-stock-items"),
   "clinic-pettycash": () => import("../clinic/pettycash"),
   "clinic-pass-claims": () => import("../clinic/pass-claims"),
   "clinic-report": () => import("../clinic/report"),
   "clinic-authentication": () => import("../clinic/authentication"),
-  "clinic-release-requested-claims": () => import("../clinic/release-requested-claims"),
+  "clinic-release-requested-claims": () =>
+    import("../clinic/release-requested-claims"),
   "all-claims": () => import("../clinic/all-claims"),
+  "clinic-invoices": () => import("../clinic/invoices"),
 };
-
 
 const StaffDynamicPage = () => {
   const router = useRouter();

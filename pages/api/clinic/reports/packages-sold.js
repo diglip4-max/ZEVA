@@ -3,6 +3,7 @@ import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permissions-helper";
 import mongoose from "mongoose";
 import Billing from "../../../../models/Billing";
+import PatientRegistration from "../../../../models/PatientRegistration";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -40,10 +41,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod, getAll } = req.query;
+    const { startDate, endDate, page = "1", limit = "20", doctorId, departmentId, salesStaffId, clinicId: selectedClinicId, paymentMethod, getAll, includeUnpaid, doctorName } = req.query;
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageSize = getAll ? Number.MAX_SAFE_INTEGER : Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
     const skip = getAll ? 0 : (pageNum - 1) * pageSize;
+    // When includeUnpaid=true (used by the KPI detail modal), also pull package
+    // records from PatientRegistration that have no billing yet (unpaid/partial).
+    // Default behavior (main report / export) is unchanged when the flag is absent.
+    const shouldIncludeUnpaid = includeUnpaid === "true" || includeUnpaid === "1";
 
     const match = { service: "Package" };
     if (user.role !== "admin") {
@@ -63,6 +68,17 @@ export default async function handler(req, res) {
       ? new Date(new Date(endDate).getFullYear(), new Date(endDate).getMonth(), new Date(endDate).getDate(), 23, 59, 59, 999)
       : null;
 
+    // For package reports, filter by assignedDate from PatientRegistration packages
+    // to match the behavior of sales-staff-performance API and ensure
+    // KPI cards and table show consistent data based on the same date range.
+    let packageAssignmentFilter = null;
+    if (startAt || endAt) {
+      packageAssignmentFilter = {};
+      if (startAt) packageAssignmentFilter.$gte = startAt;
+      if (endAt) packageAssignmentFilter.$lte = endAt;
+    }
+
+    // Also keep invoicedDate on match for summary/count pipelines (backward compat)
     if (startAt || endAt) {
       match.invoicedDate = {};
       if (startAt) match.invoicedDate.$gte = startAt;
@@ -140,39 +156,206 @@ export default async function handler(req, res) {
       ];
     };
 
+    // First, get all patient registrations with packages in the date range
+    // to build a set of valid package assignments
+    let validPackageAssignments = null;
+    if (packageAssignmentFilter) {
+      const prMatch = {};
+      if (user.role !== "admin") {
+        prMatch.clinicId = new mongoose.Types.ObjectId(String(clinicId));
+      } else if (selectedClinicId) {
+        prMatch.clinicId = new mongoose.Types.ObjectId(String(selectedClinicId));
+      }
+
+      const prPipeline = [
+        { $match: prMatch },
+        { $unwind: "$packages" },
+        {
+          $match: {
+            "packages.assignedDate": packageAssignmentFilter,
+          },
+        },
+        {
+          $group: {
+            _id: {
+              patientId: "$_id",
+              packageName: "$packages.packageName",
+            },
+          },
+        },
+      ];
+
+      const prResults = await PatientRegistration.aggregate(prPipeline);
+      validPackageAssignments = new Set(
+        prResults.map((r) => `${String(r._id.patientId)}__${String(r._id.packageName)}`)
+      );
+    }
+
     const pipeline = [
-      { $match: match },
+      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+      {
+        $addFields: {
+          __packageName: {
+            $cond: {
+              if: { $eq: ["$service", "Treatment"] },
+              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+              else: "$package"
+            }
+          },
+          __patientId: "$patientId"
+        }
+      },
+      // First group by patientId + packageName
+      {
+        $group: {
+          _id: {
+            patientId: "$__patientId",
+            packageName: "$__packageName"
+          },
+          totalPaidForPackage: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] } },
+          totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
+          totalAmountForPackage: { $first: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$amount", 0] }, else: 0 } } },
+          firstPurchaseDate: { $min: "$createdAt" },
+          lastActivityDate: { $max: "$createdAt" },
+          appointmentIds: { $addToSet: "$appointmentId" },
+          doctorIds: { $addToSet: { $ifNull: ["$doctorId", null] } },
+          selectedPackageTreatmentsArray: { $push: { $ifNull: ["$selectedPackageTreatments", []] } }
+        }
+      },
+      // Now look up appointments for those appointmentIds to get serviceId
       {
         $lookup: {
           from: "appointments",
-          localField: "appointmentId",
+          localField: "appointmentIds",
           foreignField: "_id",
-          as: "appointment",
-        },
+          as: "appointments"
+        }
       },
-      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
-      // Lookup appointment's service (needed for service.departmentId)
+      { $unwind: { path: "$appointments", preserveNullAndEmptyArrays: true } },
+      // Look up appointment's service
       {
         $lookup: {
           from: "services",
-          localField: "appointment.serviceId",
+          localField: "appointments.serviceId",
           foreignField: "_id",
-          as: "service",
-        },
+          as: "service"
+        }
       },
       { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
       {
+        $group: {
+          _id: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          totalPaidForPackage: { $first: "$totalPaidForPackage" },
+          totalPendingForPackage: { $first: "$totalPendingForPackage" },
+          totalAmountForPackage: { $first: "$totalAmountForPackage" },
+          firstPurchaseDate: { $first: "$firstPurchaseDate" },
+          lastActivityDate: { $first: "$lastActivityDate" },
+          serviceId: { $first: "$appointments.serviceId" },
+          doctorIds: { $first: "$doctorIds" }
+        }
+      },
+      // Now look up PatientRegistration
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$patientId"] } } },
+            { $unwind: "$packages" },
+            { $match: { $expr: { $eq: ["$packages.packageName", "$$packageName"] } } },
+            { $limit: 1 },
+            { $project: { 
+              "packages.packageSoldBy": 1, 
+              "packages.packageSoldByUserId": 1, 
+              "packages.totalPrice": 1, 
+              "packages.paidAmount": 1,
+              "clinicId": 1
+            } }
+          ],
+          as: "__patientReg"
+        }
+      },
+      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } },
+      // Now calculate final fields
+      {
         $addFields: {
-          effectiveDoctorId: {
-            $ifNull: ["$doctorId", "$appointment.doctorId"]
+          patientId: "$_id.patientId",
+          packageName: "$_id.packageName",
+          soldBy: { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+          clinicId: { $ifNull: ["$__patientReg.clinicId", null] },
+          totalAmount: { 
+            $ifNull: [
+              { $cond: { if: { $ne: ["$totalAmountForPackage", 0] }, then: "$totalAmountForPackage", else: "$__patientReg.packages.totalPrice" } },
+              0
+            ]
+          },
+          totalPaid: {
+            // EDGE CASE: When a Package billing is paid via Advance Balance (advanceUsed > 0),
+            // PatientRegistration.packages.paidAmount may not reflect the advance portion
+            // (PR is typically updated only on direct cash payments). The Billing-driven
+            // totalPaidForPackage now sums advanceUsed as well. Using $max ensures the
+            // advance is counted as paid revenue without double-counting if PR already
+            // includes it. Existing flow (cash-only, partial payments, pending clearings)
+            // is preserved because PR.paidAmount remains the source of truth when it is
+            // greater than or equal to totalPaidForPackage.
+            $max: [
+              { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
+              { $ifNull: ["$totalPaidForPackage", 0] }
+            ]
+          },
+          totalPending: {
+            // EDGE CASE: When a Package billing is created with both package
+            // amount AND a separately selected treatment (not in package), the
+            // billing's `amount` covers BOTH the package + treatment while
+            // the PatientRegistration's `paidAmount` reflects only the package
+            // portion. With a fully-paid billing (pending = 0), subtracting
+            // PR.paidAmount from billing.amount incorrectly leaves the
+            // treatment price as "outstanding". Guard the calculation so that
+            // when no actual pending exists on the billing(s), totalPending
+            // is 0. Existing flow (partial payments, split payments,
+            // unpaidPackagesPaid treatment clearings) is preserved.
+            $cond: {
+              if: { $lte: [{ $ifNull: ["$totalPendingForPackage", 0] }, 0] },
+              then: 0,
+              else: {
+                $subtract: [
+                  {
+                    $ifNull: [
+                      {
+                        $cond: [
+                          { $ne: ["$totalAmountForPackage", 0] },
+                          "$totalAmountForPackage",
+                          "$__patientReg.packages.totalPrice"
+                        ]
+                      },
+                      0
+                    ]
+                  },
+                  {
+                    // Inner totalPaid in the totalPending subtract — mirror the standalone
+                    // totalPaid $max logic so the pending calculation also accounts for
+                    // advanceUsed when the package is partially paid via advance balance.
+                    $max: [
+                      { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
+                      { $ifNull: ["$totalPaidForPackage", 0] }
+                    ]
+                  }
+                ]
+              }
+            }
           }
         }
       }
     ];
 
-    if (doctorId) {
+    // Doctor filter: when includeUnpaid=true (KPI modal), skip doctorId on Billing
+    // pipeline because it matches on treating doctor (effectiveDoctorId), not the
+    // person who sold/invoiced the package. The dashboard counts doctor packages
+    // using packageSoldBy from sales-staff data, so we match that logic here.
+    // When includeUnpaid=false (main report/export), keep the original behavior.
+    if (doctorId && !shouldIncludeUnpaid) {
       pipeline.push({
-        $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) },
+        $match: { doctorIds: new mongoose.Types.ObjectId(String(doctorId)) },
       });
     }
 
@@ -180,54 +363,62 @@ export default async function handler(req, res) {
       pipeline.push(...buildDepartmentFilterStages());
     }
 
+    // Sales staff filter: filter by packageSoldBy or packageSoldByUserId from PatientRegistration
+    // When includeUnpaid=true, the PatientRegistration pipeline also filters by
+    // packageSoldBy to capture unpaid packages for the same person.
     if (salesStaffId) {
       // Check if salesStaffId is a valid ObjectId or a name
       const isValidObjectId = mongoose.Types.ObjectId.isValid(salesStaffId) && String(salesStaffId).length === 24;
       
       if (isValidObjectId) {
-        // Match by user ID
+        // Match by user ID (packageSoldByUserId)
         pipeline.push({
-          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+          $match: {
+            "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId))
+          }
         });
       } else {
-        // Match by user name (e.g., "xyz", "muskan")
+        // Match by user name (packageSoldBy)
         pipeline.push({
-          $match: { invoicedBy: String(salesStaffId) },
+          $match: {
+            "__patientReg.packages.packageSoldBy": String(salesStaffId)
+          }
         });
       }
     }
 
     pipeline.push(
+      // Calculate sessions used
       {
         $addFields: {
-          __usedSessions: {
-            $sum: {
-              $map: {
-                input: { $ifNull: ["$selectedPackageTreatments", []] },
-                as: "t",
-                in: { $ifNull: ["$$t.sessions", 0] },
-              },
-            },
-          },
-        },
+          __flattenedTreatments: {
+            $reduce: {
+              input: "$selectedPackageTreatmentsArray",
+              initialValue: [],
+              in: { $concatArrays: ["$$value", "$$this"] }
+            }
+          }
+        }
       },
       {
-        $group: {
-          _id: { patientId: "$patientId", package: "$package" },
-          patientId: { $first: "$patientId" },
-          packageName: { $first: "$package" },
-          // Use amount - pendingUsed to exclude pending clearance for other services
-          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
-          totalPending: { $sum: { $ifNull: ["$pending", 0] } },
-          sessionsUsed: { $sum: "$__usedSessions" },
-          firstPurchaseDate: { $min: "$createdAt" },
-          lastActivityDate: { $max: "$createdAt" },
-          doctorIds: { $addToSet: "$effectiveDoctorId" },
-          // Fields required by the Package Registry table columns (Staff, Branch, Dept)
-          soldBy: { $first: "$invoicedBy" },
-          clinicId: { $first: "$clinicId" },
-          serviceId: { $first: "$appointment.serviceId" },
-        },
+        $addFields: {
+          sessionsUsed: {
+            $sum: {
+              $map: {
+                input: "$__flattenedTreatments",
+                as: "t",
+                in: { $ifNull: ["$$t.sessions", 0] }
+              }
+            }
+          },
+          patientId: "$_id.patientId",
+          packageName: "$_id.packageName",
+          serviceId: { $arrayElemAt: ["$appointments.serviceId", 0] },
+          firstPurchaseDate: "$firstPurchaseDate",
+          lastActivityDate: "$lastActivityDate",
+          totalPaid: "$totalPaid",
+          totalPending: "$totalPending"
+        }
       },
       // Resolve doctor names
       {
@@ -384,7 +575,21 @@ export default async function handler(req, res) {
             $cond: [
               { $gt: [{ $size: { $ifNull: ["$doctorNames", []] } }, 0] },
               { $reduce: { input: "$doctorNames", initialValue: "", in: { $cond: [{ $eq: ["$$value", ""] }, "$$this", { $concat: ["$$value", ", ", "$$this"] }] } } },
-              "Unknown",
+              // Fallback: use doctorName field from Billing if available and not a dash
+              {
+                $cond: [
+                  {
+                    $and: [
+                      { $ifNull: ["$doctorName", false] },
+                      { $ne: ["$doctorName", ""] },
+                      { $ne: ["$doctorName", "—"] },
+                      { $ne: ["$doctorName", "-"] }
+                    ]
+                  },
+                  "$doctorName",
+                  "Unknown"
+                ]
+              }
             ],
           },
         },
@@ -395,47 +600,291 @@ export default async function handler(req, res) {
     );
 
     const rows = await Billing.aggregate(pipeline);
-    
-    // Debug logging
-    console.log('DEBUG packages-sold rows:', {
-      salesStaffId,
-      rowsCount: rows?.length || 0,
-      firstRow: rows?.[0] ? { packageName: rows[0].packageName, soldBy: rows[0].soldBy } : null
-    });
 
-    // For count, we need to apply the same filters
-    const countPipeline = [
-      { $match: match },
-      {
-        $lookup: {
-          from: "appointments",
-          localField: "appointmentId",
-          foreignField: "_id",
-          as: "appointment",
-        },
-      },
-      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "services",
-          localField: "appointment.serviceId",
-          foreignField: "_id",
-          as: "service",
-        },
-      },
-      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
-      {
-        $addFields: {
-          effectiveDoctorId: {
-            $ifNull: ["$doctorId", "$appointment.doctorId"]
+    // Post-process: for rows with doctorName "Unknown", look up doctor name from
+    // Treatment billing records that reference this package in unpaidPackagesPaid.
+    // This handles cases where the Package billing record has doctorName: "—"
+    // but the associated Treatment record has the actual doctor name.
+    try {
+      const unknownDoctorRows = (rows || []).filter((r) => r.doctorName === "Unknown" && r.patientId && r.packageName);
+      if (unknownDoctorRows.length > 0) {
+        const treatmentBillings = await Billing.find({
+          service: "Treatment",
+          "unpaidPackagesPaid.packageName": { $in: unknownDoctorRows.map((r) => r.packageName) },
+        }).select("unpaidPackagesPaid doctorName").lean();
+
+        const doctorNameMap = new Map();
+        for (const tb of treatmentBillings) {
+          for (const upp of (tb.unpaidPackagesPaid || [])) {
+            if (upp.packageName && !doctorNameMap.has(upp.packageName)) {
+              const docName = tb.doctorName || "";
+              if (docName && docName !== "—" && docName !== "-") {
+                doctorNameMap.set(upp.packageName, docName);
+              }
+            }
+          }
+        }
+
+        for (const row of rows) {
+          if (row.doctorName === "Unknown" && doctorNameMap.has(row.packageName)) {
+            row.doctorName = doctorNameMap.get(row.packageName);
           }
         }
       }
+    } catch (e) {
+      console.error("packages-sold doctor lookup error:", e);
+    }
+
+    // Post-filter: if we have date-based package assignments, filter the pipeline results
+    // to only include packages that were assigned within the date range
+    let filteredRows = rows;
+    if (validPackageAssignments && validPackageAssignments.size > 0) {
+      filteredRows = rows.filter((row) => {
+        if (!row.patientId || !row.packageName) return false;
+        const key = `${String(row.patientId)}__${String(row.packageName)}`;
+        return validPackageAssignments.has(key);
+      });
+    }
+
+    // Debug logging
+    console.log('DEBUG packages-sold rows:', {
+      salesStaffId,
+      rowsCount: filteredRows?.length || 0,
+      firstRow: filteredRows?.[0] ? { packageName: filteredRows[0].packageName, soldBy: filteredRows[0].soldBy } : null
+    });
+
+    // ---------------------------------------------------------------------
+    // Optional: include unpaid / partially paid packages from PatientRegistration
+    // so the KPI detail modal shows the SAME package set that the dashboard
+    // cards count. Only triggered when includeUnpaid=true is sent.
+    // We dedupe by (patientId + packageName) so a package that already has a
+    // billing record is never double-counted.
+    // ---------------------------------------------------------------------
+    let unpaidRows = [];
+    if (shouldIncludeUnpaid) {
+      try {
+        // Build a lookup table of patientId + packageName already covered by Billing
+        const seenKeys = new Set(
+          (filteredRows || [])
+            .filter((r) => r.patientId && r.packageName)
+            .map((r) => `${String(r.patientId)}__${String(r.packageName)}`)
+        );
+
+        // Base match for PatientRegistration (clinic scope only)
+        const prMatch = {};
+        if (user.role !== "admin") {
+          prMatch.clinicId = new mongoose.Types.ObjectId(String(clinicId));
+        } else if (selectedClinicId) {
+          prMatch.clinicId = new mongoose.Types.ObjectId(String(selectedClinicId));
+        }
+
+        const prPipeline = [
+          { $match: prMatch },
+          { $unwind: "$packages" },
+          // Only consider packages that actually have a price set
+          {
+            $match: {
+              "packages.totalPrice": { $gt: 0 },
+            },
+          },
+          // Date range based on assignedDate (mirrors sales-staff-performance.js)
+          ...(startAt || endAt
+            ? [
+                {
+                  $match: {
+                    "packages.assignedDate": {
+                      ...(startAt ? { $gte: startAt } : {}),
+                      ...(endAt ? { $lte: endAt } : {}),
+                    },
+                  },
+                },
+              ]
+            : []),
+        ];
+
+        // Sales staff filter: match by userId (ObjectId) or by name string
+        if (salesStaffId) {
+          const isValidObjectId =
+            mongoose.Types.ObjectId.isValid(salesStaffId) &&
+            String(salesStaffId).length === 24;
+          if (isValidObjectId) {
+            prPipeline.push({
+              $match: {
+                "packages.packageSoldByUserId": new mongoose.Types.ObjectId(
+                  String(salesStaffId)
+                ),
+              },
+            });
+          } else {
+            prPipeline.push({
+              $match: { "packages.packageSoldBy": String(salesStaffId) },
+            });
+          }
+        }
+
+        // Doctor filter: match by doctorName (passed from frontend) against
+        // packages.packageSoldBy – mirrors how the dashboard counts unpaid
+        // packages for a doctor via sales-staff data filtered by doctor name.
+        if (doctorName && String(doctorName).trim()) {
+          prPipeline.push({
+            $match: { "packages.packageSoldBy": String(doctorName).trim() },
+          });
+        }
+
+        prPipeline.push(
+          {
+            $group: {
+              _id: {
+                patientId: "$_id",
+                packageName: "$packages.packageName",
+              },
+              patientId: { $first: "$_id" },
+              firstName: { $first: "$firstName" },
+              lastName: { $first: "$lastName" },
+              mobileNumber: { $first: "$mobileNumber" },
+              emrNumber: { $first: "$emrNumber" },
+              clinicId: { $first: "$clinicId" },
+              packageName: { $first: "$packages.packageName" },
+              totalPrice: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
+              paidAmount: { $sum: { $ifNull: ["$packages.paidAmount", 0] } },
+              paymentStatus: { $first: "$packages.paymentStatus" },
+              paymentMethod: { $first: "$packages.paymentMethod" },
+              packageSoldBy: { $first: "$packages.packageSoldBy" },
+              assignedDate: { $min: "$packages.assignedDate" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              patientId: 1,
+              packageName: 1,
+              patientName: {
+                $concat: [
+                  { $ifNull: ["$firstName", ""] },
+                  " ",
+                  { $ifNull: ["$lastName", ""] },
+                ],
+              },
+              phone: { $ifNull: ["$mobileNumber", ""] },
+              emrNumber: { $ifNull: ["$emrNumber", ""] },
+              branch: "",
+              department: "",
+              soldBy: { $ifNull: ["$packageSoldBy", ""] },
+              totalPaid: "$paidAmount",
+              totalPending: {
+                $max: [
+                  { $subtract: ["$totalPrice", "$paidAmount"] },
+                  0,
+                ],
+              },
+              totalValue: "$totalPrice",
+              firstPurchaseDate: "$assignedDate",
+              lastActivityDate: "$assignedDate",
+              paymentStatus: {
+                $cond: [
+                  { $lte: ["$paidAmount", 0] },
+                  "Unpaid",
+                  {
+                    $cond: [
+                      { $lt: ["$paidAmount", "$totalPrice"] },
+                      "Partly Paid",
+                      "Paid",
+                    ],
+                  },
+                ],
+              },
+              sessionsUsed: 0,
+              totalSessions: 0,
+              remainingSessions: 0,
+              doctorNames: [],
+              doctorName: "Unknown",
+              expirationDate: null,
+            },
+          }
+        );
+
+        const prResults = await PatientRegistration.aggregate(prPipeline);
+
+        // Dedupe against Billing rows (same patient + same package) so we never
+        // show a package twice when it already has a billing record.
+        unpaidRows = (prResults || []).filter((r) => {
+          if (!r.patientId || !r.packageName) return true;
+          const key = `${String(r.patientId)}__${String(r.packageName)}`;
+          if (seenKeys.has(key)) return false;
+          return true;
+        });
+      } catch (e) {
+        console.error("packages-sold includeUnpaid error:", e);
+        unpaidRows = [];
+      }
+    }
+
+    // For count, we need to apply the same filters
+    const countPipeline = [
+      { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+      {
+        $addFields: {
+          __packageName: {
+            $cond: {
+              if: { $eq: ["$service", "Treatment"] },
+              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+              else: "$package"
+            }
+          },
+          __patientId: "$patientId"
+        }
+      },
+      // First group by patientId + packageName to avoid duplicates
+      {
+        $group: {
+          _id: {
+            patientId: "$__patientId",
+            packageName: "$__packageName"
+          },
+          appointmentIds: { $addToSet: "$appointmentId" },
+          doctorIds: { $addToSet: { $ifNull: ["$doctorId", null] } }
+        }
+      },
+      // Look up appointments to get serviceIds
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "appointmentIds",
+          foreignField: "_id",
+          as: "appointments"
+        }
+      },
+      { $unwind: { path: "$appointments", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "services",
+          localField: "appointments.serviceId",
+          foreignField: "_id",
+          as: "service"
+        }
+      },
+      { $unwind: { path: "$service", preserveNullAndEmptyArrays: true } },
+      // Look up PatientRegistration
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$patientId"] } } },
+            { $unwind: "$packages" },
+            { $match: { $expr: { $eq: ["$packages.packageName", "$$packageName"] } } },
+            { $limit: 1 },
+            { $project: { "packages.packageSoldBy": 1, "packages.packageSoldByUserId": 1 } }
+          ],
+          as: "__patientReg"
+        }
+      },
+      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } }
     ];
 
-    if (doctorId) {
+    if (doctorId && !shouldIncludeUnpaid) {
       countPipeline.push({
-        $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) },
+        $match: { doctorIds: new mongoose.Types.ObjectId(String(doctorId)) },
       });
     }
 
@@ -449,11 +898,15 @@ export default async function handler(req, res) {
       
       if (isValidObjectId) {
         countPipeline.push({
-          $match: { invoicedById: new mongoose.Types.ObjectId(String(salesStaffId)) },
+          $match: {
+          "__patientReg.packages.packageSoldByUserId": new mongoose.Types.ObjectId(String(salesStaffId)) 
+          }
         });
       } else {
         countPipeline.push({
-          $match: { invoicedBy: String(salesStaffId) },
+          $match: {
+          "__patientReg.packages.packageSoldBy": String(salesStaffId)
+          }
         });
       }
     }
@@ -461,7 +914,7 @@ export default async function handler(req, res) {
     countPipeline.push(
       {
         $group: {
-          _id: { patientId: "$patientId", package: "$package" },
+          _id: { patientId: "$patientId", package: "$__packageName" },
         },
       },
       { $count: "total" }
@@ -469,9 +922,16 @@ export default async function handler(req, res) {
 
     const countAgg = await Billing.aggregate(countPipeline);
     const total = countAgg?.[0]?.count || 0;
-    
+
     // Debug logging for count
     console.log('DEBUG packages-sold count:', { salesStaffId, total, countAggLength: countAgg?.length });
+
+    // When includeUnpaid=true we are fetching ALL rows (getAll or large limit)
+    // for the KPI modal. Append the unpaid rows from PatientRegistration so
+    // the modal and the dashboard cards reflect the same set of packages.
+    if (shouldIncludeUnpaid && unpaidRows.length > 0) {
+      filteredRows.push(...unpaidRows);
+    }
 
     // Calculate previous period dates
     let previousStartAt = null;
@@ -517,7 +977,7 @@ export default async function handler(req, res) {
       })() : null;
       
       return [
-        { $match: matchObj },
+        { $match: { $or: [matchObj, { ...matchObj, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
         {
           $lookup: {
             from: "appointments",
@@ -550,6 +1010,13 @@ export default async function handler(req, res) {
                 },
               },
             },
+            __packageName: {
+              $cond: {
+                if: { $eq: ["$service", "Treatment"] },
+                then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                else: "$package"
+              }
+            }
           }
         },
         ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
@@ -562,10 +1029,11 @@ export default async function handler(req, res) {
         })() : []),
         {
           $group: {
-            _id: { patientId: "$patientId", package: "$package" },
-            // Use amount - pendingUsed to exclude pending clearance for other services
-            totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
-            totalPending: { $sum: { $ifNull: ["$pending", 0] } },
+            _id: { patientId: "$patientId", package: "$__packageName" },
+            // Use paid amount directly. When pending is cleared via treatment pay,
+            // Treatment billing's paid field contains the cash collected for the package.
+            totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+            totalPending: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },
           },
@@ -706,13 +1174,16 @@ export default async function handler(req, res) {
       renewalOpportunities: 0,
     };
 
-    const totalPages = total > 0 ? Math.ceil(total / pageSize) : 0;
+    // Recompute total so it reflects the merged result set (Billing + PatientRegistration)
+    // when includeUnpaid=true. Used only for the pagination block in the response.
+    const finalTotal = shouldIncludeUnpaid ? filteredRows.length : total;
+    const totalPages = finalTotal > 0 ? Math.ceil(finalTotal / pageSize) : 0;
     return res.status(200).json({
       success: true,
-      data: rows,
+      data: filteredRows,
       summary,
       previousSummary,
-      pagination: { page: pageNum, pageSize, total, totalPages, hasNext: skip + rows.length < total },
+      pagination: { page: pageNum, pageSize, total: finalTotal, totalPages, hasNext: skip + filteredRows.length < finalTotal },
     });
   } catch (e) {
     console.error("packages-sold error:", e);

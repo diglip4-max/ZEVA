@@ -1,4 +1,4 @@
-﻿import {
+import {
   ConversationType,
   MessageData,
   MessageType,
@@ -46,16 +46,16 @@ interface DecodedToken {
 }
 
 export const TAG_COLORS = [
-  "bg-blue-100 text-blue-800 border-blue-200",
-  "bg-green-100 text-green-800 border-green-200",
-  "bg-yellow-100 text-yellow-800 border-yellow-200",
-  "bg-purple-100 text-purple-800 border-purple-200",
-  "bg-pink-100 text-pink-800 border-pink-200",
-  "bg-indigo-100 text-indigo-800 border-indigo-200",
-  "bg-red-100 text-red-800 border-red-200",
-  "bg-teal-100 text-teal-800 border-teal-200",
-  "bg-orange-100 text-orange-800 border-orange-200",
-  "bg-cyan-100 text-cyan-800 border-cyan-200",
+  "bg-blue-900/50 text-blue-300 border-blue-700",
+  "bg-green-900/50 text-green-300 border-green-700",
+  "bg-yellow-900/50 text-yellow-300 border-yellow-700",
+  "bg-purple-900/50 text-purple-300 border-purple-700",
+  "bg-pink-900/50 text-pink-300 border-pink-700",
+  "bg-indigo-900/50 text-indigo-300 border-indigo-700",
+  "bg-red-900/50 text-red-300 border-red-700",
+  "bg-teal-900/50 text-teal-300 border-teal-700",
+  "bg-orange-900/50 text-orange-300 border-orange-700",
+  "bg-cyan-900/50 text-cyan-300 border-cyan-700",
 ];
 
 export const getTagColor = (tag: string) => {
@@ -74,7 +74,10 @@ let socket: Socket | null = null;
 
 const useInbox = () => {
   const { user } = useAuth();
-  const { providers } = useProvider();
+  const { providers: providersData } = useProvider();
+  const providers = (providersData || []).filter(
+    (p) => !p.type.includes("email"),
+  );
   const { templates } = useTemplate();
   const { agents, loading: agentFetchLoading } = useAgents({
     role: "agent",
@@ -128,16 +131,16 @@ const useInbox = () => {
 
   // conversation status options
   const [conversationStatusOptions, setConversationStatusOptions] = useState<
-    { label: string; value: string }[]
+    { label: string; value: string; count: number }[]
   >([
-    { label: "All", value: "all" },
-    { label: "Read", value: "read" },
-    { label: "Unread", value: "unread" },
-    { label: "Open", value: "open" },
-    { label: "Closed", value: "closed" },
-    { label: "Archived", value: "archived" },
-    { label: "Blocked", value: "blocked" },
-    { label: "Trashed", value: "trashed" },
+    { label: "All", value: "all", count: 0 },
+    { label: "Read", value: "read", count: 0 },
+    { label: "Unread", value: "unread", count: 0 },
+    { label: "Open", value: "open", count: 0 },
+    { label: "Closed", value: "closed", count: 0 },
+    { label: "Archived", value: "archived", count: 0 },
+    { label: "Blocked", value: "blocked", count: 0 },
+    { label: "Trashed", value: "trashed", count: 0 },
   ]);
   const [filters, setFilters] = useState<IState["filters"]>({
     status: "all",
@@ -256,7 +259,7 @@ const useInbox = () => {
   })();
 
   // Conversation assignment logic
-  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
+  const [selectedAgents, setSelectedAgents] = useState<User[]>([]);
 
   // schedule message state
   const [isScheduleModalOpen, setIsScheduleModalOpen] =
@@ -333,6 +336,15 @@ const useInbox = () => {
                 ? new Date(b.recentMessage.createdAt).getTime()
                 : 0;
               return dateB - dateA;
+            });
+            const stats = res.data.stats || {};
+            setConversationStatusOptions((prev) => {
+              return prev.map((item) => {
+                return {
+                  ...item,
+                  count: stats[item.value] || 0,
+                };
+              });
             });
             setConversations(sortedConvs);
           } else {
@@ -1158,19 +1170,15 @@ const useInbox = () => {
     }
   };
 
-  const handleAgentSelect = async (
-    agent: User | null,
-    conversationId: string,
-  ) => {
-    setSelectedAgent(agent);
+  const handleAgentSelect = async (agents: User[], conversationId: string) => {
+    setSelectedAgents(agents);
     // Here you would typically make an API call to assign the conversation
-    console.log("Assigned conversation to:", agent);
-    if (!agent) return;
+    console.log("Assigned conversation to:", agents);
     try {
       const { data } = await axios.post(
         `/api/conversations/assign-conversation/${conversationId}`,
         {
-          ownerId: agent?._id,
+          ownerIds: agents.map((a) => a._id),
         },
         {
           headers: {
@@ -1181,14 +1189,25 @@ const useInbox = () => {
       if (data && data?.success) {
         // Update conversation in state
         const updatedConversations = conversations.map((conv) =>
-          conv._id === conversationId ? { ...conv, ownerId: agent?._id } : conv,
+          conv._id === conversationId
+            ? {
+                ...conv,
+                ownerId: agents.length > 0 ? agents[0]._id : null, // backward compatibility
+                owners: agents.map((a) => a._id),
+              }
+            : conv,
         );
-        setSelectedConversation((prev) =>
+        setSelectedConversation((prev: any) =>
           prev && prev._id === conversationId
-            ? { ...prev, ownerId: agent?._id }
+            ? {
+                ...prev,
+                ownerId: agents.length > 0 ? agents[0]._id : null, // backward compatibility
+                owners: agents.map((a) => a._id),
+              }
             : prev,
         );
-        setConversations(updatedConversations);
+        // @ts-ignore
+        setConversations(updatedConversations as any);
         toast.success("Conversation assigned successfully");
       }
     } catch (err) {
@@ -1235,14 +1254,30 @@ const useInbox = () => {
     }
   };
 
-  // select agent by default based on selected conversation
+  // select agents by default based on selected conversation
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
-      const findConvOwner = agents?.find(
-        (agent) => agent?._id === selectedConversation?.ownerId,
-      );
-      if (findConvOwner) setSelectedAgent(findConvOwner);
-      else setSelectedAgent(null);
+      // Check if conversation has owners array first
+      if (
+        selectedConversation.owners &&
+        selectedConversation.owners.length > 0
+      ) {
+        const convOwners = agents.filter((agent) =>
+          selectedConversation.owners.includes(agent._id),
+        );
+        setSelectedAgents(convOwners);
+      } else if (selectedConversation.ownerId) {
+        // Fallback to single ownerId for backward compatibility
+        const findConvOwner = agents?.find(
+          (agent) => agent?._id === selectedConversation?.ownerId,
+        );
+        if (findConvOwner) setSelectedAgents([findConvOwner]);
+        else setSelectedAgents([]);
+      } else {
+        setSelectedAgents([]);
+      }
+    } else {
+      setSelectedAgents([]);
     }
   }, [agents, selectedConversation]);
 
@@ -1499,7 +1534,6 @@ const useInbox = () => {
       setSubject("");
     }
   }, [selectedTemplate]);
- 
 
   const state = {
     user,
@@ -1552,7 +1586,7 @@ const useInbox = () => {
     canSend,
     canSchedule,
     agents,
-    selectedAgent,
+    selectedAgents,
     agentFetchLoading,
     isScheduleModalOpen,
     isFilterModalOpen,
@@ -1601,7 +1635,6 @@ const useInbox = () => {
     setIsDeleteConversationModalOpen,
     setIsDeletingConversation,
     setIsAddingTag,
-    setSelectedAgent,
     setIsScheduleModalOpen,
     setIsFilterModalOpen,
     setIsOpenBookAppointmentModal,

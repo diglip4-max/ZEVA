@@ -73,7 +73,11 @@ export default async function handler(req, res) {
       const limit = parseInt(req.query.limit) || 20;
       const skip = (page - 1) * limit;
 
-      let query = { clinicId: clinic._id, conversationId };
+      let query = {
+        clinicId: clinic._id,
+        conversationId,
+        channel: { $ne: "email" },
+      };
 
       let messages = await Message.find(query)
         .sort({ createdAt: -1 })

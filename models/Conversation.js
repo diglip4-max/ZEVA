@@ -14,13 +14,20 @@ const ConversationSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    owners: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     leadId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Lead",
     },
     status: {
       type: String,
-      enum: ["open", "closed", "trashed", "blocked", "archived"],
+      enum: ["open", "closed", "starred", "trashed", "blocked", "archived"],
       default: "open",
     },
     recentMessage: {

@@ -108,9 +108,7 @@ export default async function handler(req, res) {
     // Helper to build pipeline and summary
     const buildPipelines = (matchObj) => {
       const pipeline = [
-        { $match: matchObj },
-        // Only count packages with billing (paid > 0)
-        { $match: { paid: { $gt: 0 } } },
+        { $match: { ...matchObj, service: "Package" } },
         {
           $lookup: {
             from: "appointments",
@@ -228,12 +226,23 @@ export default async function handler(req, res) {
       pipeline.push(
         {
           $group: {
-            _id: "$package",
-            // Use amount - pendingUsed to exclude pending clearance for other services
-            totalRevenue: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+            _id: {
+              patientId: "$patientId",
+              package: "$package"
+            },
+            __packageName: { $first: "$package" },
+            totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+            totalAmount: { $sum: { $ifNull: ["$amount", 0] } },
+            hasAppointment: { $max: { $cond: [{ $ifNull: ["$appointmentId", false] }, 1, 0] } },
+          },
+        },
+        {
+          $group: {
+            _id: "$__packageName",
+            totalRevenue: { $sum: "$totalPaid" },
             totalBookings: { $sum: 1 },
-            totalAppointments: { $sum: { $cond: [{ $ifNull: ["$appointmentId", false] }, 1, 0] } },
-            averagePrice: { $avg: { $ifNull: ["$amount", 0] } },
+            totalAppointments: { $sum: "$hasAppointment" },
+            averagePrice: { $avg: "$totalAmount" },
           },
         },
         {
@@ -259,7 +268,7 @@ export default async function handler(req, res) {
       })() : null;
       
       const summaryPipeline = [
-        { $match: matchObj },
+        { $match: { ...matchObj, service: "Package" } },
         {
           $lookup: {
             from: "appointments",
@@ -348,11 +357,20 @@ export default async function handler(req, res) {
         ...(doctorId ? [{ $match: { effectiveDoctorId: new mongoose.Types.ObjectId(String(doctorId)) } }] : []),
         ...(departmentId ? [{ $match: { effectiveDepartmentId: new mongoose.Types.ObjectId(String(departmentId)) } }] : []),
         ...(salesStaffFilter ? [{ $match: salesStaffFilter }] : []),
+        // First group by patientId + package to avoid double counting
+        {
+          $group: {
+            _id: {
+              patientId: "$patientId",
+              package: "$package"
+            },
+            totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } }
+          }
+        },
         {
           $group: {
             _id: null,
-            // Use amount - pendingUsed to exclude pending clearance for other services
-            totalRevenue: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+            totalRevenue: { $sum: "$totalPaid" },
             totalBookings: { $sum: 1 },
           },
         },
@@ -382,9 +400,7 @@ export default async function handler(req, res) {
     };
     
     const monthlyAgg = await Billing.aggregate([
-      { $match: monthlyMatch },
-      // Only count packages with billing (paid > 0)
-      { $match: { paid: { $gt: 0 } } },
+      { $match: { ...monthlyMatch, service: "Package" } },
       {
         $lookup: {
           from: "appointments",
@@ -399,17 +415,19 @@ export default async function handler(req, res) {
           effectiveDoctorId: {
             $ifNull: ["$doctorId", "$appointment.doctorId"]
           },
+          __packageName: "$package"
         },
       },
       {
         $group: {
           _id: {
             patientId: "$patientId",
-            package: "$package",
+            package: "$__packageName",
             month: { $month: "$invoicedDate" }
           },
-          // Use amount - pendingUsed to exclude pending clearance for other services
-          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+          // Use paid amount directly. When pending is cleared via treatment pay,
+          // Treatment billing's paid field contains the cash collected for the package.
+          totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
           totalPending: { $sum: { $ifNull: ["$pending", 0] } },
         },
       },
@@ -485,9 +503,7 @@ export default async function handler(req, res) {
     })() : null;
     
     const combinedSummaryAgg = await Billing.aggregate([
-      { $match: match },
-      // Only count packages with billing (paid > 0)
-      { $match: { paid: { $gt: 0 } } },
+      { $match: { ...match, service: "Package" } },
       {
         $lookup: {
           from: "appointments",
@@ -511,6 +527,7 @@ export default async function handler(req, res) {
               },
             },
           },
+          __packageName: "$package"
         },
       },
       // Apply the same filters (doctor, department, sales staff)
@@ -532,9 +549,8 @@ export default async function handler(req, res) {
       ...(combinedSalesStaffFilter ? [{ $match: combinedSalesStaffFilter }] : []),
       {
         $group: {
-          _id: { patientId: "$patientId", package: "$package" },
-          // Use amount - pendingUsed to exclude pending clearance for other services
-          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+          _id: { patientId: "$patientId", package: "$__packageName" },
+          totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
           totalPending: { $sum: { $ifNull: ["$pending", 0] } },
           sessionsUsed: { $sum: "$__usedSessions" },
           firstPurchaseDate: { $min: "$createdAt" },
@@ -614,9 +630,7 @@ export default async function handler(req, res) {
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
       return [
-        { $match: matchObj },
-        // Only count packages with billing (paid > 0)
-        { $match: { paid: { $gt: 0 } } },
+        { $match: { ...matchObj, service: "Package" } },
         {
           $lookup: {
             from: "appointments",
@@ -637,13 +651,15 @@ export default async function handler(req, res) {
                 },
               },
             },
+            __packageName: "$package"
           },
         },
         {
           $group: {
-            _id: { patientId: "$patientId", package: "$package" },
-            // Use amount - pendingUsed to exclude pending clearance for other services
-            totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+            _id: { patientId: "$patientId", package: "$__packageName" },
+            // Use paid amount directly. When pending is cleared via treatment pay,
+            // Treatment billing's paid field contains the cash collected for the package.
+            totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
             totalPending: { $sum: { $ifNull: ["$pending", 0] } },
             sessionsUsed: { $sum: "$__usedSessions" },
             firstPurchaseDate: { $min: "$createdAt" },
@@ -755,11 +771,9 @@ export default async function handler(req, res) {
     // Shows packages SOLD by doctors (where doctor is the invoicer)
     // ------------------------------
     const doctorPackageAgg = await Billing.aggregate([
-      { $match: monthSectionMatch },
+      { $match: { ...monthSectionMatch, service: "Package" } }, // Only include Package billings
       // Only count packages where there's an invoicer (sold by someone)
       { $match: { invoicedById: { $ne: null, $exists: true } } },
-      // Only count packages with billing (paid > 0)
-      { $match: { paid: { $gt: 0 } } },
       {
         $group: {
           _id: { 
@@ -769,8 +783,9 @@ export default async function handler(req, res) {
             month: { $month: "$invoicedDate" },
             year: { $year: "$invoicedDate" }
           },
-          // Use amount - pendingUsed to exclude pending clearance for other services
-          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+          // Sum all paid-related fields (paid, pendingUsed, pendingClaimUsed)
+          totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
+          totalRevenue: { $sum: { $ifNull: ["$amount", 0] } }, // Total package amount
           firstPurchaseDate: { $min: "$createdAt" },
         },
       },
@@ -817,7 +832,141 @@ export default async function handler(req, res) {
       { $limit: 5 }
     ]);
     
-    const doctorLeaderboard = doctorPackageAgg.map((doc, index) => ({
+    // ------------------------------
+    // DoctorStaff Leaderboard (same calculation as Sales Staff)
+    // Uses PatientRegistration + paidAmount from Billing lookup
+    // ------------------------------
+    // Get doctorStaff names from users collection
+    const doctorStaffUsers = await User.find(
+      { 
+        role: "doctorStaff",
+        ...(user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {})
+      },
+      { name: 1 }
+    ).lean();
+    const doctorStaffNames = doctorStaffUsers.map((u) => u.name).filter(Boolean);
+
+    let doctorStaffAgg = [];
+    if (doctorStaffNames.length > 0) {
+      const doctorStaffPipeline = [
+        { $match: user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {}) },
+        { $unwind: "$packages" },
+        // Only count packages sold by doctorStaff
+        { $match: { "packages.packageSoldBy": { $in: doctorStaffNames } } },
+        // Lookup Billing records to get actual paid amounts (Package service only)
+        {
+          $lookup: {
+            from: "billings",
+            let: { patientId: "$_id", packageName: "$packages.packageName" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$patientId", "$$patientId"] },
+                      { $eq: ["$package", "$$packageName"] },
+                      { $eq: ["$service", "Package"] }
+                    ]
+                  }
+                }
+              },
+              {
+                $project: { paid: 1, pendingUsed: 1, pendingClaimUsed: 1 }
+              }
+            ],
+            as: "__billingRecords"
+          }
+        },
+        // Calculate actual paid amount from Billing records (including pendingUsed and pendingClaimUsed)
+        {
+          $addFields: {
+            "packages.paidAmount": {
+              $reduce: {
+                input: "$__billingRecords",
+                initialValue: 0,
+                in: { 
+                  $add: [
+                    "$$value", 
+                    { $ifNull: ["$$this.paid", 0] },
+                    { $ifNull: ["$$this.pendingUsed", 0] },
+                    { $ifNull: ["$$this.pendingClaimUsed", 0] }
+                  ] 
+                }
+              }
+            }
+          }
+        },
+        { $project: { __billingRecords: 0 } },
+        ...(startAt || endAt ? [{
+          $match: {
+            "packages.assignedDate": {
+              ...(startAt ? { $gte: startAt } : {}),
+              ...(endAt ? { $lte: endAt } : {})
+            }
+          }
+        }] : []),
+        {
+          $group: {
+            _id: {
+              soldBy: "$packages.packageSoldBy",
+              month: { $month: "$packages.assignedDate" },
+              year: { $year: "$packages.assignedDate" }
+            },
+            totalPackagesSold: { $sum: 1 },
+            totalPaid: { $sum: { $ifNull: ["$packages.paidAmount", 0] } },
+          }
+        },
+        {
+          $group: {
+            _id: "$_id.soldBy",
+            totalPackagesSold: { $sum: "$totalPackagesSold" },
+            totalPaid: { $sum: "$totalPaid" },
+            monthWiseData: {
+              $push: {
+                month: "$_id.month",
+                year: "$_id.year",
+                totalPackagesSold: "$totalPackagesSold",
+                totalPaid: "$totalPaid"
+              }
+            }
+          }
+        },
+        { $sort: { totalPaid: -1, totalPackagesSold: -1, _id: 1 } }
+      ];
+      doctorStaffAgg = await PatientRegistration.aggregate(doctorStaffPipeline);
+    }
+
+    // Build doctor leaderboard: doctors (non-doctorStaff) from Billing aggregation
+    const doctorStaffNameSet = new Set(doctorStaffNames);
+    const doctorOnlyAgg = doctorPackageAgg.filter((doc) => {
+      // Exclude doctorStaff entries - they will be sourced from PatientRegistration
+      const docName = doc.name;
+      return docName && !doctorStaffNameSet.has(docName);
+    });
+    
+    // Map doctorStaff aggregation results to leaderboard format
+    const doctorStaffLeaderboardData = doctorStaffAgg.map((staff) => ({
+      name: staff._id,
+      totalPackages: staff.totalPackagesSold || 0,
+      totalRevenue: staff.totalPaid || 0,
+      monthWiseData: (staff.monthWiseData || []).map((m) => ({
+        month: m.month,
+        year: m.year,
+        packages: m.totalPackagesSold || 0,
+        revenue: m.totalPaid || 0
+      }))
+    }));
+    
+    // Merge doctors and doctorStaff, sort, and limit to 5
+    const combinedDoctorAgg = [...doctorOnlyAgg, ...doctorStaffLeaderboardData]
+      .sort((a, b) => {
+        const packagesDiff = (b.totalPackages || 0) - (a.totalPackages || 0);
+        if (packagesDiff !== 0) return packagesDiff;
+        return (b.totalRevenue || 0) - (a.totalRevenue || 0);
+      })
+      .slice(0, 5);
+    
+    const doctorLeaderboard = combinedDoctorAgg.map((doc, index) => ({
       rank: index + 1,
       initials: doc.name
         ? doc.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -825,7 +974,7 @@ export default async function handler(req, res) {
       name: doc.name,
       packages: doc.totalPackages,
       revenue: Math.round(Number(doc.totalRevenue || 0)),
-      monthWiseData: doc.monthWiseData.map(m => ({
+      monthWiseData: doc.monthWiseData.map((m) => ({
         month: monthNames[m.month - 1],
         year: m.year,
         packages: m.packages,
@@ -836,15 +985,186 @@ export default async function handler(req, res) {
     // ------------------------------
     // Sales Staff Leaderboard - with month-wise data
     // ------------------------------
-    // Sales Staff Leaderboard is sourced directly from the "Sold By" field
-    // (`packages.packageSoldBy`), which captures the seller's name at package
-    // creation time. This avoids relying on `packageSoldByUserId` (which is
-    // frequently null) and the separate user lookup that left the leaderboard
-    // without names.
-    const salesStaffPipeline = [
-      { $match: user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {}) },
+    // First, get Billing data, then merge with PatientRegistration data for packages without billing
+    const salesStaffBillingMatch = { ...monthSectionMatch };
+    if (startAt || endAt) {
+      salesStaffBillingMatch.invoicedDate = {};
+      if (startAt) salesStaffBillingMatch.invoicedDate.$gte = startAt;
+      if (endAt) salesStaffBillingMatch.invoicedDate.$lte = endAt;
+    }
+
+    const salesStaffBillingPipeline = [
+      { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } } ] } }, // Include both Package billings and Treatment billings that clear pending packages
+      {
+        $addFields: {
+          __packageName: { 
+            $cond: {
+              if: { $eq: ["$service", "Treatment"] },
+              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+              else: "$package"
+            }
+          },
+          __patientId: "$patientId",
+          __month: { $month: "$invoicedDate" },
+          __year: { $year: "$invoicedDate" }
+        }
+      },
+      // First group by patientId + packageName to avoid double-counting
+      {
+        $group: {
+          _id: {
+            patientId: "$__patientId",
+            packageName: "$__packageName"
+          },
+          totalPaidForPackage: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] } },
+          totalPendingForPackage: { $sum: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$pending", 0] }, else: 0 } } },
+          totalAmountForPackage: { $first: { $cond: { if: { $eq: ["$service", "Package"] }, then: { $ifNull: ["$amount", 0] }, else: 0 } } },
+          __month: { $first: "$__month" },
+          __year: { $first: "$__year" }
+        }
+      },
+      // Now look up PatientRegistration to get soldBy, totalPrice, and paidAmount
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$_id.patientId", packageName: "$_id.packageName" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$_id", "$$patientId"] } } },
+            { $unwind: "$packages" },
+            { $match: { $expr: { $eq: ["$packages.packageName", "$$packageName"] } } },
+            { $limit: 1 },
+            { $project: { "packages.packageSoldBy": 1, "packages.packageSoldByUserId": 1, "packages.totalPrice": 1, "packages.paidAmount": 1 } }
+          ],
+          as: "__patientReg"
+        }
+      },
+      { $unwind: { path: "$__patientReg", preserveNullAndEmptyArrays: true } },
+      // Now calculate final totalPaid, totalPending, totalAmount, and determine soldBy
+      {
+        $addFields: {
+          soldBy: { $ifNull: ["$__patientReg.packages.packageSoldBy", ""] },
+          totalAmount: {
+            $ifNull: [
+              {
+                $cond: [
+                  { $ne: ["$totalAmountForPackage", 0] },
+                  "$totalAmountForPackage",
+                  "$__patientReg.packages.totalPrice"
+                ]
+              },
+              0
+            ]
+          },
+          totalPaid: {
+            // EDGE CASE: When a Package billing is paid via Advance Balance (advanceUsed > 0),
+            // PatientRegistration.packages.paidAmount may not reflect the advance portion
+            // (PR is typically updated only on direct cash payments). The Billing-driven
+            // totalPaidForPackage now sums advanceUsed as well. Using $max ensures the
+            // advance is counted as paid revenue without double-counting if PR already
+            // includes it. Existing flow (cash-only, partial payments, pending clearings)
+            // is preserved because PR.paidAmount remains the source of truth when it is
+            // greater than or equal to totalPaidForPackage.
+            $max: [
+              { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
+              { $ifNull: ["$totalPaidForPackage", 0] }
+            ]
+          },
+          totalPending: {
+            // EDGE CASE: When a Package billing is created with both package
+            // amount AND a separately selected treatment (not in package), the
+            // billing's `amount` covers BOTH the package + treatment while
+            // the PatientRegistration's `paidAmount` reflects only the package
+            // portion. With a fully-paid billing (pending = 0), subtracting
+            // PR.paidAmount from billing.amount incorrectly leaves the
+            // treatment price as "outstanding". Guard the calculation so that
+            // when no actual pending exists on the billing(s), totalPending
+            // is 0. Existing flow (partial payments, split payments,
+            // unpaidPackagesPaid treatment clearings) is preserved.
+            $cond: {
+              if: { $lte: [{ $ifNull: ["$totalPendingForPackage", 0] }, 0] },
+              then: 0,
+              else: {
+                $subtract: [
+                  {
+                    $ifNull: [
+                      {
+                        $cond: [
+                          { $ne: ["$totalAmountForPackage", 0] },
+                          "$totalAmountForPackage",
+                          "$__patientReg.packages.totalPrice"
+                        ]
+                      },
+                      0
+                    ]
+                  },
+                  {
+                    // Inner totalPaid in the totalPending subtract — mirror the standalone
+                    // totalPaid $max logic so the pending calculation also accounts for
+                    // advanceUsed when the package is partially paid via advance balance.
+                    $max: [
+                      { $ifNull: ["$__patientReg.packages.paidAmount", 0] },
+                      { $ifNull: ["$totalPaidForPackage", 0] }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          month: "$__month",
+          year: "$__year"
+        }
+      },
+      // Now group by soldBy + month + year for final stats, including paid/partially paid/unpaid counts
+      {
+        $group: {
+          _id: {
+            soldBy: "$soldBy",
+            month: "$month",
+            year: "$year"
+          },
+          totalPackagesSold: { $sum: 1 },
+          totalPaid: { $sum: "$totalPaid" },
+          totalPending: { $sum: "$totalPending" },
+          totalRevenue: { $sum: "$totalAmount" },
+          paidPackages: {
+            $sum: {
+              $cond: [
+                { $lte: ["$totalPending", 0] },
+                1,
+                0
+              ]
+            }
+          },
+          partiallyPaidPackages: {
+            $sum: {
+              $cond: [
+                { $and: [{ $gt: ["$totalPending", 0] }, { $gt: ["$totalPaid", 0] }] },
+                1,
+                0
+              ]
+            }
+          },
+          unpaidPackages: {
+            $sum: {
+              $cond: [
+                { $lte: ["$totalPaid", 0] },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ];
+
+    const salesStaffBillingResults = await Billing.aggregate(salesStaffBillingPipeline);
+
+    // Now get PatientRegistration data (packages without billing records)
+    const salesStaffPrMatch = user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {});
+
+    const salesStaffPrPipeline = [
+      { $match: salesStaffPrMatch },
       { $unwind: "$packages" },
-      // Only count packages that actually have a non-empty "Sold By" name.
       {
         $match: {
           $expr: {
@@ -855,6 +1175,7 @@ export default async function handler(req, res) {
           }
         }
       },
+      { $match: { "packages.totalPrice": { $gt: 0 } } },
       ...(startAt || endAt ? [{
         $match: {
           "packages.assignedDate": {
@@ -866,18 +1187,31 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: {
+            patientId: "$_id",
+            packageName: "$packages.packageName",
             soldBy: "$packages.packageSoldBy",
             month: { $month: "$packages.assignedDate" },
             year: { $year: "$packages.assignedDate" }
           },
+          totalPrice: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
+          paidAmount: { $sum: { $ifNull: ["$packages.paidAmount", 0] } }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            soldBy: "$_id.soldBy",
+            month: "$_id.month",
+            year: "$_id.year"
+          },
           totalPackagesSold: { $sum: 1 },
-          totalRevenue: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
-          totalPaid: { $sum: { $ifNull: ["$packages.paidAmount", 0] } },
-          totalPending: { $sum: { $subtract: [{ $ifNull: ["$packages.totalPrice", 0] }, { $ifNull: ["$packages.paidAmount", 0] }] } },
+          totalRevenue: { $sum: "$totalPrice" },
+          totalPaid: { $sum: "$paidAmount" },
+          totalPending: { $sum: { $subtract: ["$totalPrice", "$paidAmount"] } },
           paidPackages: {
             $sum: {
               $cond: [
-                { $gte: [{ $ifNull: ["$packages.paidAmount", 0] }, { $ifNull: ["$packages.totalPrice", 0] }] },
+                { $gte: ["$paidAmount", "$totalPrice"] },
                 1,
                 0
               ]
@@ -886,7 +1220,7 @@ export default async function handler(req, res) {
           partiallyPaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: [{ $ifNull: ["$packages.paidAmount", 0] }, 0] }, { $lt: [{ $ifNull: ["$packages.paidAmount", 0] }, { $ifNull: ["$packages.totalPrice", 0] }] }] },
+                { $and: [{ $gt: ["$paidAmount", 0] }, { $lt: ["$paidAmount", "$totalPrice"] }] },
                 1,
                 0
               ]
@@ -894,73 +1228,202 @@ export default async function handler(req, res) {
           },
           unpaidPackages: {
             $sum: {
-              $cond: [{ $eq: [{ $ifNull: ["$packages.paidAmount", 0] }, 0] }, 1, 0]
+              $cond: [
+                { $eq: ["$paidAmount", 0] },
+                1,
+                0
+              ]
+            }
+          }
+        }
+      }
+    ];
+
+    const salesStaffPrResults = await PatientRegistration.aggregate(salesStaffPrPipeline);
+
+    // Get all (patientId + packageName) pairs from Billing to avoid duplicates
+    const salesStaffBillingKeys = new Set();
+    const salesStaffBillingKeyPipeline = [
+      { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } } ] } },
+      {
+        $addFields: {
+          __packageName: { 
+            $cond: {
+              if: { $eq: ["$service", "Treatment"] },
+              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+              else: "$package"
             }
           }
         }
       },
       {
         $group: {
-          _id: "$_id.soldBy",
-          totalPackagesSold: { $sum: "$totalPackagesSold" },
-          totalRevenue: { $sum: "$totalRevenue" },
-          totalPaid: { $sum: "$totalPaid" },
-          totalPending: { $sum: "$totalPending" },
-          paidPackages: { $sum: "$paidPackages" },
-          partiallyPaidPackages: { $sum: "$partiallyPaidPackages" },
-          unpaidPackages: { $sum: "$unpaidPackages" },
-          monthWiseData: {
-            $push: {
-              month: "$_id.month",
-              year: "$_id.year",
-              totalPackagesSold: "$totalPackagesSold",
-              totalRevenue: "$totalRevenue"
-            }
+          _id: { patientId: "$patientId", packageName: "$__packageName" }
+        }
+      }
+    ];
+    const salesStaffBillingKeyResults = await Billing.aggregate(salesStaffBillingKeyPipeline);
+    salesStaffBillingKeyResults.forEach(k => salesStaffBillingKeys.add(`${String(k._id.patientId)}__${String(k._id.packageName)}`));
+
+    // Now filter PR results to exclude packages already in Billing
+    const salesStaffPrUniquePipeline = [
+      { $match: salesStaffPrMatch },
+      { $unwind: "$packages" },
+      {
+        $match: {
+          $expr: {
+            $gt: [
+              { $trim: { input: { $ifNull: ["$packages.packageSoldBy", ""] } } },
+              ""
+            ]
           }
         }
       },
-      {
-        $project: {
-          _id: 0,
-          // The seller name comes directly from the "Sold By" field captured
-          // when the package was created — no user lookup required.
-          staffId: "$_id",
-          name: "$_id",
-          totalPackagesSold: 1,
-          totalRevenue: 1,
-          totalPaid: 1,
-          totalPending: 1,
-          outstanding: "$totalPending",
-          paidPackages: 1,
-          partiallyPaidPackages: 1,
-          unpaidPackages: 1,
-          monthWiseData: 1
+      { $match: { "packages.totalPrice": { $gt: 0 } } },
+      ...(startAt || endAt ? [{
+        $match: {
+          "packages.assignedDate": {
+            ...(startAt ? { $gte: startAt } : {}),
+            ...(endAt ? { $lte: endAt } : {})
+          }
         }
-      },
-      // Rank by highest revenue first (packages sold as a tie-breaker). The
-      // client applies the final Top 5 slice so no high-revenue seller is
-      // dropped before ranking.
-      { $sort: { totalRevenue: -1, totalPackagesSold: -1, name: 1 } }
+      }] : []),
+      {
+        $group: {
+          _id: {
+            patientId: "$_id",
+            packageName: "$packages.packageName",
+            soldBy: "$packages.packageSoldBy",
+            month: { $month: "$packages.assignedDate" },
+            year: { $year: "$packages.assignedDate" }
+          },
+          totalPrice: { $sum: { $ifNull: ["$packages.totalPrice", 0] } },
+          paidAmount: { $sum: { $ifNull: ["$packages.paidAmount", 0] } }
+        }
+      }
     ];
-    const salesStaffLeaderboard = await PatientRegistration.aggregate(salesStaffPipeline).then(result => 
-      result.map(staff => ({
+    const salesStaffPrUniqueResults = await PatientRegistration.aggregate(salesStaffPrUniquePipeline);
+
+    // Now, filter PR results to exclude packages already in Billing
+    const salesStaffPrFilteredResults = [];
+    const prKeyToData = new Map();
+    salesStaffPrUniqueResults.forEach(r => {
+      const key = `${String(r._id.patientId)}__${String(r._id.packageName)}`;
+      if (!salesStaffBillingKeys.has(key)) {
+        salesStaffPrFilteredResults.push(r);
+      }
+    });
+
+    // Now merge billing results and filtered PR results
+    const mergedMonthlyResults = new Map();
+
+    // Add billing results first
+    salesStaffBillingResults.forEach(r => {
+      const key = `${r._id.soldBy || ""}__${r._id.month}__${r._id.year}`;
+      mergedMonthlyResults.set(key, {
+        _id: r._id,
+        totalPackagesSold: r.totalPackagesSold,
+        totalRevenue: r.totalRevenue,
+        totalPaid: r.totalPaid,
+        totalPending: r.totalPending,
+        paidPackages: r.paidPackages,
+        partiallyPaidPackages: r.partiallyPaidPackages,
+        unpaidPackages: r.unpaidPackages
+      });
+    });
+
+    // Add filtered PR results
+    salesStaffPrFilteredResults.forEach(r => {
+      const key = `${r._id.soldBy || ""}__${r._id.month}__${r._id.year}`;
+      if (mergedMonthlyResults.has(key)) {
+        const existing = mergedMonthlyResults.get(key);
+        mergedMonthlyResults.set(key, {
+          _id: existing._id,
+          totalPackagesSold: existing.totalPackagesSold + r.totalPackagesSold,
+          totalRevenue: existing.totalRevenue + r.totalPrice,
+          totalPaid: existing.totalPaid + r.paidAmount,
+          totalPending: existing.totalPending + (r.totalPrice - r.paidAmount),
+          paidPackages: existing.paidPackages + (r.paidAmount >= r.totalPrice ? 1 : 0),
+          partiallyPaidPackages: existing.partiallyPaidPackages + (r.paidAmount > 0 && r.paidAmount < r.totalPrice ? 1 : 0),
+          unpaidPackages: existing.unpaidPackages + (r.paidAmount === 0 ? 1 : 0)
+        });
+      } else {
+        mergedMonthlyResults.set(key, {
+          _id: r._id,
+          totalPackagesSold: 1,
+          totalRevenue: r.totalPrice,
+          totalPaid: r.paidAmount,
+          totalPending: r.totalPrice - r.paidAmount,
+          paidPackages: r.paidAmount >= r.totalPrice ? 1 : 0,
+          partiallyPaidPackages: r.paidAmount > 0 && r.paidAmount < r.totalPrice ? 1 : 0,
+          unpaidPackages: r.paidAmount === 0 ? 1 : 0
+        });
+      }
+    });
+
+    // Now group by soldBy to get the final leaderboard
+    const salesStaffFinalMap = new Map();
+    mergedMonthlyResults.forEach((r) => {
+      const key = r._id.soldBy || "";
+      if (salesStaffFinalMap.has(key)) {
+        const existing = salesStaffFinalMap.get(key);
+        existing.totalPackagesSold += r.totalPackagesSold;
+        existing.totalRevenue += r.totalRevenue;
+        existing.totalPaid += r.totalPaid;
+        existing.totalPending += r.totalPending;
+        existing.paidPackages += r.paidPackages;
+        existing.partiallyPaidPackages += r.partiallyPaidPackages;
+        existing.unpaidPackages += r.unpaidPackages;
+        existing.monthWiseData.push({
+          month: r._id.month,
+          year: r._id.year,
+          totalPackagesSold: r.totalPackagesSold,
+          totalRevenue: r.totalRevenue,
+          totalPaid: r.totalPaid
+        });
+      } else {
+        salesStaffFinalMap.set(key, {
+          staffId: key,
+          name: key,
+          totalPackagesSold: r.totalPackagesSold,
+          totalRevenue: r.totalRevenue,
+          totalPaid: r.totalPaid,
+          totalPending: r.totalPending,
+          outstanding: r.totalPending,
+          paidPackages: r.paidPackages,
+          partiallyPaidPackages: r.partiallyPaidPackages,
+          unpaidPackages: r.unpaidPackages,
+          monthWiseData: [{
+            month: r._id.month,
+            year: r._id.year,
+            totalPackagesSold: r.totalPackagesSold,
+            totalRevenue: r.totalRevenue,
+            totalPaid: r.totalPaid
+          }]
+        });
+      }
+    });
+
+    // Convert map to array and sort
+    const salesStaffLeaderboard = Array.from(salesStaffFinalMap.values())
+      .filter(item => item.name && item.name.trim() !== "")
+      .sort((a, b) => b.totalRevenue - a.totalRevenue || b.totalPackagesSold - a.totalPackagesSold || a.name.localeCompare(b.name))
+      .map(staff => ({
         ...staff,
         monthWiseData: staff.monthWiseData.map(m => ({
           month: monthNames[m.month - 1],
           year: m.year,
           totalPackagesSold: m.totalPackagesSold,
-          totalRevenue: Math.round(Number(m.totalRevenue || 0))
+          totalRevenue: Math.round(Number(m.totalRevenue || 0)),
+          totalPaid: Math.round(Number(m.totalPaid || 0))
         }))
-      }))
-    );
+      }));
 
     // ------------------------------
     // Department Revenue Data
     // ------------------------------
     const departmentRevenueAgg = await Billing.aggregate([
-      { $match: monthSectionMatch },
-      // Only count packages with billing (paid > 0)
-      { $match: { paid: { $gt: 0 } } },
+      { $match: { $or: [monthSectionMatch, { ...monthSectionMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
       {
         $lookup: {
           from: "appointments",
@@ -975,13 +1438,21 @@ export default async function handler(req, res) {
           effectiveDoctorId: {
             $ifNull: ["$doctorId", "$appointment.doctorId"]
           },
+          __packageName: {
+            $cond: {
+              if: { $eq: ["$service", "Treatment"] },
+              then: { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+              else: "$package"
+            }
+          }
         },
       },
       {
         $group: {
-          _id: { patientId: "$patientId", package: "$package" },
-          // Use amount - pendingUsed to exclude pending clearance for other services
-          totalPaid: { $sum: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] } },
+          _id: { patientId: "$patientId", package: "$__packageName" },
+          // Use paid amount directly. When pending is cleared via treatment pay,
+          // Treatment billing's paid field contains the cash collected for the package.
+          totalPaid: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] } },
           firstPurchaseDate: { $min: "$createdAt" },
           // Store appointment/service/department info for later
           appointment: { $first: "$appointment" }

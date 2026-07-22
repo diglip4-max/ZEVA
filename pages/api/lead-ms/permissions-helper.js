@@ -22,6 +22,19 @@ export async function getClinicIdFromUser(user) {
       return { clinicId: null, error: "Clinic not found for this user" };
     }
     return { clinicId: clinic._id, error: null };
+  } else if (user.role === "user") {
+    if (user.clinicId) {
+      const clinic = await Clinic.findById(user.clinicId).select("_id owner");
+      if (!clinic) {
+        return { clinicId: null, error: "Clinic not found for this user" };
+      }
+      return { clinicId: clinic._id, error: null };
+    }
+    const clinic = await Clinic.findOne({ owner: user._id }).select("_id");
+    if (!clinic) {
+      return { clinicId: null, error: "User is not assigned to any clinic" };
+    }
+    return { clinicId: clinic._id, error: null };
   } else if (user.role === "agent") {
     if (!user.clinicId) {
       return { clinicId: null, error: "Agent is not assigned to any clinic" };

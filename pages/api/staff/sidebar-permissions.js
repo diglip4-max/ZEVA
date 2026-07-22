@@ -149,6 +149,7 @@ export default async function handler(req, res) {
             modulePerm.moduleActions.delete === true ||
             modulePerm.moduleActions.approve === true ||
             modulePerm.moduleActions.print === true ||
+            modulePerm.moduleActions.import === true ||
             modulePerm.moduleActions.export === true
           );
 
@@ -178,6 +179,7 @@ export default async function handler(req, res) {
                   subModulePerm.delete === true ||
                   subModulePerm.approve === true ||
                   subModulePerm.print === true ||
+                  subModulePerm.import === true ||
                   subModulePerm.export === true
                 );
               });

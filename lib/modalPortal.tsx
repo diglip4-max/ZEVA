@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ModalPortalProps {
@@ -14,7 +14,9 @@ export const ModalPortal: React.FC<ModalPortalProps> = ({
 }) => {
   const containerRef = useRef<Element | null>(null);
 
-  useEffect(() => {
+  const [ready, setReady] = useState(false);
+
+  useLayoutEffect(() => {
     // Find the modal root container
     const container = document.querySelector(selector);
     if (container) {
@@ -29,13 +31,14 @@ export const ModalPortal: React.FC<ModalPortalProps> = ({
       document.body.appendChild(newContainer);
       containerRef.current = newContainer;
     }
+    setReady(true);
 
     return () => {
       // Clean up if needed
     };
-  }, []);
+  }, [selector]);
 
-  if (!containerRef.current) {
+  if (!ready || !containerRef.current) {
     return null;
   }
 

@@ -50,74 +50,76 @@ const Conversation: React.FC<IProps> = ({
             </span>
           </div>
 
-          <div className="flex justify-between items-start">
-            <p
-              className={`text-sm truncate mt-1 ${
-                conversation?.unreadMessages?.length > 0
-                  ? "text-gray-800 font-medium"
-                  : "text-gray-500"
-              }`}
-            >
-              {(() => {
-                const recent = conversation?.recentMessage || ({} as any);
-                let preview = recent.content || "";
-                if (recent?.channel === "email") return recent?.subject || "";
-                if (!preview || preview.trim() === "") {
-                  // try multiple possible media indicators
-                  const mediaType =
-                    recent.mediaType ||
-                    recent.attachments?.[0]?.mediaType ||
-                    (recent.mediaUrl
-                      ? recent.mediaUrl.match(
-                          /\.(jpg|jpeg|png|gif|mp4|mp3|pdf|docx?)$/i,
-                        )
-                        ? "document"
-                        : "file"
-                      : undefined);
+          {conversation?.recentMessage?.channel !== "email" && (
+            <div className="flex justify-between items-start">
+              <p
+                className={`text-sm truncate mt-1 ${
+                  conversation?.unreadMessages?.length > 0
+                    ? "text-gray-800 font-medium"
+                    : "text-gray-500"
+                }`}
+              >
+                {(() => {
+                  const recent = conversation?.recentMessage || ({} as any);
+                  let preview = recent.content || "";
+                  if (recent?.channel === "email") return recent?.subject || "";
+                  if (!preview || preview.trim() === "") {
+                    // try multiple possible media indicators
+                    const mediaType =
+                      recent.mediaType ||
+                      recent.attachments?.[0]?.mediaType ||
+                      (recent.mediaUrl
+                        ? recent.mediaUrl.match(
+                            /\.(jpg|jpeg|png|gif|mp4|mp3|pdf|docx?)$/i,
+                          )
+                          ? "document"
+                          : "file"
+                        : undefined);
 
-                  const filename =
-                    recent.fileName ||
-                    recent.attachments?.[0]?.fileName ||
-                    (recent.mediaUrl
-                      ? recent.mediaUrl.split("/").pop().split("?")[0]
-                      : undefined);
+                    const filename =
+                      recent.fileName ||
+                      recent.attachments?.[0]?.fileName ||
+                      (recent.mediaUrl
+                        ? recent.mediaUrl.split("/").pop().split("?")[0]
+                        : undefined);
 
-                  const caption =
-                    recent.caption || recent.attachments?.[0]?.caption;
+                    const caption =
+                      recent.caption || recent.attachments?.[0]?.caption;
 
-                  if (mediaType) {
-                    const typeLabel =
-                      mediaType === "image"
-                        ? "Image"
-                        : mediaType === "video"
-                          ? "Video"
-                          : mediaType === "audio"
-                            ? "Audio"
-                            : mediaType === "document"
-                              ? "Document"
-                              : "File";
+                    if (mediaType) {
+                      const typeLabel =
+                        mediaType === "image"
+                          ? "Image"
+                          : mediaType === "video"
+                            ? "Video"
+                            : mediaType === "audio"
+                              ? "Audio"
+                              : mediaType === "document"
+                                ? "Document"
+                                : "File";
 
-                    if (filename) {
-                      preview = `${typeLabel}: ${filename}`;
-                    } else if (caption) {
-                      preview = `${typeLabel}: ${caption}`;
-                    } else {
-                      preview = typeLabel;
+                      if (filename) {
+                        preview = `${typeLabel}: ${filename}`;
+                      } else if (caption) {
+                        preview = `${typeLabel}: ${caption}`;
+                      } else {
+                        preview = typeLabel;
+                      }
                     }
                   }
-                }
 
-                return truncateText(preview || "", 22);
-              })()}
-            </p>
-            {conversation?.unreadMessages?.length > 0 && (
-              <span className="text-xs bg-gray-700 text-white px-2.5 py-0.5 rounded-full font-medium mt-1">
-                {conversation?.unreadMessages?.length > 99
-                  ? `99+`
-                  : conversation?.unreadMessages?.length}
-              </span>
-            )}
-          </div>
+                  return truncateText(preview || "", 22);
+                })()}
+              </p>
+              {conversation?.unreadMessages?.length > 0 && (
+                <span className="text-xs bg-gray-700 text-white px-2.5 py-0.5 rounded-full font-medium mt-1">
+                  {conversation?.unreadMessages?.length > 99
+                    ? `99+`
+                    : conversation?.unreadMessages?.length}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
