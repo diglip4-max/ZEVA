@@ -16,6 +16,7 @@ import DeletePurchaseInvoiceModal from "./_components/DeletePurchaseInvoiceModal
 import EditPurchaseInvoiceModal from "./_components/EditPurchaseInvoiceModal";
 import PurchaseInvoiceDetailModal from "./_components/PurchaseInvoiceDetailModal";
 import FilterModal from "./_components/FilterModal";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -61,7 +62,7 @@ const getUserRole = (): string | null => getUserInfo().role;
 const MODULE_KEY = "clinic_stock_purchase_invoices";
 
 const PurchaseInvoicesPage: NextPageWithLayout = () => {
-  const token = getTokenByPath();
+  const token = getTokenByPath() || getStoredToken();
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -96,6 +97,25 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
     toDate: new Date().toISOString().split("T")[0],
     status: "",
   });
+
+  const [clinicCurrency, setClinicCurrency] = useState<string>("AED");
+
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath() || getStoredToken();
+        const res = await axios.get("/api/clinic/get-clinic", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data?.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (error) {
+        console.error("Error fetching clinic currency:", error);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   // Permission state
   const [permissions, setPermissions] = useState({
@@ -221,21 +241,39 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
               setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
             } else {
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_purchase_invoices") return true;
-                if (p.module === "purchase_invoices") return true;
-                if (p.module === "stock_purchase_invoices") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_purchase_invoices" ||
+                  mod === "purchase_invoices" ||
+                  mod === "stock_purchase_invoices" ||
+                  modKey === "clinic_stock_purchase_invoices" ||
+                  modKey === "purchase_invoices" ||
+                  modKey === "stock_purchase_invoices"
+                );
               });
               // Check parent module subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_purchase_invoices"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_purchase_invoices" ||
+                        key === "purchase_invoices" ||
+                        key === "stock_purchase_invoices" ||
+                        name === "clinic_stock_purchase_invoices" ||
+                        name === "purchase invoices" ||
+                        name === "purchase_invoices" ||
+                        name === "stock_purchase_invoices"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: foundInSubModule.actions };
+                      break;
+                    }
+                  }
                 }
               }
               if (modulePermission) {
@@ -522,6 +560,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
               isOpen={isDetailModalOpen}
               onClose={handleDetailCancel}
               record={recordForDetail}
+              clinicCurrency={clinicCurrency}
             />
 
             <FilterModal
@@ -670,8 +709,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
         </div>
       </div>
 
-      <div className="max-w-9xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="max-w-9xl mx-auto pb-32">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">
@@ -751,16 +790,18 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by adding your first purchase invoice.
               </p>
-              <button
-                onClick={handleAdd}
-                className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
-              >
-                <FileText className="h-5 w-5" />
-                Add First Invoice
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
+                >
+                  <FileText className="h-5 w-5" />
+                  Add First Invoice
+                </button>
+              )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto pb-32 min-h-[400px]">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -780,13 +821,13 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                       GRNs Linked
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Amount (AED)
+                      Total Amount
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Paid Amount (AED)
+                      Paid Amount
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Due Amount (AED)
+                      Due Amount
                     </th>
 
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -850,13 +891,13 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                                 : 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {totalAmount?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(clinicCurrency)} {totalAmount?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {paidAmount?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(clinicCurrency)} {paidAmount?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {remainingAmount?.toFixed(2) || "0.00"}
+                            {getCurrencySymbol(clinicCurrency)} {remainingAmount?.toFixed(2) || "0.00"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -957,7 +998,7 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
                               </button>
                               <div
                                 id={`menu-${r._id}`}
-                                className="hidden origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10"
+                                className="hidden origin-top-right absolute right-0 mt-2 w-40 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
                               >
                                 <div className="py-1">
                                   <button

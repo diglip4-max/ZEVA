@@ -1,9 +1,10 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
-import React, { ReactElement, useState, useCallback, useEffect} from "react";
+import React, { ReactElement, useState, useCallback, useEffect } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   PlusIcon,
   PencilIcon,
@@ -93,6 +94,25 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
     uniqueBranchesCount: 0,
     totalItems: 0,
   });
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath();
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error("Error fetching clinic currency:", err);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
 
   // Advanced Filter State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -112,15 +132,15 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
       const hasAgent =
         Boolean(
           localStorage.getItem("agentToken") ||
-            sessionStorage.getItem("agentToken"),
+          sessionStorage.getItem("agentToken"),
         ) ||
         Boolean(
           localStorage.getItem("staffToken") ||
-            sessionStorage.getItem("staffToken"),
+          sessionStorage.getItem("staffToken"),
         ) ||
         Boolean(
           localStorage.getItem("userToken") ||
-            sessionStorage.getItem("userToken"),
+          sessionStorage.getItem("userToken"),
         );
       setHasAgentToken(hasAgent);
     };
@@ -237,27 +257,27 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -331,14 +351,14 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
 
               // If not found as direct module, check parent clinic_stock module's subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) => 
+                const parentStockModule = res.data.permissions.find((p: any) =>
                   p?.module === "clinic_stock" && Array.isArray(p.subModules)
                 );
-                
+
                 console.log("Parent stock module found:", parentStockModule);
-                
+
                 if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) => 
+                  modulePermission = parentStockModule.subModules.find((sm: any) =>
                     sm?.moduleKey === "clinic_stock_purchase_requests"
                   );
                   console.log("Submodule permission found:", modulePermission);
@@ -895,6 +915,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
               isOpen={isDetailModalOpen}
               onClose={handleDetailCancel}
               purchaseRequest={purchaseRequestForDetail}
+              clinicCurrency={clinicCurrency}
             />
 
             {/* Filter Modal */}
@@ -1219,70 +1240,68 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                           {request.items.length}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          AED{" "}
+                          {getCurrencySymbol(clinicCurrency)}{" "}
                           {request.items
                             .reduce((sum, item) => sum + item.totalPrice, 0)
                             .toFixed(2)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              {
-                                New: "bg-blue-100 text-blue-800",
-                                Approved: "bg-green-100 text-green-800",
-                                Partly_Delivered:
-                                  "bg-yellow-100 text-yellow-800",
-                                Delivered: "bg-teal-100 text-teal-800",
-                                Partly_Invoiced:
-                                  "bg-orange-100 text-orange-800",
-                                Invoiced: "bg-emerald-100 text-emerald-800",
-                                Rejected: "bg-red-100 text-red-800",
-                                Cancelled: "bg-gray-100 text-gray-800",
-                                Deleted: "bg-gray-100 text-gray-800",
-                                Converted_To_PO:
-                                  "bg-purple-100 text-purple-800",
-                              }[
-                                request.status as
-                                  | "New"
-                                  | "Approved"
-                                  | "Partly_Delivered"
-                                  | "Delivered"
-                                  | "Partly_Invoiced"
-                                  | "Invoiced"
-                                  | "Rejected"
-                                  | "Cancelled"
-                                  | "Deleted"
-                                  | "Converted_To_PO"
-                              ] || "bg-gray-100 text-gray-800"
-                            }`}
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
+                              New: "bg-blue-100 text-blue-800",
+                              Approved: "bg-green-100 text-green-800",
+                              Partly_Delivered:
+                                "bg-yellow-100 text-yellow-800",
+                              Delivered: "bg-teal-100 text-teal-800",
+                              Partly_Invoiced:
+                                "bg-orange-100 text-orange-800",
+                              Invoiced: "bg-emerald-100 text-emerald-800",
+                              Rejected: "bg-red-100 text-red-800",
+                              Cancelled: "bg-gray-100 text-gray-800",
+                              Deleted: "bg-gray-100 text-gray-800",
+                              Converted_To_PO:
+                                "bg-purple-100 text-purple-800",
+                            }[
+                              request.status as
+                              | "New"
+                              | "Approved"
+                              | "Partly_Delivered"
+                              | "Delivered"
+                              | "Partly_Invoiced"
+                              | "Invoiced"
+                              | "Rejected"
+                              | "Cancelled"
+                              | "Deleted"
+                              | "Converted_To_PO"
+                            ] || "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             <span
-                              className={`h-2 w-2 rounded-full mr-2 ${
-                                {
-                                  New: "bg-blue-500",
-                                  Approved: "bg-green-500",
-                                  Partly_Delivered: "bg-yellow-500",
-                                  Delivered: "bg-teal-500",
-                                  Partly_Invoiced: "bg-orange-500",
-                                  Invoiced: "bg-emerald-500",
-                                  Rejected: "bg-red-500",
-                                  Cancelled: "bg-gray-500",
-                                  Deleted: "bg-gray-500",
-                                  Converted_To_PO: "bg-purple-500",
-                                }[
-                                  request.status as
-                                    | "New"
-                                    | "Approved"
-                                    | "Partly_Delivered"
-                                    | "Delivered"
-                                    | "Partly_Invoiced"
-                                    | "Invoiced"
-                                    | "Rejected"
-                                    | "Cancelled"
-                                    | "Deleted"
-                                    | "Converted_To_PO"
-                                ] || "bg-gray-500"
-                              }`}
+                              className={`h-2 w-2 rounded-full mr-2 ${{
+                                New: "bg-blue-500",
+                                Approved: "bg-green-500",
+                                Partly_Delivered: "bg-yellow-500",
+                                Delivered: "bg-teal-500",
+                                Partly_Invoiced: "bg-orange-500",
+                                Invoiced: "bg-emerald-500",
+                                Rejected: "bg-red-500",
+                                Cancelled: "bg-gray-500",
+                                Deleted: "bg-gray-500",
+                                Converted_To_PO: "bg-purple-500",
+                              }[
+                                request.status as
+                                | "New"
+                                | "Approved"
+                                | "Partly_Delivered"
+                                | "Delivered"
+                                | "Partly_Invoiced"
+                                | "Invoiced"
+                                | "Rejected"
+                                | "Cancelled"
+                                | "Deleted"
+                                | "Converted_To_PO"
+                              ] || "bg-gray-500"
+                                }`}
                             />
                             {request.status.replace(/_/g, " ")}
                           </span>
@@ -1335,11 +1354,10 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                             </button>
                             <div
                               id={`menu-${request._id}`}
-                              className={`hidden absolute ${
-                                index >= displayData?.length - 2
-                                  ? "bottom-0 right-0"
-                                  : "right-0"
-                              } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
+                              className={`hidden absolute ${index >= displayData?.length - 2
+                                ? "bottom-0 right-0"
+                                : "right-0"
+                                } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
                                 {permissions.canUpdate &&
@@ -1531,10 +1549,10 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                                         {item.quantity}
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">
-                                        AED {item.unitPrice.toFixed(2)}
+                                        {getCurrencySymbol(clinicCurrency)} {item.unitPrice.toFixed(2)}
                                       </td>
                                       <td className="px-4 py-2 text-sm text-gray-500">
-                                        AED {item.totalPrice.toFixed(2)}
+                                        {getCurrencySymbol(clinicCurrency)} {item.totalPrice.toFixed(2)}
                                       </td>
                                     </tr>
                                   ))}
@@ -1585,11 +1603,10 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          pagination.currentPage === pageNum
-                            ? "bg-blue-600 text-white"
-                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-                        }`}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pagination.currentPage === pageNum
+                          ? "bg-blue-600 text-white"
+                          : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                          }`}
                       >
                         {pageNum}
                       </button>

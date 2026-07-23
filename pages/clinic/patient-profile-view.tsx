@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
-  Calendar, User, DollarSign, FileText, AlertCircle, Activity,
+  Calendar, User, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
@@ -2243,7 +2243,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
         const dateStr = b.invoicedDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
-        items.push({ icon: DollarSign, title: 'Payment Received', subtitle: `${getCurrencySymbol(currency)}${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
+        items.push({ icon: CreditCard, title: 'Payment Received', subtitle: `${getCurrencySymbol(currency)}${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
       }
     });
 
@@ -4417,7 +4417,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 onClick={() => setActiveTab('advance')}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
-                {/* <DollarSign className="w-3.5 h-3.5" /> */}
+
                 {getCurrencySymbol(currency)} Add Payment
               </button>
             </div>
@@ -5433,8 +5433,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <div className="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
                       <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm text-white">
-                            <DollarSign className="w-5 h-5" />
+                          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm text-white w-9 h-9 flex items-center justify-center font-bold text-base leading-none">
+                            {getCurrencySymbol(currency)}
                           </div>
                           <div>
                             <h3 className="text-lg font-bold text-white leading-tight">Pay for Package</h3>
@@ -5645,7 +5645,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider px-1">Payment Method</label>
                               <div className="grid grid-cols-4 gap-2">
                                 {[
-                                  { id: 'Cash', icon: <DollarSign className="w-4 h-4" />, label: 'Cash', color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                                  { id: 'Cash', icon: <span className="font-bold text-xs leading-none h-4 flex items-center justify-center">{getCurrencySymbol(currency)}</span>, label: 'Cash', color: 'text-emerald-500', bg: 'bg-emerald-50' },
                                   { id: 'Card', icon: <CreditCard className="w-4 h-4" />, label: 'Card', color: 'text-blue-500', bg: 'bg-blue-50' },
                                   { id: 'Tabby', icon: <Activity className="w-4 h-4" />, label: 'Tabby', color: 'text-purple-500', bg: 'bg-purple-50' },
                                   { id: 'Tamara', icon: <Activity className="w-4 h-4" />, label: 'Tamara', color: 'text-orange-500', bg: 'bg-orange-50' }
@@ -6951,7 +6951,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                       {/* Icon circle */}
                       <div className="relative mb-6">
                         <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center shadow-inner">
-                          <DollarSign className="w-10 h-10 text-teal-400" />
+                          <span className="text-4xl font-extrabold text-teal-500">{getCurrencySymbol(currency)}</span>
                         </div>
                         <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center">
                           <FileText className="w-3.5 h-3.5 text-orange-500" />
@@ -8897,7 +8897,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                           if (ctm.rejectedAt || ctm.rejectedBy) allSteps.push({ type: "rejected", date: ctm.rejectedAt, title: "Claim Rejected", badge: "Rejected", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-red-500 to-rose-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedByName, role: ctm.rejectedByRole });
                           if (ctm.readyAt || ctm.readyBy) allSteps.push({ type: "ready", date: ctm.readyAt, title: "Claim Checked by Financial Department", subtitle: "Ready", badge: "Ready", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-indigo-500 to-violet-500", cardBg: "bg-indigo-50", border: "border-indigo-200", titleColor: "text-indigo-900", badgeColor: "text-indigo-600 bg-indigo-100", reviewer: ctm.readyByName, role: ctm.readyByRole });
                           if (ctm.completedAt || ctm.completedBy) allSteps.push({ type: "completed", date: ctm.completedAt, title: "Claim Completed with Treatment Plan by Doctor", badge: "Completed", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-purple-500 to-pink-500", cardBg: "bg-purple-50", border: "border-purple-200", titleColor: "text-purple-900", badgeColor: "text-purple-600 bg-purple-100", reviewer: ctm.completedByName, role: ctm.completedByRole });
-                          if (ctm.releasedAt || ctm.releasedBy) allSteps.push({ type: "released", date: ctm.releasedAt, title: "Claim Released", badge: "Released", icon: <DollarSign className="w-5 h-5 text-white" />, bg: "from-blue-500 to-cyan-500", cardBg: "bg-blue-50", border: "border-blue-200", titleColor: "text-blue-900", badgeColor: "text-blue-600 bg-blue-100", reviewer: ctm.releasedByName, role: ctm.releasedByRole, extra: <><p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200"><strong>Advance Amount:</strong> {ctm.advanceAmount?.toLocaleString() || 'N/A'}</p></> });
+                          if (ctm.releasedAt || ctm.releasedBy) allSteps.push({ type: "released", date: ctm.releasedAt, title: "Claim Released", badge: "Released", icon: <span className="font-extrabold text-sm text-white">{getCurrencySymbol(currency)}</span>, bg: "from-blue-500 to-cyan-500", cardBg: "bg-blue-50", border: "border-blue-200", titleColor: "text-blue-900", badgeColor: "text-blue-600 bg-blue-100", reviewer: ctm.releasedByName, role: ctm.releasedByRole, extra: <><p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200"><strong>Advance Amount:</strong> {ctm.advanceAmount?.toLocaleString() || 'N/A'}</p></> });
                           if (ctm.rejectedFromReleaseRequested) allSteps.push({ type: "rejectRelease", date: ctm.rejectedFromReleaseRequestedAt, title: "Rejected from Release", badge: "Release Reject", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-orange-500 to-red-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedFromReleaseRequestedByName, role: ctm.rejectedFromReleaseRequestedByRole });
                           allSteps.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                           const iconMap: Record<string, React.ReactNode> = { approved: <CheckCircle className="w-4 h-4 text-green-600" />, rejected: <XCircle className="w-4 h-4 text-red-600" />, rejectPass: <AlertCircle className="w-4 h-4 text-orange-600" />, rejectRelease: <AlertCircle className="w-4 h-4 text-orange-600" />, ready: <CheckCircle className="w-4 h-4 text-indigo-600" />, released: <CheckCircle className="w-4 h-4 text-blue-600" />, completed: <CheckCircle className="w-4 h-4 text-purple-600" />, created: <FileText className="w-4 h-4 text-purple-600" /> };
@@ -10229,7 +10229,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     }}
                                     className="w-full px-3 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5"
                                   >
-                                    <DollarSign className="w-3.5 h-3.5" />
+                                    <span className="font-extrabold text-[10px] leading-none">{getCurrencySymbol(currency)}</span>
                                     Pay Pending
                                   </button>
                                 </div>
@@ -10790,7 +10790,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               {/* Financial Snapshot - Compact Row Layout */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-2">
-                  {/* <DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" /> */}
+
                   Financial Snapshot
                 </h3>
 
@@ -11411,7 +11411,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 {(selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment) && (
                   <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
                     <p className="text-[10px] text-gray-500 uppercase mb-1">{selectedPaymentHistoryBilling.service === 'Package' ? 'Package' : 'Treatment'}</p>
-                    <p className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                      <p className="text-xs font-bold text-green-700">Paid: {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.paid || 0).toLocaleString()}</p>
+                    </div>
                     {selectedPaymentHistoryBilling.selectedPackageTreatments && selectedPaymentHistoryBilling.selectedPackageTreatments.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {selectedPaymentHistoryBilling.selectedPackageTreatments.map((treatment: any, idx: number) => (
@@ -11421,6 +11424,18 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Pending Amount Card */}
+                {selectedPaymentHistoryBilling.pending > 0 && (
+                  <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <p className="text-[10px] text-orange-700 uppercase font-bold mb-1">
+                      Pending Amount ({selectedPaymentHistoryBilling.invoiceNumber || 'N/A'})
+                    </p>
+                    <p className="text-sm font-bold text-orange-800">
+                      {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.pending).toLocaleString()}
+                    </p>
                   </div>
                 )}
 
@@ -11476,7 +11491,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   const history = billing.paymentHistory || [];
 
                   // Derive individual payments from paymentHistory
-                  // If a history entry has multiplePayments with >1 item,
+                  // If a history entry has multiplePayments with >=1 item,
                   // expand each sub-payment as its own entry.
                   const allPayments = [];
                   let prevPaid = 0;
@@ -11486,7 +11501,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     const currentPaid = Number(entry.paid || 0);
                     const paymentAmount = currentPaid - prevPaid;
                     const subPayments = entry.multiplePayments || [];
-                    const isMultiPay = subPayments.length > 1;
+                    const isMultiPay = subPayments.length >= 1;
 
                     if (paymentAmount > 0) {
                       if (isMultiPay) {
@@ -11502,6 +11517,20 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             paidByName: sub.paidByName || entry.paidByName || billing.invoicedBy || 'N/A',
                             isSubPayment: true,
                             parentIndex: i,
+                          });
+                        }
+
+                        // If paymentAmount is greater than the sum of sub-payments, push the remaining as a base/initial payment
+                        const subPaymentsSum = subPayments.reduce((sum: number, sub: any) => sum + Number(sub.amount || 0), 0);
+                        const remainingAmount = paymentAmount - subPaymentsSum;
+                        if (remainingAmount > 0) {
+                          allPayments.push({
+                            paymentMethod: entry.paymentMethod || billing.paymentMethod || 'Cash',
+                            amount: remainingAmount,
+                            paidAt: entry.updatedAt,
+                            status: entry.status,
+                            transactionType: i === 0 ? 'INITIAL_PAYMENT' : 'PAYMENT',
+                            paidByName: entry.paidByName || billing.invoicedBy || 'N/A',
                           });
                         }
                       } else {
@@ -11550,7 +11579,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         {paymentsToShow.map((payment: any, idx: number) => (
                           <div key={idx} className="relative">
                             {/* Payment Card */}
-                            <div className={`p-4 rounded-xl border-2 ${payment.transactionType === 'ADVANCE_USAGE'
+                            <div className={`relative p-4 rounded-xl border-2 ${payment.transactionType === 'ADVANCE_USAGE'
                               ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
                               : payment.transactionType === 'CLAIM_USAGE'
                                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
@@ -11558,6 +11587,24 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
                                   : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
                               }`}>
+                              {/* Cleared Invoice Badge */}
+                              {(() => {
+                                if (payment.transactionType === 'PENDING_CLEARANCE') {
+                                  const clearanceIndex = paymentsToShow
+                                    .slice(0, idx + 1)
+                                    .filter((p: any) => p.transactionType === 'PENDING_CLEARANCE')
+                                    .length - 1;
+                                  const matchingBreakdown = selectedPaymentHistoryBilling.pendingClearedBreakdown?.[clearanceIndex];
+                                  if (matchingBreakdown && matchingBreakdown.invoiceNumber) {
+                                    return (
+                                      <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[8px] md:text-[9px] font-bold px-2.5 py-0.5 rounded-tr-[10px] rounded-bl-lg uppercase tracking-wider shadow-sm">
+                                        Cleared Invoice: {matchingBreakdown.invoiceNumber}
+                                      </div>
+                                    );
+                                  }
+                                }
+                                return null;
+                              })()}
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
                                   {/* Payment Method Icon */}
@@ -11589,13 +11636,13 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(payment.amount || 0).toLocaleString()}</p>
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${payment.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
                                     payment.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
-                                      payment.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
+                                      (payment.transactionType === 'PENDING_CLEARANCE' && selectedPaymentHistoryBilling.pending === 0) ? 'bg-green-100 text-green-700' :
                                         payment.status === 'Completed' ? 'bg-green-100 text-green-700' :
                                           'bg-gray-100 text-gray-600'
                                     }`}>
                                     {payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
                                       payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
-                                        payment.transactionType === 'PENDING_CLEARANCE' ? 'Pending Clear' :
+                                        (payment.transactionType === 'PENDING_CLEARANCE' && selectedPaymentHistoryBilling.pending === 0) ? 'Pending Clear' :
                                           payment.status === 'Completed' ? 'Paid' :
                                             'Payment'}
                                   </span>

@@ -6,6 +6,7 @@ import AgentLayout from "../../components/AgentLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import withAgentAuth from "../../components/withAgentAuth";
 import { Search, Filter, CheckCircle, XCircle, Eye, FileText, Upload, X, AlertCircle, Clock, Shield, Calendar, Clock as ClockIcon, CheckSquare, Square, Activity, User } from "lucide-react";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 
@@ -180,11 +181,28 @@ function AllClaimsPage() {
   const [addTreatmentPlan, setAddTreatmentPlan] = useState(false);
   const [treatmentPlanText, setTreatmentPlanText] = useState("");
   const [userRole, setUserRole] = useState(null);
+  const [currency, setCurrency] = useState("INR");
   
   // Set user role on mount
   useEffect(() => {
     const role = getUserRole();
     setUserRole(role);
+  }, []);
+
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    fetchClinicCurrency();
   }, []);
 
   // Permission state
@@ -988,7 +1006,7 @@ function AllClaimsPage() {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-500 truncate">
-                                  {claim.insuranceProvider} - ₹{claim.claimAmount?.toFixed(2)}
+                                  {claim.insuranceProvider} - {getCurrencySymbol(currency)}{claim.claimAmount?.toFixed(2)}
                                 </p>
                                 {claim.reviewNotes && (
                                   <p className="text-xs text-red-600 mt-1 line-clamp-2">
@@ -1247,7 +1265,7 @@ function AllClaimsPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Amount</p>
-                      <p className="text-sm font-semibold text-gray-900">₹{claim.claimAmount?.toLocaleString()}</p>
+                      <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -1667,7 +1685,7 @@ function AllClaimsPage() {
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-500">Claim Amount</p>
-                      <p className="text-sm font-semibold text-gray-900">{viewModal.claimAmount?.toLocaleString()}</p>
+                      <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString()}</p>
                     </div>
                     <div className="bg-gray-50 rounded-lg p-3">
                       <p className="text-xs text-gray-500">Department</p>
@@ -1702,12 +1720,12 @@ function AllClaimsPage() {
                         </div>
                         <div className="bg-gray-50 rounded-lg p-3">
                           <p className="text-xs text-gray-500">Paid Amount</p>
-                          <p className="text-sm font-semibold text-gray-900">₹{viewModal.advanceAmount?.toLocaleString() || "0"}</p>
+                          <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.advanceAmount?.toLocaleString() || "0"}</p>
                         </div>
                         {viewModal.pendingClaim > 0 && (
                           <div className="bg-gray-50 rounded-lg p-3">
                             <p className="text-xs text-gray-500">Pending Claim</p>
-                            <p className="text-sm font-semibold text-orange-600">₹{viewModal.pendingClaim?.toLocaleString()}</p>
+                            <p className="text-sm font-semibold text-orange-600">{getCurrencySymbol(currency)}{viewModal.pendingClaim?.toLocaleString()}</p>
                           </div>
                         )}
                       </>

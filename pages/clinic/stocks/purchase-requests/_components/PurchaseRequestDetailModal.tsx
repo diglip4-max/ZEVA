@@ -1,5 +1,6 @@
 import React from "react";
 import { PurchaseRecord } from "@/types/stocks";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   FileText,
   X,
@@ -13,7 +14,6 @@ import {
   Mail,
   Tag,
   ShoppingCart,
-  DollarSign,
   Percent,
   Hash,
   Gift,
@@ -24,18 +24,20 @@ interface PurchaseRequestDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   purchaseRequest: PurchaseRecord | null;
+  clinicCurrency?: string;
 }
 
 const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
   isOpen,
   onClose,
   purchaseRequest,
+  clinicCurrency,
 }) => {
   if (!isOpen || !purchaseRequest) return null;
 
   const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined || amount === null) return "AED 0.00";
-    return `AED ${amount.toFixed(2)}`;
+    if (amount === undefined || amount === null) return `${getCurrencySymbol(clinicCurrency)} 0.00`;
+    return `${getCurrencySymbol(clinicCurrency)} ${amount.toFixed(2)}`;
   };
 
   const formatDate = (dateString: string | undefined) => {
@@ -488,61 +490,61 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <Hash className="w-4 h-4 mr-2 text-gray-500" />
+
                           Qty
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <Tag className="w-4 h-4 mr-2 text-gray-500" />
+
                           UOM
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
+
                           Unit Price
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
+
                           Total
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <Percent className="w-4 h-4 mr-2 text-gray-500" />
+
                           Discount
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
+
                           Net Price
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <Percent className="w-4 h-4 mr-2 text-gray-500" />
+
                           VAT %
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
+
                           VAT
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
+
                           Net + VAT
                         </div>
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <Gift className="w-4 h-4 mr-2 text-gray-500" />
+
                           Free Qty
                         </div>
                       </th>
@@ -594,13 +596,13 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                           <div className="flex items-center">
-                            <span className="text-green-600 mr-1">AED</span>
+                            <span className="text-green-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                             {(item.unitPrice || 0).toFixed(2)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                           <div className="flex items-center">
-                            <span className="text-green-600 mr-1">AED</span>
+                            <span className="text-green-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                             {(item.totalPrice || 0).toFixed(2)}
                           </div>
                         </td>
@@ -619,7 +621,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                           <div className="flex items-center">
-                            <span className="text-blue-600 mr-1">AED</span>
+                            <span className="text-blue-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                             {(item.netPrice || item.totalPrice || 0).toFixed(2)}
                           </div>
                         </td>
@@ -628,17 +630,17 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                           <div className="flex items-center">
-                            <span className="text-orange-600 mr-1">AED</span>
+                            <span className="text-orange-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                             {(item.vatAmount || 0).toFixed(2)}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                           <div className="flex items-center">
-                            <span className="text-purple-600 mr-1">AED</span>
+                            <span className="text-purple-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                             {(
                               item.netPlusVat ||
                               (item.netPrice || item.totalPrice) +
-                                (item.vatAmount || 0) ||
+                              (item.vatAmount || 0) ||
                               0
                             ).toFixed(2)}
                           </div>
@@ -668,7 +670,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                       </td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                         <div className="flex items-center justify-end">
-                          <span className="text-green-600 mr-1">AED</span>
+                          <span className="text-green-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) => sum + (item.totalPrice || 0),
@@ -682,7 +684,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                         <div className="flex items-center justify-end">
-                          <span className="text-blue-600 mr-1">AED</span>
+                          <span className="text-blue-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) => sum + (item.discountAmount || 0),
@@ -696,7 +698,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                         <div className="flex items-center justify-end">
-                          <span className="text-orange-600 mr-1">AED</span>
+                          <span className="text-orange-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) => sum + (item.vatAmount || 0),
@@ -707,14 +709,14 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                       </td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                         <div className="flex items-center justify-end">
-                          <span className="text-purple-600 mr-1">AED</span>
+                          <span className="text-purple-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) =>
                                 sum +
                                 (item.netPlusVat ||
                                   (item.netPrice || item.totalPrice) +
-                                    (item.vatAmount || 0)),
+                                  (item.vatAmount || 0)),
                               0,
                             )
                             .toFixed(2)}

@@ -44,7 +44,7 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden" role="application">
+    <div className="flex h-screen bg-slate-50 dark:bg-zinc-950 overflow-hidden" role="application">
       <AgentSidebar
         isDesktopHidden={isDesktopHidden}
         isMobileOpen={isMobileOpen}
@@ -58,7 +58,7 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
         style={getMainContentStyle()}
       >
         {/* Header - Visible on all screen sizes */}
-        <div className="flex-shrink-0 z-10 bg-white sticky top-0">
+        <div className="flex-shrink-0 z-10 bg-white dark:bg-zinc-900 sticky top-0">
           <AgentHeader
             handleToggleMobile={handleToggleMobile}
             isMobileOpen={isMobileOpen}

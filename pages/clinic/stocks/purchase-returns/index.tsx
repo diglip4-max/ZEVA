@@ -274,28 +274,37 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
             } else {
               // Admin has set permissions - check the clinic_stock_purchase_return module OR parent clinic_stock module's subModules
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                // Check for clinic_stock_purchase_return module variations
-                if (p.module === "clinic_stock_purchase_return") return true;
-                if (p.module === "stock_purchase_return") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_purchase_return" ||
+                  mod === "stock_purchase_return" ||
+                  modKey === "clinic_stock_purchase_return" ||
+                  modKey === "stock_purchase_return"
+                );
               });
 
-              console.log("Direct module permission found:", modulePermission);
-
-              // If not found as direct module, check parent clinic_stock module's subModules
+              // If not found as direct module, check parent module's subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) => 
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                
-                console.log("Parent stock module found:", parentStockModule);
-                
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) => 
-                    sm?.moduleKey === "clinic_stock_purchase_return"
-                  );
-                  console.log("Submodule permission found:", modulePermission);
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_purchase_return" ||
+                        key === "stock_purchase_return" ||
+                        name === "clinic_stock_purchase_return" ||
+                        name === "purchase returns" ||
+                        name === "purchase_returns" ||
+                        name === "stock_purchase_return"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: foundInSubModule.actions };
+                      break;
+                    }
+                  }
                 }
               }
 
@@ -723,6 +732,7 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
                 setRecordToDetail(null);
               }}
               purchaseReturn={recordToDetail}
+              clinicCurrency={clinicCurrency}
             />
           </div>
         </div>
@@ -927,13 +937,15 @@ const PurchaseReturnPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by adding your first purchase return.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                {" "}
-                <ShoppingCart className="h-5 w-5" /> Add First Return
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  {" "}
+                  <ShoppingCart className="h-5 w-5" /> Add First Return
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

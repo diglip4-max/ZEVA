@@ -4,6 +4,7 @@ import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
+// import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   PlusIcon,
   PencilIcon,
@@ -16,7 +17,6 @@ import {
   Home,
   LogOut,
   Package,
-  DollarSign,
   Percent,
   Loader2,
 } from "lucide-react";
@@ -56,6 +56,7 @@ const CustomStockItemsPage: NextPageWithLayout = ({
   contextOverride?: "clinic" | "agent" | null;
 }) => {
   const router = useRouter();
+  const token = getTokenByPath() || getStoredToken() || "";
   const { currency } = useCurrency();
   const [_routeContext, setRouteContext] = useState<"clinic" | "agent">(
     contextOverride || "clinic",
@@ -221,27 +222,27 @@ const CustomStockItemsPage: NextPageWithLayout = ({
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -301,33 +302,57 @@ const CustomStockItemsPage: NextPageWithLayout = ({
                 canDelete: true,
               });
             } else {
-              // Admin has set permissions - check the clinic_custom_stock_items module OR parent clinic_stock module's subModules
+              let parentActions = {};
+              const parentStockModule = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return mod === "clinic_stock" || mod === "stock" || modKey === "clinic_stock" || modKey === "stock";
+              });
+              if (parentStockModule && parentStockModule.actions) {
+                parentActions = parentStockModule.actions;
+              }
+
+              // First check for the specific module key
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module && !p?.moduleKey) return false;
-                // Check for clinic_custom_stock_items module variations
-                if (p.module === MODULE_KEY) return true;
-                if (p.moduleKey === MODULE_KEY) return true;
-                if (p.module === "custom_stock_items") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_custom_stock_items" ||
+                  mod === "custom_stock_items" ||
+                  modKey === "clinic_custom_stock_items" ||
+                  modKey === "custom_stock_items"
+                );
               });
 
               console.log("Direct module permission found:", modulePermission);
 
               // If not found as direct module, check parent clinic_stock module's subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find(
-                  (p: any) =>
-                    p?.module === "clinic_stock" && Array.isArray(p.subModules),
-                );
-
-                console.log("Parent stock module found:", parentStockModule);
-
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find(
-                    (sm: any) => sm?.moduleKey === MODULE_KEY,
-                  );
-                  console.log("Submodule permission found:", modulePermission);
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_custom_stock_items" ||
+                        key === "custom_stock_items" ||
+                        name === "clinic_custom_stock_items" ||
+                        name === "custom stock items" ||
+                        name === "custom_stock_items" ||
+                        name === "custom stock item" ||
+                        name === "custom_stock_item"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: { ...parentActions, ...foundInSubModule.actions } };
+                      break;
+                    }
+                  }
                 }
+              }
+
+              if (!modulePermission && parentStockModule) {
+                modulePermission = { actions: parentActions };
               }
 
               console.log({ modulePermission });
@@ -367,12 +392,12 @@ const CustomStockItemsPage: NextPageWithLayout = ({
                 console.log("Setting permissions:", newPermissions);
                 setPermissions(newPermissions);
               } else {
-                // Module permission not found in the permissions array - default to read-only
+                // Module permission not found in the permissions array - default to full access
                 setPermissions({
-                  canRead: true, // Clinic/doctor can always read their own data
-                  canCreate: false,
-                  canUpdate: false,
-                  canDelete: false,
+                  canRead: true,
+                  canCreate: true,
+                  canUpdate: true,
+                  canDelete: true,
                 });
               }
             }
@@ -512,7 +537,7 @@ const CustomStockItemsPage: NextPageWithLayout = ({
     async (page: number = 1, search: string = "") => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const token = getTokenByPath() || getStoredToken();
         const response = await axios.get(
           `/api/stocks/custom-stock-items?page=${page}&limit=${pagination.limit}&search=${encodeURIComponent(
             search,
@@ -594,7 +619,7 @@ const CustomStockItemsPage: NextPageWithLayout = ({
 
     try {
       setDeleting(true);
-      const token = getTokenByPath();
+      const token = getTokenByPath() || getStoredToken();
       const response = await axios.delete(
         `/api/stocks/custom-stock-items/delete/${currentItem._id}`,
         {
@@ -677,43 +702,43 @@ const CustomStockItemsPage: NextPageWithLayout = ({
     );
   }
 
-  // If canRead is false, show access denied
-  if (!permissions.canRead && !permissions.canCreate) {
-    return <AccessDenied />;
-  }
-
-  // If canRead is false but canCreate is true, show only add button
-  if (!permissions.canRead && permissions.canCreate) {
+  // Show access denied message if no read permission (but still allow create if permitted)
+  if (!permissions.canRead) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
-        <div className="mb-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                  Custom Stock Items
-                </h1>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-                  Manage your custom inventory items
-                </p>
-              </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
+            You do not have permission to view custom stock items. Please contact your administrator.
+          </p>
+          {/* Show create buttons even if read is denied but create is allowed */}
+          {permissions.canCreate && (
+            <div className="flex flex-col gap-2 mt-4">
               <button
-                onClick={() => setIsAddModalOpen(true)}
                 className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={() => setIsAddModalOpen(true)}
               >
                 <PlusIcon className="h-5 w-5 mr-2" />
                 Add Custom Item
               </button>
             </div>
-          </div>
+          )}
         </div>
-        {/* Add Custom Stock Item Modal */}
-        <AddCustomStockItemModal
-          token={getTokenByPath() || ""}
-          isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          onSuccess={handleAddSuccess}
-        />
+        {permissions.canCreate && (
+          <AddCustomStockItemModal
+            token={token || ""}
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            onSuccess={handleAddSuccess}
+          />
+        )}
       </div>
     );
   }
@@ -782,7 +807,7 @@ const CustomStockItemsPage: NextPageWithLayout = ({
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
                       <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-md">
-                        <DollarSign className="w-7 h-7 text-white" />
+                        <span className="text-white text-xl font-bold">{getCurrencySymbol(currency)}</span>
                       </div>
                     </div>
                     <div className="ml-5 flex-1">
@@ -838,6 +863,9 @@ const CustomStockItemsPage: NextPageWithLayout = ({
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <h2 className="text-xl font-semibold text-gray-900">
                     Custom Stock Items
+
+
+
                   </h2>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -995,32 +1023,30 @@ const CustomStockItemsPage: NextPageWithLayout = ({
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                {
-                                  New: "bg-blue-100 text-blue-800",
-                                  Allocated: "bg-green-100 text-green-800",
-                                  Expired: "bg-red-100 text-red-800",
-                                }[
-                                  item?.status as
-                                    | "New"
-                                    | "Allocated"
-                                    | "Expired"
-                                ] || "bg-gray-100 text-gray-800"
-                              }`}
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
+                                New: "bg-blue-100 text-blue-800",
+                                Allocated: "bg-green-100 text-green-800",
+                                Expired: "bg-red-100 text-red-800",
+                              }[
+                                item?.status as
+                                | "New"
+                                | "Allocated"
+                                | "Expired"
+                              ] || "bg-gray-100 text-gray-800"
+                                }`}
                             >
                               <span
-                                className={`h-2 w-2 rounded-full mr-2 ${
-                                  {
-                                    New: "bg-blue-500",
-                                    Allocated: "bg-green-500",
-                                    Expired: "bg-red-500",
-                                  }[
-                                    item?.status as
-                                      | "New"
-                                      | "Allocated"
-                                      | "Expired"
-                                  ] || "bg-gray-500"
-                                }`}
+                                className={`h-2 w-2 rounded-full mr-2 ${{
+                                  New: "bg-blue-500",
+                                  Allocated: "bg-green-500",
+                                  Expired: "bg-red-500",
+                                }[
+                                  item?.status as
+                                  | "New"
+                                  | "Allocated"
+                                  | "Expired"
+                                ] || "bg-gray-500"
+                                  }`}
                               />
                               {item?.status.replace(/_/g, " ")}
                             </span>
@@ -1149,7 +1175,7 @@ const CustomStockItemsPage: NextPageWithLayout = ({
       {/* Edit Custom Stock Item Modal */}
       {permissions.canUpdate && (
         <EditCustomStockItemModal
-          token={getTokenByPath() || ""}
+          token={token || ""}
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);

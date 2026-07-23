@@ -75,7 +75,8 @@ UserSchema.pre("save", async function (next) {
   if (
     this.isModified("password") &&
     this.password &&
-    !this.password.startsWith("$2b$")
+    !this.password.startsWith("$2b$") &&
+    !this.password.startsWith("$2a$")
   ) {
     this.password = await bcrypt.hash(this.password, 10);
     // Set passwordChangedAt timestamp when password is modified

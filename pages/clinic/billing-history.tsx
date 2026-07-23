@@ -1139,7 +1139,10 @@ const BillingHistoryPage = () => {
               {(selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment) && (
                 <div className="p-3 bg-white rounded-lg border border-gray-200">
                   <p className="text-[10px] text-gray-500 uppercase mb-1">{selectedPaymentHistoryBilling.service === 'Package' ? 'Package' : 'Treatment'}</p>
-                  <p className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                    <p className="text-xs font-bold text-green-700">Paid: {getCurrencySymbol(clinicCurrency)}{formatCurrency(selectedPaymentHistoryBilling.paid)}</p>
+                  </div>
                   {selectedPaymentHistoryBilling.selectedPackageTreatments && selectedPaymentHistoryBilling.selectedPackageTreatments.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {selectedPaymentHistoryBilling.selectedPackageTreatments.map((treatment: any, idx: number) => (
@@ -1149,6 +1152,18 @@ const BillingHistoryPage = () => {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Pending Amount Card */}
+              {selectedPaymentHistoryBilling.pending > 0 && (
+                <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                  <p className="text-[10px] text-orange-700 uppercase font-bold mb-1">
+                    Pending Amount ({selectedPaymentHistoryBilling.invoiceNumber || 'N/A'})
+                  </p>
+                  <p className="text-sm font-bold text-orange-800">
+                    {getCurrencySymbol(clinicCurrency)}{formatCurrency(selectedPaymentHistoryBilling.pending)}
+                  </p>
                 </div>
               )}
 
@@ -1180,7 +1195,7 @@ const BillingHistoryPage = () => {
                     const currentPaid = Number(entry.paid || 0);
                     const paymentAmount = currentPaid - prevPaid;
                     const subPayments = entry.multiplePayments || [];
-                    const isMultiPay = subPayments.length > 1;
+                    const isMultiPay = subPayments.length >= 1;
 
                     if (paymentAmount > 0) {
                       if (isMultiPay) {
@@ -1193,6 +1208,20 @@ const BillingHistoryPage = () => {
                             status: entry.status,
                             transactionType: sub.transactionType || (i === 0 ? 'INITIAL_PAYMENT' : 'PENDING_CLEARANCE'),
                             paidByName: sub.paidByName || entry.paidByName || billing.invoicedBy || 'N/A',
+                          });
+                        }
+
+                        // If paymentAmount is greater than the sum of sub-payments, push the remaining as a base/initial payment
+                        const subPaymentsSum = subPayments.reduce((sum: number, sub: any) => sum + Number(sub.amount || 0), 0);
+                        const remainingAmount = paymentAmount - subPaymentsSum;
+                        if (remainingAmount > 0) {
+                          allPayments.push({
+                            paymentMethod: entry.paymentMethod || billing.paymentMethod || 'Cash',
+                            amount: remainingAmount,
+                            paidAt: entry.updatedAt,
+                            status: entry.status,
+                            transactionType: i === 0 ? 'INITIAL_PAYMENT' : 'PAYMENT',
+                            paidByName: entry.paidByName || billing.invoicedBy || 'N/A',
                           });
                         }
                       } else {
@@ -1238,7 +1267,7 @@ const BillingHistoryPage = () => {
                       <div className="space-y-3">
                         {paymentsToShow.map((payment: any, idx: number) => (
                           <div key={idx} className="relative">
-                            <div className={`p-4 rounded-xl border-2 ${payment.transactionType === 'ADVANCE_USAGE'
+                            <div className={`relative p-4 rounded-xl border-2 ${payment.transactionType === 'ADVANCE_USAGE'
                               ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
                               : payment.transactionType === 'CLAIM_USAGE'
                                 ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
@@ -1246,6 +1275,24 @@ const BillingHistoryPage = () => {
                                   ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
                                   : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
                               }`}>
+                              {/* Cleared Invoice Badge */}
+                              {(() => {
+                                if (payment.transactionType === 'PENDING_CLEARANCE') {
+                                  const clearanceIndex = paymentsToShow
+                                    .slice(0, idx + 1)
+                                    .filter((p: any) => p.transactionType === 'PENDING_CLEARANCE')
+                                    .length - 1;
+                                  const matchingBreakdown = selectedPaymentHistoryBilling.pendingClearedBreakdown?.[clearanceIndex];
+                                  if (matchingBreakdown && matchingBreakdown.invoiceNumber) {
+                                    return (
+                                      <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[8px] md:text-[9px] font-bold px-2.5 py-0.5 rounded-tr-[10px] rounded-bl-lg uppercase tracking-wider shadow-sm">
+                                        Cleared Invoice: {matchingBreakdown.invoiceNumber}
+                                      </div>
+                                    );
+                                  }
+                                }
+                                return null;
+                              })()}
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
                                   <div className={`p-2.5 rounded-xl ${payment.paymentMethod === 'Cash' ? 'bg-green-100' :
@@ -1276,13 +1323,13 @@ const BillingHistoryPage = () => {
                                   <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(clinicCurrency)}{formatCurrency(payment.amount)}</p>
                                   <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${payment.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
                                     payment.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
-                                      payment.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
+                                      (payment.transactionType === 'PENDING_CLEARANCE' && selectedPaymentHistoryBilling.pending === 0) ? 'bg-green-100 text-green-700' :
                                         payment.status === 'Completed' ? 'bg-green-100 text-green-700' :
                                           'bg-gray-100 text-gray-600'
                                     }`}>
                                     {payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
                                       payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
-                                        payment.transactionType === 'PENDING_CLEARANCE' ? 'Pending Clear' :
+                                        (payment.transactionType === 'PENDING_CLEARANCE' && selectedPaymentHistoryBilling.pending === 0) ? 'Pending Clear' :
                                           payment.status === 'Completed' ? 'Paid' :
                                             'Payment'}
                                   </span>

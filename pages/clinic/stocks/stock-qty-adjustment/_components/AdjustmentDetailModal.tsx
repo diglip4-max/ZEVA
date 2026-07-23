@@ -11,23 +11,26 @@ import {
   User,
   Hash,
   ShoppingCart,
-  DollarSign,
   Tag,
   Package,
   AlertCircle,
   Printer,
 } from "lucide-react";
 
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   record: any | null;
+  clinicCurrency?: string;
 }
 
 const AdjustmentDetailModal: React.FC<Props> = ({
   isOpen,
   onClose,
   record,
+  clinicCurrency,
 }) => {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,8 +72,9 @@ const AdjustmentDetailModal: React.FC<Props> = ({
   };
 
   const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined || amount === null) return "AED 0.00";
-    return `AED ${amount.toFixed(2)}`;
+    const symbol = getCurrencySymbol(clinicCurrency);
+    if (amount === undefined || amount === null) return `${symbol} 0.00`;
+    return `${symbol} ${amount.toFixed(2)}`;
   };
 
   const getStatusColor = (status: string) => {
@@ -308,52 +312,28 @@ const AdjustmentDetailModal: React.FC<Props> = ({
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Hash className="w-4 h-4 mr-2 text-gray-500" />
-                            SI No
-                          </div>
+                          SI No
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <ShoppingCart className="w-4 h-4 mr-2 text-gray-500" />
-                            Item Name
-                          </div>
+                          Item Name
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Hash className="w-4 h-4 mr-2 text-gray-500" />
-                            Code
-                          </div>
+                          Code
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Hash className="w-4 h-4 mr-2 text-gray-500" />
-                            Qty
-                          </div>
+                          Qty
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Tag className="w-4 h-4 mr-2 text-gray-500" />
-                            UOM
-                          </div>
+                          UOM
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                            Expiry
-                          </div>
+                          Expiry
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
-                            Cost Price
-                          </div>
+                          Cost Price
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <DollarSign className="w-4 h-4 mr-2 text-gray-500" />
-                            Total
-                          </div>
+                          Total
                         </th>
                       </tr>
                     </thead>
@@ -419,13 +399,13 @@ const AdjustmentDetailModal: React.FC<Props> = ({
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                               <div className="flex items-center">
-                                <span className="text-green-600 mr-1">AED</span>
+                                <span className="text-green-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                                 {(item.costPrice || 0).toFixed(2)}
                               </div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                               <div className="flex items-center">
-                                <span className="text-green-600 mr-1">AED</span>
+                                <span className="text-green-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                                 {(item.totalPrice || 0).toFixed(2)}
                               </div>
                             </td>
@@ -444,7 +424,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
                           </td>
                           <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                             <div className="flex items-center justify-end">
-                              <span className="text-green-600 mr-1">AED</span>
+                              <span className="text-green-600 mr-1">{getCurrencySymbol(clinicCurrency)}</span>
                               {getTotalAmount().toFixed(2)}
                             </div>
                           </td>

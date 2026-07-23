@@ -19,6 +19,7 @@ import EditPurchaseOrderModal from "./_components/EditPurchaseOrderModal";
 import PurchaseOrderDetailModal from "./_components/PurchaseOrderDetailModal";
 import ConvertPurchaseRequestModal from "./_components/ConvertPurchaseRequestModal";
 import FilterModal from "./_components/FilterModal";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 // import AddStockItemModal from "@/components/shared/AddStockItemModal";
 
@@ -64,7 +65,7 @@ const getUserInfo = (): { role: string | null; id: string | null } => {
 const getUserRole = (): string | null => getUserInfo().role;
 
 const PurchaseOrdersPage: NextPageWithLayout = () => {
-  const token = getTokenByPath();
+  const token = getTokenByPath() || getStoredToken();
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -203,6 +204,32 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
     }
   }, [searchTerm, filterData, _permissionsLoaded]);
 
+
+
+  const [clinicCurrency, setClinicCurrency] = useState<string>("INR");
+
+  // Fetch clinic currency
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const token = getTokenByPath();
+        const res = await axios.get("/api/clinics/myallClinic", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.success && res.data.clinic?.currency) {
+          setClinicCurrency(res.data.clinic.currency);
+        }
+      } catch (err) {
+        console.error("Error fetching clinic currency:", err);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
+
+
+
+
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -228,27 +255,27 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
   const clinicToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("clinicToken") ||
-        window.sessionStorage.getItem("clinicToken")
+      window.sessionStorage.getItem("clinicToken")
       : null;
   const doctorToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("doctorToken") ||
-        window.sessionStorage.getItem("doctorToken")
+      window.sessionStorage.getItem("doctorToken")
       : null;
   const agentToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("agentToken") ||
-        window.sessionStorage.getItem("agentToken")
+      window.sessionStorage.getItem("agentToken")
       : null;
   const staffToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("staffToken") ||
-        window.sessionStorage.getItem("staffToken")
+      window.sessionStorage.getItem("staffToken")
       : null;
   const userToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("userToken") ||
-        window.sessionStorage.getItem("userToken")
+      window.sessionStorage.getItem("userToken")
       : null;
 
   // Handle clinic permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
@@ -312,23 +339,40 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
               // Admin has set permissions - check the clinic_stock_purchase_orders module
               // First check for the specific module key
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_purchase_orders") return true;
-                if (p.module === "clinic_stock_Purchase_Orders") return true;
-                if (p.module === "purchase_orders") return true;
-                if (p.module === "stock_purchase_orders") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_purchase_orders" ||
+                  mod === "purchase_orders" ||
+                  mod === "stock_purchase_orders" ||
+                  modKey === "clinic_stock_purchase_orders" ||
+                  modKey === "purchase_orders" ||
+                  modKey === "stock_purchase_orders"
+                );
               });
 
-              // If not found as direct module, check parent clinic_stock module's subModules
+              // If not found as direct module, check parent module's subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_purchase_orders"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_purchase_orders" ||
+                        key === "purchase_orders" ||
+                        key === "stock_purchase_orders" ||
+                        name === "clinic_stock_purchase_orders" ||
+                        name === "purchase orders" ||
+                        name === "purchase_orders" ||
+                        name === "stock_purchase_orders"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: foundInSubModule.actions };
+                      break;
+                    }
+                  }
                 }
               }
 
@@ -750,6 +794,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
               isOpen={isDetailModalOpen}
               onClose={handleDetailCancel}
               purchaseOrder={purchaseOrderForDetail}
+              clinicCurrency={clinicCurrency}
             />
           </div>
 
@@ -921,10 +966,10 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
       </div>
 
       {/* Enhanced Data Table Section */}
-      <div className="max-w-9xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="max-w-9xl mx-auto pb-32">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200">
           {/* Table Header */}
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">
                 Purchase Orders
@@ -1005,19 +1050,19 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by adding your first purchase order.
               </p>
-              <button
-                onClick={handleAddPurchaseOrder}
-                className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
-                disabled={!permissions.canCreate}
-                title={!permissions.canCreate ? "You do not have permission to add purchase orders" : ""}
-              >
-                <ShoppingCart className="h-5 w-5" />
-                Add First Order
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAddPurchaseOrder}
+                  className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  Add First Order
+                </button>
+              )}
             </div>
           ) : (
             /* Data Table */
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto pb-32 min-h-[400px]">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
@@ -1084,7 +1129,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                           {order.items.length}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          AED{" "}
+                          {getCurrencySymbol(clinicCurrency)}{" "}
                           {order.items
                             .reduce(
                               (sum: number, item: any) => sum + item.totalPrice,
@@ -1094,63 +1139,61 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              {
-                                New: "bg-blue-100 text-blue-800",
-                                Approved: "bg-green-100 text-green-800",
-                                Partly_Delivered:
-                                  "bg-yellow-100 text-yellow-800",
-                                Delivered: "bg-teal-100 text-teal-800",
-                                Partly_Invoiced:
-                                  "bg-orange-100 text-orange-800",
-                                Invoiced: "bg-emerald-100 text-emerald-800",
-                                Rejected: "bg-red-100 text-red-800",
-                                Cancelled: "bg-gray-100 text-gray-800",
-                                Deleted: "bg-gray-100 text-gray-800",
-                                Converted_To_PO:
-                                  "bg-purple-100 text-purple-800",
-                              }[
-                                order.status as
-                                  | "New"
-                                  | "Approved"
-                                  | "Partly_Delivered"
-                                  | "Delivered"
-                                  | "Partly_Invoiced"
-                                  | "Invoiced"
-                                  | "Rejected"
-                                  | "Cancelled"
-                                  | "Deleted"
-                                  | "Converted_To_PO"
-                              ] || "bg-gray-100 text-gray-800"
-                            }`}
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
+                              New: "bg-blue-100 text-blue-800",
+                              Approved: "bg-green-100 text-green-800",
+                              Partly_Delivered:
+                                "bg-yellow-100 text-yellow-800",
+                              Delivered: "bg-teal-100 text-teal-800",
+                              Partly_Invoiced:
+                                "bg-orange-100 text-orange-800",
+                              Invoiced: "bg-emerald-100 text-emerald-800",
+                              Rejected: "bg-red-100 text-red-800",
+                              Cancelled: "bg-gray-100 text-gray-800",
+                              Deleted: "bg-gray-100 text-gray-800",
+                              Converted_To_PO:
+                                "bg-purple-100 text-purple-800",
+                            }[
+                              order.status as
+                              | "New"
+                              | "Approved"
+                              | "Partly_Delivered"
+                              | "Delivered"
+                              | "Partly_Invoiced"
+                              | "Invoiced"
+                              | "Rejected"
+                              | "Cancelled"
+                              | "Deleted"
+                              | "Converted_To_PO"
+                            ] || "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             <span
-                              className={`h-2 w-2 rounded-full mr-2 ${
-                                {
-                                  New: "bg-blue-500",
-                                  Approved: "bg-green-500",
-                                  Partly_Delivered: "bg-yellow-500",
-                                  Delivered: "bg-teal-500",
-                                  Partly_Invoiced: "bg-orange-500",
-                                  Invoiced: "bg-emerald-500",
-                                  Rejected: "bg-red-500",
-                                  Cancelled: "bg-gray-500",
-                                  Deleted: "bg-gray-500",
-                                  Converted_To_PO: "bg-purple-500",
-                                }[
-                                  order.status as
-                                    | "New"
-                                    | "Approved"
-                                    | "Partly_Delivered"
-                                    | "Delivered"
-                                    | "Partly_Invoiced"
-                                    | "Invoiced"
-                                    | "Rejected"
-                                    | "Cancelled"
-                                    | "Deleted"
-                                    | "Converted_To_PO"
-                                ] || "bg-gray-500"
-                              }`}
+                              className={`h-2 w-2 rounded-full mr-2 ${{
+                                New: "bg-blue-500",
+                                Approved: "bg-green-500",
+                                Partly_Delivered: "bg-yellow-500",
+                                Delivered: "bg-teal-500",
+                                Partly_Invoiced: "bg-orange-500",
+                                Invoiced: "bg-emerald-500",
+                                Rejected: "bg-red-500",
+                                Cancelled: "bg-gray-500",
+                                Deleted: "bg-gray-500",
+                                Converted_To_PO: "bg-purple-500",
+                              }[
+                                order.status as
+                                | "New"
+                                | "Approved"
+                                | "Partly_Delivered"
+                                | "Delivered"
+                                | "Partly_Invoiced"
+                                | "Invoiced"
+                                | "Rejected"
+                                | "Cancelled"
+                                | "Deleted"
+                                | "Converted_To_PO"
+                              ] || "bg-gray-500"
+                                }`}
                             />
                             {order.status.replace(/_/g, " ")}
                           </span>
@@ -1203,11 +1246,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                             </button>
                             <div
                               id={`menu-${order._id}`}
-                              className={`hidden absolute ${
-                                index >= displayData?.length - 2 && index >= 1
-                                  ? "bottom-0 right-0"
-                                  : "right-0"
-                              } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
+                              className={`hidden absolute mt-2 right-0 z-50 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
                                 {![
@@ -1223,26 +1262,26 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                   "Converted_To_PI",
                                   "Converted_To_GRN",
                                 ]?.includes(order.status) && (
-                                  <button
-                                    onClick={() => {
-                                      handleEditClick(order);
-                                      // Close the dropdown after clicking
-                                      const menuEl = document.getElementById(
-                                        `menu-${order._id}`,
-                                      );
-                                      if (menuEl) {
-                                        menuEl.classList.remove("block");
-                                        menuEl.classList.add("hidden");
-                                      }
-                                    }}
-                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <div className="flex items-center">
-                                      <PencilIcon className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </div>
-                                  </button>
-                                )}
+                                    <button
+                                      onClick={() => {
+                                        handleEditClick(order);
+                                        // Close the dropdown after clicking
+                                        const menuEl = document.getElementById(
+                                          `menu-${order._id}`,
+                                        );
+                                        if (menuEl) {
+                                          menuEl.classList.remove("block");
+                                          menuEl.classList.add("hidden");
+                                        }
+                                      }}
+                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      <div className="flex items-center">
+                                        <PencilIcon className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </div>
+                                    </button>
+                                  )}
                                 <button
                                   onClick={() => {
                                     // Open print page in new tab
@@ -1416,7 +1455,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                       />
                                     </svg>
                                     <span>
-                                      AED{" "}
+                                      {getCurrencySymbol(clinicCurrency)}{" "}
                                       {order.items
                                         .reduce(
                                           (sum: number, item: any) =>
@@ -1698,7 +1737,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                               <div className="flex items-center">
                                                 <span className="text-green-600 mr-1">
-                                                  AED
+                                                  {getCurrencySymbol(clinicCurrency)}
                                                 </span>
                                                 {item.unitPrice.toFixed(2)}
                                               </div>
@@ -1706,7 +1745,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                               <div className="flex items-center">
                                                 <span className="text-green-600 mr-1">
-                                                  AED
+                                                  {getCurrencySymbol(clinicCurrency)}
                                                 </span>
                                                 {item.totalPrice.toFixed(2)}
                                               </div>
@@ -1716,7 +1755,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                                 <span>
                                                   {item.discount || 0}
                                                   {item.discountType ===
-                                                  "Percentage"
+                                                    "Percentage"
                                                     ? "%"
                                                     : ""}
                                                 </span>
@@ -1730,7 +1769,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                               <div className="flex items-center">
                                                 <span className="text-blue-600 mr-1">
-                                                  AED
+                                                  {getCurrencySymbol(clinicCurrency)}
                                                 </span>
                                                 {(
                                                   item.netPrice ||
@@ -1746,7 +1785,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                                               <div className="flex items-center">
                                                 <span className="text-orange-600 mr-1">
-                                                  AED
+                                                  {getCurrencySymbol(clinicCurrency)}
                                                 </span>
                                                 {(item.vatAmount || 0).toFixed(
                                                   2,
@@ -1756,13 +1795,13 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                                               <div className="flex items-center">
                                                 <span className="text-purple-600 mr-1">
-                                                  AED
+                                                  {getCurrencySymbol(clinicCurrency)}
                                                 </span>
                                                 {(
                                                   item.netPlusVat ||
                                                   (item.netPrice ||
                                                     item.totalPrice) +
-                                                    (item.vatAmount || 0)
+                                                  (item.vatAmount || 0)
                                                 ).toFixed(2)}
                                               </div>
                                             </td>
@@ -1794,7 +1833,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-green-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1813,7 +1852,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-blue-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1833,7 +1872,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-orange-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1847,7 +1886,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-purple-600 mr-1">
-                                              AED
+                                              {getCurrencySymbol(clinicCurrency)}
                                             </span>
                                             {order.items
                                               .reduce(
@@ -1856,7 +1895,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                                   (item.netPlusVat ||
                                                     (item.netPrice ||
                                                       item.totalPrice) +
-                                                      (item.vatAmount || 0)),
+                                                    (item.vatAmount || 0)),
                                                 0,
                                               )
                                               .toFixed(2)}
@@ -1926,11 +1965,10 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                         <button
                           key={pageNum}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            pageNum === pagination.currentPage
-                              ? "bg-blue-600 text-white"
-                              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-                          }`}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${pageNum === pagination.currentPage
+                            ? "bg-blue-600 text-white"
+                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            }`}
                         >
                           {pageNum}
                         </button>

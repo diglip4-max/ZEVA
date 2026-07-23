@@ -22,6 +22,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   record: any | null;
+  clinicCurrency?: string;
 }
 
 const PurchaseInvoiceDetailModal: React.FC<Props> = ({

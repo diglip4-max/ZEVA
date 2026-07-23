@@ -25,6 +25,8 @@ import {
 import { toast } from "react-hot-toast";
 import usePaymentMethod from "@/hooks/usePaymentMethod";
 import { useRouter } from "next/router";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 // Types
 interface QuantityByUom {
@@ -158,6 +160,7 @@ const formatExpiryDate = (dateString?: string): string => {
 
 const NewProductSalesPage: NextPageWithLayout = () => {
   const router = useRouter();
+  const { currency } = useCurrency();
   const { doctorId, patientId } = router.query as {
     doctorId: string;
     patientId: string;
@@ -1208,7 +1211,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                                         </span>
                                       </div>
                                       <div className="text-sm font-semibold text-teal-600">
-                                        AED {prices.salePrice.toFixed(2)}
+                                        {getCurrencySymbol(currency)} {prices.salePrice.toFixed(2)}
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200">
@@ -1379,7 +1382,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-600">Price:</span>
                           <div className="flex-1 flex items-center gap-2">
-                            <span className="text-sm text-gray-800">AED</span>
+                            <span className="text-sm text-gray-800">{getCurrencySymbol(currency)}</span>
                             <input
                               type="number"
                               step="0.01"
@@ -1410,7 +1413,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                               Commission:
                             </span>
                             <span className="text-xs text-purple-600 font-semibold">
-                              AED {entry.commission.toFixed(2)}
+                              {getCurrencySymbol(currency)} {entry.commission.toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -1419,7 +1422,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         <div className="flex items-center justify-between pt-1 border-t border-gray-200">
                           <span className="text-xs text-gray-600">Total:</span>
                           <span className="text-sm font-semibold text-teal-600">
-                            AED{" "}
+                            {getCurrencySymbol(currency)}{" "}
                             {(
                               entry.effectivePrice * entry.cartItem.quantity
                             ).toFixed(2)}
@@ -1594,14 +1597,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
-                      AED {subtotal.toFixed(2)}
+                      {getCurrencySymbol(currency)} {subtotal.toFixed(2)}
                     </span>
                   </div>
                   {previousPending > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Previous Pending:</span>
                       <span className="font-semibold text-orange-600">
-                        AED {previousPending.toFixed(2)}
+                        {getCurrencySymbol(currency)} {previousPending.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1610,7 +1613,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Payable:
                     </span>
                     <span className="font-bold text-teal-600">
-                      AED {total.toFixed(2)}
+                      {getCurrencySymbol(currency)} {total.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1620,19 +1623,19 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600">Advance Balance:</span>
                     <span className="font-medium text-teal-600">
-                      AED {balances.advanceBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)} {balances.advanceBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600">Pending Balance:</span>
                     <span className="font-medium text-orange-600">
-                      AED {balances.pendingBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)} {balances.pendingBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-600">Claim Amount:</span>
                     <span className="font-medium text-blue-600">
-                      AED {balances.claimAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)} {balances.claimAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1648,7 +1651,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                     />
                     <span className="text-sm text-gray-700">
-                      Use Advance Balance (AED {advanceUsed.toFixed(2)})
+                      Use Advance Balance ({getCurrencySymbol(currency)} {advanceUsed.toFixed(2)})
                     </span>
                   </label>
                 </div>
@@ -1659,7 +1662,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-teal-600">
                       <span>Advance Applied:</span>
                       <span className="font-semibold">
-                        AED {advanceUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)} {advanceUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1667,7 +1670,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-blue-600">
                       <span>Claim Applied:</span>
                       <span className="font-semibold">
-                        AED {claimAmountUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)} {claimAmountUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1679,7 +1682,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     Amount Paid Now
                   </label>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">AED</span>
+                    <span className="text-sm text-gray-600">{getCurrencySymbol(currency)}</span>
                     <input
                       type="number"
                       step="0.01"
@@ -1701,7 +1704,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Applied (Paid + Advances):
                     </span>
                     <span className="font-semibold text-gray-900">
-                      AED {totalApplied.toFixed(2)}
+                      {getCurrencySymbol(currency)} {totalApplied.toFixed(2)}
                     </span>
                   </div>
                   {pendingCleared > 0 && (
@@ -1710,7 +1713,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         Previous Pending Cleared:
                       </span>
                       <span className="font-semibold text-orange-600">
-                        AED {pendingCleared.toFixed(2)}
+                        {getCurrencySymbol(currency)} {pendingCleared.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1720,7 +1723,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         New Advance Created:
                       </span>
                       <span className="font-semibold text-teal-600">
-                        AED {newAdvanceCreated.toFixed(2)}
+                        {getCurrencySymbol(currency)} {newAdvanceCreated.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1729,7 +1732,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <span
                       className={`font-semibold ${pendingAmount > 0 ? "text-orange-600" : "text-gray-900"}`}
                     >
-                      AED {pendingAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)} {pendingAmount.toFixed(2)}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-200">
@@ -1738,7 +1741,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         New Advance Balance:
                       </span>
                       <span className="font-semibold text-teal-600">
-                        AED{" "}
+                        {getCurrencySymbol(currency)}{" "}
                         {(
                           balances.advanceBalance -
                           advanceUsed +
@@ -1751,7 +1754,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                         New Pending Balance:
                       </span>
                       <span className="font-semibold text-orange-600">
-                        AED{" "}
+                        {getCurrencySymbol(currency)}{" "}
                         {(
                           previousPending -
                           pendingCleared +
@@ -1773,14 +1776,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-600">Products Amount</span>
                   <span className="font-semibold text-gray-900">
-                    AED {subtotal.toFixed(2)}
+                    {getCurrencySymbol(currency)} {subtotal.toFixed(2)}
                   </span>
                 </div>
                 {previousPending > 0 && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Previous Pending</span>
                     <span className="font-semibold text-orange-600">
-                      AED {previousPending.toFixed(2)}
+                      {getCurrencySymbol(currency)} {previousPending.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -1788,7 +1791,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-purple-600">Total Commission</span>
                     <span className="font-semibold text-purple-600">
-                      AED {totalCommission.toFixed(2)}
+                      {getCurrencySymbol(currency)} {totalCommission.toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -1797,7 +1800,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     Grand Total
                   </span>
                   <span className="text-xl font-bold text-teal-600">
-                    AED {total.toFixed(2)}
+                    {getCurrencySymbol(currency)} {total.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -1886,12 +1889,12 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                             {entry.item.item.name}
                           </span>
                           <div className="text-xs text-gray-500">
-                            {entry.cartItem.quantity} {entry.cartItem.uom} × AED{" "}
+                            {entry.cartItem.quantity} {entry.cartItem.uom} × {getCurrencySymbol(currency)}{" "}
                             {entry.prices.salePrice.toFixed(2)}
                           </div>
                         </div>
                         <span className="font-semibold text-gray-900">
-                          AED{" "}
+                          {getCurrencySymbol(currency)}{" "}
                           {(
                             entry.prices.salePrice * entry.cartItem.quantity
                           ).toFixed(2)}
@@ -1908,14 +1911,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
-                      AED {currentSaleData.subtotal.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.subtotal.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.previousPending > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Previous Pending:</span>
                       <span className="font-semibold text-orange-600">
-                        AED {currentSaleData.previousPending.toFixed(2)}
+                        {getCurrencySymbol(currency)} {currentSaleData.previousPending.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1924,7 +1927,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Payable:
                     </span>
                     <span className="text-xl font-bold text-teal-600">
-                      AED {currentSaleData.total.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.total.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1937,14 +1940,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Paid Now (Cash/Card):</span>
                     <span className="font-semibold text-gray-900">
-                      AED {currentSaleData.paidAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.paidAmount.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.advanceUsed > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-teal-600">Advance Used:</span>
                       <span className="font-semibold text-teal-600">
-                        AED {currentSaleData.advanceUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)} {currentSaleData.advanceUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1952,7 +1955,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-blue-600">Claim Used:</span>
                       <span className="font-semibold text-blue-600">
-                        AED {currentSaleData.claimAmountUsed.toFixed(2)}
+                        {getCurrencySymbol(currency)} {currentSaleData.claimAmountUsed.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1961,14 +1964,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Applied:
                     </span>
                     <span className="font-semibold text-gray-900">
-                      AED {currentSaleData.totalApplied.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.totalApplied.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.pendingCleared > 0 && (
                     <div className="flex justify-between text-sm text-orange-600">
                       <span>Previous Pending Cleared:</span>
                       <span className="font-semibold">
-                        AED {currentSaleData.pendingCleared.toFixed(2)}
+                        {getCurrencySymbol(currency)} {currentSaleData.pendingCleared.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1976,7 +1979,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     <div className="flex justify-between text-sm text-teal-600">
                       <span>New Advance Created:</span>
                       <span className="font-semibold">
-                        AED {currentSaleData.newAdvanceCreated.toFixed(2)}
+                        {getCurrencySymbol(currency)} {currentSaleData.newAdvanceCreated.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -1989,7 +1992,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                           : "text-gray-900"
                       }`}
                     >
-                      AED {currentSaleData.pendingAmount.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.pendingAmount.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -2002,7 +2005,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-teal-700">New Advance Balance:</span>
                     <span className="font-semibold text-teal-700">
-                      AED {currentSaleData.newAdvanceBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.newAdvanceBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -2010,7 +2013,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       New Pending Balance:
                     </span>
                     <span className="font-semibold text-orange-700">
-                      AED {currentSaleData.newPendingBalance.toFixed(2)}
+                      {getCurrencySymbol(currency)} {currentSaleData.newPendingBalance.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -2104,7 +2107,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
-                      AED {transaction.subtotal}
+                      {getCurrencySymbol(currency)} {transaction.subtotal}
                     </span>
                   </div>
                   {transaction.previousPending &&
@@ -2112,7 +2115,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Previous Pending:</span>
                         <span className="font-semibold text-orange-600">
-                          AED {transaction.previousPending}
+                          {getCurrencySymbol(currency)} {transaction.previousPending}
                         </span>
                       </div>
                     )}
@@ -2121,7 +2124,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Payable:
                     </span>
                     <span className="font-bold text-teal-600">
-                      AED {transaction.total}
+                      {getCurrencySymbol(currency)} {transaction.total}
                     </span>
                   </div>
                 </div>
@@ -2136,7 +2139,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Paid Now:</span>
                     <span className="font-semibold text-gray-900">
-                      AED {transaction.paidAmount}
+                      {getCurrencySymbol(currency)} {transaction.paidAmount}
                     </span>
                   </div>
                   {transaction.advanceUsed &&
@@ -2144,7 +2147,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-teal-600">Advance Used:</span>
                         <span className="font-semibold text-teal-600">
-                          AED {transaction.advanceUsed}
+                          {getCurrencySymbol(currency)} {transaction.advanceUsed}
                         </span>
                       </div>
                     )}
@@ -2153,7 +2156,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-blue-600">Claim Used:</span>
                         <span className="font-semibold text-blue-600">
-                          AED {transaction.claimAmountUsed}
+                          {getCurrencySymbol(currency)} {transaction.claimAmountUsed}
                         </span>
                       </div>
                     )}
@@ -2162,7 +2165,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       Total Applied:
                     </span>
                     <span className="font-semibold text-gray-900">
-                      AED {transaction.totalApplied}
+                      {getCurrencySymbol(currency)} {transaction.totalApplied}
                     </span>
                   </div>
                   {transaction.pendingCleared &&
@@ -2170,7 +2173,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm text-orange-600">
                         <span>Previous Pending Cleared:</span>
                         <span className="font-semibold">
-                          AED {transaction.pendingCleared}
+                          {getCurrencySymbol(currency)} {transaction.pendingCleared}
                         </span>
                       </div>
                     )}
@@ -2179,7 +2182,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       <div className="flex justify-between text-sm text-teal-600">
                         <span>New Advance Created:</span>
                         <span className="font-semibold">
-                          AED {transaction.newAdvanceCreated}
+                          {getCurrencySymbol(currency)} {transaction.newAdvanceCreated}
                         </span>
                       </div>
                     )}
@@ -2193,7 +2196,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                           : "text-gray-900"
                       }`}
                     >
-                      AED {transaction.pendingAmount}
+                      {getCurrencySymbol(currency)} {transaction.pendingAmount}
                     </span>
                   </div>
                 </div>
@@ -2208,13 +2211,13 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-teal-700">Advance Balance:</span>
                     <span className="font-semibold text-teal-700">
-                      AED {transaction.newAdvanceBalance}
+                      {getCurrencySymbol(currency)} {transaction.newAdvanceBalance}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-orange-700">Pending Balance:</span>
                     <span className="font-semibold text-orange-700">
-                      AED {transaction.newPendingBalance}
+                      {getCurrencySymbol(currency)} {transaction.newPendingBalance}
                     </span>
                   </div>
                 </div>
@@ -2254,7 +2257,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   Total Paid
                 </span>
                 <span className="text-lg font-bold text-gray-900">
-                  AED {transaction.total}
+                  {getCurrencySymbol(currency)} {transaction.total}
                 </span>
               </div>
             </div>

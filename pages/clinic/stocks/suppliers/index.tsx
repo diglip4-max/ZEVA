@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/router";
 import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const MODULE_KEY = "clinic_stock_suppliers";
 
@@ -559,6 +560,7 @@ const SuppliersPage: NextPageWithLayout = () => {
               isOpen={isDetailModalOpen}
               onClose={handleDetailCancel}
               supplier={supplierForDetail}
+              currency={currency}
             />
           </div>
         </div>
@@ -852,16 +854,16 @@ const SuppliersPage: NextPageWithLayout = () => {
 
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {supplier.openingBalance?.toFixed(2) || "0.00"}{" "}
-                            {currency}
+                            {getCurrencySymbol(currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {"0.00"} {currency}
+                            {"0.00"} {getCurrencySymbol(currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {"0.00"} {currency}
+                            {"0.00"} {getCurrencySymbol(currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {"0.00"} {currency}
+                            {"0.00"} {getCurrencySymbol(currency)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span

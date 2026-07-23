@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(doctorStaffId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 
@@ -90,6 +90,8 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
+        agentName: doctorStaff.role === 'agent' ? doctorStaff.name : null,
+        doctorName: doctorStaff.role === 'doctorStaff' ? doctorStaff.name : null,
         departments: departments.map((dept) => ({
           _id: dept._id.toString(),
           name: dept.name,
@@ -140,7 +142,7 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(targetDoctorStaffId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 
@@ -256,7 +258,7 @@ export default async function handler(req, res) {
 
       // Verify doctorStaff belongs to clinic
       const doctorStaff = await User.findById(department.doctorId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 

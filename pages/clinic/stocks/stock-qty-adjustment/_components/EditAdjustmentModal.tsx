@@ -35,7 +35,16 @@ const EditAdjustmentModal: React.FC<Props> = ({
 }) => {
   const { stockItems } = useStockItems();
   const { clinicBranches } = useClinicBranches();
-  const token = getTokenByPath() || "";
+  const getStoredToken = () => {
+    if (typeof window === "undefined") return "";
+    const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+    for (const key of TOKEN_PRIORITY) {
+      const value = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (value) return value;
+    }
+    return "";
+  };
+  const token = getTokenByPath() || getStoredToken();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpenAddStockItemModal, setIsOpenAddStockItemModal] = useState(false);

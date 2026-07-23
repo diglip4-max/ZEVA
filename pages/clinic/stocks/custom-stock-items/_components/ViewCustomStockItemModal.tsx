@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Eye, Package, DollarSign, Percent, TrendingUp } from "lucide-react";
+import { X, Eye, Package, Percent, TrendingUp } from "lucide-react";
 import { CustomStockItem as CustomStockItemType } from "../../../../../types/stocks";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
@@ -142,8 +142,8 @@ const ViewCustomStockItemModal: React.FC<ViewCustomStockItemModalProps> = ({
 
             {/* Pricing */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-gray-700 font-semibold text-sm uppercase tracking-wide">
-                <DollarSign className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-gray-700 font-semibold text-sm uppercase tracking-wide">
+                <span className="text-base font-bold translate-y-[-1px]">{getCurrencySymbol(currency)}</span>
                 <span>Pricing</span>
               </div>
 

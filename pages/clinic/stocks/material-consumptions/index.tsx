@@ -58,6 +58,7 @@ const getUserRole = (): string | null => getUserInfo().role;
 const MODULE_KEY = "clinic_stock_material_consumptions";
 
 const MaterialConsumptionPage: NextPageWithLayout = () => {
+  const token = getTokenByPath() || getStoredToken() || "";
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,7 +110,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
     debounce(async (page = 1, search = "", filters: any = {}) => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", String(page));
         params.append("limit", String(pagination.limit || 10));
@@ -125,7 +126,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
 
         const res = await axios.get(
           `/api/stocks/material-consumptions?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
         if (res.data?.success) {
           setRecords(res.data.data || []);
@@ -191,22 +192,57 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
             if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
               setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
             } else {
+              let parentActions = {};
+              const parentStockModule = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return mod === "clinic_stock" || mod === "stock" || modKey === "clinic_stock" || modKey === "stock";
+              });
+              if (parentStockModule && parentStockModule.actions) {
+                parentActions = parentStockModule.actions;
+              }
+
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_material_consumptions") return true;
-                if (p.module === "material_consumptions") return true;
-                if (p.module === "stock_material_consumptions") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_material_consumptions" ||
+                  mod === "material_consumptions" ||
+                  mod === "stock_material_consumptions" ||
+                  modKey === "clinic_stock_material_consumptions" ||
+                  modKey === "material_consumptions" ||
+                  modKey === "stock_material_consumptions"
+                );
               });
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_material_consumptions"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_material_consumptions" ||
+                        key === "material_consumptions" ||
+                        key === "stock_material_consumptions" ||
+                        name === "clinic_stock_material_consumptions" ||
+                        name === "material consumptions" ||
+                        name === "material_consumptions" ||
+                        name === "material consumption" ||
+                        name === "material_consumption" ||
+                        name === "stock material consumptions" ||
+                        name === "stock_material_consumptions"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: { ...parentActions, ...foundInSubModule.actions } };
+                      break;
+                    }
+                  }
                 }
+              }
+
+              if (!modulePermission && parentStockModule) {
+                modulePermission = { actions: parentActions };
               }
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
@@ -222,7 +258,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                   canDelete: moduleAll || moduleDelete,
                 });
               } else {
-                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
+                setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
               }
             }
           } else {
@@ -615,12 +651,14 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by creating your first material consumption record.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                <PlusIcon className="h-5 w-5" /> Create Consumption
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  <PlusIcon className="h-5 w-5" /> Create Consumption
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

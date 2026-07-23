@@ -119,14 +119,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       // For 'overall', we'll use all-time data (startOfCurrentPeriod remains today)
 
-      const query = { clinicId };
+      const query = { clinicId, isDeleted: { $ne: true } };
       
       // ACTIVE vs EXPIRED MEMBERSHIPS: computed from createdAt + durationMonths
       // A membership is Active if endDate (createdAt + durationMonths) >= now, otherwise Expired
       const nowDate = new Date();
+
+      // Generate lists of items for frontend interactivity
+      const membershipsList = await MembershipPlan.find({ clinicId, isDeleted: { $ne: true } }).lean();
+      const activeMembershipsList: Array<{ id: string; name: string }> = [];
+      const expiredMembershipsList: Array<{ id: string; name: string }> = [];
+      membershipsList.forEach((m: any) => {
+        const createdAtDate = new Date(m.createdAt);
+        const endDate = new Date(createdAtDate.setMonth(createdAtDate.getMonth() + (m.durationMonths || 0)));
+        if (endDate >= nowDate) {
+          activeMembershipsList.push({ id: m._id.toString(), name: m.name });
+        } else {
+          expiredMembershipsList.push({ id: m._id.toString(), name: m.name });
+        }
+      });
+
+      const activeMembershipsCount = activeMembershipsList.length;
+      const expiredMembershipsCount = expiredMembershipsList.length;
+
       const membershipStatusAgg = await MembershipPlan.aggregate([
         {
-          $match: { clinicId }
+          $match: { clinicId, isDeleted: { $ne: true } }
         },
         {
           $addFields: {
@@ -151,9 +169,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         }
       ]);
-
-      const activeMembershipsCount = membershipStatusAgg[0]?.activeCount ?? 0;
-      const expiredMembershipsCount = membershipStatusAgg[0]?.expiredCount ?? 0;
 
       // ACTIVE PACKAGES: All packages in system
       const activePackagesCount = await Package.countDocuments({
@@ -219,19 +234,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const activePackagesChange = calculatePercentChange(activePackagesCount, lastMonthActivePackages);
       const expiredPackagesChange = calculatePercentChange(expiredPackagesCount, lastMonthExpiredPackages);
 
-      // Generate lists of items for frontend interactivity
-      const membershipsList = await MembershipPlan.find({ clinicId, isDeleted: { $ne: true } }).lean();
-      const activeMembershipsList: Array<{ id: string; name: string }> = [];
-      const expiredMembershipsList: Array<{ id: string; name: string }> = [];
-      membershipsList.forEach((m: any) => {
-        const createdAtDate = new Date(m.createdAt);
-        const endDate = new Date(createdAtDate.setMonth(createdAtDate.getMonth() + (m.durationMonths || 0)));
-        if (endDate >= nowDate) {
-          activeMembershipsList.push({ id: m._id.toString(), name: m.name });
-        } else {
-          expiredMembershipsList.push({ id: m._id.toString(), name: m.name });
-        }
-      });
+      // membershipsList, activeMembershipsList, and expiredMembershipsList are already generated and populated above.
 
       const packagesList = await Package.find({ clinicId, isDeleted: { $ne: true } }).lean();
       const activePackagesList: Array<{ id: string; name: string }> = [];

@@ -63,6 +63,7 @@ const getUserRole = (): string | null => getUserInfo().role;
 const MODULE_KEY = "clinic_stock_transfer_requests";
 
 const StockTransferRequestPage: NextPageWithLayout = () => {
+  const token = getTokenByPath() || getStoredToken() || "";
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,7 +115,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
     debounce(async (page = 1, search = "", filters: any = {}) => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", String(page));
         params.append("limit", String(pagination.limit || 10));
@@ -134,7 +135,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
 
         const res = await axios.get(
           `/api/stocks/stock-transfer-requests?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
         if (res.data?.success) {
           setRecords(res.data.data.records || []);
@@ -194,23 +195,58 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
             if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
               setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
             } else {
+              let parentActions = {};
+              const parentStockModule = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return mod === "clinic_stock" || mod === "stock" || modKey === "clinic_stock" || modKey === "stock";
+              });
+              if (parentStockModule && parentStockModule.actions) {
+                parentActions = parentStockModule.actions;
+              }
+
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_transfer_requests") return true;
-                if (p.module === "transfer_requests") return true;
-                if (p.module === "stock_transfer_requests") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_transfer_requests" ||
+                  mod === "transfer_requests" ||
+                  mod === "stock_transfer_requests" ||
+                  modKey === "clinic_stock_transfer_requests" ||
+                  modKey === "transfer_requests" ||
+                  modKey === "stock_transfer_requests"
+                );
               });
               // Check parent module subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_transfer_requests"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_transfer_requests" ||
+                        key === "transfer_requests" ||
+                        key === "stock_transfer_requests" ||
+                        name === "clinic_stock_transfer_requests" ||
+                        name === "stock transfer requests" ||
+                        name === "stock_transfer_requests" ||
+                        name === "stock transfer request" ||
+                        name === "stock_transfer_request" ||
+                        name === "transfer requests" ||
+                        name === "transfer_requests"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: { ...parentActions, ...foundInSubModule.actions } };
+                      break;
+                    }
+                  }
                 }
+              }
+
+              if (!modulePermission && parentStockModule) {
+                modulePermission = { actions: parentActions };
               }
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
@@ -226,7 +262,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                   canDelete: moduleAll || moduleDelete,
                 });
               } else {
-                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
+                setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
               }
             }
           } else {
@@ -624,12 +660,14 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by creating your first stock transfer request.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                <PlusIcon className="h-5 w-5" /> Create Transfer
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  <PlusIcon className="h-5 w-5" /> Create Transfer
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -712,26 +750,24 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              r.status === "New"
-                                ? "bg-blue-100 text-blue-800"
-                                : r.status === "Transfered"
-                                  ? "bg-green-100 text-green-800"
-                                  : r.status === "Cancelled"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }`}
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${r.status === "New"
+                              ? "bg-blue-100 text-blue-800"
+                              : r.status === "Transfered"
+                                ? "bg-green-100 text-green-800"
+                                : r.status === "Cancelled"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             <span
-                              className={`h-2 w-2 rounded-full mr-2 ${
-                                r.status === "New"
-                                  ? "bg-blue-500"
-                                  : r.status === "Transfered"
-                                    ? "bg-green-500"
-                                    : r.status === "Cancelled"
-                                      ? "bg-red-500"
-                                      : "bg-gray-500"
-                              }`}
+                              className={`h-2 w-2 rounded-full mr-2 ${r.status === "New"
+                                ? "bg-blue-500"
+                                : r.status === "Transfered"
+                                  ? "bg-green-500"
+                                  : r.status === "Cancelled"
+                                    ? "bg-red-500"
+                                    : "bg-gray-500"
+                                }`}
                             />
                             {String(r.status || "").replace(/_/g, " ")}
                           </span>
@@ -777,25 +813,25 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                                 {!["Transferred", "Cancelled"].includes(
                                   r.status || "",
                                 ) && (
-                                  <button
-                                    onClick={() => {
-                                      handleEdit(r);
-                                      const menuEl = document.getElementById(
-                                        `menu-${r._id}`,
-                                      );
-                                      if (menuEl) {
-                                        menuEl.classList.remove("block");
-                                        menuEl.classList.add("hidden");
-                                      }
-                                    }}
-                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <div className="flex items-center">
-                                      <PencilIcon className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </div>
-                                  </button>
-                                )}
+                                    <button
+                                      onClick={() => {
+                                        handleEdit(r);
+                                        const menuEl = document.getElementById(
+                                          `menu-${r._id}`,
+                                        );
+                                        if (menuEl) {
+                                          menuEl.classList.remove("block");
+                                          menuEl.classList.add("hidden");
+                                        }
+                                      }}
+                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      <div className="flex items-center">
+                                        <PencilIcon className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </div>
+                                    </button>
+                                  )}
                                 <button
                                   onClick={() => {
                                     // Open print page in new tab

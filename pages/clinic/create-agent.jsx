@@ -9,7 +9,6 @@ import {
   XCircle,
   Clock,
   CalendarCheck,
-  DollarSign,
   Percent,
   FileStack,
   UserPlus,
@@ -666,20 +665,21 @@ const ManageAgentsPage = () => {
               const docR = revs.find((d) => d.doctorId === String(agent._id));
               setTotalAppointments(docA?.appointmentCount ?? 0);
               setTotalRevenue(typeof docR?.estimatedRevenue === 'number' ? docR.estimatedRevenue : 0);
-              // Fetch total commission (all-time) from commissions summary
+              // Fetch total commission (all-time) from by-person API for this specific agent
               try {
-                const commRes = await axios.get("/api/clinic/commissions/summary", {
+                const commRes = await axios.get("/api/clinic/commissions/by-person", {
                   headers: authHeaders,
-                  params: { source: 'staff' }
+                  params: { source: 'staff', staffId: agent._id }
                 });
                 const commData = commRes.data || {};
-                // Support response shapes: {items: []}, {results: []}, or []
-                const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
-                const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
-                setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+                const commItems = Array.isArray(commData.items) ? commData.items : [];
+                // Only count approved + submitted commissions (same filter as /api/agent/commissions/mine)
+                const approvedItems = commItems.filter((c) => c.isSubmitted && c.isApproved);
+                const total = approvedItems.reduce((sum, c) => sum + Number(c.finalCommissionAmount || c.commissionAmount || 0), 0);
+                setTotalCommission(Number(total.toFixed(2)));
                 setCommissionPercent(
-                  me && typeof me.percent !== 'undefined'
-                    ? Number(me.percent)
+                  approvedItems.length > 0 && typeof approvedItems[0].commissionPercent !== 'undefined'
+                    ? Number(approvedItems[0].commissionPercent)
                     : (viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null)
                 );
               } catch {
@@ -718,20 +718,21 @@ const ManageAgentsPage = () => {
             } else {
               setTotalRevenue(0);
             }
-            // Fetch commission earned for this agent from commissions summary
+            // Fetch commission earned for this agent from by-person API
             try {
-              const commRes = await axios.get("/api/clinic/commissions/summary", {
+              const commRes = await axios.get("/api/clinic/commissions/by-person", {
                 headers: authHeaders,
-                params: { source: 'staff' }
+                params: { source: 'staff', staffId: agent._id }
               });
               const commData = commRes.data || {};
-              // Support response shapes: {items: []}, {results: []}, or []
-              const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
-              const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
-              setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+              const commItems = Array.isArray(commData.items) ? commData.items : [];
+              // Only count approved + submitted commissions (same filter as /api/agent/commissions/mine)
+              const approvedItems = commItems.filter((c) => c.isSubmitted && c.isApproved);
+              const total = approvedItems.reduce((sum, c) => sum + Number(c.finalCommissionAmount || c.commissionAmount || 0), 0);
+              setTotalCommission(Number(total.toFixed(2)));
               setCommissionPercent(
-                me && typeof me.percent !== 'undefined'
-                  ? Number(me.percent)
+                approvedItems.length > 0 && typeof approvedItems[0].commissionPercent !== 'undefined'
+                  ? Number(approvedItems[0].commissionPercent)
                   : (p?.commissionPercentage != null ? Number(p.commissionPercentage) : null)
               );
             } catch {
@@ -1412,8 +1413,7 @@ const ManageAgentsPage = () => {
                                     >
                                       Rights
                                     </button>
-                                    {agent.role === 'doctorStaff' && (
-                                      <button
+                                    <button
                                         className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors border-t border-gray-200"
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -1423,7 +1423,6 @@ const ManageAgentsPage = () => {
                                       >
                                         Add Department
                                       </button>
-                                    )}
                                   </>
                                 )}
                                 {canDelete === true && (
@@ -2557,7 +2556,7 @@ const ManageAgentsPage = () => {
                     <div className="bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
                         {/* <div className="bg-white/20 rounded-xl p-3"> */}
-                        {/* <DollarSign className="w-5 h-5" /> */}
+
                         {/* </div> */}
                         <div>
                           <div className="text-3xl font-bold leading-tight">

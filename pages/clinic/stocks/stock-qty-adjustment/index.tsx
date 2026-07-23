@@ -63,6 +63,7 @@ const getUserRole = (): string | null => getUserInfo().role;
 const MODULE_KEY = "clinic_stock_qty_adjustment";
 
 const StockQtyAdjustmentPage: NextPageWithLayout = () => {
+  const token = getTokenByPath() || getStoredToken() || "";
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -129,7 +130,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
     debounce(async (page = 1, search = "", filters: any = {}) => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", String(page));
         params.append("limit", String(pagination.limit || 10));
@@ -142,7 +143,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
 
         const res = await axios.get(
           `/api/stocks/stock-qty-adjustment?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
 
         if (res.data?.success) {
@@ -232,21 +233,42 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
               setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
             } else {
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_qty_adjustment") return true;
-                if (p.module === "qty_adjustment") return true;
-                if (p.module === "stock_qty_adjustment") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_qty_adjustment" ||
+                  mod === "qty_adjustment" ||
+                  mod === "stock_qty_adjustment" ||
+                  modKey === "clinic_stock_qty_adjustment" ||
+                  modKey === "qty_adjustment" ||
+                  modKey === "stock_qty_adjustment"
+                );
               });
               // Check parent module subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_qty_adjustment"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_qty_adjustment" ||
+                        key === "qty_adjustment" ||
+                        key === "stock_qty_adjustment" ||
+                        name === "clinic_stock_qty_adjustment" ||
+                        name === "stock quantity adjustment" ||
+                        name === "stock_quantity_adjustment" ||
+                        name === "stock qty adjustment" ||
+                        name === "stock_qty_adjustment" ||
+                        name === "qty adjustment" ||
+                        name === "qty_adjustment"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: foundInSubModule.actions };
+                      break;
+                    }
+                  }
                 }
               }
               if (modulePermission) {
@@ -558,6 +580,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                 setRecordToDetail(null);
               }}
               record={recordToDetail}
+              clinicCurrency={clinicCurrency}
             />
           </div>
         </div>

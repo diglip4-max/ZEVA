@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(doctorStaffId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 
@@ -175,7 +175,7 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(targetDoctorStaffId);
-      if (!doctorStaff || doctorStaff.role !== "doctorStaff") {
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 

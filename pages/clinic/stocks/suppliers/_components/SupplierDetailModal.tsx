@@ -1,5 +1,6 @@
 import React from "react";
 import { Supplier } from "@/types/stocks";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   Building,
   X,
@@ -12,7 +13,6 @@ import {
   User,
   FileText,
   Clock,
-  DollarSign,
   Wallet,
   Receipt,
 } from "lucide-react";
@@ -21,23 +21,21 @@ interface SupplierDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   supplier: Supplier | null;
+  currency?: string;
 }
 
 const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
   isOpen,
   onClose,
   supplier,
+  currency,
 }) => {
   if (!isOpen || !supplier) return null;
 
   const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined || amount === null) return "0.00";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "AED",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    const symbol = getCurrencySymbol(currency);
+    if (amount === undefined || amount === null) return `${symbol} 0.00`;
+    return `${symbol} ${amount.toFixed(2)}`;
   };
 
   const formatDate = (dateString: string | undefined) => {
@@ -271,7 +269,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
                 <div className="bg-white rounded-lg border border-gray-200 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 bg-blue-50 rounded">
-                      <DollarSign className="w-3 h-3 text-blue-600" />
+                      <span className="w-3 h-3 text-blue-600">{getCurrencySymbol(currency)}</span>
                     </div>
                     <p className="text-xs font-medium text-gray-500">
                       Opening Balance
@@ -320,7 +318,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
                 <div className="sm:col-span-3 bg-white rounded-lg border border-gray-200 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 bg-orange-50 rounded">
-                      <DollarSign className="w-3 h-3 text-orange-600" />
+                      <span className="w-3 h-3 text-orange-600">{getCurrencySymbol(currency)}</span>
                     </div>
                     <p className="text-xs font-medium text-gray-500">
                       Current Balance

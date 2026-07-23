@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import NotificationBell from './NotificationBell';
-
+import { getCurrencySymbol } from '@/lib/currencyHelper';
+import { useCurrency } from '@/context/CurrencyContext';
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
   isMobileOpen: boolean;
@@ -12,6 +13,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   handleToggleMobile,
   isMobileOpen
 }) => {
+  const { currency } = useCurrency();
   const [tokenUser, setTokenUser] = useState<{ name?: string; email?: string } | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const [commissionCount, setCommissionCount] = useState<number>(0);
@@ -43,7 +45,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           keepalive: true,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } finally {
       localStorage.removeItem('agentToken');
@@ -68,7 +70,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             console.error('Error parsing agentUser:', error);
           }
         }
-        
+
         // Fallback: decode token if agentUser is not available
         const token = localStorage.getItem('agentToken') || localStorage.getItem('userToken');
         if (token) {
@@ -84,7 +86,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
         }
       }
     };
-    
+
     getUserInfo();
   }, []);
 
@@ -109,9 +111,25 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     }
   }, [getAuthHeaders]);
 
+  const [clinicName, setClinicName] = useState<string>('');
+
+  const loadClinicInfo = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.get('/api/clinics/myallClinic', { headers });
+      if (res.data && res.data.success && res.data.clinic?.name) {
+        setClinicName(res.data.clinic.name);
+      }
+    } catch (err) {
+      // Silent fail
+    }
+  }, [getAuthHeaders]);
+
   useEffect(() => {
     loadCommissions();
-  }, [loadCommissions]);
+    loadClinicInfo();
+  }, [loadCommissions, loadClinicInfo]);
 
   const computeDropdownPos = () => {
     if (typeof window === 'undefined') return;
@@ -145,170 +163,170 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
 
 
-//   const getInitials = (name: string) => {
-//     return name
-//       .split(' ')
-//       .map(word => word.charAt(0).toUpperCase())
-//       .join('')
-//       .slice(0, 2);
-//   };
+  //   const getInitials = (name: string) => {
+  //     return name
+  //       .split(' ')
+  //       .map(word => word.charAt(0).toUpperCase())
+  //       .join('')
+  //       .slice(0, 2);
+  //   };
 
   return (
-  <header className="w-full bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
-    <div className="px-2 sm:px-4 py-1.5 sm:py-2">
-      <div className="flex items-center justify-between gap-2">
-        {/* Left: Mobile Hamburger + Brand */}
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          {/* Mobile Hamburger - Only visible on mobile, positioned on left */}
-          <button
-            onClick={handleToggleMobile}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0 lg:hidden"
-            aria-label="Toggle sidebar"
-          >
-            <svg
-              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${isMobileOpen ? 'rotate-90' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {isMobileOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
-
+    <header className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 shadow-sm flex-shrink-0">
+      <div className="px-2 sm:px-4 py-1.5 sm:py-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Mobile Hamburger + Brand */}
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <div className="relative flex-shrink-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#2D9AA5] to-[#1e7d87] rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
-                <div className="w-4 h-4 sm:w-6 sm:h-6 bg-white/20 rounded-full flex items-center justify-center">
-                  <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full"></div>
+            {/* Mobile Hamburger - Only visible on mobile, positioned on left */}
+            <button
+              onClick={handleToggleMobile}
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-200 flex-shrink-0 lg:hidden"
+              aria-label="Toggle sidebar"
+            >
+              <svg
+                className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400 transition-transform duration-300 ${isMobileOpen ? 'rotate-90' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {isMobileOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <div className="relative flex-shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#2D9AA5] to-[#1e7d87] rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                  <div className="w-4 h-4 sm:w-6 sm:h-6 bg-white/20 rounded-full flex items-center justify-center">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full"></div>
+                  </div>
                 </div>
+                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-[#2D9AA5] rounded-full border-2 border-white dark:border-zinc-900"></div>
               </div>
-              <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-[#2D9AA5] rounded-full border-2 border-white"></div>
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate">
-                ZEVA
-              </h1>
-              <p className="text-[10px] sm:text-xs text-[#2D9AA5] font-medium -mt-0.5 truncate">Healthcare Excellence</p>
+              <div className="min-w-0">
+                <h3 className="text-lg sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-zinc-300 bg-clip-text text-transparent truncate">
+                  {clinicName || ''}
+                </h3>
+                <p className="text-[10px] sm:text-xs text-[#2D9AA5] font-medium -mt-0.5 truncate">Healthcare Excellence</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right: User Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
-          {/* Wallet */}
-          <div className="relative">
-            <button
-              ref={walletBtnRef}
-              onClick={toggleWallet}
-              className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0"
-              aria-label="Commission Wallet"
-              title="Your commissions"
-            >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a4 4 0 014-4h10a2 2 0 012 2v2h-7a4 4 0 00-4 4v0a4 4 0 004 4h7v2a2 2 0 01-2 2H7a4 4 0 01-4-4V7z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 11h4v4h-4a2 2 0 01-2-2v0a2 2 0 012-2z" />
-              </svg>
-              {commissionCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-teal-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">
-                  {commissionCount}
-                </span>
-              )}
-            </button>
-            {walletOpen &&
-              typeof window !== 'undefined' &&
-              createPortal(
-                <>
-                  <div
-                    className="fixed inset-0 z-[9998]"
-                    onClick={() => setWalletOpen(false)}
-                  />
-                  <div
-                    className="fixed z-[9999] w-[22rem] sm:w-[24rem] bg-white border border-gray-200 rounded-lg shadow-2xl"
-                    style={{ top: dropdownPos.top, right: dropdownPos.right, maxWidth: '92vw' }}
-                  >
-                    <div className="px-3 py-2 border-b">
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs font-semibold text-gray-900">Your Commissions</div>
-                        <div className="text-xs text-teal-700 font-semibold">Total ₹ {Number(totalCommission || 0).toFixed(2)}</div>
+          {/* Right: User Profile */}
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            {/* Wallet */}
+            <div className="relative">
+              <button
+                ref={walletBtnRef}
+                onClick={toggleWallet}
+                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-200 flex-shrink-0"
+                aria-label="Commission Wallet"
+                title="Your commissions"
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a4 4 0 014-4h10a2 2 0 012 2v2h-7a4 4 0 00-4 4v0a4 4 0 004 4h7v2a2 2 0 01-2 2H7a4 4 0 01-4-4V7z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 11h4v4h-4a2 2 0 01-2-2v0a2 2 0 012-2z" />
+                </svg>
+                {commissionCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-teal-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                    {commissionCount}
+                  </span>
+                )}
+              </button>
+              {walletOpen &&
+                typeof window !== 'undefined' &&
+                createPortal(
+                  <>
+                    <div
+                      className="fixed inset-0 z-[9998]"
+                      onClick={() => setWalletOpen(false)}
+                    />
+                    <div
+                      className="fixed z-[9999] w-[22rem] sm:w-[24rem] bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg shadow-2xl"
+                      style={{ top: dropdownPos.top, right: dropdownPos.right, maxWidth: '92vw' }}
+                    >
+                      <div className="px-3 py-2 border-b dark:border-zinc-800">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs font-semibold text-gray-900 dark:text-white">Your Commissions</div>
+                          <div className="text-xs text-teal-700 dark:text-teal-400 font-semibold">Total {getCurrencySymbol(currency)}{Number(totalCommission || 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <div className="max-h-80 overflow-auto">
+                        {commissionItems.length === 0 ? (
+                          <div className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">No commissions yet</div>
+                        ) : (
+                          <ul className="divide-y divide-gray-100 dark:divide-zinc-800">
+                            {commissionItems.map((it) => (
+                              <li key={it.commissionId} className="px-3 py-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-xs text-gray-900 dark:text-white">{it.patientName || '—'}</div>
+                                  <div className="text-[10px] text-gray-500 dark:text-gray-400">{it.invoiceNumber || '—'}</div>
+                                </div>
+                                <div className="mt-0.5 flex items-center justify-between">
+                                  <div className="text-[10px] text-gray-700 dark:text-gray-300">
+                                    Paid {getCurrencySymbol(currency)} {Number(it.paidAmount || 0).toFixed(2)} • {Number(it.commissionPercent || 0)}%
+                                  </div>
+                                  <div className="text-[10px] bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-400 px-2 py-0.5 rounded">
+                                    Commission {getCurrencySymbol(currency)} {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)}
+                                  </div>
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">
+                                  {it.doctorName ? `Doctor: ${it.doctorName}` : ''}
+                                </div>
+                                <div className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-450">
+                                  {it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : ''}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     </div>
-                    <div className="max-h-80 overflow-auto">
-                      {commissionItems.length === 0 ? (
-                        <div className="px-3 py-2 text-xs text-gray-600">No commissions yet</div>
-                      ) : (
-                        <ul className="divide-y divide-gray-100">
-                          {commissionItems.map((it) => (
-                            <li key={it.commissionId} className="px-3 py-2">
-                              <div className="flex items-center justify-between">
-                                <div className="text-xs text-gray-900">{it.patientName || '—'}</div>
-                                <div className="text-[10px] text-gray-500">{it.invoiceNumber || '—'}</div>
-                              </div>
-                              <div className="mt-0.5 flex items-center justify-between">
-                                <div className="text-[10px] text-gray-700">
-                                  Paid ₹ {Number(it.paidAmount || 0).toFixed(2)} • {Number(it.commissionPercent || 0)}%
-                                </div>
-                                <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
-                                  Commission ₹ {Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)}
-                                </div>
-                              </div>
-                              <div className="mt-0.5 text-[10px] text-gray-500">
-                                {it.doctorName ? `Doctor: ${it.doctorName}` : ''}
-                              </div>
-                              <div className="mt-0.5 text-[10px] text-gray-500">
-                                {it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : ''}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                </>,
-                document.body
-              )
-            }
-          </div>
-          <div className="hidden sm:block">
-            <NotificationBell />
-          </div>
-          <div className="hidden md:block text-right">
-            <div className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-none">
-              {tokenUser?.name || ''}
+                  </>,
+                  document.body
+                )
+              }
             </div>
-            <div className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">
-              {tokenUser?.email || ''}
+            <div className="hidden sm:block">
+              <NotificationBell />
             </div>
-          </div>
-          
-          <div className="flex items-center gap-1.5 sm:gap-3">
-            <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-medium text-[10px] sm:text-sm">
-                {tokenUser?.name?.charAt(0)?.toUpperCase() || 'D'}
-              </span>
-            </div>
-            
-            <button
-              onClick={handleLogout}
-              className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
-              aria-label="Logout"
-            >
-              <div className="flex items-center gap-1 sm:gap-2">
-                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                <span className="hidden sm:inline">Logout</span>
+            <div className="hidden md:block text-right">
+              <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate max-w-[120px] sm:max-w-none">
+                {tokenUser?.name || ''}
               </div>
-            </button>
+              <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate max-w-[120px] sm:max-w-none">
+                {tokenUser?.email || ''}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-medium text-[10px] sm:text-sm">
+                  {tokenUser?.name?.charAt(0)?.toUpperCase() || 'D'}
+                </span>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 dark:text-zinc-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
+                aria-label="Logout"
+              >
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="hidden sm:inline">Logout</span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </header>
-);
+    </header>
+  );
 };
 
 export default ClinicHeader;

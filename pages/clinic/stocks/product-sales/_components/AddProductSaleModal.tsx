@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import usePaymentMethod from "@/hooks/usePaymentMethod";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 // Types
 interface QuantityByUom {
@@ -134,6 +136,17 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { currency } = useCurrency();
+  const getStoredToken = () => {
+    if (typeof window === "undefined") return "";
+    const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+    for (const key of TOKEN_PRIORITY) {
+      const value = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (value) return value;
+    }
+    return "";
+  };
+  const token = getTokenByPath() || getStoredToken();
   // State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -198,9 +211,9 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
   const fetchClinicId = useCallback(async () => {
     try {
       setClinicLoading(true);
-      const token = getTokenByPath();
+      const tokenVal = token || getTokenByPath() || getStoredToken() || "";
       const response = await axios.get("/api/clinics/myallClinic", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${tokenVal}` },
       });
       if (response.data?.success && response.data?.clinic?._id) {
         setClinicId(response.data.clinic._id);
@@ -219,11 +232,11 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
 
       try {
         setItemsLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const response = await axios.get(
           "/api/stocks/allocated-stock-items/options",
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${tokenVal}` },
             params: {
               page: pageNum,
               limit: pagination.limit,
@@ -529,7 +542,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
     setProcessing(true);
 
     try {
-      const token = getTokenByPath();
+      const tokenVal = token || getTokenByPath() || getStoredToken() || "";
 
       // Prepare API request body
       const apiItems = cartItems.map((entry) => ({
@@ -556,7 +569,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
           totalCommission: totalCommission,
         },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${tokenVal}` },
         },
       );
 
@@ -778,7 +791,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                                               </span>
                                             </div>
                                             <div className="text-sm font-semibold text-teal-600">
-                                              AED {prices.salePrice.toFixed(2)}
+                                              {getCurrencySymbol(currency)} {prices.salePrice.toFixed(2)}
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200">
@@ -1181,7 +1194,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                                   Base Price
                                 </div>
                                 <div className="text-sm font-medium text-gray-700">
-                                  AED {prices.salePrice.toFixed(2)}
+                                  {getCurrencySymbol(currency)} {prices.salePrice.toFixed(2)}
                                 </div>
                               </div>
                               <div>
@@ -1218,7 +1231,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                                   Line Total
                                 </div>
                                 <div className="text-sm font-bold text-gray-900">
-                                  AED{" "}
+                                  {getCurrencySymbol(currency)}{" "}
                                   {(
                                     entry.effectivePrice *
                                     entry.cartItem.quantity
@@ -1231,7 +1244,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                                     Commission
                                   </div>
                                   <div className="text-sm font-bold text-amber-600">
-                                    AED {entry.commission.toFixed(2)}
+                                    {getCurrencySymbol(currency)} {entry.commission.toFixed(2)}
                                   </div>
                                 </div>
                               )}
@@ -1246,7 +1259,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                             Subtotal
                           </span>
                           <span className="text-sm font-bold text-gray-900">
-                            AED {subtotal.toFixed(2)}
+                            {getCurrencySymbol(currency)} {subtotal.toFixed(2)}
                           </span>
                         </div>
                         {totalCommission > 0 && (
@@ -1255,7 +1268,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                               Total Commission
                             </span>
                             <span className="text-sm font-bold text-amber-700">
-                              AED {totalCommission.toFixed(2)}
+                              {getCurrencySymbol(currency)} {totalCommission.toFixed(2)}
                             </span>
                           </div>
                         )}
@@ -1264,7 +1277,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                             Total
                           </span>
                           <span className="text-lg font-bold text-teal-700">
-                            AED {total.toFixed(2)}
+                            {getCurrencySymbol(currency)} {total.toFixed(2)}
                           </span>
                         </div>
 
@@ -1351,7 +1364,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                         {item.item.item.name} x {item.cartItem.quantity}
                       </div>
                       <div className="text-sm font-semibold text-gray-900">
-                        AED{" "}
+                        {getCurrencySymbol(currency)}{" "}
                         {(item.effectivePrice * item.cartItem.quantity).toFixed(
                           2,
                         )}
@@ -1363,7 +1376,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex justify-between items-center text-lg font-bold text-gray-900">
                   <span>Total</span>
-                  <span>AED {currentSaleData.total.toFixed(2)}</span>
+                  <span>{getCurrencySymbol(currency)} {currentSaleData.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -1438,7 +1451,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex justify-between items-center text-lg font-bold text-gray-900">
                   <span>Total</span>
-                  <span>AED {transaction.total}</span>
+                  <span>{getCurrencySymbol(currency)} {transaction.total}</span>
                 </div>
               </div>
             </div>

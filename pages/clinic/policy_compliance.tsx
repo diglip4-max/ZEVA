@@ -196,6 +196,7 @@ function PolicyCompliance() {
   const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([]);
   const [currentAck, setCurrentAck] = useState<AckItem | null>(null);
   const [hideAckTabForStaff, setHideAckTabForStaff] = useState(false);
+  const [formToast, setFormToast] = useState<{ message: string; type: string } | null>(null);
 
   // Permission states
   const [permissions, setPermissions] = useState({
@@ -249,7 +250,7 @@ function PolicyCompliance() {
       const viewport = page.getViewport({ scale: scale });
       const canvas = pdfCanvasRef.current;
       const ctx = canvas.getContext("2d")!;
-      
+
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
@@ -307,11 +308,11 @@ function PolicyCompliance() {
       setIsLoading(true);
       setThumbnails([]);
       await ensurePdfJs();
-      
+
       const fullUrl = pdfUrl.startsWith("http") ? pdfUrl : `${window.location.origin}${pdfUrl}`;
       const headers = { ...(getAuthHeaders() as Record<string, string>), Accept: "application/pdf" };
       const resp = await fetch(fullUrl, { headers, credentials: "include", cache: "no-store" });
-      
+
       if (!resp.ok) {
         let message: any = `Failed to fetch document: ${resp.status}`;
         try {
@@ -328,16 +329,16 @@ function PolicyCompliance() {
         setIsLoading(false);
         return;
       }
-      
+
       const blob = await resp.blob();
       const objectUrl = URL.createObjectURL(blob);
       const pdfjsLib = (window as any).pdfjsLib;
       const task = pdfjsLib.getDocument({ url: objectUrl });
       const pdf = await task.promise;
-      
+
       setPdfDoc(pdf);
       setTotalPages(pdf.numPages);
-      
+
       // Generate all thumbnails
       const thumbs: string[] = [];
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -351,7 +352,7 @@ function PolicyCompliance() {
         thumbs.push(canvas.toDataURL());
       }
       setThumbnails(thumbs);
-      
+
       setIsLoading(false);
       URL.revokeObjectURL(objectUrl);
     } catch (error: any) {
@@ -569,6 +570,42 @@ function PolicyCompliance() {
   useEffect(() => {
     if (!permissionsLoaded || !permissions.canRead) return;
     const load = async () => {
+      const isStaffPage = typeof window !== "undefined" && window.location.pathname.startsWith("/staff");
+
+      if (activeTab === "playbooks" && isStaffPage) {
+        try {
+          const playbooksRes = await fetch("/api/compliance/playbooks", { headers: getAuthHeaders() });
+          const playbooksJson = await playbooksRes.json();
+          if (!playbooksJson.success) return;
+          const allPlaybooks = playbooksJson.items || [];
+
+          const userInfo = getUserInfo();
+          if (!userInfo.id) {
+            setPlaybooks([]);
+            return;
+          }
+          const deptsRes = await fetch(`/api/clinic/doctor-departments?doctorStaffId=${encodeURIComponent(userInfo.id)}`, { headers: getAuthHeaders() });
+          const deptsJson = await deptsRes.json();
+          if (!deptsJson.success) {
+            setPlaybooks([]);
+            return;
+          }
+
+          const staffDeptNames = (deptsJson.departments || []).map((d: any) => String(d.name || "").trim().toUpperCase());
+
+          const filteredPlaybooks = allPlaybooks.filter((p: any) => {
+            const pDept = String(p.department || "").trim().toUpperCase();
+            return staffDeptNames.includes(pDept);
+          });
+
+          setPlaybooks(filteredPlaybooks);
+        } catch (err) {
+          console.error("Error loading playbooks for staff:", err);
+          setPlaybooks([]);
+        }
+        return;
+      }
+
       const res = await fetch(`/api/clinic/policy_compliance?type=${activeTab}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) return;
@@ -918,8 +955,10 @@ function PolicyCompliance() {
         setShowCreate(false);
         setEditingType(null);
         setEditingItem(null);
+        return { success: true };
+      } else {
+        return { success: false, message: json?.message || "Failed to save SOP" };
       }
-      return;
     }
     if (type === "policies") {
       const url = editingType ? `/api/compliance/policies?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/policies";
@@ -936,8 +975,10 @@ function PolicyCompliance() {
         setShowCreate(false);
         setEditingType(null);
         setEditingItem(null);
+        return { success: true };
+      } else {
+        return { success: false, message: json?.message || "Failed to save policy" };
       }
-      return;
     }
     // if (type === "playbooks") {
     //   const url = editingType ? `/api/compliance/playbooks?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/playbooks";
@@ -1028,13 +1069,17 @@ function PolicyCompliance() {
         setShowCreate(false);
         setEditingType(null);
         setEditingItem(null);
+        return { success: true };
+      } else {
+        return { success: false, message: json?.message || "Failed to save playbook" };
       }
-      return;
     }
   };
 
   const CreateModal = () => {
     const [form, setForm] = useState<Record<string, any>>({});
+    const [errors, setErrors] = useState<Record<string, boolean>>({});
+    const [modalToast, setModalToast] = useState<{message: string, type: string} | null>(null);
     const [step, setStep] = useState(1);
     const [formMenuOpen, setFormMenuOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1136,6 +1181,13 @@ function PolicyCompliance() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        {modalToast && (
+          <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${modalToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+            {modalToast.type === 'success' ? <CircleCheckBig className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+            <span className="text-[11px] font-medium">{modalToast.message}</span>
+            <button onClick={() => setModalToast(null)} className="ml-2"><X className="w-3 h-3" /></button>
+          </div>
+        )}
         <div className="w-full max-w-[95%] sm:max-w-2xl rounded-2xl bg-white p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
           <div className="flex items-center justify-between">
             <div className="text-lg font-bold text-gray-900">
@@ -1171,26 +1223,26 @@ function PolicyCompliance() {
               {step === 1 && (
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">SOP Title *</div>
-                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter SOP title" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+                    <div className="text-sm font-medium text-gray-900">SOP Title <span className="text-red-500">*</span></div>
+                    <input className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter SOP title" value={form.name || ""} onChange={e => { setForm({ ...form, name: e.target.value }); setErrors({ ...errors, name: false }); }} />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">Department *</div>
-                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
+                    <div className="text-sm font-medium text-gray-900">Department <span className="text-red-500">*</span></div>
+                    <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.department ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.department || ""} onChange={e => { setForm({ ...form, department: e.target.value }); setErrors({ ...errors, department: false }); }}>
                       <option value="">Select department</option>
                       {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">Category *</div>
-                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })}>
+                    <div className="text-sm font-medium text-gray-900">Category <span className="text-red-500">*</span></div>
+                    <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.category || ""} onChange={e => { setForm({ ...form, category: e.target.value }); setErrors({ ...errors, category: false }); }}>
                       <option value="">Select category</option>
                       {(sopCategories.length ? sopCategories : ["General", "Operations", "Safety"]).map(t => (<option key={t} value={t}>{t}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">Risk Level *</div>
-                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.riskLevel || ""} onChange={e => setForm({ ...form, riskLevel: e.target.value })}>
+                    <div className="text-sm font-medium text-gray-900">Risk Level <span className="text-red-500">*</span></div>
+                    <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.riskLevel ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.riskLevel || ""} onChange={e => { setForm({ ...form, riskLevel: e.target.value }); setErrors({ ...errors, riskLevel: false }); }}>
                       <option value="">Select risk level</option>
                       {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
                     </select>
@@ -1239,10 +1291,10 @@ function PolicyCompliance() {
 
                   {/* Replace the existing "Applicable Roles *" section in your CreateModal with this improved version */}
                   <div className="space-y-1 sm:col-span-2">
-                    <div className="text-sm font-medium text-gray-900">Applicable Roles *</div>
+                    <div className="text-sm font-medium text-gray-900">Applicable Roles <span className="text-red-500">*</span></div>
 
                     {/* Main role selection - Clean pill buttons */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className={`flex flex-wrap gap-2 p-1 rounded-lg ${errors.applicableRoles ? 'border border-red-500 bg-red-50' : ''}`}>
                       {roleOptions.map(r => {
                         const selected = (form.applicableRoles || []).includes(r);
                         return (
@@ -1283,6 +1335,7 @@ function PolicyCompliance() {
                                   applicableRoles: Array.from(curr)
                                 });
                               }
+                              setErrors({ ...errors, applicableRoles: false });
                             }}
                             className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${selected
                               ? "bg-gray-900 text-white border-gray-900 shadow-sm"
@@ -1619,8 +1672,32 @@ function PolicyCompliance() {
                 <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => setShowCreate(false)}>Cancel</button>
                 <div className="flex gap-2">
                   {step > 1 && <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => setStep(step - 1)}>Back</button>}
-                  {step < 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => setStep(step + 1)}>Next</button>}
-                  {step === 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update SOP" : "Create SOP"}</button>}
+                  {step < 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => {
+                    if (step === 1 && (editingType || activeTab) === "sops") {
+                      const newErrors: Record<string, boolean> = {};
+                      if (!form.name) newErrors.name = true;
+                      if (!form.department) newErrors.department = true;
+                      if (!form.category) newErrors.category = true;
+                      if (!form.riskLevel) newErrors.riskLevel = true;
+                      if (!form.applicableRoles || form.applicableRoles.length === 0) newErrors.applicableRoles = true;
+                      
+                      if (Object.keys(newErrors).length > 0) {
+                        setErrors(newErrors);
+                        setModalToast({ message: "Please fill all required fields", type: "error" });
+                        setTimeout(() => setModalToast(null), 3000);
+                        return;
+                      }
+                    }
+                    setErrors({});
+                    setStep(step + 1);
+                  }}>Next</button>}
+                  {step === 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={async () => {
+                    const res = await handleCreate(form);
+                    if (res && !res.success) {
+                      setModalToast({ message: res.message || "Failed to save SOP", type: "error" });
+                      setTimeout(() => setModalToast(null), 3000);
+                    }
+                  }}>{editingType ? "Update SOP" : "Create SOP"}</button>}
                 </div>
               </div>
             </>
@@ -1629,7 +1706,7 @@ function PolicyCompliance() {
             <>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Policy Name *</div>
+                  <div className="text-sm font-medium text-gray-900">Policy Name <span className="text-red-500">*</span></div>
                   <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter policy name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="space-y-1">
@@ -1640,7 +1717,7 @@ function PolicyCompliance() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Policy Type *</div>
+                  <div className="text-sm font-medium text-gray-900">Policy Type <span className="text-red-500">*</span></div>
                   <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.policyType || ""} onChange={e => setForm({ ...form, policyType: e.target.value })}>
                     <option value="">Select type</option>
                     {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (<option key={t} value={t}>{t}</option>))}
@@ -1688,7 +1765,7 @@ function PolicyCompliance() {
                   )}
                 </div> */}
                 <div className="space-y-1 sm:col-span-2">
-                  <div className="text-sm font-medium text-gray-900">Applies To Roles *</div>
+                  <div className="text-sm font-medium text-gray-900">Applies To Roles <span className="text-red-500">*</span></div>
 
                   {/* Main role selection - Clean pill buttons */}
                   <div className="flex flex-wrap gap-2">
@@ -1734,8 +1811,8 @@ function PolicyCompliance() {
                             }
                           }}
                           className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${selected
-                              ? "bg-gray-900 text-white border-gray-900 shadow-sm"
-                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                             }`}
                         >
                           {r === "All Staff" ? "👥 All Staff" : r === "Agent" ? "👤 Agents" : "👨‍⚕️ Doctor Staff"}
@@ -1785,8 +1862,8 @@ function PolicyCompliance() {
                           <label
                             key={u._id}
                             className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-all ${form.targetAgentIds?.includes(u._id)
-                                ? "border-gray-900 bg-gray-100"
-                                : "border-gray-200 bg-white hover:bg-gray-50"
+                              ? "border-gray-900 bg-gray-100"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
                               }`}
                           >
                             <input
@@ -1862,8 +1939,8 @@ function PolicyCompliance() {
                           <label
                             key={u._id}
                             className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-all ${form.targetDoctorIds?.includes(u._id)
-                                ? "border-gray-900 bg-gray-100"
-                                : "border-gray-200 bg-white hover:bg-gray-50"
+                              ? "border-gray-900 bg-gray-100"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
                               }`}
                           >
                             <input
@@ -1920,7 +1997,7 @@ function PolicyCompliance() {
                 </div>
 
                 <div className="space-y-1 sm:col-span-2">
-                  <div className="text-sm font-medium text-gray-900">Policy Description *</div>
+                  <div className="text-sm font-medium text-gray-900">Policy Description <span className="text-red-500">*</span></div>
                   <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter detailed policy description..." value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
                 </div>
                 {/* <div className="space-y-2 sm:col-span-2">
@@ -1989,7 +2066,13 @@ function PolicyCompliance() {
               </div>
               <div className="mt-6 flex justify-end">
                 <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update Policy" : "Create Policy"}</button>
+                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={async () => {
+                  const res = await handleCreate(form);
+                  if (res && !res.success) {
+                    setModalToast({ message: res.message || "Failed to save policy", type: "error" });
+                    setTimeout(() => setModalToast(null), 3000);
+                  }
+                }}>{editingType ? "Update Policy" : "Create Policy"}</button>
               </div>
             </>
           )}
@@ -1997,23 +2080,25 @@ function PolicyCompliance() {
             <>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Scenario Name *</div>
-                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g., Patient Emergency Response" value={form.scenarioName || ""} onChange={e => setForm({ ...form, scenarioName: e.target.value })} />
+                  <div className="text-sm font-medium text-gray-900">Scenario Name <span className="text-red-500">*</span></div>
+                  <input className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.scenarioName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="e.g., Patient Emergency Response" value={form.scenarioName || ""} onChange={e => { setForm({ ...form, scenarioName: e.target.value }); setErrors({ ...errors, scenarioName: false }); }} />
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">When to Use (Trigger Condition) *</div>
-                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Describe when this playbook should be activated..." value={form.triggerCondition || ""} onChange={e => setForm({ ...form, triggerCondition: e.target.value })} />
+                  <div className="text-sm font-medium text-gray-900">
+                    When to Use (Trigger Condition) <span className="text-red-500">*</span>
+                  </div>
+                  <input className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.triggerCondition ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Describe when this playbook should be activated..." value={form.triggerCondition || ""} onChange={e => { setForm({ ...form, triggerCondition: e.target.value }); setErrors({ ...errors, triggerCondition: false }); }} />
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Department *</div>
-                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
+                  <div className="text-sm font-medium text-gray-900">Department <span className="text-red-500">*</span></div>
+                  <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.department ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.department || ""} onChange={e => { setForm({ ...form, department: e.target.value }); setErrors({ ...errors, department: false }); }}>
                     <option value="">Select department</option>
                     {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Risk Level *</div>
-                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.riskLevel || ""} onChange={e => setForm({ ...form, riskLevel: e.target.value })}>
+                  <div className="text-sm font-medium text-gray-900">Risk Level<span className="text-red-500">*</span></div>
+                  <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.riskLevel ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.riskLevel || ""} onChange={e => { setForm({ ...form, riskLevel: e.target.value }); setErrors({ ...errors, riskLevel: false }); }}>
                     <option value="">Select risk level</option>
                     {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
                   </select>
@@ -2053,17 +2138,20 @@ function PolicyCompliance() {
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-gray-900">Step-by-Step Handling Process *</div>
+                    <div className="text-sm font-medium text-gray-900">Step-by-Step Handling Process <span className="text-red-500">*</span></div>
                     <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs">
                       <Sparkles className="h-3.5 w-3.5 text-purple-600" /> AI Suggest Steps
                     </button>
                   </div>
-                  <div className="relative flex gap-2">
+                  <div className={`relative flex gap-2 ${errors.steps ? 'rounded-lg border border-red-500 bg-red-50 p-1' : ''}`}>
                     <input className="flex-1 rounded-lg border px-3 py-2 text-sm" value={form._tmpStep || ""} onChange={e => setForm({ ...form, _tmpStep: e.target.value })} placeholder="Add a step..." />
                     <button className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-white" aria-label="Add step" onClick={() => {
                       const list = [...(form.steps || [])];
-                      if (form._tmpStep) list.push(form._tmpStep);
-                      setForm({ ...form, steps: list, _tmpStep: "" });
+                      if (form._tmpStep) {
+                        list.push(form._tmpStep);
+                        setForm({ ...form, steps: list, _tmpStep: "" });
+                        setErrors({ ...errors, steps: false });
+                      }
                     }}>+</button>
                   </div>
                   <div className="mt-2 space-y-2">
@@ -2150,7 +2238,23 @@ function PolicyCompliance() {
               </div>
               <div className="mt-6 flex justify-end">
                 <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update Playbook" : "Create Playbook"}</button>
+                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={async () => {
+                  const res = await handleCreate(form);
+                  if (res && !res.success) {
+                    setModalToast({ message: res.message || "Failed to save playbook", type: "error" });
+                    setTimeout(() => setModalToast(null), 3000);
+                    
+                    const newErrors: Record<string, boolean> = {};
+                    if (!form.scenarioName) newErrors.scenarioName = true;
+                    if (!form.triggerCondition) newErrors.triggerCondition = true;
+                    if (!form.department) newErrors.department = true;
+                    if (!form.riskLevel) newErrors.riskLevel = true;
+                    if (!form.steps || form.steps.length === 0) newErrors.steps = true;
+                    setErrors(newErrors);
+                  } else {
+                    setErrors({});
+                  }
+                }}>{editingType ? "Update Playbook" : "Create Playbook"}</button>
               </div>
             </>
           )}
@@ -2302,6 +2406,13 @@ function PolicyCompliance() {
 
   return (
     <>
+      {formToast && (
+        <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${formToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+          {formToast.type === 'success' ? <CircleCheckBig className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+          <span className="text-[11px] font-medium">{formToast.message}</span>
+          <button onClick={() => setFormToast(null)} className="ml-2"><X className="w-3 h-3" /></button>
+        </div>
+      )}
       <Head>
         <title>Process & Compliance | ZEVA</title>
       </Head>
@@ -2327,23 +2438,23 @@ function PolicyCompliance() {
               <button onClick={() => setActiveTab("sops")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "sops" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>SOP Library</button>
               <button onClick={() => setActiveTab("policies")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "policies" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Policy Center</button>
               <button onClick={() => setActiveTab("playbooks")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "playbooks" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Process Playbooks</button>
-            {!hideAckTabForStaff && (
-              <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>
-                <span>Acknowledgment Tracker</span>
-                {ackPending > 0 && (
-                  <span className={`ml-2 inline-flex items-center justify-center rounded-full ${activeTab === "ack" ? "bg-white text-gray-900" : "bg-red-600 text-white"} text-[10px] h-4 min-w-4 px-1`}>
-                    {ackPending}
-                  </span>
-                )}
-              </button>
-            )}
+              {!hideAckTabForStaff && (
+                <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>
+                  <span>Acknowledgment Tracker</span>
+                  {ackPending > 0 && (
+                    <span className={`ml-2 inline-flex items-center justify-center rounded-full ${activeTab === "ack" ? "bg-white text-gray-900" : "bg-red-600 text-white"} text-[10px] h-4 min-w-4 px-1`}>
+                      {ackPending}
+                    </span>
+                  )}
+                </button>
+              )}
             </div>
 
             {canViewData && activeTab === "playbooks" && (
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <StatCard
                   title="Total Playbooks"
-                  value={overview?.playbookCount || 0}
+                  value={typeof window !== "undefined" && window.location.pathname.startsWith("/staff") ? playbooks.length : (overview?.playbookCount || 0)}
                   subtitle="Active scenarios"
                   icon={<BookOpenCheck className="h-5 w-5 text-purple-500" />}
                   theme="purple"
@@ -2403,83 +2514,83 @@ function PolicyCompliance() {
             )}
 
             {canViewData && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <div className="flex flex-1 items-center rounded-lg border bg-white px-2 py-1.5">
-                <Search className="h-3.5 w-3.5 text-gray-400" />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder={activeTab === "sops" ? "Search SOPs..." : activeTab === "policies" ? "Search policies..." : activeTab === "ack" ? "Search staff or documents..." : "Search scenarios..."}
-                  className="ml-2 w-full text-xs outline-none"
-                />
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <div className="flex flex-1 items-center rounded-lg border bg-white px-2 py-1.5">
+                  <Search className="h-3.5 w-3.5 text-gray-400" />
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder={activeTab === "sops" ? "Search SOPs..." : activeTab === "policies" ? "Search policies..." : activeTab === "ack" ? "Search staff or documents..." : "Search scenarios..."}
+                    className="ml-2 w-full text-xs outline-none"
+                  />
+                </div>
+                {activeTab === "policies" ? (
+                  <>
+                    <select value={policyTypeFilter} onChange={e => setPolicyTypeFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Types</option>
+                      {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <select value={rolesFilter} onChange={e => setRolesFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Roles</option>
+                      {availableRoles.map(r => (
+                        <option key={r.key} value={r.key}>{r.label}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : activeTab === "playbooks" ? (
+                  <>
+                    <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Departments</option>
+                      {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
+                    </select>
+                    <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Risk Levels</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </>
+                ) : activeTab === "ack" ? (
+                  <>
+                    <select value={ackStatusFilter} onChange={e => setAckStatusFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Status</option>
+                      <option value="Acknowledged">Acknowledged</option>
+                      <option value="Pending">Pending</option>
+                      <option value="Viewed">Viewed</option>
+                      <option value="Overdue">Overdue</option>
+                    </select>
+                    <select value={ackTypeFilter} onChange={e => setAckTypeFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Types</option>
+                      <option value="SOP">SOP</option>
+                      <option value="Policy">Policy</option>
+                      <option value="Playbook">Playbook</option>
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Departments</option>
+                      {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
+                    </select>
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Status</option>
+                      <option value="Active">Active</option>
+                      <option value="Under Review">Under Review</option>
+                      <option value="Draft">Draft</option>
+                    </select>
+                    <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
+                      <option value="">All Risk Levels</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </>
+                )}
               </div>
-              {activeTab === "policies" ? (
-                <>
-                  <select value={policyTypeFilter} onChange={e => setPolicyTypeFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Types</option>
-                    {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                  <select value={rolesFilter} onChange={e => setRolesFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Roles</option>
-                    {availableRoles.map(r => (
-                      <option key={r.key} value={r.key}>{r.label}</option>
-                    ))}
-                  </select>
-                </>
-              ) : activeTab === "playbooks" ? (
-                <>
-                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Departments</option>
-                    {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
-                  </select>
-                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Risk Levels</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </>
-              ) : activeTab === "ack" ? (
-                <>
-                  <select value={ackStatusFilter} onChange={e => setAckStatusFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Status</option>
-                    <option value="Acknowledged">Acknowledged</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Viewed">Viewed</option>
-                    <option value="Overdue">Overdue</option>
-                  </select>
-                  <select value={ackTypeFilter} onChange={e => setAckTypeFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Types</option>
-                    <option value="SOP">SOP</option>
-                    <option value="Policy">Policy</option>
-                    <option value="Playbook">Playbook</option>
-                  </select>
-                </>
-              ) : (
-                <>
-                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Departments</option>
-                    {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
-                  </select>
-                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Status</option>
-                    <option value="Active">Active</option>
-                    <option value="Under Review">Under Review</option>
-                    <option value="Draft">Draft</option>
-                  </select>
-                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
-                    <option value="">All Risk Levels</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </>
-              )}
-            </div>
             )}
 
             {canCreateActions && (
@@ -2510,7 +2621,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "sops" && (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto pb-24">
                 <div className="mb-2 text-xs text-gray-600">{filteredSops.length} SOPs found</div>
                 <table className="min-w-max w-full border-collapse">
                   <thead>
@@ -2574,7 +2685,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-50 w-32 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("sops", i._id, i.name)}>View</button>
                               {canUpdateActions && (
                                 <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("sops", i)}>Edit</button>
@@ -2593,7 +2704,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "policies" && (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto pb-24">
                 <div className="mb-2 text-xs text-gray-600">{filteredPolicies.length} policies found</div>
                 <table className="min-w-max w-full border-collapse">
                   <thead>
@@ -2651,7 +2762,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-50 w-32 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("policies", i._id, i.name)}>View</button>
                               {canUpdateActions && (
                                 <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("policies", i)}>Edit</button>
@@ -2670,7 +2781,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "playbooks" && (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto pb-24">
                 <table className="min-w-max w-full border-collapse">
                   <thead>
                     <tr className="text-left text-xs text-gray-600">
@@ -2729,7 +2840,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-50 w-32 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("playbooks", i._id, i.scenarioName)}>View</button>
                               {canUpdateActions && (
                                 <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("playbooks", i)}>Edit</button>
@@ -2748,7 +2859,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "ack" && (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto pb-24">
                 <div className="mb-2 text-xs text-gray-600">{filteredAckItems.length} records found</div>
                 <table className="min-w-max w-full border-collapse">
                   <thead>
@@ -2823,7 +2934,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-50 w-36 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
                                 handleRowView(t as TabKey, (i as any).documentId || i._id, i.documentName, i as any);
@@ -2994,11 +3105,10 @@ function PolicyCompliance() {
                       <button
                         key={idx}
                         onClick={() => setCurrentPage(idx + 1)}
-                        className={`w-full rounded-lg overflow-hidden shadow-sm transition-all ${
-                          currentPage === idx + 1
-                            ? "ring-2 ring-indigo-500 ring-offset-1"
-                            : "hover:shadow-md"
-                        }`}
+                        className={`w-full rounded-lg overflow-hidden shadow-sm transition-all ${currentPage === idx + 1
+                          ? "ring-2 ring-indigo-500 ring-offset-1"
+                          : "hover:shadow-md"
+                          }`}
                       >
                         <div className="relative">
                           <img

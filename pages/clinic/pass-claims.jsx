@@ -5,6 +5,7 @@ import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import Loader from "../../components/Loader";
 import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip } from "lucide-react";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const CLAIM_MODULE_KEY = "pass_by_doctor";
@@ -123,11 +124,28 @@ function PassClaimsPage() {
   const [approvedNotifications, setApprovedNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [currency, setCurrency] = useState("INR");
 
   // Set user role on mount
   useEffect(() => {
     const role = getUserRole();
     setUserRole(role);
+  }, []);
+
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    fetchClinicCurrency();
   }, []);
 
   // Clinic-level (sidebar-permissions) + agent/doctorStaff-level (get-module-permissions)
@@ -626,7 +644,7 @@ function PassClaimsPage() {
                                   </span>
                                 </div>
                                 <p className="text-xs text-gray-500 truncate">
-                                  {claim.insuranceProvider} - ₹{claim.claimAmount?.toFixed(2)}
+                                  {claim.insuranceProvider} - {getCurrencySymbol(currency)}{claim.claimAmount?.toFixed(2)}
                                 </p>
                                 {claim.reviewNotes && (
                                   <p className="text-xs text-green-600 mt-1 line-clamp-2">
@@ -778,7 +796,7 @@ function PassClaimsPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
                           <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Amount</p>
-                          <p className="text-sm font-bold text-gray-900">₹{claim.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                         </div>
                         <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
                           <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Department</p>
@@ -1202,7 +1220,7 @@ function PassClaimsPage() {
                         </div>
                         <div className="bg-gray-50 rounded-lg p-3">
                           <p className="text-xs text-gray-500">Claim Amount</p>
-                          <p className="text-sm font-semibold text-teal-600 font-bold">₹{viewModal.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-3">
                           <p className="text-xs text-gray-500">Doctor</p>
@@ -1241,14 +1259,14 @@ function PassClaimsPage() {
                             </div>
                             <div className="bg-gray-50 rounded-lg p-3">
                               <p className="text-xs text-gray-500">Paid Amount</p>
-                              <p className="text-sm font-semibold text-gray-900">₹{viewModal.advanceAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                              <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.advanceAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                             </div>
                           </>
                         )}
                         {viewModal.pendingClaim > 0 && (
                           <div className="bg-gray-50 rounded-lg p-3">
                             <p className="text-xs text-gray-500">Pending Claim</p>
-                            <p className="text-sm font-semibold text-orange-600 font-bold">₹{viewModal.pendingClaim?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            <p className="text-sm font-semibold text-orange-600 font-bold">{getCurrencySymbol(currency)}{viewModal.pendingClaim?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                           </div>
                         )}
                         <div className="bg-gray-50 rounded-lg p-3">

@@ -11,12 +11,12 @@ import {
   X,
   AlertTriangle,
   FileText,
-  DollarSign,
   Clock,
   User,
   Lock,
 } from "lucide-react";
 import AppointmentBillingModal from "../../components/AppointmentBillingModal";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const getStoredToken = () => {
@@ -92,6 +92,23 @@ function InvoicesPage() {
   const [billingsModalOpen, setBillingsModalOpen] = useState(false);
   const [patientBalances, setPatientBalances] = useState({});
   const [activeCard, setActiveCard] = useState(null);
+  const [currency, setCurrency] = useState("INR");
+
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    fetchClinicCurrency();
+  }, []);
   // Fetch permissions
   useEffect(() => {
     const fetchPermissions = async () => {
@@ -375,9 +392,9 @@ function InvoicesPage() {
   };
 
   const formatCurrency = (amount) => {
-    if (amount === null || amount === undefined) return "₹0.00";
+    if (amount === null || amount === undefined) return `${getCurrencySymbol(currency)}0.00`;
     const num = Number(amount);
-    return "₹" + num.toFixed(2);
+    return getCurrencySymbol(currency) + num.toFixed(2);
   };
   const APPOINTMENT_STATUS_OPTIONS = [
     { value: "Booked", label: "Booked" },
@@ -830,13 +847,13 @@ function InvoicesPage() {
                               </th>
                               <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
                                 <div className="flex items-center gap-2">
-                                  <DollarSign className="h-4 w-4" />
+
                                   Pending Amount
                                 </div>
                               </th>
                               <th className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap w-[140px]">
                                 <div className="flex items-center gap-2">
-                                  <DollarSign className="h-4 w-4" />
+
                                   Advance Amount
                                 </div>
                               </th>
