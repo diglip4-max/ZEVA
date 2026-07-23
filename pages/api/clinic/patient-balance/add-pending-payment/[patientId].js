@@ -204,10 +204,10 @@ export default async function handler(req, res) {
       // currentPending is the original value (recomputeBillingCache no longer
       // overwrites it).  Only the cash portion reduces pending — advance is
       // a separate credit mechanism.
-      const newPaid = Number((currentPaid + cashForThisInvoice).toFixed(2));
+      const newPaid = Number((currentPaid + cashForThisInvoice + advanceForThisInvoice).toFixed(2));
       const newAdvanceUsed = Number((currentAdvanceUsed + advanceForThisInvoice).toFixed(2));
-      const newPending = Math.max(0, Number((currentPending - cashForThisInvoice).toFixed(2)));
-      const newPendingUsed = Number((currentPendingUsed + cashForThisInvoice).toFixed(2));
+      const newPending = Math.max(0, Number((currentPending - paymentForInvoice).toFixed(2)));
+      const newPendingUsed = Number((currentPendingUsed + paymentForInvoice).toFixed(2));
 
       // Build the payment entries to add to multiplePayments
       const newMultiplePaymentEntries = [];
@@ -246,6 +246,11 @@ export default async function handler(req, res) {
         })),
         status: newPending === 0 ? "Completed" : "Partial",
         updatedAt: new Date(),
+        amountPaid: cashForThisInvoice,
+        advanceAmountUsed: advanceForThisInvoice,
+        remainingPending: newPending,
+        paidBy: clinicUser._id,
+        paidByName: clinicUser.name || clinicUser.firstName || "Staff",
       };
 
       // Use findByIdAndUpdate with $push to ensure atomic update
@@ -495,6 +500,179 @@ export default async function handler(req, res) {
       );
     }
 
+    // ------------------------------
+    // Handle advanceUsed portion (even if amount is 0)
+    // ------------------------------
+    let advanceBreakdown = [];
+    let advanceTotalCleared = 0;
+    
+    if (advanceUsedNum > 0) {
+      console.log('[AddPendingPayment] Handling advanceUsed portion:', advanceUsedNum);
+      
+      // Fetch pending invoices (FIFO order)
+      const pendingInvoices = await Billing.find({
+        clinicId,
+        patientId,
+        pending: { $gt: 0 },
+        isAdvanceOnly: { $ne: true }
+      }).sort({ invoicedDate: 1, createdAt: 1 });
+      
+      let remainingAdvance = advanceUsedNum;
+      
+      for (const invoice of pendingInvoices) {
+        if (remainingAdvance <= 0) break;
+        
+        const paymentForInvoice = Math.min(remainingAdvance, Number(invoice.pending || 0));
+        console.log('[AddPendingPayment] Applying advance to invoice', invoice.invoiceNumber, ':', paymentForInvoice);
+        
+        // Update invoice fields
+        const currentPaid = Number(invoice.paid || 0);
+        const currentAdvanceUsed = Number(invoice.advanceUsed || 0);
+        const currentPending = Number(invoice.pending || 0);
+        const currentPendingUsed = Number(invoice.pendingUsed || 0);
+        
+        const newPaid = Number((currentPaid + paymentForInvoice).toFixed(2)); // add advance to paid, like create-patient-registration.js
+        const newAdvanceUsed = Number((currentAdvanceUsed + paymentForInvoice).toFixed(2));
+        const newPending = Math.max(0, Number((currentPending - paymentForInvoice).toFixed(2)));
+        const newPendingUsed = Number((currentPendingUsed + paymentForInvoice).toFixed(2));
+        
+        // Build payment entries
+        const newMultiplePaymentEntries = [];
+        newMultiplePaymentEntries.push({
+          paymentMethod: "Advance Balance",
+          amount: paymentForInvoice,
+          paidAt: new Date(),
+          paidBy: clinicUser._id,
+          paidByName: clinicUser.name || clinicUser.firstName || "Staff",
+          transactionType: "ADVANCE_USAGE",
+        });
+        
+        // Build payment history entry
+        const newPaymentHistoryEntry = {
+          amount: Number(invoice.amount || 0),
+          paid: newPaid,
+          pending: newPending,
+          advanceUsed: newAdvanceUsed,
+          paymentMethod: paymentMethod || (multiplePayments && multiplePayments[0]?.paymentMethod) || "Cash",
+          multiplePayments: newMultiplePaymentEntries.map((e) => ({
+            paymentMethod: e.paymentMethod,
+            amount: e.amount,
+            transactionType: e.transactionType,
+          })),
+          status: newPending === 0 ? "Completed" : "Partial",
+          updatedAt: new Date(),
+          amountPaid: 0,
+          advanceAmountUsed: paymentForInvoice,
+          remainingPending: newPending,
+          paidBy: clinicUser._id,
+          paidByName: clinicUser.name || clinicUser.firstName || "Staff",
+        };
+        
+        // Update invoice in DB
+        const updatedInvoice = await Billing.findByIdAndUpdate(
+          invoice._id,
+          {
+            $set: {
+              paid: newPaid,
+              advanceUsed: newAdvanceUsed,
+              pending: newPending,
+              pendingUsed: newPendingUsed,
+            },
+            $push: {
+              multiplePayments: { $each: newMultiplePaymentEntries },
+              paymentHistory: newPaymentHistoryEntry,
+            },
+          },
+          { new: true }
+        );
+        
+        if (updatedInvoice) {
+          updatedBillings.push(updatedInvoice);
+          advanceTotalCleared += paymentForInvoice;
+        }
+        
+        // ------------------------------
+        // Handle PatientPendingLedger for advance portion
+        // ------------------------------
+        try {
+          const PatientPendingLedger = (await import("../../../../../models/PatientPendingLedger")).default;
+          const { applyClearance } = await import("../../../../../lib/pendingLedger");
+          
+          // Find open/partial ledgers for this invoice
+          const openLedgers = await PatientPendingLedger.find({
+            parentBillingId: invoice._id,
+            status: { $in: ["Open", "Partial"] }
+          }).sort({ createdAt: 1 }).lean();
+          
+          if (openLedgers.length > 0) {
+            const allocations = [];
+            let remaining = paymentForInvoice;
+            
+            for (const l of openLedgers) {
+              if (remaining <= 0) break;
+              const take = Math.min(remaining, Number(l.remainingAmount || 0));
+              if (take > 0) {
+                allocations.push({ ledgerId: l.ledgerId, amount: take });
+                remaining = Number((remaining - take).toFixed(2));
+              }
+            }
+            
+            if (allocations.length > 0) {
+              const clearanceResult = await applyClearance({
+                allocations,
+                clearingBillingId: invoice._id,
+                clearingInvoiceNumber: invoice.invoiceNumber,
+                paymentMethod: "Advance Balance",
+                paidBy: clinicUser._id,
+                paidByName: clinicUser.name || "Staff",
+                transactionType: "PENDING_CLEARANCE",
+                notes: notes || `Advance payment towards pending balance`,
+                useTransaction: false,
+              });
+              
+              const invoiceBreakdown = Array.isArray(clearanceResult?.breakdown) 
+                ? clearanceResult.breakdown 
+                : [];
+              
+              advanceBreakdown.push(...invoiceBreakdown);
+              
+              // Add pendingClearedBreakdown to original invoice
+              if (invoiceBreakdown.length > 0) {
+                await Billing.findByIdAndUpdate(
+                  invoice._id,
+                  {
+                    $push: {
+                      pendingClearedBreakdown: { $each: invoiceBreakdown.map((b) => ({
+                        ledgerId: b.ledgerId,
+                        invoiceNumber: b.invoiceNumber,
+                        service: b.service,
+                        treatmentSlug: b.treatmentSlug || null,
+                        treatmentName: b.treatmentName || null,
+                        packageId: b.packageId || null,
+                        packageName: b.packageName || null,
+                        amountCleared: b.amountCleared,
+                        newStatus: b.newStatus,
+                        newRemaining: b.newRemaining,
+                        paymentMethod: "Advance Balance",
+                      })) }
+                    }
+                  }
+                );
+              }
+            }
+          }
+        } catch (ledgerErr) {
+          console.error('[AddPendingPayment] ✗ Ledger clearance for advance failed:', ledgerErr.message);
+        }
+        
+        remainingAdvance -= paymentForInvoice;
+      }
+    }
+    
+    // Combine cash breakdown and advance breakdown
+    const totalBreakdown = [...breakdown, ...advanceBreakdown];
+    const totalTotalCleared = totalCleared + advanceTotalCleared;
+
     return res.status(200).json({
       success: true,
       message:
@@ -506,8 +684,8 @@ export default async function handler(req, res) {
         paid: b.paid,
         pending: b.pending,
       })),
-      pendingClearedBreakdown: breakdown,
-      totalCleared,
+      pendingClearedBreakdown: totalBreakdown,
+      totalCleared: totalTotalCleared,
       remainingPayment,
     });
   } catch (error) {

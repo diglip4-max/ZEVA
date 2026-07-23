@@ -208,9 +208,9 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 }) // Most recent first
       .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId originalAmount isDoctorDiscountApplied isAgentDiscountApplied membershipDiscountApplied discountPercent paymentMethod multiplePayments advanceUsed claimAmountUsed")
       .lean();
-    console.log(`[PKG_USAGE_DEBUG] Billing query: patientIds=${JSON.stringify(patientIdsToQuery)}, service=Package, packageName=${packageName || 'ALL'}, found=${billings.length} billings`);
+    // console.log(`[PKG_USAGE_DEBUG] Billing query: patientIds=${JSON.stringify(patientIdsToQuery)}, service=Package, packageName=${packageName || 'ALL'}, found=${billings.length} billings`);
     billings.forEach((b) => {
-      console.log(`[PKG_USAGE_DEBUG]   Billing: invoice=${b.invoiceNumber}, package="${b.package}", sessions=${b.sessions}, patientId=${b.patientId}`);
+      // console.log(`[PKG_USAGE_DEBUG]   Billing: invoice=${b.invoiceNumber}, package="${b.package}", sessions=${b.sessions}, patientId=${b.patientId}`);
     });
 
     // Fetch package definitions to get max sessions for each treatment (include packages from patient.packages too)
@@ -339,15 +339,15 @@ export default async function handler(req, res) {
         };
       }
     });
-    console.log(`[PKG_USAGE_DEBUG] After transfersIn init, packageUsage keys: ${Object.keys(packageUsage).join(', ')}`);
+    // console.log(`[PKG_USAGE_DEBUG] After transfersIn init, packageUsage keys: ${Object.keys(packageUsage).join(', ')}`);
     Object.keys(packageUsage).forEach((pkgName) => {
       const d = packageUsage[pkgName];
       if (d.isTransferred) {
-        console.log(`[PKG_USAGE_DEBUG]   "${pkgName}": isTransferred=true, transferredSessions=${d.transferredSessions}, totalAllowedSessions=${d.totalAllowedSessions}, remainingSessions=${d.remainingSessions}`);
+        // console.log(`[PKG_USAGE_DEBUG]   "${pkgName}": isTransferred=true, transferredSessions=${d.transferredSessions}, totalAllowedSessions=${d.totalAllowedSessions}, remainingSessions=${d.remainingSessions}`);
       }
     });
 
-    console.log(`[PKG_USAGE_DEBUG] Processing ${billings.length} billings...`);
+    // console.log(`[PKG_USAGE_DEBUG] Processing ${billings.length} billings...`);
     billings.forEach((billing) => {
       const pkgName = billing.package;
       if (!pkgName) return;
@@ -407,7 +407,7 @@ export default async function handler(req, res) {
 
       // Only count usage for this patient, not source patients of transfers!
       if (!isFromSourcePatient) {
-        console.log(`[PKG_USAGE_DEBUG] Billing for "${pkgName}": patient=${billing.patientId}, sessions=${billing.sessions}, invoice=${billing.invoiceNumber}`);
+        // console.log(`[PKG_USAGE_DEBUG] Billing for "${pkgName}": patient=${billing.patientId}, sessions=${billing.sessions}, invoice=${billing.invoiceNumber}`);
         // Aggregate treatment sessions
         if (Array.isArray(billing.selectedPackageTreatments)) {
           billing.selectedPackageTreatments.forEach((treatment) => {
@@ -452,7 +452,7 @@ export default async function handler(req, res) {
         }
 
         packageUsage[pkgName].totalSessions += billing.sessions || 0;
-        console.log(`[PKG_USAGE_DEBUG] After increment: "${pkgName}" totalSessions=${packageUsage[pkgName].totalSessions} (added ${billing.sessions || 0})`);
+        // console.log(`[PKG_USAGE_DEBUG] After increment: "${pkgName}" totalSessions=${packageUsage[pkgName].totalSessions} (added ${billing.sessions || 0})`);
       }
     });
 
@@ -471,14 +471,14 @@ export default async function handler(req, res) {
           (sum, t) => sum + (t.maxSessions || 0), 0
         );
         const transferredSessions = pkgData.transferredSessions || 0;
-        console.log(`[PKG_USAGE_DEBUG] Scaling "${pkgName}": totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}, treatments=${pkgData.treatments.map(t => `${t.treatmentName}(${t.maxSessions})`).join(', ')}`);
+        // console.log(`[PKG_USAGE_DEBUG] Scaling "${pkgName}": totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}, treatments=${pkgData.treatments.map(t => `${t.treatmentName}(${t.maxSessions})`).join(', ')}`);
         if (totalPkgSessions > 0 && transferredSessions < totalPkgSessions) {
           const scale = transferredSessions / totalPkgSessions;
-          console.log(`[PKG_USAGE_DEBUG]   Scale factor: ${scale.toFixed(4)}`);
+          // console.log(`[PKG_USAGE_DEBUG]   Scale factor: ${scale.toFixed(4)}`);
           pkgData.treatments.forEach((t) => {
             const oldMax = t.maxSessions || 0;
             t.maxSessions = Math.max(0, Math.round(oldMax * scale));
-            console.log(`[PKG_USAGE_DEBUG]   ${t.treatmentName}: ${oldMax} -> ${t.maxSessions}`);
+            // console.log(`[PKG_USAGE_DEBUG]   ${t.treatmentName}: ${oldMax} -> ${t.maxSessions}`);
           });
         } else if (totalPkgSessions === 0 && transferredSessions > 0) {
           const perTreatment = Math.floor(transferredSessions / Math.max(1, pkgData.treatments.length));
@@ -488,10 +488,10 @@ export default async function handler(req, res) {
         }
       }
     });
-    console.log(`[PKG_USAGE_DEBUG] After scaling, FINAL packageUsage:`);
+    // console.log(`[PKG_USAGE_DEBUG] After scaling, FINAL packageUsage:`);
     Object.keys(packageUsage).forEach((pkgName) => {
       const d = packageUsage[pkgName];
-      console.log(`[PKG_USAGE_DEBUG]   "${pkgName}": totalAllowed=${d.totalAllowedSessions}, remaining=${d.remainingSessions}, transferred=${d.transferredSessions}, totalSessions=${d.totalSessions}, treatments=${Array.isArray(d.treatments) ? d.treatments.map(t => `${t.treatmentName}(max=${t.maxSessions},used=${t.totalUsedSessions})`).join(', ') : 'N/A'}`);
+      // console.log(`[PKG_USAGE_DEBUG]   "${pkgName}": totalAllowed=${d.totalAllowedSessions}, remaining=${d.remainingSessions}, transferred=${d.transferredSessions}, totalSessions=${d.totalSessions}, treatments=${Array.isArray(d.treatments) ? d.treatments.map(t => `${t.treatmentName}(max=${t.maxSessions},used=${t.totalUsedSessions})`).join(', ') : 'N/A'}`);
     });
 
     // Build a map of transferred out packages and total sessions transferred
@@ -574,7 +574,7 @@ export default async function handler(req, res) {
         const remaining = Math.max(0, (pkgData.transferredSessions || 0) - used);
         pkgData.totalAllowedSessions = pkgData.transferredSessions || 0;
         pkgData.remainingSessions = remaining;
-        console.log(`[PKG_USAGE_DEBUG] TRANSFERRED "${pkgName}": totalSessions=${pkgData.totalSessions}, transferredSessions=${pkgData.transferredSessions}, used=${used}, remaining=${remaining}, billingHistoryCount=${pkgData.billingHistory?.length||0}`);
+        // console.log(`[PKG_USAGE_DEBUG] TRANSFERRED "${pkgName}": totalSessions=${pkgData.totalSessions}, transferredSessions=${pkgData.transferredSessions}, used=${used}, remaining=${remaining}, billingHistoryCount=${pkgData.billingHistory?.length||0}`);
       } else {
         // Regular package — calculate total allowed sessions
         const treatments = pkgData.treatments || [];
