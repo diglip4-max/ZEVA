@@ -182,6 +182,25 @@ export default async function handler(req, res) {
     // it here to prevent double-counting.
     const packageRevenueAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
+      // Exclude Package clearance billings that clear pending from a different
+      // invoice (prevents double-counting with the original package billing)
+      {
+        $match: {
+          $expr: {
+            $or: [
+              { $lte: [{ $size: {
+                $cond: [
+                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                  []
+                ]
+              }}, 0] },
+              { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+              { $ne: ["Package", { $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }] },
+            ]
+          }
+        }
+      },
       {
         $group: {
           _id: null,
@@ -264,8 +283,26 @@ export default async function handler(req, res) {
     const advanceRevenue = Math.round(Number(advanceRevenueAgg[0]?.total || 0));
 
     // revenue component: pending cleared (pendingUsed + pendingClaimUsed across all billings)
+    // Exclude clearance billings that clear pending from a different invoice
+    // (prevents double-counting with the original billing)
     const pendingClearedAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch } },
+      {
+        $match: {
+          $expr: {
+            $or: [
+              { $lte: [{ $size: {
+                $cond: [
+                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                  []
+                ]
+              }}, 0] },
+              { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+            ]
+          }
+        }
+      },
       {
         $group: {
           _id: null,
@@ -927,6 +964,7 @@ export default async function handler(req, res) {
           nonCleared: [
             // Non-cleared billings (no breakdown) OR original billings that were cleared
             // (have pendingClearedBreakdown as metadata but pendingUsed = 0)
+            // OR Treatment service billings with appointmentId (appointment-matched treatments)
             {
               $match: {
                 $expr: {
@@ -941,6 +979,14 @@ export default async function handler(req, res) {
               }}, 0] },
                     // Has pendingClearedBreakdown but pendingUsed = 0 = original billing that was cleared
                     { $eq: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
+                    // Treatment service billing with appointmentId = appointment-matched treatment
+                    // The treatment portion should go to doctor regardless of pendingClearedBreakdown
+                    {
+                      $and: [
+                        { $eq: ["$service", "Treatment"] },
+                        { $ne: [{ $ifNull: ["$appointmentId", null] }, null] },
+                      ]
+                    },
                   ],
                 },
               },
@@ -954,17 +1000,40 @@ export default async function handler(req, res) {
                 effectiveDoctorId: "$appointment.doctorId",
                 // Compute amount using proportional scaling for partial payments
                 // Each treatment gets (treatmentAmount / totalAmount) × paid
+                // FIXED: For Treatment service billings WITH pendingClearedBreakdown,
+                // use actual treatment price directly (billingPaid includes package clearance amounts)
+                // For all other billings, use proportional scaling (preserves existing behavior)
                 effectiveAmount: {
                   $cond: [
                     { $eq: ["$selectedTreatments", null] },
                     "$billingPaid",
                     {
-                      $multiply: [
-                        { $ifNull: ["$billingPaid", 0] },
+                      $cond: [
+                        // For Treatment service billings WITH pendingClearedBreakdown:
+                        // billingPaid includes package clearance, so use direct treatment price
                         {
-                          $divide: [
-                            { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                            { $ifNull: ["$originalAmount", "$amount", 1] }
+                          $and: [
+                            { $eq: ["$service", "Treatment"] },
+                            { $gt: [{ $size: {
+                              $cond: [
+                                { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                { $ifNull: ["$pendingClearedBreakdown", []] },
+                                []
+                              ]
+                            }}, 0] },
+                          ]
+                        },
+                        { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                        // For all other billings (normal Treatment, mixed Package): use proportional scaling
+                        {
+                          $multiply: [
+                            { $ifNull: ["$billingPaid", 0] },
+                            {
+                              $divide: [
+                                { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                                { $ifNull: ["$originalAmount", "$amount", 1] }
+                              ]
+                            }
                           ]
                         }
                       ]
@@ -984,10 +1053,12 @@ export default async function handler(req, res) {
                   { $match: { ...clinicMatch, ...dateMatch } },
                   // Only mixed billings (breakdown exists AND invoiceNumber
                   // does not match the breakdown's first invoiceNumber)
+                  // FIXED: Exclude "Treatment" service billings - treatment portion goes to staff, not doctor
                   {
                     $match: {
                       $expr: {
                         $and: [
+                          { $ne: ["$service", "Treatment"] },  // Exclude Treatment service billings
                           {
                             $gt: [
                               { $size: {
@@ -1029,11 +1100,76 @@ export default async function handler(req, res) {
                     },
                   },
                   { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+                  // Extract packageName to match from pendingClearedBreakdown or unpaidPackagesPaid
+                  {
+                    $addFields: {
+                      packageNameToMatch: {
+                        $cond: [
+                          { $ne: [{ $arrayElemAt: ["$pendingClearedBreakdown.packageName", 0] }, null] },
+                          { $arrayElemAt: ["$pendingClearedBreakdown.packageName", 0] },
+                          { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] }
+                        ]
+                      }
+                    }
+                  },
+                  // Extract packageSoldBy info from patient's packages using packageNameToMatch
+                  {
+                    $addFields: {
+                      packageSoldBy: {
+                        $arrayElemAt: [
+                          {
+                            $filter: {
+                              input: { $ifNull: ["$patient.packages", []] },
+                              as: "pkg",
+                              cond: {
+                                $and: [
+                                  { $eq: ["$$pkg.packageName", "$packageNameToMatch"] },
+                                  { $ne: ["$$pkg.packageName", ""] },
+                                  { $ne: ["$$pkg.packageName", null] },
+                                ],
+                              },
+                            },
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                  },
+                  { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
+                  // Lookup user to get role of packageSoldBy person
+                  {
+                    $lookup: {
+                      from: "users",
+                      let: { packageSoldByUserId: "$packageSoldByUserId" },
+                      pipeline: [
+                        {
+                          $match: {
+                            $expr: {
+                              $eq: [
+                                { $toString: "$_id" },
+                                { $toString: "$$packageSoldByUserId" }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      as: "packageSoldByUser",
+                    },
+                  },
+                  { $addFields: { packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] } } },
                   // Compute effective doctor and amount for the package portion
                   {
                     $addFields: {
                       isClearedItem: { $literal: false },
+                      // Keep original behavior: use appointment's doctorId (may be null for direct billings)
                       effectiveDoctorId: "$appointment.doctorId",
+                      // Track if this is an agent-sold package clearance (should be excluded from doctor revenue)
+                      isAgentSoldPackageClearance: {
+                        $and: [
+                          { $eq: ["$service", "Package"] },
+                          { $eq: ["$packageSoldByRole", "agent"] },
+                        ]
+                      },
                       effectiveAmount: {
                         $subtract: [
                           {
@@ -1049,6 +1185,13 @@ export default async function handler(req, res) {
                       },
                     },
                   },
+                  // FIXED: Exclude ONLY agent-sold package clearances from doctor revenue
+                  // (these should go to staff revenue, not doctor revenue)
+                  // This preserves existing behavior for all other billings (including null effectiveDoctorId)
+                  { $match: { isAgentSoldPackageClearance: { $ne: true } } },
+                  // Exclude billings where package portion is 0 or negative
+                  // (entire amount was used for package clearance, no package revenue to attribute)
+                  { $match: { effectiveAmount: { $gt: 0 } } },
                 ],
               },
             },
@@ -1360,6 +1503,14 @@ export default async function handler(req, res) {
               { $eq: ["$service", "Package"] },
               { $or: [{ $eq: ["$package", ""] }, { $eq: ["$package", null] }] },
               { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+              // Exclude clearance billings (non-self-referencing pendingClearedBreakdown)
+              // Allow self-referencing billings (original billing where breakdown.invoiceNumber = own invoiceNumber)
+              {
+                $or: [
+                  { $lte: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                  { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+                ],
+              },
             ],
           },
         },
@@ -1493,6 +1644,49 @@ export default async function handler(req, res) {
       invoices: d.invoices,
       details: d.details?.filter(det => det.isClearedItem).map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount, isClearedItem: det.isClearedItem }))
     })));
+
+    // DEBUG: Show ALL details in byDoctorAgg (including non-cleared items)
+    console.log("DEBUG byDoctorAgg ALL details (including non-cleared):", byDoctorAgg.map(d => ({
+      id: String(d._id),
+      amount: d.amount,
+      allDetails: (d.details || []).map(det => ({
+        invoiceNumber: det.invoiceNumber,
+        service: det.service,
+        packageName: det.packageName,
+        treatmentName: det.treatmentName,
+        amount: det.amount,
+        isClearedItem: det.isClearedItem,
+      }))
+    })));
+
+    // DEBUG: Check if INV-20260726-730173 is in byDoctorAgg
+    const inv730173InByDoctor = byDoctorAgg.flatMap(d => d.details || []).filter(det => det.invoiceNumber === "INV-20260726-730173");
+    console.log("DEBUG INV-20260726-730173 in byDoctorAgg:", inv730173InByDoctor.map(det => ({ invoiceNumber: det.invoiceNumber, service: det.service, amount: det.amount, isClearedItem: det.isClearedItem })));
+
+    // DEBUG: Check if INV-20260726-063238 is in byDoctorAgg (agent-sold package clearance - should be EXCLUDED after fix)
+    const inv063238InByDoctor = byDoctorAgg.flatMap(d => d.details || []).filter(det => det.invoiceNumber === "INV-20260726-063238");
+    console.log("DEBUG INV-20260726-063238 in byDoctorAgg (should be empty after fix):", inv063238InByDoctor.map(det => ({ invoiceNumber: det.invoiceNumber, service: det.service, amount: det.amount, isClearedItem: det.isClearedItem })));
+
+    // DEBUG: Check if INV-20260723-845597 is in byDoctorAgg
+    const invInByDoctor = byDoctorAgg.flatMap(d => d.details || []).filter(det => det.invoiceNumber === "INV-20260723-845597");
+    console.log("DEBUG INV-20260723-845597 in byDoctorAgg:", invInByDoctor.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+
+    // DEBUG: Check if PKG-1784782832634-336 is in byDoctorAgg
+    const pkgInByDoctor = byDoctorAgg.flatMap(d => d.details || []).filter(det => det.invoiceNumber === "PKG-1784782832634-336");
+    console.log("DEBUG PKG-1784782832634-336 in byDoctorAgg:", pkgInByDoctor.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+
+    // DEBUG: Log unpaidPackageByDoctorAgg results
+    console.log("DEBUG unpaidPackageByDoctorAgg - total results:", unpaidPackageByDoctorAgg.length);
+    console.log("DEBUG unpaidPackageByDoctorAgg - results:", unpaidPackageByDoctorAgg.map(d => ({
+      id: String(d._id),
+      amount: d.amount,
+      detailsCount: d.details?.length,
+      details: d.details?.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount }))
+    })));
+
+    // DEBUG: Check if INV-20260723-845597 is in unpaidPackageByDoctorAgg
+    const invInUnpaid = unpaidPackageByDoctorAgg.flatMap(d => d.details || []).filter(det => det.invoiceNumber === "INV-20260723-845597");
+    console.log("DEBUG INV-20260723-845597 in unpaidPackageByDoctorAgg:", invInUnpaid.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
 
     // Merge unpaid package billings into byDoctorAgg results
     if (unpaidPackageByDoctorAgg.length > 0) {
@@ -1721,6 +1915,21 @@ export default async function handler(req, res) {
       pendingClearedBreakdown: { $size: 0 },
     }).lean();
 
+    // DEBUG: Log all date fields for each patientProfileBilling to understand date issue
+    console.log("DEBUG patientProfileBillings - count:", patientProfileBillings.length);
+    console.log("DEBUG patientProfileBillings - date fields:", patientProfileBillings.map(b => ({
+      invoiceNumber: b.invoiceNumber,
+      package: b.package,
+      invoicedDate: b.invoicedDate,
+      createdAt: b.createdAt,
+      updatedAt: b.updatedAt,
+      paidDate: b.paidDate,
+      paymentDate: b.paymentDate,
+      date: b.date,
+      paid: b.paid,
+      patientId: String(b.patientId),
+    })));
+
     const patientProfilePackageAgg = [];
     if (patientProfileBillings.length > 0) {
       // Get unique patient IDs
@@ -1740,6 +1949,18 @@ export default async function handler(req, res) {
         const patient = patientMap.get(String(billing.patientId));
         const matchedPackage = patient?.packages?.find(pkg => pkg.packageName === billing.package);
         const packageSoldByUserId = matchedPackage?.packageSoldByUserId;
+
+        // DEBUG: Log matchedPackage details for new billing
+        console.log(`DEBUG patientProfilePackage - billing: ${billing.invoiceNumber}, package: ${billing.package}, matchedPackage:`, matchedPackage ? {
+          packageName: matchedPackage.packageName,
+          packageSoldBy: matchedPackage.packageSoldBy,
+          packageSoldByUserId: String(matchedPackage.packageSoldByUserId),
+          assignedDate: matchedPackage.assignedDate,
+          startDate: matchedPackage.startDate,
+          endDate: matchedPackage.endDate,
+        } : null);
+        console.log(`DEBUG patientProfilePackage - billing: ${billing.invoiceNumber}, invoicedBy: ${billing.invoicedBy}, invoicedById: ${String(billing.invoicedById)}`);
+        console.log(`DEBUG patientProfilePackage - billing: ${billing.invoiceNumber}, billing.invoicedDate: ${billing.invoicedDate}, billing.createdAt: ${billing.createdAt}`);
 
         // Determine effectiveSoldByUserId: use packageSoldByUserId if valid, otherwise fall back to invoicedById
         let effectiveSoldByUserId = null;
@@ -1842,6 +2063,10 @@ export default async function handler(req, res) {
               { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
               { $gt: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
               { $eq: [{ $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }, "Package"] },
+              // Exclude billings with unpaidPackagesPaid (already counted in unpaidPackageByDoctorAgg)
+              { $lte: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+              // Exclude self-referencing billings (handled by selfRefPackageClearanceAgg)
+              { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
             ],
           },
         },
@@ -1857,7 +2082,7 @@ export default async function handler(req, res) {
           let: { invNum: "$pendingClearedBreakdown.invoiceNumber" },
           pipeline: [
             { $match: { $expr: { $eq: ["$invoiceNumber", "$$invNum"] } } },
-            { $project: { service: 1, package: 1, appointmentId: 1, selectedTreatments: 1, patientId: 1 } },
+            { $project: { service: 1, package: 1, appointmentId: 1, selectedTreatments: 1, patientId: 1, invoicedBy: 1, invoicedById: 1 } },
           ],
           as: "originalBilling",
         },
@@ -1869,6 +2094,8 @@ export default async function handler(req, res) {
           _debug_originalBillingService: { $arrayElemAt: ["$originalBilling.service", 0] },
           _debug_originalBillingAppointmentId: { $arrayElemAt: ["$originalBilling.appointmentId", 0] },
           _debug_originalBillingPackage: { $arrayElemAt: ["$originalBilling.package", 0] },
+          _debug_originalBillingInvoicedBy: { $arrayElemAt: ["$originalBilling.invoicedBy", 0] },
+          _debug_originalBillingInvoicedById: { $arrayElemAt: ["$originalBilling.invoicedById", 0] },
         }
       },
       // Only process if original billing is a Package service billing
@@ -1987,6 +2214,10 @@ export default async function handler(req, res) {
       {
         $addFields: {
           _debug_packageSoldByRole: "$packageSoldByRole",
+          _debug_packageSoldByName: "$packageSoldBy.packageSoldBy",
+          _debug_packageSoldByUserId_fromPatient: "$packageSoldBy.packageSoldByUserId",
+          _debug_resolvedPackageSoldByUserId: "$resolvedPackageSoldByUserId",
+          _debug_packageSoldByUserCount: { $size: "$packageSoldByUser" },
         }
       },
       // Only include billings where package was sold by doctorStaff or agent
@@ -1998,6 +2229,12 @@ export default async function handler(req, res) {
           ],
         },
       } },
+      // DEBUG: Log billings that pass the filter
+      {
+        $addFields: {
+          _debug_passedFilter: true,
+        }
+      },
       // Lookup patient for display fields
       {
         $lookup: {
@@ -2063,6 +2300,206 @@ export default async function handler(req, res) {
       { $sort: { amount: -1 } },
     ]);
 
+    // NEW PIPELINE: Self-referencing package clearance billings
+    // When pending clearance is done on the SAME invoice (e.g., partial payment then clear remaining)
+    // The billing's paid field includes BOTH initial payment AND cleared amount
+    // So we count the FULL paid amount, not just amountCleared
+    const selfRefPackageClearanceAgg = await Billing.aggregate([
+      // Match clinic + date range
+      { $match: { ...clinicMatch, ...dateMatch } },
+      // Only self-referencing billings with pendingClearedBreakdown where service is Package
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+              { $gt: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
+              { $eq: [{ $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }, "Package"] },
+              // Only self-referencing billings (invoiceNumber = pendingClearedBreakdown.invoiceNumber)
+              { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+              // Exclude billings with unpaidPackagesPaid (already counted in unpaidPackageByDoctorAgg)
+              { $lte: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+              // FIXED: Exclude mixed billings (with selectedTreatments) - handled by mixedPackageByDoctorAgg
+              { $lte: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+            ],
+          },
+        },
+      },
+      // Unwind pendingClearedBreakdown
+      { $unwind: "$pendingClearedBreakdown" },
+      // Filter to only Package breakdown items
+      { $match: { "pendingClearedBreakdown.service": "Package" } },
+      // FIXED: Deduplicate by invoiceNumber - each billing should only create ONE detail entry
+      // Without this, billings with multiple breakdown entries create duplicate details (each with full paid amount)
+      { $group: {
+        _id: "$invoiceNumber",
+        doc: { $first: "$$ROOT" },
+      }},
+      { $replaceRoot: { newRoot: "$doc" } },
+      // Lookup patient to extract packageSoldBy info
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$patientId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [
+                    { $toString: "$_id" },
+                    { $toString: "$$patientId" }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "patient",
+        },
+      },
+      { $addFields: { patient: { $arrayElemAt: ["$patient", 0] } } },
+      // Extract packageSoldBy info from patient's packages
+      {
+        $addFields: {
+          packageSoldBy: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: { $ifNull: ["$patient.packages", []] },
+                  as: "pkg",
+                  cond: {
+                    $and: [
+                      { $eq: ["$$pkg.packageName", "$package"] },
+                      { $ne: ["$$pkg.packageName", ""] },
+                      { $ne: ["$$pkg.packageName", null] },
+                    ],
+                  },
+                },
+              },
+              0,
+            ],
+          },
+        },
+      },
+      { $addFields: { packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] } } },
+      // Lookup user to get role of packageSoldBy person
+      {
+        $lookup: {
+          from: "users",
+          let: { 
+            packageSoldByUserId: "$packageSoldByUserId",
+            packageSoldByName: "$packageSoldBy.packageSoldBy"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    { $and: [
+                      { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
+                      { $ne: ["$$packageSoldByUserId", null] },
+                      { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
+                    ]},
+                    { $and: [
+                      { $ne: ["$$packageSoldByName", null] },
+                      { $ne: ["$$packageSoldByName", ""] },
+                      { $eq: ["$name", "$$packageSoldByName"] }
+                    ]}
+                  ]
+                }
+              }
+            },
+            { $limit: 1 }
+          ],
+          as: "packageSoldByUser",
+        },
+      },
+      { $addFields: { 
+        packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+        resolvedPackageSoldByUserId: {
+          $cond: [
+            { $and: [
+              { $eq: ["$packageSoldByUserId", null] },
+              { $gt: [{ $size: "$packageSoldByUser" }, 0] }
+            ]},
+            { $arrayElemAt: ["$packageSoldByUser._id", 0] },
+            "$packageSoldByUserId"
+          ]
+        }
+      } },
+      // Only include billings where package was sold by doctorStaff or agent
+      { $match: { 
+        $expr: {
+          $and: [
+            { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
+            { $ne: ["$resolvedPackageSoldByUserId", null] },
+          ],
+        },
+      } },
+      // Lookup patient for display fields
+      {
+        $lookup: {
+          from: "patientregistrations",
+          let: { patientId: "$patientId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [
+                    { $toString: "$_id" },
+                    { $toString: "$$patientId" }
+                  ]
+                }
+              }
+            }
+          ],
+          as: "patientInfo",
+        },
+      },
+      { $addFields: { patientInfo: { $arrayElemAt: ["$patientInfo", 0] } } },
+      // Group by packageSoldByUserId - use FULL paid amount (not just amountCleared)
+      {
+        $group: {
+          _id: { $toObjectId: "$resolvedPackageSoldByUserId" },
+          role: { $first: "$packageSoldByRole" },
+          amount: { $sum: "$paid" },
+          invoices: { $sum: 1 },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patientInfo.firstName", " ", { $ifNull: ["$patientInfo.lastName", ""] }] },
+              emrNumber: "$patientInfo.emrNumber",
+              service: "Package",
+              packageName: "$package",
+              treatmentName: null,
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: "$paid",
+              paid: "$paid",
+              pending: 0,
+              advance: 0,
+              advanceUsed: 0,
+              claimAmountUsed: 0,
+              cashbackWalletUsed: 0,
+              pendingUsed: "$pendingUsed",
+              pendingClaimUsed: 0,
+              isClearedItem: true,
+            },
+          },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
+    // DEBUG: Log selfRefPackageClearanceAgg results
+    console.log("DEBUG selfRefPackageClearanceAgg - total results:", selfRefPackageClearanceAgg.length);
+    console.log("DEBUG selfRefPackageClearanceAgg - results:", selfRefPackageClearanceAgg.map(p => ({
+      id: String(p._id),
+      role: p.role,
+      amount: p.amount,
+      invoices: p.invoices,
+      details: p.details?.map(d => ({ invoiceNumber: d.invoiceNumber, packageName: d.packageName, amount: d.amount, paid: d.paid }))
+    })));
+
     // DEBUG: Run pipeline without group to see intermediate results
     const packageClearanceDebug = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch } },
@@ -2108,6 +2545,8 @@ export default async function handler(req, res) {
       originalBillingService: d._debug_originalBillingService,
       originalBillingAppointmentId: d._debug_originalBillingAppointmentId,
       originalBillingAppointmentIdType: typeof d._debug_originalBillingAppointmentId,
+      originalBillingInvoicedBy: d._debug_originalBillingInvoicedBy,
+      originalBillingInvoicedById: d._debug_originalBillingInvoicedById,
     })));
 
     // DEBUG: Run pipeline with patient lookup to check if patient is found
@@ -2221,8 +2660,22 @@ export default async function handler(req, res) {
       invoiceNumber: d.invoiceNumber,
       originalBillingPatientId: d.originalBilling?.[0]?.patientId,
       originalBillingPackage: d.originalBilling?.[0]?.package,
+      originalBillingInvoicedBy: d.originalBilling?.[0]?.invoicedBy,
+      originalBillingInvoicedById: d.originalBilling?.[0]?.invoicedById,
       patientFound: !!d.patient,
       patientPackagesCount: d.patient?.packages?.length || 0,
+      packageSoldBy: d.packageSoldBy ? { packageName: d.packageSoldBy.packageName, packageSoldBy: d.packageSoldBy.packageSoldBy, packageSoldByUserId: d.packageSoldBy.packageSoldByUserId } : null,
+      packageSoldByUserId: d.packageSoldByUserId,
+      packageSoldByRole: d.packageSoldByRole,
+      invoicedById_matches_packageSoldByUserId: d.originalBilling?.[0]?.invoicedById?.toString() === d.packageSoldByUserId?.toString(),
+    })));
+
+    // DEBUG: Check oyyyy specifically
+    const oyyyyDebug = packageClearancePatientDebug.filter(d => d.originalBilling?.[0]?.package === "oyyyy");
+    console.log("DEBUG oyyyy in patient/packageSoldBy:", oyyyyDebug.map(d => ({
+      invoiceNumber: d.invoiceNumber,
+      originalBillingInvoicedBy: d.originalBilling?.[0]?.invoicedBy,
+      originalBillingInvoicedById: d.originalBilling?.[0]?.invoicedById,
       packageSoldBy: d.packageSoldBy ? { packageName: d.packageSoldBy.packageName, packageSoldBy: d.packageSoldBy.packageSoldBy, packageSoldByUserId: d.packageSoldBy.packageSoldByUserId } : null,
       packageSoldByUserId: d.packageSoldByUserId,
       packageSoldByRole: d.packageSoldByRole,
@@ -2242,6 +2695,12 @@ export default async function handler(req, res) {
       isPackageService: d._debug_originalBillingService === "Package",
       noAppointmentId: d._debug_originalBillingAppointmentId === null || d._debug_originalAppointmentId === undefined,
       appointmentIdValue: d._debug_originalBillingAppointmentId,
+      packageSoldByName: d._debug_packageSoldByName,
+      packageSoldByUserId_fromPatient: d._debug_packageSoldByUserId_fromPatient,
+      resolvedPackageSoldByUserId: d._debug_resolvedPackageSoldByUserId,
+      packageSoldByRole: d._debug_packageSoldByRole,
+      packageSoldByUserCount: d._debug_packageSoldByUserCount,
+      passedFilter: d._debug_passedFilter,
     })));
 
     // DEBUG: Log packageClearanceAgg results
@@ -2253,6 +2712,36 @@ export default async function handler(req, res) {
       invoices: p.invoices,
       details: p.details?.map(d => ({ invoiceNumber: d.invoiceNumber, packageName: d.packageName, amount: d.amount }))
     })));
+
+    // DEBUG: Check oyyyy package in packageClearanceAgg
+    const oyyyyInClearance = packageClearanceAgg.flatMap(p => p.details || []).filter(det => det.packageName === "oyyyy");
+    console.log("DEBUG oyyyy in packageClearanceAgg:", oyyyyInClearance.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+    const oyyyyStaff = packageClearanceAgg.filter(p => p.details?.some(d => d.packageName === "oyyyy"));
+    console.log("DEBUG oyyyy staff in packageClearanceAgg:", oyyyyStaff.map(p => ({ id: String(p._id), role: p.role, amount: p.amount })));
+
+    // DEBUG: Check if INV-20260723-845597 is in packageClearanceAgg
+    const invInClearance = packageClearanceAgg.flatMap(p => p.details || []).filter(det => det.invoiceNumber === "INV-20260723-845597");
+    console.log("DEBUG INV-20260723-845597 in packageClearanceAgg:", invInClearance.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+
+    // DEBUG: Check if PKG-1784782832634-336 is in packageClearanceAgg
+    const pkgInClearance = packageClearanceAgg.flatMap(p => p.details || []).filter(det => det.invoiceNumber === "PKG-1784782832634-336");
+    console.log("DEBUG PKG-1784782832634-336 in packageClearanceAgg:", pkgInClearance.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+
+    // DEBUG: Check if INV-20260723-169614 is in packageClearanceAgg (self-referencing package clearance)
+    const inv169614InClearance = packageClearanceAgg.flatMap(p => p.details || []).filter(det => det.invoiceNumber === "INV-20260723-169614");
+    console.log("DEBUG INV-20260723-169614 in packageClearanceAgg:", inv169614InClearance.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+
+    // DEBUG: Check if INV-20260723-424894 is in packageClearanceAgg (clearance billing for oyyyy)
+    const inv424894InClearance = packageClearanceAgg.flatMap(p => p.details || []).filter(det => det.invoiceNumber === "INV-20260723-424894");
+    console.log("DEBUG INV-20260723-424894 in packageClearanceAgg:", inv424894InClearance.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, amount: det.amount })));
+
+    // DEBUG: Check if INV-20260723-088451 is in packageClearanceAgg
+    const inv088451InClearance = packageClearanceAgg.flatMap(p => p.details || []).filter(det => det.invoiceNumber === "INV-20260723-088451" || det.invoiceNumber === "PKG-1784806080409-377");
+    console.log("DEBUG INV-20260723-088451 in packageClearanceAgg:", inv088451InClearance.map(det => ({ invoiceNumber: det.invoiceNumber, packageName: det.packageName, treatmentName: det.treatmentName, amount: det.amount })));
+    const inv088451Staff = packageClearanceAgg.filter(p => p.details?.some(d => d.invoiceNumber === "INV-20260723-088451" || d.invoiceNumber === "PKG-1784806080409-377"));
+    console.log("DEBUG INV-20260723-088451 staff in packageClearanceAgg:", inv088451Staff.map(p => ({ id: String(p._id), role: p.role, amount: p.amount, details: p.details?.map(d => ({ invoiceNumber: d.invoiceNumber, packageName: d.packageName, treatmentName: d.treatmentName, amount: d.amount })) })));
+    const inv424894Staff = packageClearanceAgg.filter(p => p.details?.some(d => d.invoiceNumber === "INV-20260723-424894"));
+    console.log("DEBUG INV-20260723-424894 staff in packageClearanceAgg:", inv424894Staff.map(p => ({ id: String(p._id), role: p.role, amount: p.amount })));
 
     // DEBUG: Log byDoctorAgg BEFORE package clearance merge (staffRevenueAgg not yet declared)
     console.log("DEBUG BEFORE package clearance merge - byDoctorAgg count:", byDoctorAgg.length);
@@ -2888,7 +3377,23 @@ export default async function handler(req, res) {
         $match: {
           $or: [
             { isClearedItem: false, service: "Package" },
-            { isClearedItem: true, effectiveService: "Package" },
+            // Cleared items where breakdown is Package AND (billing is NOT Package
+            // OR breakdown points to same invoice)
+            // Exclude Package billings clearing Package pending from DIFFERENT invoice
+            {
+              $expr: {
+                $and: [
+                  { $eq: ["$isClearedItem", true] },
+                  { $eq: ["$effectiveService", "Package"] },
+                  {
+                    $or: [
+                      { $ne: ["$service", "Package"] },
+                      { $eq: ["$invoiceNumber", "$pendingClearedBreakdown.invoiceNumber"] },
+                    ]
+                  }
+                ]
+              }
+            },
             { isClearedItem: true, service: "Package", _isMixedBilling: true },
           ],
         },
@@ -3543,9 +4048,35 @@ export default async function handler(req, res) {
     // because they represent internal accounting (a patient's pending balance
     // being cleared against a new payment) – NOT a real cash inflow. Counting
     // them on top of `paid` would double-count the cleared amount.
+    // For payment method aggregation, also exclude Package clearance billings
+    // that clear pending from a different invoice (prevents double-counting).
+    const excludeClearanceMatchForPayments = {
+      $expr: {
+        $and: [
+          // Apply the standard excludeClearanceMatch logic
+          excludeClearanceMatch.$expr,
+          // Additionally exclude Package service billings where breakdown
+          // points to a different invoice with Package service
+          {
+            $or: [
+              { $ne: ["$service", "Package"] },
+              { $lte: [{ $size: {
+                $cond: [
+                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                  []
+                ]
+              }}, 0] },
+              { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+              { $ne: ["Package", { $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }] },
+            ]
+          }
+        ]
+      }
+    };
     const paymentsAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch } },
-      { $match: excludeClearanceMatch },
+      { $match: excludeClearanceMatchForPayments },
       // Lookup patient for details
       {
         $lookup: {
@@ -4008,7 +4539,50 @@ export default async function handler(req, res) {
     };
     const paymentsPipelineBase = [
       { $match: { ...clinicMatch, ...dateMatch } },
+      // DEBUG: Log billings before excludeClearanceMatch
+      {
+        $addFields: {
+          _debug_beforeExclude: {
+            invoiceNumber: "$invoiceNumber",
+            service: "$service",
+            package: "$package",
+            treatment: "$treatment",
+            hasBreakdown: {
+              $gt: [{ $size: {
+                $cond: [
+                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                  []
+                ]
+              }}, 0]
+            }
+          }
+        }
+      },
       { $match: excludeClearanceMatch },
+      // DEBUG: Log billings after excludeClearanceMatch
+      {
+        $addFields: {
+          _debug_paymentReport: {
+            invoiceNumber: "$invoiceNumber",
+            service: "$service",
+            package: "$package",
+            treatment: "$treatment",
+            paid: "$paid",
+            pending: "$pending",
+            hasBreakdown: {
+              $gt: [{ $size: {
+                $cond: [
+                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                  []
+                ]
+              }}, 0]
+            },
+            breakdownInvoice: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }
+          }
+        }
+      },
       {
         $project: {
           invoiceNumber: "$invoiceNumber",
@@ -4085,10 +4659,20 @@ export default async function handler(req, res) {
       {
         $addFields: {
           // Calculate effective paid/pending considering clearances
+          // Only add clearance amount if there's actually pending to clear
+          // (prevents double-counting when billing is already fully paid)
           effectivePaid: {
-            $add: [
+            $cond: [
+              { $gt: [{ $ifNull: ["$pending", 0] }, 0] },
+              // Has pending: add clearance amount to paid
+              {
+                $add: [
+                  { $ifNull: ["$paid", 0] },
+                  { $ifNull: [{ $arrayElemAt: ["$clearanceInfo.totalCleared", 0] }, 0] },
+                ],
+              },
+              // No pending: use paid amount as-is (don't add clearance)
               { $ifNull: ["$paid", 0] },
-              { $ifNull: [{ $arrayElemAt: ["$clearanceInfo.totalCleared", 0] }, 0] },
             ],
           },
           effectivePending: {
@@ -4253,7 +4837,13 @@ export default async function handler(req, res) {
           serviceName: {
             $cond: [
               { $eq: ["$serviceType", "Package"] },
-              { $ifNull: ["$packageName", "Package"] },
+              {
+                $cond: [
+                  { $eq: ["$packageName", ""] },
+                  "Package",
+                  { $ifNull: ["$packageName", "Package"] }
+                ]
+              },
               {
                 $cond: [
                   { $eq: ["$serviceType", "Treatment"] },
@@ -4282,14 +4872,39 @@ export default async function handler(req, res) {
         },
       },
     ];
-    const paymentsCountAgg = await Billing.aggregate([...paymentsPipelineBase, { $count: "total" }]);
+    let paymentsCountAgg = [];
+    let paymentsPageAgg = [];
+    try {
+      paymentsCountAgg = await Billing.aggregate([...paymentsPipelineBase, { $count: "total" }]);
+      const paymentsTotal = Number(paymentsCountAgg[0]?.total || 0);
+      paymentsPageAgg = await Billing.aggregate([
+        ...paymentsPipelineBase,
+        { $sort: { paymentDate: -1 } },
+        { $skip: skipNum },
+        { $limit: pageSizeNum },
+      ]);
+    } catch (error) {
+      console.error("[Payment Reports Error] MongoDB aggregation error:", error.message);
+      console.error("[Payment Reports Error] Full error:", error);
+    }
     const paymentsTotal = Number(paymentsCountAgg[0]?.total || 0);
-    const paymentsPageAgg = await Billing.aggregate([
-      ...paymentsPipelineBase,
-      { $sort: { paymentDate: -1 } },
-      { $skip: skipNum },
-      { $limit: pageSizeNum },
-    ]);
+    // DEBUG: Log payment report results
+    console.log("[Payment Reports Debug] Total:", paymentsTotal, "Page results:", paymentsPageAgg.length);
+    if (paymentsPageAgg.length > 0) {
+      console.log("[Payment Reports Debug] Sample before exclude:", JSON.stringify(paymentsPageAgg[0]._debug_beforeExclude, null, 2));
+      console.log("[Payment Reports Debug] Sample after exclude:", JSON.stringify(paymentsPageAgg[0]._debug_paymentReport, null, 2));
+    } else {
+      // Try to get billings before excludeClearanceMatch to see what's being filtered
+      const debugBeforeExclude = await Billing.aggregate([
+        { $match: { ...clinicMatch, ...dateMatch } },
+        { $limit: 5 },
+        { $project: { invoiceNumber: 1, service: 1, package: 1, treatment: 1, pendingClearedBreakdown: 1 } }
+      ]);
+      console.log("[Payment Reports Debug] Billings before excludeClearanceMatch:", debugBeforeExclude.length);
+      if (debugBeforeExclude.length > 0) {
+        console.log("[Payment Reports Debug] Sample billing:", JSON.stringify(debugBeforeExclude[0], null, 2));
+      }
+    }
     const payments = paymentsPageAgg.map((p) => {
       let status = "Pending";
       const paid = Math.round(Number(p.paid || 0));
@@ -5124,13 +5739,23 @@ export default async function handler(req, res) {
                   0
                 ]
               },
+              // FIXED: For "Treatment" service billings, use actual treatment price directly
+              // For "Package" service billings (mixed), use proportional scaling
               {
-                $multiply: [
-                  { $ifNull: ["$billingPaid", 0] },
+                $cond: [
+                  { $eq: ["$service", "Treatment"] },
+                  // Treatment billing: use actual treatment price * quantity
+                  { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                  // Package billing (mixed): use proportional scaling
                   {
-                    $divide: [
-                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    $multiply: [
+                      { $ifNull: ["$billingPaid", 0] },
+                      {
+                        $divide: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -5172,56 +5797,29 @@ export default async function handler(req, res) {
               "$$REMOVE"
             ]
           },
+          // DEBUG: Log effectiveRevenue calculation for INV-20260723-088451
+          _debug_088451_effectiveRevenue: {
+            $cond: [
+              { $eq: ["$invoiceNumber", "INV-20260723-088451"] },
+              {
+                invoiceNumber: "$invoiceNumber",
+                service: "$service",
+                package: "$package",
+                paid: "$paid",
+                billingPaid: "$billingPaid",
+                selectedTreatments_afterUnwind: "$selectedTreatments",
+                selectedTreatments_isNull: { $eq: ["$selectedTreatments", null] },
+                treatmentAmount: "$treatmentAmount",
+                effectiveRevenue: "$treatmentAmount",
+              },
+              "$$REMOVE"
+            ]
+          },
         },
       },
-      // Add package portion for mixed billings (Package + Treatment)
-      {
-        $facet: {
-          // Keep treatment documents as-is
-          treatments: [ { $match: {} } ],
-          // Create package portion documents for mixed billings
-          packagePortions: [
-            { $match: { 
-              service: "Package",
-              selectedTreatments: { $ne: null }
-            }},
-            { $group: {
-              _id: "$invoiceNumber",
-              invoiceNumber: { $first: "$invoiceNumber" },
-              clinicId: { $first: "$clinicId" },
-              patientId: { $first: "$patientId" },
-              patient: { $first: "$patient" },
-              invoicedBy: { $first: "$invoicedBy" },
-              invoicedById: { $first: "$invoicedById" },
-              invoicedByRole: { $first: "$invoicedByRole" },
-              packageSoldByName: { $first: "$packageSoldByName" },
-              packageSoldByUserId: { $first: "$packageSoldByUserId" },
-              packageSoldByRole: { $first: "$packageSoldByRole" },
-              package: { $first: "$package" },
-              treatment: { $first: "$treatment" },
-              service: { $first: "$service" },
-              billingPaid: { $first: "$billingPaid" },
-              totalTreatmentAmount: { $sum: "$treatmentAmount" },
-              invoicedDate: { $first: "$invoicedDate" },
-              emrNumber: { $first: "$patient.emrNumber" },
-            }},
-            { $addFields: {
-              packageAmount: { $subtract: ["$billingPaid", "$totalTreatmentAmount"] },
-              effectiveInvoicedById: "$packageSoldByUserId",
-              effectiveInvoicedByName: "$packageSoldByName",
-              selectedTreatments: null,
-              treatmentAmount: 0,
-              effectiveRevenue: { $subtract: ["$billingPaid", "$totalTreatmentAmount"] },
-            }},
-            { $match: { packageAmount: { $gt: 0 } } },
-          ]
-        }
-      },
-      { $project: {
-        combined: { $concatArrays: ["$treatments", "$packagePortions"] }
-      }},
-      { $unwind: "$combined" },
-      { $replaceRoot: { newRoot: "$combined" } },
+      // FIXED: Removed $facet packagePortions - mixedPackageByDoctorAgg handles package portions separately
+      // Keep all docs flowing through - treatment portions stay, but $group won't create duplicate package entries for mixed billings
+      { $match: {} },
       {
         $group: {
           _id: "$effectiveInvoicedById",
@@ -5304,6 +5902,7 @@ export default async function handler(req, res) {
               _debug_billingPackage: "$_debug_billingPackage",
               _debug_afterIsFromAppointment: "$_debug_afterIsFromAppointment",
               _debug_pyreeAmount: "$_debug_pyreeAmount",
+              _debug_088451_effectiveRevenue: "$_debug_088451_effectiveRevenue",
               _debug_hfejhbrfjhbSoldBy: "$_debug_hfejhbrfjhbSoldBy",
               _debug_allPackagesAfterRole: "$_debug_allPackagesAfterRole",
               _debug_afterPatientLookup: "$_debug_afterPatientLookup",
@@ -5317,6 +5916,124 @@ export default async function handler(req, res) {
     ];
 
     const staffRevenueAgg = await Billing.aggregate(staffRevenuePipeline);
+
+    // DEBUG: Log INV-20260723-088451 details from staffRevenuePipeline
+    console.log("DEBUG INV-20260723-088451 in staffRevenueAgg:");
+    for (const staffDoc of staffRevenueAgg) {
+      const invDetails = (staffDoc.details || []).filter(d => d.invoiceNumber === "INV-20260723-088451" || d.invoiceNumber === "PKG-1784806080409-377");
+      if (invDetails.length > 0) {
+        console.log("DEBUG INV-20260723-088451 found in staffRevenueAgg:", {
+          staffId: String(staffDoc._id),
+          role: staffDoc.role,
+          revenue: staffDoc.revenue,
+          invoices: staffDoc.invoices,
+          invDetails: invDetails.map(d => ({
+            invoiceNumber: d.invoiceNumber,
+            service: d.service,
+            packageName: d.packageName,
+            treatmentName: d.treatmentName,
+            amount: d.amount,
+            paid: d.paid,
+          })),
+        });
+      }
+    }
+
+    // DEBUG: Log ALL suchi details from staffRevenuePipeline after fix
+    const suchiAfterFix = staffRevenueAgg.filter(r => String(r._id) === "6a51cf15b91dfc253d83ae76");
+    console.log("DEBUG suchi staffRevenuePipeline AFTER FIX:", suchiAfterFix.map(r => ({
+      staffId: String(r._id),
+      revenue: r.revenue,
+      invoices: r.invoices,
+      detailsCount: (r.details || []).length,
+      allDetails: (r.details || []).map(d => ({
+        invoiceNumber: d.invoiceNumber,
+        service: d.service,
+        packageName: d.packageName,
+        treatmentName: d.treatmentName,
+        amount: d.amount,
+      })),
+      oyyyyCount: (r.details || []).filter(d => d.packageName === "oyyyy").length,
+    })));
+
+    // DEBUG: Log facet results for INV-20260723-905621
+    const facetDebugResults = staffRevenueAgg.filter(r => r._debug_facet_results);
+    console.log("DEBUG facet results for INV-20260723-905621:", facetDebugResults.map(r => ({
+      staffId: String(r._id),
+      treatmentsCount: r._debug_facet_results?.treatmentsCount,
+      packagePortionsCount: r._debug_facet_results?.packagePortionsCount,
+      debugPackagePortionsCount: r._debug_facet_results?.debugPackagePortionsCount,
+      treatments905621: (r._debug_facet_results?.treatments905621 || []).map(t => ({
+        invoiceNumber: t.invoiceNumber,
+        service: t.service,
+        package: t.package,
+        selectedTreatments: t.selectedTreatments ? 'not null' : 'null',
+        effectiveRevenue: t.effectiveRevenue,
+      })),
+      packagePortions905621: (r._debug_facet_results?.packagePortions905621 || []).map(p => ({
+        invoiceNumber: p.invoiceNumber,
+        service: p.service,
+        package: p.package,
+        selectedTreatments: p.selectedTreatments,
+        effectiveRevenue: p.effectiveRevenue,
+        packageAmount: p.packageAmount,
+      })),
+    })));
+
+    // DEBUG: Log INV-20260723-905621 in staffRevenueAgg
+    const inv905621InStaff = staffRevenueAgg.filter(r =>
+      (r.details || []).some(detail => detail.invoiceNumber === "INV-20260723-905621")
+    );
+    console.log("DEBUG INV-20260723-905621 in staffRevenueAgg:", inv905621InStaff.map(r => ({
+      staffId: String(r._id),
+      revenue: r.revenue,
+      invoices: r.invoices,
+      details: (r.details || []).filter(d => d.invoiceNumber === "INV-20260723-905621").map(d => ({
+        service: d.service,
+        packageName: d.packageName,
+        treatmentName: d.treatmentName,
+        amount: d.amount,
+        paid: d.paid,
+      }))
+    })));
+
+    // DEBUG: Log all details for suchi to see duplication
+    const suchiResults = staffRevenueAgg.filter(r => String(r._id) === "6a51cf15b91dfc253d83ae76");
+    console.log("DEBUG suchi staffRevenueAgg details:", suchiResults.map(r => ({
+      staffId: String(r._id),
+      revenue: r.revenue,
+      invoices: r.invoices,
+      detailsCount: (r.details || []).length,
+      oyyyyCount: (r.details || []).filter(d => d.packageName === "oyyyy").length,
+      oyyyyDetails: (r.details || []).filter(d => d.packageName === "oyyyy").map(d => ({
+        invoiceNumber: d.invoiceNumber,
+        service: d.service,
+        amount: d.amount,
+        paid: d.paid,
+      }))
+    })));
+
+    // DEBUG: Log ALL details for suchi in staffRevenueAgg
+    console.log("DEBUG suchi ALL details in staffRevenueAgg:", suchiResults.flatMap(r => 
+      (r.details || []).map(d => ({
+        invoiceNumber: d.invoiceNumber,
+        service: d.service,
+        packageName: d.packageName,
+        treatmentName: d.treatmentName,
+        amount: d.amount,
+        paid: d.paid,
+      }))
+    ));
+
+    // DEBUG: Log INV-20260723-169614 in staffRevenueAgg
+    const inv169614InStaff = staffRevenueAgg.filter(r =>
+      (r.details || []).some(detail => detail.invoiceNumber === "INV-20260723-169614")
+    );
+    console.log("DEBUG INV-20260723-169614 in staffRevenueAgg:", inv169614InStaff.map(r => ({
+      staffId: String(r._id),
+      revenue: r.revenue,
+      details: (r.details || []).filter(d => d.invoiceNumber === "INV-20260723-169614").map(d => ({ invoiceNumber: d.invoiceNumber, packageName: d.packageName, amount: d.amount, paid: d.paid }))
+    })));
 
     // DEBUG: Log hfejhbrfjhb package in staffRevenueAgg
     const hfejhbrfjhbDebug = staffRevenueAgg.filter(r =>
@@ -5396,6 +6113,20 @@ export default async function handler(req, res) {
       debugDetails: (r.details || []).filter(d => d._debug_pyreeAmount).map(d => d._debug_pyreeAmount)
     })), null, 2));
 
+    // DEBUG: Log mixedPackageByDoctorAgg for oyyyy
+    console.log("DEBUG mixedPackageByDoctorAgg - total entries:", mixedPackageByDoctorAgg.length);
+    for (const mixedDoc of mixedPackageByDoctorAgg) {
+      const oyyyyDetails = (mixedDoc.details || []).filter(d => d.packageName === "oyyyy");
+      if (oyyyyDetails.length > 0) {
+        console.log("DEBUG mixedPackageByDoctorAgg - oyyyy found!", {
+          staffId: String(mixedDoc._id),
+          role: mixedDoc.role,
+          oyyyyCount: oyyyyDetails.length,
+          oyyyyDetails: oyyyyDetails.map(d => ({ invoiceNumber: d.invoiceNumber, packageName: d.packageName, amount: d.amount })),
+        });
+      }
+    }
+
     // Merge mixed billing package portion into appropriate revenue arrays
     // doctorStaff → Revenue by Doctor, agent → Revenue by Staff
     if (mixedPackageByDoctorAgg.length > 0) {
@@ -5430,11 +6161,14 @@ export default async function handler(req, res) {
 
     // Merge patient profile package billing results
     if (patientProfilePackageAgg.length > 0) {
+      console.log("DEBUG patientProfilePackageAgg merge - starting merge, length:", patientProfilePackageAgg.length);
       for (const profileDoc of patientProfilePackageAgg) {
         const role = profileDoc.role;
+        console.log(`DEBUG patientProfilePackageAgg merge - processing: id=${String(profileDoc._id)}, role=${role}, amount=${profileDoc.amount}`);
         if (role === "doctorStaff") {
           // Add to Revenue by Doctor
           const existingDoctor = byDoctorAgg.find(d => String(d._id) === String(profileDoc._id));
+          console.log(`DEBUG patientProfilePackageAgg merge - doctorStaff: existingDoctor=${!!existingDoctor}`);
           if (existingDoctor) {
             existingDoctor.amount += profileDoc.amount;
             existingDoctor.invoices += profileDoc.invoices;
@@ -5445,6 +6179,18 @@ export default async function handler(req, res) {
         } else if (role === "agent") {
           // Add to Revenue by Staff
           const existingStaff = staffRevenueAgg.find(s => String(s._id) === String(profileDoc._id));
+          console.log(`DEBUG patientProfilePackageAgg merge - agent: existingStaff=${!!existingStaff}`);
+          // DEBUG: Log details being pushed for suchi
+          if (String(profileDoc._id) === "6a51cf15b91dfc253d83ae76") {
+            console.log("DEBUG patientProfilePackageAgg merge - suchi details being pushed:", profileDoc.details.map(d => ({
+              invoiceNumber: d.invoiceNumber,
+              service: d.service,
+              packageName: d.packageName,
+              treatmentName: d.treatmentName,
+              amount: d.amount,
+              paid: d.paid,
+            })));
+          }
           if (existingStaff) {
             existingStaff.revenue += profileDoc.amount;
             existingStaff.details.push(...profileDoc.details);
@@ -5458,6 +6204,8 @@ export default async function handler(req, res) {
           }
         }
       }
+      console.log("DEBUG patientProfilePackageAgg merge - AFTER merge - byDoctorAgg count:", byDoctorAgg.length);
+      console.log("DEBUG patientProfilePackageAgg merge - AFTER merge - staffRevenueAgg count:", staffRevenueAgg.length);
     }
 
     // Merge package clearance billing results (pending amount cleared for packages)
@@ -5497,6 +6245,97 @@ export default async function handler(req, res) {
     }
     console.log("DEBUG package clearance merge - AFTER merge - byDoctorAgg count:", byDoctorAgg.length);
     console.log("DEBUG package clearance merge - AFTER merge - staffRevenueAgg count:", staffRevenueAgg.length);
+
+    // Merge selfRefPackageClearanceAgg into byDoctorAgg/staffRevenueAgg
+    console.log("DEBUG self-ref package clearance merge - starting merge, selfRefPackageClearanceAgg length:", selfRefPackageClearanceAgg.length);
+    if (selfRefPackageClearanceAgg.length > 0) {
+      for (const clearanceDoc of selfRefPackageClearanceAgg) {
+        const role = clearanceDoc.role;
+        console.log(`DEBUG self-ref package clearance merge - processing: id=${String(clearanceDoc._id)}, role=${role}, amount=${clearanceDoc.amount}`);
+        if (role === "doctorStaff") {
+          // Add to Revenue by Doctor
+          const existingDoctor = byDoctorAgg.find(d => String(d._id) === String(clearanceDoc._id));
+          console.log(`DEBUG self-ref package clearance merge - doctorStaff: existingDoctor=${!!existingDoctor}`);
+          if (existingDoctor) {
+            existingDoctor.amount += clearanceDoc.amount;
+            existingDoctor.invoices += clearanceDoc.invoices;
+            existingDoctor.details.push(...clearanceDoc.details);
+          } else {
+            byDoctorAgg.push(clearanceDoc);
+          }
+        } else if (role === "agent") {
+          // Add to Revenue by Staff
+          const existingStaff = staffRevenueAgg.find(s => String(s._id) === String(clearanceDoc._id));
+          console.log(`DEBUG self-ref package clearance merge - agent: existingStaff=${!!existingStaff}`);
+          // DEBUG: Log details being pushed for suchi
+          if (String(clearanceDoc._id) === "6a51cf15b91dfc253d83ae76") {
+            console.log("DEBUG self-ref package clearance merge - suchi details being pushed:", clearanceDoc.details.map(d => ({
+              invoiceNumber: d.invoiceNumber,
+              service: d.service,
+              packageName: d.packageName,
+              treatmentName: d.treatmentName,
+              amount: d.amount,
+              paid: d.paid,
+            })));
+          }
+          if (existingStaff) {
+            existingStaff.revenue += clearanceDoc.amount;
+            existingStaff.details.push(...clearanceDoc.details);
+          } else {
+            staffRevenueAgg.push({
+              _id: clearanceDoc._id,
+              revenue: clearanceDoc.amount,
+              invoices: clearanceDoc.invoices,
+              details: clearanceDoc.details,
+            });
+          }
+        }
+      }
+    }
+    console.log("DEBUG self-ref package clearance merge - AFTER merge - byDoctorAgg count:", byDoctorAgg.length);
+    console.log("DEBUG self-ref package clearance merge - AFTER merge - staffRevenueAgg count:", staffRevenueAgg.length);
+
+    // DEBUG: Log final staffRevenueAgg details for suchi after all merges
+    const finalSuchiResults = staffRevenueAgg.filter(r => String(r._id) === "6a51cf15b91dfc253d83ae76");
+    console.log("DEBUG FINAL suchi staffRevenueAgg after all merges:", finalSuchiResults.map(r => ({
+      staffId: String(r._id),
+      revenue: r.revenue,
+      invoices: r.invoices,
+      detailsCount: (r.details || []).length,
+      oyyyyCount: (r.details || []).filter(d => d.packageName === "oyyyy").length,
+      oyyyyDetails: (r.details || []).filter(d => d.packageName === "oyyyy").map(d => ({
+        invoiceNumber: d.invoiceNumber,
+        service: d.service,
+        amount: d.amount,
+        paid: d.paid,
+      }))
+    })));
+
+    // DEBUG: Log all details for suchi to see all entries
+    console.log("DEBUG FINAL suchi all details:", finalSuchiResults.map(r => ({
+      staffId: String(r._id),
+      details: (r.details || []).map(d => ({
+        invoiceNumber: d.invoiceNumber,
+        service: d.service,
+        packageName: d.packageName,
+        treatmentName: d.treatmentName,
+        amount: d.amount,
+        paid: d.paid,
+      }))
+    })));
+
+    // DEBUG: Log all details for INV-20260723-905621 in FINAL result
+    const inv905621FinalDetails = finalSuchiResults.flatMap(r => 
+      (r.details || []).filter(d => d.invoiceNumber === "INV-20260723-905621")
+    );
+    console.log("DEBUG FINAL INV-20260723-905621 details:", inv905621FinalDetails.map(d => ({
+      invoiceNumber: d.invoiceNumber,
+      service: d.service,
+      packageName: d.packageName,
+      treatmentName: d.treatmentName,
+      amount: d.amount,
+      paid: d.paid,
+    })));
 
     // Build revenueByDoctor AFTER all merges are complete
     const doctorIds = byDoctorAgg.map((d) => d._id).filter(Boolean);

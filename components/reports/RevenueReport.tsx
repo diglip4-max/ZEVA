@@ -301,11 +301,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     },
     {
       title: "Revenue by Staff (Direct Billings)",
-      headers: ["Staff/Agent", `Revenue (${currencyLabel})`, "Invoices"],
+      headers: ["Staff/Agent", `Revenue (${currencyLabel})`],
       data: revenueByStaff.map(r => ({
         "Staff/Agent": r.name || "Unknown",
         [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-        "Invoices": r.invoices || 0,
       })),
     },
     {
@@ -373,7 +372,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     },
     {
       title: "Payment Reports",
-      headers: ["Invoice Number", "Patient Name", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, "Payment Method", "Transaction Type", "Payment Status", "Payment Date"],
+      headers: ["Invoice Number", "Patient Name", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, "Payment Method", "Payment Date"],
       data: payments.map(p => ({
         "Invoice Number": p.invoiceNumber || "-",
         "Patient Name": p.patientName || "Unknown",
@@ -382,8 +381,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
         [`Total Amount (${currencyLabel})`]: Math.round(p.amount || 0),
         [`Paid Amount (${currencyLabel})`]: Math.round(p.paidAmount || 0),
         "Payment Method": p.paymentMethod || "-",
-        "Transaction Type": p.transactionType || "Payment",
-        "Payment Status": p.paymentStatus || "-",
         "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-",
       })),
     },
@@ -530,7 +527,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Staff/Agent</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -539,7 +535,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <tr key={r.staffId}>
                   <td className="px-4 py-2 text-sm">{r.name}</td>
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">{r.invoices}</td>
                   <td className="px-4 py-2 text-sm">
                     <button
                       onClick={() => setSelectedStaff(r)}
@@ -551,7 +546,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByStaff.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -694,48 +689,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Revenue Trend</h3>
-          <div className="inline-flex rounded-lg bg-gray-100">
-            <button
-              className={`px-3 py-1 rounded-l ${viewMode === "daily" ? "bg-[#2D9AA5] text-white" : "text-gray-700"}`}
-              onClick={() => setViewMode("daily")}
-            >
-              Daily
-            </button>
-            <button
-              className={`px-3 py-1 ${viewMode === "weekly" ? "bg-[#2D9AA5] text-white" : "text-gray-700"}`}
-              onClick={() => setViewMode("weekly")}
-            >
-              Weekly
-            </button>
-            <button
-              className={`px-3 py-1 ${viewMode === "monthly" ? "bg-[#2D9AA5] text-white" : "text-gray-700"}`}
-              onClick={() => setViewMode("monthly")}
-            >
-              Monthly
-            </button>
-            <button
-              className={`px-3 py-1 rounded-r ${viewMode === "yearly" ? "bg-[#2D9AA5] text-white" : "text-gray-700"}`}
-              onClick={() => setViewMode("yearly")}
-            >
-              Yearly
-            </button>
-          </div>
-        </div>
-        <div className="w-full" style={{ height: 320 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="amount" fill={chartColor} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+
 
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
@@ -813,14 +767,12 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid Amount</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Method</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Transaction Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Status</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Date</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {payments.map((p, idx) => (
-                <tr key={`${p.invoiceNumber}-${p.paymentMethod}-${p.transactionType}-${idx}`}>
+                <tr key={`${p.invoiceNumber}-${p.paymentMethod}-${idx}`}>
                   <td className="px-4 py-2 text-sm">{p.invoiceNumber}</td>
                   <td className="px-4 py-2 text-sm">{p.patientName || "Unknown"}</td>
                   <td className="px-4 py-2 text-sm">{p.service || "Unknown"}</td>
@@ -829,25 +781,13 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(p.paidAmount)}</td>
                   <td className="px-4 py-2 text-sm">{p.paymentMethod}</td>
                   <td className="px-4 py-2 text-sm">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${
-                      p.transactionType === 'Pending Cleared' ? 'bg-amber-100 text-amber-700' :
-                      p.transactionType === 'Advance Used' ? 'bg-blue-100 text-blue-700' :
-                      p.transactionType === 'Insurance Claim' ? 'bg-purple-100 text-purple-700' :
-                      p.transactionType === 'Cashback Used' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {p.transactionType || 'Payment'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-sm">{p.paymentStatus}</td>
-                  <td className="px-4 py-2 text-sm">
                     {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-"}
                   </td>
                 </tr>
               ))}
               {!payments.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={10}>
+                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
                     No payments found for selected period
                   </td>
                 </tr>
@@ -925,12 +865,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Paid
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Pending
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Advance
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -990,12 +924,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         <td className="px-4 py-2 text-sm font-medium">
                           {fmtCurrency(detail.paid)}
                         </td>
-                        <td className="px-4 py-2 text-sm font-medium">
-                          {fmtCurrency(detail.pending)}
-                        </td>
-                        <td className="px-4 py-2 text-sm font-medium">
-                          {fmtCurrency(detail.advance)}
-                        </td>
                       </tr>
                     );
                   })}
@@ -1018,22 +946,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold">
                       {fmtCurrency(selectedDoctor.amount)}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedDoctor.details.reduce(
-                          (sum, d) => sum + Number(d.pending || 0),
-                          0
-                        )
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedDoctor.details.reduce(
-                          (sum, d) => sum + Number(d.advance || 0),
-                          0
-                        )
-                      )}
                     </td>
                   </tr>
                 </tfoot>
@@ -1081,12 +993,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Paid
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Pending
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Advance
                     </th>
                   </tr>
                 </thead>
@@ -1165,8 +1071,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         </td>
                         <td className="px-4 py-2 text-sm">{fmtCurrency(detail.amount)}</td>
                         <td className="px-4 py-2 text-sm">{fmtCurrency(detail.paid)}</td>
-                        <td className="px-4 py-2 text-sm">{fmtCurrency(detail.pending)}</td>
-                        <td className="px-4 py-2 text-sm">{fmtCurrency(detail.advance)}</td>
                       </tr>
                     );
                   })}
@@ -1189,22 +1093,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold">
                       {fmtCurrency(selectedStaff.amount)}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedStaff.details.reduce(
-                          (sum, d) => sum + Number(d.pending || 0),
-                          0
-                        )
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedStaff.details.reduce(
-                          (sum, d) => sum + Number(d.advance || 0),
-                          0
-                        )
-                      )}
                     </td>
                   </tr>
                 </tfoot>
@@ -1252,12 +1140,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Revenue
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Pending
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Advance
                     </th>
                   </tr>
                 </thead>
@@ -1309,8 +1191,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                       </td>
                       <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.amount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">{fmtCurrency(revenue)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.advance)}</td>
                     </tr>
                   );
                   })}
@@ -1330,22 +1210,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
                       {fmtCurrency(selectedService.amount)}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedService.details.reduce(
-                          (sum, d) => sum + Number(d.pending || 0),
-                          0
-                        )
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedService.details.reduce(
-                          (sum, d) => sum + Number(d.advance || 0),
-                          0
-                        )
-                      )}
                     </td>
                   </tr>
                 </tfoot>
@@ -1396,15 +1260,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                       Revenue
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Paid
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Pending
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                      Advance
                     </th>
                   </tr>
                 </thead>
@@ -1457,9 +1312,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                       <td className="px-4 py-2 text-sm">{detail.packageSoldBy || "-"}</td>
                       <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.amount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">{fmtCurrency(revenue)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.advance)}</td>
                     </tr>
                   );
                   })}
@@ -1479,30 +1331,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
                       {fmtCurrency(selectedPackage.amount)}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedPackage.details.reduce(
-                          (sum, d) => sum + Number(d.paid || 0),
-                          0
-                        )
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedPackage.details.reduce(
-                          (sum, d) => sum + Number(d.pending || 0),
-                          0
-                        )
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
-                      {fmtCurrency(
-                        selectedPackage.details.reduce(
-                          (sum, d) => sum + Number(d.advance || 0),
-                          0
-                        )
-                      )}
                     </td>
                   </tr>
                 </tfoot>
