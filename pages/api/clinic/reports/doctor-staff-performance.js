@@ -179,10 +179,16 @@ export default async function handler(req, res) {
             $and: [
               // Must have appointment
               { $ne: [{ $ifNull: ["$appointment", null] }, null] },
-              // Must have appointmentServiceIds
-              { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
+              // Must have appointmentServiceIds OR have pendingClearedBreakdown (clearance-only billing)
+              {
+                $or: [
+                  { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                ]
+              },
               // Check if any billingServiceId is in appointmentServiceIds
-              // OR if service is Package and package matches appointment's package
+              // OR if service is Package and has appointmentId
+              // OR if billing has pendingClearedBreakdown (clearance-only)
               {
                 $or: [
                   // Check if any treatment service ID matches
@@ -200,15 +206,15 @@ export default async function handler(req, res) {
                       0,
                     ],
                   },
-                  // Package billing where package matches appointment's package
+                  // Package billing with appointmentId (packages don't have selectedTreatments)
                   {
                     $and: [
                       { $eq: ["$service", "Package"] },
-                      { $eq: ["$package", { $ifNull: ["$appointment.package", null] }] },
-                      { $ne: ["$package", ""] },
-                      { $ne: ["$package", null] },
+                      { $ne: ["$appointmentId", null] },
                     ],
                   },
+                  // Clearance-only billing: has pendingClearedBreakdown
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
                 ],
               },
             ],
@@ -217,6 +223,69 @@ export default async function handler(req, res) {
       },
       // Only include billings where treatment/service is from appointment
       { $match: { isFromAppointment: true } },
+      // Store billing-level paid amount before $unwind (for capping treatment amounts on partial payments)
+      {
+        $addFields: {
+          billingPaid: {
+            $add: [
+              { $ifNull: ["$paid", 0] },
+              { $ifNull: ["$advanceUsed", 0] },
+              { $ifNull: ["$claimAmountUsed", 0] },
+              { $ifNull: ["$cashbackWalletUsed", 0] }
+            ]
+          }
+        }
+      },
+      // Unwind selectedTreatments to process each treatment independently
+      // preserveNullAndEmptyArrays: true so clearance billings (without selectedTreatments) still flow through
+      { $unwind: { path: "$selectedTreatments", preserveNullAndEmptyArrays: true } },
+      // Check if current treatment is from appointment
+      {
+        $addFields: {
+          isTreatmentFromAppointment: {
+            $cond: [
+              { $eq: ["$selectedTreatments", null] },
+              false,
+              {
+                $in: [
+                  { $toString: "$selectedTreatments.treatmentServiceId" },
+                  "$appointmentServiceIds"
+                ]
+              }
+            ]
+          },
+          // Calculate treatment amount using proportional scaling for partial payments
+          // Each treatment gets (treatmentAmount / totalAmount) × paid
+          treatmentAmount: {
+            $cond: [
+              { $eq: ["$selectedTreatments", null] },
+              0,
+              {
+                $multiply: [
+                  { $ifNull: ["$billingPaid", 0] },
+                  {
+                    $divide: [
+                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+      },
+      // Include treatments that match appointment services OR are cleared items (from pendingClearedBreakdown)
+      {
+        $match: {
+          $expr: {
+            $or: [
+              "$isTreatmentFromAppointment",
+              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+            ],
+          },
+        },
+      },
     ];
 
     const revenueAgg = await Billing.aggregate([
@@ -286,19 +355,21 @@ export default async function handler(req, res) {
           // Stream 1: cleared items – one row per breakdown item, attributed
           // to the ORIGINAL billing's doctor with amount = amountCleared.
           cleared: [
-            // Only billings WITH a breakdown
+            // Only billings WITH a breakdown AND actual pending clearance payment
+            // (pendingUsed > 0 distinguishes clearance billings from original billings
+            // that just have pendingClearedBreakdown as metadata)
             {
               $match: {
                 $expr: {
-                  $gt: [
-                    { $size: { $ifNull: ["$pendingClearedBreakdown", []] } },
-                    0,
+                  $and: [
+                    { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                    { $gt: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
                   ],
                 },
               },
             },
             { $unwind: "$pendingClearedBreakdown" },
-            // Lookup the ORIGINAL billing by invoiceNumber to fetch its doctorId.
+            // Lookup the ORIGINAL billing by invoiceNumber to fetch its doctorId and check if it was direct billing
             {
               $lookup: {
                 from: "billings",
@@ -307,7 +378,7 @@ export default async function handler(req, res) {
                 },
                 pipeline: [
                   { $match: { $expr: { $eq: ["$invoiceNumber", "$$invNum"] } } },
-                  { $project: { doctorId: 1, invoiceNumber: 1 } },
+                  { $project: { doctorId: 1, invoiceNumber: 1, selectedTreatments: 1, appointmentId: 1, service: 1, package: 1 } },
                 ],
                 as: "originalBilling",
               },
@@ -315,37 +386,84 @@ export default async function handler(req, res) {
             {
               $addFields: {
                 isClearedItem: { $literal: true },
+                // Check if original billing was a direct billing (not from appointment)
+                // For package billings: treat as NOT direct (goes to doctor revenue)
+                // For treatment billings: check selectedTreatments and appointmentId
+                isOriginalBillingDirect: {
+                  $cond: [
+                    { $gt: [{ $size: "$originalBilling" }, 0] },
+                    {
+                      $cond: [
+                        // If original billing is a Package, treat as NOT direct
+                        { $eq: [{ $arrayElemAt: ["$originalBilling.service", 0] }, "Package"] },
+                        false,
+                        // For treatment billings: use existing logic
+                        {
+                          $or: [
+                            // No selectedTreatments = direct billing
+                            { $eq: [{ $size: { $ifNull: [{ $arrayElemAt: ["$originalBilling.selectedTreatments", 0] }, []] } }, 0] },
+                            // No appointmentId = direct billing
+                            { $eq: [{ $arrayElemAt: ["$originalBilling.appointmentId", 0] }, null] },
+                          ],
+                        }
+                      ],
+                    },
+                    false, // No original billing found, assume not direct
+                  ],
+                },
+                // Only attribute clearance to doctor if original billing was from appointment (not direct)
                 effectiveDoctorId: {
                   $cond: [
                     {
                       $and: [
                         { $gt: [{ $size: "$originalBilling" }, 0] },
                         { $ne: [{ $arrayElemAt: ["$originalBilling.doctorId", 0] }, null] },
+                        // Original billing must NOT be a direct billing
+                        { $eq: ["$isOriginalBillingDirect", false] },
                       ],
                     },
                     { $arrayElemAt: ["$originalBilling.doctorId", 0] },
-                    "$appointment.doctorId",
+                    null, // Original was direct billing → clearance goes to staff, not doctor
                   ],
                 },
                 effectiveAmount: { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
               },
             },
+            // Exclude clearance billings from direct billings (effectiveDoctorId = null)
+            // These should go to staff revenue, not doctor revenue
+            { $match: { effectiveDoctorId: { $ne: null } } },
           ],
           // Stream 2: non-cleared items – one row per non-cleared billing.
           // For mixed billings, this stream ALSO produces a row for the
           // PACKAGE portion (paid - cleared) attributed to the billing's
           // own doctor. This is added via $unionWith below.
           nonCleared: [
-            // Non-cleared billings (no breakdown)
+            // Non-cleared billings (no breakdown) OR original billings that were cleared
+            // (have pendingClearedBreakdown as metadata but pendingUsed = 0)
             {
               $match: {
                 $expr: {
-                  $lte: [
-                    { $size: { $ifNull: ["$pendingClearedBreakdown", []] } },
-                    0,
+                  $or: [
+                    // No pendingClearedBreakdown = regular billing
+                    { $lte: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                    // Has pendingClearedBreakdown but pendingUsed = 0 = original billing that was cleared
+                    { $eq: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
                   ],
                 },
               },
+            },
+            // Store billing-level paid amount for capping treatment amounts on partial payments
+            {
+              $addFields: {
+                billingPaid: {
+                  $add: [
+                    { $ifNull: ["$paid", 0] },
+                    { $ifNull: ["$advanceUsed", 0] },
+                    { $ifNull: ["$claimAmountUsed", 0] },
+                    { $ifNull: ["$cashbackWalletUsed", 0] }
+                  ]
+                }
+              }
             },
             {
               $addFields: {
@@ -359,40 +477,47 @@ export default async function handler(req, res) {
                   ]
                 },
                 effectiveAmount: {
-                  $subtract: [
+                  // After $unwind on selectedTreatments, compute directly from each treatment:
+                  // - Non-Package billings: use treatment price × quantity
+                  // - Package billings: use package portion (paid - treatment amount)
+                  $cond: [
+                    { $eq: ["$service", "Package"] },
                     {
-                      $add: [
-                        { $ifNull: ["$paid", 0] },
-                        { $ifNull: ["$advanceUsed", 0] },
-                        { $ifNull: ["$claimAmountUsed", 0] },
-                        { $ifNull: ["$cashbackWalletUsed", 0] },
-                      ],
-                    },
-                    // Subtract treatment amount for mixed billings (Package + Treatment)
-                    {
-                      $cond: [
+                      $subtract: [
                         {
-                          $and: [
-                            { $eq: ["$service", "Package"] },
-                            { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                          $add: [
+                            { $ifNull: ["$paid", 0] },
+                            { $ifNull: ["$advanceUsed", 0] },
+                            { $ifNull: ["$claimAmountUsed", 0] },
+                            { $ifNull: ["$cashbackWalletUsed", 0] },
                           ],
                         },
                         {
-                          $sum: {
-                            $map: {
-                              input: "$selectedTreatments",
-                              as: "st",
-                              in: {
-                                $multiply: [
-                                  { $ifNull: ["$$st.price", 0] },
-                                  { $ifNull: ["$$st.quantity", 1] },
-                                ],
-                              },
-                            },
-                          },
+                          $multiply: [
+                            { $ifNull: ["$selectedTreatments.price", 0] },
+                            { $ifNull: ["$selectedTreatments.quantity", 1] }
+                          ]
                         },
-                        0,
                       ],
+                    },
+                    {
+                      // Non-Package: use proportional scaling for partial payments
+                      // Each treatment gets (treatmentAmount / totalAmount) × paid
+                      $cond: [
+                        { $eq: ["$selectedTreatments", null] },
+                        "$billingPaid",
+                        {
+                          $multiply: [
+                            { $ifNull: ["$billingPaid", 0] },
+                            {
+                              $divide: [
+                                { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                                { $ifNull: ["$originalAmount", "$amount", 1] }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
                     },
                   ],
                 },
@@ -587,7 +712,28 @@ export default async function handler(req, res) {
                 $cond: [
                   "$isClearedItem",
                   { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] },
-                  "$treatment",
+                  { $ifNull: ["$selectedTreatments.treatmentName", "$treatment"] },
+                ],
+              },
+              treatmentServiceId: {
+                $cond: [
+                  "$isClearedItem",
+                  { $ifNull: ["$pendingClearedBreakdown.treatmentServiceId", null] },
+                  { $ifNull: ["$selectedTreatments.treatmentServiceId", null] },
+                ],
+              },
+              treatmentQuantity: {
+                $cond: [
+                  "$isClearedItem",
+                  { $ifNull: ["$pendingClearedBreakdown.quantity", 1] },
+                  { $ifNull: ["$selectedTreatments.quantity", 1] },
+                ],
+              },
+              treatmentPrice: {
+                $cond: [
+                  "$isClearedItem",
+                  { $ifNull: ["$pendingClearedBreakdown.price", 0] },
+                  { $ifNull: ["$selectedTreatments.price", 0] },
                 ],
               },
               invoiceNumber: {
@@ -601,23 +747,9 @@ export default async function handler(req, res) {
               amount: "$effectiveAmount",
               paid: {
                 $cond: [
-                  // Clearance billing: use effectiveAmount (amountCleared)
                   "$isClearedItem",
                   "$effectiveAmount",
-                  // Non-cleared Package billing with selectedTreatments: use effectiveAmount (package portion)
-                  {
-                    $cond: [
-                      {
-                        $and: [
-                          { $eq: ["$service", "Package"] },
-                          { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
-                        ],
-                      },
-                      "$effectiveAmount",
-                      // Regular non-cleared billing: use billing's own paid
-                      "$paid",
-                    ],
-                  },
+                  "$effectiveAmount",
                 ],
               },
               pending: { $cond: ["$isClearedItem", 0, "$pending"] },
@@ -743,51 +875,110 @@ export default async function handler(req, res) {
       },
       {
         $addFields: {
-          // Check if this is a direct billing (NOT from appointment)
-          isDirectBilling: {
-            $not: {
-              $and: [
-                // Must have appointment
-                { $ne: [{ $ifNull: ["$appointment", null] }, null] },
-                // Must have appointmentServiceIds
-                { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
-                // Check if any billingServiceId is in appointmentServiceIds
-                // OR if service is Package and package matches appointment's package
-                {
-                  $or: [
-                    // Check if any treatment service ID matches
-                    {
-                      $gt: [
-                        {
-                          $size: {
-                            $filter: {
-                              input: "$billingServiceIds",
-                              as: "bsid",
-                              cond: { $in: ["$$bsid", "$appointmentServiceIds"] },
-                            },
-                          },
-                        },
-                        0,
-                      ],
-                    },
-                    // Package billing where package matches appointment's package
-                    {
-                      $and: [
-                        { $eq: ["$service", "Package"] },
-                        { $eq: ["$package", { $ifNull: ["$appointment.package", null] }] },
-                        { $ne: ["$package", ""] },
-                        { $ne: ["$package", null] },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
+          // Determine if billing has appointment with matching services
+          hasAppointmentMatch: {
+            $and: [
+              { $ne: [{ $ifNull: ["$appointment", null] }, null] },
+              { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
+            ]
+          },
+          // Store billing-level paid amount before $unwind (for capping treatment amounts on partial payments)
+          billingPaid: {
+            $add: [
+              { $ifNull: ["$paid", 0] },
+              { $ifNull: ["$advanceUsed", 0] },
+              { $ifNull: ["$claimAmountUsed", 0] },
+              { $ifNull: ["$cashbackWalletUsed", 0] }
+            ]
           },
         },
       },
-      // Only include direct billings (no appointment OR treatment doesn't match appointment)
-      { $match: { isDirectBilling: true } },
+      // For clearance-only billings, lookup original billing to determine if it was direct or appointment-based
+      {
+        $lookup: {
+          from: "billings",
+          let: {
+            hasBreakdown: { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+            invNum: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }
+          },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$invoiceNumber", "$$invNum"] } } },
+            { $project: { doctorId: 1, appointmentId: 1 } },
+          ],
+          as: "originalBillingForClearance",
+        },
+      },
+      {
+        $addFields: {
+          // For clearance-only billings: check if original billing was direct (doctor != appointment doctor)
+          isClearanceFromDirectBilling: {
+            $cond: [
+              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+              {
+                $cond: [
+                  { $gt: [{ $size: "$originalBillingForClearance" }, 0] },
+                  { $ne: [{ $arrayElemAt: ["$originalBillingForClearance.doctorId", 0] }, "$appointment.doctorId"] },
+                  false
+                ]
+              },
+              false
+            ]
+          },
+        },
+      },
+      // Unwind selectedTreatments to process each treatment independently
+      // preserveNullAndEmptyArrays: true so billings without selectedTreatments still flow through
+      { $unwind: { path: "$selectedTreatments", preserveNullAndEmptyArrays: true } },
+      // Check if current treatment is direct (NOT from appointment)
+      {
+        $addFields: {
+          isTreatmentDirect: {
+            $cond: [
+              // If no selectedTreatments (null after unwind), use billing-level check
+              { $eq: ["$selectedTreatments", null] },
+              // For clearance-only billings: direct if original billing was direct
+              // For non-clearance billings: direct if no appointment match
+              {
+                $cond: [
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                  "$isClearanceFromDirectBilling",
+                  { $not: "$hasAppointmentMatch" }
+                ]
+              },
+              // Treatment-level check: treatmentServiceId NOT in appointmentServiceIds
+              {
+                $not: {
+                  $in: [
+                    { $toString: "$selectedTreatments.treatmentServiceId" },
+                    "$appointmentServiceIds"
+                  ]
+                }
+              }
+            ]
+          },
+          // Calculate treatment amount using proportional scaling for partial payments
+          // Each treatment gets (treatmentAmount / totalAmount) × paid
+          treatmentAmount: {
+            $cond: [
+              { $eq: ["$selectedTreatments", null] },
+              0,
+              {
+                $multiply: [
+                  { $ifNull: ["$billingPaid", 0] },
+                  {
+                    $divide: [
+                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+      },
+      // Only include treatments that are direct (not from appointment)
+      { $match: { isTreatmentDirect: true } },
       // Include all billings to match Revenue Report (no filtering by invoicedById or appointment.doctorId)
       // For Package billings, override invoicedById to use packageSoldByUserId
       {
@@ -807,20 +998,12 @@ export default async function handler(req, res) {
               ""
             ]
           },
-          // Calculate effective revenue (match Revenue Report - include full amount)
-          effectiveRevenue: {
-            $add: [
-              { $ifNull: ["$paid", 0] },
-              { $ifNull: ["$advanceUsed", 0] },
-              { $ifNull: ["$claimAmountUsed", 0] },
-              { $ifNull: ["$cashbackWalletUsed", 0] },
-              { $subtract: [0, { $ifNull: ["$pendingUsed", 0] }] },
-            ],
-          },
-          // Calculate effective amount for display (match Revenue Report - include full amount)
-          effectiveAmount: { $ifNull: ["$amount", 0] },
-          // Calculate effective paid for display (match Revenue Report)
-          effectivePaid: { $subtract: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }] },
+          // Use treatment amount as effective revenue
+          effectiveRevenue: "$treatmentAmount",
+          // Calculate effective amount for display
+          effectiveAmount: "$treatmentAmount",
+          // Calculate effective paid for display
+          effectivePaid: "$treatmentAmount",
         },
       },
       {
@@ -835,72 +1018,16 @@ export default async function handler(req, res) {
               emrNumber: "$patient.emrNumber",
               service: "$service",
               packageName: "$package",
-              treatmentName: "$treatment",
+              treatmentName: { $ifNull: ["$selectedTreatments.treatmentName", "$treatment"] },
+              treatmentServiceId: { $ifNull: ["$selectedTreatments.treatmentServiceId", null] },
+              treatmentQuantity: { $ifNull: ["$selectedTreatments.quantity", 1] },
+              treatmentPrice: { $ifNull: ["$selectedTreatments.price", 0] },
               invoiceNumber: "$invoiceNumber",
               invoicedDate: "$invoicedDate",
               amount: "$effectiveAmount",
               paid: "$effectivePaid",
-              pending: { $ifNull: ["$pending", 0] },
-              advance: { $ifNull: ["$advance", 0] },
-              // For mixed billings (Package with selectedTreatments), include treatment breakdown
-              selectedTreatments: {
-                $cond: [
-                  {
-                    $and: [
-                      { $eq: ["$service", "Package"] },
-                      { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
-                    ],
-                  },
-                  {
-                    $map: {
-                      input: "$selectedTreatments",
-                      as: "st",
-                      in: {
-                        treatmentName: "$$st.treatmentName",
-                        price: { $ifNull: ["$$st.price", 0] },
-                        quantity: { $ifNull: ["$$st.quantity", 1] },
-                        total: {
-                          $multiply: [
-                            { $ifNull: ["$$st.price", 0] },
-                            { $ifNull: ["$$st.quantity", 1] },
-                          ],
-                        },
-                      },
-                    },
-                  },
-                  [],
-                ],
-              },
-              packageAmount: {
-                $cond: [
-                  {
-                    $and: [
-                      { $eq: ["$service", "Package"] },
-                      { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
-                    ],
-                  },
-                  {
-                    $subtract: [
-                      { $ifNull: ["$amount", 0] },
-                      {
-                        $sum: {
-                          $map: {
-                            input: "$selectedTreatments",
-                            as: "st",
-                            in: {
-                              $multiply: [
-                                { $ifNull: ["$$st.price", 0] },
-                                { $ifNull: ["$$st.quantity", 1] },
-                              ],
-                            },
-                          },
-                        },
-                      },
-                    ],
-                  },
-                  { $ifNull: ["$amount", 0] },
-                ],
-              },
+              pending: 0,
+              advance: 0,
             },
           },
         },

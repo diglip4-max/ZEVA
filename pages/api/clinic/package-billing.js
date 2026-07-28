@@ -152,7 +152,7 @@ export default async function handler(req, res) {
       package: packageName,
       quantity: 1,
       sessions: 0, // Set to 0 for package purchase - sessions are not consumed yet
-      selectedPackageTreatments: treatmentsForBilling, // Store treatment info with 0 sessions
+      selectedPackageTreatments: [], // Don't store any treatments when adding a package
       amount: totalAmount,
       paid: paidAmount || 0,
       advanceUsed: advanceBalanceUsed || 0,

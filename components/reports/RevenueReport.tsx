@@ -287,7 +287,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
         { "Metric": "Total Revenue", [`Amount (${currencyLabel})`]: Math.round(totalRevenue || 0) },
         { "Metric": "Treatment / Service Revenue", [`Amount (${currencyLabel})`]: Math.round(treatmentRevenue || 0) },
         { "Metric": "Package Billing Revenue", [`Amount (${currencyLabel})`]: Math.round(packageRevenue || 0) },
-        { "Metric": "Advance Payment Revenue", [`Amount (${currencyLabel})`]: Math.round(advanceRevenue || 0) },
+        // { "Metric": "Advance Payment Revenue", [`Amount (${currencyLabel})`]: Math.round(advanceRevenue || 0) },
         { "Metric": "Pending Cleared", [`Amount (${currencyLabel})`]: Math.round(pendingCleared || 0) },
       ],
     },
@@ -416,10 +416,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             <div className="text-sm text-gray-500">Package Billing</div>
             <div className="text-2xl font-bold text-purple-600">{fmtCurrency(packageRevenue)}</div>
           </div>
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-500">Advance Payments</div>
-            <div className="text-2xl font-bold text-emerald-600">{fmtCurrency(advanceRevenue)}</div>
-          </div>
+         
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Pending Cleared</div>
             <div className="text-2xl font-bold text-amber-600">{fmtCurrency(pendingCleared)}</div>

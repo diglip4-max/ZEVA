@@ -73,6 +73,7 @@ type Policy = {
   ackPercentAgent?: number;
   ackPercentDoctor?: number;
 };
+
 type Playbook = {
   _id: string;
   scenarioName: string;
@@ -186,6 +187,9 @@ function PolicyCompliance() {
   const [scale, setScale] = useState(1.2);
   const [isLoading, setIsLoading] = useState(false);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [viewerFileType, setViewerFileType] = useState<"pdf" | "doc" | "video" | "image" | "other">("pdf");
+  const [viewerBlobUrl, setViewerBlobUrl] = useState<string | null>(null);
+  const [viewerOriginalUrl, setViewerOriginalUrl] = useState<string | null>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const thumbnailContainerRef = useRef<HTMLDivElement | null>(null);
   const [ackModalOpen, setAckModalOpen] = useState(false);
@@ -212,12 +216,15 @@ function PolicyCompliance() {
     if (!url) return;
     setCurrentAck(ack || null);
     setViewerUrl(url);
+    setViewerOriginalUrl(url);
     setViewerTitle(title || "Document Preview");
     setViewerOpen(true);
     setViewerError(null);
     setCurrentPage(1);
     setScale(1.2);
     setPdfDoc(null);
+    setViewerFileType("pdf");
+    if (viewerBlobUrl) { URL.revokeObjectURL(viewerBlobUrl); setViewerBlobUrl(null); }
   };
 
   const ensurePdfJs = async () => {
@@ -302,15 +309,29 @@ function PolicyCompliance() {
     }
   };
 
+  const detectFileType = (contentType: string, url: string): "pdf" | "doc" | "video" | "image" | "other" => {
+    const ct = (contentType || "").toLowerCase();
+    if (ct.includes("pdf")) return "pdf";
+    if (ct.includes("msword") || ct.includes("wordprocessingml") || ct.includes("presentationml") || ct.includes("ms-powerpoint") || ct.includes("spreadsheetml") || ct.includes("ms-excel")) return "doc";
+    if (ct.startsWith("video/")) return "video";
+    if (ct.startsWith("image/")) return "image";
+    // Fallback: check URL extension
+    const ext = (url.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/) || [])[1]?.toLowerCase() || "";
+    if (ext === "pdf") return "pdf";
+    if (["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(ext)) return "doc";
+    if (["mp4", "webm", "ogg", "mov", "avi"].includes(ext)) return "video";
+    if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
+    return "other";
+  };
+
   const loadPdfIntoModal = async (pdfUrl: string) => {
     try {
       setViewerError(null);
       setIsLoading(true);
       setThumbnails([]);
-      await ensurePdfJs();
 
       const fullUrl = pdfUrl.startsWith("http") ? pdfUrl : `${window.location.origin}${pdfUrl}`;
-      const headers = { ...(getAuthHeaders() as Record<string, string>), Accept: "application/pdf" };
+      const headers = { ...(getAuthHeaders() as Record<string, string>) };
       const resp = await fetch(fullUrl, { headers, credentials: "include", cache: "no-store" });
 
       if (!resp.ok) {
@@ -330,33 +351,47 @@ function PolicyCompliance() {
         return;
       }
 
-      const blob = await resp.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const pdfjsLib = (window as any).pdfjsLib;
-      const task = pdfjsLib.getDocument({ url: objectUrl });
-      const pdf = await task.promise;
+      const contentType = resp.headers.get("content-type") || "";
+      const fileType = detectFileType(contentType, pdfUrl);
+      setViewerFileType(fileType);
 
-      setPdfDoc(pdf);
-      setTotalPages(pdf.numPages);
+      if (fileType === "pdf") {
+        // PDF: use pdf.js
+        await ensurePdfJs();
+        const blob = await resp.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const pdfjsLib = (window as any).pdfjsLib;
+        const task = pdfjsLib.getDocument({ url: objectUrl });
+        const pdf = await task.promise;
 
-      // Generate all thumbnails
-      const thumbs: string[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.2 });
-        const canvas = document.createElement("canvas");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        const ctx = canvas.getContext("2d")!;
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        thumbs.push(canvas.toDataURL());
+        setPdfDoc(pdf);
+        setTotalPages(pdf.numPages);
+
+        // Generate all thumbnails
+        const thumbs: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 0.2 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d")!;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          thumbs.push(canvas.toDataURL());
+        }
+        setThumbnails(thumbs);
+        URL.revokeObjectURL(objectUrl);
+      } else {
+        // Non-PDF: create blob URL for direct viewing
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        if (viewerBlobUrl) URL.revokeObjectURL(viewerBlobUrl);
+        setViewerBlobUrl(blobUrl);
       }
-      setThumbnails(thumbs);
 
       setIsLoading(false);
-      URL.revokeObjectURL(objectUrl);
     } catch (error: any) {
-      console.error("Error loading PDF:", error);
+      console.error("Error loading document:", error);
       setViewerError(error?.message || "Failed to load document");
       setIsLoading(false);
     }
@@ -478,7 +513,11 @@ function PolicyCompliance() {
 
   const onSopTitleClick = async (id: string, title: string) => {
     try {
-      openViewer(`/api/compliance/file?type=sops&id=${encodeURIComponent(id)}`, title);
+      const res = await fetch(`/api/compliance/sops?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success || !json.item) return;
+      const url = json.item.documentUrl || (json.item.attachments?.[0]);
+      if (url) openViewer(url, title);
     } catch {
       // noop
     }
@@ -897,9 +936,24 @@ function PolicyCompliance() {
         setRowMenuId(null);
         return;
       }
-      const dlType = type === "playbooks" ? "playbooks" : "sops";
-      openViewer(`/api/compliance/file?type=${dlType}&id=${encodeURIComponent(id)}`, title, ack || null);
-      setRowMenuId(null);
+      if (type === "sops") {
+        const res = await fetch(`/api/compliance/sops?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (!json.success || !json.item) return;
+        const url = json.item.documentUrl || (json.item.attachments?.[0]);
+        if (url) openViewer(url, title, ack || null);
+        setRowMenuId(null);
+        return;
+      }
+      if (type === "playbooks") {
+        const res = await fetch(`/api/compliance/playbooks?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (!json.success || !json.item) return;
+        const url = json.item.documentUrl || (json.item.attachments?.[0]);
+        if (url) openViewer(url, title, ack || null);
+        setRowMenuId(null);
+        return;
+      }
     } catch { }
   };
 
@@ -1079,7 +1133,7 @@ function PolicyCompliance() {
   const CreateModal = () => {
     const [form, setForm] = useState<Record<string, any>>({});
     const [errors, setErrors] = useState<Record<string, boolean>>({});
-    const [modalToast, setModalToast] = useState<{message: string, type: string} | null>(null);
+    const [modalToast, setModalToast] = useState<{ message: string, type: string } | null>(null);
     const [step, setStep] = useState(1);
     const [formMenuOpen, setFormMenuOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1680,7 +1734,7 @@ function PolicyCompliance() {
                       if (!form.category) newErrors.category = true;
                       if (!form.riskLevel) newErrors.riskLevel = true;
                       if (!form.applicableRoles || form.applicableRoles.length === 0) newErrors.applicableRoles = true;
-                      
+
                       if (Object.keys(newErrors).length > 0) {
                         setErrors(newErrors);
                         setModalToast({ message: "Please fill all required fields", type: "error" });
@@ -2243,7 +2297,7 @@ function PolicyCompliance() {
                   if (res && !res.success) {
                     setModalToast({ message: res.message || "Failed to save playbook", type: "error" });
                     setTimeout(() => setModalToast(null), 3000);
-                    
+
                     const newErrors: Record<string, boolean> = {};
                     if (!form.scenarioName) newErrors.scenarioName = true;
                     if (!form.triggerCondition) newErrors.triggerCondition = true;
@@ -3002,6 +3056,7 @@ function PolicyCompliance() {
                 onClick={() => {
                   setViewerOpen(false);
                   setViewerError(null);
+                  if (viewerBlobUrl) { URL.revokeObjectURL(viewerBlobUrl); setViewerBlobUrl(null); }
                 }}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm"
               >
@@ -3018,76 +3073,78 @@ function PolicyCompliance() {
               </div>
             )}
 
-            {/* Toolbar */}
-            <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goToPrevPage}
-                  disabled={currentPage <= 1 || !pdfDoc}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
-                  <input
-                    type="number"
-                    min={1}
-                    max={totalPages}
-                    value={currentPage}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                    }}
-                    className="w-12 text-center text-sm font-semibold text-slate-800 bg-transparent border-none outline-none"
-                  />
-                  <span className="text-sm text-slate-500">/ {totalPages}</span>
+            {/* Toolbar - only show PDF controls for PDF files */}
+            {viewerFileType === "pdf" && (
+              <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={goToPrevPage}
+                    disabled={currentPage <= 1 || !pdfDoc}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalPages}
+                      value={currentPage}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                      }}
+                      className="w-12 text-center text-sm font-semibold text-slate-800 bg-transparent border-none outline-none"
+                    />
+                    <span className="text-sm text-slate-500">/ {totalPages}</span>
+                  </div>
+                  <button
+                    onClick={goToNextPage}
+                    disabled={currentPage >= totalPages || !pdfDoc}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={goToNextPage}
-                  disabled={currentPage >= totalPages || !pdfDoc}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={zoomOut}
-                  disabled={!pdfDoc}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ZoomOut className="w-5 h-5" />
-                </button>
-                <div className="px-3 py-1.5 bg-slate-100 rounded-lg min-w-[70px] text-center">
-                  <span className="text-sm font-semibold text-slate-800">{Math.round(scale * 100)}%</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={zoomOut}
+                    disabled={!pdfDoc}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ZoomOut className="w-5 h-5" />
+                  </button>
+                  <div className="px-3 py-1.5 bg-slate-100 rounded-lg min-w-[70px] text-center">
+                    <span className="text-sm font-semibold text-slate-800">{Math.round(scale * 100)}%</span>
+                  </div>
+                  <button
+                    onClick={zoomIn}
+                    disabled={!pdfDoc}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ZoomIn className="w-5 h-5" />
+                  </button>
+                  <div className="w-px h-6 bg-slate-200 mx-1" />
+                  <button
+                    onClick={fitToWidth}
+                    disabled={!pdfDoc}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title="Fit to Width"
+                  >
+                    <Maximize2 className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={fitToPage}
+                    disabled={!pdfDoc}
+                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    title="Fit to Page"
+                  >
+                    <Minimize2 className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={zoomIn}
-                  disabled={!pdfDoc}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ZoomIn className="w-5 h-5" />
-                </button>
-                <div className="w-px h-6 bg-slate-200 mx-1" />
-                <button
-                  onClick={fitToWidth}
-                  disabled={!pdfDoc}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title="Fit to Width"
-                >
-                  <Maximize2 className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={fitToPage}
-                  disabled={!pdfDoc}
-                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  title="Fit to Page"
-                >
-                  <Minimize2 className="w-5 h-5" />
-                </button>
               </div>
-            </div>
+            )}
 
             {/* Main Content with Sidebar */}
             <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -3126,7 +3183,7 @@ function PolicyCompliance() {
                 </div>
               )}
 
-              {/* PDF Content Area */}
+              {/* Document Content Area */}
               <div
                 ref={pdfContainerRef}
                 className="flex-1 min-h-0 overflow-auto bg-slate-100 p-6 flex items-start justify-center"
@@ -3139,12 +3196,97 @@ function PolicyCompliance() {
                     </div>
                   </div>
                 )}
-                {pdfDoc && (
+                {/* PDF Viewer */}
+                {viewerFileType === "pdf" && pdfDoc && (
                   <div className="relative shadow-2xl rounded-xl overflow-hidden bg-white">
                     <canvas
                       ref={pdfCanvasRef}
                       className="block"
                     />
+                  </div>
+                )}
+                {/* DOC/DOCX/PPT/PPTX/XLS/XLSX Viewer */}
+                {viewerFileType === "doc" && viewerUrl && (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-2 min-h-[70vh]">
+                    {(() => {
+                      const absoluteUrl = viewerUrl.startsWith("http") ? viewerUrl : `${window.location.origin}${viewerUrl}`;
+                      const isLocalhost = absoluteUrl.includes("localhost") || absoluteUrl.includes("127.0.0.1") || absoluteUrl.includes("192.168.");
+
+                      if (isLocalhost) {
+                        return (
+                          <div className="flex flex-col items-center gap-3 bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg mx-auto mb-2">
+                              <FileText className="w-8 h-8" />
+                            </div>
+                            <h3 className="text-lg font-bold text-slate-800">Local Document Preview</h3>
+                            <p className="text-sm text-slate-500">
+                              Google Docs preview is not supported on <strong>localhost</strong>. In production, this document will be fully previewed here.
+                            </p>
+                            <a
+                              href={viewerBlobUrl || absoluteUrl}
+                              download={viewerTitle || "document"}
+                              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
+                            >
+                              <UploadCloud className="w-4 h-4 rotate-180" />
+                              Download File for Local Review
+                            </a>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="w-full h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200" style={{ height: "75vh" }}>
+                          <iframe
+                            src={`https://docs.google.com/gview?url=${encodeURIComponent(absoluteUrl)}&embedded=true`}
+                            className="w-full h-full border-none"
+                            title={viewerTitle}
+                          />
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+                {/* Video Viewer */}
+                {viewerFileType === "video" && viewerBlobUrl && (
+                  <div className="w-full max-w-4xl mx-auto">
+                    <video
+                      src={viewerBlobUrl}
+                      controls
+                      className="w-full rounded-xl shadow-2xl bg-black"
+                      style={{ maxHeight: "70vh" }}
+                    >
+                      Your browser does not support video playback.
+                    </video>
+                  </div>
+                )}
+                {/* Image Viewer */}
+                {viewerFileType === "image" && viewerBlobUrl && (
+                  <div className="w-full flex items-center justify-center">
+                    <img
+                      src={viewerBlobUrl}
+                      alt={viewerTitle || "Document"}
+                      className="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain"
+                    />
+                  </div>
+                )}
+                {/* Other/Unknown File Type */}
+                {viewerFileType === "other" && viewerBlobUrl && (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-6">
+                    <div className="flex flex-col items-center gap-3 bg-white rounded-2xl shadow-lg p-8 max-w-md w-full">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg">
+                        <FileText className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800">Unsupported Preview</h3>
+                      <p className="text-sm text-slate-500 text-center">This file type cannot be previewed in the browser. Please download the file to view it.</p>
+                      <a
+                        href={viewerBlobUrl}
+                        download={viewerTitle || "document"}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all shadow-md mt-2"
+                      >
+                        <UploadCloud className="w-4 h-4 rotate-180" />
+                        Download File
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>

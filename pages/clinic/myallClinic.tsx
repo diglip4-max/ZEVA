@@ -1631,21 +1631,22 @@ function ClinicManagementDashboard(): ReactElement {
 
   // Handle update
   const handleUpdate = async () => {
+    toast.loading("Saving changes...", { id: "clinic-update" });
     if (!permissions.canUpdate) {
-      toast.error("You do not have permission to update clinic information");
+      toast.error("You do not have permission to update clinic information", { id: "clinic-update" });
       return;
     }
     console.log("🟢 Save Changes clicked");
     if (!editingClinicId) {
       console.error("❌ No clinic ID found");
-      toast.error("No clinic selected for update");
+      toast.error("No clinic selected for update", { id: "clinic-update" });
       return;
     }
     setUpdating(true);
     try {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) {
-        toast.error("You are not authenticated");
+        toast.error("You are not authenticated", { id: "clinic-update" });
         return;
       }
       const toRelativeUploadPath = (s: string) => {
@@ -1781,7 +1782,7 @@ function ClinicManagementDashboard(): ReactElement {
             { headers: { ...authHeaders } },
           );
           if (!response.data.success) {
-            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update-error" });
+            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update" });
             return;
           }
         } catch (err: any) {
@@ -1794,9 +1795,9 @@ function ClinicManagementDashboard(): ReactElement {
             (missing.includes("name") || missing.includes("address"))
           ) {
             if (missing.includes("address")) {
-              toast.error("Address field is mandatory. Please fill it.", { id: "address-error" });
+              toast.error("Address field is mandatory. Please fill it.", { id: "clinic-update" });
             } else {
-              toast.error("Name field is mandatory. Please fill it.", { id: "name-error" });
+              toast.error("Name field is mandatory. Please fill it.", { id: "clinic-update" });
             }
             return;
           } else {
@@ -1804,10 +1805,10 @@ function ClinicManagementDashboard(): ReactElement {
             if (msg === "File upload failed") {
               toast.error(
                 "File upload failed: only JPG/PNG up to 5MB are allowed.",
-                { id: "clinic-update-error" }
+                { id: "clinic-update" }
               );
             } else {
-              toast.error(msg, { id: "clinic-update-error" });
+              toast.error(msg, { id: "clinic-update" });
             }
             return;
           }
@@ -1852,7 +1853,7 @@ function ClinicManagementDashboard(): ReactElement {
             },
           );
           if (!response.data.success) {
-            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update-error" });
+            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update" });
             return;
           }
         } catch (err: any) {
@@ -1865,20 +1866,20 @@ function ClinicManagementDashboard(): ReactElement {
             (missing.includes("name") || missing.includes("address"))
           ) {
             if (missing.includes("address")) {
-              toast.error("Address field is mandatory. Please fill it.", { id: "address-error" });
+              toast.error("Address field is mandatory. Please fill it.", { id: "clinic-update" });
             } else {
-              toast.error("Name field is mandatory. Please fill it.", { id: "name-error" });
+              toast.error("Name field is mandatory. Please fill it.", { id: "clinic-update" });
             }
             return;
           } else {
             const msg = err?.response?.data?.message || "Update failed";
-            toast.error(msg, { id: "clinic-update-error" });
+            toast.error(msg, { id: "clinic-update" });
             return;
           }
         }
       }
       console.log("🔔 About to show success toast");
-      toast.success("Clinic updated successfully", { id: "clinic-update-success" });
+      toast.success("Clinic updated successfully", { id: "clinic-update" });
       console.log("🔔 Success toast shown");
       // Sync currency to global context after successful save
       setGlobalCurrency(clinicCurrency);
@@ -2177,7 +2178,7 @@ function ClinicManagementDashboard(): ReactElement {
                   <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                     Manage Health Center
                   </h1>
-                  {isDirty ? (
+                  {/* {isDirty ? (
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-700 rounded-full border border-amber-200">
                       Unsaved Changes
                     </span>
@@ -2185,7 +2186,7 @@ function ClinicManagementDashboard(): ReactElement {
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
                       Saved
                     </span>
-                  )}
+                  )} */}
                 </div>
                 <p className="text-xs sm:text-sm text-gray-600">
                   Configure your clinic settings and preferences
@@ -2450,7 +2451,7 @@ function ClinicManagementDashboard(): ReactElement {
                               Click to upload logo
                             </span>
                             <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                              PNG, JPG up to 5MB
+                              PNG, JPG up to 50MB
                             </div>
                           </div>
                         )}
@@ -2472,6 +2473,10 @@ function ClinicManagementDashboard(): ReactElement {
                             if (fieldDisabled) return;
                             const f = e.target.files?.[0];
                             if (!f) return;
+                            if (f.size > 50 * 1024 * 1024) {
+                                toast.error("File size exceeds 50MB");
+                                return;
+                            }
                             const url = URL.createObjectURL(f);
                             setCoverPreview(url);
                             setCoverFile(f);
@@ -2490,7 +2495,7 @@ function ClinicManagementDashboard(): ReactElement {
                               Click to upload cover
                             </span>
                             <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                              PNG, JPG up to 5MB
+                              PNG, JPG up to 50MB
                             </div>
                           </div>
                         )}
@@ -3355,6 +3360,10 @@ function ClinicManagementDashboard(): ReactElement {
                         onChange={(e) => {
                           const f = e.target.files?.[0] || null;
                           if (f) {
+                            if (f.size > 50 * 1024 * 1024) {
+                                toast.error("File size exceeds 50MB");
+                                return;
+                            }
                             setNewDocFile(f);
                             setNewDocName(f.name.split(".")[0]);
                           }
@@ -3585,11 +3594,13 @@ function ClinicManagementDashboard(): ReactElement {
                         return;
                       }
 
-                      if (file.size > 5 * 1024 * 1024) {
-                        toast.error("File size exceeds 5MB");
+
+
+                      if (file.size > 50 * 1024 * 1024) {
+                        toast.error("File size exceeds 50MB");
                         return;
                       }
-
+ 
                       setNewDocFile(file);
                       setNewDocName(file.name.split(".")[0]);
                     }}
@@ -3605,8 +3616,7 @@ function ClinicManagementDashboard(): ReactElement {
                         Drag and drop your files here, or click to browse
                       </p>
                       <p className="text-xs text-gray-400 mb-4">
-                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max
-                        5MB)
+                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max 50MB)
                       </p>
 
                       {/* Quick Upload Form */}

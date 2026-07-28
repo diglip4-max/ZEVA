@@ -177,7 +177,7 @@ export default async function handler(req, res) {
         mobileNumber,
         gender,
         doctor,
-        service,
+        service: initialService,
         treatment,
         package: packageName,
         quantity,
@@ -247,6 +247,11 @@ export default async function handler(req, res) {
         // Staff tips
         staffTips,
       } = req.body;
+
+    let service = initialService;
+    if (Array.isArray(unpaidPackagesPaid) && unpaidPackagesPaid.length > 0 && !treatment && (!selectedTreatments || selectedTreatments.length === 0)) {
+      service = "Package";
+    }
 
     console.log({ bmModify: req.body });
     console.log("multiplePayments from req.body:", multiplePayments);
@@ -1996,6 +2001,73 @@ export default async function handler(req, res) {
                 await Billing.findByIdAndUpdate(billing._id, {
                   $push: { pendingClearedBreakdown: { $each: clearanceResult.breakdown } }
                 });
+
+                // Now update the original invoices!
+                const breakdownByInvoice = new Map();
+                for (const b of clearanceResult.breakdown) {
+                  const inv = breakdownByInvoice.get(b.invoiceNumber) || [];
+                  inv.push(b);
+                  breakdownByInvoice.set(b.invoiceNumber, inv);
+                }
+
+                for (const [invNum, items] of breakdownByInvoice) {
+                  try {
+                    const invoice = await Billing.findOne({ invoiceNumber: invNum, clinicId: clinic._id });
+                    if (invoice) {
+                      const totalForInvoice = items.reduce((sum, b) => sum + (Number(b.amountCleared) || 0), 0);
+                      
+                      // Update invoice fields
+                      invoice.paid = (Number(invoice.paid) || 0) + totalForInvoice;
+                      invoice.pending = Math.max(0, (Number(invoice.pending) || 0) - totalForInvoice);
+                      invoice.pendingUsed = (Number(invoice.pendingUsed) || 0) + totalForInvoice;
+
+                      await invoice.save();
+
+                      // Record payment history entry for original invoice
+                      const paymentEntry = {
+                        paymentMethod: paymentMethod || "Cash",
+                        amount: totalForInvoice,
+                        paidAt: new Date(),
+                        paidBy: clinicUser._id,
+                        paidByName: clinicUser.name || clinicUser.firstName || "Staff",
+                        transactionType: "PENDING_CLEARANCE"
+                      };
+
+                      await Billing.findByIdAndUpdate(invoice._id, {
+                        $push: {
+                          multiplePayments: paymentEntry,
+                          paymentHistory: {
+                            amount: invoice.amount || 0,
+                            paid: invoice.paid,
+                            pending: invoice.pending,
+                            paymentMethod: paymentMethod || "Cash",
+                            multiplePayments: [paymentEntry],
+                            status: invoice.pending <= 0 ? "Completed" : "Active",
+                            updatedAt: new Date(),
+                            amountPaid: totalForInvoice,
+                            advanceAmountUsed: 0,
+                            remainingPending: invoice.pending
+                          },
+                          pendingClearedBreakdown: { $each: items.map(b => ({
+                            ledgerId: b.ledgerId,
+                            invoiceNumber: b.invoiceNumber,
+                            service: b.service,
+                            treatmentSlug: b.treatmentSlug || null,
+                            treatmentName: b.treatmentName || null,
+                            packageId: b.packageId || null,
+                            packageName: b.packageName || null,
+                            amountCleared: b.amountCleared,
+                            newStatus: b.newStatus,
+                            newRemaining: b.newRemaining,
+                            paymentMethod: b.paymentMethod || paymentMethod || null
+                          })) }
+                        }
+                      });
+                    }
+                  } catch (origUpdateErr) {
+                    console.error('[CreatePatientRegistration] Failed to update original invoice', invNum, origUpdateErr.message);
+                  }
+                }
               }
             }
           }
