@@ -4,8 +4,8 @@ import { ChevronDown, Check, User as UserIcon, Search, X } from "lucide-react";
 
 interface AssignConversationProps {
   agents: User[];
-  selectedAgent: User | null;
-  onAgentSelect: (agent: User | null) => void;
+  selectedAgents: User[];
+  onAgentsSelect: (agents: User[]) => void;
   placeholder?: string;
   loading?: boolean;
   disabled?: boolean;
@@ -13,9 +13,9 @@ interface AssignConversationProps {
 
 const AssignConversation: React.FC<AssignConversationProps> = ({
   agents,
-  selectedAgent,
-  onAgentSelect,
-  placeholder = "Assign to agent",
+  selectedAgents,
+  onAgentsSelect,
+  placeholder = "Assign to agents",
   loading = false,
   disabled = false,
 }) => {
@@ -46,14 +46,18 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
       agent.email.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const handleSelect = (agent: User) => {
-    onAgentSelect(agent);
-    setIsOpen(false);
-    setSearchTerm("");
+  const handleToggleAgent = (agent: User) => {
+    const isSelected = selectedAgents.some((a) => a._id === agent._id);
+    if (isSelected) {
+      onAgentsSelect(selectedAgents.filter((a) => a._id !== agent._id));
+    } else {
+      onAgentsSelect([...selectedAgents, agent]);
+    }
   };
 
-  const handleClear = () => {
-    onAgentSelect(null);
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onAgentsSelect([]);
   };
 
   return (
@@ -86,7 +90,7 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
         }}
       >
         <div className="flex items-center gap-2 truncate">
-          {selectedAgent ? (
+          {selectedAgents.length > 0 ? (
             <>
               <UserIcon
                 className="w-4 h-4 flex-shrink-0"
@@ -96,9 +100,11 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
                 className="truncate font-medium"
                 style={{ color: "var(--text-dim)" }}
               >
-                {selectedAgent.name?.length > 12
-                  ? `${selectedAgent?.name?.slice(0, 12)}...`
-                  : selectedAgent?.name}
+                {selectedAgents.length === 1
+                  ? selectedAgents[0].name?.length > 12
+                    ? `${selectedAgents[0].name?.slice(0, 12)}...`
+                    : selectedAgents[0].name
+                  : `${selectedAgents.length} agents`}
               </span>
             </>
           ) : (
@@ -115,13 +121,10 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          {selectedAgent && (
+          {selectedAgents.length > 0 && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClear();
-              }}
+              onClick={handleClearAll}
               style={{
                 padding: "2px",
                 borderRadius: "4px",
@@ -218,95 +221,99 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
               </div>
             ) : (
               <ul style={{ padding: "6px" }}>
-                {filteredAgents.map((agent) => (
-                  <li
-                    key={agent._id}
-                    style={{
-                      borderBottom: "1px solid var(--border-soft)",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSelect(agent)}
+                {filteredAgents.map((agent) => {
+                  const isSelected = selectedAgents.some(
+                    (a) => a._id === agent._id,
+                  );
+                  return (
+                    <li
+                      key={agent._id}
                       style={{
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "12px",
-                        padding: "10px 12px",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        background:
-                          selectedAgent?._id === agent._id
-                            ? "var(--primary-soft)"
-                            : "transparent",
-                        border: "none",
-                        borderRadius: "10px",
-                        transition: "background 0.1s ease",
+                        borderBottom: "1px solid var(--border-soft)",
                       }}
                     >
-                      {/* Checkmark for selected */}
-                      <div className="flex-shrink-0">
-                        {selectedAgent?._id === agent._id ? (
-                          <div
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAgent(agent)}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "10px 12px",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          background: isSelected
+                            ? "var(--primary-soft)"
+                            : "transparent",
+                          border: "none",
+                          borderRadius: "10px",
+                          transition: "background 0.1s ease",
+                        }}
+                      >
+                        {/* Checkmark for selected */}
+                        <div className="flex-shrink-0">
+                          {isSelected ? (
+                            <div
+                              style={{
+                                width: "20px",
+                                height: "20px",
+                                background: "var(--primary-bright)",
+                                borderRadius: "50%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Check
+                                className="w-3 h-3"
+                                style={{ color: "white" }}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              style={{
+                                width: "20px",
+                                height: "20px",
+                                border: "1px solid var(--border)",
+                                borderRadius: "50%",
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        {/* Agent Name & Email Only */}
+                        <div className="flex-1 min-w-0">
+                          <p
                             style={{
-                              width: "20px",
-                              height: "20px",
-                              background: "var(--primary-bright)",
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
+                              fontWeight: 600,
+                              color: "var(--text)",
+                              fontSize: "14px",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              margin: 0,
                             }}
                           >
-                            <Check
-                              className="w-3 h-3"
-                              style={{ color: "white" }}
-                            />
-                          </div>
-                        ) : (
-                          <div
+                            {agent.name}
+                          </p>
+                          <p
                             style={{
-                              width: "20px",
-                              height: "20px",
-                              border: "1px solid var(--border)",
-                              borderRadius: "50%",
+                              fontSize: "12px",
+                              color: "var(--text-faint)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              margin: "2px 0 0 0",
                             }}
-                          />
-                        )}
-                      </div>
-
-                      {/* Agent Name & Email Only */}
-                      <div className="flex-1 min-w-0">
-                        <p
-                          style={{
-                            fontWeight: 600,
-                            color: "var(--text)",
-                            fontSize: "14px",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            margin: 0,
-                          }}
-                        >
-                          {agent.name}
-                        </p>
-                        <p
-                          style={{
-                            fontSize: "12px",
-                            color: "var(--text-faint)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            margin: "2px 0 0 0",
-                          }}
-                        >
-                          {agent.email}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                ))}
+                          >
+                            {agent.email}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -320,9 +327,12 @@ const AssignConversation: React.FC<AssignConversationProps> = ({
                 borderTop: "1px solid var(--border-soft)",
                 fontSize: "11px",
                 color: "var(--text-faint)",
+                display: "flex",
+                justifyContent: "space-between",
               }}
             >
-              {filteredAgents.length} agents
+              <span>{selectedAgents.length} selected</span>
+              <span>{filteredAgents.length} agents</span>
             </div>
           )}
         </div>

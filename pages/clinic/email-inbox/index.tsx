@@ -490,6 +490,7 @@ const EmailInboxPage: NextPageWithLayout = () => {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
         canCreate={permissions.canCreate}
+        folderCounts={inbox.folderCounts}
       />
       <EmailList
         folder={inbox.folder}
@@ -508,7 +509,15 @@ const EmailInboxPage: NextPageWithLayout = () => {
         onLoadMore={inbox.loadMoreEmailMessages}
         listRef={inbox.conversationListRef as any}
         onFilterClick={() => setIsFilterModalOpen(true)}
-        hasActiveFilters={!!inbox.filterOwnerId}
+        filterCount={
+          inbox.filterProviderId && inbox.filterOwnerId
+            ? 2
+            : inbox.filterProviderId || inbox.filterOwnerId
+              ? 1
+              : 0
+        }
+        hasActiveFilters={!!inbox.filterOwnerId || !!inbox.filterProviderId}
+        handleRefreshConversations={inbox.handleRefreshConversations}
       />
       <EmailReadingPane
         messages={inbox.threadMessages}
@@ -519,13 +528,13 @@ const EmailInboxPage: NextPageWithLayout = () => {
         onToggleStar={inbox.starMessage}
         onArchive={inbox.archiveMessage}
         onTrash={inbox.trashMessage}
-        onDelete={inbox.deleteMessage}
+        onDelete={inbox.deleteMessageForever}
         onRestoreFromTrash={inbox.restoreFromTrash}
         onRestoreFromArchive={inbox.restoreFromArchive}
         onReply={(m) => inbox.startCompose("reply", m)}
         onForward={(m) => inbox.startCompose("forward", m)}
         agents={inbox.agents}
-        selectedAgent={inbox.selectedAgent}
+        selectedAgents={inbox.selectedAgents}
         onAgentSelect={inbox.handleAgentSelect}
         agentFetchLoading={inbox.agentFetchLoading}
         // Tags
@@ -585,6 +594,9 @@ const EmailInboxPage: NextPageWithLayout = () => {
         agents={inbox.agents}
         selectedAgentId={inbox.filterOwnerId}
         onAgentSelect={inbox.setFilterOwnerId}
+        providers={inbox.emailProviders}
+        selectedProviderId={inbox.filterProviderId}
+        onProviderSelect={inbox.setFilterProviderId}
         onApplyFilters={() => inbox.fetchEmailMessages(1)}
         loading={inbox.fetchMsgsLoading}
       />

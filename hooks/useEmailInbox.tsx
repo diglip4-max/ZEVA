@@ -13,6 +13,7 @@ import { ConversationType, MessageType } from "@/types/conversations";
 import useAgents from "@/hooks/useAgents";
 import { User } from "@/types/users";
 import useTags from "@/hooks/useTags";
+import toast from "react-hot-toast";
 
 export type EmailFolderKey =
   | "all"
@@ -121,13 +122,15 @@ export default function useEmailInbox() {
   const { agents, loading: agentFetchLoading } = agentsState;
 
   // Conversation assignment
-  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
+  const [selectedAgents, setSelectedAgents] = useState<User[]>([]);
 
   // ---- conversation list --------------------------------------------------
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [folder, setFolder] = useState<EmailFolderKey>("all");
   const [search, setSearch] = useState("");
   const [filterOwnerId, setFilterOwnerId] = useState<string | null>(null);
+  const [filterProviderId, setFilterProviderId] = useState<string | null>(null);
+  const [folderCounts, setFolderCounts] = useState<any[]>([]);
   const conversationListRef = useRef<HTMLDivElement | null>(null);
   const currentPageRef = useRef(1);
 
@@ -277,6 +280,7 @@ export default function useEmailInbox() {
             status: folder === "all" ? "all" : folder,
             search,
             ownerId: filterOwnerId || undefined,
+            providerId: filterProviderId || undefined,
           },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -288,9 +292,11 @@ export default function useEmailInbox() {
         }
 
         const incomingGroups: MessageData[] = res.data?.data || [];
+        const counts = res.data?.folderCounts || [];
 
         if (pageToFetch === 1) {
           setMessages(incomingGroups);
+          setFolderCounts(counts);
         } else {
           setMessages((prev) => {
             const merged = prev.map((g) => ({
@@ -338,7 +344,7 @@ export default function useEmailInbox() {
         setFetchMsgsLoading(false);
       }
     },
-    [token, search, folder, filterOwnerId],
+    [token, search, folder, filterOwnerId, filterProviderId],
   );
 
   const fetchEmailMessages = useMemo(
@@ -389,21 +395,34 @@ export default function useEmailInbox() {
         );
         if (data && data?.success && data?.conversation) {
           let conv: ConversationType | null = data?.conversation || null;
-          const selectedOwner = agents.find((a) => a._id === conv?.ownerId);
-          setSelectedConversation(conv || null);
-          if (selectedOwner) {
-            setSelectedAgent(selectedOwner);
+          // Check if conversation has owners array first
+          if (conv?.owners && conv.owners.length > 0) {
+            const convOwners = agents.filter((a) =>
+              conv.owners.includes(a._id),
+            );
+            setSelectedConversation(conv || null);
+            setSelectedAgents(convOwners);
+          } else if (conv?.ownerId) {
+            // Fallback to single ownerId for backward compatibility
+            const selectedOwner = agents.find((a) => a._id === conv?.ownerId);
+            setSelectedConversation(conv || null);
+            if (selectedOwner) {
+              setSelectedAgents([selectedOwner]);
+            } else {
+              setSelectedAgents([]);
+            }
           } else {
-            setSelectedAgent(null);
+            setSelectedConversation(conv || null);
+            setSelectedAgents([]);
           }
         } else {
           setSelectedConversation(null);
-          setSelectedAgent(null);
+          setSelectedAgents([]);
         }
       } catch (error) {
         console.error("Error fetching conversation:", error);
         setSelectedConversation(null);
-        setSelectedAgent(null);
+        setSelectedAgents([]);
       }
     },
     [token, agents],
@@ -548,17 +567,13 @@ export default function useEmailInbox() {
   };
 
   // Agent assignment
-  const handleAgentSelect = async (
-    agent: User | null,
-    conversationId: string,
-  ) => {
-    setSelectedAgent(agent);
-    if (!agent) return;
+  const handleAgentSelect = async (agents: User[], conversationId: string) => {
+    setSelectedAgents(agents);
     try {
       const { data } = await axios.post(
         `/api/conversations/assign-conversation/${conversationId}`,
         {
-          ownerId: agent?._id,
+          ownerIds: agents.map((a) => a._id),
         },
         {
           headers: {
@@ -911,7 +926,13 @@ export default function useEmailInbox() {
     return () => {
       fetchEmailMessages.cancel?.();
     };
-  }, [folder, search, filterOwnerId, fetchEmailMessagesImmediate]);
+  }, [
+    folder,
+    search,
+    filterOwnerId,
+    filterProviderId,
+    fetchEmailMessagesImmediate,
+  ]);
 
   const loadMoreEmailMessages = () => {
     if (!hasMoreMessages || fetchMsgsLoading) return;
@@ -921,6 +942,20 @@ export default function useEmailInbox() {
   };
 
   const unreadCountFor = (_f: EmailFolderKey) => 0;
+
+  const handleRefreshConversations = async () => {
+    if (!token) return;
+    try {
+      const { data } = await axios.get(`/api/conversations/refresh`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data && data?.success) {
+        toast.success("Conversations refreshed successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  };
 
   return {
     // list
@@ -933,10 +968,13 @@ export default function useEmailInbox() {
     unreadCountFor,
     filterOwnerId,
     setFilterOwnerId,
+    filterProviderId,
+    setFilterProviderId,
+    folderCounts,
 
     // agents
     agents,
-    selectedAgent,
+    selectedAgents,
     agentFetchLoading,
     handleAgentSelect,
 
@@ -1009,5 +1047,8 @@ export default function useEmailInbox() {
     isAddingTag,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
+
+    // refresh
+    handleRefreshConversations,
   };
 }

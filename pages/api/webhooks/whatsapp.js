@@ -134,7 +134,7 @@ const processWhatsAppWebhook = async (req) => {
             await emitMessageStatusUpdateToUser(userId, message);
           }
         }
-        if (message.campaignId) {
+        if (message?.campaignId) {
           const campaign = await Campaign.findById(message.campaignId);
           if (status === "delivered") {
             campaign.deliveredMessages += 1;
@@ -254,6 +254,7 @@ const processWhatsAppWebhook = async (req) => {
           let conversation = await Conversation.findOne({
             clinicId,
             leadId: findLead?._id,
+            status: { $ne: "trashed" },
           });
           if (!conversation) {
             let query = {
@@ -287,11 +288,31 @@ const processWhatsAppWebhook = async (req) => {
             conversation = new Conversation({
               clinicId,
               leadId: findLead?._id,
-              ownerId, // This will be null if no users found
             });
 
             await conversation.save();
             console.log(`Created new conversation: ${conversation._id}`);
+          }
+
+          // if conversation is closed then open it
+          if (
+            conversation?.status === "closed" ||
+            conversation?.status === "archived"
+          ) {
+            conversation.status = "open";
+            await conversation.save();
+          }
+
+          // find union of provider owners and conv owners
+          const owners = provider.owners || [];
+          const convOwners = conversation.owners || [];
+          const allOwners = new Set([
+            ...(owners?.map((i) => i.toString()) || []),
+            ...(convOwners?.map((i) => i.toString()) || []),
+          ]);
+          if (allOwners.size > 0) {
+            conversation.owners = [...allOwners];
+            await conversation.save();
           }
 
           let mediaType = "";

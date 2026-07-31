@@ -33,8 +33,8 @@ interface EmailReadingPaneProps {
   onRestoreFromTrash: (id: string) => void;
   onRestoreFromArchive: (id: string) => void;
   agents: User[];
-  selectedAgent: User | null;
-  onAgentSelect: (agent: User | null, conversationId: string) => void;
+  selectedAgents: User[];
+  onAgentSelect: (agents: User[], conversationId: string) => void;
   agentFetchLoading: boolean;
 
   // Tags
@@ -107,7 +107,7 @@ export default function EmailReadingPane({
   onRestoreFromTrash,
   onRestoreFromArchive,
   agents,
-  selectedAgent,
+  selectedAgents,
   onAgentSelect,
   agentFetchLoading,
   tags,
@@ -275,10 +275,10 @@ export default function EmailReadingPane({
         {message && canAssign && (
           <AssignConversation
             agents={agents}
-            selectedAgent={selectedAgent}
-            onAgentSelect={(agent) => onAgentSelect(agent, conversationId)}
+            selectedAgents={selectedAgents}
+            onAgentsSelect={(agents) => onAgentSelect(agents, conversationId)}
             loading={agentFetchLoading}
-            placeholder="Assign to agent..."
+            placeholder="Assign to agents..."
           />
         )}
         <button className="pi-icon-btn" aria-label="More" disabled={loading}>

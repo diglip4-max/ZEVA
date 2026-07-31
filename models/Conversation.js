@@ -14,6 +14,13 @@ const ConversationSchema = new mongoose.Schema(
       ref: "User",
     },
 
+    owners: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
     leadId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Lead",

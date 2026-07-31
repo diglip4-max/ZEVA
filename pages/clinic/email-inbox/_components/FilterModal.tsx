@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { X, Filter, Users, ChevronDown, Check, Search } from "lucide-react";
+import {
+  X,
+  Filter,
+  Users,
+  ChevronDown,
+  Check,
+  Search,
+  Mail,
+} from "lucide-react";
 import { User as UserType } from "@/types/users";
+import { Provider } from "@/types/conversations";
 import { useAuth } from "@/context/AuthContext";
 
 interface FilterModalProps {
@@ -9,6 +18,9 @@ interface FilterModalProps {
   agents: UserType[];
   selectedAgentId: string | null;
   onAgentSelect: (agentId: string | null) => void;
+  providers: Provider[];
+  selectedProviderId: string | null;
+  onProviderSelect: (providerId: string | null) => void;
   onApplyFilters: () => void;
   loading?: boolean;
 }
@@ -19,47 +31,69 @@ const FilterModal: React.FC<FilterModalProps> = ({
   agents,
   selectedAgentId,
   onAgentSelect,
+  providers,
+  selectedProviderId,
+  onProviderSelect,
   onApplyFilters,
   loading = false,
-}) => {
+}: FilterModalProps) => {
   const { user } = useAuth();
-  const [localAgentId, setLocalAgentId] = useState<string | null>(selectedAgentId);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [localAgentId, setLocalAgentId] = useState<string | null>(
+    selectedAgentId,
+  );
+  const [localProviderId, setLocalProviderId] = useState<string | null>(
+    selectedProviderId,
+  );
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const agentDropdownRef = useRef<HTMLDivElement | null>(null);
+  const providerDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setLocalAgentId(selectedAgentId);
-      setDropdownOpen(false);
+      setLocalProviderId(selectedProviderId);
+      setAgentDropdownOpen(false);
+      setProviderDropdownOpen(false);
       setSearchTerm("");
     }
-  }, [isOpen, selectedAgentId]);
+  }, [isOpen, selectedAgentId, selectedProviderId]);
 
-  // Click outside handling for custom select dropdown
+  // Click outside handling for custom select dropdowns
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
+      const clickIsOutsideAgentDropdown =
+        agentDropdownRef.current &&
+        !agentDropdownRef.current.contains(event.target as Node);
+      const clickIsOutsideProviderDropdown =
+        providerDropdownRef.current &&
+        !providerDropdownRef.current.contains(event.target as Node);
+
+      if (clickIsOutsideAgentDropdown && clickIsOutsideProviderDropdown) {
+        setAgentDropdownOpen(false);
+        setProviderDropdownOpen(false);
         setSearchTerm("");
       }
     };
-    if (dropdownOpen) {
+    if (agentDropdownOpen || providerDropdownOpen) {
       document.addEventListener("mousedown", handleOutsideClick);
     }
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
     };
-  }, [dropdownOpen]);
+  }, [agentDropdownOpen, providerDropdownOpen]);
 
   const handleApply = () => {
     onAgentSelect(localAgentId);
+    onProviderSelect(localProviderId);
     onApplyFilters();
     onClose();
   };
 
   const handleReset = () => {
     setLocalAgentId(null);
+    setLocalProviderId(null);
     setSearchTerm("");
   };
 
@@ -74,11 +108,21 @@ const FilterModal: React.FC<FilterModalProps> = ({
   // Find selected agent
   const selectedAgentObj = agents.find((a) => a._id === localAgentId);
   const selectedAgentName = selectedAgentObj
-    ? (selectedAgentObj.name || selectedAgentObj.email || "Selected Agent")
+    ? selectedAgentObj.name || selectedAgentObj.email || "Selected Agent"
     : "All Agents";
   const selectedAgentInitials = selectedAgentObj
-    ? (selectedAgentObj.name ? selectedAgentObj.name.slice(0, 2) : selectedAgentObj.email?.slice(0, 2) || "A")
+    ? selectedAgentObj.name
+      ? selectedAgentObj.name.slice(0, 2)
+      : selectedAgentObj.email?.slice(0, 2) || "A"
     : "ALL";
+
+  // Find selected provider
+  const selectedProviderObj = providers.find((p) => p._id === localProviderId);
+  const selectedProviderName = selectedProviderObj
+    ? selectedProviderObj.label ||
+      selectedProviderObj.name ||
+      "Selected Provider"
+    : "All Providers";
 
   // Filter agents based on search term
   const filteredAgents = agents.filter((agent) => {
@@ -110,7 +154,8 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 Filter Emails
               </h2>
               <p className="pi-filter-modal-subtitle">
-                Apply agent filter to narrow down email conversations
+                Apply agent or provider filter to narrow down email
+                conversations
               </p>
             </div>
           </div>
@@ -125,6 +170,131 @@ const FilterModal: React.FC<FilterModalProps> = ({
         </div>
 
         <div className="pi-filter-modal-body">
+          {/* Provider Filter */}
+          <div className="pi-filter-modal-section">
+            <label className="pi-filter-modal-label">
+              <Mail className="w-4 h-4 inline mr-2 text-primary-bright" />
+              Email Provider
+            </label>
+            <div
+              className="pi-filter-modal-select-wrapper"
+              ref={providerDropdownRef}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (!loading) {
+                    setProviderDropdownOpen((prev) => !prev);
+                  }
+                }}
+                className="pi-filter-modal-custom-select-btn"
+                disabled={loading}
+                aria-expanded={providerDropdownOpen}
+              >
+                <div className="pi-filter-modal-custom-select-preview">
+                  <div
+                    className="pi-filter-modal-agent-avatar"
+                    style={{ background: "var(--primary-soft)" }}
+                  >
+                    <Mail size={14} />
+                  </div>
+                  <span className="pi-filter-modal-agent-name">
+                    {selectedProviderName}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={16}
+                  style={{
+                    transform: providerDropdownOpen ? "rotate(180deg)" : "none",
+                    transition: "transform 0.2s ease",
+                    color: "var(--text-faint)",
+                  }}
+                />
+              </button>
+
+              {providerDropdownOpen && (
+                <div className="pi-filter-modal-custom-menu">
+                  <button
+                    type="button"
+                    className={`pi-filter-modal-custom-item ${!localProviderId ? "active" : ""}`}
+                    onClick={() => {
+                      setLocalProviderId(null);
+                      setProviderDropdownOpen(false);
+                    }}
+                  >
+                    <div
+                      className="pi-filter-modal-agent-avatar"
+                      style={{ background: "var(--border)" }}
+                    >
+                      ALL
+                    </div>
+                    <div className="pi-filter-modal-item-info">
+                      <div className="pi-filter-modal-item-name">
+                        All Providers
+                      </div>
+                    </div>
+                    {!localProviderId && (
+                      <Check className="pi-filter-modal-item-check" size={14} />
+                    )}
+                  </button>
+
+                  {providers.length === 0 ? (
+                    <div
+                      style={{
+                        padding: "12px",
+                        textAlign: "center",
+                        color: "var(--text-faint)",
+                        fontSize: "13px",
+                      }}
+                    >
+                      No providers found
+                    </div>
+                  ) : (
+                    providers.map((provider) => {
+                      const isActive = localProviderId === provider._id;
+                      return (
+                        <button
+                          key={provider._id}
+                          type="button"
+                          className={`pi-filter-modal-custom-item ${isActive ? "active" : ""}`}
+                          onClick={() => {
+                            setLocalProviderId(provider._id);
+                            setProviderDropdownOpen(false);
+                          }}
+                        >
+                          <div
+                            className="pi-filter-modal-agent-avatar"
+                            style={{ background: "var(--primary-soft)" }}
+                          >
+                            <Mail size={14} />
+                          </div>
+                          <div className="pi-filter-modal-item-info">
+                            <div className="pi-filter-modal-item-name">
+                              {provider.label ||
+                                provider.name ||
+                                "Unknown Provider"}
+                            </div>
+                            {provider.email && (
+                              <div className="pi-filter-modal-item-email">
+                                {provider.email}
+                              </div>
+                            )}
+                          </div>
+                          {isActive && (
+                            <Check
+                              className="pi-filter-modal-item-check"
+                              size={14}
+                            />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Agent Filter */}
           {user?.role === "clinic" && (
             <div className="pi-filter-modal-section">
@@ -132,18 +302,21 @@ const FilterModal: React.FC<FilterModalProps> = ({
                 <Users className="w-4 h-4 inline mr-2 text-primary-bright" />
                 Assigned Agent
               </label>
-              <div className="pi-filter-modal-select-wrapper" ref={dropdownRef}>
+              <div
+                className="pi-filter-modal-select-wrapper"
+                ref={agentDropdownRef}
+              >
                 <button
                   type="button"
                   onClick={() => {
                     if (!loading) {
-                      setDropdownOpen((prev) => !prev);
+                      setAgentDropdownOpen((prev) => !prev);
                       setSearchTerm("");
                     }
                   }}
                   className="pi-filter-modal-custom-select-btn"
                   disabled={loading}
-                  aria-expanded={dropdownOpen}
+                  aria-expanded={agentDropdownOpen}
                 >
                   <div className="pi-filter-modal-custom-select-preview">
                     <div className="pi-filter-modal-agent-avatar">
@@ -156,25 +329,27 @@ const FilterModal: React.FC<FilterModalProps> = ({
                   <ChevronDown
                     size={16}
                     style={{
-                      transform: dropdownOpen ? "rotate(180deg)" : "none",
+                      transform: agentDropdownOpen ? "rotate(180deg)" : "none",
                       transition: "transform 0.2s ease",
-                      color: "var(--text-faint)"
+                      color: "var(--text-faint)",
                     }}
                   />
                 </button>
 
-                {dropdownOpen && (
+                {agentDropdownOpen && (
                   <div className="pi-filter-modal-custom-menu">
                     {/* Search box inside custom select menu */}
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "8px 12px",
-                      borderBottom: "1px solid var(--border-soft)",
-                      marginBottom: "6px",
-                      color: "var(--text-faint)"
-                    }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "8px 12px",
+                        borderBottom: "1px solid var(--border-soft)",
+                        marginBottom: "6px",
+                        color: "var(--text-faint)",
+                      }}
+                    >
                       <Search size={14} />
                       <input
                         type="text"
@@ -188,7 +363,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                           color: "var(--text)",
                           fontSize: "13px",
                           width: "100%",
-                          fontFamily: "inherit"
+                          fontFamily: "inherit",
                         }}
                         autoFocus
                         onClick={(e) => e.stopPropagation()} // Prevent dropdown closing on input click
@@ -200,21 +375,38 @@ const FilterModal: React.FC<FilterModalProps> = ({
                       className={`pi-filter-modal-custom-item ${!localAgentId ? "active" : ""}`}
                       onClick={() => {
                         setLocalAgentId(null);
-                        setDropdownOpen(false);
+                        setAgentDropdownOpen(false);
                         setSearchTerm("");
                       }}
                     >
-                      <div className="pi-filter-modal-agent-avatar" style={{ background: "var(--border)" }}>
+                      <div
+                        className="pi-filter-modal-agent-avatar"
+                        style={{ background: "var(--border)" }}
+                      >
                         ALL
                       </div>
                       <div className="pi-filter-modal-item-info">
-                        <div className="pi-filter-modal-item-name">All Agents</div>
+                        <div className="pi-filter-modal-item-name">
+                          All Agents
+                        </div>
                       </div>
-                      {!localAgentId && <Check className="pi-filter-modal-item-check" size={14} />}
+                      {!localAgentId && (
+                        <Check
+                          className="pi-filter-modal-item-check"
+                          size={14}
+                        />
+                      )}
                     </button>
 
                     {filteredAgents.length === 0 ? (
-                      <div style={{ padding: "12px", textAlign: "center", color: "var(--text-faint)", fontSize: "13px" }}>
+                      <div
+                        style={{
+                          padding: "12px",
+                          textAlign: "center",
+                          color: "var(--text-faint)",
+                          fontSize: "13px",
+                        }}
+                      >
                         No agents found
                       </div>
                     ) : (
@@ -230,7 +422,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
                             className={`pi-filter-modal-custom-item ${isActive ? "active" : ""}`}
                             onClick={() => {
                               setLocalAgentId(agent._id);
-                              setDropdownOpen(false);
+                              setAgentDropdownOpen(false);
                               setSearchTerm("");
                             }}
                           >
@@ -247,7 +439,12 @@ const FilterModal: React.FC<FilterModalProps> = ({
                                 </div>
                               )}
                             </div>
-                            {isActive && <Check className="pi-filter-modal-item-check" size={14} />}
+                            {isActive && (
+                              <Check
+                                className="pi-filter-modal-item-check"
+                                size={14}
+                              />
+                            )}
                           </button>
                         );
                       })
@@ -258,30 +455,51 @@ const FilterModal: React.FC<FilterModalProps> = ({
             </div>
           )}
 
-          {localAgentId && (
+          {(localAgentId || localProviderId) && (
             <div className="pi-filter-modal-active-box">
-              <h4 className="pi-filter-modal-active-title">
-                Active Filter
-              </h4>
+              <h4 className="pi-filter-modal-active-title">Active Filters</h4>
               <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border"
-                  style={{
-                    background: "var(--primary-soft)",
-                    borderColor: "var(--primary-line)",
-                    color: "var(--primary-bright)",
-                  }}
-                >
-                  Agent: {selectedAgentName}
-                  <button
-                    onClick={() => {
-                      setLocalAgentId(null);
-                      setSearchTerm("");
+                {localAgentId && (
+                  <span
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border"
+                    style={{
+                      background: "var(--primary-soft)",
+                      borderColor: "var(--primary-line)",
+                      color: "var(--primary-bright)",
                     }}
-                    className="ml-2 text-primary-bright hover:text-white"
                   >
-                    ×
-                  </button>
-                </span>
+                    Agent: {selectedAgentName}
+                    <button
+                      onClick={() => {
+                        setLocalAgentId(null);
+                        setSearchTerm("");
+                      }}
+                      className="ml-2 text-primary-bright hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {localProviderId && (
+                  <span
+                    className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border"
+                    style={{
+                      background: "var(--primary-soft)",
+                      borderColor: "var(--primary-line)",
+                      color: "var(--primary-bright)",
+                    }}
+                  >
+                    Provider: {selectedProviderName}
+                    <button
+                      onClick={() => {
+                        setLocalProviderId(null);
+                      }}
+                      className="ml-2 text-primary-bright hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -290,7 +508,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
         <div className="pi-filter-modal-actions">
           <button
             onClick={handleReset}
-            disabled={!localAgentId || loading}
+            disabled={(!localAgentId && !localProviderId) || loading}
             className="pi-secondary-btn"
           >
             Reset
