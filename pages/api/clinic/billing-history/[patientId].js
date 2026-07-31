@@ -21,10 +21,10 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const { patientId } = req.query;
+    const { patientId: id } = req.query;
 
-    if (!patientId) {
-      return res.status(400).json({ success: false, message: "Patient ID is required" });
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Patient or Appointment ID is required" });
     }
 
     // Determine clinicId
@@ -45,13 +45,15 @@ export default async function handler(req, res) {
       }
     }
 
-    // Fetch all billing records for this patient and clinic, excluding pure balance adjustments
-    // BUT include advance payment records for tracking purposes
-    const billings = await Billing.find({
-      patientId: patientId,
+    // Check if the id is an appointmentId or patientId
+    // First, try to find any billings with this appointmentId
+    let query = Billing.find({
       clinicId: clinicId,
       isAdvanceOnly: { $ne: true },
-    })
+    });
+
+    // First, try appointmentId
+    let billings = await query.clone().where('appointmentId').equals(id)
       .populate({
         path: "doctorId",
         select: "name",
@@ -59,6 +61,21 @@ export default async function handler(req, res) {
       })
       .sort({ createdAt: -1 }) // Most recent first
       .lean();
+
+    // If no billings found, try patientId
+    if (!billings || billings.length === 0) {
+      billings = await query.clone().where('patientId').equals(id)
+        .populate({
+          path: "doctorId",
+          select: "name",
+          model: User
+        })
+        .sort({ createdAt: -1 }) // Most recent first
+        .lean();
+    }
+
+    // No longer filter out Package invoices, even when referenced in Treatment invoices' pendingClearedBreakdown
+    // Show all billings to maintain full history visibility
 
     // Now map through each billing to set doctorName (using either stored doctorName or from populated doctorId)
     const billingsWithDoctorName = billings.map(billing => {

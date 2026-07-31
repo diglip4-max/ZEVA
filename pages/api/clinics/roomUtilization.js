@@ -57,14 +57,18 @@ export default async function handler(req, res) {
           queryEndDate = baseDate.endOf('day').toDate();
         } else if (filter === 'week') {
           const baseDate = date ? dayjs(date) : dayjs();
-          queryStartDate = baseDate.subtract(1, 'week').startOf('day').toDate();
+          queryStartDate = baseDate.subtract(6, 'day').startOf('day').toDate();
           queryEndDate = baseDate.endOf('day').toDate();
         } else if (filter === 'month') {
           const baseDate = date ? dayjs(date) : dayjs();
-          queryStartDate = baseDate.subtract(1, 'month').startOf('day').toDate();
+          queryStartDate = baseDate.subtract(1, 'month').add(1, 'day').startOf('day').toDate();
           queryEndDate = baseDate.endOf('day').toDate();
+        } else if (filter === 'overall') {
+          // For overall, get data since clinic registration
+          queryStartDate = clinic?.registeredAt ? dayjs(clinic.registeredAt).startOf('day').toDate() : dayjs().subtract(1, 'year').startOf('day').toDate();
+          queryEndDate = dayjs().endOf('day').toDate();
         } else {
-          queryStartDate = dayjs().subtract(1, 'month').startOf('day').toDate();
+          queryStartDate = dayjs().subtract(1, 'month').add(1, 'day').startOf('day').toDate();
           queryEndDate = dayjs().endOf('day').toDate();
         }
 
@@ -119,25 +123,24 @@ export default async function handler(req, res) {
       let queryEndDate;
 
       if (filter === 'today') {
-        // Single day - today or selected date
         const baseDate = date ? dayjs(date) : dayjs();
         queryStartDate = baseDate.startOf('day').toDate();
         queryEndDate = baseDate.endOf('day').toDate();
       } else if (filter === 'week') {
         const baseDate = date ? dayjs(date) : dayjs();
-        queryStartDate = baseDate.subtract(1, 'week').startOf('day').toDate();
+        queryStartDate = baseDate.subtract(6, 'day').startOf('day').toDate(); // 7 days total including today
         queryEndDate = baseDate.endOf('day').toDate();
       } else if (filter === 'month') {
         const baseDate = date ? dayjs(date) : dayjs();
-        queryStartDate = baseDate.subtract(1, 'month').startOf('day').toDate();
+        queryStartDate = baseDate.subtract(1, 'month').add(1, 'day').startOf('day').toDate();
         queryEndDate = baseDate.endOf('day').toDate();
       } else if (filter === 'overall') {
-        // For overall, get all time data (last 1 year)
-        queryStartDate = dayjs().subtract(1, 'year').startOf('day').toDate();
+        // For overall, get data since clinic registration
+        queryStartDate = clinic?.registeredAt ? dayjs(clinic.registeredAt).startOf('day').toDate() : dayjs().subtract(1, 'year').startOf('day').toDate();
         queryEndDate = dayjs().endOf('day').toDate();
       } else {
         // Default to month
-        queryStartDate = dayjs().subtract(1, 'month').startOf('day').toDate();
+        queryStartDate = dayjs().subtract(1, 'month').add(1, 'day').startOf('day').toDate();
         queryEndDate = dayjs().endOf('day').toDate();
       }
 
@@ -171,7 +174,18 @@ export default async function handler(req, res) {
 
       // Calculate total available hours per room (assuming 8-hour workday)
      const WORK_HOURS_PER_DAY = 8;
-     const totalDays = Math.ceil((queryEndDate - queryStartDate) / (1000 * 60 * 60 * 24)) + 1;
+     
+     // Cap the end date to today if it's in the future for capacity calculation
+     const today = new Date();
+     let capacityEndDate = queryEndDate;
+     if (queryEndDate > today) {
+       capacityEndDate = today;
+     }
+     
+     let timeDiff = capacityEndDate.getTime() - queryStartDate.getTime();
+     if (timeDiff < 0) timeDiff = 0; // In case query starts in the future
+     
+     const totalDays = Math.max(1, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
      const totalAvailableHoursPerRoom = totalDays * WORK_HOURS_PER_DAY;
 
       // Calculate utilization for each room

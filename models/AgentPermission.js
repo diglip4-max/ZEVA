@@ -18,9 +18,8 @@ const ModulePermissionSchema = new mongoose.Schema({
       read: { type: Boolean, default: false },
       update: { type: Boolean, default: false },
       delete: { type: Boolean, default: false },
-      print: { type: Boolean, default: false },
-      export: { type: Boolean, default: false },
-      approve: { type: Boolean, default: false }
+      import: { type: Boolean, default: false },
+      export: { type: Boolean, default: false }
     }
   }],
   actions: {
@@ -29,9 +28,8 @@ const ModulePermissionSchema = new mongoose.Schema({
     read: { type: Boolean, default: false },
     update: { type: Boolean, default: false },
     delete: { type: Boolean, default: false },
-    print: { type: Boolean, default: false },
-    export: { type: Boolean, default: false },
-    approve: { type: Boolean, default: false }
+    import: { type: Boolean, default: false },
+    export: { type: Boolean, default: false }
   }
 });
 

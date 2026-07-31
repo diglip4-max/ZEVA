@@ -106,6 +106,7 @@ export default async function handler(req, res) {
       lastName,
       gender,
       email,
+      countryCode,
       mobileNumber,
       referredBy,
       referredById,
@@ -138,20 +139,21 @@ export default async function handler(req, res) {
 
     if (existingPatient) {
       return res.status(200).json({
-        success: true,
-        message: "Patient already exists",
-        patient: {
-          _id: existingPatient._id.toString(),
-          firstName: existingPatient.firstName,
-          lastName: existingPatient.lastName,
-          fullName:
-            `${existingPatient.firstName || ""} ${existingPatient.lastName || ""}`.trim(),
-          mobileNumber: existingPatient.mobileNumber,
-          email: existingPatient.email,
-          emrNumber: existingPatient.emrNumber,
-          gender: existingPatient.gender,
-        },
-      });
+      success: true,
+      message: "Patient already exists",
+      patient: {
+        _id: existingPatient._id.toString(),
+        firstName: existingPatient.firstName,
+        lastName: existingPatient.lastName,
+        fullName:
+          `${existingPatient.firstName || ""} ${existingPatient.lastName || ""}`.trim(),
+        countryCode: existingPatient.countryCode,
+        mobileNumber: existingPatient.mobileNumber,
+        email: existingPatient.email,
+        emrNumber: existingPatient.emrNumber,
+        gender: existingPatient.gender,
+      },
+    });
     }
 
     // Generate invoice number
@@ -203,6 +205,7 @@ export default async function handler(req, res) {
       lastName: lastName || "",
       gender: normalizedGender,
       email: email || "",
+      countryCode: countryCode || "+91",
       mobileNumber,
       referredById: finalReferredById,
       referredBy: referredByName,
@@ -243,6 +246,7 @@ export default async function handler(req, res) {
         lastName: newPatient.lastName,
         fullName:
           `${newPatient.firstName || ""} ${newPatient.lastName || ""}`.trim(),
+        countryCode: newPatient.countryCode,
         mobileNumber: newPatient.mobileNumber,
         email: newPatient.email,
         emrNumber: newPatient.emrNumber,

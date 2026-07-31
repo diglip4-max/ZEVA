@@ -203,30 +203,30 @@ interface PreviousComplaint {
   complaints: string;
   createdAt: string;
   doctorId:
-    | {
-        _id?: string;
-        name?: string;
-        email?: string;
-      }
-    | string
-    | null;
+  | {
+    _id?: string;
+    name?: string;
+    email?: string;
+  }
+  | string
+  | null;
   patientId?:
-    | {
-        _id?: string;
-        firstName?: string;
-        lastName?: string;
-        name?: string;
-        emrNumber?: string;
-        phone?: string;
-      }
-    | string
-    | null;
+  | {
+    _id?: string;
+    firstName?: string;
+    lastName?: string;
+    name?: string;
+    emrNumber?: string;
+    phone?: string;
+  }
+  | string
+  | null;
   appointmentId?:
-    | {
-        _id?: string;
-      }
-    | string
-    | null;
+  | {
+    _id?: string;
+  }
+  | string
+  | null;
   items?: Array<{
     itemId?: string;
     code?: string;
@@ -1610,13 +1610,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
           const services: SmartService[] =
             res.status === "fulfilled" && res.value.data?.success
               ? (res.value.data.services || []).map((s: any) => ({
-                  _id: s._id,
-                  name: s.name,
-                  price: s.price,
-                  clinicPrice: s.clinicPrice,
-                  durationMinutes: s.durationMinutes,
-                  departmentId: dept._id,
-                }))
+                _id: s._id,
+                name: s.name,
+                price: s.price,
+                clinicPrice: s.clinicPrice,
+                durationMinutes: s.durationMinutes,
+                departmentId: dept._id,
+              }))
               : [];
           return { _id: dept._id, name: dept.name, services };
         })
@@ -2013,6 +2013,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       return;
     }
     setPkgSubmitting(true);
+    if (addToPatient) {
+      setAddingPackageToPatient(true);
+    }
     try {
       const headers = getAuthHeaders();
       const res = await axios.post(
@@ -2031,7 +2034,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         const newPkgId = res.data.package?._id || res.data.packageId || null;
         const createdPkgData = res.data.package || null;
         if (addToPatient && newPkgId && details?.patientId) {
-          setAddingPackageToPatient(true);
           try {
             await axios.post(
               "/api/clinic/assign-package-to-patient",
@@ -2089,8 +2091,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               ...createdPkgData,
               treatments: pkgSelectedTreatments,
             });
-          } finally {
-            setAddingPackageToPatient(false);
           }
         } else {
           setPkgSuccess("Package created successfully!");
@@ -2113,6 +2113,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       setPkgError(err.response?.data?.message || "Failed to create package");
     } finally {
       setPkgSubmitting(false);
+      setAddingPackageToPatient(false);
     }
   };
 
@@ -2243,10 +2244,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       y += 6;
       const apptDate = details.startDate
         ? new Date(details.startDate).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
         : "N/A";
       const apptTime = details.fromTime || "N/A";
       doc.text(
@@ -3359,15 +3360,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       </div>
                     )}
                     <span
-                      className={`text-[10px] sm:text-xs rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 font-semibold ${
-                        details.status === "Arrived"
+                      className={`text-[10px] sm:text-xs rounded-full px-2 sm:px-2.5 py-0.5 sm:py-1 font-semibold ${details.status === "Arrived"
                           ? "bg-green-100 text-green-700 border border-green-200"
                           : details.status === "booked"
                             ? "bg-blue-100 text-blue-700 border border-blue-200"
                             : details.status === "Completed"
                               ? "bg-gray-100 text-gray-700 border border-gray-200"
                               : "bg-orange-100 text-orange-700 border border-orange-200"
-                      }`}
+                        }`}
                     >
                       {details.status || "in-progress"}
                     </span>
@@ -3547,11 +3547,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
-                        className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all flex-1 justify-center ${
-                          activeTab === tab.key
+                        className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all flex-1 justify-center ${activeTab === tab.key
                             ? "bg-blue-600 text-white shadow-sm"
                             : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                        }`}
+                          }`}
                       >
                         {tab.icon}
                         {tab.label}
@@ -3844,10 +3843,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   </span>
                                 </div>
                               ) : allServices.filter((s) =>
-                                  s.name
-                                    .toLowerCase()
-                                    .includes(serviceSearchQuery.toLowerCase()),
-                                ).length === 0 ? (
+                                s.name
+                                  .toLowerCase()
+                                  .includes(serviceSearchQuery.toLowerCase()),
+                              ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
                                   <p className="text-sm text-gray-500 font-medium">
@@ -3878,28 +3877,26 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           setSelectedServices((prev) =>
                                             isSelected
                                               ? prev.filter(
-                                                  (s) => s._id !== svc._id,
-                                                )
+                                                (s) => s._id !== svc._id,
+                                              )
                                               : [
-                                                  ...prev,
-                                                  { ...svc, quantity: 1 },
-                                                ],
+                                                ...prev,
+                                                { ...svc, quantity: 1 },
+                                              ],
                                           );
                                           setServicesSaved(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                          isSelected
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${isSelected
                                             ? "bg-blue-50 border-blue-300 shadow-sm"
                                             : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                        }`}
+                                          }`}
                                       >
                                         <div className="flex items-center gap-3">
                                           <div
-                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                              isSelected
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected
                                                 ? "bg-blue-600 border-blue-600"
                                                 : "border-gray-300 bg-white"
-                                            }`}
+                                              }`}
                                           >
                                             {isSelected && (
                                               <Check
@@ -4321,12 +4318,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           </span>
                                         </div>
                                       ) : allServices.filter((s) =>
-                                          s.name
-                                            .toLowerCase()
-                                            .includes(
-                                              pkgTreatmentSearch.toLowerCase(),
-                                            ),
-                                        ).length === 0 ? (
+                                        s.name
+                                          .toLowerCase()
+                                          .includes(
+                                            pkgTreatmentSearch.toLowerCase(),
+                                          ),
+                                      ).length === 0 ? (
                                         <div className="p-4 text-center text-sm text-gray-400">
                                           No treatments found
                                         </div>
@@ -4372,7 +4369,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                               sessions: 1,
                                                               allocatedPrice:
                                                                 svc.clinicPrice !=
-                                                                null
+                                                                  null
                                                                   ? svc.clinicPrice
                                                                   : svc.price,
                                                             },
@@ -4380,19 +4377,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         );
                                                       }
                                                     }}
-                                                    className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${
-                                                      isSelected
+                                                    className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-violet-50 transition-colors ${isSelected
                                                         ? "bg-violet-50"
                                                         : ""
-                                                    }`}
+                                                      }`}
                                                   >
                                                     <div className="flex items-center gap-3">
                                                       <div
-                                                        className={`w-5 h-5 rounded border flex items-center justify-center ${
-                                                          isSelected
+                                                        className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected
                                                             ? "bg-violet-600 border-violet-600"
                                                             : "border-gray-300"
-                                                        }`}
+                                                          }`}
                                                       >
                                                         {isSelected && (
                                                           <Check
@@ -4410,7 +4405,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                             currency,
                                                           )}{" "}
                                                           {(svc.clinicPrice !=
-                                                          null
+                                                            null
                                                             ? svc.clinicPrice
                                                             : svc.price
                                                           ).toFixed(2)}{" "}
@@ -4440,7 +4435,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                     const sessPrice =
                                       sel.sessions > 0
                                         ? (sel.allocatedPrice || 0) /
-                                          sel.sessions
+                                        sel.sessions
                                         : 0;
                                     return (
                                       <div
@@ -4482,14 +4477,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   (prev) =>
                                                     prev.map((t) =>
                                                       t.treatmentSlug ===
-                                                      sel.treatmentSlug
+                                                        sel.treatmentSlug
                                                         ? {
-                                                            ...t,
-                                                            allocatedPrice:
-                                                              parseFloat(
-                                                                e.target.value,
-                                                              ) || 0,
-                                                          }
+                                                          ...t,
+                                                          allocatedPrice:
+                                                            parseFloat(
+                                                              e.target.value,
+                                                            ) || 0,
+                                                        }
                                                         : t,
                                                     ),
                                                 )
@@ -4511,14 +4506,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   (prev) =>
                                                     prev.map((t) =>
                                                       t.treatmentSlug ===
-                                                      sel.treatmentSlug
+                                                        sel.treatmentSlug
                                                         ? {
-                                                            ...t,
-                                                            sessions:
-                                                              parseInt(
-                                                                e.target.value,
-                                                              ) || 1,
-                                                          }
+                                                          ...t,
+                                                          sessions:
+                                                            parseInt(
+                                                              e.target.value,
+                                                            ) || 1,
+                                                        }
                                                         : t,
                                                     ),
                                                 )
@@ -4568,18 +4563,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         Remaining
                                       </p>
                                       <p
-                                        className={`text-xs font-bold ${
-                                          Math.abs(
-                                            (parseFloat(pkgModalPrice) || 0) -
-                                              pkgSelectedTreatments.reduce(
-                                                (sum, t) =>
-                                                  sum + (t.allocatedPrice || 0),
-                                                0,
-                                              ),
-                                          ) < 0.01
+                                        className={`text-xs font-bold ${Math.abs(
+                                          (parseFloat(pkgModalPrice) || 0) -
+                                          pkgSelectedTreatments.reduce(
+                                            (sum, t) =>
+                                              sum + (t.allocatedPrice || 0),
+                                            0,
+                                          ),
+                                        ) < 0.01
                                             ? "text-teal-600"
                                             : "text-amber-600"
-                                        }`}
+                                          }`}
                                       >
                                         {(
                                           (parseFloat(pkgModalPrice) || 0) -
@@ -4658,81 +4652,81 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   {(createdPackage.validityInMonths ||
                                     createdPackage.startDate ||
                                     createdPackage.endDate) && (
-                                    <div className="bg-white/50 rounded p-1.5 border border-violet-100 mt-1">
-                                      <div className="flex items-center justify-between text-[9px] mb-1">
-                                        <span className="text-violet-600 font-semibold flex items-center gap-1">
-                                          <Clock className="w-2.5 h-2.5" />
-                                          Validity:{" "}
-                                          {createdPackage.validityInMonths ||
-                                            0}{" "}
-                                          Months
-                                        </span>
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2 text-[9px]">
-                                        <div>
-                                          <span className="text-gray-500">
-                                            Start:
+                                      <div className="bg-white/50 rounded p-1.5 border border-violet-100 mt-1">
+                                        <div className="flex items-center justify-between text-[9px] mb-1">
+                                          <span className="text-violet-600 font-semibold flex items-center gap-1">
+                                            <Clock className="w-2.5 h-2.5" />
+                                            Validity:{" "}
+                                            {createdPackage.validityInMonths ||
+                                              0}{" "}
+                                            Months
                                           </span>
-                                          <span className="text-gray-700 font-bold ml-1">
-                                            {createdPackage.startDate
-                                              ? new Date(
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 text-[9px]">
+                                          <div>
+                                            <span className="text-gray-500">
+                                              Start:
+                                            </span>
+                                            <span className="text-gray-700 font-bold ml-1">
+                                              {createdPackage.startDate
+                                                ? new Date(
                                                   createdPackage.startDate,
                                                 ).toLocaleDateString()
-                                              : "-"}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <span className="text-gray-500">
-                                            End:
-                                          </span>
-                                          <span className="text-gray-700 font-bold ml-1">
-                                            {createdPackage.endDate
-                                              ? new Date(
+                                                : "-"}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">
+                                              End:
+                                            </span>
+                                            <span className="text-gray-700 font-bold ml-1">
+                                              {createdPackage.endDate
+                                                ? new Date(
                                                   createdPackage.endDate,
                                                 ).toLocaleDateString()
-                                              : "-"}
-                                          </span>
+                                                : "-"}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
                                   {(createdPackage.treatments || []).length >
                                     0 && (
-                                    <div className="border-t border-violet-200 pt-2 mt-2">
-                                      <p className="text-[10px] font-semibold text-gray-600 mb-1.5">
-                                        Included Treatments:
-                                      </p>
-                                      <div className="space-y-1">
-                                        {(createdPackage.treatments || []).map(
-                                          (treatment: any, idx: number) => (
-                                            <div
-                                              key={idx}
-                                              className="flex items-center justify-between text-[10px]"
-                                            >
-                                              <span className="text-gray-700 truncate flex-1">
-                                                {treatment.treatmentName ||
-                                                  "N/A"}
-                                              </span>
-                                              <span className="text-gray-600 ml-2">
-                                                {treatment.sessions || 0}{" "}
-                                                session
-                                                {(treatment.sessions || 0) > 1
-                                                  ? "s"
-                                                  : ""}
-                                              </span>
-                                              <span className="text-violet-600 font-semibold ml-2">
-                                                {getCurrencySymbol(currency)}{" "}
-                                                {(
-                                                  treatment.allocatedPrice || 0
-                                                ).toFixed(2)}
-                                              </span>
-                                            </div>
-                                          ),
-                                        )}
+                                      <div className="border-t border-violet-200 pt-2 mt-2">
+                                        <p className="text-[10px] font-semibold text-gray-600 mb-1.5">
+                                          Included Treatments:
+                                        </p>
+                                        <div className="space-y-1">
+                                          {(createdPackage.treatments || []).map(
+                                            (treatment: any, idx: number) => (
+                                              <div
+                                                key={idx}
+                                                className="flex items-center justify-between text-[10px]"
+                                              >
+                                                <span className="text-gray-700 truncate flex-1">
+                                                  {treatment.treatmentName ||
+                                                    "N/A"}
+                                                </span>
+                                                <span className="text-gray-600 ml-2">
+                                                  {treatment.sessions || 0}{" "}
+                                                  session
+                                                  {(treatment.sessions || 0) > 1
+                                                    ? "s"
+                                                    : ""}
+                                                </span>
+                                                <span className="text-violet-600 font-semibold ml-2">
+                                                  {getCurrencySymbol(currency)}{" "}
+                                                  {(
+                                                    treatment.allocatedPrice || 0
+                                                  ).toFixed(2)}
+                                                </span>
+                                              </div>
+                                            ),
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    )}
 
                                   <div className="flex gap-2 mt-2 pt-2 border-t border-violet-200">
                                     <button
@@ -4757,7 +4751,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 }
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-500 rounded-lg hover:bg-violet-50 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Package size={14} />
+                                {pkgSubmitting ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Package size={14} />
+                                )}
                                 {pkgSubmitting
                                   ? "Creating..."
                                   : "Create Package"}
@@ -4770,9 +4768,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 }
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Plus size={14} />
-                                {addingPackageToPatient
-                                  ? "Adding..."
+                                {(pkgSubmitting || addingPackageToPatient) ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Plus size={14} />
+                                )}
+                                {(pkgSubmitting || addingPackageToPatient)
+                                  ? "Processing..."
                                   : "Create & Add to Patient"}
                               </button>
                             </div>
@@ -4824,7 +4826,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 const isRecentlyAdded =
                                   recentlyAddedServices[svc._id] &&
                                   Date.now() - recentlyAddedServices[svc._id] <
-                                    3000;
+                                  3000;
                                 return (
                                   <div
                                     key={svc._id}
@@ -4883,7 +4885,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   min="0"
                                                   step="0.01"
                                                   value={(svc.clinicPrice !=
-                                                  null
+                                                    null
                                                     ? svc.clinicPrice
                                                     : svc.price
                                                   ).toFixed(2)}
@@ -4907,14 +4909,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  Math.max(
-                                                                    1,
-                                                                    (s.quantity ||
-                                                                      1) - 1,
-                                                                  ),
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                Math.max(
+                                                                  1,
+                                                                  (s.quantity ||
+                                                                    1) - 1,
+                                                                ),
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -4942,10 +4944,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  newQty,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                newQty,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -4960,11 +4962,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  (s.quantity ||
-                                                                    1) + 1,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                (s.quantity ||
+                                                                  1) + 1,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -5084,10 +5086,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           type="button"
                                           disabled={
                                             addingRecService[
-                                              `${details?.patientId}_${svc._id}`
+                                            `${details?.patientId}_${svc._id}`
                                             ] ||
                                             addedRecServices[
-                                              `${details?.patientId}_${svc._id}`
+                                            `${details?.patientId}_${svc._id}`
                                             ]
                                           }
                                           onClick={async () => {
@@ -5193,8 +5195,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               />
                                             </svg>
                                           ) : addedRecServices[
-                                              `${details?.patientId}_${svc._id}`
-                                            ] ? (
+                                            `${details?.patientId}_${svc._id}`
+                                          ] ? (
                                             <>
                                               <Check size={10} /> Added
                                             </>
@@ -5227,7 +5229,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 type="button"
                                 onClick={() => {
                                   window.open(
-                                    `/clinic/stocks/product-sales/new/?doctorId=${details?.doctorId}`,
+                                    `/clinic/stocks/product-sales/new/?doctorId=${details?.doctorId}&patientId=${details?.patientId}`,
                                     "_blank",
                                   );
                                 }}
@@ -5676,11 +5678,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {consentStatuses.map((consent) => (
                               <div
                                 key={consent._id}
-                                className={`flex items-center justify-between p-3 rounded-lg border ${
-                                  consent.status === "signed"
+                                className={`flex items-center justify-between p-3 rounded-lg border ${consent.status === "signed"
                                     ? "border-green-200 bg-green-50"
                                     : "border-blue-200 bg-blue-50"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
@@ -5705,11 +5706,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span
-                                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                                      consent.status === "signed"
+                                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${consent.status === "signed"
                                         ? "bg-green-100 text-green-700"
                                         : "bg-blue-100 text-blue-700"
-                                    }`}
+                                      }`}
                                   >
                                     {consent.status === "signed"
                                       ? "SIGNED"
@@ -5809,65 +5809,65 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         </p>
                                         {(complaint.beforeImage ||
                                           complaint.afterImage) && (
-                                          <div className="flex gap-2 mt-2">
-                                            {complaint.beforeImage &&
-                                              (() => {
-                                                const cleanUrl =
-                                                  complaint.beforeImage
-                                                    .trim()
-                                                    .replace(/^`|`$/g, "");
-                                                const isPdf = cleanUrl
-                                                  .toLowerCase()
-                                                  .endsWith(".pdf");
-                                                return (
-                                                  <a
-                                                    href={cleanUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50"
-                                                  >
-                                                    {isPdf ? (
-                                                      <FileText className="w-5 h-5 text-gray-400" />
-                                                    ) : (
-                                                      <img
-                                                        src={cleanUrl}
-                                                        alt="Before"
-                                                        className="w-full h-full object-cover"
-                                                      />
-                                                    )}
-                                                  </a>
-                                                );
-                                              })()}
-                                            {complaint.afterImage &&
-                                              (() => {
-                                                const cleanUrl =
-                                                  complaint.afterImage
-                                                    .trim()
-                                                    .replace(/^`|`$/g, "");
-                                                const isPdf = cleanUrl
-                                                  .toLowerCase()
-                                                  .endsWith(".pdf");
-                                                return (
-                                                  <a
-                                                    href={cleanUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50"
-                                                  >
-                                                    {isPdf ? (
-                                                      <FileText className="w-5 h-5 text-gray-400" />
-                                                    ) : (
-                                                      <img
-                                                        src={cleanUrl}
-                                                        alt="After"
-                                                        className="w-full h-full object-cover"
-                                                      />
-                                                    )}
-                                                  </a>
-                                                );
-                                              })()}
-                                          </div>
-                                        )}
+                                            <div className="flex gap-2 mt-2">
+                                              {complaint.beforeImage &&
+                                                (() => {
+                                                  const cleanUrl =
+                                                    complaint.beforeImage
+                                                      .trim()
+                                                      .replace(/^`|`$/g, "");
+                                                  const isPdf = cleanUrl
+                                                    .toLowerCase()
+                                                    .endsWith(".pdf");
+                                                  return (
+                                                    <a
+                                                      href={cleanUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50"
+                                                    >
+                                                      {isPdf ? (
+                                                        <FileText className="w-5 h-5 text-gray-400" />
+                                                      ) : (
+                                                        <img
+                                                          src={cleanUrl}
+                                                          alt="Before"
+                                                          className="w-full h-full object-cover"
+                                                        />
+                                                      )}
+                                                    </a>
+                                                  );
+                                                })()}
+                                              {complaint.afterImage &&
+                                                (() => {
+                                                  const cleanUrl =
+                                                    complaint.afterImage
+                                                      .trim()
+                                                      .replace(/^`|`$/g, "");
+                                                  const isPdf = cleanUrl
+                                                    .toLowerCase()
+                                                    .endsWith(".pdf");
+                                                  return (
+                                                    <a
+                                                      href={cleanUrl}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="block w-10 h-10 rounded border border-gray-200 overflow-hidden hover:opacity-80 flex items-center justify-center bg-gray-50"
+                                                    >
+                                                      {isPdf ? (
+                                                        <FileText className="w-5 h-5 text-gray-400" />
+                                                      ) : (
+                                                        <img
+                                                          src={cleanUrl}
+                                                          alt="After"
+                                                          className="w-full h-full object-cover"
+                                                        />
+                                                      )}
+                                                    </a>
+                                                  );
+                                                })()}
+                                            </div>
+                                          )}
                                         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-400">
                                           <span>
                                             {formatDateTime(
@@ -5878,7 +5878,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           <span>
                                             {typeof complaint.doctorId ===
                                               "object" &&
-                                            complaint.doctorId?.name
+                                              complaint.doctorId?.name
                                               ? `Dr. ${complaint.doctorId.name}`
                                               : "Unknown Doctor"}
                                           </span>
@@ -5891,19 +5891,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                 (consent: any) => (
                                                   <div
                                                     key={consent._id}
-                                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                                                      consent.status ===
-                                                      "signed"
+                                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${consent.status ===
+                                                        "signed"
                                                         ? "border-green-200 bg-green-50 text-green-700"
                                                         : "border-blue-200 bg-blue-50 text-blue-700"
-                                                    }`}
+                                                      }`}
                                                   >
                                                     <FileText className="w-3 h-3" />
                                                     <span className="truncate max-w-[120px]">
                                                       {consent.consentFormName}
                                                     </span>
                                                     {consent.status ===
-                                                    "signed" ? (
+                                                      "signed" ? (
                                                       <CheckCircle className="w-3 h-3" />
                                                     ) : (
                                                       <Send className="w-3 h-3" />
@@ -5961,17 +5960,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           new Date(
                                             Date.now() - 24 * 60 * 60 * 1000,
                                           ) && (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setEditingComplaint(complaint);
-                                              setIsEditModalOpen(true);
-                                            }}
-                                            className="p-1 text-amber-400 hover:text-amber-600"
-                                          >
-                                            <Edit2 size={13} />
-                                          </button>
-                                        )}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditingComplaint(complaint);
+                                                setIsEditModalOpen(true);
+                                              }}
+                                              className="p-1 text-amber-400 hover:text-amber-600"
+                                            >
+                                              <Edit2 size={13} />
+                                            </button>
+                                          )}
                                       </div>
                                     </div>
                                   </div>
@@ -6036,78 +6035,78 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {previousComplaints.some(
                         (c) => Array.isArray(c.items) && c.items.length > 0,
                       ) && (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <Package className="w-4 h-4 text-gray-500" /> Stock
-                            Used (All Sessions)
-                          </h3>
-                          <div className="rounded-lg border border-gray-100 overflow-hidden">
-                            <table className="w-full text-xs">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    Date
-                                  </th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    Item
-                                  </th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
-                                    Qty
-                                  </th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    UOM
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 bg-white">
-                                {previousComplaints
-                                  .filter(
-                                    (c) =>
-                                      Array.isArray(c.items) &&
-                                      c.items.length > 0,
-                                  )
-                                  .sort(
-                                    (a, b) =>
-                                      new Date(b.createdAt).getTime() -
-                                      new Date(a.createdAt).getTime(),
-                                  )
-                                  .flatMap((c) =>
-                                    (
-                                      c.items as NonNullable<typeof c.items>
-                                    ).map((item, idx) => ({
-                                      date: c.createdAt,
-                                      item,
-                                      key: `${c._id}-${idx}`,
-                                    })),
-                                  )
-                                  .map(({ date, item, key }) => (
-                                    <tr key={key} className="hover:bg-gray-50">
-                                      <td className="px-3 py-2 text-gray-500">
-                                        {new Date(date).toLocaleDateString(
-                                          "en-GB",
-                                          {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric",
-                                          },
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2 font-medium text-gray-800">
-                                        {item.name}
-                                      </td>
-                                      <td className="px-3 py-2 text-right font-semibold text-gray-700">
-                                        {item.quantity}
-                                      </td>
-                                      <td className="px-3 py-2 text-gray-500">
-                                        {item.uom || "-"}
-                                      </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
+                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                            <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                              <Package className="w-4 h-4 text-gray-500" /> Stock
+                              Used (All Sessions)
+                            </h3>
+                            <div className="rounded-lg border border-gray-100 overflow-hidden">
+                              <table className="w-full text-xs">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      Date
+                                    </th>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      Item
+                                    </th>
+                                    <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
+                                      Qty
+                                    </th>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      UOM
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                  {previousComplaints
+                                    .filter(
+                                      (c) =>
+                                        Array.isArray(c.items) &&
+                                        c.items.length > 0,
+                                    )
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(b.createdAt).getTime() -
+                                        new Date(a.createdAt).getTime(),
+                                    )
+                                    .flatMap((c) =>
+                                      (
+                                        c.items as NonNullable<typeof c.items>
+                                      ).map((item, idx) => ({
+                                        date: c.createdAt,
+                                        item,
+                                        key: `${c._id}-${idx}`,
+                                      })),
+                                    )
+                                    .map(({ date, item, key }) => (
+                                      <tr key={key} className="hover:bg-gray-50">
+                                        <td className="px-3 py-2 text-gray-500">
+                                          {new Date(date).toLocaleDateString(
+                                            "en-GB",
+                                            {
+                                              day: "2-digit",
+                                              month: "short",
+                                              year: "numeric",
+                                            },
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium text-gray-800">
+                                          {item.name}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-semibold text-gray-700">
+                                          {item.quantity}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-500">
+                                          {item.uom || "-"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
 
                       {/* Appointments - Upcoming */}
                       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -6151,7 +6150,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
                                   const statusColor =
                                     appt.status === "booked" ||
-                                    appt.status === "Approved"
+                                      appt.status === "Approved"
                                       ? "bg-blue-600 text-white"
                                       : appt.status === "Completed"
                                         ? "bg-green-100 text-green-700"
@@ -6358,14 +6357,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {progressNotes.map((entry) => {
                               const dateStr = entry.noteDate
                                 ? new Date(entry.noteDate)
-                                    .toISOString()
-                                    .slice(0, 10)
+                                  .toISOString()
+                                  .slice(0, 10)
                                 : new Date(entry.createdAt)
-                                    .toISOString()
-                                    .slice(0, 10);
+                                  .toISOString()
+                                  .slice(0, 10);
                               const doctorName =
                                 typeof entry.doctorId === "object" &&
-                                entry.doctorId?.name
+                                  entry.doctorId?.name
                                   ? entry.doctorId.name
                                   : null;
                               return (
@@ -6381,7 +6380,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   </div>
                                   <div className="flex-1 rounded-xl border border-gray-200 bg-white shadow-sm px-4 py-3 space-y-1">
                                     {editingProgressNoteId === entry._id &&
-                                    editingProgressNoteData ? (
+                                      editingProgressNoteData ? (
                                       // Edit Mode
                                       <div className="space-y-3">
                                         <div className="flex items-center justify-between">
@@ -6491,29 +6490,29 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             {isWithin24Hours(
                                               entry.createdAt,
                                             ) && (
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  startEditProgressNote(entry)
-                                                }
-                                                className="text-gray-300 hover:text-blue-500 transition-colors"
-                                              >
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  width="12"
-                                                  height="12"
-                                                  viewBox="0 0 24 24"
-                                                  fill="none"
-                                                  stroke="currentColor"
-                                                  strokeWidth="2"
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    startEditProgressNote(entry)
+                                                  }
+                                                  className="text-gray-300 hover:text-blue-500 transition-colors"
                                                 >
-                                                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                                  <path d="m15 5 4 4" />
-                                                </svg>
-                                              </button>
-                                            )}
+                                                  <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="12"
+                                                    height="12"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                  >
+                                                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                                                    <path d="m15 5 4 4" />
+                                                  </svg>
+                                                </button>
+                                              )}
                                             <button
                                               type="button"
                                               onClick={async () => {
@@ -6638,7 +6637,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   } catch (err: any) {
                                     setProgressError(
                                       err.response?.data?.message ||
-                                        "Failed to save progress note",
+                                      "Failed to save progress note",
                                     );
                                   } finally {
                                     setSavingProgress(false);
@@ -6716,10 +6715,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           type="button"
                                           disabled={
                                             addingRecService[
-                                              `${details?.patientId}_${svc._id}`
+                                            `${details?.patientId}_${svc._id}`
                                             ] ||
                                             addedRecServices[
-                                              `${details?.patientId}_${svc._id}`
+                                            `${details?.patientId}_${svc._id}`
                                             ]
                                           }
                                           onClick={async () => {
@@ -6825,8 +6824,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               />
                                             </svg>
                                           ) : addedRecServices[
-                                              `${details?.patientId}_${svc._id}`
-                                            ] ? (
+                                            `${details?.patientId}_${svc._id}`
+                                          ] ? (
                                             <>
                                               <Check size={10} /> Added
                                             </>
@@ -6888,7 +6887,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
                                   const statusColor =
                                     appt.status === "booked" ||
-                                    appt.status === "Approved"
+                                      appt.status === "Approved"
                                       ? "bg-blue-600 text-white"
                                       : appt.status === "Completed"
                                         ? "bg-green-100 text-green-700"
@@ -7161,10 +7160,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   </span>
                                 </div>
                               ) : allServices.filter((s) =>
-                                  s.name
-                                    .toLowerCase()
-                                    .includes(serviceSearchQuery.toLowerCase()),
-                                ).length === 0 ? (
+                                s.name
+                                  .toLowerCase()
+                                  .includes(serviceSearchQuery.toLowerCase()),
+                              ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
                                   <p className="text-sm text-gray-500 font-medium">
@@ -7192,28 +7191,26 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           setSelectedServices((prev) =>
                                             isSelected
                                               ? prev.filter(
-                                                  (s) => s._id !== svc._id,
-                                                )
+                                                (s) => s._id !== svc._id,
+                                              )
                                               : [
-                                                  ...prev,
-                                                  { ...svc, quantity: 1 },
-                                                ],
+                                                ...prev,
+                                                { ...svc, quantity: 1 },
+                                              ],
                                           );
                                           setServicesSaved(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                          isSelected
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${isSelected
                                             ? "bg-blue-50 border-blue-300 shadow-sm"
                                             : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                        }`}
+                                          }`}
                                       >
                                         <div className="flex items-center gap-3">
                                           <div
-                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                              isSelected
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected
                                                 ? "bg-blue-600 border-blue-600"
                                                 : "border-gray-300 bg-white"
-                                            }`}
+                                              }`}
                                           >
                                             {isSelected && (
                                               <Check
@@ -7628,12 +7625,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           </span>
                                         </div>
                                       ) : allServices.filter((s) =>
-                                          s.name
-                                            .toLowerCase()
-                                            .includes(
-                                              pkgTreatmentSearch.toLowerCase(),
-                                            ),
-                                        ).length === 0 ? (
+                                        s.name
+                                          .toLowerCase()
+                                          .includes(
+                                            pkgTreatmentSearch.toLowerCase(),
+                                          ),
+                                      ).length === 0 ? (
                                         <div className="p-4 text-center text-sm text-gray-400">
                                           No treatments found
                                         </div>
@@ -7679,7 +7676,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                               sessions: 1,
                                                               allocatedPrice:
                                                                 svc.clinicPrice !=
-                                                                null
+                                                                  null
                                                                   ? svc.clinicPrice
                                                                   : svc.price,
                                                             },
@@ -7709,7 +7706,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                             currency,
                                                           )}{" "}
                                                           {(svc.clinicPrice !=
-                                                          null
+                                                            null
                                                             ? svc.clinicPrice
                                                             : svc.price
                                                           ).toFixed(2)}{" "}
@@ -7736,7 +7733,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       const sessPrice =
                                         sel.sessions > 0
                                           ? (sel.allocatedPrice || 0) /
-                                            sel.sessions
+                                          sel.sessions
                                           : 0;
                                       return (
                                         <div
@@ -7779,15 +7776,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                     (prev) =>
                                                       prev.map((t) =>
                                                         t.treatmentSlug ===
-                                                        sel.treatmentSlug
+                                                          sel.treatmentSlug
                                                           ? {
-                                                              ...t,
-                                                              allocatedPrice:
-                                                                parseFloat(
-                                                                  e.target
-                                                                    .value,
-                                                                ) || 0,
-                                                            }
+                                                            ...t,
+                                                            allocatedPrice:
+                                                              parseFloat(
+                                                                e.target
+                                                                  .value,
+                                                              ) || 0,
+                                                          }
                                                           : t,
                                                       ),
                                                   )
@@ -7809,15 +7806,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                     (prev) =>
                                                       prev.map((t) =>
                                                         t.treatmentSlug ===
-                                                        sel.treatmentSlug
+                                                          sel.treatmentSlug
                                                           ? {
-                                                              ...t,
-                                                              sessions:
-                                                                parseInt(
-                                                                  e.target
-                                                                    .value,
-                                                                ) || 1,
-                                                            }
+                                                            ...t,
+                                                            sessions:
+                                                              parseInt(
+                                                                e.target
+                                                                  .value,
+                                                              ) || 1,
+                                                          }
                                                           : t,
                                                       ),
                                                   )
@@ -7971,7 +7968,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 const isRecentlyAdded =
                                   recentlyAddedServices[svc._id] &&
                                   Date.now() - recentlyAddedServices[svc._id] <
-                                    3000;
+                                  3000;
                                 return (
                                   <div
                                     key={svc._id}
@@ -8030,7 +8027,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   min="0"
                                                   step="0.01"
                                                   value={(svc.clinicPrice !=
-                                                  null
+                                                    null
                                                     ? svc.clinicPrice
                                                     : svc.price
                                                   ).toFixed(2)}
@@ -8054,14 +8051,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  Math.max(
-                                                                    1,
-                                                                    (s.quantity ||
-                                                                      1) - 1,
-                                                                  ),
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                Math.max(
+                                                                  1,
+                                                                  (s.quantity ||
+                                                                    1) - 1,
+                                                                ),
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -8089,10 +8086,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  newQty,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                newQty,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -8107,11 +8104,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  (s.quantity ||
-                                                                    1) + 1,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                (s.quantity ||
+                                                                  1) + 1,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -8238,78 +8235,78 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {previousComplaints.some(
                         (c) => Array.isArray(c.items) && c.items.length > 0,
                       ) && (
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-                          <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <Package className="w-4 h-4 text-gray-500" /> Stock
-                            Used (All Sessions)
-                          </h3>
-                          <div className="rounded-lg border border-gray-100 overflow-hidden">
-                            <table className="w-full text-xs">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    Date
-                                  </th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    Item
-                                  </th>
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
-                                    Qty
-                                  </th>
-                                  <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    UOM
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 bg-white">
-                                {previousComplaints
-                                  .filter(
-                                    (c) =>
-                                      Array.isArray(c.items) &&
-                                      c.items.length > 0,
-                                  )
-                                  .sort(
-                                    (a, b) =>
-                                      new Date(b.createdAt).getTime() -
-                                      new Date(a.createdAt).getTime(),
-                                  )
-                                  .flatMap((c) =>
-                                    (
-                                      c.items as NonNullable<typeof c.items>
-                                    ).map((item, idx) => ({
-                                      date: c.createdAt,
-                                      item,
-                                      key: `progress-${c._id}-${idx}`,
-                                    })),
-                                  )
-                                  .map(({ date, item, key }) => (
-                                    <tr key={key} className="hover:bg-gray-50">
-                                      <td className="px-3 py-2 text-gray-500">
-                                        {new Date(date).toLocaleDateString(
-                                          "en-GB",
-                                          {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric",
-                                          },
-                                        )}
-                                      </td>
-                                      <td className="px-3 py-2 font-medium text-gray-800">
-                                        {item.name}
-                                      </td>
-                                      <td className="px-3 py-2 text-right font-semibold text-gray-700">
-                                        {item.quantity}
-                                      </td>
-                                      <td className="px-3 py-2 text-gray-500">
-                                        {item.uom || "-"}
-                                      </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
+                          <div className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
+                            <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                              <Package className="w-4 h-4 text-gray-500" /> Stock
+                              Used (All Sessions)
+                            </h3>
+                            <div className="rounded-lg border border-gray-100 overflow-hidden">
+                              <table className="w-full text-xs">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      Date
+                                    </th>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      Item
+                                    </th>
+                                    <th className="px-3 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
+                                      Qty
+                                    </th>
+                                    <th className="px-3 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      UOM
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                  {previousComplaints
+                                    .filter(
+                                      (c) =>
+                                        Array.isArray(c.items) &&
+                                        c.items.length > 0,
+                                    )
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(b.createdAt).getTime() -
+                                        new Date(a.createdAt).getTime(),
+                                    )
+                                    .flatMap((c) =>
+                                      (
+                                        c.items as NonNullable<typeof c.items>
+                                      ).map((item, idx) => ({
+                                        date: c.createdAt,
+                                        item,
+                                        key: `progress-${c._id}-${idx}`,
+                                      })),
+                                    )
+                                    .map(({ date, item, key }) => (
+                                      <tr key={key} className="hover:bg-gray-50">
+                                        <td className="px-3 py-2 text-gray-500">
+                                          {new Date(date).toLocaleDateString(
+                                            "en-GB",
+                                            {
+                                              day: "2-digit",
+                                              month: "short",
+                                              year: "numeric",
+                                            },
+                                          )}
+                                        </td>
+                                        <td className="px-3 py-2 font-medium text-gray-800">
+                                          {item.name}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-semibold text-gray-700">
+                                          {item.quantity}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-500">
+                                          {item.uom || "-"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   )}
 
@@ -8348,9 +8345,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       prev.map((m) =>
                                         m.id === med.id
                                           ? {
-                                              ...m,
-                                              medicineName: e.target.value,
-                                            }
+                                            ...m,
+                                            medicineName: e.target.value,
+                                          }
                                           : m,
                                       ),
                                     )
@@ -8522,7 +8519,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             } catch (err: any) {
                               setPrescriptionError(
                                 err.response?.data?.message ||
-                                  "Failed to save prescription",
+                                "Failed to save prescription",
                               );
                             } finally {
                               setSavingPrescription(false);
@@ -8574,13 +8571,13 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             );
                             const appointmentDate = details.startDate
                               ? new Date(details.startDate).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                  },
-                                )
+                                "en-US",
+                                {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                },
+                              )
                               : "N/A";
                             const appointmentTime = details.fromTime || "N/A";
                             doc.text(
@@ -8697,12 +8694,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               );
                               const appointmentDate = details.startDate
                                 ? new Date(
-                                    details.startDate,
-                                  ).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                  })
+                                  details.startDate,
+                                ).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "long",
+                                  day: "numeric",
+                                })
                                 : "N/A";
                               const appointmentTime = details.fromTime || "N/A";
                               doc.text(
@@ -9033,10 +9030,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   </span>
                                 </div>
                               ) : allServices.filter((s) =>
-                                  s.name
-                                    .toLowerCase()
-                                    .includes(serviceSearchQuery.toLowerCase()),
-                                ).length === 0 ? (
+                                s.name
+                                  .toLowerCase()
+                                  .includes(serviceSearchQuery.toLowerCase()),
+                              ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
                                   <p className="text-sm text-gray-500 font-medium">
@@ -9067,28 +9064,26 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           setSelectedServices((prev) =>
                                             isSelected
                                               ? prev.filter(
-                                                  (s) => s._id !== svc._id,
-                                                )
+                                                (s) => s._id !== svc._id,
+                                              )
                                               : [
-                                                  ...prev,
-                                                  { ...svc, quantity: 1 },
-                                                ],
+                                                ...prev,
+                                                { ...svc, quantity: 1 },
+                                              ],
                                           );
                                           setServicesSaved(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                          isSelected
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${isSelected
                                             ? "bg-blue-50 border-blue-300 shadow-sm"
                                             : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                        }`}
+                                          }`}
                                       >
                                         <div className="flex items-center gap-3">
                                           <div
-                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                              isSelected
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected
                                                 ? "bg-blue-600 border-blue-600"
                                                 : "border-gray-300 bg-white"
-                                            }`}
+                                              }`}
                                           >
                                             {isSelected && (
                                               <Check
@@ -9333,7 +9328,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 const isRecentlyAdded =
                                   recentlyAddedServices[svc._id] &&
                                   Date.now() - recentlyAddedServices[svc._id] <
-                                    3000;
+                                  3000;
                                 return (
                                   <div
                                     key={svc._id}
@@ -9392,7 +9387,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   min="0"
                                                   step="0.01"
                                                   value={(svc.clinicPrice !=
-                                                  null
+                                                    null
                                                     ? svc.clinicPrice
                                                     : svc.price
                                                   ).toFixed(2)}
@@ -9416,14 +9411,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  Math.max(
-                                                                    1,
-                                                                    (s.quantity ||
-                                                                      1) - 1,
-                                                                  ),
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                Math.max(
+                                                                  1,
+                                                                  (s.quantity ||
+                                                                    1) - 1,
+                                                                ),
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -9451,10 +9446,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  newQty,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                newQty,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -9469,11 +9464,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  (s.quantity ||
-                                                                    1) + 1,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                (s.quantity ||
+                                                                  1) + 1,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -9579,7 +9574,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 !!expandedPrescription[entry._id];
                               const doctorName =
                                 typeof entry.doctorId === "object" &&
-                                entry.doctorId?.name
+                                  entry.doctorId?.name
                                   ? entry.doctorId.name
                                   : null;
                               return (
@@ -9693,7 +9688,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   {isExpanded && (
                                     <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50 space-y-3">
                                       {editingPrescriptionId === entry._id &&
-                                      editingPrescriptionData ? (
+                                        editingPrescriptionData ? (
                                         // Edit Mode
                                         <div className="space-y-3">
                                           <div className="flex items-center justify-between">
@@ -10123,10 +10118,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           type="button"
                                           disabled={
                                             addingRecService[
-                                              `${details?.patientId}_${svc._id}`
+                                            `${details?.patientId}_${svc._id}`
                                             ] ||
                                             addedRecServices[
-                                              `${details?.patientId}_${svc._id}`
+                                            `${details?.patientId}_${svc._id}`
                                             ]
                                           }
                                           onClick={async () => {
@@ -10232,8 +10227,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               />
                                             </svg>
                                           ) : addedRecServices[
-                                              `${details?.patientId}_${svc._id}`
-                                            ] ? (
+                                            `${details?.patientId}_${svc._id}`
+                                          ] ? (
                                             <>
                                               <Check size={10} /> Added
                                             </>
@@ -10295,7 +10290,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   const timeStr = `${h12}:${String(fm).padStart(2, "0")} ${ampm}`;
                                   const statusColor =
                                     appt.status === "booked" ||
-                                    appt.status === "Approved"
+                                      appt.status === "Approved"
                                       ? "bg-blue-600 text-white"
                                       : appt.status === "Completed"
                                         ? "bg-green-100 text-green-700"
@@ -10562,10 +10557,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                   </span>
                                 </div>
                               ) : allServices.filter((s) =>
-                                  s.name
-                                    .toLowerCase()
-                                    .includes(serviceSearchQuery.toLowerCase()),
-                                ).length === 0 ? (
+                                s.name
+                                  .toLowerCase()
+                                  .includes(serviceSearchQuery.toLowerCase()),
+                              ).length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-8 text-center">
                                   <Package className="w-12 h-12 text-gray-300 mb-2" />
                                   <p className="text-sm text-gray-500 font-medium">
@@ -10593,28 +10588,26 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           setSelectedServices((prev) =>
                                             isSelected
                                               ? prev.filter(
-                                                  (s) => s._id !== svc._id,
-                                                )
+                                                (s) => s._id !== svc._id,
+                                              )
                                               : [
-                                                  ...prev,
-                                                  { ...svc, quantity: 1 },
-                                                ],
+                                                ...prev,
+                                                { ...svc, quantity: 1 },
+                                              ],
                                           );
                                           setServicesSaved(false);
                                         }}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${
-                                          isSelected
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition-all duration-200 ${isSelected
                                             ? "bg-blue-50 border-blue-300 shadow-sm"
                                             : "bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300"
-                                        }`}
+                                          }`}
                                       >
                                         <div className="flex items-center gap-3">
                                           <div
-                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
-                                              isSelected
+                                            className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected
                                                 ? "bg-blue-600 border-blue-600"
                                                 : "border-gray-300 bg-white"
-                                            }`}
+                                              }`}
                                           >
                                             {isSelected && (
                                               <Check
@@ -11029,12 +11022,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           </span>
                                         </div>
                                       ) : allServices.filter((s) =>
-                                          s.name
-                                            .toLowerCase()
-                                            .includes(
-                                              pkgTreatmentSearch.toLowerCase(),
-                                            ),
-                                        ).length === 0 ? (
+                                        s.name
+                                          .toLowerCase()
+                                          .includes(
+                                            pkgTreatmentSearch.toLowerCase(),
+                                          ),
+                                      ).length === 0 ? (
                                         <div className="p-4 text-center text-sm text-gray-400">
                                           No treatments found
                                         </div>
@@ -11080,7 +11073,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                               sessions: 1,
                                                               allocatedPrice:
                                                                 svc.clinicPrice !=
-                                                                null
+                                                                  null
                                                                   ? svc.clinicPrice
                                                                   : svc.price,
                                                             },
@@ -11110,7 +11103,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                             currency,
                                                           )}{" "}
                                                           {(svc.clinicPrice !=
-                                                          null
+                                                            null
                                                             ? svc.clinicPrice
                                                             : svc.price
                                                           ).toFixed(2)}{" "}
@@ -11137,7 +11130,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                       const sessPrice =
                                         sel.sessions > 0
                                           ? (sel.allocatedPrice || 0) /
-                                            sel.sessions
+                                          sel.sessions
                                           : 0;
                                       return (
                                         <div
@@ -11180,15 +11173,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                     (prev) =>
                                                       prev.map((t) =>
                                                         t.treatmentSlug ===
-                                                        sel.treatmentSlug
+                                                          sel.treatmentSlug
                                                           ? {
-                                                              ...t,
-                                                              allocatedPrice:
-                                                                parseFloat(
-                                                                  e.target
-                                                                    .value,
-                                                                ) || 0,
-                                                            }
+                                                            ...t,
+                                                            allocatedPrice:
+                                                              parseFloat(
+                                                                e.target
+                                                                  .value,
+                                                              ) || 0,
+                                                          }
                                                           : t,
                                                       ),
                                                   )
@@ -11210,15 +11203,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                     (prev) =>
                                                       prev.map((t) =>
                                                         t.treatmentSlug ===
-                                                        sel.treatmentSlug
+                                                          sel.treatmentSlug
                                                           ? {
-                                                              ...t,
-                                                              sessions:
-                                                                parseInt(
-                                                                  e.target
-                                                                    .value,
-                                                                ) || 1,
-                                                            }
+                                                            ...t,
+                                                            sessions:
+                                                              parseInt(
+                                                                e.target
+                                                                  .value,
+                                                              ) || 1,
+                                                          }
                                                           : t,
                                                       ),
                                                   )
@@ -11372,7 +11365,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 const isRecentlyAdded =
                                   recentlyAddedServices[svc._id] &&
                                   Date.now() - recentlyAddedServices[svc._id] <
-                                    3000;
+                                  3000;
                                 return (
                                   <div
                                     key={svc._id}
@@ -11431,7 +11424,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                   min="0"
                                                   step="0.01"
                                                   value={(svc.clinicPrice !=
-                                                  null
+                                                    null
                                                     ? svc.clinicPrice
                                                     : svc.price
                                                   ).toFixed(2)}
@@ -11455,14 +11448,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  Math.max(
-                                                                    1,
-                                                                    (s.quantity ||
-                                                                      1) - 1,
-                                                                  ),
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                Math.max(
+                                                                  1,
+                                                                  (s.quantity ||
+                                                                    1) - 1,
+                                                                ),
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -11490,10 +11483,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  newQty,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                newQty,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -11508,11 +11501,11 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                         prev.map((s) =>
                                                           s._id === svc._id
                                                             ? {
-                                                                ...s,
-                                                                quantity:
-                                                                  (s.quantity ||
-                                                                    1) + 1,
-                                                              }
+                                                              ...s,
+                                                              quantity:
+                                                                (s.quantity ||
+                                                                  1) + 1,
+                                                            }
                                                             : s,
                                                         ),
                                                     );
@@ -11646,11 +11639,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             {consentStatuses.map((consent) => (
                               <div
                                 key={consent._id}
-                                className={`flex items-center justify-between p-3 rounded-lg border ${
-                                  consent.status === "signed"
+                                className={`flex items-center justify-between p-3 rounded-lg border ${consent.status === "signed"
                                     ? "border-green-200 bg-green-50"
                                     : "border-gray-200 bg-gray-50"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
@@ -11675,11 +11667,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span
-                                    className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
-                                      consent.status === "signed"
+                                    className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${consent.status === "signed"
                                         ? "bg-green-100 text-green-700"
                                         : "bg-blue-100 text-blue-700"
-                                    }`}
+                                      }`}
                                   >
                                     {consent.status}
                                   </span>
@@ -11694,78 +11685,78 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                       {previousComplaints.some(
                         (c) => Array.isArray(c.items) && c.items.length > 0,
                       ) && (
-                        <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm px-3 sm:px-4 py-3">
-                          <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />{" "}
-                            Stock Used (All Sessions)
-                          </h3>
-                          <div className="rounded-lg border border-gray-100 overflow-x-auto">
-                            <table className="w-full text-[10px] sm:text-xs min-w-[400px]">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    Date
-                                  </th>
-                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    Item
-                                  </th>
-                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
-                                    Qty
-                                  </th>
-                                  <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
-                                    UOM
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 bg-white">
-                                {previousComplaints
-                                  .filter(
-                                    (c) =>
-                                      Array.isArray(c.items) &&
-                                      c.items.length > 0,
-                                  )
-                                  .sort(
-                                    (a, b) =>
-                                      new Date(b.createdAt).getTime() -
-                                      new Date(a.createdAt).getTime(),
-                                  )
-                                  .flatMap((c) =>
-                                    (
-                                      c.items as NonNullable<typeof c.items>
-                                    ).map((item, idx) => ({
-                                      date: c.createdAt,
-                                      item,
-                                      key: `rx-${c._id}-${idx}`,
-                                    })),
-                                  )
-                                  .map(({ date, item, key }) => (
-                                    <tr key={key} className="hover:bg-gray-50">
-                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">
-                                        {new Date(date).toLocaleDateString(
-                                          "en-GB",
-                                          {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric",
-                                          },
-                                        )}
-                                      </td>
-                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 font-medium text-gray-800">
-                                        {item.name}
-                                      </td>
-                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-700">
-                                        {item.quantity}
-                                      </td>
-                                      <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500">
-                                        {item.uom || "-"}
-                                      </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
+                          <div className="bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-sm px-3 sm:px-4 py-3">
+                            <h3 className="text-xs sm:text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                              <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500" />{" "}
+                              Stock Used (All Sessions)
+                            </h3>
+                            <div className="rounded-lg border border-gray-100 overflow-x-auto">
+                              <table className="w-full text-[10px] sm:text-xs min-w-[400px]">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      Date
+                                    </th>
+                                    <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      Item
+                                    </th>
+                                    <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-500 uppercase tracking-wider">
+                                      Qty
+                                    </th>
+                                    <th className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">
+                                      UOM
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                  {previousComplaints
+                                    .filter(
+                                      (c) =>
+                                        Array.isArray(c.items) &&
+                                        c.items.length > 0,
+                                    )
+                                    .sort(
+                                      (a, b) =>
+                                        new Date(b.createdAt).getTime() -
+                                        new Date(a.createdAt).getTime(),
+                                    )
+                                    .flatMap((c) =>
+                                      (
+                                        c.items as NonNullable<typeof c.items>
+                                      ).map((item, idx) => ({
+                                        date: c.createdAt,
+                                        item,
+                                        key: `rx-${c._id}-${idx}`,
+                                      })),
+                                    )
+                                    .map(({ date, item, key }) => (
+                                      <tr key={key} className="hover:bg-gray-50">
+                                        <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500 whitespace-nowrap">
+                                          {new Date(date).toLocaleDateString(
+                                            "en-GB",
+                                            {
+                                              day: "2-digit",
+                                              month: "short",
+                                              year: "numeric",
+                                            },
+                                          )}
+                                        </td>
+                                        <td className="px-2 sm:px-3 py-1.5 sm:py-2 font-medium text-gray-800">
+                                          {item.name}
+                                        </td>
+                                        <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-right font-semibold text-gray-700">
+                                          {item.quantity}
+                                        </td>
+                                        <td className="px-2 sm:px-3 py-1.5 sm:py-2 text-gray-500">
+                                          {item.uom || "-"}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
                   )}
                 </>
@@ -11806,19 +11797,19 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         </div> */}
                         {(patientBalance.pendingBalance > 0 ||
                           patientBalance.pendingClaim > 0) && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
-                              Outstanding
-                            </span>
-                            <span className="text-xs font-semibold text-red-500">
-                              {getCurrencySymbol(currency)}{" "}
-                              {(
-                                patientBalance.pendingBalance +
-                                patientBalance.pendingClaim
-                              ).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500">
+                                Outstanding
+                              </span>
+                              <span className="text-xs font-semibold text-red-500">
+                                {getCurrencySymbol(currency)}{" "}
+                                {(
+                                  patientBalance.pendingBalance +
+                                  patientBalance.pendingClaim
+                                ).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
                         <div className="flex items-center justify-between border-t border-gray-100 pt-2">
                           <span className="text-xs text-gray-500">
                             Total Invoices
@@ -11872,31 +11863,31 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         )}
                         {smartDepartments.flatMap((d) => d.services).slice(0, 2)
                           .length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-gray-100">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
-                              Upsell Potential
-                            </p>
-                            {smartDepartments
-                              .flatMap((d) => d.services)
-                              .slice(0, 2)
-                              .map((svc) => (
-                                <div
-                                  key={svc._id}
-                                  className="flex items-center justify-between py-1 text-xs"
-                                >
-                                  <span className="text-gray-600 truncate flex-1 mr-2">
-                                    {svc.name}
-                                  </span>
-                                  <span className="text-blue-600 font-medium whitespace-nowrap">
-                                    +{getCurrencySymbol(currency)}{" "}
-                                    {svc.clinicPrice != null
-                                      ? svc.clinicPrice
-                                      : svc.price}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        )}
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase mb-1.5">
+                                Upsell Potential
+                              </p>
+                              {smartDepartments
+                                .flatMap((d) => d.services)
+                                .slice(0, 2)
+                                .map((svc) => (
+                                  <div
+                                    key={svc._id}
+                                    className="flex items-center justify-between py-1 text-xs"
+                                  >
+                                    <span className="text-gray-600 truncate flex-1 mr-2">
+                                      {svc.name}
+                                    </span>
+                                    <span className="text-blue-600 font-medium whitespace-nowrap">
+                                      +{getCurrencySymbol(currency)}{" "}
+                                      {svc.clinicPrice != null
+                                        ? svc.clinicPrice
+                                        : svc.price}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          )}
                       </>
                     ) : (
                       <>
@@ -11937,11 +11928,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         onClick={() =>
                           setIsDoctorDiscountApplied(!isDoctorDiscountApplied)
                         }
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
-                          isDoctorDiscountApplied
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all ${isDoctorDiscountApplied
                             ? "bg-green-100 text-green-700 border border-green-200"
                             : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
-                        }`}
+                          }`}
                       >
                         <TrendingUp size={10} />
                         {isDoctorDiscountApplied
@@ -12054,12 +12044,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               );
                             return nextFollowUp
                               ? new Date(
-                                  nextFollowUp.startDate,
-                                ).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                })
+                                nextFollowUp.startDate,
+                              ).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
                               : "Not scheduled";
                           })()}
                         </span>
@@ -12192,18 +12182,16 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         {consentStatuses.map((consent) => (
                           <div
                             key={consent._id}
-                            className={`flex items-start gap-2 p-2 rounded-lg border ${
-                              consent.status === "signed"
+                            className={`flex items-start gap-2 p-2 rounded-lg border ${consent.status === "signed"
                                 ? "border-green-200 bg-green-50"
                                 : "border-blue-200 bg-blue-50"
-                            }`}
+                              }`}
                           >
                             <div
-                              className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                consent.status === "signed"
+                              className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${consent.status === "signed"
                                   ? "bg-green-100"
                                   : "bg-blue-100"
-                              }`}
+                                }`}
                             >
                               {consent.status === "signed" ? (
                                 <CheckCircle className="w-3 h-3 text-green-600" />
@@ -12217,11 +12205,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               </p>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span
-                                  className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
-                                    consent.status === "signed"
+                                  className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${consent.status === "signed"
                                       ? "bg-green-100 text-green-700"
                                       : "bg-blue-100 text-blue-700"
-                                  }`}
+                                    }`}
                                 >
                                   {consent.status === "signed"
                                     ? "SIGNED"
@@ -12293,22 +12280,22 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   prev.map((pc) =>
                     pc._id === updated._id
                       ? {
-                          ...pc,
-                          complaints: updated.complaints,
-                          items: updated.items || [],
-                          createdAt: (updated as any).createdAt || pc.createdAt,
-                          beforeImage: (updated.beforeImage || "")
-                            .trim()
-                            .replace(/^`|`$/g, ""), // Trim and remove backticks
-                          afterImage: (updated.afterImage || "")
-                            .trim()
-                            .replace(/^`|`$/g, ""), // Trim and remove backticks
-                          consentLogs:
-                            updated.consentLogs || pc.consentLogs || [],
-                          checklist: updated.checklist || pc.checklist || {},
-                          createdPackage:
-                            updated.createdPackage || pc.createdPackage || null,
-                        }
+                        ...pc,
+                        complaints: updated.complaints,
+                        items: updated.items || [],
+                        createdAt: (updated as any).createdAt || pc.createdAt,
+                        beforeImage: (updated.beforeImage || "")
+                          .trim()
+                          .replace(/^`|`$/g, ""), // Trim and remove backticks
+                        afterImage: (updated.afterImage || "")
+                          .trim()
+                          .replace(/^`|`$/g, ""), // Trim and remove backticks
+                        consentLogs:
+                          updated.consentLogs || pc.consentLogs || [],
+                        checklist: updated.checklist || pc.checklist || {},
+                        createdPackage:
+                          updated.createdPackage || pc.createdPackage || null,
+                      }
                       : pc,
                   ),
                 );
@@ -12376,451 +12363,44 @@ const EditComplaintModal: React.FC<{
   onConsentSent,
   isSpecificClinic,
 }) => {
-  const token = getTokenByPath() || "";
-  const { stockItems } = useStockItems();
-  const { uoms, loading: uomsLoading } = useUoms({ token });
-  type StockRow = {
-    itemId?: string;
-    code?: string;
-    name: string;
-    description?: string;
-    quantity: number;
-    uom?: string;
-  };
-  const [note, setNote] = useState<string>(complaint.complaints || "");
-  const [items, setItems] = useState<StockRow[]>(
-    Array.isArray(complaint.items) ? (complaint.items as any) : [],
-  );
-  const [beforeImage, setBeforeImage] = useState<string>(
-    complaint.beforeImage || "",
-  );
-  const [afterImage, setAfterImage] = useState<string>(
-    complaint.afterImage || "",
-  );
-  const [uploadingBefore, setUploadingBefore] = useState<boolean>(false);
-  const [uploadingAfter, setUploadingAfter] = useState<boolean>(false);
-  const CHECKLIST_ITEMS = [
-    "Consent Signed",
-    "Allergy Checked",
-    "Photos Uploaded",
-    "Notes Completed",
-  ] as const;
-  const [checklist, setChecklist] = useState<Record<string, boolean>>(
-    (complaint as any).checklist || {
-      "Consent Signed": false,
-      "Allergy Checked": false,
-      "Photos Uploaded": false,
-      "Notes Completed": false,
-    },
-  );
-  const [currentItem, setCurrentItem] = useState<StockRow>({
-    itemId: "",
-    code: "",
-    name: "",
-    description: "",
-    quantity: 1,
-    uom: "",
-  });
-  const [editIndex, setEditIndex] = useState<number | null>(null);
-  const [editingItem, setEditingItem] = useState<StockRow | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string>("");
-
-  // Progress Notes state
-  interface ProgressNoteEntry {
-    _id: string;
-    note: string;
-    noteDate: string;
-    doctorId?: { _id?: string; name?: string; email?: string } | string | null;
-    createdAt: string;
-  }
-  const [progressNotes, setProgressNotes] = useState<ProgressNoteEntry[]>([]);
-  const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
-  const [progressError, setProgressError] = useState<string>("");
-  const [editingProgressNoteId, setEditingProgressNoteId] = useState<
-    string | null
-  >(null);
-  const [editingProgressNoteData, setEditingProgressNoteData] = useState<{
-    note: string;
-    noteDate: string;
-  } | null>(null);
-  const [savingEditedProgress, setSavingEditedProgress] = useState(false);
-  const [addingNewEntry, setAddingNewEntry] = useState(false);
-  const [newEntryText, setNewEntryText] = useState<string>("");
-  const [newEntryDate, setNewEntryDate] = useState<string>(() =>
-    new Date().toISOString().slice(0, 10),
-  );
-  const [savingProgress, setSavingProgress] = useState(false);
-
-  // Prescription state
-  interface PrescriptionHistoryEntry {
-    _id: string;
-    medicines: Array<{
-      _id?: string;
-      medicineName: string;
-      dosage?: string;
-      duration?: string;
-      notes?: string;
-    }>;
-    aftercareInstructions?: string;
-    includeInPdf?: boolean;
-    doctorId?: { _id?: string; name?: string; email?: string } | string | null;
-    createdAt: string;
-    updatedAt: string;
-  }
-  const [prescriptionHistory, setPrescriptionHistory] = useState<
-    PrescriptionHistoryEntry[]
-  >([]);
-  const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] =
-    useState(false);
-  const [prescriptionError, setPrescriptionError] = useState<string>("");
-  const [editingPrescriptionId, setEditingPrescriptionId] = useState<
-    string | null
-  >(null);
-  const [editingPrescriptionData, setEditingPrescriptionData] = useState<{
-    medicines: Array<{
-      _id?: string;
-      medicineName: string;
-      dosage?: string;
-      duration?: string;
-      notes?: string;
-    }>;
-    aftercareInstructions?: string;
-  } | null>(null);
-  const [savingEditedPrescription, setSavingEditedPrescription] =
-    useState(false);
-  const [expandedPrescription, setExpandedPrescription] = useState<
-    Record<string, boolean>
-  >({});
-
-  // consent form
-  interface ConsentFormOption {
-    _id: string;
-    formName: string;
-  }
-  const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
-  const [selectedConsentId, setSelectedConsentId] = useState<string>("");
-  const [sendingConsent, setSendingConsent] = useState<boolean>(false);
-  const [consentSent, setConsentSent] = useState<boolean>(false);
-
-  // fetch consent forms
-  const fetchConsentForms = async () => {
-    try {
-      const headers = getAuthHeaders();
-      const res = await axios.get("/api/clinic/consent", { headers });
-      if (res.data?.success) {
-        setConsentForms(res.data.consents || []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch consent forms", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchConsentForms();
-    // Fetch progress notes and prescriptions when modal opens
-    const patientId =
-      typeof complaint.patientId === "object"
-        ? complaint.patientId?._id
-        : complaint.patientId;
-    if (patientId) {
-      fetchProgressNotes(patientId);
-      fetchPrescriptionHistory(patientId);
-    }
-  }, []);
-
-  // Helper function to check if within 24 hours
-  const isWithin24Hours = (createdAt: string) => {
-    const now = new Date();
-    const createdDate = new Date(createdAt);
-    const hoursDiff =
-      (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
-    return hoursDiff < 24;
-  };
-
-  // Fetch progress notes
-  const fetchProgressNotes = async (patientId: string) => {
-    setLoadingProgressNotes(true);
-    setProgressError("");
-    try {
-      const headers = getAuthHeaders();
-      const res = await axios.get("/api/clinic/progress-notes", {
-        headers,
-        params: { patientId },
-      });
-      if (res.data?.success) {
-        setProgressNotes(res.data.notes || []);
-      }
-    } catch {
-      setProgressError("Failed to load progress notes");
-    } finally {
-      setLoadingProgressNotes(false);
-    }
-  };
-
-  // Fetch prescription history
-  const fetchPrescriptionHistory = async (patientId: string) => {
-    setLoadingPrescriptionHistory(true);
-    try {
-      const headers = getAuthHeaders();
-      const res = await axios.get("/api/clinic/prescriptions", {
-        headers,
-        params: { patientId },
-      });
-      if (res.data?.success) {
-        setPrescriptionHistory(res.data.prescriptions || []);
-      }
-    } catch {
-      // silently ignore
-    } finally {
-      setLoadingPrescriptionHistory(false);
-    }
-  };
-
-  // Progress note handlers
-  const startEditProgressNote = (entry: ProgressNoteEntry) => {
-    setEditingProgressNoteId(entry._id);
-    setEditingProgressNoteData({
-      note: entry.note,
-      noteDate: entry.noteDate
-        ? new Date(entry.noteDate).toISOString().slice(0, 10)
-        : new Date(entry.createdAt).toISOString().slice(0, 10),
-    });
-  };
-
-  const cancelEditProgressNote = () => {
-    setEditingProgressNoteId(null);
-    setEditingProgressNoteData(null);
-  };
-
-  const saveEditedProgressNote = async (noteId: string) => {
-    if (!editingProgressNoteData || !editingProgressNoteData.note.trim())
-      return;
-    setSavingEditedProgress(true);
-    try {
-      const headers = getAuthHeaders();
-      await axios.put(
-        "/api/clinic/progress-notes",
-        {
-          noteId,
-          note: editingProgressNoteData.note.trim(),
-          noteDate: editingProgressNoteData.noteDate,
-        },
-        { headers },
-      );
-
-      setProgressNotes((prev) =>
-        prev.map((n) => {
-          if (n._id === noteId) {
-            return {
-              ...n,
-              note: editingProgressNoteData.note.trim(),
-              noteDate: editingProgressNoteData.noteDate,
-            };
-          }
-          return n;
-        }),
-      );
-      setEditingProgressNoteId(null);
-      setEditingProgressNoteData(null);
-    } catch (error: any) {
-      setProgressError(
-        error.response?.data?.message || "Failed to update progress note",
-      );
-    } finally {
-      setSavingEditedProgress(false);
-    }
-  };
-
-  const addProgressNote = async () => {
-    if (!newEntryText.trim()) return;
-    const patientId =
-      typeof complaint.patientId === "object"
-        ? complaint.patientId?._id
-        : complaint.patientId;
-    const appointmentId =
-      typeof complaint.appointmentId === "object"
-        ? complaint.appointmentId?._id
-        : complaint.appointmentId;
-    if (!patientId) return;
-
-    setSavingProgress(true);
-    setProgressError("");
-    try {
-      const headers = getAuthHeaders();
-      const res = await axios.post(
-        "/api/clinic/progress-notes",
-        {
-          appointmentId,
-          patientId,
-          note: newEntryText.trim(),
-          noteDate: newEntryDate,
-        },
-        { headers },
-      );
-      if (res.data?.success && res.data.note) {
-        setProgressNotes((prev) => [res.data.note, ...prev]);
-      }
-      setNewEntryText("");
-      setNewEntryDate(new Date().toISOString().slice(0, 10));
-      setAddingNewEntry(false);
-    } catch (err: any) {
-      setProgressError(
-        err.response?.data?.message || "Failed to save progress note",
-      );
-    } finally {
-      setSavingProgress(false);
-    }
-  };
-
-  const deleteProgressNote = async (noteId: string) => {
-    try {
-      const headers = getAuthHeaders();
-      await axios.delete("/api/clinic/progress-notes", {
-        headers,
-        params: { noteId },
-      });
-      setProgressNotes((prev) => prev.filter((n) => n._id !== noteId));
-    } catch {
-      setProgressError("Failed to delete progress note");
-    }
-  };
-
-  // Prescription handlers
-  const startEditPrescription = (entry: PrescriptionHistoryEntry) => {
-    setEditingPrescriptionId(entry._id);
-    setEditingPrescriptionData({
-      medicines: entry.medicines.map((m) => ({
-        _id: m._id,
-        medicineName: m.medicineName || "",
-        dosage: m.dosage || "",
-        duration: m.duration || "",
-        notes: m.notes || "",
-      })),
-      aftercareInstructions: entry.aftercareInstructions || "",
-    });
-    setExpandedPrescription((prev) => ({ ...prev, [entry._id]: true }));
-  };
-
-  const cancelEditPrescription = () => {
-    setEditingPrescriptionId(null);
-    setEditingPrescriptionData(null);
-  };
-
-  const saveEditedPrescription = async (prescriptionId: string) => {
-    if (!editingPrescriptionData) return;
-    setSavingEditedPrescription(true);
-    try {
-      const headers = getAuthHeaders();
-      const validMeds = editingPrescriptionData.medicines.filter((m) =>
-        m.medicineName.trim(),
-      );
-
-      await axios.put(
-        "/api/clinic/prescriptions",
-        {
-          prescriptionId,
-          medicines: validMeds,
-          aftercareInstructions:
-            editingPrescriptionData.aftercareInstructions || "",
-        },
-        { headers },
-      );
-
-      setPrescriptionHistory((prev) =>
-        prev.map((p) => {
-          if (p._id === prescriptionId) {
-            return {
-              ...p,
-              medicines: validMeds,
-              aftercareInstructions:
-                editingPrescriptionData.aftercareInstructions || "",
-              updatedAt: new Date().toISOString(),
-            };
-          }
-          return p;
-        }),
-      );
-
-      setEditingPrescriptionId(null);
-      setEditingPrescriptionData(null);
-    } catch (error: any) {
-      setPrescriptionError(
-        error.response?.data?.message || "Failed to update prescription",
-      );
-    } finally {
-      setSavingEditedPrescription(false);
-    }
-  };
-
-  const deletePrescription = async (prescriptionId: string) => {
-    try {
-      const headers = getAuthHeaders();
-      await axios.delete("/api/clinic/prescriptions", {
-        headers,
-        params: { prescriptionId },
-      });
-      setPrescriptionHistory((prev) =>
-        prev.filter((p) => p._id !== prescriptionId),
-      );
-    } catch {
-      setPrescriptionError("Failed to delete prescription");
-    }
-  };
-
-  const handleCurrentItemChange = (field: keyof StockRow, value: any) => {
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setCurrentItem((prev) => ({
-          ...prev,
-          itemId: value,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-          description: item.description || "",
-        }));
-        return;
-      }
-    }
-    setCurrentItem((prev) => ({
-      ...prev,
-      [field]: field === "quantity" ? parseFloat(value) || 0 : value,
-    }));
-  };
-
-  const addCurrentItem = () => {
-    if (!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom) {
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold"> Incomplete Item</span>
-          <span className="text-xs opacity-80">
-            Please complete item selection, quantity and UOM
-          </span>
-        </div>,
-        {
-          duration: 3000,
-          position: "top-right",
-          style: {
-            background: "#ef4444",
-            color: "#fff",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            zIndex: 9999,
-            maxWidth: "500px",
-          },
-          iconTheme: {
-            primary: "#fff",
-            secondary: "#ef4444",
-          },
-        },
-      );
-      return;
-    }
-    setItems((prev) => [...prev, { ...currentItem }]);
-    setCurrentItem({
+    const token = getTokenByPath() || "";
+    const { stockItems } = useStockItems();
+    const { uoms, loading: uomsLoading } = useUoms({ token });
+    type StockRow = {
+      itemId?: string;
+      code?: string;
+      name: string;
+      description?: string;
+      quantity: number;
+      uom?: string;
+    };
+    const [note, setNote] = useState<string>(complaint.complaints || "");
+    const [items, setItems] = useState<StockRow[]>(
+      Array.isArray(complaint.items) ? (complaint.items as any) : [],
+    );
+    const [beforeImage, setBeforeImage] = useState<string>(
+      complaint.beforeImage || "",
+    );
+    const [afterImage, setAfterImage] = useState<string>(
+      complaint.afterImage || "",
+    );
+    const [uploadingBefore, setUploadingBefore] = useState<boolean>(false);
+    const [uploadingAfter, setUploadingAfter] = useState<boolean>(false);
+    const CHECKLIST_ITEMS = [
+      "Consent Signed",
+      "Allergy Checked",
+      "Photos Uploaded",
+      "Notes Completed",
+    ] as const;
+    const [checklist, setChecklist] = useState<Record<string, boolean>>(
+      (complaint as any).checklist || {
+        "Consent Signed": false,
+        "Allergy Checked": false,
+        "Photos Uploaded": false,
+        "Notes Completed": false,
+      },
+    );
+    const [currentItem, setCurrentItem] = useState<StockRow>({
       itemId: "",
       code: "",
       name: "",
@@ -12828,1333 +12408,1740 @@ const EditComplaintModal: React.FC<{
       quantity: 1,
       uom: "",
     });
-    setError("");
-  };
+    const [editIndex, setEditIndex] = useState<number | null>(null);
+    const [editingItem, setEditingItem] = useState<StockRow | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string>("");
 
-  const removeItem = (index: number) => {
-    const updated = [...items];
-    updated.splice(index, 1);
-    setItems(updated);
-    if (editIndex === index) {
-      setEditIndex(null);
-      setEditingItem(null);
+    // Progress Notes state
+    interface ProgressNoteEntry {
+      _id: string;
+      note: string;
+      noteDate: string;
+      doctorId?: { _id?: string; name?: string; email?: string } | string | null;
+      createdAt: string;
     }
-  };
+    const [progressNotes, setProgressNotes] = useState<ProgressNoteEntry[]>([]);
+    const [loadingProgressNotes, setLoadingProgressNotes] = useState(false);
+    const [progressError, setProgressError] = useState<string>("");
+    const [editingProgressNoteId, setEditingProgressNoteId] = useState<
+      string | null
+    >(null);
+    const [editingProgressNoteData, setEditingProgressNoteData] = useState<{
+      note: string;
+      noteDate: string;
+    } | null>(null);
+    const [savingEditedProgress, setSavingEditedProgress] = useState(false);
+    const [addingNewEntry, setAddingNewEntry] = useState(false);
+    const [newEntryText, setNewEntryText] = useState<string>("");
+    const [newEntryDate, setNewEntryDate] = useState<string>(() =>
+      new Date().toISOString().slice(0, 10),
+    );
+    const [savingProgress, setSavingProgress] = useState(false);
 
-  const startEditItem = (index: number) => {
-    setEditIndex(index);
-    setEditingItem({ ...items[index] });
-  };
+    // Prescription state
+    interface PrescriptionHistoryEntry {
+      _id: string;
+      medicines: Array<{
+        _id?: string;
+        medicineName: string;
+        dosage?: string;
+        duration?: string;
+        notes?: string;
+      }>;
+      aftercareInstructions?: string;
+      includeInPdf?: boolean;
+      doctorId?: { _id?: string; name?: string; email?: string } | string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+    const [prescriptionHistory, setPrescriptionHistory] = useState<
+      PrescriptionHistoryEntry[]
+    >([]);
+    const [loadingPrescriptionHistory, setLoadingPrescriptionHistory] =
+      useState(false);
+    const [prescriptionError, setPrescriptionError] = useState<string>("");
+    const [editingPrescriptionId, setEditingPrescriptionId] = useState<
+      string | null
+    >(null);
+    const [editingPrescriptionData, setEditingPrescriptionData] = useState<{
+      medicines: Array<{
+        _id?: string;
+        medicineName: string;
+        dosage?: string;
+        duration?: string;
+        notes?: string;
+      }>;
+      aftercareInstructions?: string;
+    } | null>(null);
+    const [savingEditedPrescription, setSavingEditedPrescription] =
+      useState(false);
+    const [expandedPrescription, setExpandedPrescription] = useState<
+      Record<string, boolean>
+    >({});
 
-  const handleEditingItemChange = (field: keyof StockRow, value: any) => {
-    if (!editingItem) return;
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setEditingItem({
-          ...editingItem,
-          itemId: value,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-        });
-        return;
+    // consent form
+    interface ConsentFormOption {
+      _id: string;
+      formName: string;
+    }
+    const [consentForms, setConsentForms] = useState<ConsentFormOption[]>([]);
+    const [selectedConsentId, setSelectedConsentId] = useState<string>("");
+    const [sendingConsent, setSendingConsent] = useState<boolean>(false);
+    const [consentSent, setConsentSent] = useState<boolean>(false);
+
+    // fetch consent forms
+    const fetchConsentForms = async () => {
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get("/api/clinic/consent", { headers });
+        if (res.data?.success) {
+          setConsentForms(res.data.consents || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch consent forms", err);
       }
-    }
-    setEditingItem({
-      ...editingItem,
-      [field]: field === "quantity" ? parseFloat(value) || 0 : value,
-    } as any);
-  };
+    };
 
-  const saveEditItem = () => {
-    if (editIndex == null || editingItem == null) return;
-    if (!editingItem.name.trim() || !editingItem.quantity || !editingItem.uom) {
-      setError("Please complete item fields before saving");
-      return;
-    }
-    const updated = [...items];
-    updated[editIndex] = { ...editingItem };
-    setItems(updated);
-    setEditIndex(null);
-    setEditingItem(null);
-    setError("");
-  };
-
-  const cancelEditItem = () => {
-    setEditIndex(null);
-    setEditingItem(null);
-  };
-
-  const handleSave = async () => {
-    if (!note.trim()) {
-      setError("Complaint note is required");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const headers = getAuthHeaders();
-      const res = await axios.patch(
-        "/api/clinic/patient-complaints",
-        {
-          complaintId: complaint._id,
-          complaints: note.trim(),
-          items,
-          beforeImage,
-          afterImage,
-          checklist: checklist || {}, // Save clinical checklist
-          createdPackage: complaint.createdPackage || null, // Preserve existing package
-        },
-        { headers },
-      );
-      const updated = res.data?.complaint;
-      if (res.data?.success && updated) {
-        onSaved(updated);
-      } else {
-        setError(res.data?.message || "Failed to update complaint");
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to update complaint");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSendConsentMsgOnWhatsapp = async () => {
-    if (!selectedConsentId) return;
-
-    setSendingConsent(true);
-    try {
-      const headers = getAuthHeaders();
+    useEffect(() => {
+      fetchConsentForms();
+      // Fetch progress notes and prescriptions when modal opens
       const patientId =
         typeof complaint.patientId === "object"
           ? complaint.patientId?._id
           : complaint.patientId;
-      const patientName =
+      if (patientId) {
+        fetchProgressNotes(patientId);
+        fetchPrescriptionHistory(patientId);
+      }
+    }, []);
+
+    // Helper function to check if within 24 hours
+    const isWithin24Hours = (createdAt: string) => {
+      const now = new Date();
+      const createdDate = new Date(createdAt);
+      const hoursDiff =
+        (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+      return hoursDiff < 24;
+    };
+
+    // Fetch progress notes
+    const fetchProgressNotes = async (patientId: string) => {
+      setLoadingProgressNotes(true);
+      setProgressError("");
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get("/api/clinic/progress-notes", {
+          headers,
+          params: { patientId },
+        });
+        if (res.data?.success) {
+          setProgressNotes(res.data.notes || []);
+        }
+      } catch {
+        setProgressError("Failed to load progress notes");
+      } finally {
+        setLoadingProgressNotes(false);
+      }
+    };
+
+    // Fetch prescription history
+    const fetchPrescriptionHistory = async (patientId: string) => {
+      setLoadingPrescriptionHistory(true);
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get("/api/clinic/prescriptions", {
+          headers,
+          params: { patientId },
+        });
+        if (res.data?.success) {
+          setPrescriptionHistory(res.data.prescriptions || []);
+        }
+      } catch {
+        // silently ignore
+      } finally {
+        setLoadingPrescriptionHistory(false);
+      }
+    };
+
+    // Progress note handlers
+    const startEditProgressNote = (entry: ProgressNoteEntry) => {
+      setEditingProgressNoteId(entry._id);
+      setEditingProgressNoteData({
+        note: entry.note,
+        noteDate: entry.noteDate
+          ? new Date(entry.noteDate).toISOString().slice(0, 10)
+          : new Date(entry.createdAt).toISOString().slice(0, 10),
+      });
+    };
+
+    const cancelEditProgressNote = () => {
+      setEditingProgressNoteId(null);
+      setEditingProgressNoteData(null);
+    };
+
+    const saveEditedProgressNote = async (noteId: string) => {
+      if (!editingProgressNoteData || !editingProgressNoteData.note.trim())
+        return;
+      setSavingEditedProgress(true);
+      try {
+        const headers = getAuthHeaders();
+        await axios.put(
+          "/api/clinic/progress-notes",
+          {
+            noteId,
+            note: editingProgressNoteData.note.trim(),
+            noteDate: editingProgressNoteData.noteDate,
+          },
+          { headers },
+        );
+
+        setProgressNotes((prev) =>
+          prev.map((n) => {
+            if (n._id === noteId) {
+              return {
+                ...n,
+                note: editingProgressNoteData.note.trim(),
+                noteDate: editingProgressNoteData.noteDate,
+              };
+            }
+            return n;
+          }),
+        );
+        setEditingProgressNoteId(null);
+        setEditingProgressNoteData(null);
+      } catch (error: any) {
+        setProgressError(
+          error.response?.data?.message || "Failed to update progress note",
+        );
+      } finally {
+        setSavingEditedProgress(false);
+      }
+    };
+
+    const addProgressNote = async () => {
+      if (!newEntryText.trim()) return;
+      const patientId =
         typeof complaint.patientId === "object"
-          ? complaint.patientId?.firstName ||
-            complaint.patientId?.name ||
-            "Patient"
-          : "Patient";
+          ? complaint.patientId?._id
+          : complaint.patientId;
       const appointmentId =
         typeof complaint.appointmentId === "object"
           ? complaint.appointmentId?._id
           : complaint.appointmentId;
+      if (!patientId) return;
 
-      // First, fetch patient data to get WhatsApp number
-      const patientRes = await axios.get("/api/clinic/patient-information", {
-        headers,
-        params: { id: patientId },
-      });
-      const patient = patientRes.data?.patient;
-      const patientWhatsapp = patient?.mobileNumber || patient?.phone;
-      if (!patientWhatsapp) {
-        toast.error("Patient doesn't have a WhatsApp number", {
-          duration: 5000,
-          position: "top-right",
-          style: {
-            background: "#ef4444",
-            color: "#fff",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            zIndex: 9999,
-            maxWidth: "500px",
-          },
-          iconTheme: {
-            primary: "#fff",
-            secondary: "#ef4444",
-          },
-        });
-        return;
-      }
-
-      // Get consent form details
-      const selectedForm = consentForms.find(
-        (f) => f._id === selectedConsentId,
-      );
-      if (!selectedForm) return;
-
-      // Prepare message
-      const greeting = `Hello ${patientName}!`;
-      // // You might want to get this from somewhere
-      const consentUrl = `${window.location.origin}/consent-form/${selectedConsentId}?patientId=${patientId}&appointmentId=${appointmentId || ""}`;
-      const message = `${greeting}\n\nPlease review and sign the consent form: "${selectedForm.formName}"\n\n${consentUrl}\n\nThank you!`;
-
-      // Log the sent consent form - link to current complaint!
+      setSavingProgress(true);
+      setProgressError("");
       try {
-        await axios.post(
-          "/api/clinic/consent-log",
+        const headers = getAuthHeaders();
+        const res = await axios.post(
+          "/api/clinic/progress-notes",
           {
-            consentFormId: selectedConsentId,
-            consentFormName: selectedForm?.formName || "",
-            patientId: patientId,
-            patientName: patientName,
-            appointmentId: appointmentId || null,
-            complaintId: complaint._id, // Link to current complaint!
-            sentVia: "whatsapp",
+            appointmentId,
+            patientId,
+            note: newEntryText.trim(),
+            noteDate: newEntryDate,
           },
           { headers },
         );
-      } catch (logError) {
-        console.error("Error logging consent form sent:", logError);
+        if (res.data?.success && res.data.note) {
+          setProgressNotes((prev) => [res.data.note, ...prev]);
+        }
+        setNewEntryText("");
+        setNewEntryDate(new Date().toISOString().slice(0, 10));
+        setAddingNewEntry(false);
+      } catch (err: any) {
+        setProgressError(
+          err.response?.data?.message || "Failed to save progress note",
+        );
+      } finally {
+        setSavingProgress(false);
       }
+    };
 
-      // Open WhatsApp
-      const whatsappUrl = `https://wa.me/${patientWhatsapp}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, "_blank");
+    const deleteProgressNote = async (noteId: string) => {
+      try {
+        const headers = getAuthHeaders();
+        await axios.delete("/api/clinic/progress-notes", {
+          headers,
+          params: { noteId },
+        });
+        setProgressNotes((prev) => prev.filter((n) => n._id !== noteId));
+      } catch {
+        setProgressError("Failed to delete progress note");
+      }
+    };
 
-      // Show success toast
-      toast.success(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold">✅ Consent Form Sent!</span>
-          <span className="text-xs opacity-80">
-            Consent form "{selectedForm.formName}" has been sent to the patient
-          </span>
-        </div>,
-        {
-          duration: 5000,
-          position: "top-right",
-          style: {
-            background: "#10b981",
-            color: "#fff",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            zIndex: 9999,
-            maxWidth: "500px",
+    // Prescription handlers
+    const startEditPrescription = (entry: PrescriptionHistoryEntry) => {
+      setEditingPrescriptionId(entry._id);
+      setEditingPrescriptionData({
+        medicines: entry.medicines.map((m) => ({
+          _id: m._id,
+          medicineName: m.medicineName || "",
+          dosage: m.dosage || "",
+          duration: m.duration || "",
+          notes: m.notes || "",
+        })),
+        aftercareInstructions: entry.aftercareInstructions || "",
+      });
+      setExpandedPrescription((prev) => ({ ...prev, [entry._id]: true }));
+    };
+
+    const cancelEditPrescription = () => {
+      setEditingPrescriptionId(null);
+      setEditingPrescriptionData(null);
+    };
+
+    const saveEditedPrescription = async (prescriptionId: string) => {
+      if (!editingPrescriptionData) return;
+      setSavingEditedPrescription(true);
+      try {
+        const headers = getAuthHeaders();
+        const validMeds = editingPrescriptionData.medicines.filter((m) =>
+          m.medicineName.trim(),
+        );
+
+        await axios.put(
+          "/api/clinic/prescriptions",
+          {
+            prescriptionId,
+            medicines: validMeds,
+            aftercareInstructions:
+              editingPrescriptionData.aftercareInstructions || "",
           },
-          iconTheme: {
-            primary: "#fff",
-            secondary: "#10b981",
-          },
-        },
-      );
+          { headers },
+        );
 
-      // Update state to indicate consent was sent
-      setConsentSent(true);
-      // Reset selected consent form for next time
-      setSelectedConsentId("");
-      // Call onConsentSent callback to refresh parent
-      onConsentSent && onConsentSent();
-    } catch (error: any) {
-      console.error("Error sending consent message:", error);
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold">❌ Failed to send consent form</span>
-          <span className="text-xs opacity-80">
-            {error.message || "Please try again"}
-          </span>
-        </div>,
-        {
-          duration: 5000,
-          position: "top-right",
-          style: {
-            background: "#ef4444",
-            color: "#fff",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            zIndex: 9999,
-            maxWidth: "500px",
-          },
-          iconTheme: {
-            primary: "#fff",
-            secondary: "#ef4444",
-          },
-        },
-      );
-    } finally {
-      setSendingConsent(false);
-    }
-  };
+        setPrescriptionHistory((prev) =>
+          prev.map((p) => {
+            if (p._id === prescriptionId) {
+              return {
+                ...p,
+                medicines: validMeds,
+                aftercareInstructions:
+                  editingPrescriptionData.aftercareInstructions || "",
+                updatedAt: new Date().toISOString(),
+              };
+            }
+            return p;
+          }),
+        );
 
-  return (
-    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 py-8">
-      <div className="bg-white w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Edit Complaint
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="px-6 py-4 overflow-y-auto space-y-4">
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-900">
-              Complaint Note <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              rows={4}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-            />
-          </div>
-          {/* Send Consent Form */}
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-900">
-              Send Consent Form
-            </label>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={selectedConsentId}
-                onChange={(e) => {
-                  setSelectedConsentId(e.target.value);
-                  setConsentSent(false);
-                }}
-                className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
-              >
-                <option value="">Select Consent Form</option>
-                {consentForms.map((cf) => (
-                  <option key={cf._id} value={cf._id}>
-                    {cf.formName}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!selectedConsentId || sendingConsent || consentSent}
-                onClick={handleSendConsentMsgOnWhatsapp}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}
-              >
-                {consentSent ? (
-                  <>
-                    <Check size={16} /> Sent
-                  </>
-                ) : sendingConsent ? (
-                  <>
-                    <RefreshCw size={16} className="animate-spin" /> Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} /> Send Consent
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-900">
-              {isSpecificClinic
-                ? "Static/Dynamic Scans (Images/PDFs)"
-                : "Before/After Images/PDFs"}
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  {isSpecificClinic
-                    ? "Static Scan (Image/PDF)"
-                    : "Before (Image/PDF)"}
-                </p>
-                <div className="relative flex items-center gap-2">
-                  <div
-                    className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
-                  >
-                    {beforeImage && (
-                      <button
-                        onClick={() => setBeforeImage("")}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
-                        title="Remove file"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                    {beforeImage ? (
-                      beforeImage.toLowerCase().endsWith(".pdf") ? (
-                        <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
-                          <FileText className="w-8 h-8 text-gray-400 mb-1" />
-                          <a
-                            href={beforeImage}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
-                          >
-                            View PDF
-                          </a>
-                        </div>
-                      ) : (
-                        <img
-                          src={beforeImage}
-                          alt={isSpecificClinic ? "Static Scan" : "Before"}
-                          className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
-                        />
-                      )
-                    ) : (
-                      <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
-                    )}
-                    {uploadingBefore && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
-                        <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setUploadingBefore(true);
-                        const res = await handleUpload(file);
-                        if (res?.success) setBeforeImage(res.url);
-                        setUploadingBefore(false);
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  {isSpecificClinic
-                    ? "Dynamic Scan (Image/PDF)"
-                    : "After (Image/PDF)"}
-                </p>
-                <div className="relative flex items-center gap-2">
-                  <div
-                    className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
-                  >
-                    {afterImage && (
-                      <button
-                        onClick={() => setAfterImage("")}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
-                        title="Remove file"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                    {afterImage ? (
-                      afterImage.toLowerCase().endsWith(".pdf") ? (
-                        <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
-                          <FileText className="w-8 h-8 text-gray-400 mb-1" />
-                          <a
-                            href={afterImage}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
-                          >
-                            View PDF
-                          </a>
-                        </div>
-                      ) : (
-                        <img
-                          src={afterImage}
-                          alt={isSpecificClinic ? "Dynamic Scan" : "After"}
-                          className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
-                        />
-                      )
-                    ) : (
-                      <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
-                    )}
-                    {uploadingAfter && (
-                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
-                        <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setUploadingAfter(true);
-                        const res = await handleUpload(file);
-                        if (res?.success) setAfterImage(res.url);
-                        setUploadingAfter(false);
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* Clinical Checklist */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-              <ClipboardList className="w-4 h-4 text-blue-500" />
-              Clinical Checklist
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {CHECKLIST_ITEMS.map((item) => (
-                <label
-                  key={item}
-                  className="flex items-center gap-2 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checklist[item]}
-                    onChange={(e) =>
-                      setChecklist((prev) => ({
-                        ...prev,
-                        [item]: e.target.checked,
-                      }))
-                    }
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-700">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-900">Items</h4>
-            </div>
-            <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold text-gray-900">
-                    Item
-                  </label>
-                  <select
-                    value={currentItem.itemId || ""}
-                    onChange={(e) =>
-                      handleCurrentItemChange("itemId", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
-                  >
-                    <option value="">Select Item</option>
-                    {stockItems.map((si: any) => (
-                      <option key={si._id} value={si._id}>
-                        {si.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold text-gray-900">
-                    Description
-                  </label>
-                  <input
-                    value={currentItem.description || ""}
-                    onChange={(e) =>
-                      handleCurrentItemChange("description", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
-                    placeholder="Description"
-                  />
-                </div>
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold text-gray-900">
-                    Qty
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={currentItem.quantity}
-                    onChange={(e) =>
-                      handleCurrentItemChange("quantity", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-gray-900">
-                    UOM
-                  </label>
-                  <select
-                    value={currentItem.uom || ""}
-                    onChange={(e) =>
-                      handleCurrentItemChange("uom", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
-                  >
-                    <option value="">Select UOM</option>
-                    {uomsLoading ? (
-                      <option value="">Loading UOMs...</option>
-                    ) : uoms.length > 0 ? (
-                      uoms.map((u: any) => (
-                        <option key={u._id} value={u.name}>
-                          {u.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">No UOMs available</option>
-                    )}
-                  </select>
-                </div>
-                <div className="sm:col-span-1 flex items-end">
-                  <button
-                    type="button"
-                    onClick={addCurrentItem}
-                    disabled={
-                      !currentItem.name.trim() ||
-                      !currentItem.quantity ||
-                      !currentItem.uom
-                    }
-                    className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-800">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      SI
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Item
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Qty
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      UOM
-                    </th>
-                    <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {items.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="px-3 py-6 text-sm text-center text-gray-500"
-                      >
-                        No Items
-                      </td>
-                    </tr>
-                  ) : (
-                    items.map((it, idx) => {
-                      const isEditing = editIndex === idx && editingItem;
-                      return (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-3 py-2 text-sm text-gray-900">
-                            {idx + 1}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-gray-900">
-                            {isEditing ? (
-                              <select
-                                value={editingItem?.itemId || ""}
-                                onChange={(e) =>
-                                  handleEditingItemChange(
-                                    "itemId",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                              >
-                                <option value="">Select Item</option>
-                                {stockItems.map((si: any) => (
-                                  <option key={si._id} value={si._id}>
-                                    {si.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              it.name
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-gray-900">
-                            {isEditing ? (
-                              <input
-                                value={editingItem?.description || ""}
-                                onChange={(e) =>
-                                  handleEditingItemChange(
-                                    "description",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                              />
-                            ) : (
-                              it.description || "-"
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-gray-900">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                min={1}
-                                value={editingItem?.quantity || 1}
-                                onChange={(e) =>
-                                  handleEditingItemChange(
-                                    "quantity",
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded text-right"
-                              />
-                            ) : (
-                              it.quantity
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-sm text-gray-900">
-                            {isEditing ? (
-                              <select
-                                value={editingItem?.uom || ""}
-                                onChange={(e) =>
-                                  handleEditingItemChange("uom", e.target.value)
-                                }
-                                className="w-32 px-2 py-1.5 text-sm border border-gray-300 rounded"
-                              >
-                                <option value="">Select UOM</option>
-                                {uoms.map((u: any) => (
-                                  <option key={u._id} value={u.name}>
-                                    {u.name}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              it.uom || "-"
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-sm">
-                            {isEditing ? (
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={saveEditItem}
-                                  className="text-green-600 hover:text-green-800"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEditItem}
-                                  className="text-gray-600 hover:text-gray-800"
-                                >
-                                  <XIcon className="w-4 h-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => startEditItem(idx)}
-                                  className="text-blue-600 hover:text-blue-900"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeItem(idx)}
-                                  className="text-red-600 hover:text-red-900"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        setEditingPrescriptionId(null);
+        setEditingPrescriptionData(null);
+      } catch (error: any) {
+        setPrescriptionError(
+          error.response?.data?.message || "Failed to update prescription",
+        );
+      } finally {
+        setSavingEditedPrescription(false);
+      }
+    };
 
-          {/* Progress Notes Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-                Progress Notes
-                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
-                  {progressNotes.length}
-                </span>
-              </h4>
-            </div>
-            {progressError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
-                {progressError}
+    const deletePrescription = async (prescriptionId: string) => {
+      try {
+        const headers = getAuthHeaders();
+        await axios.delete("/api/clinic/prescriptions", {
+          headers,
+          params: { prescriptionId },
+        });
+        setPrescriptionHistory((prev) =>
+          prev.filter((p) => p._id !== prescriptionId),
+        );
+      } catch {
+        setPrescriptionError("Failed to delete prescription");
+      }
+    };
+
+    const handleCurrentItemChange = (field: keyof StockRow, value: any) => {
+      if (field === "itemId") {
+        const item = stockItems.find((i) => i._id === value);
+        const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
+        if (item) {
+          setCurrentItem((prev) => ({
+            ...prev,
+            itemId: value,
+            code: item.code,
+            name: item.name,
+            uom: selectedUOM ? selectedUOM.name : "",
+            description: item.description || "",
+          }));
+          return;
+        }
+      }
+      setCurrentItem((prev) => ({
+        ...prev,
+        [field]: field === "quantity" ? parseFloat(value) || 0 : value,
+      }));
+    };
+
+    const addCurrentItem = () => {
+      if (!currentItem.name.trim() || !currentItem.quantity || !currentItem.uom) {
+        toast.error(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold"> Incomplete Item</span>
+            <span className="text-xs opacity-80">
+              Please complete item selection, quantity and UOM
+            </span>
+          </div>,
+          {
+            duration: 3000,
+            position: "top-right",
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 9999,
+              maxWidth: "500px",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#ef4444",
+            },
+          },
+        );
+        return;
+      }
+      setItems((prev) => [...prev, { ...currentItem }]);
+      setCurrentItem({
+        itemId: "",
+        code: "",
+        name: "",
+        description: "",
+        quantity: 1,
+        uom: "",
+      });
+      setError("");
+    };
+
+    const removeItem = (index: number) => {
+      const updated = [...items];
+      updated.splice(index, 1);
+      setItems(updated);
+      if (editIndex === index) {
+        setEditIndex(null);
+        setEditingItem(null);
+      }
+    };
+
+    const startEditItem = (index: number) => {
+      setEditIndex(index);
+      setEditingItem({ ...items[index] });
+    };
+
+    const handleEditingItemChange = (field: keyof StockRow, value: any) => {
+      if (!editingItem) return;
+      if (field === "itemId") {
+        const item = stockItems.find((i) => i._id === value);
+        const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
+        if (item) {
+          setEditingItem({
+            ...editingItem,
+            itemId: value,
+            code: item.code,
+            name: item.name,
+            uom: selectedUOM ? selectedUOM.name : "",
+          });
+          return;
+        }
+      }
+      setEditingItem({
+        ...editingItem,
+        [field]: field === "quantity" ? parseFloat(value) || 0 : value,
+      } as any);
+    };
+
+    const saveEditItem = () => {
+      if (editIndex == null || editingItem == null) return;
+      if (!editingItem.name.trim() || !editingItem.quantity || !editingItem.uom) {
+        setError("Please complete item fields before saving");
+        return;
+      }
+      const updated = [...items];
+      updated[editIndex] = { ...editingItem };
+      setItems(updated);
+      setEditIndex(null);
+      setEditingItem(null);
+      setError("");
+    };
+
+    const cancelEditItem = () => {
+      setEditIndex(null);
+      setEditingItem(null);
+    };
+
+    const handleSave = async () => {
+      if (!note.trim()) {
+        setError("Complaint note is required");
+        return;
+      }
+      setSaving(true);
+      setError("");
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.patch(
+          "/api/clinic/patient-complaints",
+          {
+            complaintId: complaint._id,
+            complaints: note.trim(),
+            items,
+            beforeImage,
+            afterImage,
+            checklist: checklist || {}, // Save clinical checklist
+            createdPackage: complaint.createdPackage || null, // Preserve existing package
+          },
+          { headers },
+        );
+        const updated = res.data?.complaint;
+        if (res.data?.success && updated) {
+          onSaved(updated);
+        } else {
+          setError(res.data?.message || "Failed to update complaint");
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.message || "Failed to update complaint");
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const handleSendConsentMsgOnWhatsapp = async () => {
+      if (!selectedConsentId) return;
+
+      setSendingConsent(true);
+      try {
+        const headers = getAuthHeaders();
+        const patientId =
+          typeof complaint.patientId === "object"
+            ? complaint.patientId?._id
+            : complaint.patientId;
+        const patientName =
+          typeof complaint.patientId === "object"
+            ? complaint.patientId?.firstName ||
+            complaint.patientId?.name ||
+            "Patient"
+            : "Patient";
+        const appointmentId =
+          typeof complaint.appointmentId === "object"
+            ? complaint.appointmentId?._id
+            : complaint.appointmentId;
+
+        // First, fetch patient data to get WhatsApp number
+        const patientRes = await axios.get("/api/clinic/patient-information", {
+          headers,
+          params: { id: patientId },
+        });
+        const patient = patientRes.data?.patient;
+        const patientWhatsapp = patient?.mobileNumber || patient?.phone;
+        if (!patientWhatsapp) {
+          toast.error("Patient doesn't have a WhatsApp number", {
+            duration: 5000,
+            position: "top-right",
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 9999,
+              maxWidth: "500px",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#ef4444",
+            },
+          });
+          return;
+        }
+
+        // Get consent form details
+        const selectedForm = consentForms.find(
+          (f) => f._id === selectedConsentId,
+        );
+        if (!selectedForm) return;
+
+        // Prepare message
+        const greeting = `Hello ${patientName}!`;
+        // // You might want to get this from somewhere
+        const consentUrl = `${window.location.origin}/consent-form/${selectedConsentId}?patientId=${patientId}&appointmentId=${appointmentId || ""}`;
+        const message = `${greeting}\n\nPlease review and sign the consent form: "${selectedForm.formName}"\n\n${consentUrl}\n\nThank you!`;
+
+        // Log the sent consent form - link to current complaint!
+        try {
+          await axios.post(
+            "/api/clinic/consent-log",
+            {
+              consentFormId: selectedConsentId,
+              consentFormName: selectedForm?.formName || "",
+              patientId: patientId,
+              patientName: patientName,
+              appointmentId: appointmentId || null,
+              complaintId: complaint._id, // Link to current complaint!
+              sentVia: "whatsapp",
+            },
+            { headers },
+          );
+        } catch (logError) {
+          console.error("Error logging consent form sent:", logError);
+        }
+
+        // Open WhatsApp
+        const whatsappUrl = `https://wa.me/${patientWhatsapp}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, "_blank");
+
+        // Show success toast
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">✅ Consent Form Sent!</span>
+            <span className="text-xs opacity-80">
+              Consent form "{selectedForm.formName}" has been sent to the patient
+            </span>
+          </div>,
+          {
+            duration: 5000,
+            position: "top-right",
+            style: {
+              background: "#10b981",
+              color: "#fff",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 9999,
+              maxWidth: "500px",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#10b981",
+            },
+          },
+        );
+
+        // Update state to indicate consent was sent
+        setConsentSent(true);
+        // Reset selected consent form for next time
+        setSelectedConsentId("");
+        // Call onConsentSent callback to refresh parent
+        onConsentSent && onConsentSent();
+      } catch (error: any) {
+        console.error("Error sending consent message:", error);
+        toast.error(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">❌ Failed to send consent form</span>
+            <span className="text-xs opacity-80">
+              {error.message || "Please try again"}
+            </span>
+          </div>,
+          {
+            duration: 5000,
+            position: "top-right",
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 9999,
+              maxWidth: "500px",
+            },
+            iconTheme: {
+              primary: "#fff",
+              secondary: "#ef4444",
+            },
+          },
+        );
+      } finally {
+        setSendingConsent(false);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm px-4 py-8">
+        <div className="bg-white w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Edit Complaint
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="px-6 py-4 overflow-y-auto space-y-4">
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
               </div>
             )}
-            {loadingProgressNotes ? (
-              <div className="py-4 text-center text-gray-400 text-xs">
-                Loading progress notes...
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-900">
+                Complaint Note <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={4}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm text-gray-700 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+              />
+            </div>
+            {/* Send Consent Form */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-900">
+                Send Consent Form
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={selectedConsentId}
+                  onChange={(e) => {
+                    setSelectedConsentId(e.target.value);
+                    setConsentSent(false);
+                  }}
+                  className="border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                  <option value="">Select Consent Form</option>
+                  {consentForms.map((cf) => (
+                    <option key={cf._id} value={cf._id}>
+                      {cf.formName}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!selectedConsentId || sendingConsent || consentSent}
+                  onClick={handleSendConsentMsgOnWhatsapp}
+                  className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${consentSent ? "bg-green-100 text-green-700 border border-green-200" : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"}`}
+                >
+                  {consentSent ? (
+                    <>
+                      <Check size={16} /> Sent
+                    </>
+                  ) : sendingConsent ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" /> Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={16} /> Send Consent
+                    </>
+                  )}
+                </button>
               </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {progressNotes.length === 0 ? (
-                  <div className="py-4 text-center text-gray-400 text-xs">
-                    No progress notes found.
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-900">
+                {isSpecificClinic
+                  ? "Static/Dynamic Scans (Images/PDFs)"
+                  : "Before/After Images/PDFs"}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    {isSpecificClinic
+                      ? "Static Scan (Image/PDF)"
+                      : "Before (Image/PDF)"}
+                  </p>
+                  <div className="relative flex items-center gap-2">
+                    <div
+                      className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
+                    >
+                      {beforeImage && (
+                        <button
+                          onClick={() => setBeforeImage("")}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                          title="Remove file"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                      {beforeImage ? (
+                        beforeImage.toLowerCase().endsWith(".pdf") ? (
+                          <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                            <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                            <a
+                              href={beforeImage}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
+                            >
+                              View PDF
+                            </a>
+                          </div>
+                        ) : (
+                          <img
+                            src={beforeImage}
+                            alt={isSpecificClinic ? "Static Scan" : "Before"}
+                            className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
+                          />
+                        )
+                      ) : (
+                        <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
+                      )}
+                      {uploadingBefore && (
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
+                          <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingBefore(true);
+                          const res = await handleUpload(file);
+                          if (res?.success) setBeforeImage(res.url);
+                          setUploadingBefore(false);
+                        }}
+                      />
+                    </div>
                   </div>
-                ) : (
-                  progressNotes.map((entry) => {
-                    const dateStr = entry.noteDate
-                      ? new Date(entry.noteDate).toISOString().slice(0, 10)
-                      : new Date(entry.createdAt).toISOString().slice(0, 10);
-                    const doctorName =
-                      typeof entry.doctorId === "object" && entry.doctorId?.name
-                        ? entry.doctorId.name
-                        : null;
-                    return (
-                      <div
-                        key={entry._id}
-                        className="rounded-lg border border-gray-200 bg-white p-3 space-y-2"
-                      >
-                        {editingProgressNoteId === entry._id &&
-                        editingProgressNoteData ? (
-                          // Edit Mode
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-blue-700">
-                                Edit Progress Note
-                              </span>
-                              <button
-                                type="button"
-                                onClick={cancelEditProgressNote}
-                                className="text-xs text-gray-500 hover:text-gray-700"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs text-gray-600 font-medium">
-                                Date:
-                              </label>
-                              <input
-                                type="date"
-                                value={editingProgressNoteData.noteDate}
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                    {isSpecificClinic
+                      ? "Dynamic Scan (Image/PDF)"
+                      : "After (Image/PDF)"}
+                  </p>
+                  <div className="relative flex items-center gap-2">
+                    <div
+                      className={`w-full ${isSpecificClinic ? "h-32" : "sm:w-32 h-32"} rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden flex-shrink-0 relative`}
+                    >
+                      {afterImage && (
+                        <button
+                          onClick={() => setAfterImage("")}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-20"
+                          title="Remove file"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                      {afterImage ? (
+                        afterImage.toLowerCase().endsWith(".pdf") ? (
+                          <div className="flex flex-col items-center justify-center w-full h-full p-2 text-center pointer-events-none">
+                            <FileText className="w-8 h-8 text-gray-400 mb-1" />
+                            <a
+                              href={afterImage}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:underline truncate w-full pointer-events-auto z-20"
+                            >
+                              View PDF
+                            </a>
+                          </div>
+                        ) : (
+                          <img
+                            src={afterImage}
+                            alt={isSpecificClinic ? "Dynamic Scan" : "After"}
+                            className={`w-full h-full ${isSpecificClinic ? "object-contain" : "object-cover"}`}
+                          />
+                        )
+                      ) : (
+                        <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-gray-300" />
+                      )}
+                      {uploadingAfter && (
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-30">
+                          <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 text-white animate-spin" />
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingAfter(true);
+                          const res = await handleUpload(file);
+                          if (res?.success) setAfterImage(res.url);
+                          setUploadingAfter(false);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Clinical Checklist */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4 text-blue-500" />
+                Clinical Checklist
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {CHECKLIST_ITEMS.map((item) => (
+                  <label
+                    key={item}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checklist[item]}
+                      onChange={(e) =>
+                        setChecklist((prev) => ({
+                          ...prev,
+                          [item]: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">{item}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900">Items</h4>
+              </div>
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <div className="sm:col-span-3">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Item
+                    </label>
+                    <select
+                      value={currentItem.itemId || ""}
+                      onChange={(e) =>
+                        handleCurrentItemChange("itemId", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
+                    >
+                      <option value="">Select Item</option>
+                      {stockItems.map((si: any) => (
+                        <option key={si._id} value={si._id}>
+                          {si.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Description
+                    </label>
+                    <input
+                      value={currentItem.description || ""}
+                      onChange={(e) =>
+                        handleCurrentItemChange("description", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
+                      placeholder="Description"
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Qty
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={currentItem.quantity}
+                      onChange={(e) =>
+                        handleCurrentItemChange("quantity", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-900">
+                      UOM
+                    </label>
+                    <select
+                      value={currentItem.uom || ""}
+                      onChange={(e) =>
+                        handleCurrentItemChange("uom", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg h-10"
+                    >
+                      <option value="">Select UOM</option>
+                      {uomsLoading ? (
+                        <option value="">Loading UOMs...</option>
+                      ) : uoms.length > 0 ? (
+                        uoms.map((u: any) => (
+                          <option key={u._id} value={u.name}>
+                            {u.name}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">No UOMs available</option>
+                      )}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-1 flex items-end">
+                    <button
+                      type="button"
+                      onClick={addCurrentItem}
+                      disabled={
+                        !currentItem.name.trim() ||
+                        !currentItem.quantity ||
+                        !currentItem.uom
+                      }
+                      className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        SI
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Item
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Description
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Qty
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        UOM
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {items.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-sm text-center text-gray-500"
+                        >
+                          No Items
+                        </td>
+                      </tr>
+                    ) : (
+                      items.map((it, idx) => {
+                        const isEditing = editIndex === idx && editingItem;
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {idx + 1}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {isEditing ? (
+                                <select
+                                  value={editingItem?.itemId || ""}
+                                  onChange={(e) =>
+                                    handleEditingItemChange(
+                                      "itemId",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                >
+                                  <option value="">Select Item</option>
+                                  {stockItems.map((si: any) => (
+                                    <option key={si._id} value={si._id}>
+                                      {si.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                it.name
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {isEditing ? (
+                                <input
+                                  value={editingItem?.description || ""}
+                                  onChange={(e) =>
+                                    handleEditingItemChange(
+                                      "description",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                />
+                              ) : (
+                                it.description || "-"
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={editingItem?.quantity || 1}
+                                  onChange={(e) =>
+                                    handleEditingItemChange(
+                                      "quantity",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className="w-24 px-2 py-1.5 text-sm border border-gray-300 rounded text-right"
+                                />
+                              ) : (
+                                it.quantity
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {isEditing ? (
+                                <select
+                                  value={editingItem?.uom || ""}
+                                  onChange={(e) =>
+                                    handleEditingItemChange("uom", e.target.value)
+                                  }
+                                  className="w-32 px-2 py-1.5 text-sm border border-gray-300 rounded"
+                                >
+                                  <option value="">Select UOM</option>
+                                  {uoms.map((u: any) => (
+                                    <option key={u._id} value={u.name}>
+                                      {u.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                it.uom || "-"
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-sm">
+                              {isEditing ? (
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={saveEditItem}
+                                    className="text-green-600 hover:text-green-800"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditItem}
+                                    className="text-gray-600 hover:text-gray-800"
+                                  >
+                                    <XIcon className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditItem(idx)}
+                                    className="text-blue-600 hover:text-blue-900"
+                                  >
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeItem(idx)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Progress Notes Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-500" />
+                  Progress Notes
+                  <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">
+                    {progressNotes.length}
+                  </span>
+                </h4>
+              </div>
+              {progressError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                  {progressError}
+                </div>
+              )}
+              {loadingProgressNotes ? (
+                <div className="py-4 text-center text-gray-400 text-xs">
+                  Loading progress notes...
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {progressNotes.length === 0 ? (
+                    <div className="py-4 text-center text-gray-400 text-xs">
+                      No progress notes found.
+                    </div>
+                  ) : (
+                    progressNotes.map((entry) => {
+                      const dateStr = entry.noteDate
+                        ? new Date(entry.noteDate).toISOString().slice(0, 10)
+                        : new Date(entry.createdAt).toISOString().slice(0, 10);
+                      const doctorName =
+                        typeof entry.doctorId === "object" && entry.doctorId?.name
+                          ? entry.doctorId.name
+                          : null;
+                      return (
+                        <div
+                          key={entry._id}
+                          className="rounded-lg border border-gray-200 bg-white p-3 space-y-2"
+                        >
+                          {editingProgressNoteId === entry._id &&
+                            editingProgressNoteData ? (
+                            // Edit Mode
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-blue-700">
+                                  Edit Progress Note
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditProgressNote}
+                                  className="text-xs text-gray-500 hover:text-gray-700"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-600 font-medium">
+                                  Date:
+                                </label>
+                                <input
+                                  type="date"
+                                  value={editingProgressNoteData.noteDate}
+                                  onChange={(e) =>
+                                    setEditingProgressNoteData({
+                                      ...editingProgressNoteData,
+                                      noteDate: e.target.value,
+                                    })
+                                  }
+                                  className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                />
+                              </div>
+                              <textarea
+                                autoFocus
+                                value={editingProgressNoteData.note}
                                 onChange={(e) =>
                                   setEditingProgressNoteData({
                                     ...editingProgressNoteData,
-                                    noteDate: e.target.value,
+                                    note: e.target.value,
                                   })
                                 }
-                                className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                rows={3}
+                                placeholder="Describe patient's progress..."
+                                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
                               />
-                            </div>
-                            <textarea
-                              autoFocus
-                              value={editingProgressNoteData.note}
-                              onChange={(e) =>
-                                setEditingProgressNoteData({
-                                  ...editingProgressNoteData,
-                                  note: e.target.value,
-                                })
-                              }
-                              rows={3}
-                              placeholder="Describe patient's progress..."
-                              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-                            />
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                disabled={
-                                  savingEditedProgress ||
-                                  !editingProgressNoteData.note.trim()
-                                }
-                                onClick={() =>
-                                  saveEditedProgressNote(entry._id)
-                                }
-                                className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                {savingEditedProgress ? "Saving..." : "Save"}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={cancelEditProgressNote}
-                                className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          // View Mode
-                          <div>
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-blue-600">
-                                  {dateStr}
-                                </span>
-                                {doctorName && (
-                                  <span className="text-xs text-gray-400">
-                                    Dr. {doctorName}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {isWithin24Hours(entry.createdAt) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditProgressNote(entry)}
-                                    className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
-                                  >
-                                    <Edit2 size={12} />
-                                  </button>
-                                )}
                                 <button
                                   type="button"
-                                  onClick={() => deleteProgressNote(entry._id)}
-                                  className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                  disabled={
+                                    savingEditedProgress ||
+                                    !editingProgressNoteData.note.trim()
+                                  }
+                                  onClick={() =>
+                                    saveEditedProgressNote(entry._id)
+                                  }
+                                  className="px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
                                 >
-                                  <Trash2 size={12} />
+                                  {savingEditedProgress ? "Saving..." : "Save"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditProgressNote}
+                                  className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                                >
+                                  Cancel
                                 </button>
                               </div>
                             </div>
-                            <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed mt-1">
-                              {entry.note}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-            {/* Add New Progress Note */}
-            {addingNewEntry ? (
-              <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/60 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-blue-700 flex items-center gap-1">
-                    <Plus size={12} /> New Progress Entry
-                  </span>
-                  <span className="text-xs text-blue-600">{newEntryDate}</span>
+                          ) : (
+                            // View Mode
+                            <div>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-blue-600">
+                                    {dateStr}
+                                  </span>
+                                  {doctorName && (
+                                    <span className="text-xs text-gray-400">
+                                      Dr. {doctorName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {isWithin24Hours(entry.createdAt) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditProgressNote(entry)}
+                                      className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                                    >
+                                      <Edit2 size={12} />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteProgressNote(entry._id)}
+                                    className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-700 whitespace-pre-wrap leading-relaxed mt-1">
+                                {entry.note}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                <textarea
-                  autoFocus
-                  value={newEntryText}
-                  onChange={(e) => setNewEntryText(e.target.value)}
-                  rows={3}
-                  placeholder="Describe patient's progress..."
-                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-blue-700 font-medium">
-                      Date:
-                    </label>
-                    <input
-                      type="date"
-                      value={newEntryDate}
-                      onChange={(e) => setNewEntryDate(e.target.value)}
-                      className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    />
+              )}
+              {/* Add New Progress Note */}
+              {addingNewEntry ? (
+                <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50/60 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                      <Plus size={12} /> New Progress Entry
+                    </span>
+                    <span className="text-xs text-blue-600">{newEntryDate}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingNewEntry(false);
-                        setNewEntryText("");
-                        setProgressError("");
-                      }}
-                      className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={savingProgress || !newEntryText.trim()}
-                      onClick={addProgressNote}
-                      className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {savingProgress ? "Saving..." : "Save"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setAddingNewEntry(true);
-                  setNewEntryDate(new Date().toISOString().slice(0, 10));
-                }}
-                className="w-full flex items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 py-2 text-xs font-medium text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors bg-white"
-              >
-                <Plus size={12} /> Add Progress Note
-              </button>
-            )}
-          </div>
-
-          {/* Prescription Section */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <Pill className="w-4 h-4 text-purple-500" />
-                Prescriptions
-                <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
-                  {prescriptionHistory.length}
-                </span>
-              </h4>
-            </div>
-            {prescriptionError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
-                {prescriptionError}
-              </div>
-            )}
-            {loadingPrescriptionHistory ? (
-              <div className="py-4 text-center text-gray-400 text-xs">
-                Loading prescriptions...
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {prescriptionHistory.length === 0 ? (
-                  <div className="py-4 text-center text-gray-400 text-xs">
-                    No prescriptions found.
-                  </div>
-                ) : (
-                  prescriptionHistory.map((entry) => {
-                    const isExpanded = !!expandedPrescription[entry._id];
-                    const doctorName =
-                      typeof entry.doctorId === "object" && entry.doctorId?.name
-                        ? entry.doctorId.name
-                        : null;
-                    return (
-                      <div
-                        key={entry._id}
-                        className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden"
+                  <textarea
+                    autoFocus
+                    value={newEntryText}
+                    onChange={(e) => setNewEntryText(e.target.value)}
+                    rows={3}
+                    placeholder="Describe patient's progress..."
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-300 resize-none"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-blue-700 font-medium">
+                        Date:
+                      </label>
+                      <input
+                        type="date"
+                        value={newEntryDate}
+                        onChange={(e) => setNewEntryDate(e.target.value)}
+                        className="border border-blue-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddingNewEntry(false);
+                          setNewEntryText("");
+                          setProgressError("");
+                        }}
+                        className="px-3 py-1 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
                       >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedPrescription((prev) => ({
-                              ...prev,
-                              [entry._id]: !prev[entry._id],
-                            }))
-                          }
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50"
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingProgress || !newEntryText.trim()}
+                        onClick={addProgressNote}
+                        className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingProgress ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingNewEntry(true);
+                    setNewEntryDate(new Date().toISOString().slice(0, 10));
+                  }}
+                  className="w-full flex items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 py-2 text-xs font-medium text-gray-400 hover:border-blue-300 hover:text-blue-600 transition-colors bg-white"
+                >
+                  <Plus size={12} /> Add Progress Note
+                </button>
+              )}
+            </div>
+
+            {/* Prescription Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <Pill className="w-4 h-4 text-purple-500" />
+                  Prescriptions
+                  <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
+                    {prescriptionHistory.length}
+                  </span>
+                </h4>
+              </div>
+              {prescriptionError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+                  {prescriptionError}
+                </div>
+              )}
+              {loadingPrescriptionHistory ? (
+                <div className="py-4 text-center text-gray-400 text-xs">
+                  Loading prescriptions...
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {prescriptionHistory.length === 0 ? (
+                    <div className="py-4 text-center text-gray-400 text-xs">
+                      No prescriptions found.
+                    </div>
+                  ) : (
+                    prescriptionHistory.map((entry) => {
+                      const isExpanded = !!expandedPrescription[entry._id];
+                      const doctorName =
+                        typeof entry.doctorId === "object" && entry.doctorId?.name
+                          ? entry.doctorId.name
+                          : null;
+                      return (
+                        <div
+                          key={entry._id}
+                          className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden"
                         >
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
-                              <Pill size={10} />
-                              {entry.medicines.length} med
-                              {entry.medicines.length !== 1 ? "s" : ""}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {new Date(entry.createdAt).toLocaleDateString()}
-                            </span>
-                            {doctorName && (
-                              <span className="text-xs text-gray-400">
-                                Dr. {doctorName}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedPrescription((prev) => ({
+                                ...prev,
+                                [entry._id]: !prev[entry._id],
+                              }))
+                            }
+                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">
+                                <Pill size={10} />
+                                {entry.medicines.length} med
+                                {entry.medicines.length !== 1 ? "s" : ""}
                               </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {isWithin24Hours(entry.createdAt) && (
+                              <span className="text-xs text-gray-400">
+                                {new Date(entry.createdAt).toLocaleDateString()}
+                              </span>
+                              {doctorName && (
+                                <span className="text-xs text-gray-400">
+                                  Dr. {doctorName}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isWithin24Hours(entry.createdAt) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditPrescription(entry);
+                                  }}
+                                  className="p-1 text-gray-300 hover:text-blue-500"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  startEditPrescription(entry);
+                                  deletePrescription(entry._id);
                                 }}
-                                className="p-1 text-gray-300 hover:text-blue-500"
+                                className="p-1 text-gray-300 hover:text-red-500"
                               >
-                                <Edit2 size={12} />
+                                <Trash2 size={12} />
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deletePrescription(entry._id);
-                              }}
-                              className="p-1 text-gray-300 hover:text-red-500"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                            {isExpanded ? (
-                              <ChevronUp size={12} className="text-gray-400" />
-                            ) : (
-                              <ChevronDown
-                                size={12}
-                                className="text-gray-400"
-                              />
-                            )}
-                          </div>
-                        </button>
-                        {isExpanded && (
-                          <div className="border-t border-gray-100 px-3 py-2 bg-gray-50/50 space-y-2">
-                            {editingPrescriptionId === entry._id &&
-                            editingPrescriptionData ? (
-                              // Edit Mode
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <h5 className="text-xs font-semibold text-blue-700">
-                                    Edit Prescription
-                                  </h5>
+                              {isExpanded ? (
+                                <ChevronUp size={12} className="text-gray-400" />
+                              ) : (
+                                <ChevronDown
+                                  size={12}
+                                  className="text-gray-400"
+                                />
+                              )}
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="border-t border-gray-100 px-3 py-2 bg-gray-50/50 space-y-2">
+                              {editingPrescriptionId === entry._id &&
+                                editingPrescriptionData ? (
+                                // Edit Mode
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h5 className="text-xs font-semibold text-blue-700">
+                                      Edit Prescription
+                                    </h5>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditPrescription}
+                                      className="text-xs text-gray-500 hover:text-gray-700"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                  <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            #
+                                          </th>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            Medicine
+                                          </th>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            Dosage
+                                          </th>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            Duration
+                                          </th>
+                                          <th className="px-2 py-1.5 text-center font-semibold text-gray-500 w-12">
+                                            Action
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {editingPrescriptionData.medicines.map(
+                                          (med, mIdx) => (
+                                            <tr key={med._id || mIdx}>
+                                              <td className="px-2 py-1.5 text-gray-400">
+                                                {mIdx + 1}
+                                              </td>
+                                              <td className="px-2 py-1.5">
+                                                <input
+                                                  type="text"
+                                                  value={med.medicineName}
+                                                  onChange={(e) => {
+                                                    const newMeds = [
+                                                      ...editingPrescriptionData.medicines,
+                                                    ];
+                                                    newMeds[mIdx].medicineName =
+                                                      e.target.value;
+                                                    setEditingPrescriptionData({
+                                                      ...editingPrescriptionData,
+                                                      medicines: newMeds,
+                                                    });
+                                                  }}
+                                                  placeholder="Medicine"
+                                                  className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                                />
+                                              </td>
+                                              <td className="px-2 py-1.5">
+                                                <input
+                                                  type="text"
+                                                  value={med.dosage || ""}
+                                                  onChange={(e) => {
+                                                    const newMeds = [
+                                                      ...editingPrescriptionData.medicines,
+                                                    ];
+                                                    newMeds[mIdx].dosage =
+                                                      e.target.value;
+                                                    setEditingPrescriptionData({
+                                                      ...editingPrescriptionData,
+                                                      medicines: newMeds,
+                                                    });
+                                                  }}
+                                                  placeholder="Dosage"
+                                                  className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                                />
+                                              </td>
+                                              <td className="px-2 py-1.5">
+                                                <input
+                                                  type="text"
+                                                  value={med.duration || ""}
+                                                  onChange={(e) => {
+                                                    const newMeds = [
+                                                      ...editingPrescriptionData.medicines,
+                                                    ];
+                                                    newMeds[mIdx].duration =
+                                                      e.target.value;
+                                                    setEditingPrescriptionData({
+                                                      ...editingPrescriptionData,
+                                                      medicines: newMeds,
+                                                    });
+                                                  }}
+                                                  placeholder="Duration"
+                                                  className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
+                                                />
+                                              </td>
+                                              <td className="px-2 py-1.5 text-center">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    const newMeds =
+                                                      editingPrescriptionData.medicines.filter(
+                                                        (_, idx) => idx !== mIdx,
+                                                      );
+                                                    setEditingPrescriptionData({
+                                                      ...editingPrescriptionData,
+                                                      medicines: newMeds,
+                                                    });
+                                                  }}
+                                                  className="text-red-500 hover:text-red-700 p-0.5"
+                                                >
+                                                  <Trash2 size={10} />
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ),
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
                                   <button
                                     type="button"
-                                    onClick={cancelEditPrescription}
-                                    className="text-xs text-gray-500 hover:text-gray-700"
+                                    onClick={() => {
+                                      const newMeds = [
+                                        ...editingPrescriptionData.medicines,
+                                        {
+                                          medicineName: "",
+                                          dosage: "",
+                                          duration: "",
+                                          notes: "",
+                                        },
+                                      ];
+                                      setEditingPrescriptionData({
+                                        ...editingPrescriptionData,
+                                        medicines: newMeds,
+                                      });
+                                    }}
+                                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
                                   >
-                                    Cancel
+                                    <Plus size={10} /> Add Medicine
                                   </button>
+                                  <div>
+                                    <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">
+                                      Aftercare
+                                    </label>
+                                    <textarea
+                                      value={
+                                        editingPrescriptionData.aftercareInstructions ||
+                                        ""
+                                      }
+                                      onChange={(e) =>
+                                        setEditingPrescriptionData({
+                                          ...editingPrescriptionData,
+                                          aftercareInstructions: e.target.value,
+                                        })
+                                      }
+                                      rows={2}
+                                      placeholder="Aftercare instructions..."
+                                      className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={savingEditedPrescription}
+                                      onClick={() =>
+                                        saveEditedPrescription(entry._id)
+                                      }
+                                      className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                                    >
+                                      {savingEditedPrescription
+                                        ? "Saving..."
+                                        : "Save"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditPrescription}
+                                      className="px-3 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-                                  <table className="w-full text-xs">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          #
-                                        </th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          Medicine
-                                        </th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          Dosage
-                                        </th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          Duration
-                                        </th>
-                                        <th className="px-2 py-1.5 text-center font-semibold text-gray-500 w-12">
-                                          Action
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                      {editingPrescriptionData.medicines.map(
-                                        (med, mIdx) => (
-                                          <tr key={med._id || mIdx}>
+                              ) : (
+                                // View Mode
+                                <div>
+                                  <div className="rounded-lg border border-gray-200 overflow-hidden">
+                                    <table className="w-full text-xs">
+                                      <thead className="bg-gray-100">
+                                        <tr>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            #
+                                          </th>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            Medicine
+                                          </th>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            Dosage
+                                          </th>
+                                          <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
+                                            Duration
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100 bg-white">
+                                        {entry.medicines.map((med, mIdx) => (
+                                          <tr key={mIdx}>
                                             <td className="px-2 py-1.5 text-gray-400">
                                               {mIdx + 1}
                                             </td>
-                                            <td className="px-2 py-1.5">
-                                              <input
-                                                type="text"
-                                                value={med.medicineName}
-                                                onChange={(e) => {
-                                                  const newMeds = [
-                                                    ...editingPrescriptionData.medicines,
-                                                  ];
-                                                  newMeds[mIdx].medicineName =
-                                                    e.target.value;
-                                                  setEditingPrescriptionData({
-                                                    ...editingPrescriptionData,
-                                                    medicines: newMeds,
-                                                  });
-                                                }}
-                                                placeholder="Medicine"
-                                                className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                              />
+                                            <td className="px-2 py-1.5 font-medium text-gray-800">
+                                              {med.medicineName}
                                             </td>
-                                            <td className="px-2 py-1.5">
-                                              <input
-                                                type="text"
-                                                value={med.dosage || ""}
-                                                onChange={(e) => {
-                                                  const newMeds = [
-                                                    ...editingPrescriptionData.medicines,
-                                                  ];
-                                                  newMeds[mIdx].dosage =
-                                                    e.target.value;
-                                                  setEditingPrescriptionData({
-                                                    ...editingPrescriptionData,
-                                                    medicines: newMeds,
-                                                  });
-                                                }}
-                                                placeholder="Dosage"
-                                                className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                              />
+                                            <td className="px-2 py-1.5 text-gray-600">
+                                              {med.dosage || "-"}
                                             </td>
-                                            <td className="px-2 py-1.5">
-                                              <input
-                                                type="text"
-                                                value={med.duration || ""}
-                                                onChange={(e) => {
-                                                  const newMeds = [
-                                                    ...editingPrescriptionData.medicines,
-                                                  ];
-                                                  newMeds[mIdx].duration =
-                                                    e.target.value;
-                                                  setEditingPrescriptionData({
-                                                    ...editingPrescriptionData,
-                                                    medicines: newMeds,
-                                                  });
-                                                }}
-                                                placeholder="Duration"
-                                                className="w-full border border-gray-200 rounded px-1.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300"
-                                              />
-                                            </td>
-                                            <td className="px-2 py-1.5 text-center">
-                                              <button
-                                                type="button"
-                                                onClick={() => {
-                                                  const newMeds =
-                                                    editingPrescriptionData.medicines.filter(
-                                                      (_, idx) => idx !== mIdx,
-                                                    );
-                                                  setEditingPrescriptionData({
-                                                    ...editingPrescriptionData,
-                                                    medicines: newMeds,
-                                                  });
-                                                }}
-                                                className="text-red-500 hover:text-red-700 p-0.5"
-                                              >
-                                                <Trash2 size={10} />
-                                              </button>
+                                            <td className="px-2 py-1.5 text-gray-600">
+                                              {med.duration || "-"}
                                             </td>
                                           </tr>
-                                        ),
-                                      )}
-                                    </tbody>
-                                  </table>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newMeds = [
-                                      ...editingPrescriptionData.medicines,
-                                      {
-                                        medicineName: "",
-                                        dosage: "",
-                                        duration: "",
-                                        notes: "",
-                                      },
-                                    ];
-                                    setEditingPrescriptionData({
-                                      ...editingPrescriptionData,
-                                      medicines: newMeds,
-                                    });
-                                  }}
-                                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                >
-                                  <Plus size={10} /> Add Medicine
-                                </button>
-                                <div>
-                                  <label className="text-[10px] font-semibold text-gray-500 uppercase mb-1 block">
-                                    Aftercare
-                                  </label>
-                                  <textarea
-                                    value={
-                                      editingPrescriptionData.aftercareInstructions ||
-                                      ""
-                                    }
-                                    onChange={(e) =>
-                                      setEditingPrescriptionData({
-                                        ...editingPrescriptionData,
-                                        aftercareInstructions: e.target.value,
-                                      })
-                                    }
-                                    rows={2}
-                                    placeholder="Aftercare instructions..."
-                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 resize-none"
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    disabled={savingEditedPrescription}
-                                    onClick={() =>
-                                      saveEditedPrescription(entry._id)
-                                    }
-                                    className="flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
-                                  >
-                                    {savingEditedPrescription
-                                      ? "Saving..."
-                                      : "Save"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelEditPrescription}
-                                    className="px-3 py-1 rounded-lg bg-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-300"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              // View Mode
-                              <div>
-                                <div className="rounded-lg border border-gray-200 overflow-hidden">
-                                  <table className="w-full text-xs">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          #
-                                        </th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          Medicine
-                                        </th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          Dosage
-                                        </th>
-                                        <th className="px-2 py-1.5 text-left font-semibold text-gray-500">
-                                          Duration
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 bg-white">
-                                      {entry.medicines.map((med, mIdx) => (
-                                        <tr key={mIdx}>
-                                          <td className="px-2 py-1.5 text-gray-400">
-                                            {mIdx + 1}
-                                          </td>
-                                          <td className="px-2 py-1.5 font-medium text-gray-800">
-                                            {med.medicineName}
-                                          </td>
-                                          <td className="px-2 py-1.5 text-gray-600">
-                                            {med.dosage || "-"}
-                                          </td>
-                                          <td className="px-2 py-1.5 text-gray-600">
-                                            {med.duration || "-"}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                                {entry.aftercareInstructions && (
-                                  <div className="mt-2">
-                                    <p className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5">
-                                      Aftercare
-                                    </p>
-                                    <p className="text-xs text-gray-600 whitespace-pre-wrap">
-                                      {entry.aftercareInstructions}
-                                    </p>
+                                        ))}
+                                      </tbody>
+                                    </table>
                                   </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
+                                  {entry.aftercareInstructions && (
+                                    <div className="mt-2">
+                                      <p className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5">
+                                        Aftercare
+                                      </p>
+                                      <p className="text-xs text-gray-600 whitespace-pre-wrap">
+                                        {entry.aftercareInstructions}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !note.trim()}
+              className="rounded-lg bg-gray-800 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-900 disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-6 py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !note.trim()}
-            className="rounded-lg bg-gray-800 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-900 disabled:opacity-60"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 const DeleteConfirmationModal: React.FC<{
   isOpen: boolean;
@@ -14175,64 +14162,64 @@ const DeleteConfirmationModal: React.FC<{
   cancelText = "Cancel",
   isDeleting = false,
 }) => {
-  if (!isOpen) return null;
+    if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 px-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition"
-            disabled={isDeleting}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    return (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 px-4">
+        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition"
+              disabled={isDeleting}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-        <div className="px-6 py-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="px-6 py-6">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-700">{message}</p>
               </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-700">{message}</p>
-            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isDeleting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              {cancelText}
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isDeleting}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+            >
+              {isDeleting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                confirmText
+              )}
+            </button>
           </div>
         </div>
-
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isDeleting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-          >
-            {cancelText}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isDeleting}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            {isDeleting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Deleting...
-              </>
-            ) : (
-              confirmText
-            )}
-          </button>
-        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 const ComplaintDetailModal: React.FC<{
   complaint: any;
@@ -14314,10 +14301,10 @@ const ComplaintDetailModal: React.FC<{
       y += 6;
       const apptDate = complaint.createdAt
         ? new Date(complaint.createdAt).toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
         : "N/A";
       doc.text(`Date: ${apptDate}`, margin, y);
       doc.setTextColor(0, 0, 0);

@@ -98,77 +98,82 @@ export default async function handler(req, res) {
     ...rest
   } = req.body;
 
-  if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "At least one recipientId is required",
-    });
-  }
-
-  if (!providerId) {
-    return res.status(400).json({
-      success: false,
-      message: "Provider is required",
-    });
-  }
-
   try {
+    // If Only given toEmail, then find lead with that email if not then create lead and find conversation and then used
+    if (recipientIds?.length === 0 && rest.to && !conversationId) {
+      const findLead = await Lead.findOne({
+        clinicId: clinicId,
+        email: rest.to,
+      }).select("_id email");
+
+      if (findLead) {
+        recipientIds.push(findLead._id);
+      } else {
+        const lead = new Lead({
+          clinicId,
+          name: rest.to,
+          email: rest.to,
+          source: "Other",
+        });
+        await lead.save();
+        recipientIds.push(lead._id);
+      }
+
+      // Find conversation with that lead
+      let conversation = await Conversation.findOne({
+        clinicId,
+        leadId: recipientIds[0],
+      }).select("_id");
+
+      if (!conversation) {
+        conversation = new Conversation({
+          leadId: recipientIds[0],
+          clinicId,
+          ownerId: me._id,
+        });
+        await conversation.save();
+      }
+
+      conversationId = conversation._id;
+    }
+
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Provider is required",
+      });
+    }
     let lastMessageId = "";
-    if (recipientIds?.length === 0) {
+    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
       return res.status(400).json({
         success: false,
         message: "At least one recipientId is required",
       });
     }
 
-    const recipientId = recipientIds[0];
-    let toEmails = [];
-    for (const rId of recipientIds) {
-      const lead = await Lead.findById(rId).select("email");
-      if (!lead) {
-        return res.status(404).json({
-          success: false,
-          message: "Lead not found",
-        });
-      }
-      if (lead.email) {
-        toEmails.push(lead.email);
-      }
-    }
-    toEmails = [...new Set(toEmails)]; // remove duplicate emails
-
-    console.log({ toEmails, recipientIds });
-
-    const clinic = await Clinic.findById(clinicId);
-    let conversation = await Conversation.findById(conversationId);
-    if (req.body.leadId) {
-      conversation = await Conversation.findOne({
-        leadId: req.body.leadId,
-        clinicId,
-      });
-      conversationId = conversation._id;
-    }
+    let recipientId = recipientIds[0];
+    let conversation = conversationId
+      ? await Conversation.findById(conversationId).select("_id leadId")
+      : null;
 
     // If i want to send message to patient
     if (req.body.patientId) {
       const patient = await PatientRegistration.findById(req.body.patientId);
-      // console.log({ patient });
       if (patient && patient.leadId) {
         recipientId = patient.leadId;
         conversation = await Conversation.findOne({
           leadId: patient.leadId,
           clinicId,
-        });
+        }).select("_id leadId");
         if (!conversation) {
-          conversation = new Conversation({
+          conversation = await new Conversation({
             leadId: patient.leadId,
             clinicId,
             ownerId: me._id,
-          });
-          await conversation.save();
+          }).save();
         }
       } else if (patient) {
-        const lead = new Lead({
+        const newLead = new Lead({
           clinicId,
           name: `${patient.firstName} ${patient.lastName}`,
           phone: patient.mobileNumber,
@@ -177,22 +182,35 @@ export default async function handler(req, res) {
           source: "Other",
           patientId: patient._id,
         });
-        patient.leadId = lead._id;
-        await Promise.all([patient.save(), lead.save()]);
-        recipientId = lead._id;
+        await newLead.save();
+        recipientId = newLead._id;
+        patient.leadId = newLead._id;
+        await patient.save();
         conversation = await Conversation.findOne({
-          leadId: lead._id,
+          leadId: newLead._id,
           clinicId,
-        });
+        }).select("_id leadId");
         if (!conversation) {
-          conversation = new Conversation({
-            leadId: lead._id,
+          conversation = await new Conversation({
+            leadId: newLead._id,
             clinicId,
             ownerId: me._id,
-          });
-          await conversation.save();
+          }).save();
         }
       }
+    }
+
+    if (req.body.leadId) {
+      conversation = await Conversation.findOne({
+        leadId: req.body.leadId,
+        clinicId,
+      }).select("_id leadId");
+      conversationId = conversation?._id;
+    }
+
+    if (!conversation && conversationId) {
+      conversation =
+        await Conversation.findById(conversationId).select("_id leadId");
     }
 
     if (!conversation) {
@@ -201,15 +219,40 @@ export default async function handler(req, res) {
         message: "Conversation not found",
       });
     }
-    if (!providerId) {
+
+    const recipientLeads = await Lead.find({
+      _id: { $in: recipientIds },
+    })
+      .select("email")
+      .lean();
+    if (recipientLeads.length !== recipientIds.length) {
       return res.status(404).json({
         success: false,
-        message: "Provider is required",
+        message: "Lead not found",
       });
     }
+    const toEmails = [
+      ...new Set(recipientLeads.map((lead) => lead.email).filter(Boolean)),
+    ];
 
-    let provider = await Provider.findById(providerId);
-    const lead = await Lead.findById(recipientId);
+    const [clinic, provider, lead] = await Promise.all([
+      Clinic.findById(clinicId).lean(),
+      Provider.findById(providerId).lean(),
+      Lead.findById(recipientId).lean(),
+    ]);
+
+    if (!clinic) {
+      return res.status(400).json({
+        success: false,
+        message: "Clinic not found",
+      });
+    }
+    if (!provider) {
+      return res.status(404).json({
+        success: false,
+        message: "Provider not found",
+      });
+    }
     if (!lead) {
       return res.status(404).json({
         success: false,
@@ -218,22 +261,16 @@ export default async function handler(req, res) {
     }
     const leadId = conversation.leadId;
 
-    if (!provider) {
-      return res.status(404).json({
-        success: false,
-        message: "Provider not found",
-      });
-    }
+    const [leadPayload, systemPayload] = await Promise.all([
+      getLeadDetails(lead._id),
+      getSystemDetails(),
+    ]);
 
     const senderId = me._id;
     const messageType = "conversational";
     const direction = "outgoing";
 
-    const leadPayload = await getLeadDetails(lead?._id);
-    const systemPayload = getSystemDetails();
-
     if (signature) {
-      // add signature at the end of content
       content = `${content}<br>${signature}`;
       content = content
         ?.replace(/<p><br><\/p>/g, "<br>")
@@ -245,7 +282,6 @@ export default async function handler(req, res) {
     subject = replaceVariableInString(subject, "system", systemPayload);
     content = replaceVariableInString(content, "system", systemPayload);
 
-    // Validate email before sending
     const toEmail = lead.email;
     const isValidToEmail = validateEmail(toEmail);
 
@@ -272,21 +308,12 @@ export default async function handler(req, res) {
       ...(bcc && { bcc }),
     });
 
-    lastMessageId = newMessage?._id;
-
-    // assign this message as a recentMessage
     conversation.recentMessage = newMessage._id;
 
-    await newMessage.save();
-
-    // make tracking content
-    // campaign content
-    const openTrackUrl = `https://zeva360.com/api/email/track/open?emailId=${newMessage?._id}`;
-    const unsubscribeLink = `https://zeva360.com/unsubscribe/${
-      lead?._id
-    }/${encodeURIComponent(provider?.email)}/${encodeURIComponent(
-      toEmail,
-    )}?emailId=${newMessage?._id}`;
+    const openTrackUrl = `https://zeva360.com/api/email/track/open?emailId=${newMessage._id}`;
+    const unsubscribeLink = `https://zeva360.com/unsubscribe/${lead._id}/${encodeURIComponent(
+      provider.email,
+    )}/${encodeURIComponent(toEmail)}?emailId=${newMessage._id}`;
 
     const sanitizedContent = replaceUrlsWithTrackingUrlsInContent(
       content,
@@ -301,43 +328,39 @@ export default async function handler(req, res) {
 
     // Handle email sending logic
     let emailSent = false;
-    try {
-      const replyToMsg = await Message.findById(replyToMessageId).select(
-        "threadId providerMessageId",
-      );
+    let providerMessageId = undefined;
+    let providerThreadId = undefined;
+    let senderName = `${me.name}`;
+    if (provider.label && !validateEmail(provider.label)) {
+      senderName = provider.label;
+    }
 
-      if (provider?.emailProviderType === "gmail" && isValidToEmail) {
-        let senderName = `${me?.name}`;
-        if (provider.label && !validateEmail(provider.label)) {
-          senderName = provider.label;
-        }
+    const replyToMsg = replyToMessageId
+      ? await Message.findById(replyToMessageId)
+          .select("threadId providerMessageId")
+          .lean()
+      : null;
+
+    try {
+      if (provider.emailProviderType === "gmail" && isValidToEmail) {
         const emailResponse = await sendEmailViaGmailMultiple({
           providerId: provider._id,
           to: toEmails,
           from: provider.email,
-          senderName: senderName,
+          senderName,
           subject,
           content: htmlContent,
-          attachments, // You can add attachments here
+          attachments,
           originalMessageId: quotedMessageId || replyToMsg?.providerMessageId,
-          threadId: replyToMsg ? replyToMsg?.threadId : "",
+          threadId: replyToMsg?.threadId || "",
         });
 
-        if (emailResponse.id && emailResponse.threadId) {
-          // If the email is sent successfully, update the message status
+        if (emailResponse?.id && emailResponse?.threadId) {
           emailSent = true;
-          newMessage.providerMessageId = emailResponse.id;
-          newMessage.threadId = emailResponse.threadId;
-          await newMessage.save();
-          console.log(`Email sent to ${toEmail}`);
-        } else {
-          console.error(`Failed to send email to ${toEmail}`);
+          providerMessageId = emailResponse.id;
+          providerThreadId = emailResponse.threadId;
         }
-      } else if (provider?.emailProviderType === "other" && isValidToEmail) {
-        let senderName = `${me?.name}`;
-        if (provider.label && !validateEmail(provider.label)) {
-          senderName = provider.label;
-        }
+      } else if (provider.emailProviderType === "other" && isValidToEmail) {
         const emailResponse = await sendEmailViaSmtpMultiple({
           providerId: provider._id,
           to: toEmails,
@@ -345,61 +368,31 @@ export default async function handler(req, res) {
           senderName,
           subject,
           content: htmlContent,
-          attachments, // You can add attachments here
+          attachments,
           originalMessageId: quotedMessageId || replyToMsg?.providerMessageId,
           cc,
           bcc,
         });
 
         if (emailResponse?.messageId) {
-          const providerMsgId = emailResponse?.messageId;
           emailSent = true;
-          newMessage.providerMessageId = providerMsgId;
-          await newMessage.save();
-          console.log(`Email sent to ${toEmail}`);
-        } else {
-          console.error(`Failed to send email to ${toEmail}`);
+          providerMessageId = emailResponse.messageId;
         }
       }
-      //       else if (provider?.emailProviderType === "amazon" && isValidToEmail) {
-      //     let senderName = `${user?.firstName} ${user?.lastName}`;
-      //     if (provider.label && !validateEmail(provider.label)) {
-      //       senderName = provider.label;
-      //     }
-      //     const emailResponse = await sendEmailByAwsSesMultiple({
-      //       fromEmail: provider?.email,
-      //       senderName,
-      //       toEmails: toEmails,
-      //       subject,
-      //       bodyText: "",
-      //       bodyHtml: htmlContent,
-      //     });
-
-      //     if (emailResponse) {
-      //       emailSent = true;
-      //       console.log(`Email sent to ${toEmail}`);
-      //     } else {
-      //       console.error(`Failed to send email to ${toEmail}`);
-      //     }
-      //   }
     } catch (emailError) {
       console.error(`Error sending email to ${toEmail}:`, emailError.message);
     }
 
-    // Update the message status based on whether the email was successfully sent
-    if (emailSent) {
-      newMessage.status = "sent";
-    } else {
-      newMessage.status = "failed";
-    }
+    newMessage.status = emailSent ? "sent" : "failed";
+    if (providerMessageId) newMessage.providerMessageId = providerMessageId;
+    if (providerThreadId) newMessage.threadId = providerThreadId;
 
-    // TODO: Create activity log for message send
     await Promise.all([newMessage.save(), conversation.save()]);
 
     const findMessage = await Message.findById(newMessage._id)
       .populate("senderId", "name email phone")
       .populate("recipientId", "name email phone")
-      // .populate("provider", "name label email phone")
+      .populate("provider", "name label email phone")
       .populate({
         path: "replyToMessageId",
         select: "content mediaType mediaUrl channel direction", // Fields of the reply message
@@ -413,7 +406,8 @@ export default async function handler(req, res) {
             select: "name email phone", // Specific fields of recipient in the reply
           },
         ],
-      });
+      })
+      .lean();
 
     res.status(200).json({
       success: true,

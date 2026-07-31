@@ -601,7 +601,7 @@ const InboxPage: NextPageWithLayout = () => {
     canSend,
     canSchedule,
     agents,
-    selectedAgent,
+    selectedAgents,
     agentFetchLoading,
     isScheduleModalOpen,
     isFilterModalOpen,
@@ -726,19 +726,20 @@ const InboxPage: NextPageWithLayout = () => {
           {permissions.canUpdate && (
             <div className="relative flex items-center">
               <div className="flex items-center">
-                {conversationStatusOptions?.slice(0, 4)?.map((option) => (
+                {conversationStatusOptions?.slice(0, 3)?.map((option) => (
                   <button
                     key={option.value}
                     onClick={() =>
                       setFilters((prev) => ({ ...prev, status: option.value }))
                     }
-                    className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${
+                    className={`px-3 py-1.5 mr-2 mb-2 flex items-center gap-1 rounded-full text-sm font-medium transition-all ${
                       filters.status === option.value
                         ? "bg-gray-800 text-white"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
-                    {option.label}
+                    <span>{option.label}</span>
+                    <span className="">({option.count})</span>
                   </button>
                 ))}
               </div>
@@ -764,7 +765,7 @@ const InboxPage: NextPageWithLayout = () => {
                       role="menu"
                       className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
                     >
-                      {conversationStatusOptions.slice(4).map((opt) => (
+                      {conversationStatusOptions.slice(3).map((opt) => (
                         <button
                           key={opt.value}
                           onClick={() => {
@@ -779,8 +780,8 @@ const InboxPage: NextPageWithLayout = () => {
                               if (selIndex === -1) return prev;
                               const selectedOption = prev[selIndex];
 
-                              // Keep reference to original 4th item (index 3)
-                              const originalThird = prev[3];
+                              // Keep reference to original 3rd item (index 2)
+                              const originalThird = prev[2];
 
                               // Remove selected from list
                               const withoutSelected = prev.filter(
@@ -817,9 +818,10 @@ const InboxPage: NextPageWithLayout = () => {
                             setShowStatusDropdown(false);
                           }}
                           role="menuitem"
-                          className={`w-full text-left px-3 py-2 text-sm transition-colors hover:bg-gray-50 text-gray-700`}
+                          className={`w-full flex items-center gap-1 text-left px-3 py-2 text-sm transition-colors hover:bg-gray-50 text-gray-700`}
                         >
-                          {opt.label}
+                          <span>{opt.label}</span>
+                          <span className="">({opt.count})</span>
                         </button>
                       ))}
                     </div>
@@ -915,20 +917,20 @@ const InboxPage: NextPageWithLayout = () => {
                   />
                   <AssignConversation
                     agents={agents}
-                    selectedAgent={selectedAgent}
-                    onAgentSelect={(agent) =>
-                      handleAgentSelect(agent, selectedConversation?._id)
+                    selectedAgents={selectedAgents}
+                    onAgentsSelect={(agents) =>
+                      handleAgentSelect(agents, selectedConversation?._id)
                     }
                     loading={agentFetchLoading}
-                    placeholder="Assign to agent..."
+                    placeholder="Assign to agents..."
                   />
 
                   {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
-                  <Info className="h-5 w-5" />
-                </button>
-                <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
-                  <MoreVertical className="h-5 w-5" />
-                </button> */}
+              <Info className="h-5 w-5" />
+            </button>
+            <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
+              <MoreVertical className="h-5 w-5" />
+            </button> */}
                 </div>
               ) : (
                 <div>
@@ -1283,7 +1285,10 @@ const InboxPage: NextPageWithLayout = () => {
                         </div>
 
                         {/* Footer with Add New Provider button */}
-                        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
+                        <div
+                          onClick={() => router.push("/clinic/providers")}
+                          className="px-4 py-3 border-t border-gray-100 bg-gray-50/50 rounded-b-xl"
+                        >
                           <button
                             onClick={() => {
                               // Add your add provider logic here

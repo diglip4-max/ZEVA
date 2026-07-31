@@ -137,7 +137,7 @@ export default async function handler(req, res) {
         },
       ],
     })
-      .select("_id firstName lastName mobileNumber email emrNumber gender")
+      .select("_id firstName lastName countryCode mobileNumber email emrNumber gender")
       .limit(30) // Increased limit for better results
       .sort({ createdAt: -1 })
       .lean();
@@ -149,6 +149,7 @@ export default async function handler(req, res) {
         firstName: patient.firstName,
         lastName: patient.lastName,
         fullName: `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+        countryCode: patient.countryCode,
         mobileNumber: patient.mobileNumber,
         email: patient.email,
         emrNumber: patient.emrNumber,

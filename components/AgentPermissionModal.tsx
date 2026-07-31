@@ -14,6 +14,10 @@ interface SubModule {
     read: boolean;
     update: boolean;
     delete: boolean;
+    import?: boolean;
+    export?: boolean;
+    print?: boolean;
+    approve?: boolean;
   };
 }
 
@@ -29,6 +33,7 @@ interface ModulePermission {
     print?: boolean;
     export?: boolean;
     approve?: boolean;
+    import?: boolean;
   };
 }
 
@@ -58,7 +63,7 @@ interface AgentPermissionModalProps {
   userRole: 'admin' | 'clinic' | 'doctor';
 }
 
-type ActionKey = 'all' | 'create' | 'read' | 'update' | 'delete';
+type ActionKey = 'all' | 'create' | 'read' | 'update' | 'delete' | 'import' | 'export';
 
 const ACTION_SEQUENCE: Array<{ key: ActionKey; label: string }> = [
   { key: 'all', label: 'All' },
@@ -66,6 +71,8 @@ const ACTION_SEQUENCE: Array<{ key: ActionKey; label: string }> = [
   { key: 'read', label: 'Read' },
   { key: 'update', label: 'Update' },
   { key: 'delete', label: 'Delete' },
+  { key: 'import', label: 'Import' },
+  { key: 'export', label: 'Export' },
 ];
 
 const ACTION_STYLES: Record<
@@ -96,6 +103,16 @@ const ACTION_STYLES: Record<
     active: 'bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-rose-200',
     inactive: 'bg-slate-200 text-slate-600',
     accent: 'bg-rose-200',
+  },
+  import: {
+    active: 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-purple-200',
+    inactive: 'bg-slate-200 text-slate-600',
+    accent: 'bg-purple-200',
+  },
+  export: {
+    active: 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-teal-200',
+    inactive: 'bg-slate-200 text-slate-600',
+    accent: 'bg-teal-200',
   },
 };
 
@@ -256,17 +273,19 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
 
   const sanitizePermissions = (perms: ModulePermission[]): ModulePermission[] => {
     return perms.map(perm => {
-      // Remove print, export, approve if they exist and recalculate "all"
+      // Include all actions and recalculate "all"
       const sanitizedActions = {
         all: false,
         create: Boolean(perm.actions?.create),
         read: Boolean(perm.actions?.read),
         update: Boolean(perm.actions?.update),
         delete: Boolean(perm.actions?.delete),
+        import: Boolean(perm.actions?.import),
+        export: Boolean(perm.actions?.export),
       };
 
-      // Recalculate "all" based on the 4 core actions
-      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete'];
+      // Recalculate "all" based on all actions except "all" itself
+      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete', 'import', 'export'];
       sanitizedActions.all = allActions.every(actionKey => sanitizedActions[actionKey]);
 
       // Sanitize submodules
@@ -277,6 +296,8 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
           read: Boolean(subMod.actions?.read),
           update: Boolean(subMod.actions?.update),
           delete: Boolean(subMod.actions?.delete),
+          import: Boolean(subMod.actions?.import),
+          export: Boolean(subMod.actions?.export),
         };
         sanitizedSubActions.all = allActions.every(actionKey => sanitizedSubActions[actionKey]);
 
@@ -486,9 +507,8 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             read: Boolean(actions.read),
             update: Boolean(actions.update),
             delete: Boolean(actions.delete),
-            print: Boolean((actions as any).print || false),
-            export: Boolean((actions as any).export || false),
-            approve: Boolean((actions as any).approve || false)
+            import: Boolean((actions as any).import || false),
+            export: Boolean((actions as any).export || false)
           };
           
           return {
@@ -551,6 +571,8 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             read: false,
             update: false,
             delete: false,
+            import: false,
+            export: false,
           }
         })) || [],
         actions: {
@@ -558,7 +580,9 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
           create: false,
           read: false,
           update: false,
-          delete: false
+          delete: false,
+          import: false,
+          export: false,
         }
       };
       newPermissions.push(modulePermission);
@@ -567,9 +591,9 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
     if (action === 'all') {
       // When "all" is toggled, set all actions including "all" itself to the same value
       modulePermission.actions.all = value;
-      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete'];
+      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete', 'import', 'export'];
       allActions.forEach(actionKey => {
-        modulePermission.actions[actionKey] = value;
+        (modulePermission.actions as any)[actionKey] = value;
       });
 
       // ✅ CRITICAL FIX: When module-level "all" is clicked, also set all submodule actions to true
@@ -596,7 +620,9 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                 create: false,
                 read: false,
                 update: false,
-                delete: false
+                delete: false,
+                import: false,
+                export: false,
               }
             };
             modulePermission.subModules.push(newSubModule);
@@ -617,11 +643,11 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
       }
     } else {
       // When individual action is toggled, update that action
-      modulePermission.actions[action as ActionKey] = value;
+      (modulePermission.actions as any)[action] = value;
 
       // Check if all actions are enabled to update "all" state
-      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete'];
-      const allEnabled = allActions.every(actionKey => modulePermission.actions[actionKey]);
+      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete', 'import', 'export'];
+      const allEnabled = allActions.every(actionKey => (modulePermission.actions as any)[actionKey]);
       modulePermission.actions.all = allEnabled;
     }
 
@@ -656,6 +682,8 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             read: false,
             update: false,
             delete: false,
+            import: false,
+            export: false,
           }
         })) || [],
         actions: {
@@ -663,7 +691,9 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
           create: false,
           read: false,
           update: false,
-          delete: false
+          delete: false,
+          import: false,
+          export: false,
         }
       };
       newPermissions.push(modulePermission);
@@ -685,7 +715,9 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
           create: false,
           read: false,
           update: false,
-          delete: false
+          delete: false,
+          import: false,
+          export: false,
         }
       };
       modulePermission.subModules.push(newSubModule);
@@ -701,17 +733,17 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
     if (action === 'all') {
       // When "all" is toggled for submodule, set all actions including "all" itself to the same value
       subModule.actions.all = value;
-      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete'];
+      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete', 'import', 'export'];
       allActions.forEach(actionKey => {
-        subModule.actions[actionKey] = value;
+        (subModule.actions as any)[actionKey] = value;
       });
     } else {
       // When individual action is toggled, update that action
-      subModule.actions[action as ActionKey] = value;
+      (subModule.actions as any)[action] = value;
 
       // Check if all actions are enabled to update "all" state
-      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete'];
-      const allEnabled = allActions.every(actionKey => subModule.actions[actionKey]);
+      const allActions: ActionKey[] = ['create', 'read', 'update', 'delete', 'import', 'export'];
+      const allEnabled = allActions.every(actionKey => (subModule.actions as any)[actionKey]);
       subModule.actions.all = allEnabled;
     }
 

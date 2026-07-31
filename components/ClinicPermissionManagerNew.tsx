@@ -41,7 +41,7 @@ interface ClinicPermissionManagerProps {
   isLoading?: boolean;
 }
 
-type ActionKey = 'all' | 'create' | 'read' | 'update' | 'delete';
+type ActionKey = 'all' | 'create' | 'read' | 'update' | 'delete' | 'import' | 'export';
 
 const ACTION_SEQUENCE: Array<{ key: ActionKey; label: string }> = [
   { key: 'all', label: 'All' },
@@ -49,6 +49,8 @@ const ACTION_SEQUENCE: Array<{ key: ActionKey; label: string }> = [
   { key: 'read', label: 'Read' },
   { key: 'update', label: 'Update' },
   { key: 'delete', label: 'Delete' },
+  { key: 'import', label: 'Import' },
+  { key: 'export', label: 'Export' },
 ];
 
 const ACTION_KEYS: ActionKey[] = ACTION_SEQUENCE.map(({ key }) => key);
@@ -81,6 +83,16 @@ const ACTION_STYLES: Record<
     active: 'bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-rose-200',
     inactive: 'bg-slate-200 text-slate-600',
     accent: 'bg-rose-200',
+  },
+  import: {
+    active: 'bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-purple-200',
+    inactive: 'bg-slate-200 text-slate-600',
+    accent: 'bg-purple-200',
+  },
+  export: {
+    active: 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-teal-200',
+    inactive: 'bg-slate-200 text-slate-600',
+    accent: 'bg-teal-200',
   },
 };
 

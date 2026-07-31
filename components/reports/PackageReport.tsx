@@ -91,6 +91,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [overviewMonthlyRevenue, setOverviewMonthlyRevenue] = useState<any[]>([]);
   const [overviewDoctorLeaderboard, setOverviewDoctorLeaderboard] = useState<any[]>([]);
   const [overviewSalesStaffLeaderboard, setOverviewSalesStaffLeaderboard] = useState<any[]>([]);
+  // Expiry KPI data from PatientRegistration (active/expired/expiring packages)
+  const [expiryData, setExpiryData] = useState<any>(null);
   // KPI Detail Modal state
   const [kpiModal, setKpiModal] = useState<{ open: boolean; title: string; data: any[] }>({ open: false, title: '', data: [] });
   // Default selected month to the month of startDate
@@ -125,6 +127,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   // apply only to the summary cards above.
   useEffect(() => {
     fetchOverview();
+    fetchPackageExpiry();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, selectedClinic]);
 
@@ -206,101 +209,128 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       let title = '';
       let data: any[] = [];
       
-      // For expiry-related KPIs, use packages state (package templates) - not filtered by doctor/staff
+      // For expiry-related KPIs, use expiryData from PatientRegistration API
       const expiryKpiTypes = ['activePackages', 'expiredPackages', 'expiring7Days', 'expiring30Days', 'renewalOpportunities'];
       
       if (expiryKpiTypes.includes(kpiType)) {
-        // Use packages state directly (from /api/clinic/packages)
-        switch (kpiType) {
-          case 'activePackages':
-            title = 'Active Packages';
-            data = packages
-              .filter((p: any) => {
-                if (!p.endDate) return true;
-                const endDate = new Date(p.endDate);
-                endDate.setHours(0, 0, 0, 0);
-                return endDate > now;
-              })
-              .map((p: any) => ({
-                packageName: p.name,
-                patientName: '-',
-                amount: p.totalPrice || 0,
-                expirationDate: p.endDate,
-                date: p.createdAt
-              }));
-            break;
-            
-          case 'expiredPackages':
-            title = 'Expired Packages';
-            data = packages
-              .filter((p: any) => {
-                if (!p.endDate) return false;
-                const endDate = new Date(p.endDate);
-                endDate.setHours(0, 0, 0, 0);
-                return endDate <= now;
-              })
-              .map((p: any) => ({
-                packageName: p.name,
-                patientName: '-',
-                amount: p.totalPrice || 0,
-                expirationDate: p.endDate,
-                date: p.createdAt
-              }));
-            break;
-            
-          case 'expiring7Days':
-            title = 'Expiring in 7 Days';
-            data = packages
-              .filter((p: any) => {
-                if (!p.endDate) return false;
-                const endDate = new Date(p.endDate);
-                endDate.setHours(0, 0, 0, 0);
-                return endDate > now && endDate <= sevenDaysFromNow;
-              })
-              .map((p: any) => ({
-                packageName: p.name,
-                patientName: '-',
-                amount: p.totalPrice || 0,
-                expirationDate: p.endDate,
-                date: p.createdAt
-              }));
-            break;
-            
-          case 'expiring30Days':
-            title = 'Expiring in 30 Days';
-            data = packages
-              .filter((p: any) => {
-                if (!p.endDate) return false;
-                const endDate = new Date(p.endDate);
-                endDate.setHours(0, 0, 0, 0);
-                return endDate > sevenDaysFromNow && endDate <= thirtyDaysFromNow;
-              })
-              .map((p: any) => ({
-                packageName: p.name,
-                patientName: '-',
-                amount: p.totalPrice || 0,
-                expirationDate: p.endDate,
-                date: p.createdAt
-              }));
-            break;
-            
-          case 'renewalOpportunities':
-            title = 'Renewal Opportunities';
-            data = packages
-              .filter((p: any) => {
-                if (!p.endDate) return false;
-                const endDate = new Date(p.endDate);
-                endDate.setHours(0, 0, 0, 0);
-                return endDate <= thirtyDaysFromNow;
-              })
-              .map((p: any) => ({
-                packageName: p.name,
-                patientName: '-',
-                amount: p.totalPrice || 0,
-                expirationDate: p.endDate,
-                date: p.createdAt
-              }));
-            break;
+        // Use expiryData from package-expiry API (PatientRegistration-based)
+        // Falls back to package templates if expiryData is not available
+        if (expiryData) {
+          switch (kpiType) {
+            case 'activePackages':
+              title = 'Active Packages';
+              data = expiryData.activePackagesData || [];
+              break;
+            case 'expiredPackages':
+              title = 'Expired Packages';
+              data = expiryData.expiredPackagesData || [];
+              break;
+            case 'expiring7Days':
+              title = 'Expiring in 7 Days';
+              data = expiryData.expiring7DaysData || [];
+              break;
+            case 'expiring30Days':
+              title = 'Expiring in 30 Days';
+              data = expiryData.expiring30DaysData || [];
+              break;
+            case 'renewalOpportunities':
+              title = 'Renewal Opportunities';
+              // Renewal = expiring in 7 days + expiring in 30 days
+              data = [
+                ...(expiryData.expiring7DaysData || []),
+                ...(expiryData.expiring30DaysData || []),
+              ];
+              break;
+          }
+        } else {
+          // Fallback: use packages state (package templates)
+          switch (kpiType) {
+            case 'activePackages':
+              title = 'Active Packages';
+              data = packages
+                .filter((p: any) => {
+                  if (!p.endDate) return true;
+                  const endDate = new Date(p.endDate);
+                  endDate.setHours(0, 0, 0, 0);
+                  return endDate > now;
+                })
+                .map((p: any) => ({
+                  packageName: p.name,
+                  patientName: '-',
+                  amount: p.totalPrice || 0,
+                  expirationDate: p.endDate,
+                  date: p.createdAt
+                }));
+              break;
+            case 'expiredPackages':
+              title = 'Expired Packages';
+              data = packages
+                .filter((p: any) => {
+                  if (!p.endDate) return false;
+                  const endDate = new Date(p.endDate);
+                  endDate.setHours(0, 0, 0, 0);
+                  return endDate <= now;
+                })
+                .map((p: any) => ({
+                  packageName: p.name,
+                  patientName: '-',
+                  amount: p.totalPrice || 0,
+                  expirationDate: p.endDate,
+                  date: p.createdAt
+                }));
+              break;
+            case 'expiring7Days':
+              title = 'Expiring in 7 Days';
+              data = packages
+                .filter((p: any) => {
+                  if (!p.endDate) return false;
+                  const endDate = new Date(p.endDate);
+                  endDate.setHours(0, 0, 0, 0);
+                  return endDate > now && endDate <= sevenDaysFromNow;
+                })
+                .map((p: any) => ({
+                  packageName: p.name,
+                  patientName: '-',
+                  amount: p.totalPrice || 0,
+                  expirationDate: p.endDate,
+                  date: p.createdAt
+                }));
+              break;
+            case 'expiring30Days':
+              title = 'Expiring in 30 Days';
+              data = packages
+                .filter((p: any) => {
+                  if (!p.endDate) return false;
+                  const endDate = new Date(p.endDate);
+                  endDate.setHours(0, 0, 0, 0);
+                  return endDate > sevenDaysFromNow && endDate <= thirtyDaysFromNow;
+                })
+                .map((p: any) => ({
+                  packageName: p.name,
+                  patientName: '-',
+                  amount: p.totalPrice || 0,
+                  expirationDate: p.endDate,
+                  date: p.createdAt
+                }));
+              break;
+            case 'renewalOpportunities':
+              title = 'Renewal Opportunities';
+              data = packages
+                .filter((p: any) => {
+                  if (!p.endDate) return false;
+                  const endDate = new Date(p.endDate);
+                  endDate.setHours(0, 0, 0, 0);
+                  return endDate <= thirtyDaysFromNow;
+                })
+                .map((p: any) => ({
+                  packageName: p.name,
+                  patientName: '-',
+                  amount: p.totalPrice || 0,
+                  expirationDate: p.endDate,
+                  date: p.createdAt
+                }));
+              break;
+          }
         }
         
         setKpiModal({ open: true, title, data });
@@ -308,8 +338,19 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       }
       
       // For billing-related KPIs, fetch from packages-sold API
-      const params: any = { startDate, endDate, limit: "1000", getAll: "true" };
-      if (selectedDoctor) params.doctorId = selectedDoctor;
+      // includeUnpaid=true asks the API to also include package records from
+      // PatientRegistration that have no billing yet (unpaid / partially paid),
+      // so the modal shows the SAME package set the dashboard cards are counting.
+      // The main report and export flows do NOT pass this flag, so their default
+      // behavior is preserved.
+      const params: any = { startDate, endDate, limit: "1000", getAll: "true", includeUnpaid: "true" };
+      if (selectedDoctor) {
+        params.doctorId = selectedDoctor;
+        // Pass doctor name so the PatientRegistration pipeline can filter by packageSoldBy
+        const docObj = doctors.find((d: any) => d._id === selectedDoctor);
+        const docName = docObj?.name || (docObj?.firstName && docObj?.lastName ? `${docObj.firstName} ${docObj.lastName}` : null);
+        if (docName) params.doctorName = docName;
+      }
       if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
       if (selectedDepartment) params.departmentId = selectedDepartment;
       if (selectedClinic) params.clinicId = selectedClinic;
@@ -344,6 +385,26 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       
       const soldPackages = json.data || [];
       
+      // When doctor filter is active with includeUnpaid=true, the API skips the
+      // doctorId filter on the Billing pipeline (to avoid matching on treating
+      // doctor instead of seller). So we filter Billing results on the frontend
+      // by matching the doctor's name against the soldBy field.
+      let filteredPackages = soldPackages;
+      if (selectedDoctor) {
+        const docObj = doctors.find((d: any) => d._id === selectedDoctor);
+        const docName = docObj?.name || (docObj?.firstName && docObj?.lastName ? `${docObj.firstName} ${docObj.lastName}` : null);
+        if (docName) {
+          filteredPackages = soldPackages.filter((p: any) => {
+            // Keep packages from PatientRegistration pipeline (doctorName filter applied server-side)
+            // and packages from Billing pipeline where soldBy matches the doctor name
+            const soldBy = p.soldBy || '';
+            // PatientRegistration rows have doctorName = "Unknown" and no invoicedBy match
+            // Billing rows have soldBy = invoicedBy name
+            return soldBy === docName || !soldBy || soldBy === '';
+          });
+        }
+      }
+      
       console.log('DEBUG KPI Click - Sold Packages Count:', soldPackages.length);
       console.log('DEBUG KPI Click - First 3 packages:', soldPackages.slice(0, 3));
       
@@ -355,7 +416,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       });
       
       // Filter out packages with no name or 0 total value (invalid data)
-      const validPackages = soldPackages.filter((p: any) => 
+      const validPackages = filteredPackages.filter((p: any) => 
         p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
       );
       
@@ -542,20 +603,16 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     setLifecycleSummary(json.lifecycleSummary || null);
   }
 
-  // Fetch the unfiltered overview used by sections that must stay independent
-  // of the dashboard filters: Revenue Trend, Payment Status, Doctor Leaderboard
-  // and Sales Staff. Leaderboards always use the full month of startDate so they
-  // never appear empty when a single day has no data.
+  // Fetch the overview data for all sections: Revenue Trend, Payment Status,
+  // Doctor Leaderboard, Sales Staff, KPI cards, etc.
+  // Uses the actual selected date range (startDate/endDate) so all sections
+  // filter consistently based on the user's date selection.
   async function fetchOverview() {
     try {
-      // Compute month-wide dates for the leaderboards
       const startD = new Date(startDate);
       if (isNaN(startD.getTime())) return; // Guard against invalid startDate
-      const monthStart = new Date(startD.getFullYear(), startD.getMonth(), 1);
-      const monthEnd = new Date(startD.getFullYear(), startD.getMonth() + 1, 0);
-      const fmt = (d: Date) => d.toISOString().split("T")[0];
 
-      const params: any = { startDate: fmt(monthStart), endDate: fmt(monthEnd), limit: "10" };
+      const params: any = { startDate, endDate, limit: "10" };
       if (selectedClinic) params.clinicId = selectedClinic;
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(`/api/clinic/reports/package-performance?${qs}`, { headers });
@@ -577,6 +634,26 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       setOverviewDoctorLeaderboard([]);
       setOverviewSalesStaffLeaderboard([]);
       setOverviewCombinedSummary(null);
+    }
+  }
+
+  // Fetch expiry KPI data from PatientRegistration (active/expired/expiring packages)
+  // Only responds to date range filter, not doctor/sales staff/payment method filters
+  async function fetchPackageExpiry() {
+    try {
+      const params: any = { startDate, endDate };
+      if (selectedClinic) params.clinicId = selectedClinic;
+      const qs = new URLSearchParams(params).toString();
+      const res = await fetch(`/api/clinic/reports/package-expiry?${qs}`, { headers });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setExpiryData(json.data || null);
+      } else {
+        setExpiryData(null);
+      }
+    } catch (e) {
+      console.error("Error fetching package expiry:", e);
+      setExpiryData(null);
     }
   }
 
@@ -732,16 +809,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       return { name: d.name, monthRevenue: monthEntry?.revenue || 0, totalRevenue: d.revenue || 0 };
     }));
     
+    // Use total values from overview data - API already filters by the selected
+    // date range, so we must NOT further filter by selectedMonth (which would
+    // restrict data to a single calendar month when the range spans multiple months).
     const doctorTotalPackages = doctorLeaderboardData.reduce((sum: number, d: any) => {
-      // Find the entry for the selected month in monthWiseData
-      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
-      console.log('DEBUG doctor monthEntry:', { doctor: d.name, selectedMonth, monthEntry, fallback: d.packages });
-      return sum + (monthEntry?.packages || d.packages || 0);
+      return sum + (d.packages || 0);
     }, 0);
     const doctorTotalRevenue = doctorLeaderboardData.reduce((sum: number, d: any) => {
-      // Find the entry for the selected month in monthWiseData
-      const monthEntry = (d.monthWiseData || []).find((m: any) => m.month === selectedMonth);
-      return sum + (monthEntry?.revenue || d.revenue || 0);
+      return sum + (d.revenue || 0);
     }, 0);
     // Doctor leaderboard doesn't have paid/partially paid/unpaid breakdown, so these are 0
     const doctorPaidPackages = 0;
@@ -765,13 +840,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     
     const salesStaffTotals = salesStaffFiltered.reduce(
       (acc, staff) => {
-        // Find the entry for the selected month in monthWiseData
-        const monthEntry = (staff.monthWiseData || []).find((m: any) => m.month === selectedMonth);
-        
+        // Use total values from overview data - API already filters by the
+        // selected date range, so no need to filter by selectedMonth.
         return {
-          totalPackagesSold: acc.totalPackagesSold + (monthEntry?.totalPackagesSold || staff.totalPackagesSold || 0),
-          totalRevenue: acc.totalRevenue + (monthEntry?.totalRevenue || staff.totalRevenue || 0),
-          totalPaid: acc.totalPaid + (monthEntry?.totalRevenue || staff.totalRevenue || 0),  // Use revenue as paid
+          totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
+          totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
+          totalPaid: acc.totalPaid + (staff.totalPaid || 0),
           totalPending: acc.totalPending + (staff.totalPending || 0),
           paidPackages: acc.paidPackages + (staff.paidPackages || 0),
           partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
@@ -794,13 +868,28 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     
     // Primary source depends on whether filters are active
     let primarySource: any = null;
-    let useSalesStaffSum = false;
+    let useSalesStaffSum = true;
     
     if (!hasAnyFilter) {
-      // No filter: use Sales Staff totals as single source of truth
-      useSalesStaffSum = true;
+      // No filter: calculate from soldRows (packages-sold API) which has correct
+      // totalPending from Billing's pending field (includes advance/claim settlements).
+      // salesStaffTotals uses totalPrice - paidAmount which doesn't account for advance,
+      // causing Outstanding to show incorrect values when packages are paid via advance.
+      const validRows = (soldRows || []).filter((p: any) => 
+        p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
+      );
+      
+      primarySource = {
+        totalPackagesSold: validRows.length,
+        totalRevenue: validRows.reduce((sum: number, p: any) => sum + (p.totalValue || 0), 0),
+        totalPaid: validRows.reduce((sum: number, p: any) => sum + (p.totalPaid || 0), 0),
+        totalPending: validRows.reduce((sum: number, p: any) => sum + (p.totalPending || 0), 0),
+        paidPackages: validRows.filter((p: any) => (p.totalPending || 0) === 0).length,
+        partiallyPaid: validRows.filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) > 0).length,
+        unpaidPackages: validRows.filter((p: any) => (p.totalPaid || 0) === 0).length,
+      };
     } else if (selectedDoctor) {
-      // Doctor filter: use filtered doctor leaderboard data
+      // Doctor filter: use filtered doctor sales staff data for all KPIs
       // Get doctor name for matching with sales staff data
       const selectedDoctorObj = doctors.find(d => d._id === selectedDoctor);
       const selectedDoctorName = selectedDoctorObj?.name || doctors.find(d => `${d.firstName || ''} ${d.lastName || ''}`.trim() === selectedDoctor)?.name || '';
@@ -812,7 +901,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         salesStaffDataList: salesStaffData.map(s => ({ name: s.name, staffId: s.staffId, unpaidPackages: s.unpaidPackages, totalPending: s.totalPending }))
       });
       
-      // Get sales staff data for this doctor to calculate unpaid packages
+      // Get sales staff data for this doctor to calculate ALL KPIs
       // Use salesStaffData (from overviewSalesStaffLeaderboard) which has correct names
       const doctorSalesStaffData = selectedDoctorName 
         ? salesStaffData.filter(s => s.name === selectedDoctorName)
@@ -820,31 +909,86 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       
       console.log('DEBUG doctor sales staff data:', { doctorSalesStaffData });
       
-      const doctorUnpaidFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.unpaidPackages || 0), 0);
-      const doctorPendingFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.totalPending || 0), 0);
-      const doctorPartiallyPaidFromSalesStaff = doctorSalesStaffData.reduce((sum, s) => sum + (s.partiallyPaidPackages || 0), 0);
+      // Calculate full totals from doctorSalesStaffData, just like salesStaffTotals
+      const doctorSalesStaffTotals = doctorSalesStaffData.reduce(
+        (acc, staff) => {
+          // Use total values from overview data - API already filters by the
+          // selected date range, so no need to filter by selectedMonth.
+          return {
+            totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
+            totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
+            totalPaid: acc.totalPaid + (staff.totalPaid || 0),
+            totalPending: acc.totalPending + (staff.totalPending || 0),
+            paidPackages: acc.paidPackages + (staff.paidPackages || 0),
+            partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
+            unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
+          };
+        },
+        {
+          totalPackagesSold: 0,
+          totalRevenue: 0,
+          totalPaid: 0,
+          totalPending: 0,
+          paidPackages: 0,
+          partiallyPaidPackages: 0,
+          unpaidPackages: 0,
+        }
+      );
       
-      console.log('DEBUG doctor unpaid/pending:', { doctorUnpaidFromSalesStaff, doctorPendingFromSalesStaff, doctorPartiallyPaidFromSalesStaff });
+      console.log('DEBUG doctor sales staff totals:', doctorSalesStaffTotals);
       
+      // Use these totals for primary source, same as sales staff filter
+      // Use total values from overview data - API already filters by the
+      // selected date range, so no need to filter by selectedMonth.
       primarySource = {
-        totalPackagesSold: doctorTotalPackages + doctorUnpaidFromSalesStaff,  // Include unpaid packages in total count
-        totalRevenue: doctorTotalRevenue,
-        totalPaid: doctorTotalRevenue,  // Use revenue as paid for doctor
-        totalPending: doctorPendingFromSalesStaff,
-        paidPackages: doctorTotalPackages - doctorPartiallyPaidFromSalesStaff,  // Billed packages minus partially paid
-        partiallyPaid: doctorPartiallyPaidFromSalesStaff,
-        unpaidPackages: doctorUnpaidFromSalesStaff,
+        totalPackagesSold: doctorSalesStaffTotals.totalPackagesSold,
+        totalRevenue: doctorSalesStaffTotals.totalRevenue,
+        totalPaid: doctorSalesStaffTotals.totalPaid,
+        totalPending: doctorSalesStaffTotals.totalPending,
+        paidPackages: doctorSalesStaffTotals.paidPackages,
+        partiallyPaid: doctorSalesStaffTotals.partiallyPaidPackages,
+        unpaidPackages: doctorSalesStaffTotals.unpaidPackages,
       };
     } else if (selectedSalesStaff) {
-      // Sales Staff filter: use filtered sales staff data
+      // Sales Staff filter: use filtered sales staff data (same as doctor filter)
+      const salesStaffFiltered = salesStaffData.filter(s => s.staffId === selectedSalesStaff || s.name === selectedSalesStaff);
+      
+      // Calculate full totals from filtered salesStaffData, just like salesStaffTotals
+      const filteredSalesStaffTotals = salesStaffFiltered.reduce(
+        (acc, staff) => {
+          // Use total values from overview data - API already filters by the
+          // selected date range, so no need to filter by selectedMonth.
+          return {
+            totalPackagesSold: acc.totalPackagesSold + (staff.totalPackagesSold || 0),
+            totalRevenue: acc.totalRevenue + (staff.totalRevenue || 0),
+            totalPaid: acc.totalPaid + (staff.totalPaid || 0),
+            totalPending: acc.totalPending + (staff.totalPending || 0),
+            paidPackages: acc.paidPackages + (staff.paidPackages || 0),
+            partiallyPaidPackages: acc.partiallyPaidPackages + (staff.partiallyPaidPackages || 0),
+            unpaidPackages: acc.unpaidPackages + (staff.unpaidPackages || 0),
+          };
+        },
+        {
+          totalPackagesSold: 0,
+          totalRevenue: 0,
+          totalPaid: 0,
+          totalPending: 0,
+          paidPackages: 0,
+          partiallyPaidPackages: 0,
+          unpaidPackages: 0,
+        }
+      );
+      
+      console.log('DEBUG filtered sales staff totals:', filteredSalesStaffTotals);
+      
       primarySource = {
-        totalPackagesSold: salesStaffTotals.totalPackagesSold,
-        totalRevenue: salesStaffTotals.totalRevenue,
-        totalPaid: salesStaffTotals.totalPaid,
-        totalPending: salesStaffTotals.totalPending,
-        paidPackages: salesStaffTotals.paidPackages,
-        partiallyPaid: salesStaffTotals.partiallyPaidPackages,
-        unpaidPackages: salesStaffTotals.unpaidPackages,
+        totalPackagesSold: filteredSalesStaffTotals.totalPackagesSold,
+        totalRevenue: filteredSalesStaffTotals.totalRevenue,
+        totalPaid: filteredSalesStaffTotals.totalPaid,
+        totalPending: filteredSalesStaffTotals.totalPending,
+        paidPackages: filteredSalesStaffTotals.paidPackages,
+        partiallyPaid: filteredSalesStaffTotals.partiallyPaidPackages,
+        unpaidPackages: filteredSalesStaffTotals.unpaidPackages,
       };
     } else {
       // Other filters (department, clinic, payment method): calculate from soldRows data
@@ -894,25 +1038,28 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     // This represents unique package sales by invoicer, preventing double-counting
     // when the same person is both doctor AND invoicer (e.g., prabhu)
     // Doctor Leaderboard shows breakdown by doctor for display only
-    const totalPackagesSold = useSalesStaffSum 
+    // When any filter is active, use primarySource instead
+    const useFilteredSource = hasAnyFilter;
+    
+    const totalPackagesSold = !useFilteredSource && useSalesStaffSum 
       ? salesStaffTotals.totalPackagesSold
       : (primarySource?.totalPackagesSold ?? primarySource?.totalPackages ?? 0);
     
-    const totalRevenue = useSalesStaffSum
+    const totalRevenue = !useFilteredSource && useSalesStaffSum
       ? salesStaffTotals.totalRevenue
-      : (primarySource?.totalPaid ?? primarySource?.totalRevenue ?? 0);
+      : (primarySource?.totalRevenue ?? primarySource?.totalPaid ?? 0);
     
     const prevTotalRevenue = prevTopSummary?.totalRevenue ?? 0;
     
     // Calculate actual paid amounts
     // Use Sales Staff totals to prevent double-counting
-    const totalPaid = useSalesStaffSum
+    const totalPaid = !useFilteredSource && useSalesStaffSum
       ? salesStaffTotals.totalPaid
       : (primarySource?.totalPaid ?? 0);
     
     const prevTotalPaid = prevSummary?.totalPaid ?? 0;
     
-    const totalPending = useSalesStaffSum
+    const totalPending = !useFilteredSource && useSalesStaffSum
       ? salesStaffTotals.totalPending
       : (primarySource?.totalPending ?? 0);
     
@@ -920,19 +1067,19 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     
     // Calculate payment status counts
     // Use Sales Staff totals to prevent double-counting
-    const paidPackages = useSalesStaffSum
+    const paidPackages = !useFilteredSource && useSalesStaffSum
       ? salesStaffTotals.paidPackages
       : (primarySource?.paidPackages ?? 0);
     
     const prevPaidPackages = prevSummary?.paidPackages ?? 0;
     
-    const partiallyPaid = useSalesStaffSum
+    const partiallyPaid = !useFilteredSource && useSalesStaffSum
       ? salesStaffTotals.partiallyPaidPackages
       : (primarySource?.partiallyPaid ?? 0);
     
     const prevPartiallyPaid = prevSummary?.partiallyPaid ?? 0;
     
-    const unpaidPackages = useSalesStaffSum
+    const unpaidPackages = !useFilteredSource && useSalesStaffSum
       ? salesStaffTotals.unpaidPackages
       : (primarySource?.unpaidPackages ?? 0);
     
@@ -999,19 +1146,30 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       ? Number(((completedPackages / (completedPackages + totalAtRisk)) * 100).toFixed(1))
       : 0;
 
-    packages.forEach((pkg) => {
-      const status = getPackageStatus(pkg);
-      if (status === "Active") activeCount++;
-      if (status === "Expired") expiredCount++;
-      if (status === "Expiring Soon") expiring7DaysCount++;
-      if (pkg.endDate) {
-        const endDate = new Date(pkg.endDate);
-        endDate.setHours(0, 0, 0, 0);
-        if (endDate > sevenDaysFromToday && endDate <= thirtyDaysFromToday) {
-          expiring30DaysCount++;
+    // Use expiryData from PatientRegistration for expiry KPIs (active/expired/expiring)
+    // Falls back to package template calculation if expiryData is not available
+    const useExpiryData = expiryData !== null;
+    const finalActiveCount = useExpiryData ? expiryData.activePackages : activeCount;
+    const finalExpiredCount = useExpiryData ? expiryData.expiredPackages : expiredCount;
+    const finalExpiring7Days = useExpiryData ? expiryData.expiring7Days : expiring7DaysCount;
+    const finalExpiring30Days = useExpiryData ? expiryData.expiring30Days : expiring30DaysCount;
+    const finalRenewalOpportunities = useExpiryData ? expiryData.renewalOpportunities : (expiredCount + expiring7DaysCount + expiring30DaysCount);
+
+    if (!useExpiryData) {
+      packages.forEach((pkg) => {
+        const status = getPackageStatus(pkg);
+        if (status === "Active") activeCount++;
+        if (status === "Expired") expiredCount++;
+        if (status === "Expiring Soon") expiring7DaysCount++;
+        if (pkg.endDate) {
+          const endDate = new Date(pkg.endDate);
+          endDate.setHours(0, 0, 0, 0);
+          if (endDate > sevenDaysFromToday && endDate <= thirtyDaysFromToday) {
+            expiring30DaysCount++;
+          }
         }
-      }
-    });
+      });
+    }
 
     return {
       totalPackagesSold,
@@ -1028,23 +1186,23 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       partiallyPaidTrend: calculateTrend(partiallyPaid, prevPartiallyPaid),
       unpaidPackages,
       unpaidPackagesTrend: calculateTrend(unpaidPackages, prevUnpaidPackages),
-      activePackages: activeCount, // Update to use service setup count
-      activePackagesTrend: calculateTrend(activeCount, prevActivePackages),
+      activePackages: finalActiveCount,
+      activePackagesTrend: calculateTrend(finalActiveCount, prevActivePackages),
       completedPackages,
       completedPackagesTrend: calculateTrend(completedPackages, prevCompletedPackages),
-      expiredPackages: expiredCount, // Update to use service setup count
-      expiring7Days: expiring7DaysCount, // Update to use service setup count
-      expiring30Days: expiring30DaysCount, // Update to use service setup count
+      expiredPackages: finalExpiredCount,
+      expiring7Days: finalExpiring7Days,
+      expiring30Days: finalExpiring30Days,
       unusedPackages,
       unusedPackagesTrend: calculateTrend(unusedPackages, prevUnusedPackages),
-      renewalOpportunities: expiredCount + expiring7DaysCount + expiring30DaysCount, // Update
+      renewalOpportunities: finalRenewalOpportunities,
       avgPackageValue: totalPackagesSold > 0 ? (totalPaid + totalPending) / totalPackagesSold : 0,
       avgSessionsUsed,
       avgTotalSessions,
       renewalRate,
       inactiveHolders: unusedPackages,
     };
-  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages, combinedSummary, overviewCombinedSummary, selectedDoctor, selectedDepartment, selectedSalesStaff, selectedClinic, selectedPaymentMethod, doctorLeaderboard, overviewDoctorLeaderboard, salesStaff, overviewSalesStaffLeaderboard, selectedMonth]);
+  }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages, combinedSummary, overviewCombinedSummary, selectedDoctor, selectedDepartment, selectedSalesStaff, selectedClinic, selectedPaymentMethod, doctorLeaderboard, overviewDoctorLeaderboard, salesStaff, overviewSalesStaffLeaderboard, expiryData]);
 
   // Calculate total sales staff KPIs
   // const salesStaffMetrics = useMemo(() => {
@@ -1090,57 +1248,43 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const effectiveDoctorLeaderboard = overviewDoctorLeaderboard.length > 0 ? overviewDoctorLeaderboard : doctorLeaderboard;
   const effectiveSalesStaffLeaderboard = overviewSalesStaffLeaderboard.length > 0 ? overviewSalesStaffLeaderboard : salesStaffLeaderboard;
 
-  // Use API data for monthly revenue (overview, filter-independent)
-  const selectedMonthData = useMemo(() => {
-    return revenueTrendData.find(m => m.month === selectedMonth) || {
-      totalPackages: 0,
-      paidPackages: 0,
-      partiallyPaidPackages: 0,
-      unpaidPackages: 0,
-      totalRevenue: 0,
-      totalPaidRevenue: 0,
-      totalOutstanding: 0,
-    };
-  }, [revenueTrendData, selectedMonth]);
-
-  // Dynamic payment status data from selected month's data
+  // Dynamic payment status data from metrics (filtered by active filters)
+  // Uses metrics data to match KPI cards, not overview data which is unfiltered
   const paymentStatusData = useMemo(() => {
-    const paid = selectedMonthData.paidPackages ?? 0;
-    const partial = selectedMonthData.partiallyPaidPackages ?? 0;
-    const unpaid = selectedMonthData.unpaidPackages ?? 0;
+    const paid = metrics.paidPackages ?? 0;
+    const partial = metrics.partiallyPaid ?? 0;
+    const unpaid = metrics.unpaidPackages ?? 0;
     return [
       { name: "Paid", value: paid, color: "#00B42A" },
       { name: "Partial", value: partial, color: "#F7BA1E" },
       { name: "Unpaid", value: unpaid, color: "#F53F3F" },
     ];
-  }, [selectedMonthData]);
+  }, [metrics]);
 
-  // Build the Top 5 doctor leaderboard for the selected month.
+  // Build the Top 5 doctor leaderboard for the selected date range.
   //
-  // Uses the same month-wise logic as the Sales Staff Leaderboard.
-  // The API returns totalPackages/totalRevenue aggregated across ALL months,
-  // so we extract only the selected month's data from monthWiseData.
-  // This ensures the leaderboard shows only doctors with sales in the selected calendar month.
+  // Uses the total values from the API response, which already filters by
+  // the selected date range.
+  //
+  // Sync rule: the Doctor Leaderboard must also include doctorStaff (role 'doctor' or
+  // Doctor Leaderboard now includes doctorStaff entries from the API
+  // (sourced from PatientRegistration, same calculation as Sales Staff).
+  // No frontend backfill needed - API handles both doctors and doctorStaff.
   const topDoctorLeaderboardData = useMemo(() => {
+    // Process doctor leaderboard data from API (includes both doctors and doctorStaff)
+    // Use total values from the API which already filters by the selected date range.
     const monthData = (effectiveDoctorLeaderboard || [])
       .map((doc: any) => {
-        // Find the entry in monthWiseData that matches the selected month
-        const monthEntry = (doc.monthWiseData || []).find((m: any) => m.month === selectedMonth);
-        if (!monthEntry) return null;
-        
-        // Get unpaid packages count for this doctor from overviewSalesStaffLeaderboard
-        const doctorUnpaid = (overviewSalesStaffLeaderboard || []).find((s: any) => s.name === doc.name)?.unpaidPackages || 0;
-        
         return {
           ...doc,
           name: doc.name || "Unknown Doctor",
-          packages: (monthEntry.packages || 0) + doctorUnpaid,  // Include unpaid packages in count
-          revenue: monthEntry.revenue || 0,
+          packages: doc.packages || 0,
+          revenue: doc.revenue || 0,
           monthWiseData: doc.monthWiseData || [],
         };
       })
-      .filter((doc: any) => doc !== null && ((doc.packages || 0) > 0 || (doc.revenue || 0) > 0));
-    
+      .filter((doc: any) => ((doc.packages || 0) > 0 || (doc.revenue || 0) > 0));
+
     return monthData
       .sort((a: any, b: any) => {
         const packagesDiff = (b.packages || 0) - (a.packages || 0);
@@ -1155,32 +1299,29 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           ? doc.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
           : "UD",
       }));
-  }, [effectiveDoctorLeaderboard, selectedMonth, overviewSalesStaffLeaderboard]);
+  }, [effectiveDoctorLeaderboard]);
 
-  // Build the Top 5 sales staff leaderboard for the selected month.
+  // Build the Top 5 sales staff leaderboard for the selected date range.
   //
-  // The API returns totalRevenue/totalPackagesSold aggregated across ALL months,
-  // which causes incorrect data (e.g., Sarthak appearing in July when his sales
-  // are in June, or Esha showing ₹1833 instead of ₹1333 for July).
-  //
-  // Fix: Use the selected month's data from monthWiseData instead of the totals.
-  // This ensures the leaderboard shows only the selected calendar month's data.
+  // Uses the total values from the API response, which already filters by
+  // the selected date range. Previously this filtered monthWiseData by
+  // selectedMonth, which only showed one month's data when the range spanned
+  // multiple months.
   const topSalesStaffData = useMemo(() => {
+    // Use total values from the API which already filters by the selected date range.
     const monthData = (effectiveSalesStaffLeaderboard || [])
       .map((s: any) => {
-        // Find the entry in monthWiseData that matches the selected month
-        const monthEntry = (s.monthWiseData || []).find((m: any) => m.month === selectedMonth);
-        if (!monthEntry) return null;
-        
         return {
           ...s,
           name: s.name || "Unknown",
-          totalPackagesSold: monthEntry.totalPackagesSold || 0,
-          totalRevenue: monthEntry.totalRevenue || 0,
+          totalPackagesSold: s.totalPackagesSold || 0,
+          // Use totalPaid (paid amount) instead of totalRevenue (total package price)
+          // to show only the collected amount, not the outstanding
+          totalRevenue: s.totalPaid || 0,
           monthWiseData: s.monthWiseData || [],
         };
       })
-      .filter((s: any) => s !== null && ((s.totalPackagesSold || 0) > 0 || (s.totalRevenue || 0) > 0));
+      .filter((s: any) => ((s.totalPackagesSold || 0) > 0 || (s.totalRevenue || 0) > 0));
     
     return monthData
       .sort((a: any, b: any) => {
@@ -1189,7 +1330,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         return (b.totalPackagesSold || 0) - (a.totalPackagesSold || 0);
       })
       .slice(0, 5);
-  }, [effectiveSalesStaffLeaderboard, selectedMonth]);
+  }, [effectiveSalesStaffLeaderboard]);
 
   // Use real department revenue data from API, fall back to static data if empty
   const finalDepartmentRevenueData = departmentRevenueData.length > 0 ? departmentRevenueData : [
@@ -1246,13 +1387,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const currentMetrics = metrics;
 
   const packageLifecycleData = useMemo(() => {
-    const sold = lifecycleSummary?.totalPackagesSold ?? currentMetrics.totalPackagesSold;
-    const active = lifecycleSummary?.activePackages ?? metrics.activePackages;
+    // Use metrics values for Active and Renewed so they match the KPI cards
+    // (metrics already reflects date range + all dashboard filters).
+    const sold = currentMetrics.totalPackagesSold;
+    const active = metrics.activePackages;
     const completed = lifecycleSummary?.completedPackages ?? metrics.completedPackages;
-    const renewalOpportunities = lifecycleSummary?.renewalOpportunities ?? 0;
-    const renewed = lifecycleSummary
-      ? Math.min(completed, renewalOpportunities)
-      : Math.min(completed, Math.round(metrics.renewalRate / 100 * completed));
+    const renewed = metrics.renewalOpportunities;
     return [
       { 
         label: "Sold", 
@@ -1291,7 +1431,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     { label: "Outstanding", kpiType: "outstanding", value: formatCurrency(currentMetrics.outstanding), trend: isSalesStaffActive ? 0 : (metrics.outstandingTrend ? (metrics.outstandingTrend.up ? metrics.outstandingTrend.value : -metrics.outstandingTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.outstandingTrend ? !metrics.outstandingTrend.up : false), icon: "⚠️", subtitle: isSalesStaffActive ? "Sales Staff" : "Pending collection" },
     { label: "Paid Packages", kpiType: "paidPackages", value: currentMetrics.paidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.paidPackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.paidPackagesTrend.up, icon: "✅", subtitle: isSalesStaffActive ? "Sales Staff" : "Fully settled" },
     { label: "Partially Paid", kpiType: "partiallyPaid", value: currentMetrics.partiallyPaid.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.partiallyPaidTrend.value, trendUp: isSalesStaffActive ? false : metrics.partiallyPaidTrend.up, icon: "⏳", subtitle: isSalesStaffActive ? "Sales Staff" : "Partial payment" },
-    { label: "Unpaid Packages", kpiType: "unpaidPackages", value: currentMetrics.unpaidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : (metrics.unpaidPackagesTrend ? (metrics.unpaidPackagesTrend.up ? metrics.unpaidPackagesTrend.value : -metrics.unpaidPackagesTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.unpaidPackagesTrend ? !metrics.unpaidPackagesTrend.up : false), icon: "�", subtitle: isSalesStaffActive ? "Sales Staff" : "No payment made" },
+    { label: "Unpaid Packages", kpiType: "unpaidPackages", value: currentMetrics.unpaidPackages.toLocaleString(), trend: isSalesStaffActive ? 0 : (metrics.unpaidPackagesTrend ? (metrics.unpaidPackagesTrend.up ? metrics.unpaidPackagesTrend.value : -metrics.unpaidPackagesTrend.value) : 0), trendUp: isSalesStaffActive ? false : (metrics.unpaidPackagesTrend ? !metrics.unpaidPackagesTrend.up : false), icon: "❌", subtitle: isSalesStaffActive ? "Sales Staff" : "No payment made" },
     { label: "Active Packages", kpiType: "activePackages", value: metrics.activePackages.toLocaleString(), trend: isSalesStaffActive ? 0 : metrics.activePackagesTrend.value, trendUp: isSalesStaffActive ? false : metrics.activePackagesTrend.up, icon: "📈", subtitle: "In progress" },
     { label: "Expired Packages", kpiType: "expiredPackages", value: metrics.expiredPackages.toLocaleString(), trend: 0, trendUp: false, icon: "⏰", subtitle: "Past expiry date" },
     { label: "Expiring in 7 Days", kpiType: "expiring7Days", value: metrics.expiring7Days.toLocaleString(), trend: 0, trendUp: false, icon: "⏳", subtitle: "Urgent action needed" },
@@ -1553,7 +1693,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   }`}
                 >
                   {selectedSalesStaff
-                    ? salesStaff.find(s => s.staffId === selectedSalesStaff)?.name || "Sales Staff"
+                    ? salesStaff.find(s => s.name === selectedSalesStaff)?.name || selectedSalesStaff
                     : "Sales Staff"}
                 </button>
                 {activeFilter === "salesStaff" && (
@@ -1772,7 +1912,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
 
           <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
             <h3 className="text-base font-semibold text-gray-900 mb-2">Payment Status</h3>
-            <p className="text-xs text-gray-500 mb-4">{selectedMonthData.totalPackages.toLocaleString()} total packages</p>
+            <p className="text-xs text-gray-500 mb-4">{metrics.totalPackagesSold.toLocaleString()} total packages</p>
             <div className="h-48 flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -1800,7 +1940,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                     <span className="text-sm text-gray-700">{item.name}</span>
                   </div>
                   <span className="text-sm font-semibold text-gray-900">
-                    {item.value} ({Math.round((item.value / (selectedMonthData.totalPackages || 1)) * 100)}%)
+                    {item.value} ({Math.round((item.value / (metrics.totalPackagesSold || 1)) * 100)}%)
                   </span>
                 </div>
               ))}
@@ -2120,13 +2260,22 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-red-50 rounded-xl p-4 border border-red-100">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">⏰</div>
                 <span className="text-xl font-bold text-red-800">{metrics.expiring7Days}</span>
               </div>
               <p className="text-sm font-semibold text-red-900 mb-3">Expiring Soon</p>
+              
+            </div>
+
+            <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">⏰</div>
+                <span className="text-xl font-bold text-orange-800">{metrics.expiredPackages}</span>
+              </div>
+              <p className="text-sm font-semibold text-orange-900 mb-3">Expired Packages</p>
               
             </div>
 
@@ -2555,3 +2704,4 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     </div>
   );
 }
+

@@ -247,6 +247,7 @@ export default async function handler(req, res) {
       "Rejected",
       "Completed",
       "invoice",
+      "No Show",
     ];
     if (!validStatuses.includes(status)) {
       return res

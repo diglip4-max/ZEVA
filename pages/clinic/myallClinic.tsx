@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ReactElement, useMemo } from "react";
-import { toast, Toaster } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import axios from "axios";
 import {
   Building2,
@@ -1782,7 +1782,7 @@ function ClinicManagementDashboard(): ReactElement {
             { headers: { ...authHeaders } },
           );
           if (!response.data.success) {
-            toast.error(response.data.message || "Failed to update clinic");
+            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update-error" });
             return;
           }
         } catch (err: any) {
@@ -1794,71 +1794,21 @@ function ClinicManagementDashboard(): ReactElement {
             missing &&
             (missing.includes("name") || missing.includes("address"))
           ) {
-            const retryForm = new FormData();
-            retryForm.append("name", safeName || baseClinic.name || "");
-            retryForm.append(
-              "address",
-              safeAddress || baseClinic.address || "",
-            );
-            if (editForm.pricing)
-              retryForm.append("pricing", editForm.pricing.trim());
-            retryForm.append("timings", JSON.stringify(buildTimingsPayload()));
-            retryForm.append(
-              "listingVisibility",
-              JSON.stringify(listingVisibility),
-            );
-            retryForm.append("bankDetails", JSON.stringify(bankDetails));
-            if (editForm.servicesName)
-              retryForm.append(
-                "servicesName",
-                JSON.stringify(editForm.servicesName),
-              );
-            if (editForm.treatments)
-              retryForm.append(
-                "treatments",
-                JSON.stringify(editForm.treatments),
-              );
-            retryForm.append("existingPhotos", JSON.stringify(existingPhotos));
-            if (existingDocuments && existingDocuments.length > 0) {
-              retryForm.append(
-                "existingDocuments",
-                JSON.stringify(existingDocuments),
-              );
+            if (missing.includes("address")) {
+              toast.error("Address field is mandatory. Please fill it.", { id: "address-error" });
+            } else {
+              toast.error("Name field is mandatory. Please fill it.", { id: "name-error" });
             }
-            if (logoFile) retryForm.append("photos", logoFile);
-            if (coverFile) retryForm.append("photos", coverFile);
-            mediaFilesToUpload.forEach((file) => {
-              retryForm.append("photos", file);
-            });
-            otherFilesToUpload.forEach((file) => {
-              retryForm.append("photos", file);
-            });
-            (editForm.documents || [])
-              .filter((d: any) => d && d.file instanceof File)
-              .forEach((d: any) => {
-                retryForm.append("documents", d.file);
-                retryForm.append(
-                  "documentNames",
-                  d.name || d.file?.name || "Document",
-                );
-              });
-            const response2 = await axios.put(
-              `/api/clinics/${editingClinicId}`,
-              retryForm,
-              { headers: { ...authHeaders } },
-            );
-            if (!response2.data.success) {
-              toast.error(response2.data.message || "Failed to update clinic");
-              return;
-            }
+            return;
           } else {
             const msg = err?.response?.data?.message || "Update failed";
             if (msg === "File upload failed") {
               toast.error(
                 "File upload failed: only JPG/PNG up to 5MB are allowed.",
+                { id: "clinic-update-error" }
               );
             } else {
-              toast.error(msg);
+              toast.error(msg, { id: "clinic-update-error" });
             }
             return;
           }
@@ -1903,7 +1853,7 @@ function ClinicManagementDashboard(): ReactElement {
             },
           );
           if (!response.data.success) {
-            toast.error(response.data.message || "Failed to update clinic");
+            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update-error" });
             return;
           }
         } catch (err: any) {
@@ -1915,34 +1865,21 @@ function ClinicManagementDashboard(): ReactElement {
             missing &&
             (missing.includes("name") || missing.includes("address"))
           ) {
-            const fallbackData = {
-              ...cleanUpdateData,
-              name: safeName || baseClinic.name || "",
-              address: safeAddress || baseClinic.address || "",
-            };
-            const response2 = await axios.put(
-              `/api/clinics/${editingClinicId}`,
-              fallbackData,
-              {
-                headers: {
-                  ...authHeaders,
-                  "Content-Type": "application/json",
-                },
-              },
-            );
-            if (!response2.data.success) {
-              toast.error(response2.data.message || "Failed to update clinic");
-              return;
+            if (missing.includes("address")) {
+              toast.error("Address field is mandatory. Please fill it.", { id: "address-error" });
+            } else {
+              toast.error("Name field is mandatory. Please fill it.", { id: "name-error" });
             }
+            return;
           } else {
             const msg = err?.response?.data?.message || "Update failed";
-            toast.error(msg);
+            toast.error(msg, { id: "clinic-update-error" });
             return;
           }
         }
       }
       console.log("🔔 About to show success toast");
-      toast.success("Clinic updated successfully");
+      toast.success("Clinic updated successfully", { id: "clinic-update-success" });
       console.log("🔔 Success toast shown");
       // Sync currency to global context after successful save
       setGlobalCurrency(clinicCurrency);
@@ -2230,18 +2167,7 @@ function ClinicManagementDashboard(): ReactElement {
   // Main component render
   return (
     <div className="min-h-screen bg-gray-50">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#fff",
-            color: "#374151",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-          },
-        }}
-      />
+
       <div className="p-2 sm:p-3 md:p-4 lg:p-5 space-y-2 sm:space-y-3 lg:space-y-4">
         {/* Header - Enhanced */}
         <div className="bg-white rounded-xl p-3 sm:p-4 md:p-5 shadow-lg relative">

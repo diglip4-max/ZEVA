@@ -1,0 +1,658 @@
+when i created a billing from component/appointmentbillingmodel, in this when we pay the partial amount of unpaid package see the appointmentbillingmodelrepsosen of clinic/crate-patinet-regsitration, repsonse correct the api, create-patient regiatrtion in component/appointmentbilling in thisb, we paid the package amunt 250 only acuatll price was 500 then pedning should be 250 but see the api reposnse and payload why taking pending used 500 where as not pnding amount is used http://localhost:3000/api/clinic/create-patient-registration, paylaod {invoiceNumber: "INV-20260710-762263", invoicedDate: "2026-07-10",…}
+
+advance
+
+:
+
+0
+
+advanceUsed
+
+:
+
+0
+
+agentDiscountAmount
+
+:
+
+0
+
+agentDiscountType
+
+:
+
+null
+
+amount
+
+:
+
+500
+
+appointmentId
+
+:
+
+"6a507a8c91185e3255ca703e"
+
+cashbackAmount
+
+:
+
+0
+
+cashbackOfferId
+
+:
+
+null
+
+cashbackOfferName
+
+:
+
+null
+
+cashbackWalletUsed
+
+:
+
+0
+
+claimAmountUsed
+
+:
+
+0
+
+discountPercent
+
+:
+
+0
+
+doctor
+
+:
+
+"tina"
+
+doctorDiscountAmount
+
+:
+
+0
+
+doctorDiscountApplied
+
+:
+
+0
+
+doctorDiscountType
+
+:
+
+null
+
+email
+
+:
+
+""
+
+emrNumber
+
+:
+
+"EMR-29611"
+
+firstName
+
+:
+
+"renu"
+
+freeConsultationCount
+
+:
+
+0
+
+freeOfferSessionCount
+
+:
+
+0
+
+gender
+
+:
+
+"Unknown"
+
+invoiceNumber
+
+:
+
+"INV-20260710-762263"
+
+invoicedDate
+
+:
+
+"2026-07-10"
+
+isAgentDiscountApplied
+
+:
+
+false
+
+isCashbackApplied
+
+:
+
+false
+
+isDoctorDiscountApplied
+
+:
+
+false
+
+isFreeConsultation
+
+:
+
+false
+
+isOfferApplied
+
+:
+
+false
+
+lastName
+
+:
+
+""
+
+membershipDiscountApplied
+
+:
+
+0
+
+mobileNumber
+
+:
+
+"+9154322222224"
+
+multiplePayments
+
+:
+
+[]
+
+notes
+
+:
+
+""
+
+offerDiscountAmount
+
+:
+
+0
+
+offerFreeSession
+
+:
+
+[]
+
+offerId
+
+:
+
+null
+
+offerTitle
+
+:
+
+null
+
+offerType
+
+:
+
+null
+
+originalAmount
+
+:
+
+0
+
+paid
+
+:
+
+250
+
+pastAdvance
+
+:
+
+0
+
+pastAdvanceType
+
+:
+
+""
+
+pastAdvanceUsed
+
+:
+
+0
+
+pastAdvanceUsed50Percent
+
+:
+
+0
+
+pastAdvanceUsed54Percent
+
+:
+
+0
+
+pastAdvanceUsed159Flat
+
+:
+
+0
+
+paymentMethod
+
+:
+
+"Tamara"
+
+pending
+
+:
+
+250
+
+pendingClaimUsed
+
+:
+
+0
+
+pendingUsed
+
+:
+
+500
+
+referredBy
+
+:
+
+"No"
+
+service
+
+:
+
+"Treatment"
+
+staffTips
+
+:
+
+[]
+
+usedFreeSessionCount
+
+:
+
+0
+
+usedFreeSessions
+
+:
+
+[]
+
+userId
+
+:
+
+"6a4f8f00905ce0662295e6c2", reponse {
+
+"success": true,
+
+"message": "Billing created successfully",
+
+"billing": {
+
+"_id": "6a50dae322ae20c706065145",
+
+"clinicId": "6a4cf67a636157b8ca03d5ab",
+
+"appointmentId": "6a507a8c91185e3255ca703e",
+
+"patientId": "6a4f8f00905ce0662295e6c2",
+
+"invoiceNumber": "INV-20260710-762263",
+
+"invoicedDate": "2026-07-10T00:00:00.000Z",
+
+"invoicedBy": "prachi",
+
+"invoicedById": "6a4cf8af636157b8ca058553",
+
+"invoicedByRole": "agent",
+
+"invoicedByRate": 0,
+
+"doctorId": "6a4cf8ca636157b8ca059693",
+
+"doctorName": "tina",
+
+"service": "Treatment",
+
+"treatment": "",
+
+"package": "",
+
+"quantity": 0,
+
+"sessions": 0,
+
+"selectedPackageTreatments": [],
+
+"selectedTreatments": [],
+
+"unpaidPackagesPaid": [],
+
+"amount": 500,
+
+"paid": 500,
+
+"advanceUsed": 0,
+
+"claimAmountUsed": 0,
+
+"pendingUsed": 500,
+
+"pendingClaimUsed": 0,
+
+"pending": 0,
+
+"pendingLedgerCached": 250,
+
+"pendingLedgerOpenCount": 1,
+
+"advance": 0,
+
+"pastAdvance": 0,
+
+"pastAdvanceUsed": 0,
+
+"pastAdvanceType": "",
+
+"paymentMethod": "Tamara",
+
+"multiplePayments": [
+
+{
+
+"paymentMethod": "Tamara",
+
+"amount": 500,
+
+"paidAt": "2026-07-10T11:43:31.583Z",
+
+"paidBy": "6a4cf8af636157b8ca058553",
+
+"transactionType": "PENDING_CLEARANCE"
+
+},
+
+{
+
+"paymentMethod": "Tamara",
+
+"amount": 250,
+
+"paidAt": "2026-07-10T11:43:31.864Z",
+
+"paidBy": "6a4cf8af636157b8ca058553",
+
+"transactionType": "PENDING_CLEARANCE"
+
+}
+
+],
+
+"paymentHistory": [
+
+{
+
+"amount": 500,
+
+"paid": 250,
+
+"pending": 250,
+
+"paymentMethod": "Tamara",
+
+"multiplePayments": [
+
+{
+
+"paymentMethod": "Tamara",
+
+"amount": 500,
+
+"paidAt": "2026-07-10T11:43:31.583Z",
+
+"paidBy": "6a4cf8af636157b8ca058553",
+
+"transactionType": "PENDING_CLEARANCE"
+
+}
+
+],
+
+"status": "Active",
+
+"updatedAt": "2026-07-10T11:43:31.585Z",
+
+"amountPaid": 0,
+
+"advanceAmountUsed": 0,
+
+"remainingPending": 0
+
+},
+
+{
+
+"amount": 500,
+
+"paid": 500,
+
+"pending": 0,
+
+"paymentMethod": "Tamara",
+
+"multiplePayments": [
+
+{
+
+"paymentMethod": "Tamara",
+
+"amount": 250,
+
+"paidAt": "2026-07-10T11:43:31.864Z",
+
+"paidBy": "6a4cf8af636157b8ca058553",
+
+"transactionType": "PENDING_CLEARANCE"
+
+}
+
+],
+
+"status": "Completed",
+
+"updatedAt": "2026-07-10T11:43:31.864Z",
+
+"amountPaid": 250,
+
+"advanceAmountUsed": 0,
+
+"remainingPending": 0
+
+}
+
+],
+
+"notes": "",
+
+"isFreeConsultation": false,
+
+"freeConsultationCount": 0,
+
+"membershipDiscountApplied": 0,
+
+"isDoctorDiscountApplied": false,
+
+"doctorDiscountType": null,
+
+"doctorDiscountAmount": 0,
+
+"isAgentDiscountApplied": false,
+
+"agentDiscountType": null,
+
+"agentDiscountAmount": 0,
+
+"discountPercent": 0,
+
+"originalAmount": 500,
+
+"isAdvanceOnly": false,
+
+"pendingBalanceImage": [],
+
+"offerApplied": false,
+
+"offerId": null,
+
+"offerName": null,
+
+"offerType": null,
+
+"offerDiscountAmount": 0,
+
+"cashbackEarned": 0,
+
+"isCashbackApplied": false,
+
+"cashbackOfferId": null,
+
+"cashbackOfferName": null,
+
+"cashbackAmount": 0,
+
+"cashbackStartDate": null,
+
+"cashbackEndDate": null,
+
+"cashbackWalletUsed": 0,
+
+"bundleSessionsAdded": 0,
+
+"offerOverrideUsed": false,
+
+"offerFreeSession": [],
+
+"freeOfferSessionCount": 0,
+
+"usedFreeSessions": [],
+
+"usedFreeSessionCount": 0,
+
+"isOfferRefunded": false,
+
+"refundedAt": null,
+
+"refundedBy": null,
+
+"refundedAmount": 0,
+
+"pendingClearedBreakdown": [
+
+{
+
+"ledgerId": "PL-20260710-GJHMNLGQ",
+
+"invoiceNumber": "PKG-1783683753406-54",
+
+"service": "Package",
+
+"treatmentSlug": null,
+
+"treatmentName": null,
+
+"packageId": "6a50daa622ae20c706064ec9",
+
+"packageName": "mauu",
+
+"amountCleared": 500,
+
+"newStatus": "Closed",
+
+"newRemaining": 0
+
+}
+
+],
+
+"refundedOffers": [],
+
+"createdAt": "2026-07-10T11:43:31.592Z",
+
+"updatedAt": "2026-07-10T11:43:32.428Z",
+
+"__v": 0
+
+},
+
+"staffTips": [],
+
+"data": {
+
+"_id": "6a50dae322ae20c706065145",
+
+"invoiceNumber": "INV-20260710-762263"
+
+}
+
+}fix this and make sure do not remove any existingf cntioantliy of the code only do the requiremnt and fixng should not harm the already working fucntioanltiy only fix the issue chek step wise and fix this
+if not able to solve the issue then  debugge the each tsep to get the rrot cause and fix in one go 

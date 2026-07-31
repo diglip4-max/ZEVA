@@ -1,0 +1,118 @@
+import dbConnect from "../../../../lib/database";
+import Clinic from "../../../../models/Clinic";
+import Message from "../../../../models/Message";
+import { getUserFromReq, requireRole } from "../../lead-ms/auth";
+
+export default async function handler(req, res) {
+  if (req.method !== "GET") {
+    return res
+      .status(405)
+      .json({ success: false, message: `${req.method} - Method not allowed` });
+  }
+  try {
+    await dbConnect();
+
+    const me = await getUserFromReq(req);
+    if (
+      !requireRole(me, [
+        "clinic",
+        "agent",
+        "admin",
+        "doctor",
+        "doctorStaff",
+        "staff",
+      ])
+    ) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    // ✅ Resolve clinicId based on role
+    let clinic;
+    if (me.role === "clinic") {
+      clinic = await Clinic.findOne({ owner: me._id });
+    } else if (me.role === "agent") {
+      if (!me.clinicId) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Agent not linked to any clinic" });
+      }
+      clinic = await Clinic.findById(me.clinicId);
+    } else if (me.role === "doctor") {
+      if (!me.clinicId) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Doctor not linked to any clinic" });
+      }
+      clinic = await Clinic.findById(me.clinicId);
+    } else if (me.role === "doctorStaff" || me.role === "staff") {
+      if (!me.clinicId) {
+        return res
+          .status(403)
+          .json({ success: false, message: "Staff not linked to any clinic" });
+      }
+      clinic = await Clinic.findById(me.clinicId);
+    } else if (me.role === "admin") {
+      const { clinicId: adminClinicId } = req.query;
+      if (adminClinicId) {
+        clinic = await Clinic.findById(adminClinicId);
+      }
+    }
+
+    if (!clinic) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Clinic not found for this user" });
+    }
+    // ✅TODO: Check permission for reading leads (only for clinic, agent, doctor, and doctorStaff/staff; admin bypasses)
+    if (me.role !== "admin" && clinic._id) {
+      // For Get Messages Permissions
+    }
+    try {
+      const { messageId } = req.query;
+      let query = {
+        clinicId: clinic._id,
+        channel: "email",
+        $or: [{ _id: messageId }, { replyToMessageId: messageId }],
+      };
+
+      let messages = await Message.find(query)
+        .sort({ createdAt: 1 })
+        .populate("senderId", "name email phone")
+        .populate("recipientId", "name email phone")
+        .populate("provider", "name label email phone _ct _ac")
+        .populate({
+          path: "replyToMessageId",
+          select: "content mediaType mediaUrl channel direction",
+          populate: [
+            {
+              path: "senderId",
+              select: "name email phone",
+            },
+            {
+              path: "recipientId",
+              select: "name email phone",
+            },
+          ],
+        })
+        .lean(); // 🔥 CRITICAL: Add .lean() to get plain JavaScript objects
+
+      res.status(200).json({
+        success: true,
+        message: "Thread messages found.",
+        data: messages,
+      });
+    } catch (error) {
+      // console.error("Error fetching messages of conversation:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch thread messages",
+      });
+    }
+  } catch (error) {
+    console.error("Error in getThreadMessages: ", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Internal server error",
+    });
+  }
+}

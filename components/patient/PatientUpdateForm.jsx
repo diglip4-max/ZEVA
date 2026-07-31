@@ -1322,11 +1322,11 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         </label>
                         <select
                           name="referredBy"
-                          value={formData.referredBy === "No" ? "" : (formData.referredBy || "")}
+                          value={formData.referredBy || ""}
                           onChange={handleFieldChange}
                           className={`text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 ${formData.referredBy && formData.referredBy !== "No" ? 'border-indigo-400 bg-indigo-50' : 'border-gray-300 hover:border-indigo-300'}`}
                         >
-                          <option value="">Select Referred By</option>
+                          
                           {referrals.map((r) => {
                             const displayName = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim() || (r.email || r.phone || "Unknown");
                             return (

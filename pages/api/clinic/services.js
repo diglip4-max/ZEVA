@@ -374,9 +374,31 @@ export default async function handler(req, res) {
         .status(200)
         .json({ success: true, message: "Service updated", service });
     } catch (error) {
+      console.error("[services PUT] Error updating service:", error);
+      if (error.code === 11000) {
+        return res.status(400).json({
+          success: false,
+          message: "Another service with this name or slug exists in this department",
+        });
+      }
+      if (error.name === "ValidationError") {
+        const msgs = Object.values(error.errors || {})
+          .map((e) => e.message)
+          .join(", ");
+        return res.status(400).json({
+          success: false,
+          message: msgs || error.message || "Validation error",
+        });
+      }
+      if (error.name === "CastError") {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid value for field: ${error.path}`,
+        });
+      }
       return res
         .status(500)
-        .json({ success: false, message: "Failed to update service" });
+        .json({ success: false, message: "Failed to update service", error: error.message });
     }
   }
 

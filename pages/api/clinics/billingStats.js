@@ -143,6 +143,7 @@ export default async function handler(req, res) {
         $match: {
           clinicId: clinic._id,
           service: "Package",
+          package: { $nin: [null, "", "Unknown", "Unknown Package", "unknown"] },
           createdAt: {
             $gte: startOfDay,
             $lte: endOfDay

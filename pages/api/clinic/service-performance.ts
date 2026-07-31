@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '../../../lib/database';
-import Service from '../../../models/Service';
 import Appointment from '../../../models/Appointment';
 import Clinic from '../../../models/Clinic';
+import Billing from '../../../models/Billing';
 import { getUserFromReq } from '../lead-ms/auth.js';
 import { getClinicIdFromUser } from '../lead-ms/permissions-helper.js';
 import { isNewClinicInMockPeriod, generateMockServicePerformance } from '../../../lib/mockDataGenerator';
@@ -69,152 +69,135 @@ export default async function handler(
     // Get date filter params from query
     const { startDate, endDate, date } = req.query;
 
-    // Build date filter based on time range
-    let dateFilter: any = {};
+    // Build date filter for billing records
+    let billingDateFilter: any = {};
     if (date) {
       const selectedDate = new Date(date as string);
       const startOfDay = new Date(selectedDate.setHours(0, 0, 0, 0));
       const endOfDay = new Date(selectedDate.setHours(23, 59, 59, 999));
-      dateFilter = { startDate: { $gte: startOfDay, $lte: endOfDay } };
+      billingDateFilter.invoicedDate = { $gte: startOfDay, $lte: endOfDay };
     } else if (startDate && endDate) {
-      dateFilter = {
-        startDate: {
-          $gte: new Date(startDate as string),
-          $lte: new Date(endDate as string),
-        },
-      };
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        billingDateFilter.invoicedDate = { $gte: start, $lte: end };
+      }
     }
     // For 'overall', no date filter - shows all data
 
-    console.log('📅 Using dateFilter:', dateFilter || 'Overall (no filter)');
+    console.log('📅 Using dateFilter:', billingDateFilter || 'Overall (no filter)');
 
-    // Fetch all services for the clinic
-    const services = await Service.find({ clinicId }).lean();
-    console.log('✅ Found', services.length, 'services');
-
-    // Fetch all appointments to get booking data
-    const appointments = await Appointment.find({
+    // Fetch ONLY Treatment billing records for the clinic
+    const billingQuery: any = {
       clinicId,
-      ...dateFilter,
-    })
-      .select('serviceId serviceName startDate')
+      service: 'Treatment',
+    };
+    if (Object.keys(billingDateFilter).length > 0) {
+      billingQuery.invoicedDate = billingDateFilter.invoicedDate;
+    }
+
+    const billingRecords = await Billing.find(billingQuery)
+      .select('treatment paid amount service')
       .lean();
 
-    console.log('✅ Found', appointments.length, 'appointments');
+    console.log('💰 Found', billingRecords.length, 'Treatment billing records');
 
-    // Create a map of service IDs to service names from the services collection
-    const serviceNameMap = new Map<string, string>();
-    services.forEach((service: any) => {
-      serviceNameMap.set(service['_id'].toString(), service['name'] || 'Unknown Service');
-    });
+    // Aggregate billing data by treatment name (normalized to lowercase for consistency)
+    const treatmentAggregation = new Map<string, { bookings: number; totalRevenue: number }>();
 
-    // 1. Most Booked Services (Top 7)
-    const serviceBookingCounts = new Map<string, { name: string; count: number; _id: string }>();
-    
-    appointments.forEach((appointment: any) => {
-      const serviceId = appointment.serviceId?.toString();
+    billingRecords.forEach((billing: any) => {
+      // Use the treatment field directly, skip if empty or null
+      const treatmentName = (billing.treatment || '').trim();
       
-      // Get service name from the map, or use serviceName from appointment, or default to Unknown
-      let serviceName = 'Unknown Service';
-      if (serviceId && serviceNameMap.has(serviceId)) {
-        serviceName = serviceNameMap.get(serviceId)!;
-      } else if (appointment.serviceName) {
-        serviceName = appointment.serviceName;
-      }
+      // Skip empty treatment names
+      if (!treatmentName) return;
       
-      const serviceKey = serviceId || appointment.serviceName || 'Unknown';
-      
-      if (!serviceBookingCounts.has(serviceKey)) {
-        serviceBookingCounts.set(serviceKey, {
-          _id: serviceKey,
-          name: serviceName,
-          count: 0,
+      const treatmentKey = treatmentName.toLowerCase(); // Normalize to lowercase for aggregation
+      const paidAmount = Number(billing.paid) || 0;
+      if (!treatmentAggregation.has(treatmentKey)) {
+        treatmentAggregation.set(treatmentKey, {
+          bookings: 0,
+          totalRevenue: 0,
         });
       }
-      serviceBookingCounts.get(serviceKey)!.count++;
+
+      const entry = treatmentAggregation.get(treatmentKey)!;
+      entry.bookings += 1;
+      entry.totalRevenue += paidAmount;
     });
 
-    const mostBookedServices = Array.from(serviceBookingCounts.values())
-      .sort((a, b) => b.count - a.count)
+    // Convert aggregated data to all three sections
+    const aggregatedServices = Array.from(treatmentAggregation.entries())
+      .map(([treatmentKey, data]) => {
+        const treatmentDisplayName = treatmentKey.charAt(0).toUpperCase() + treatmentKey.slice(1); // Capitalize for display
+        return {
+          name: treatmentDisplayName,
+          serviceName: treatmentDisplayName,
+          bookings: data.bookings,
+          revenue: data.totalRevenue,
+          _id: treatmentKey,
+        };
+      })
+      .filter(service => 
+        service.name && 
+        service.name !== 'Unknown' &&
+        !service.name.toLowerCase().includes('unknown')
+      );
+
+    // 1. Most Booked Services (Top 7) - sorted by bookings descending
+    const mostBookedServices = aggregatedServices
+      .sort((a, b) => b.bookings - a.bookings)
       .slice(0, 7)
       .map(service => ({
         name: service.name,
-        bookings: service.count,
-      }))
-      .filter(service => 
-        service.name !== 'Unknown Service' && 
-        service.name !== 'Unknown' &&
-        !service.name.toLowerCase().includes('unknown')
-      );
+        bookings: service.bookings,
+      }));
 
     console.log('📊 Most booked services:', mostBookedServices);
 
-    // 2. Least Booked Services (Bottom 5)
-    const leastBookedServices = Array.from(serviceBookingCounts.values())
-      .sort((a, b) => a.count - b.count)
+    // 2. Least Booked Services (Bottom 5) - sorted by bookings ascending
+    const leastBookedServices = aggregatedServices
+      .sort((a, b) => a.bookings - b.bookings)
       .slice(0, 5)
       .map(service => ({
         name: service.name,
-        bookings: service.count,
-        change: Math.floor(Math.random() * 20) - 10, // Placeholder for percentage change
-      }))
-      .filter(service => 
-        service.name !== 'Unknown Service' && 
-        service.name !== 'Unknown' &&
-        !service.name.toLowerCase().includes('unknown')
-      );
+        bookings: service.bookings,
+        change: 0,
+      }));
 
     console.log('📉 Least booked services:', leastBookedServices);
 
-    // 3. Service Revenue Table
-    const serviceRevenueData = services
-      .map((service: any) => {
-        const serviceAppointments = appointments.filter(
-          (apt: any) => apt.serviceId?.toString() === service['_id'].toString()
-        );
-        
-        const bookings = serviceAppointments.length;
-        
-        // Placeholder for average price - in real scenario, fetch from Billing model
-        const avgPrice = service['price'] || Math.floor(Math.random() * 5000) + 1000;
-        const revenue = bookings * avgPrice;
-
-        return {
-          serviceName: service['name'] || 'Unknown Service',
-          bookings,
-          avgPrice,
-          revenue,
-          rating: 4.5 + Math.random(), // Placeholder for rating
-        };
-      })
-      .filter(service => 
-        service.serviceName !== 'Unknown Service' && 
-        service.serviceName !== 'Unknown' &&
-        !service.serviceName.toLowerCase().includes('unknown')
-      )
-      .sort((a, b) => b.revenue - a.revenue);
+    // 3. Service Revenue Table - using same aggregated data
+    const serviceRevenueData = aggregatedServices
+      .sort((a, b) => b.revenue - a.revenue)
+      .map(service => ({
+        serviceName: service.serviceName,
+        bookings: service.bookings,
+        revenue: service.revenue,
+      }));
 
     console.log('💰 Service revenue data:', serviceRevenueData);
 
-    // 4. Treatment Conversion Rate
-    // For now, use placeholder conversion rates
-    // In production, track consultations vs actual bookings
-    const conversionRateData = services
+    // 4. Treatment Conversion Rate - use aggregated treatment data
+    // Since we don't have consultation data, we'll use bookings as the basis
+    // and calculate a conversion rate based on bookings relative to total
+    const totalBookings = aggregatedServices.reduce((sum, s) => sum + s.bookings, 0);
+    const conversionRateData = aggregatedServices
       .slice(0, 8)
       .map(service => {
-        const consultations = Math.floor(Math.random() * 50) + 10; // Placeholder
-        const bookings = Math.floor(consultations * (Math.random() * 0.6 + 0.3)); // 30-90% conversion
+        // Calculate conversion rate based on bookings percentage of total
+        const conversionRate = totalBookings > 0 
+          ? Math.round((service.bookings / totalBookings) * 100) 
+          : 0;
         
         return {
-          name: service.name || 'Unknown Service',
-          conversionRate: bookings > 0 ? Math.round((bookings / consultations) * 100) : 0,
+          name: service.name,
+          conversionRate,
+          bookings: service.bookings,
         };
       })
-      .filter(item => 
-        item.name !== 'Unknown Service' && 
-        item.name !== 'Unknown' &&
-        !item.name.toLowerCase().includes('unknown')
-      )
       .filter(item => item.conversionRate > 0);
 
     console.log('📈 Conversion rate data:', conversionRateData);

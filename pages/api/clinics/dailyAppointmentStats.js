@@ -153,7 +153,7 @@ export default async function handler(req, res) {
     ]);
 
     // Initialize counts for all requested statuses
-    const stats = {
+     const stats = {
       booked: 0,
       enquiry: 0,
       discharge: 0,
@@ -164,7 +164,9 @@ export default async function handler(req, res) {
       rescheduled: 0,
       waiting: 0,
       rejected: 0,
-      completed: 0
+      completed: 0,
+      invoiced: 0,
+      noshow: 0
     };
     
     appointmentStats.forEach(item => {
@@ -180,6 +182,8 @@ export default async function handler(req, res) {
       else if (status === 'waiting') stats.waiting = item.count;
       else if (status === 'rejected') stats.rejected = item.count;
       else if (status === 'completed') stats.completed = item.count;
+      else if (status === 'invoice' || status === 'invoiced') stats.invoiced = item.count;
+      else if (status === 'no show' || status === 'noshow' || status === 'no_show') stats.noshow = item.count;
     });
 
     // Fetch daily counts for other modules

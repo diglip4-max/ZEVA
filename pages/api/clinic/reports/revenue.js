@@ -141,7 +141,37 @@ export default async function handler(req, res) {
     // revenue by doctor
     const byDoctorAgg = await Billing.aggregate([
       ...basePipeline,
-      { $group: { _id: "$appointment.doctorId", amount: { $sum: { $ifNull: ["$paid", 0] } } } },
+      {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient"
+        }
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: "$appointment.doctorId",
+          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "$service",
+              packageName: "$package",
+              treatmentName: "$treatment",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: "$amount",
+              paid: "$paid",
+              pending: "$pending",
+              advance: "$advance"
+            }
+          }
+        }
+      },
       { $sort: { amount: -1 } },
     ]);
     const doctorIds = byDoctorAgg.map((d) => d._id).filter(Boolean);
@@ -157,6 +187,7 @@ export default async function handler(req, res) {
       doctorId: String(d._id || ""),
       name: doctorMap.get(String(d._id)) || "Unknown",
       amount: Math.round(Number(d.amount || 0)),
+      details: d.details || []
     }));
 
     // Revenue by Service – mirrors the aggregation in service-performance.js so each
@@ -171,7 +202,17 @@ export default async function handler(req, res) {
           service: { $in: ["Treatment", "Service"] },
         },
       },
-      // 2. Lookup appointment (preserveNullAndEmptyArrays)
+      // 2. Lookup patient registration
+      {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient",
+        },
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      // 3. Lookup appointment (preserveNullAndEmptyArrays)
       {
         $lookup: {
           from: "appointments",
@@ -200,12 +241,30 @@ export default async function handler(req, res) {
           },
         },
       },
-      // 4. Group by the resolved service name and sum `paid` per service
+      // 4. Group by the resolved service name and sum `paid` + pendingUsed + pendingClaimUsed per service
       //    (same shape as the $group in service-performance.js)
       {
         $group: {
           _id: "$resolvedServiceName",
           amount: { $sum: { $ifNull: ["$paid", 0] } },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "$service",
+              packageName: "$package",
+              treatmentName: "$treatment",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: "$amount",
+              paid: "$paid",
+              pending: "$pending",
+              advance: "$advance",
+              pendingUsed: { $ifNull: ["$pendingUsed", 0] },
+              pendingClaimUsed: { $ifNull: ["$pendingClaimUsed", 0] },
+            }
+          }
         },
       },
       { $sort: { amount: -1 } },
@@ -214,17 +273,52 @@ export default async function handler(req, res) {
       serviceId: String(s._id || ""),
       name: s._id || "Unknown",
       amount: Math.round(Number(s.amount || 0)),
+      details: s.details || [],
     }));
 
     // revenue by package (all Package billings grouped by package name)
     const byPackageAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
-      { $group: { _id: { $ifNull: ["$package", "Unknown"] }, amount: { $sum: { $ifNull: ["$paid", 0] } } } },
+      // Lookup patient registration
+      {
+        $lookup: {
+          from: "patientregistrations",
+          localField: "patientId",
+          foreignField: "_id",
+          as: "patient",
+        },
+      },
+      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+      {
+        $group: { 
+          _id: { $ifNull: ["$package", "Unknown"] }, 
+          amount: { $sum: { $ifNull: ["$paid", 0] } },
+          details: {
+            $push: {
+              patientId: "$patientId",
+              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+              emrNumber: "$patient.emrNumber",
+              service: "$service",
+              packageName: "$package",
+              treatmentName: "$treatment",
+              invoiceNumber: "$invoiceNumber",
+              invoicedDate: "$invoicedDate",
+              amount: "$amount",
+              paid: "$paid",
+              pending: "$pending",
+              advance: "$advance",
+              pendingUsed: { $ifNull: ["$pendingUsed", 0] },
+              pendingClaimUsed: { $ifNull: ["$pendingClaimUsed", 0] },
+            }
+          }
+        } 
+      },
       { $sort: { amount: -1 } },
     ]);
     const revenueByPackage = byPackageAgg.map((p) => ({
       packageName: p._id || "Unknown",
       amount: Math.round(Number(p.amount || 0)),
+      details: p.details || [],
     }));
 
     // Revenue by Department — mirrors the calculation used by Department
@@ -282,7 +376,7 @@ export default async function handler(req, res) {
           },
         },
       },
-      // 5. Group by service name first to sum paid per service
+      // 5. Group by service name first to sum paid + pendingUsed + pendingClaimUsed per service
       //    (matches the first $group in department-performance.js)
       {
         $group: {
@@ -386,7 +480,9 @@ export default async function handler(req, res) {
               "$paid",
               "$advanceUsed",
               "$claimAmountUsed",
-              "$cashbackWalletUsed"
+              "$cashbackWalletUsed",
+              "$pendingUsed",
+              { $ifNull: ["$pendingClaimUsed", 0] }
             ]
           },
           paymentMethod: 1,

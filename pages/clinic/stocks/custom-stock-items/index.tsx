@@ -11,16 +11,64 @@ import {
   EyeIcon,
 } from "@heroicons/react/24/outline";
 import { CustomStockItem as CustomStockItemType } from "@/types/stocks";
-import { Lock, Home, LogOut, Package, DollarSign, Percent } from "lucide-react";
+import {
+  Lock,
+  Home,
+  LogOut,
+  Package,
+  DollarSign,
+  Percent,
+  Loader2,
+} from "lucide-react";
 import { useRouter } from "next/router";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import AddCustomStockItemModal from "./_components/AddCustomStockItemModal";
 import EditCustomStockItemModal from "./_components/EditCustomStockItemModal";
 import DeleteCustomStockItemModal from "./_components/DeleteCustomStockItemModal";
 import ViewCustomStockItemModal from "./_components/ViewCustomStockItemModal";
+import { useAgentPermissions } from "@/hooks/useAgentPermissions";
+import { useCurrency } from "@/context/CurrencyContext";
 
-const CustomStockItemsPage: NextPageWithLayout = () => {
+const MODULE_KEY = "clinic_custom_stock_items";
+
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const CustomStockItemsPage: NextPageWithLayout = ({
+  contextOverride = null,
+}: {
+  contextOverride?: "clinic" | "agent" | null;
+}) => {
   const router = useRouter();
+  const { currency } = useCurrency();
+  const [_routeContext, setRouteContext] = useState<"clinic" | "agent">(
+    contextOverride || "clinic",
+  );
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [hasAgentToken, setHasAgentToken] = useState(false);
+  const [isAgentRoute, setIsAgentRoute] = useState(false);
   const [customStockItems, setCustomStockItems] = useState<
     CustomStockItemType[]
   >([]);
@@ -47,16 +95,417 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
   const [currentItem, setCurrentItem] = useState<
     CustomStockItemType | undefined
   >();
-  const [currency, setCurrency] = useState<string>("INR");
 
-  // Permission state (static for now)
-  const [permissions, _setPermissions] = useState({
-    canRead: true,
-    canCreate: true,
-    canUpdate: true,
-    canDelete: true,
-  });
-  const [permissionsLoaded, _setPermissionsLoaded] = useState(true);
+  // Detect agent route and token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncTokens = () => {
+      const hasAgent =
+        Boolean(
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken"),
+        ) ||
+        Boolean(
+          localStorage.getItem("staffToken") ||
+          sessionStorage.getItem("staffToken"),
+        ) ||
+        Boolean(
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken"),
+        );
+      setHasAgentToken(hasAgent);
+    };
+    syncTokens();
+    window.addEventListener("storage", syncTokens);
+    return () => window.removeEventListener("storage", syncTokens);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const agentPath =
+      router?.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/agent/");
+    setIsAgentRoute(agentPath && hasAgentToken);
+  }, [router.pathname, hasAgentToken]);
+
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const currentPath = window.location.pathname || "";
+    if (currentPath.startsWith("/agent/")) {
+      setRouteContext("agent");
+    } else {
+      setRouteContext("clinic");
+    }
+  }, [contextOverride]);
+
+  // Use agent permissions hook for agent routes
+  const agentPermissionsHook: any = useAgentPermissions(
+    isAgentRoute ? MODULE_KEY : null,
+  );
+  const agentPermissions = agentPermissionsHook?.permissions || {
+    canRead: false,
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
+    canAll: false,
+  };
+  const agentPermissionsLoading = agentPermissionsHook?.loading || false;
+
+  // Handle agent permissions
+  useEffect(() => {
+    if (!isAgentRoute) return;
+    if (agentPermissionsLoading) return;
+
+    const newPermissions = {
+      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+    };
+
+    setPermissions(newPermissions);
+    setPermissionsLoaded(true);
+  }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
+
+  // Helper function to get user info from token
+  const getUserInfo = (): { role: string | null; id: string | null } => {
+    if (typeof window === "undefined") return { role: null, id: null };
+    try {
+      for (const key of TOKEN_PRIORITY) {
+        const token =
+          window.localStorage.getItem(key) ||
+          window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const base64Url = token.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split("")
+                .map(
+                  (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
+                )
+                .join(""),
+            );
+            const decoded = JSON.parse(jsonPayload);
+            return {
+              role: decoded.role || decoded.userRole || null,
+              id: decoded.userId || decoded.id || null,
+            };
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user info:", error);
+    }
+    return { role: null, id: null };
+  };
+
+  // Helper function to get user role from token
+  const getUserRole = (): string | null => {
+    return getUserInfo().role;
+  };
+
+  // Handle clinic permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
+  useEffect(() => {
+    if (isAgentRoute) return;
+    let isMounted = true;
+
+    // Check which token type is being used
+    const clinicToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken")
+        : null;
+    const doctorToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken")
+        : null;
+    const agentToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken")
+        : null;
+    const staffToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("staffToken") ||
+          sessionStorage.getItem("staffToken")
+        : null;
+    const userToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken")
+        : null;
+
+    const userRole = getUserRole();
+    const authToken =
+      clinicToken || doctorToken || agentToken || staffToken || userToken;
+
+    // For admin role, grant full access (bypass permission checks)
+    if (userRole === "admin") {
+      if (!isMounted) return;
+      setPermissions({
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: true,
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    if (userRole === "clinic" || userRole === "doctor") {
+      const fetchClinicPermissions = async () => {
+        try {
+          if (!authToken) {
+            if (!isMounted) return;
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+            setPermissionsLoaded(true);
+            return;
+          }
+
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          if (!isMounted) return;
+
+          if (res.data.success) {
+            console.log("Clinic Sidebar Permissions Response:", res.data);
+            // Check if permissions array exists and is not null
+            // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+            if (
+              res.data.permissions === null ||
+              !Array.isArray(res.data.permissions) ||
+              res.data.permissions.length === 0
+            ) {
+              console.log("No permissions set, granting full access");
+              // No admin restrictions set yet - default to full access for backward compatibility
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              // Admin has set permissions - check the clinic_custom_stock_items module OR parent clinic_stock module's subModules
+              let modulePermission = res.data.permissions.find((p: any) => {
+                if (!p?.module && !p?.moduleKey) return false;
+                // Check for clinic_custom_stock_items module variations
+                if (p.module === MODULE_KEY) return true;
+                if (p.moduleKey === MODULE_KEY) return true;
+                if (p.module === "custom_stock_items") return true;
+                return false;
+              });
+
+              console.log("Direct module permission found:", modulePermission);
+
+              // If not found as direct module, check parent clinic_stock module's subModules
+              if (!modulePermission) {
+                const parentStockModule = res.data.permissions.find(
+                  (p: any) =>
+                    p?.module === "clinic_stock" && Array.isArray(p.subModules),
+                );
+
+                console.log("Parent stock module found:", parentStockModule);
+
+                if (parentStockModule) {
+                  modulePermission = parentStockModule.subModules.find(
+                    (sm: any) => sm?.moduleKey === MODULE_KEY,
+                  );
+                  console.log("Submodule permission found:", modulePermission);
+                }
+              }
+
+              console.log({ modulePermission });
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                console.log("Module permission actions:", actions);
+
+                // Check if "all" is true, which grants all permissions
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
+
+                const newPermissions = {
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                };
+                console.log("Setting permissions:", newPermissions);
+                setPermissions(newPermissions);
+              } else {
+                // Module permission not found in the permissions array - default to read-only
+                setPermissions({
+                  canRead: true, // Clinic/doctor can always read their own data
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          } else {
+            // API response doesn't have permissions, default to full access (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } catch (err: any) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          // On error, default to full access (backward compatibility)
+          if (isMounted) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchClinicPermissions();
+      return;
+    }
+
+    // For agent/doctorStaff tokens (when not on agent route), check permissions
+    const agentStaffToken = getStoredToken();
+    if (!agentStaffToken) {
+      setPermissions({
+        canRead: false,
+        canCreate: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // Only check permissions for agent/doctorStaff roles when not on agent route
+    if (agentToken || staffToken || userToken) {
+      const fetchPermissions = async () => {
+        try {
+          console.log(
+            "Fetching Agent/Staff Permissions for",
+            MODULE_KEY,
+            "...",
+          );
+          setPermissionsLoaded(false);
+          // Use agent permissions API for agent/doctorStaff
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: MODULE_KEY },
+            headers: { Authorization: `Bearer ${agentStaffToken}` },
+          });
+          const data = res.data;
+          console.log("Agent Permissions API Response:", data);
+
+          if (!isMounted) return;
+
+          // Default to true if module not found in permissions (matches backend logic)
+          if (
+            !data?.permissions &&
+            data?.error?.includes("not found in agent permissions")
+          ) {
+            console.log(
+              "Module not found in permissions, granting full access by default",
+            );
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+            return;
+          }
+
+          const actions =
+            data?.permissions?.actions || data?.data?.moduleActions || {};
+          const isTrue = (val: any) =>
+            val === true ||
+            val === "true" ||
+            String(val || "").toLowerCase() === "true";
+
+          const canAll = isTrue(actions.all);
+
+          const newPerms = {
+            canRead: canAll || isTrue(actions.read),
+            canCreate: canAll || isTrue(actions.create),
+            canUpdate: canAll || isTrue(actions.update),
+            canDelete: canAll || isTrue(actions.delete),
+          };
+
+          setPermissions(newPerms);
+          console.log("Setting permissions:", newPerms);
+        } catch (err: any) {
+          console.error("Error fetching agent permissions:", err);
+          if (isMounted) {
+            // Default to full access on error (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchPermissions();
+      return;
+    }
+
+    // Default to full access for other cases
+    setPermissions({
+      canRead: true,
+      canCreate: true,
+      canUpdate: true,
+      canDelete: true,
+    });
+    setPermissionsLoaded(true);
+  }, [isAgentRoute]);
 
   // Fetch custom stock items
   const fetchCustomStockItems = useCallback(
@@ -94,29 +543,14 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
     [pagination.limit],
   );
 
-  // Fetch clinic currency preference
+  // Fetch custom stock items only when permissions are loaded and canRead is true
   useEffect(() => {
-    const fetchClinicCurrency = async () => {
-      try {
-        const token = getTokenByPath();
-        if (!token) return;
-        const res = await axios.get("/api/clinics/myallClinic", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.data.success && res.data.clinic?.currency) {
-          setCurrency("AED");
-        }
-      } catch (e) {
-        console.error("Error fetching clinic currency:", e);
-      }
-    };
-    fetchClinicCurrency();
-  }, []);
-
-  // Initial fetch on mount
-  useEffect(() => {
-    fetchCustomStockItems(1, "");
-  }, [fetchCustomStockItems]);
+    if (permissionsLoaded && permissions.canRead) {
+      fetchCustomStockItems(1, "");
+    } else if (permissionsLoaded) {
+      setLoading(false);
+    }
+  }, [permissionsLoaded, permissions.canRead, fetchCustomStockItems]);
 
   // Filter items based on search term
   useEffect(() => {
@@ -231,19 +665,57 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
     </div>
   );
 
+  // If permissions are not loaded yet, show loading spinner
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
+          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+          <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
       </div>
     );
   }
 
+  // If canRead is false, show access denied
   if (!permissions.canRead && !permissions.canCreate) {
     return <AccessDenied />;
+  }
+
+  // If canRead is false but canCreate is true, show only add button
+  if (!permissions.canRead && permissions.canCreate) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+        <div className="mb-8">
+          <div className="max-w-9xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                  Custom Stock Items
+                </h1>
+                <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+                  Manage your custom inventory items
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Add Custom Item
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* Add Custom Stock Item Modal */}
+        <AddCustomStockItemModal
+          token={getTokenByPath() || ""}
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSuccess={handleAddSuccess}
+        />
+      </div>
+    );
   }
 
   return (
@@ -318,8 +790,7 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
                         Total Value
                       </div>
                       <div className="text-3xl font-bold text-gray-900 mt-1">
-                        {getCurrencySymbol(currency)}{" "}
-                        {stats.totalValue.toFixed(2)}
+                        {stats.totalValue.toFixed(2)} {currency}
                       </div>
                     </div>
                   </div>
@@ -666,36 +1137,42 @@ const CustomStockItemsPage: NextPageWithLayout = () => {
       )}
 
       {/* Add Custom Stock Item Modal */}
-      <AddCustomStockItemModal
-        token={getTokenByPath() || ""}
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSuccess={handleAddSuccess}
-      />
+      {permissions.canCreate && (
+        <AddCustomStockItemModal
+          token={getTokenByPath() || ""}
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onSuccess={handleAddSuccess}
+        />
+      )}
 
       {/* Edit Custom Stock Item Modal */}
-      <EditCustomStockItemModal
-        token={getTokenByPath() || ""}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setCurrentItem(undefined);
-        }}
-        onSuccess={handleEditSuccess}
-        itemData={currentItem}
-      />
+      {permissions.canUpdate && (
+        <EditCustomStockItemModal
+          token={getTokenByPath() || ""}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setCurrentItem(undefined);
+          }}
+          onSuccess={handleEditSuccess}
+          itemData={currentItem}
+        />
+      )}
 
       {/* Delete Custom Stock Item Modal */}
-      <DeleteCustomStockItemModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setCurrentItem(undefined);
-        }}
-        onConfirm={handleDeleteConfirm}
-        itemName={currentItem?.name}
-        loading={deleting}
-      />
+      {permissions.canDelete && (
+        <DeleteCustomStockItemModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setCurrentItem(undefined);
+          }}
+          onConfirm={handleDeleteConfirm}
+          itemName={currentItem?.name}
+          loading={deleting}
+        />
+      )}
 
       {/* View Custom Stock Item Modal */}
       <ViewCustomStockItemModal

@@ -199,12 +199,15 @@ export default async function handler(req, res) {
       const advanceForThisInvoice = advanceUsedNum > 0 && paymentForInvoice > 0
         ? Number(((advanceUsedNum / (totalCleared || 1)) * paymentForInvoice).toFixed(2))
         : 0;
-      const totalForThisInvoice = Number((cashForThisInvoice + advanceForThisInvoice).toFixed(2));
 
+      // billing.pending is the single source of truth for outstanding pending.
+      // currentPending is the original value (recomputeBillingCache no longer
+      // overwrites it).  Only the cash portion reduces pending — advance is
+      // a separate credit mechanism.
       const newPaid = Number((currentPaid + cashForThisInvoice).toFixed(2));
       const newAdvanceUsed = Number((currentAdvanceUsed + advanceForThisInvoice).toFixed(2));
-      const newPending = Math.max(0, Number((currentPending - totalForThisInvoice).toFixed(2)));
-      const newPendingUsed = Number((currentPendingUsed + totalForThisInvoice).toFixed(2));
+      const newPending = Math.max(0, Number((currentPending - cashForThisInvoice).toFixed(2)));
+      const newPendingUsed = Number((currentPendingUsed + cashForThisInvoice).toFixed(2));
 
       // Build the payment entries to add to multiplePayments
       const newMultiplePaymentEntries = [];

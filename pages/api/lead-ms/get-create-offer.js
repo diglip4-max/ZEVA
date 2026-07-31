@@ -4,8 +4,6 @@ import Offer from "../../../models/CreateOffer";
 import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic"; 
 import { getUserFromReq, requireRole } from "./auth";
-import { checkClinicPermission } from "./permissions-helper";
-import { checkAgentPermission } from "../agent/permissions-helper";
 
 export default async function handler(req, res) {
   try {
@@ -60,27 +58,6 @@ export default async function handler(req, res) {
       if (adminClinicId) {
         clinicId = adminClinicId;
       }
-    }
-
-    // ✅ Check permission for reading offers (only for doctorStaff and agent, clinic/admin/doctor/staff bypass)
-    if (!["admin", "clinic", "doctor", "staff"].includes(user.role) && clinicId) {
-      // If user is doctorStaff or agent, check read permission for create_offers module
-      if (['agent', 'doctorStaff'].includes(user.role)) {
-        const { hasPermission, error: permissionError } = await checkAgentPermission(
-          user._id,
-          "create_offers", // moduleKey
-          "read", // action
-          null // subModuleName
-        );
-
-        if (!hasPermission) {
-          return res.status(403).json({
-            success: false,
-            message: permissionError || "You do not have permission to view offers"
-          });
-        }
-      }
-      // Clinic, admin, and doctor users bypass permission checks
     }
 
     // Fetch offers for the clinic - return all fields defined in CreateOffer model
@@ -150,7 +127,3 @@ export default async function handler(req, res) {
       .json({ success: false, message: err.message || "Server error" });
   }
 }
-
-
-
-

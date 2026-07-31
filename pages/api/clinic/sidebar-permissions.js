@@ -107,24 +107,24 @@ export default async function handler(req, res) {
       clinicPermission.permissions.length === 0
     ) {
       return res.status(200).json({
-            success: true,
-            permissions: null,
-            navigationItems: navigationItems.map((item) => ({
-              _id: item._id,
-              label: item.label,
-              path: transformPath(item.path),
-              icon: item.icon,
-              description: item.description,
-              order: item.order,
-              moduleKey: item.moduleKey,
-              subModules: (item.subModules || []).map((subModule) => ({
-                ...subModule,
-                path: transformPath(subModule.path),
-              })),
-            })),
-            clinicId: clinic._id.toString(),
-            clinicOwnerId: clinic.owner.toString(),
-          });
+        success: true,
+        permissions: null,
+        navigationItems: navigationItems.map((item) => ({
+          _id: item._id,
+          label: item.label,
+          path: transformPath(item.path),
+          icon: item.icon,
+          description: item.description,
+          order: item.order,
+          moduleKey: item.moduleKey,
+          subModules: (item.subModules || []).map((subModule) => ({
+            ...subModule,
+            path: transformPath(subModule.path),
+          })),
+        })),
+        clinicId: clinic._id.toString(),
+        clinicOwnerId: clinic.owner.toString(),
+      });
     }
 
     // Build permission map for quick lookup
@@ -175,6 +175,7 @@ export default async function handler(req, res) {
             modulePerm.moduleActions.update === true ||
             modulePerm.moduleActions.delete === true ||
             modulePerm.moduleActions.print === true ||
+            modulePerm.moduleActions.import === true ||
             modulePerm.moduleActions.export === true ||
             modulePerm.moduleActions.approve === true);
 
@@ -201,6 +202,7 @@ export default async function handler(req, res) {
                   path: transformPath(subModule.path || ""),
                   icon: subModule.icon || "",
                   order: subModule.order || 0,
+                  moduleKey: subModule.moduleKey,
                 };
               }
               return null;

@@ -16,8 +16,6 @@ import { LoadScript } from "@react-google-maps/api";
 import Loader from "../components/Loader";
 import html2canvas from "html2canvas";
 import axios from "axios";
-import AgentDesktimeTracker from "../components/AgentDesktimeTracker";
-import DoctorDesktimeTracker from "../components/DoctorDesktimeTracker";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -589,10 +587,6 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       />
       {/* ✅ Show loader only for public (non-excluded) routes */}
       {!isExcludedRoute && loading && <Loader />}
-
-      {/* Add Global DeskTime Trackers - runs in background for all authenticated users   */}
-      <AgentDesktimeTracker />
-      <DoctorDesktimeTracker />
 
       <AuthProvider>
         <SearchProvider>

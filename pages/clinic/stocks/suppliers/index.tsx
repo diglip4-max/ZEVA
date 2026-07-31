@@ -17,14 +17,23 @@ import OpeningBalanceModal from "./_components/OpeningBalanceModal";
 import SupplierDetailModal from "./_components/SupplierDetailModal";
 import { Supplier } from "@/types/stocks";
 import debounce from "lodash.debounce";
-import { CircleDollarSign, Mail, Phone, Lock, Home, LogOut } from "lucide-react";
+import {
+  CircleDollarSign,
+  Mail,
+  Phone,
+  Lock,
+  Home,
+  LogOut,
+} from "lucide-react";
 import { useRouter } from "next/router";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const MODULE_KEY = "clinic_stock_suppliers";
 
 const SuppliersPage: NextPageWithLayout = () => {
   const token = getTokenByPath();
   const router = useRouter();
+  const { currency } = useCurrency();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -56,7 +65,7 @@ const SuppliersPage: NextPageWithLayout = () => {
     avgCreditDays: 0,
     uniqueBranchesCount: 0,
   });
-  
+
   // Permission state
   const [permissions, setPermissions] = useState({
     canRead: true,
@@ -113,7 +122,7 @@ const SuppliersPage: NextPageWithLayout = () => {
   useEffect(() => {
     fetchSuppliers(1);
   }, []);
-  
+
   // Fetch permissions
   useEffect(() => {
     const fetchPermissions = async () => {
@@ -130,7 +139,7 @@ const SuppliersPage: NextPageWithLayout = () => {
         setIsAgentStaff(
           decoded.role === "agent" ||
             decoded.role === "staff" ||
-            decoded.role === "doctorstaff"
+            decoded.role === "doctorstaff",
         );
 
         if (
@@ -139,12 +148,17 @@ const SuppliersPage: NextPageWithLayout = () => {
           decoded.role === "doctorstaff"
         ) {
           // Agent/Staff/DoctorStaff permissions
-          console.log("Fetching Agent/Staff Permissions for clinic_stock_suppliers...");
+          console.log(
+            "Fetching Agent/Staff Permissions for clinic_stock_suppliers...",
+          );
           setPermissionsLoaded(false);
-          const agentRes = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: MODULE_KEY },
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const agentRes = await axios.get(
+            "/api/agent/get-module-permissions",
+            {
+              params: { moduleKey: MODULE_KEY },
+              headers: { Authorization: `Bearer ${token}` },
+            },
+          );
           const data = agentRes.data;
           console.log("Agent Permissions API Response (Suppliers):", data);
 
@@ -153,7 +167,9 @@ const SuppliersPage: NextPageWithLayout = () => {
             !data?.permissions &&
             data?.error?.includes("No permissions found for module")
           ) {
-            console.log("Module not found in permissions, granting full access by default (Suppliers)");
+            console.log(
+              "Module not found in permissions, granting full access by default (Suppliers)",
+            );
             setPermissions({
               canRead: true,
               canCreate: true,
@@ -184,13 +200,18 @@ const SuppliersPage: NextPageWithLayout = () => {
           });
 
           if (clinicRes.data.success) {
-            console.log("Clinic Sidebar Permissions Response (Suppliers):", clinicRes.data);
+            console.log(
+              "Clinic Sidebar Permissions Response (Suppliers):",
+              clinicRes.data,
+            );
             if (
               clinicRes.data.permissions === null ||
               !Array.isArray(clinicRes.data.permissions) ||
               clinicRes.data.permissions.length === 0
             ) {
-              console.log("No permissions set, granting full access (Suppliers)");
+              console.log(
+                "No permissions set, granting full access (Suppliers)",
+              );
               setPermissions({
                 canRead: true,
                 canCreate: true,
@@ -198,26 +219,38 @@ const SuppliersPage: NextPageWithLayout = () => {
                 canDelete: true,
               });
             } else {
-              let modulePermission = clinicRes.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_suppliers") return true;
-                return false;
-              });
+              let modulePermission = clinicRes.data.permissions.find(
+                (p: any) => {
+                  if (!p?.module) return false;
+                  if (p.module === "clinic_stock_suppliers") return true;
+                  return false;
+                },
+              );
 
-              console.log("Direct module permission found (Suppliers):", modulePermission);
+              console.log(
+                "Direct module permission found (Suppliers):",
+                modulePermission,
+              );
 
               if (!modulePermission) {
-                const parentStockModule = clinicRes.data.permissions.find((p: any) => 
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
+                const parentStockModule = clinicRes.data.permissions.find(
+                  (p: any) =>
+                    p?.module === "clinic_stock" && Array.isArray(p.subModules),
                 );
-                
-                console.log("Parent stock module found (Suppliers):", parentStockModule);
-                
+
+                console.log(
+                  "Parent stock module found (Suppliers):",
+                  parentStockModule,
+                );
+
                 if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) => 
-                    sm?.moduleKey === "clinic_stock_suppliers"
+                  modulePermission = parentStockModule.subModules.find(
+                    (sm: any) => sm?.moduleKey === "clinic_stock_suppliers",
                   );
-                  console.log("Submodule permission found (Suppliers):", modulePermission);
+                  console.log(
+                    "Submodule permission found (Suppliers):",
+                    modulePermission,
+                  );
                 }
               }
 
@@ -425,7 +458,7 @@ const SuppliersPage: NextPageWithLayout = () => {
       </div>
     </div>
   );
-  
+
   if (!permissionsLoaded) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
@@ -436,11 +469,11 @@ const SuppliersPage: NextPageWithLayout = () => {
       </div>
     );
   }
-  
+
   if (!permissions.canRead && !permissions.canCreate) {
     return <AccessDenied />;
   }
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       {/* Header Section */}
@@ -810,22 +843,25 @@ const SuppliersPage: NextPageWithLayout = () => {
                               )}
 
                               {!supplier?.mobile && !supplier?.email && (
-                                <span className="text-sm text-gray-500">N/A</span>
+                                <span className="text-sm text-gray-500">
+                                  N/A
+                                </span>
                               )}
                             </div>
                           </td>
 
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {supplier.openingBalance?.toFixed(2) || "0.00"}
+                            {supplier.openingBalance?.toFixed(2) || "0.00"}{" "}
+                            {currency}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {"0.00"}
+                            {"0.00"} {currency}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {"0.00"}
+                            {"0.00"} {currency}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {"0.00"}
+                            {"0.00"} {currency}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
@@ -1031,12 +1067,16 @@ const SuppliersPage: NextPageWithLayout = () => {
                       )}
                     </span>{" "}
                     of{" "}
-                    <span className="font-medium">{pagination.totalResults}</span>{" "}
+                    <span className="font-medium">
+                      {pagination.totalResults}
+                    </span>{" "}
                     results
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage - 1)
+                      }
                       disabled={pagination.currentPage === 1}
                       className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                     >
@@ -1063,8 +1103,12 @@ const SuppliersPage: NextPageWithLayout = () => {
                       )}
                     </div>
                     <button
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
-                      disabled={pagination.currentPage === pagination.totalPages}
+                      onClick={() =>
+                        handlePageChange(pagination.currentPage + 1)
+                      }
+                      disabled={
+                        pagination.currentPage === pagination.totalPages
+                      }
                       className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                     >
                       Next

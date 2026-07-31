@@ -17,7 +17,9 @@ const ModulePermissionSchema = new mongoose.Schema({
       create: { type: Boolean, default: true },
       read: { type: Boolean, default: true },
       update: { type: Boolean, default: true },
-      delete: { type: Boolean, default: true }
+      delete: { type: Boolean, default: true },
+      import: { type: Boolean, default: true },
+      export: { type: Boolean, default: true }
     }
   }],
   actions: {
@@ -25,7 +27,9 @@ const ModulePermissionSchema = new mongoose.Schema({
     create: { type: Boolean, default: true },
     read: { type: Boolean, default: true },
     update: { type: Boolean, default: true },
-    delete: { type: Boolean, default: true }
+    delete: { type: Boolean, default: true },
+    import: { type: Boolean, default: true },
+    export: { type: Boolean, default: true }
   }
 });
 

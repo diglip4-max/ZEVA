@@ -85,10 +85,11 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
         params.date = selectedDate.toISOString().split('T')[0];
         params.filter = 'today'; // Explicitly tell backend it's today's data
       } else if (timeRange === 'week' && selectedDate) {
-        // For week, calculate start and end of the week
+        // For week, calculate Monday to Sunday
         const curr = new Date(selectedDate);
-        const first = curr.getDate() - curr.getDay();
-        const firstDay = new Date(curr.setDate(first));
+        const day = curr.getDay();
+        const diff = curr.getDate() - day + (day === 0 ? -6 : 1);
+        const firstDay = new Date(curr.setDate(diff));
         const lastDay = new Date(firstDay);
         lastDay.setDate(firstDay.getDate() + 6);
         params.startDate = firstDay.toISOString().split('T')[0];
@@ -146,11 +147,7 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
         <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-200">
           <p className="font-semibold text-gray-800 mb-1">{data.doctorName}</p>
           {payload[0].name === 'Appointments' && (
-            <>
-              <p className="text-sm text-blue-600">Total Appointments: <span className="font-bold">{data.appointmentCount}</span></p>
-              <p className="text-sm text-green-600">Completed: <span className="font-bold">{data.completedAppointments}</span></p>
-              <p className="text-sm text-orange-600">Pending: <span className="font-bold">{data.pendingAppointments}</span></p>
-            </>
+            <p className="text-sm text-blue-600">Appointments: <span className="font-bold">{data.appointmentCount}</span></p>
           )}
           {payload[0].name === 'Revenue' && (
             <>

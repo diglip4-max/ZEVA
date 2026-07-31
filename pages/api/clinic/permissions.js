@@ -152,6 +152,8 @@ export default async function handler(req, res) {
                 read: false,
                 update: false,
                 delete: false,
+                import: false,
+                export: false,
               }
             });
           }
@@ -169,6 +171,8 @@ export default async function handler(req, res) {
                 read: true,
                 update: true,
                 delete: true,
+                import: true,
+                export: true,
               }
             });
           }
@@ -192,6 +196,8 @@ export default async function handler(req, res) {
                   read: true,
                   update: true,
                   delete: true,
+                  import: true,
+                  export: true,
                 }
               });
             }
@@ -212,6 +218,12 @@ export default async function handler(req, res) {
                 delete: subModule.actions?.delete === true || 
                         subModule.actions?.delete === "true" ||
                         String(subModule.actions?.delete).toLowerCase() === "true",
+                import: subModule.actions?.import === true || 
+                        subModule.actions?.import === "true" ||
+                        String(subModule.actions?.import).toLowerCase() === "true",
+                export: subModule.actions?.export === true || 
+                        subModule.actions?.export === "true" ||
+                        String(subModule.actions?.export).toLowerCase() === "true",
               }
             });
           }
@@ -232,6 +244,12 @@ export default async function handler(req, res) {
               delete: modulePermission.actions?.delete === true || 
                       modulePermission.actions?.delete === "true" ||
                       String(modulePermission.actions?.delete).toLowerCase() === "true",
+              import: modulePermission.actions?.import === true || 
+                      modulePermission.actions?.import === "true" ||
+                      String(modulePermission.actions?.import).toLowerCase() === "true",
+              export: modulePermission.actions?.export === true || 
+                      modulePermission.actions?.export === "true" ||
+                      String(modulePermission.actions?.export).toLowerCase() === "true",
             }
           });
         }

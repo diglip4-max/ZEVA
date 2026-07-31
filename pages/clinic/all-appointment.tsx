@@ -60,6 +60,9 @@
     toTime: string;
     createdAt: string;
     updatedAt: string;
+    bookedByRole?: string | null;
+    bookedByUserId?: string | null;
+    bookedByName?: string | null;
   }
 
   interface Doctor {
@@ -101,6 +104,7 @@
     const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
       (contextOverride || "clinic") as "clinic" | "agent"
     );
+    
     const [userRole, setUserRole] = useState<string | null>(null);
     const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
     useEffect(() => {
@@ -222,6 +226,75 @@
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const appointmentRef = useRef<Appointment | null>(null);
     const [initialEditId, setInitialEditId] = useState<string | null>(null); // For handling edit from URL hash
+
+    // Status badge popover state
+    const statusPopoverRef = useRef<HTMLDivElement>(null);
+    const [activeStatusPopover, setActiveStatusPopover] = useState<string | null>(null);
+    const [statusPopoverData, setStatusPopoverData] = useState<{ patientName: string; doctorName: string }[]>([]);
+    const [statusPopoverLoading, setStatusPopoverLoading] = useState(false);
+
+    // Fetch appointments for a specific status badge popover
+    const fetchStatusAppointments = useCallback(async (status: string) => {
+      setStatusPopoverLoading(true);
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) {
+          setStatusPopoverLoading(false);
+          return;
+        }
+        // Use the same API with status filter and a high limit to get all records
+        const response = await axios.get("/api/clinic/all-appointments", {
+          headers,
+          params: {
+            page: 1,
+            limit: 200,
+            status,
+            fromDate: filters.fromDate,
+            toDate: filters.toDate,
+          },
+        });
+
+        if (response.data.success) {
+          const records = (response.data.appointments || []).map((a: Appointment) => ({
+            patientName: a.patientName,
+            doctorName: a.doctorName,
+          }));
+          setStatusPopoverData(records);
+        } else {
+          setStatusPopoverData([]);
+        }
+      } catch (err) {
+        console.error("Error fetching status appointments:", err);
+        setStatusPopoverData([]);
+      } finally {
+        setStatusPopoverLoading(false);
+      }
+    }, [getAuthHeaders, filters.fromDate, filters.toDate]);
+
+    // Close popover on outside click
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (statusPopoverRef.current && !statusPopoverRef.current.contains(event.target as Node)) {
+          setActiveStatusPopover(null);
+        }
+      };
+      if (activeStatusPopover) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [activeStatusPopover]);
+
+    // Handle status badge click
+    const handleStatusBadgeClick = useCallback((status: string) => {
+      if (activeStatusPopover === status) {
+        setActiveStatusPopover(null);
+      } else {
+        setActiveStatusPopover(status);
+        fetchStatusAppointments(status);
+      }
+    }, [activeStatusPopover, fetchStatusAppointments]);
 
 
     // Sync ref with state
@@ -791,7 +864,7 @@
                       <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-teal-400 w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                 <input
                   type="text"
-                  placeholder="Search by patient name, mobile, visit ID..."
+                  placeholder="Search by patient name, mobile, booked by..."
                   value={pendingFilters.search}
                   onChange={(e) => {
                     handleFilterChange("search", e.target.value);
@@ -804,11 +877,11 @@
 
                   {/* Appointment Status Counts */}
                   {Object.keys(statusCounts).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-gray-200 ml-0 sm:ml-2 md:ml-3" ref={statusPopoverRef}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs font-semibold text-gray-600">Today's Status:</span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 mb-5">
                         {Object.entries(statusCounts)
                           .filter(([, count]) => count > 0)
                           .sort((a, b) => b[1] - a[1])
@@ -830,19 +903,59 @@
                             };
 
                             const colors = statusColors[status] || { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200", icon: "text-gray-500" };
+                            const isActive = activeStatusPopover === status;
 
                             return (
-                              <div
-                                key={status}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${colors.bg} ${colors.border} shadow-sm hover:shadow-md transition-all duration-200`}
-                              >
-                                <div className={`w-2 h-2 rounded-full ${colors.icon} animate-pulse`} />
-                                <span className={`text-xs font-semibold capitalize ${colors.text}`}>
-                                  {status === "No Show" ? "No Show" : status.toLowerCase()}
-                                </span>
-                                <span className={`text-xs font-bold ${colors.text} bg-white bg-opacity-60 px-2 py-0.5 rounded-full`}>
-                                  {count}
-                                </span>
+                              <div key={status} className="relative">
+                                <div
+                                  onClick={() => handleStatusBadgeClick(status)}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${colors.bg} ${colors.border} shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${isActive ? 'ring-2 ring-offset-1 ring-teal-500' : ''}`}
+                                >
+                                  <div className={`w-2 h-2 rounded-full ${colors.icon} animate-pulse`} />
+                                  <span className={`text-xs font-semibold capitalize ${colors.text}`}>
+                                    {status === "No Show" ? "No Show" : status.toLowerCase()}
+                                  </span>
+                                  <span className={`text-xs font-bold ${colors.text} bg-white bg-opacity-60 px-2 py-0.5 rounded-full`}>
+                                    {count}
+                                  </span>
+                                </div>
+
+                                {/* Popover */}
+                                {isActive && (
+                                  <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
+                                    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                                      <span className="text-xs font-semibold text-gray-700 capitalize">
+                                        {status === "No Show" ? "No Show" : status.toLowerCase()}
+                                      </span>
+                                      <span className="text-xs text-gray-500">{statusPopoverData.length} record{statusPopoverData.length !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    <div className="px-3 py-1.5 bg-teal-50 border-b border-gray-200 flex items-center justify-between">
+                                      <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wide">Patient's Name</span>
+                                      <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wide">Doctor's Name</span>
+                                    </div>
+                                    <div className="max-h-60 overflow-y-auto">
+                                      {statusPopoverLoading ? (
+                                        <div className="px-3 py-4 text-center text-xs text-gray-500">Loading...</div>
+                                      ) : statusPopoverData.length === 0 ? (
+                                        <div className="px-3 py-4 text-center text-xs text-gray-500">No records found</div>
+                                      ) : (
+                                        statusPopoverData.map((record, idx) => (
+                                          <div
+                                            key={idx}
+                                            className={`px-3 py-2 flex items-center justify-between text-xs ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition-colors`}
+                                          >
+                                            <span className="font-medium text-gray-800 truncate max-w-[55%]" title={record.patientName}>
+                                              {record.patientName}
+                                            </span>
+                                            <span className="text-gray-500 truncate max-w-[40%] text-right" title={record.doctorName}>
+                                              {record.doctorName}
+                                            </span>
+                                          </div>
+                                        ))
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -1099,8 +1212,8 @@
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[40px]">
                             Photo
                           </th>
-                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[70px]">
-                            Visit ID
+                          <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[110px]">
+                            Booked By
                           </th>
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[140px]">
                             Date & Time
@@ -1158,9 +1271,20 @@
                               </div>
                             </td>
                             <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
-                              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 text-teal-800 rounded-full text-[10px] sm:text-xs font-semibold">
-                                {apt.visitId}
-                              </span>
+                              {apt.bookedByName ? (
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] sm:text-xs font-semibold text-teal-900 truncate max-w-[100px]" title={apt.bookedByName}>
+                                    {apt.bookedByName}
+                                  </span>
+                                  {apt.bookedByRole && (
+                                    <span className="text-[8px] sm:text-[9px] text-gray-500 italic truncate max-w-[100px]" title={apt.bookedByRole}>
+                                      ({apt.bookedByRole})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] sm:text-xs text-gray-400 italic">N/A</span>
+                              )}
                             </td>
                             <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px]">
                             <div className="space-y-0.5">
@@ -1578,7 +1702,11 @@
                       <span className="font-semibold">Patient:</span> {appointmentToDelete.patientName}
                     </p>
                     <p className="text-sm text-teal-700 mb-1">
-                      <span className="font-semibold">Visit ID:</span> {appointmentToDelete.visitId}
+                      <span className="font-semibold">Booked By:</span>{" "}
+                      {appointmentToDelete.bookedByName || "N/A"}
+                      {appointmentToDelete.bookedByRole
+                        ? ` (${appointmentToDelete.bookedByRole})`
+                        : ""}
                     </p>
                     <p className="text-sm text-teal-700">
                       <span className="font-semibold">Date:</span> {formatDate(appointmentToDelete.startDate)} {appointmentToDelete.fromTime}

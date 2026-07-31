@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const authUser = await getAuthorizedStaffUser(req, {
       allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
     });
-    
+
     if (!authUser) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
     // Check if clinic is within 2-day mock data period (only for new users with registeredAt)
     const isInMockPeriod = isNewClinicInMockPeriod(clinic.registeredAt);
-    
+
     // If in mock period, check if they have any real activity
     let hasRealData = false;
     if (isInMockPeriod) {
@@ -89,19 +89,19 @@ export default async function handler(req, res) {
       const [appointmentCount, leadCount, patientCount] = await Promise.all([
         Appointment.countDocuments({ clinicId: clinic._id }),
         Lead.countDocuments({ clinicId: clinic._id }),
-        PatientRegistration.countDocuments({ 
-          userId: { $in: [clinic.owner] } 
+        PatientRegistration.countDocuments({
+          userId: { $in: [clinic.owner] }
         }),
       ]);
-      
+
       hasRealData = appointmentCount > 0 || leadCount > 0 || patientCount > 0;
     }
-    
+
     // If in mock period AND no real data, return mock data
     if (isInMockPeriod && !hasRealData) {
       console.log('📊 Returning mock dashboard stats for new clinic:', clinic._id);
       const mockStats = generateMockDashboardStats();
-      
+
       return res.status(200).json({
         success: true,
         stats: mockStats,
@@ -112,20 +112,20 @@ export default async function handler(req, res) {
 
     // Check if clinic is approved
     if (!clinic.isApproved) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Clinic account not approved. Please wait for admin approval.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Clinic account not approved. Please wait for admin approval.'
       });
     }
 
     // Check if clinic is declined
     if (clinic.declined) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Clinic account has been declined' 
+      return res.status(403).json({
+        success: false,
+        message: 'Clinic account has been declined'
       });
     }
-   
+
 
     // Get all user IDs associated with this clinic (owner + all users with clinicId)
     // This is needed for PatientRegistration and JobPosting which are linked to users, not directly to clinic
@@ -164,8 +164,8 @@ export default async function handler(req, res) {
       Package.countDocuments({ clinicId }),
       CreateOffer.countDocuments({ clinicId }),
       // Count patients by userId (patients are linked to users, not directly to clinic)
-      PatientRegistration.countDocuments({ 
-        userId: { $in: clinicUserIds } 
+      PatientRegistration.countDocuments({
+        userId: { $in: clinicUserIds }
       }),
       // Count jobs by clinicId or postedBy users from this clinic
       JobPosting.countDocuments({

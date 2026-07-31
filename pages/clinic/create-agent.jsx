@@ -9,7 +9,6 @@ import {
   XCircle,
   Clock,
   CalendarCheck,
-  DollarSign,
   Percent,
   FileStack,
   UserPlus,
@@ -20,6 +19,7 @@ import {
   Eye,
   EyeOff,
   Upload,
+  Search,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -55,6 +55,7 @@ const ManageAgentsPage = () => {
   const router = useRouter();
   const [agents, setAgents] = useState([]);
   const [doctorStaff, setDoctorStaff] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [activeView, setActiveView] = useState('agents');
   const [menuAgentId, setMenuAgentId] = useState(null);
   const [profileAgent, setProfileAgent] = useState(null);
@@ -138,7 +139,7 @@ const ManageAgentsPage = () => {
   const doctorToken = typeof window !== 'undefined' ? localStorage.getItem('doctorToken') : null;
   const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
   const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
- 
+
   // Determine which token to use based on what's available
   // Priority: clinicToken > doctorToken > adminToken
   const token = clinicToken || doctorToken || adminToken || agentToken;
@@ -177,8 +178,8 @@ const ManageAgentsPage = () => {
         if (res.data.success && res.data.clinic?.bankDetails) {
           setClinicBankDetails(res.data.clinic.bankDetails);
         }
-      } catch (e) { 
-        console.error('Error fetching clinic currency:', e); 
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
       }
     };
     fetchClinicCurrency();
@@ -201,14 +202,14 @@ const ManageAgentsPage = () => {
         }
 
         const userRole = getUserRole();
-       
+
         // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
         if (userRole === "clinic" || userRole === "doctor") {
           try {
             const res = await axios.get("/api/clinic/sidebar-permissions", {
               headers: authHeaders,
             });
-           
+
             if (res.data.success) {
               // Check if permissions array exists and is not null
               // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
@@ -234,7 +235,7 @@ const ManageAgentsPage = () => {
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-                 
+
                   // Check if "all" is true, which grants all permissions
                   const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
                   const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
@@ -290,12 +291,12 @@ const ManageAgentsPage = () => {
             if (token) {
               const payload = JSON.parse(atob(token.split('.')[1]));
               const agentId = payload.userId || payload.id;
-             
+
               if (agentId) {
                 const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
                   headers: authHeaders,
                 });
-               
+
                 if (res.data.success && res.data.data) {
                   permissionsData = res.data.data;
                 }
@@ -320,7 +321,7 @@ const ManageAgentsPage = () => {
 
             if (modulePermission) {
               const actions = modulePermission.actions || {};
-             
+
               // Module-level "all" grants all permissions
               const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
               const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
@@ -379,7 +380,7 @@ const ManageAgentsPage = () => {
   }, []);
 
   const userRole = getUserRole();
- 
+
   // Admin role bypasses all permission checks
   const canRead = userRole === 'admin' ? true : permissions.canRead;
   const canCreate = userRole === 'admin' ? true : permissions.canCreate;
@@ -540,7 +541,7 @@ const ManageAgentsPage = () => {
           }
         });
       }
-    } catch {}
+    } catch { }
   }
 
   const getFileNameFromUrl = (url) => {
@@ -664,20 +665,21 @@ const ManageAgentsPage = () => {
               const docR = revs.find((d) => d.doctorId === String(agent._id));
               setTotalAppointments(docA?.appointmentCount ?? 0);
               setTotalRevenue(typeof docR?.estimatedRevenue === 'number' ? docR.estimatedRevenue : 0);
-              // Fetch total commission (all-time) from commissions summary
+              // Fetch total commission (all-time) from by-person API for this specific agent
               try {
-                const commRes = await axios.get("/api/clinic/commissions/summary", {
+                const commRes = await axios.get("/api/clinic/commissions/by-person", {
                   headers: authHeaders,
-                  params: { source: 'staff' }
+                  params: { source: 'staff', staffId: agent._id }
                 });
                 const commData = commRes.data || {};
-                // Support response shapes: {items: []}, {results: []}, or []
-                const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
-                const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
-                setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+                const commItems = Array.isArray(commData.items) ? commData.items : [];
+                // Only count approved + submitted commissions (same filter as /api/agent/commissions/mine)
+                const approvedItems = commItems.filter((c) => c.isSubmitted && c.isApproved);
+                const total = approvedItems.reduce((sum, c) => sum + Number(c.finalCommissionAmount || c.commissionAmount || 0), 0);
+                setTotalCommission(Number(total.toFixed(2)));
                 setCommissionPercent(
-                  me && typeof me.percent !== 'undefined'
-                    ? Number(me.percent)
+                  approvedItems.length > 0 && typeof approvedItems[0].commissionPercent !== 'undefined'
+                    ? Number(approvedItems[0].commissionPercent)
                     : (viewProfile?.commissionPercentage != null ? Number(viewProfile.commissionPercentage) : null)
                 );
               } catch {
@@ -716,20 +718,21 @@ const ManageAgentsPage = () => {
             } else {
               setTotalRevenue(0);
             }
-            // Fetch commission earned for this agent from commissions summary
+            // Fetch commission earned for this agent from by-person API
             try {
-              const commRes = await axios.get("/api/clinic/commissions/summary", {
+              const commRes = await axios.get("/api/clinic/commissions/by-person", {
                 headers: authHeaders,
-                params: { source: 'staff' }
+                params: { source: 'staff', staffId: agent._id }
               });
               const commData = commRes.data || {};
-              // Support response shapes: {items: []}, {results: []}, or []
-              const list = Array.isArray(commData.items) ? commData.items : (Array.isArray(commData.results) ? commData.results : (Array.isArray(commData) ? commData : []));
-              const me = list.find((row) => String(row.personId || row._id) === String(agent._id));
-              setTotalCommission(typeof me?.totalEarned === 'number' ? me.totalEarned : 0);
+              const commItems = Array.isArray(commData.items) ? commData.items : [];
+              // Only count approved + submitted commissions (same filter as /api/agent/commissions/mine)
+              const approvedItems = commItems.filter((c) => c.isSubmitted && c.isApproved);
+              const total = approvedItems.reduce((sum, c) => sum + Number(c.finalCommissionAmount || c.commissionAmount || 0), 0);
+              setTotalCommission(Number(total.toFixed(2)));
               setCommissionPercent(
-                me && typeof me.percent !== 'undefined'
-                  ? Number(me.percent)
+                approvedItems.length > 0 && typeof approvedItems[0].commissionPercent !== 'undefined'
+                  ? Number(approvedItems[0].commissionPercent)
                   : (p?.commissionPercentage != null ? Number(p.commissionPercentage) : null)
               );
             } catch {
@@ -767,7 +770,7 @@ const ManageAgentsPage = () => {
         } catch {
           setStaffTips([]);
         }
-        
+
         // Start periodic activity refresh
         startActivityRefresh(agent);
       } else {
@@ -1030,7 +1033,17 @@ const ManageAgentsPage = () => {
     }
   }
 
-  const currentList = activeView === 'agents' ? agents : doctorStaff;
+  const baseList = activeView === 'agents' ? agents : doctorStaff;
+  const currentList = useMemo(() => {
+    if (!searchQuery) return baseList;
+    const lower = searchQuery.toLowerCase();
+    return baseList.filter(item => {
+      const n = (item.name || '').toLowerCase();
+      const e = (item.email || '').toLowerCase();
+      const m = String(item.mobileNumber || '').toLowerCase();
+      return n.includes(lower) || e.includes(lower) || m.includes(lower);
+    });
+  }, [baseList, searchQuery]);
   const totalAgents = agents.length;
   const approvedAgents = useMemo(() => agents.filter((a) => a.isApproved).length, [agents]);
   const declinedAgents = useMemo(() => agents.filter((a) => a.declined).length, [agents]);
@@ -1065,15 +1078,15 @@ const ManageAgentsPage = () => {
     if (canCreate === true) {
       // Show create button only
       return (
-      <div className="w-full min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
-        <Toaster
+        <div className="w-full min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+          <Toaster
             position="top-right"
             toastOptions={{
               className: 'text-sm font-medium',
               style: { background: '#1f2937', color: '#f8fafc' },
             }}
           />
-          <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6">
+          <div className="w-full space-y-4 sm:space-y-6">
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -1138,7 +1151,7 @@ const ManageAgentsPage = () => {
           style: { background: '#1f2937', color: '#f8fafc' },
         }}
       />
-      <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6">
+      <div className="w-full space-y-4 sm:space-y-6">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -1224,35 +1237,45 @@ const ManageAgentsPage = () => {
               <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setActiveView('agents')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeView === 'agents'
-                      ? 'bg-white text-teal-900 shadow-sm'
-                      : 'text-teal-600 hover:text-teal-900'
-                  }`}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'agents'
+                    ? 'bg-white text-teal-900 shadow-sm'
+                    : 'text-teal-600 hover:text-teal-900'
+                    }`}
                 >
                   Agents ({agents.length})
                 </button>
                 <button
                   onClick={() => setActiveView('doctorStaff')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    activeView === 'doctorStaff'
-                      ? 'bg-white text-teal-900 shadow-sm'
-                      : 'text-teal-600 hover:text-teal-900'
-                  }`}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'doctorStaff'
+                    ? 'bg-white text-teal-900 shadow-sm'
+                    : 'text-teal-600 hover:text-teal-900'
+                    }`}
                 >
                   Doctors ({doctorStaff.length})
                 </button>
               </div>
             </div>
-            {canCreate === true && (
-              <button
-                onClick={handleCreateClick}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
-              >
-                <UserPlus className="w-4 h-4" />
-                Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
-              </button>
-            )}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder={activeView === 'agents' ? 'Search Agents...' : 'Search Doctors...'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              </div>
+              {canCreate === true && (
+                <button
+                  onClick={handleCreateClick}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center whitespace-nowrap"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1302,19 +1325,18 @@ const ManageAgentsPage = () => {
                           </div>
                           <div className="mt-1.5">
                             <span
-                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                agent.declined
-                                  ? 'bg-red-50 text-red-700 border border-red-200'
-                                  : agent.isApproved
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${agent.declined
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : agent.isApproved
                                   ? 'bg-green-50 text-green-700 border border-green-200'
                                   : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                              }`}
+                                }`}
                             >
                               {agent.declined
                                 ? 'Declined'
                                 : agent.isApproved
-                                ? 'Approved'
-                                : 'Pending'}
+                                  ? 'Approved'
+                                  : 'Pending'}
                             </span>
                           </div>
                         </div>
@@ -1345,18 +1367,18 @@ const ManageAgentsPage = () => {
                                 }}
                               />
                               <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                            {canRead === true && (
-                              <button
-                                className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuAgentId(null);
-                                  openView(agent);
-                                }}
-                              >
-                                View
-                              </button>
-                            )}
+                                {canRead === true && (
+                                  <button
+                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setMenuAgentId(null);
+                                      openView(agent);
+                                    }}
+                                  >
+                                    View
+                                  </button>
+                                )}
                                 {canCreate === true && (
                                   <button
                                     className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors border-t border-gray-200"
@@ -1391,18 +1413,16 @@ const ManageAgentsPage = () => {
                                     >
                                       Rights
                                     </button>
-                                    {agent.role === 'doctorStaff' && (
-                                      <button
-                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors border-t border-gray-200"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setTreatmentAgent(agent);
-                                          setMenuAgentId(null);
-                                        }}
-                                      >
-                                        Add Department
-                                      </button>
-                                    )}
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors border-t border-gray-200"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTreatmentAgent(agent);
+                                        setMenuAgentId(null);
+                                      }}
+                                    >
+                                      Add Department
+                                    </button>
                                   </>
                                 )}
                                 {canDelete === true && (
@@ -1459,11 +1479,10 @@ const ManageAgentsPage = () => {
                               handleAction(agent._id, 'approve');
                             }}
                             disabled={agent.isApproved}
-                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                              agent.isApproved
-                                ? 'bg-gray-50 text-teal-400 cursor-not-allowed border border-gray-200'
-                                : 'bg-gray-900 text-white hover:bg-gray-800 shadow-sm hover:shadow-md'
-                            }`}
+                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${agent.isApproved
+                              ? 'bg-gray-50 text-teal-400 cursor-not-allowed border border-gray-200'
+                              : 'bg-gray-900 text-white hover:bg-gray-800 shadow-sm hover:shadow-md'
+                              }`}
                           >
                             Approve
                           </button>
@@ -1473,11 +1492,10 @@ const ManageAgentsPage = () => {
                               handleAction(agent._id, 'decline');
                             }}
                             disabled={agent.declined}
-                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                              agent.declined
-                                ? 'bg-gray-50 text-teal-400 cursor-not-allowed border border-gray-200'
-                                : 'bg-gray-100 text-teal-700 hover:bg-gray-200 border border-gray-200 hover:border-gray-300'
-                            }`}
+                            className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${agent.declined
+                              ? 'bg-gray-50 text-teal-400 cursor-not-allowed border border-gray-200'
+                              : 'bg-gray-100 text-teal-700 hover:bg-gray-200 border border-gray-200 hover:border-gray-300'
+                              }`}
                           >
                             Decline
                           </button>
@@ -1632,7 +1650,7 @@ const ManageAgentsPage = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             {/* Content Section */}
             <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
               <div className="space-y-8">
@@ -2278,7 +2296,7 @@ const ManageAgentsPage = () => {
                         </div>
                       ))}
                     </div>
-                   
+
                   </div>
                 </div>
 
@@ -2491,7 +2509,7 @@ const ManageAgentsPage = () => {
                           }}
                           className="w-full sm:w-auto px-3 sm:px-4 py-2 sm:py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-full text-xs sm:text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4 flex-shrink-0"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4Z" /></svg>
                           <span className="whitespace-nowrap">Edit Profile</span>
                         </button>
                         <button
@@ -2538,7 +2556,7 @@ const ManageAgentsPage = () => {
                     <div className="bg-gradient-to-br from-emerald-500 to-green-600 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
                         {/* <div className="bg-white/20 rounded-xl p-3"> */}
-                          {/* <DollarSign className="w-5 h-5" /> */}
+
                         {/* </div> */}
                         <div>
                           <div className="text-3xl font-bold leading-tight">
@@ -2550,7 +2568,7 @@ const ManageAgentsPage = () => {
                     </div>
                     <div className="bg-gradient-to-br from-sky-300 to-blue-400 text-white rounded-2xl p-5 shadow-sm border border-white/10">
                       <div className="flex items-center gap-4">
-                        
+
                         <div>
                           <div className="text-3xl font-bold leading-tight">
                             {totalCommission != null ? `${getCurrencySymbol(currency)}${Number(totalCommission || 0).toLocaleString()}` : '—'}
@@ -2568,17 +2586,17 @@ const ManageAgentsPage = () => {
                           <div className="text-3xl font-bold leading-tight">
                             {
                               ((viewProfile?.idDocumentFrontUrl ? 1 : 0) +
-                              (viewProfile?.idDocumentBackUrl ? 1 : 0) +
-                              (viewProfile?.passportDocumentFrontUrl ? 1 : 0) +
-                              (viewProfile?.passportDocumentBackUrl ? 1 : 0) +
-                              (viewProfile?.employeeVisaFrontUrl ? 1 : 0) +
-                              (viewProfile?.employeeVisaBackUrl ? 1 : 0) +
-                              // Count Labour Contract tile (Visa & Legal) and Contract Front separately to match visible cards
-                              (viewProfile?.contractFrontUrl ? 2 : 0) +
-                              (viewProfile?.contractBackUrl ? 1 : 0) +
-                              (Array.isArray(viewProfile?.otherDocuments)
-                                ? viewProfile.otherDocuments.filter(d => d && d.url && String(d.url).trim().length > 0).length
-                                : 0))
+                                (viewProfile?.idDocumentBackUrl ? 1 : 0) +
+                                (viewProfile?.passportDocumentFrontUrl ? 1 : 0) +
+                                (viewProfile?.passportDocumentBackUrl ? 1 : 0) +
+                                (viewProfile?.employeeVisaFrontUrl ? 1 : 0) +
+                                (viewProfile?.employeeVisaBackUrl ? 1 : 0) +
+                                // Count Labour Contract tile (Visa & Legal) and Contract Front separately to match visible cards
+                                (viewProfile?.contractFrontUrl ? 2 : 0) +
+                                (viewProfile?.contractBackUrl ? 1 : 0) +
+                                (Array.isArray(viewProfile?.otherDocuments)
+                                  ? viewProfile.otherDocuments.filter(d => d && d.url && String(d.url).trim().length > 0).length
+                                  : 0))
                             }
                           </div>
                           <div className="text-xs opacity-90 mt-1">Documents Uploaded</div>
@@ -2657,9 +2675,9 @@ const ManageAgentsPage = () => {
                             {(() => {
                               // Consider user offline if no activity data or last login was more than 24 hours ago
                               const isActuallyOnline = activity &&
-                                                        activity.currentStatus === 'ONLINE' &&
-                                                        activity.lastLogin &&
-                                                        (Date.now() - new Date(activity.lastLogin).getTime()) < 24 * 60 * 60 * 1000;
+                                activity.currentStatus === 'ONLINE' &&
+                                activity.lastLogin &&
+                                (Date.now() - new Date(activity.lastLogin).getTime()) < 24 * 60 * 60 * 1000;
                               return (
                                 <>
                                   <span className={`h-2 w-2 rounded-full ${isActuallyOnline ? 'bg-emerald-500' : 'bg-gray-400'}`} />
@@ -2677,7 +2695,7 @@ const ManageAgentsPage = () => {
                           <div className="flex items-start gap-3">
                             <div className="relative flex-shrink-0">
                               <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v4"/><path d="M21 3l-7 7"/><rect x="3" y="11" width="10" height="10" rx="2"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v4" /><path d="M21 3l-7 7" /><rect x="3" y="11" width="10" height="10" rx="2" /></svg>
                               </div>
                             </div>
                             <div className="flex-1">
@@ -2687,7 +2705,7 @@ const ManageAgentsPage = () => {
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v10"/><path d="M21 7v10"/><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M8 7h8"/></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v10" /><path d="M21 7v10" /><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M8 7h8" /></svg>
                             </div>
                             <div className="flex-1">
                               <div className="font-medium text-teal-900">Password changed</div>
@@ -2696,7 +2714,7 @@ const ManageAgentsPage = () => {
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5h18"/><path d="M7 3v4"/><path d="M17 3v4"/><rect x="3" y="5" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5h18" /><path d="M7 3v4" /><path d="M17 3v4" /><rect x="3" y="5" width="18" height="18" rx="2" /><path d="M3 10h18" /></svg>
                             </div>
                             <div className="flex-1">
                               <div className="font-medium text-teal-900">Contract updated</div>
@@ -2705,7 +2723,7 @@ const ManageAgentsPage = () => {
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-7"/><path d="M8 12l4-4 4 4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-7" /><path d="M8 12l4-4 4 4" /><rect x="3" y="4" width="18" height="16" rx="2" /></svg>
                             </div>
                             <div className="flex-1">
                               <div className="font-medium text-teal-900">Document uploaded</div>
@@ -2714,7 +2732,7 @@ const ManageAgentsPage = () => {
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 7v10"/><path d="M7 12h10"/><circle cx="12" cy="12" r="9"/></svg>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 7v10" /><path d="M7 12h10" /><circle cx="12" cy="12" r="9" /></svg>
                             </div>
                             <div className="flex-1">
                               <div className="font-medium text-teal-900">Profile created</div>
@@ -2798,8 +2816,8 @@ const ManageAgentsPage = () => {
                         <div key={`adoc-${i}`} className="relative bg-white rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-36 bg-gray-50 flex items-center justify-center">
                             {d?.url ? (
-                              /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test((d.url||'').split('?')[0]) ? (
-                                <img src={d.url} alt={d?.name || `Document ${i+1}`} className="h-full w-full object-cover" />
+                              /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test((d.url || '').split('?')[0]) ? (
+                                <img src={d.url} alt={d?.name || `Document ${i + 1}`} className="h-full w-full object-cover" />
                               ) : (
                                 <a href={d.url} target="_blank" rel="noreferrer" className="text-sm text-teal-700 underline">Open file</a>
                               )
@@ -2808,12 +2826,12 @@ const ManageAgentsPage = () => {
                             )}
                           </div>
                           <div className="px-4 py-2 flex items-center justify-between">
-                            <div className="text-sm text-teal-900">{d?.name || `Document ${i+1}`}</div>
+                            <div className="text-sm text-teal-900">{d?.name || `Document ${i + 1}`}</div>
                             {d?.url && (
                               <a href={d.url} target="_blank" rel="noreferrer" className="text-teal-700 hover:text-teal-900" aria-label="View">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                  <circle cx="12" cy="12" r="3"/>
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                  <circle cx="12" cy="12" r="3" />
                                 </svg>
                               </a>
                             )}
@@ -2834,35 +2852,35 @@ const ManageAgentsPage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
-                          
+
                           Salary
                         </div>
                         <div className="mt-1 text-lg font-semibold text-teal-900">{typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
                       </div>
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
-                          
+
                           Contract Type
                         </div>
                         <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.contractType || '—'}</div>
                       </div>
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
-                          
+
                           Commission Type
                         </div>
                         <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.commissionType || '—'}</div>
                       </div>
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
-                          
+
                           Commission Value
                         </div>
                         <div className="mt-1 text-lg font-semibold text-teal-900">{viewProfile?.commissionPercentage ? `${viewProfile.commissionPercentage}%` : '—'}</div>
                       </div>
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
-                         
+
                           Discount
                         </div>
                         <div className="mt-1 text-lg font-semibold text-teal-900">

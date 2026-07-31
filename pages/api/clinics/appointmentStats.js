@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   try {
     const authUser = await getUserFromReq(req);
-    
+
     if (!authUser) {
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
 
     // Check if clinic is within 2-day mock data period
     const isInMockPeriod = isNewClinicInMockPeriod(clinic.registeredAt);
-    
+
     // If in mock period, check if they have any real activity
     let hasRealData = false;
     if (isInMockPeriod) {
@@ -54,6 +54,16 @@ export default async function handler(req, res) {
         startOfDay = new Date(queryDate);
         startOfDay.setHours(0, 0, 0, 0);
         endOfDay = new Date(queryDate);
+        endOfDay.setHours(23, 59, 59, 999);
+      } else if (filter === 'week') {
+        const queryDate = date ? new Date(date) : now;
+        const day = queryDate.getDay();
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        startOfDay = new Date(queryDate);
+        startOfDay.setDate(queryDate.getDate() + diffToMonday);
+        startOfDay.setHours(0, 0, 0, 0);
+        endOfDay = new Date(startOfDay);
+        endOfDay.setDate(startOfDay.getDate() + 6);
         endOfDay.setHours(23, 59, 59, 999);
       } else if (filter === 'month') {
         if (startDate && endDate) {
@@ -80,16 +90,16 @@ export default async function handler(req, res) {
         clinicId: clinic._id,
         startDate: { $gte: startOfDay, $lte: endOfDay }
       });
-      
+
       hasRealData = appointmentCount > 0;
     }
-    
+
     // If in mock period AND no real data, return mock data
     if (isInMockPeriod && !hasRealData) {
       const { filter } = req.query;
       console.log('📊 Returning mock appointment stats for new clinic:', clinic._id);
       const mockData = generateMockAppointmentStats(filter || 'today');
-      
+
       return res.status(200).json({
         success: true,
         data: mockData,
@@ -100,7 +110,7 @@ export default async function handler(req, res) {
 
     // Get filter type and date range from query
     const { filter, startDate, endDate, date } = req.query;
-    
+
     let startOfDay, endOfDay;
     const now = new Date();
 
@@ -110,6 +120,16 @@ export default async function handler(req, res) {
       startOfDay = new Date(queryDate);
       startOfDay.setHours(0, 0, 0, 0);
       endOfDay = new Date(queryDate);
+      endOfDay.setHours(23, 59, 59, 999);
+    } else if (filter === 'week') {
+      const queryDate = date ? new Date(date) : now;
+      const day = queryDate.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      startOfDay = new Date(queryDate);
+      startOfDay.setDate(queryDate.getDate() + diffToMonday);
+      startOfDay.setHours(0, 0, 0, 0);
+      endOfDay = new Date(startOfDay);
+      endOfDay.setDate(startOfDay.getDate() + 6);
       endOfDay.setHours(23, 59, 59, 999);
     } else if (filter === 'month') {
       // Use provided date range or default to current month
@@ -162,11 +182,13 @@ export default async function handler(req, res) {
       { name: 'Enquiry', value: 0, fill: '#06b6d4' },
       { name: 'Approved', value: 0, fill: '#22c55e' },
       { name: 'Arrived', value: 0, fill: '#84cc16' },
+      { name: 'Invoiced', value: 0, fill: '#6366f1' },
       { name: 'Consultation', value: 0, fill: '#eab308' },
       { name: 'Waiting', value: 0, fill: '#f97316' },
       { name: 'Rescheduled', value: 0, fill: '#a855f7' },
       { name: 'Discharge', value: 0, fill: '#ec4899' },
       { name: 'Completed', value: 0, fill: '#14b8a6' },
+      { name: 'No Show', value: 0, fill: '#6b7280' },
       { name: 'Rejected', value: 0, fill: '#64748b' },
       { name: 'Cancelled', value: 0, fill: '#ef4444' },
     ];
@@ -174,22 +196,27 @@ export default async function handler(req, res) {
     // Fill in actual counts from aggregation (case-insensitive)
     appointmentStats.forEach(stat => {
       const statusLower = stat._id.toLowerCase();
-      
+
       // Map lowercase status to proper case for display
       const statusMap = {
         'booked': 'Booked',
-        'enquiry': 'Enquiry', 
+        'enquiry': 'Enquiry',
         'approved': 'Approved',
         'arrived': 'Arrived',
+        'invoice': 'Invoiced',
+        'invoiced': 'Invoiced',
         'consultation': 'Consultation',
         'waiting': 'Waiting',
         'rescheduled': 'Rescheduled',
         'discharge': 'Discharge',
         'completed': 'Completed',
+        'no show': 'No Show',
+        'noshow': 'No Show',
+        'no_show': 'No Show',
         'rejected': 'Rejected',
         'cancelled': 'Cancelled'
       };
-      
+
       const displayName = statusMap[statusLower];
       if (displayName) {
         const dataIndex = chartData.findIndex(item => item.name === displayName);
@@ -199,17 +226,17 @@ export default async function handler(req, res) {
       }
     });
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: chartData,
       message: 'Appointment stats fetched successfully',
       filter: filter || 'today'
     });
   } catch (error) {
     console.error('Error fetching appointment stats:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Error fetching appointment stats' 
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error fetching appointment stats'
     });
   }
 }

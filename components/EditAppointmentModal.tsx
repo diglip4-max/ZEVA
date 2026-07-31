@@ -28,6 +28,9 @@ interface EditAppointmentModalProps {
     treatment?: string;
     serviceId?: string | { _id: string } | null;
     serviceIds?: string[];
+    bookedByRole?: string | null;
+    bookedByUserId?: string | null;
+    bookedByName?: string | null;
   } | null;
   rooms: Array<{ _id: string; name: string }>;
   doctors: Array<{ _id: string; name: string }>;
@@ -277,6 +280,21 @@ export default function EditAppointmentModal({
             <label className="block text-xs font-medium text-gray-700 mb-0.5">Patient</label>
             <p className="text-xs text-gray-900 font-medium">{appointment.patientName}</p>
             <p className="text-xs text-gray-500 mt-0.5">This field cannot be changed</p>
+            {appointment.bookedByName && (
+              <div className="mt-1.5 pt-1.5 border-t border-gray-200">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-500 font-medium">Booked by:</span>
+                  <span className="text-xs text-gray-900 font-semibold">
+                    {appointment.bookedByName}
+                  </span>
+                  {appointment.bookedByRole && (
+                    <span className="text-[10px] text-gray-500 italic">
+                      ({appointment.bookedByRole})
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Room, Doctor, Status, Follow Type - In one row */}
