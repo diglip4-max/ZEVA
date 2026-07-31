@@ -3,10 +3,10 @@ import math
 
 from langsmith import traceable
 
-from cache import get_cache, set_cache, redis_client
+from shared.cache import get_cache, set_cache, redis_client
 import httpx
 from datetime import datetime, timedelta
-from appointment import get_header
+from shared.appointment import get_header
 import redis
 import os
 import logging

@@ -2,7 +2,7 @@ from typing import Optional
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
-from scenario_keys import SCENARIO_KEYS, BEHAVIOR_STYLES, DEFAULT_BEHAVIOR_STYLE
+from shared.scenario_keys import SCENARIO_KEYS, BEHAVIOR_STYLES, DEFAULT_BEHAVIOR_STYLE
 
 
 class TemplateRecord:
