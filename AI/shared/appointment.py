@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 from langgraph.graph import END, START, StateGraph
 from datetime import datetime, timedelta
 import random
-from cache import get_cache, set_cache
-from pagination import _fetch_all_pages
+from shared.cache import get_cache, set_cache
+from shared.pagination import _fetch_all_pages
 
 load_dotenv()
 AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
@@ -45,6 +45,15 @@ def get_header(token):
     return {"Authorization": f"Bearer {token}"}
 
 
+def _normalize_patient_phone(raw: str) -> str:
+    digits = re.sub(r"\D", "", raw or "")
+
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+
+    return digits
+
+
 async def check_patient(state: AppointmentState):
     cache_key = f"patients:{state['clinicToken']}"
     data = await get_cache(cache_key)
@@ -71,28 +80,18 @@ async def check_patient(state: AppointmentState):
     if not data.get("success") or not data.get("data"):
         return {"patientExists": False, "patients": [], "patientId": ""}
 
-    def normalize_phone(raw: str) -> str:
-        digits = re.sub(r"\D", "", raw)
-        if not digits:
-            return digits
-        if len(digits) == 12 and digits.startswith("91"):
-            candidate = digits[2:]
-            if len(candidate) == 10:
-                return candidate
-        return digits
-
     def normalize_name(raw: str) -> str:
         return raw.strip().lower()
 
     patient_name_input = normalize_name(state.get("patient_name", ""))
-    patient_phone_input = normalize_phone(state.get("patient_phone", ""))
+    patient_phone_input = _normalize_patient_phone(state.get("patient_phone", ""))
     matched_patient = None
 
     for patient in data["data"]:
         first = patient.get("firstName", "") or ""
         last = patient.get("lastName", "") or ""
         db_full_name = normalize_name(f"{first} {last}".strip())
-        db_phone = normalize_phone(patient.get("mobileNumber", "") or "")
+        db_phone = _normalize_patient_phone(patient.get("mobileNumber", "") or "")
 
         if db_full_name == patient_name_input and db_phone == patient_phone_input:
             matched_patient = patient
@@ -169,8 +168,8 @@ async def register_patient(state: AppointmentState):
             patient = data.get("data", {})
             return {
                 "patientExists": True,
-                "patientId": patient.get("_id", ""),
                 "patients": [patient],
+                "patientId": patient.get("_id", ""),
             }
 
         return {
@@ -304,10 +303,13 @@ def confirm_time(state: AppointmentState):
             continue
 
     if not converted_date:
+        print(f"[confirm_time] FAILED to parse date_str={date_str!r}")
         return {"Status": "Error", "errorMessage": f"Could not parse date: {date_str}"}
 
     start_time = datetime.strptime(start_time_str, "%H:%M")
     to_time_str = (start_time + timedelta(minutes=20)).strftime("%H:%M")
+
+    print(f"[confirm_time] OK converted_date={converted_date} toTime={to_time_str}")
 
     return {
         "timeConfirmed": True,
@@ -333,9 +335,19 @@ def handle_error(state: AppointmentState):
             "Status": "Error",
             "errorMessage": f"Treatment '{state['treatment_name']}' is not available.",
         }
+    elif not state.get("timeConfirmed"):
+        return {
+            "Status": "Error",
+            "errorMessage": state.get("errorMessage")
+            or f"Could not parse date/time: {state.get('startDate')} {state.get('fromTime')}",
+        }
 
 
 async def book_appointment(state: AppointmentState):
+    print(
+        f"[book_appointment] toTime={state.get('toTime')!r} fromTime={state.get('fromTime')!r} startDate={state.get('startDate')!r} timeConfirmed={state.get('timeConfirmed')!r}"
+    )
+
     header = get_header(state["clinicToken"])
     payload = {
         "patientId": state["patientId"],
@@ -348,7 +360,7 @@ async def book_appointment(state: AppointmentState):
         "fromTime": state["fromTime"],
         "toTime": state["toTime"],
     }
-
+    print(f"[book_appointment] FULL PAYLOAD: {payload}")
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(20.0)) as client:
             response = await client.post(
@@ -389,12 +401,27 @@ async def book_appointment(state: AppointmentState):
 # ── Routing functions — updated to point to new combined node ─────────────────
 
 
+def _normalize_patient_phone(raw: str) -> str:
+    digits = re.sub(r"\D", "", raw or "")
+
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+
+    return digits
+
+
 def after_check_patient(
     state: AppointmentState,
 ) -> Literal["check_doctor_and_treatments", "register_patient"]:
     return (
         "check_doctor_and_treatments" if state["patientExists"] else "register_patient"
     )
+
+
+def after_confirm_time(
+    state: AppointmentState,
+) -> Literal["book_appointment", "handle_error"]:
+    return "book_appointment" if state.get("timeConfirmed") else "handle_error"
 
 
 def after_register_patient(
@@ -446,7 +473,7 @@ def buildGraph(clinicToken: str, payload: dict):
     graph.add_node("check_patient", check_patient)
     graph.add_node("register_patient", register_patient)
     graph.add_node("check_doctor_and_treatments", check_doctor_and_treatments)
-    graph.add_node("confirm_time", confirm_time)
+    graph.add_node("confirm_time", confirm_time)  # ← make sure this line is still here
     graph.add_node("handle_error", handle_error)
     graph.add_node("book_appointment", book_appointment)
 
@@ -456,7 +483,7 @@ def buildGraph(clinicToken: str, payload: dict):
     graph.add_conditional_edges(
         "check_doctor_and_treatments", after_check_doctor_and_treatments
     )
-    graph.add_edge("confirm_time", "book_appointment")
+    graph.add_conditional_edges("confirm_time", after_confirm_time)  # ← the new edge
     graph.add_edge("handle_error", END)
     graph.add_edge("book_appointment", END)
 
