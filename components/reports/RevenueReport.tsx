@@ -128,13 +128,12 @@ type PaymentMethodDetail = {
   revenue: number;
 };
 type PaymentRow = { method: string; amount: number; details: PaymentMethodDetail[] };
-type ViewRow = { label: string; amount: number };
+// type ViewRow = { label: string; amount: number };
 
 export default function RevenueReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [totalRevenue, setTotalRevenue] = useState(0);
   const [treatmentRevenue, setTreatmentRevenue] = useState(0);
   const [packageRevenue, setPackageRevenue] = useState(0);
   const [advanceRevenue, setAdvanceRevenue] = useState(0);
@@ -145,12 +144,12 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   const [revenueByPackage, setRevenueByPackage] = useState<PackageRow[]>([]);
   const [revenueByDepartment, setRevenueByDepartment] = useState<DepartmentRow[]>([]);
   const [revenueByPaymentMethod, setRevenueByPaymentMethod] = useState<PaymentRow[]>([]);
-  const [daily, setDaily] = useState<ViewRow[]>([]);
-  const [weekly, setWeekly] = useState<ViewRow[]>([]);
-  const [monthly, setMonthly] = useState<ViewRow[]>([]);
-  const [yearly, setYearly] = useState<ViewRow[]>([]);
+  // const [daily, setDaily] = useState<ViewRow[]>([]);
+  // const [weekly, setWeekly] = useState<ViewRow[]>([]);
+  // const [monthly, setMonthly] = useState<ViewRow[]>([]);
+  // const [yearly, setYearly] = useState<ViewRow[]>([]);
 
-  const [viewMode, setViewMode] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
+  // const [viewMode, _setViewMode] = useState<"daily" | "weekly" | "monthly" | "yearly">("daily");
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [paymentsPageSize] = useState(10);
   const [paymentsTotal, setPaymentsTotal] = useState(0);
@@ -175,6 +174,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   };
 
   const fmtCurrency = (n: number | null | undefined) => currencyFormatter(n);
+  const totalRevenue = useMemo(
+    () => Number(treatmentRevenue || 0) + Number(packageRevenue || 0),
+    [treatmentRevenue, packageRevenue]
+  );
 
   useEffect(() => {
     fetchData();
@@ -193,7 +196,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
       const res = await fetch(`/api/clinic/reports/revenue?${params.toString()}`, { headers });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setTotalRevenue(0);
         setTreatmentRevenue(0);
         setPackageRevenue(0);
         setAdvanceRevenue(0);
@@ -204,10 +206,9 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
         setRevenueByPackage([]);
         setRevenueByDepartment([]);
         setRevenueByPaymentMethod([]);
-        setDaily([]); setWeekly([]); setMonthly([]); setYearly([]);
+        // setDaily([]); setWeekly([]); setMonthly([]); setYearly([]);
         return;
       }
-      setTotalRevenue(json.data?.totalRevenue || 0);
       setTreatmentRevenue(json.data?.treatmentRevenue || 0);
       setPackageRevenue(json.data?.packageRevenue || 0);
       setAdvanceRevenue(json.data?.advanceRevenue || 0);
@@ -219,10 +220,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
       setRevenueByPackage(json.data?.revenueByPackage || []);
       setRevenueByDepartment(json.data?.revenueByDepartment || []);
       setRevenueByPaymentMethod(json.data?.revenueByPaymentMethod || []);
-      setDaily(json.data?.views?.daily || []);
-      setWeekly(json.data?.views?.weekly || []);
-      setMonthly(json.data?.views?.monthly || []);
-      setYearly(json.data?.views?.yearly || []);
+      // setDaily(json.data?.views?.daily || []);
+      // setWeekly(json.data?.views?.weekly || []);
+      // setMonthly(json.data?.views?.monthly || []);
+      // setYearly(json.data?.views?.yearly || []);
       setPayments(json.data?.payments || []);
       setPaymentsTotal(json.data?.paymentsTotal || 0);
       setPendingPayments(json.data?.pendingPayments || []);
@@ -234,22 +235,22 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
     }
   }
 
-  const chartDaily = useMemo(() => daily.map((d) => ({ name: d.label, amount: d.amount })), [daily]);
-  const chartWeekly = useMemo(() => weekly.map((d) => ({ name: d.label, amount: d.amount })), [weekly]);
-  const chartMonthly = useMemo(() => monthly.map((d) => ({ name: d.label, amount: d.amount })), [monthly]);
-  const chartYearly = useMemo(() => yearly.map((d) => ({ name: d.label, amount: d.amount })), [yearly]);
-  const chartData = useMemo(() => {
-    if (viewMode === "daily") return chartDaily;
-    if (viewMode === "weekly") return chartWeekly;
-    if (viewMode === "monthly") return chartMonthly;
-    return chartYearly;
-  }, [viewMode, chartDaily, chartWeekly, chartMonthly, chartYearly]);
-  const chartColor = useMemo(() => {
-    if (viewMode === "daily") return "#2D9AA5";
-    if (viewMode === "weekly") return "#0EA5E9";
-    if (viewMode === "monthly") return "#F59E0B";
-    return "#22C55E";
-  }, [viewMode]);
+  // const chartDaily = useMemo(() => daily.map((d) => ({ name: d.label, amount: d.amount })), [daily]);
+  // const chartWeekly = useMemo(() => weekly.map((d) => ({ name: d.label, amount: d.amount })), [weekly]);
+  // const chartMonthly = useMemo(() => monthly.map((d) => ({ name: d.label, amount: d.amount })), [monthly]);
+  // const chartYearly = useMemo(() => yearly.map((d) => ({ name: d.label, amount: d.amount })), [yearly]);
+  // const chartData = useMemo(() => {
+  //   if (viewMode === "daily") return chartDaily;
+  //   if (viewMode === "weekly") return chartWeekly;
+  //   if (viewMode === "monthly") return chartMonthly;
+  //   return chartYearly;
+  // }, [viewMode, chartDaily, chartWeekly, chartMonthly, chartYearly]);
+  // const chartColor = useMemo(() => {
+  //   if (viewMode === "daily") return "#2D9AA5";
+  //   if (viewMode === "weekly") return "#0EA5E9";
+  //   if (viewMode === "monthly") return "#F59E0B";
+  //   return "#22C55E";
+  // }, [viewMode]);
 
   type PaymentItem = {
     invoiceNumber: string;

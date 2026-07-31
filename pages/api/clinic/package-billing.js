@@ -105,6 +105,39 @@ export default async function handler(req, res) {
       }
     }
 
+    // Check 3: Enterprise-grade ledger idempotency check (Option 5)
+    // If a packageId is provided, ensure no billing already exists for this
+    // exact (patientId, packageId) pair. This makes the endpoint idempotent
+    // against frontend bugs, double-clicks, network retries, multi-tab edits,
+    // or any other source of duplicate POST calls. Existing checks above are
+    // left intact — this is purely an additional safety net.
+    if (packageId) {
+      try {
+        const ledgerDuplicate = await Billing.findOne({
+          clinicId,
+          patientId,
+          packageId,
+          service: "Package",
+          pending: { $gte: 0 }
+        }).sort({ createdAt: -1 });
+
+        if (ledgerDuplicate) {
+          console.log(
+            `[Package Billing] Ledger check: packageId ${packageId} already billed for patient ${patientId} (invoice ${ledgerDuplicate.invoiceNumber}). Skipping duplicate.`
+          );
+          return res.status(200).json({
+            success: true,
+            message: `Package '${packageName}' (id: ${packageId}) was already billed. Skipping duplicate.`,
+            billing: ledgerDuplicate,
+            invoiceNumber: ledgerDuplicate.invoiceNumber,
+          });
+        }
+      } catch (ledgerCheckErr) {
+        // Never block billing on a failed ledger check — just log and continue.
+        console.warn('[Package Billing] Ledger duplicate check failed (non-blocking):', ledgerCheckErr.message);
+      }
+    }
+
     // Calculate pending amount
     // paidAmount is the cash/card payment (custom amount entered by user)
     // advanceBalanceUsed and claimAmountUsed are deducted from the amount user wants to pay
@@ -150,6 +183,10 @@ export default async function handler(req, res) {
       invoicedById: user._id,
       service: "Package",
       package: packageName,
+      // Persist packageId when provided so the ledger-level idempotency check
+      // (Check 3 above) can detect duplicate POSTs for the same package
+      // instance. This is additive and does not affect any existing logic.
+      ...(packageId ? { packageId } : {}),
       quantity: 1,
       sessions: 0, // Set to 0 for package purchase - sessions are not consumed yet
       selectedPackageTreatments: [], // Don't store any treatments when adding a package

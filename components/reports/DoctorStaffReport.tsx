@@ -47,6 +47,8 @@ type RevenueDetail = {
 };
 
 type RevenueRow = { staffId: string; staffName: string; revenue: number; invoices: number; details: RevenueDetail[] };
+type RevenueApiDoctorRow = { doctorId: string; name: string; amount: number; details: RevenueDetail[] };
+type RevenueApiStaffRow = { staffId: string; name: string; amount: number; invoices?: number; details: RevenueDetail[] };
 type DetailRow = {
   staffId: string;
   staffName: string;
@@ -139,7 +141,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const [topAgentCommission, setTopAgentCommission] = useState<CommissionRow[]>([]);
   const [topPackageBilling, setTopPackageBilling] = useState<BillingRow[]>([]);
   const [topMembershipBilling, setTopMembershipBilling] = useState<MembershipBillingRow[]>([]);
-  const [_salesStaff, setSalesStaff] = useState<any[]>([]);
   const [selectedPackageStaff, setSelectedPackageStaff] = useState<BillingRow | null>(null);
   const [selectedRevenueStaff, setSelectedRevenueStaff] = useState<RevenueRow | null>(null);
   const [selectedMembershipStaff, setSelectedMembershipStaff] = useState<MembershipBillingRow | null>(null);
@@ -155,20 +156,26 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
   const formatCurrency = (n: number | null | undefined) => currencyFormatter(n);
 
   useEffect(() => {
-    // Always fetch from doctor-staff-performance API which now includes both doctor and agent revenue
+    // Load supporting doctor-staff data plus the canonical doctor/staff revenue used in Revenue Report.
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, activeTab]);
+  }, [startDate, endDate]);
 
-  async function fetchSalesStaff() {
+  async function fetchData() {
     setLoading(true);
     try {
-      const params: any = { startDate, endDate, limit: "10" };
-      const qs = new URLSearchParams(params).toString();
-      const res = await fetch(`/api/clinic/reports/sales-staff-performance?${qs}`, { headers });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setSalesStaff(json.data || []);
+      const doctorStaffQs = new URLSearchParams({ startDate, endDate: new Date(endDate).toISOString() }).toString();
+      const revenueQs = new URLSearchParams({ startDate, endDate }).toString();
+      const [doctorStaffRes, revenueRes] = await Promise.all([
+        fetch(`/api/clinic/reports/doctor-staff-performance?${doctorStaffQs}`, { headers }),
+        fetch(`/api/clinic/reports/revenue?${revenueQs}`, { headers }),
+      ]);
+      const [doctorStaffJson, revenueJson] = await Promise.all([
+        doctorStaffRes.json(),
+        revenueRes.json(),
+      ]);
+
+      if (!doctorStaffRes.ok || !doctorStaffJson.success) {
         setRevenues([]);
         setAgentRevenues([]);
         setDetails([]);
@@ -176,57 +183,66 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
         setTopAgentCommission([]);
         setTopPackageBilling([]);
         setTopMembershipBilling([]);
+      } else {
+        console.log("top5Revenue:", doctorStaffJson.data?.top5Revenue);
+        console.log("top5AgentRevenue:", doctorStaffJson.data?.top5AgentRevenue);
+        console.log("DEBUG - directBillingAggCount:", doctorStaffJson.data?.debug?.directBillingAggCount);
+        console.log("DEBUG - directBillingAggData:", doctorStaffJson.data?.debug?.directBillingAggData);
+        console.log("DEBUG - revenueByAgentCount:", doctorStaffJson.data?.debug?.revenueByAgentCount);
+        console.log("DEBUG - revenueByAgentData:", JSON.stringify(doctorStaffJson.data?.debug?.revenueByAgentData, null, 2));
+        console.log("DEBUG - agentRevenues state:", doctorStaffJson.data?.top5AgentRevenue);
+        setDetails(doctorStaffJson.data?.top5Details || []);
+        setTopDoctorStaffCommission(doctorStaffJson.data?.topDoctorStaffCommission || []);
+        setTopAgentCommission(doctorStaffJson.data?.topAgentCommission || []);
+        setTopPackageBilling(doctorStaffJson.data?.topPackageBilling || []);
+        setTopMembershipBilling(doctorStaffJson.data?.topMembershipBilling || []);
       }
-    } catch (e) {
-      console.error("Error fetching sales staff:", e);
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  async function fetchData() {
-    setLoading(true);
-    try {
-      const qs = new URLSearchParams({ startDate, endDate: new Date(endDate).toISOString() }).toString();
-      const res = await fetch(`/api/clinic/reports/doctor-staff-performance?${qs}`, { headers });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
+      if (!revenueRes.ok || !revenueJson.success) {
         setRevenues([]);
-        setDetails([]);
-        setTopDoctorStaffCommission([]);
-        setTopAgentCommission([]);
-        return;
+        setAgentRevenues([]);
+      } else {
+        const doctorRevenueRows: RevenueRow[] = ((revenueJson.data?.revenueByDoctor || []) as RevenueApiDoctorRow[])
+          .map((row) => ({
+            staffId: row.doctorId || "",
+            staffName: row.name || "Unknown",
+            revenue: Math.round(Number(row.amount || 0)),
+            invoices: Array.isArray(row.details) ? row.details.length : 0,
+            details: row.details || [],
+          }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5);
+
+        const staffRevenueRows: RevenueRow[] = ((revenueJson.data?.revenueByStaff || []) as RevenueApiStaffRow[])
+          .map((row) => ({
+            staffId: row.staffId || "",
+            staffName: row.name || "Unknown",
+            revenue: Math.round(Number(row.amount || 0)),
+            invoices: row.invoices ?? (Array.isArray(row.details) ? row.details.length : 0),
+            details: row.details || [],
+          }))
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 5);
+
+        setRevenues(doctorRevenueRows);
+        setAgentRevenues(staffRevenueRows);
       }
-      setRevenues(json.data?.top5Revenue || []);
-      setAgentRevenues(json.data?.top5AgentRevenue || []);
-      console.log("top5Revenue:", json.data?.top5Revenue);
-      console.log("top5AgentRevenue:", json.data?.top5AgentRevenue);
-      console.log("DEBUG - directBillingAggCount:", json.data?.debug?.directBillingAggCount);
-      console.log("DEBUG - directBillingAggData:", json.data?.debug?.directBillingAggData);
-      console.log("DEBUG - revenueByAgentCount:", json.data?.debug?.revenueByAgentCount);
-      console.log("DEBUG - revenueByAgentData:", JSON.stringify(json.data?.debug?.revenueByAgentData, null, 2));
-      console.log("DEBUG - agentRevenues state:", json.data?.top5AgentRevenue);
-      setDetails(json.data?.top5Details || []);
-      setTopDoctorStaffCommission(json.data?.topDoctorStaffCommission || []);
-      setTopAgentCommission(json.data?.topAgentCommission || []);
-      setTopPackageBilling(json.data?.topPackageBilling || []);
-      setTopMembershipBilling(json.data?.topMembershipBilling || []);
     } finally {
       setLoading(false);
     }
   }
-
-  const chartBookings = useMemo(
-    () =>
-      (details || []).map((d) => ({
-        name: d.staffName || "Unknown",
-        bookings: d.totalAppointments || 0,
-      })),
-    [details]
-  );
 
   // Use appropriate revenue data based on active tab
   const currentRevenues = activeTab === 'doctor' ? revenues : agentRevenues;
+
+  const chartBookings = useMemo(
+    () =>
+      (currentRevenues || []).map((r) => ({
+        name: r.staffName || "Unknown",
+        value: Math.round(r.revenue || 0),
+      })),
+    [currentRevenues]
+  );
 
   const chartRevenue = useMemo(() => {
     const maxRevenue = Math.max(...currentRevenues.map((r) => r.revenue));
@@ -248,24 +264,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
 
   const doctorStaffExportSections = useMemo(() => [
     {
-      title: "Top Doctor Staff Details",
-      headers: ["Doctor Staff", "Total Appointments", "Booked", "Cancelled", "Completed", "Invoiced", "Rescheduled", "Total Patients"],
-      data: details.map(d => ({
-        "Doctor Staff": d.staffName || "Unknown",
-        "Total Appointments": d.totalAppointments || 0,
-        "Booked": d.booked || 0,
-        "Cancelled": d.cancelled || 0,
-        "Completed": d.completed || 0,
-        "Invoiced": d.invoiced || 0,
-        "Rescheduled": d.rescheduled || 0,
-        "Total Patients": d.totalPatients || 0,
+      title: activeTab === "doctor" ? "Revenue by Doctor" : "Revenue by Staff (Direct Billings)",
+      headers: [activeTab === "doctor" ? "Doctor" : "Staff/Agent", `Revenue (${currency})`, "Invoices"],
+      data: currentRevenues.map((r) => ({
+        [activeTab === "doctor" ? "Doctor" : "Staff/Agent"]: r.staffName || "Unknown",
+        [`Revenue (${currency})`]: Math.round(r.revenue || 0),
+        "Invoices": r.invoices || 0,
       })),
     },
     {
-      title: "Top 5 Doctor Staff Revenue",
-      headers: ["Doctor Staff", `Revenue (${currency})`, "Invoices"],
-      data: revenues.map(r => ({
-        "Doctor Staff": r.staffName || "Unknown",
+      title: activeTab === "doctor" ? "Top 5 Doctor Staff Revenue" : "Top 5 Staff Revenue (Direct Billings)",
+      headers: [activeTab === "doctor" ? "Doctor Staff" : "Staff/Agent", `Revenue (${currency})`, "Invoices"],
+      data: currentRevenues.map(r => ({
+        [activeTab === "doctor" ? "Doctor Staff" : "Staff/Agent"]: r.staffName || "Unknown",
         [`Revenue (${currency})`]: Math.round(r.revenue || 0),
         "Invoices": r.invoices || 0,
       })),
@@ -306,7 +317,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
         "Entries": r.entries || 0,
       })),
     },
-  ], [details, revenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission, currency]);
+  ], [activeTab, currentRevenues, topPackageBilling, topMembershipBilling, topDoctorStaffCommission, topAgentCommission, currency]);
 
   return (
     <div className="space-y-8">
@@ -335,7 +346,9 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       </div>
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Doctor Staff by Bookings</h3>
+          <h3 className="text-lg font-semibold text-gray-800">
+            {activeTab === 'doctor' ? 'Doctor Staff by Revenue' : 'Revenue by Staff (Direct Billings)'}
+          </h3>
           {loading && <span className="text-sm text-gray-500">Loading…</span>}
         </div>
         <div className="w-full" style={{ height: 320 }}>
@@ -344,8 +357,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
-              <Tooltip />
-              <Bar dataKey="bookings" fill="#2D9AA5" />
+              <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
+              <Bar dataKey="value" fill="#2D9AA5" name={`Revenue (${currency})`} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -354,7 +367,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">
-            {activeTab === 'doctor' ? 'Top 5 Doctor Staff Revenue' : 'Top 5 Agent/Staff Revenue (Direct Billings)'}
+            {activeTab === 'doctor' ? 'Top 5 Doctor Staff Revenue' : 'Top 5 Staff Revenue (Direct Billings)'}
           </h3>
         </div>
         <div className="grid grid-cols-1 gap-6">
@@ -392,7 +405,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                            {activeTab === 'doctor' ? 'Doctor Staff' : 'Agent/Staff'}
+                            {activeTab === 'doctor' ? 'Doctor Staff' : 'Staff/Agent'}
                           </th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
