@@ -5,6 +5,8 @@ import NotificationBell from "./NotificationBell";
 import ReceptionistChat from "./ReceptionistChat";
 import { Bot, Sparkles } from "lucide-react";
 import { useClinicTheme } from "../context/ClinicThemeContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
   isMobileOpen: boolean;
@@ -15,6 +17,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   isMobileOpen,
 }) => {
   const { theme, toggleTheme } = useClinicTheme();
+  const { currency } = useCurrency();
   const [tokenUser, setTokenUser] = useState<{
     name?: string;
     email?: string;
@@ -321,7 +324,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                             Your Commissions
                           </div>
                           <div className="text-xs text-teal-700 font-semibold">
-                            Total ₹ {Number(totalCommission || 0).toFixed(2)}
+                            Total {getCurrencySymbol(currency)} {Number(totalCommission || 0).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -344,12 +347,12 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                 </div>
                                 <div className="mt-0.5 flex items-center justify-between">
                                   <div className="text-[10px] text-gray-700">
-                                    Paid ₹{" "}
+                                    Paid {getCurrencySymbol(currency)}{" "}
                                     {Number(it.paidAmount || 0).toFixed(2)} •{" "}
                                     {Number(it.commissionPercent || 0)}%
                                   </div>
                                   <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
-                                    Commission ₹{" "}
+                                    Commission {getCurrencySymbol(currency)}{" "}
                                     {Number(
                                       (it.finalCommissionAmount ??
                                         it.commissionAmount) ||
@@ -440,7 +443,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
               <button
                 onClick={handleLogout}
-                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600  rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
                 aria-label="Logout"
               >
                 <div className="flex items-center gap-1 sm:gap-2">

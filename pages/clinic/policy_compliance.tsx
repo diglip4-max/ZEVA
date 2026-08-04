@@ -2995,8 +2995,8 @@ function PolicyCompliance() {
                         key={idx}
                         onClick={() => setCurrentPage(idx + 1)}
                         className={`w-full rounded-lg overflow-hidden shadow-sm transition-all ${currentPage === idx + 1
-                            ? "ring-2 ring-indigo-500 ring-offset-1"
-                            : "hover:shadow-md"
+                          ? "ring-2 ring-indigo-500 ring-offset-1"
+                          : "hover:shadow-md"
                           }`}
                       >
                         <div className="relative">
