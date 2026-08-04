@@ -173,6 +173,31 @@ const buildEffectivePackageList = (masterPackages: any[], patientPackages: any[]
   });
 };
 
+const normalizePaymentHistoryBilling = (billing: any) => {
+  const treatmentAmount = Number(billing?.treatmentAmount ?? billing?.amount ?? 0) || 0;
+  const treatmentActualPrice = Number(
+    billing?.treatmentActualPrice ?? billing?.originalAmount ?? treatmentAmount
+  ) || 0;
+  const paidAmount = Number(billing?.paidAmount ?? billing?.paid ?? 0) || 0;
+  const advanceUsed = Number(billing?.advanceUsed ?? 0) || 0;
+  const pendingUsed = Number(billing?.pendingUsed ?? 0) || 0;
+  const claimAmountUsed = Number(billing?.claimAmountUsed ?? 0) || 0;
+  const totalPaidAmount = Number(
+    billing?.totalPaidAmount ?? billing?.totalPaid ?? (paidAmount + advanceUsed + pendingUsed + claimAmountUsed)
+  ) || 0;
+
+  return {
+    ...billing,
+    treatmentAmount,
+    treatmentActualPrice,
+    paidAmount,
+    advanceUsed,
+    pendingUsed,
+    claimAmountUsed,
+    totalPaidAmount,
+  };
+};
+
 // Transfer Section Component - Updated to use parent patientData and trigger refresh
 const TransferSection = ({ patientId, patientData, onTransferComplete }: { patientId: string; patientData: any; onTransferComplete?: () => void }) => {
   const [showTransfer, setShowTransfer] = useState(false);
@@ -7497,7 +7522,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   <td className="px-2 py-2 text-center">
                                     <button
                                       onClick={() => {
-                                        setSelectedPaymentHistoryBilling(billing);
+                                        setSelectedPaymentHistoryBilling(normalizePaymentHistoryBilling(billing));
                                         setShowPaymentHistoryModal(true);
                                       }}
                                       className="inline-flex items-center justify-center p-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
@@ -7704,7 +7729,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   <td className="px-2 py-2 text-center">
                                     <button
                                       onClick={() => {
-                                        setSelectedPaymentHistoryBilling(billing);
+                                        setSelectedPaymentHistoryBilling(normalizePaymentHistoryBilling(billing));
                                         setShowPaymentHistoryModal(true);
                                       }}
                                       className="inline-flex items-center justify-center p-1 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-md transition-all"
@@ -7917,7 +7942,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 <div className="flex justify-end">
                                   <button
                                     onClick={() => {
-                                      setSelectedPaymentHistoryBilling(billing);
+                                      setSelectedPaymentHistoryBilling(normalizePaymentHistoryBilling(billing));
                                       setShowPaymentHistoryModal(true);
                                     }}
                                     className="inline-flex items-center justify-center p-2 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
@@ -9809,9 +9834,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 const originalAmount = parseFloat(billing.originalAmount) || amount;
                 const paid = parseFloat(billing.paid || billing.paidAmount || 0) || 0;
                 const advanceUsed = parseFloat(billing.advanceUsed || 0) || 0;
+                const claimAmountUsed = parseFloat(billing.claimAmountUsed || 0) || 0;
                 const pending = parseFloat(billing.pending || 0) || 0;
                 const pendingUsed = parseFloat(billing.pendingUsed || 0) || 0;
-                const totalPaid = paid + advanceUsed; // Total paid including advance balance
+                const totalPaid = paid + advanceUsed + claimAmountUsed;
 
                 // Get invoice number early (needed for manuallyPaidInvoices check)
                 const invoiceNumber = billing.invoiceNumber || billing.invoiceNo || billing._id?.slice(-8).toUpperCase() || '';
@@ -9870,9 +9896,15 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   date,
                   treatmentStatus,
                   amount,
+                  treatmentAmount: amount,
+                  treatmentActualPrice: originalAmount,
                   paid,
+                  paidAmount: paid,
                   advanceUsed, // Add advance used for UI display
+                  pendingUsed,
+                  claimAmountUsed,
                   totalPaid, // Add total paid (cash + advance) for UI display
+                  totalPaidAmount: totalPaid,
                   pendingAmount: remainingPending, // Use remaining pending after pendingUsed deduction
                   isFullyPaid,
                   invoiceNumber,
@@ -11453,7 +11485,17 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <p style={{ color: '#111827', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>{selectedPaymentHistoryBilling.service === 'Package' ? 'Package' : 'Treatment'}</p>
                     <div className="flex items-center justify-between">
                       <p style={{ color: '#3730a3', fontWeight: 700, fontSize: '14px' }}>{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
-                      <p style={{ color: '#065f46', fontWeight: 700, fontSize: '12px' }}>Paid: {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.paid || 0).toLocaleString()}</p>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ color: '#111827', fontWeight: 700, fontSize: '12px' }}>
+                          paid: {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.treatmentAmount ?? selectedPaymentHistoryBilling.amount ?? 0).toLocaleString()}
+                        </p>
+                        {/* <p style={{ color: '#065f46', fontWeight: 700, fontSize: '12px' }}>
+                          Paid: {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.totalPaidAmount ?? selectedPaymentHistoryBilling.totalPaid ?? selectedPaymentHistoryBilling.paid || 0).toLocaleString()}
+                        </p> */}
+                        <p style={{ color: '#4338ca', fontWeight: 700, fontSize: '12px' }}>
+                          Actual Price: {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.treatmentActualPrice ?? selectedPaymentHistoryBilling.originalAmount ?? selectedPaymentHistoryBilling.amount ?? 0).toLocaleString()}
+                        </p>
+                      </div>
                     </div>
                     {selectedPaymentHistoryBilling.selectedPackageTreatments && selectedPaymentHistoryBilling.selectedPackageTreatments.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
