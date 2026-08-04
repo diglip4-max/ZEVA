@@ -24,8 +24,6 @@ import {
   X,
   Search,
   MapPin,
-  DollarSign,
-
 } from "lucide-react";
 type Job = {
   _id: string;

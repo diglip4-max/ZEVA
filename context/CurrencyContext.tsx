@@ -12,7 +12,7 @@ interface CurrencyContextType {
 
 const CurrencyContext = createContext<CurrencyContextType>({
   currency: "INR",
-  setCurrency: () => {},
+  setCurrency: () => { },
 });
 
 export const useCurrency = (): CurrencyContextType => useContext(CurrencyContext);
@@ -43,7 +43,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
         const newCurrency = res.data.clinic.currency;
         setCurrencyState(newCurrency);
         // Cache in localStorage so it's available immediately on next page load / navigation
-        try { localStorage.setItem(CURRENCY_CACHE_KEY, newCurrency); } catch {}
+        try { localStorage.setItem(CURRENCY_CACHE_KEY, newCurrency); } catch { }
         return true;
       }
     } catch (error) {
@@ -129,7 +129,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
 
   const setCurrency = (newCurrency: string) => {
     setCurrencyState(newCurrency);
-    try { localStorage.setItem(CURRENCY_CACHE_KEY, newCurrency); } catch {}
+    try { localStorage.setItem(CURRENCY_CACHE_KEY, newCurrency); } catch { }
   };
 
   return (

@@ -18,16 +18,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
     });
   } catch (err: any) {
-    return res.status(err.status || 401).json({ 
-      success: false, 
-      message: err.message || "Authentication error" 
+    return res.status(err.status || 401).json({
+      success: false,
+      message: err.message || "Authentication error"
     });
   }
 
   if (!user) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
-  
+
   if (!["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(user.role)) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
@@ -52,11 +52,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (clinic && isNewClinicInMockPeriod(clinic.registeredAt)) {
     // Check if they have any real patient/package data
     const patientCount = await PatientRegistration.countDocuments({ clinicId });
-    
+
     if (patientCount === 0) {
       console.log('📊 Returning mock membership/package reports for new clinic:', clinic._id);
       const mockData = generateMockMembershipPackageReports();
-      
+
       return res.status(200).json({
         success: true,
         data: mockData,
@@ -82,20 +82,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const timeRange = req.query.timeRange as string || 'month';
       const startDateStr = req.query.startDate as string;
       const endDateStr = req.query.endDate as string;
-      
+
       // Calculate date ranges based on filter
       const now = new Date();
       let startOfCurrentPeriod = new Date();
       let startOfLastPeriod = new Date();
       let startDate: Date;
       let endDate: Date;
-      
+
       // If start/end date passed from frontend, use those
       if (startDateStr && endDateStr) {
         startDate = new Date(startDateStr);
         endDate = new Date(endDateStr);
         startOfCurrentPeriod = startDate;
-        
+
         // For comparison, calculate previous period
         const diffTime = endDate.getTime() - startDate.getTime();
         startOfLastPeriod = new Date(startDate.getTime() - diffTime);
@@ -120,7 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // For 'overall', we'll use all-time data (startOfCurrentPeriod remains today)
 
       const query = { clinicId, isDeleted: { $ne: true } };
-      
+
       // ACTIVE vs EXPIRED MEMBERSHIPS: computed from createdAt + durationMonths
       // A membership is Active if endDate (createdAt + durationMonths) >= now, otherwise Expired
       const nowDate = new Date();
@@ -252,17 +252,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const pad = (n: number) => n.toString().padStart(2, '0');
         return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
       };
-      
+
       // MEMBERSHIP REVENUE - Last 6 periods based on timeRange (using Billing model first, then MembershipPlan if no Billing data)
       const membershipRevenueData = [];
-      
+
       if (timeRange === 'today') {
         // Today
         const dayDate = new Date(startDate);
         dayDate.setHours(0, 0, 0, 0);
         const nextDayDate = new Date(dayDate);
         nextDayDate.setDate(dayDate.getDate() + 1);
-        
+
         // Check Billing records first
         const billings = await Billing.find({
           clinicId,
@@ -273,23 +273,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { package: /membership/i }
           ]
         });
-        
+
         let totalRevenue = billings.reduce((sum, billing: any) => {
           return sum + Number(billing.paid || 0);
         }, 0);
-        
+
         // If no Billing records, check MembershipPlan models created in this period
         if (totalRevenue === 0) {
           const memberships = await MembershipPlan.find({
             clinicId,
             createdAt: { $gte: dayDate, $lt: nextDayDate }
           });
-          
+
           totalRevenue = memberships.reduce((sum, membership: any) => {
             return sum + Number(membership.price || 0);
           }, 0);
         }
-        
+
         membershipRevenueData.push({
           name: toDateKey(dayDate),
           revenue: totalRevenue
@@ -300,11 +300,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cursorDate.setHours(0, 0, 0, 0);
         const weekEnd = new Date(endDate);
         weekEnd.setHours(23, 59, 59, 999);
-        
+
         while (cursorDate <= weekEnd) {
           const nextDayDate = new Date(cursorDate);
           nextDayDate.setDate(cursorDate.getDate() + 1);
-          
+
           // Check Billing records first
           const billings = await Billing.find({
             clinicId,
@@ -315,28 +315,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               { package: /membership/i }
             ]
           });
-          
+
           let totalRevenue = billings.reduce((sum, billing: any) => {
             return sum + Number(billing.paid || 0);
           }, 0);
-          
+
           // If no Billing records, check MembershipPlan models created in this period
           if (totalRevenue === 0) {
             const memberships = await MembershipPlan.find({
               clinicId,
               createdAt: { $gte: cursorDate, $lt: nextDayDate }
             });
-            
+
             totalRevenue = memberships.reduce((sum, membership: any) => {
               return sum + Number(membership.price || 0);
             }, 0);
           }
-          
+
           membershipRevenueData.push({
             name: toDateKey(cursorDate),
             revenue: totalRevenue
           });
-          
+
           cursorDate.setDate(cursorDate.getDate() + 1);
         }
       } else if (timeRange === 'month') {
@@ -344,11 +344,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const year = startDate.getFullYear();
         const month = startDate.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
+
         for (let day = 1; day <= daysInMonth; day++) {
           const dayDate = new Date(year, month, day);
           const nextDayDate = new Date(year, month, day + 1);
-          
+
           // Check Billing records first  
           const billings = await Billing.find({
             clinicId,
@@ -359,23 +359,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               { package: /membership/i }
             ]
           });
-          
+
           let totalRevenue = billings.reduce((sum, billing: any) => {
             return sum + Number(billing.paid || 0);
           }, 0);
-          
+
           // If no Billing records, check MembershipPlan models created in this period
           if (totalRevenue === 0) {
             const memberships = await MembershipPlan.find({
               clinicId,
               createdAt: { $gte: dayDate, $lt: nextDayDate }
             });
-            
+
             totalRevenue = memberships.reduce((sum, membership: any) => {
               return sum + Number(membership.price || 0);
             }, 0);
           }
-          
+
           membershipRevenueData.push({
             name: toDateKey(dayDate),
             revenue: totalRevenue
@@ -384,11 +384,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else {
         // Overall - Show all 12 months of the current year
         const currentYear = endDate.getFullYear();
-        
+
         for (let i = 0; i < 12; i++) {
           const monthDate = new Date(currentYear, i, 1);
           const nextMonthDate = new Date(currentYear, i + 1, 1);
-          
+
           // Check Billing records first
           const billings = await Billing.find({
             clinicId,
@@ -399,23 +399,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               { package: /membership/i }
             ]
           });
-          
+
           let totalRevenue = billings.reduce((sum, billing: any) => {
             return sum + Number(billing.paid || 0);
           }, 0);
-          
+
           // If no Billing records, check MembershipPlan models created in this period
           if (totalRevenue === 0) {
             const memberships = await MembershipPlan.find({
               clinicId,
               createdAt: { $gte: monthDate, $lt: nextMonthDate }
             });
-            
+
             totalRevenue = memberships.reduce((sum, membership: any) => {
               return sum + Number(membership.price || 0);
             }, 0);
           }
-          
+
           const monthName = monthDate.toLocaleString('default', { month: 'short' });
           membershipRevenueData.push({
             name: monthName,
@@ -428,7 +428,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let packageUsageData;
       // NEW: Month-wise package usage data (like membership revenue)
       const packageRevenueMonthWise = [];
-      
+
       if (timeRange === 'overall') {
         // For overall, show all-time package usage
         packageUsageData = await Package.aggregate([
@@ -502,7 +502,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           { $limit: 5 }
         ]);
       }
-      
+
       // NEW: Generate month-wise package revenue data (last 6 months, like membership revenue)
       // Only use Billing records where service is Package
       if (timeRange === 'today') {
@@ -511,17 +511,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         dayDate.setHours(0, 0, 0, 0);
         const nextDayDate = new Date(dayDate);
         nextDayDate.setDate(dayDate.getDate() + 1);
-        
+
         const billings = await Billing.find({
           clinicId,
           invoicedDate: { $gte: dayDate, $lt: nextDayDate },
           service: "Package"
         });
-        
+
         const totalRevenue = billings.reduce((sum, billing: any) => {
           return sum + Number(billing.paid || 0);
         }, 0);
-        
+
         packageRevenueMonthWise.push({
           name: toDateKey(dayDate),
           revenue: totalRevenue
@@ -532,26 +532,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cursorDate.setHours(0, 0, 0, 0);
         const weekEnd = new Date(endDate);
         weekEnd.setHours(23, 59, 59, 999);
-        
+
         while (cursorDate <= weekEnd) {
           const nextDayDate = new Date(cursorDate);
           nextDayDate.setDate(cursorDate.getDate() + 1);
-          
+
           const billings = await Billing.find({
             clinicId,
             invoicedDate: { $gte: cursorDate, $lt: nextDayDate },
             service: "Package"
           });
-          
+
           const totalRevenue = billings.reduce((sum, billing: any) => {
             return sum + Number(billing.paid || 0);
           }, 0);
-          
+
           packageRevenueMonthWise.push({
             name: toDateKey(cursorDate),
             revenue: totalRevenue
           });
-          
+
           cursorDate.setDate(cursorDate.getDate() + 1);
         }
       } else if (timeRange === 'month') {
@@ -559,21 +559,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const year = startDate.getFullYear();
         const month = startDate.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
+
         for (let day = 1; day <= daysInMonth; day++) {
           const dayDate = new Date(year, month, day);
           const nextDayDate = new Date(year, month, day + 1);
-          
+
           const billings = await Billing.find({
             clinicId,
             invoicedDate: { $gte: dayDate, $lt: nextDayDate },
             service: "Package"
           });
-          
+
           const totalRevenue = billings.reduce((sum, billing: any) => {
             return sum + Number(billing.paid || 0);
           }, 0);
-          
+
           packageRevenueMonthWise.push({
             name: toDateKey(dayDate),
             revenue: totalRevenue
@@ -582,21 +582,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } else {
         // Overall - Show all 12 months of the current year
         const currentYear = endDate.getFullYear();
-        
+
         for (let i = 0; i < 12; i++) {
           const monthDate = new Date(currentYear, i, 1);
           const nextMonthDate = new Date(currentYear, i + 1, 1);
-          
+
           const billings = await Billing.find({
             clinicId,
             invoicedDate: { $gte: monthDate, $lt: nextMonthDate },
             service: "Package"
           });
-          
+
           const totalRevenue = billings.reduce((sum, billing: any) => {
             return sum + Number(billing.paid || 0);
           }, 0);
-          
+
           const monthName = monthDate.toLocaleString('default', { month: 'short' });
           packageRevenueMonthWise.push({
             name: monthName,
@@ -612,21 +612,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         package: "Yes",
         packageId: { $exists: true, $ne: null }
       };
-      
+
       // For week/month filters, only show recent purchases
       if (timeRange === 'week' || timeRange === 'month') {
         sessionsRemainingMatchQuery.createdAt = { $gte: startOfCurrentPeriod };
       }
-      
+
       console.log('🔍 Sessions Remaining Query:', JSON.stringify(sessionsRemainingMatchQuery));
-      
+
       // First, try to count how many patients have package="Yes" in this clinic
-      const totalPackagePatients = await PatientRegistration.countDocuments({ 
-        clinicId, 
-        package: "Yes" 
+      const totalPackagePatients = await PatientRegistration.countDocuments({
+        clinicId,
+        package: "Yes"
       });
       console.log(`📋 Total patients with package="Yes" in clinic: ${totalPackagePatients}`);
-      
+
       const sessionsRemainingData = await PatientRegistration.aggregate([
         {
           $match: sessionsRemainingMatchQuery
@@ -642,7 +642,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { $unwind: { path: "$packageDetails", preserveNullAndEmptyArrays: false } },
         {
           $project: {
-            patientName: { 
+            patientName: {
               $concat: [
                 { $ifNull: ["$firstName", ""] },
                 " ",
@@ -701,7 +701,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { $sort: { remainingSessions: 1 } },
         { $limit: 20 }
       ]);
-      
+
       console.log('📊 Sessions Remaining Data:', sessionsRemainingData.length, 'records found');
 
       return res.status(200).json({
@@ -737,15 +737,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     } catch (error: any) {
       console.error("Error fetching membership and package reports:", error);
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || "Failed to fetch membership and package reports" 
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to fetch membership and package reports"
       });
     }
   }
 
-  return res.status(405).json({ 
-    success: false, 
-    message: "Method not allowed" 
+  return res.status(405).json({
+    success: false,
+    message: "Method not allowed"
   });
 }

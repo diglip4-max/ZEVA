@@ -110,10 +110,6 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(doctorStaffId);
-<<<<<<< HEAD
-      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
-        return res.status(404).json({ success: false, message: "Doctor staff not found" });
-=======
       if (
         !doctorStaff ||
         !["doctorStaff", "agent"].includes(doctorStaff.role)
@@ -121,7 +117,6 @@ export default async function handler(req, res) {
         return res
           .status(404)
           .json({ success: false, message: "Doctor staff not found" });
->>>>>>> 064999db0fa4a02cab11eead551996751d5764a2
       }
 
       // Verify clinic access for non-admin roles
@@ -242,10 +237,6 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(targetDoctorStaffId);
-<<<<<<< HEAD
-      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
-        return res.status(404).json({ success: false, message: "Doctor staff not found" });
-=======
       if (
         !doctorStaff ||
         !["doctorStaff", "agent"].includes(doctorStaff.role)
@@ -253,7 +244,6 @@ export default async function handler(req, res) {
         return res
           .status(404)
           .json({ success: false, message: "Doctor staff not found" });
->>>>>>> 064999db0fa4a02cab11eead551996751d5764a2
       }
 
       // Verify clinic access for non-admin roles
@@ -303,15 +293,15 @@ export default async function handler(req, res) {
 
         const normalizedSubs = Array.isArray(subTreatments)
           ? subTreatments
-              .filter((sub) => sub?.name?.trim())
-              .map((sub) => ({
-                name: sub.name.trim(),
-                slug: slugifyValue(sub.name),
-                price:
-                  sub.price && !Number.isNaN(Number(sub.price))
-                    ? Number(sub.price)
-                    : 0,
-              }))
+            .filter((sub) => sub?.name?.trim())
+            .map((sub) => ({
+              name: sub.name.trim(),
+              slug: slugifyValue(sub.name),
+              price:
+                sub.price && !Number.isNaN(Number(sub.price))
+                  ? Number(sub.price)
+                  : 0,
+            }))
           : [];
 
         const treatmentDoc = await Treatment.create({
@@ -360,7 +350,7 @@ export default async function handler(req, res) {
         subcategoryIds: Array.isArray(subcategoryIds)
           ? subcategoryIds.filter(Boolean)
           : treatmentExists.subcategories?.map((sub) => sub.slug || sub.name) ||
-            [],
+          [],
       };
 
       if (price !== undefined && price !== null && price !== "") {

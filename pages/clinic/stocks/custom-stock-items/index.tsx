@@ -1,4 +1,4 @@
-﻿import ClinicLayout from "@/components/ClinicLayout";
+import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
