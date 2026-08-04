@@ -2,10 +2,10 @@ import re
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from psycopg import AsyncConnection
-import templates_db as db
+import shared.templates_db as db
 from rewrite_prompt import REWRITE_SYSTEM_PROMPT
 from style_only_prompt import STYLE_ONLY_SYSTEM_PROMPT
-from scenario_keys import BehaviorStyle
+from shared.scenario_keys import BehaviorStyle
 
 rewrite_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 

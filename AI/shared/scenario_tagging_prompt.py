@@ -1,4 +1,4 @@
-from scenario_keys import SCENARIO_KEYS
+from shared.scenario_keys import SCENARIO_KEYS
 
 SCENARIO_TAGGING_PROMPT = f"""
 You are a classifier. You receive a final reply that KAKA (a clinic

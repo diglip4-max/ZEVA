@@ -14,11 +14,17 @@ interface Props {
   headers: HeadersRecord;
 }
 
+type RevenueByDoctorRow = {
+  doctorId: string;
+  name: string;
+  amount: number;
+};
+
 export default function AppointmentReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({ totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 });
-  const [doctorReport, setDoctorReport] = useState<any[]>([]);
+  const [revenueByDoctor, setRevenueByDoctor] = useState<RevenueByDoctorRow[]>([]);
   const [doctorFilter, setDoctorFilter] = useState<string>("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("");
   const [doctorOptions, setDoctorOptions] = useState<any[]>([]);
@@ -49,25 +55,41 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
       ...(doctorFilter ? { doctorId: doctorFilter } : {}),
       ...(departmentFilter ? { departmentId: departmentFilter } : {}),
     }).toString();
-    const res = await fetch(`/api/clinic/reports/appointment-stats?${qs}`, { headers });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
+    const [appointmentRes, revenueRes] = await Promise.all([
+      fetch(`/api/clinic/reports/appointment-stats?${qs}`, { headers }),
+      fetch(`/api/clinic/reports/revenue?${qs}`, { headers }),
+    ]);
+    const [appointmentJson, revenueJson] = await Promise.all([
+      appointmentRes.json(),
+      revenueRes.json(),
+    ]);
+
+    if (!appointmentRes.ok || !appointmentJson.success) {
       setLeaderboard([]);
       setSummary({ totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 });
-      setDoctorReport([]);
       setDoctorOptions([]);
       setDepartmentOptions([]);
+      setStatusCounts([]);
+      setAppointmentsByDept([]);
+      setCancelledAppointments([]);
+      setNoShowAppointments([]);
+    } else {
+      setLeaderboard(appointmentJson.data?.leaderboard || []);
+      setSummary(appointmentJson.data?.summary || {});
+      setDoctorOptions(appointmentJson.data?.filters?.doctors || []);
+      setDepartmentOptions(appointmentJson.data?.filters?.departments || []);
+      setStatusCounts(appointmentJson.data?.statusCounts || []);
+      setAppointmentsByDept(appointmentJson.data?.appointmentsByDept || []);
+      setCancelledAppointments(appointmentJson.data?.cancelledAppointments || []);
+      setNoShowAppointments(appointmentJson.data?.noShowAppointments || []);
+    }
+
+    if (!revenueRes.ok || !revenueJson.success) {
+      setRevenueByDoctor([]);
       return;
     }
-    setLeaderboard(json.data?.leaderboard || []);
-    setSummary(json.data?.summary || {});
-    setDoctorReport(json.data?.doctorReport || []);
-    setDoctorOptions(json.data?.filters?.doctors || []);
-    setDepartmentOptions(json.data?.filters?.departments || []);
-    setStatusCounts(json.data?.statusCounts || []);
-    setAppointmentsByDept(json.data?.appointmentsByDept || []);
-    setCancelledAppointments(json.data?.cancelledAppointments || []);
-    setNoShowAppointments(json.data?.noShowAppointments || []);
+
+    setRevenueByDoctor(revenueJson.data?.revenueByDoctor || []);
   }
 
   const topDoctorsChart = useMemo(
@@ -81,12 +103,19 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
 
   const revenueChart = useMemo(
     () =>
-      (doctorReport || []).map((d: any) => ({
-        name: d.doctorName || "Unknown",
-        revenue: Math.round(d.revenue || 0),
-        appointments: d.totalAppointments || 0,
+      (revenueByDoctor || []).map((d) => ({
+        name: d.name || "Unknown",
+        revenue: Math.round(d.amount || 0),
       })),
-    [doctorReport]
+    [revenueByDoctor]
+  );
+
+  const resolvedDepartmentAppointments = useMemo(
+    () =>
+      (appointmentsByDept || []).filter(
+        (d: any) => d?.departmentId && d?.departmentName
+      ),
+    [appointmentsByDept]
   );
 
   const statusChart = useMemo(
@@ -119,11 +148,10 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
     },
     {
       title: "Doctor Revenue Report",
-      headers: ["Doctor Name", "Total Appointments", `Revenue (${currency})`],
-      data: doctorReport.map(d => ({
-        "Doctor Name": d.doctorName || "Unknown",
-        "Total Appointments": d.totalAppointments || 0,
-        [`Revenue (${currency})`]: Math.round(d.revenue || 0),
+      headers: ["Doctor Name", `Revenue (${currency})`],
+      data: revenueByDoctor.map(d => ({
+        "Doctor Name": d.name || "Unknown",
+        [`Revenue (${currency})`]: Math.round(d.amount || 0),
       })),
     },
     {
@@ -137,8 +165,8 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
     {
       title: "Appointments by Department",
       headers: ["Department Name", "Total Appointments"],
-      data: appointmentsByDept.map(d => ({
-        "Department Name": d.departmentName || "Unassigned",
+      data: resolvedDepartmentAppointments.map(d => ({
+        "Department Name": d.departmentName,
         "Total Appointments": d.count || 0,
       })),
     },
@@ -162,7 +190,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
         "Notes": a.notes || "-",
       })),
     },
-  ], [summary, leaderboard, doctorReport, statusCounts, cancelledAppointments, noShowAppointments]);
+  ], [summary, leaderboard, revenueByDoctor, statusCounts, resolvedDepartmentAppointments, cancelledAppointments, noShowAppointments, currency]);
 
   return (
     <div className="space-y-6">
@@ -246,15 +274,15 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
         </div>
         <div className="w-full" style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={appointmentsByDept.map((d: any) => ({ name: d.departmentName || "Unassigned", appointments: d.count || 0 }))}
+            <LineChart
+              data={resolvedDepartmentAppointments.map((d: any) => ({ name: d.departmentName, appointments: d.count || 0 }))}
               margin={{ top: 10, right: 10, left: 0, bottom: 40 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
-              <Legend verticalAlign="top" height={36}/>
+              <Legend verticalAlign="top" height={36} />
               <Line type="monotone" dataKey="appointments" stroke="#2D9AA5" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Total Appointments" />
             </LineChart>
           </ResponsiveContainer>
@@ -272,14 +300,14 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <div className="text-xs text-gray-500">Completed Appointments</div>
             <div className="text-xl font-semibold">{summary.completedAppointments || 0}</div>
           </div>
-          <div 
+          <div
             className="p-4 border rounded cursor-pointer hover:bg-red-50 transition-colors"
             onClick={() => setIsCancelledSidebarOpen(true)}
           >
             <div className="text-xs text-gray-500">Cancelled Appointments</div>
             <div className="text-xl font-semibold text-red-600">{summary.cancelledAppointments || 0}</div>
           </div>
-          <div 
+          <div
             className="p-4 border rounded cursor-pointer hover:bg-yellow-50 transition-colors"
             onClick={() => setIsNoShowSidebarOpen(true)}
           >
@@ -311,7 +339,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <Cell fill="#F59E0B" />
               </Pie>
               <Tooltip />
-              <Legend verticalAlign="bottom" height={36}/>
+              <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -329,8 +357,8 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                 <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
+                <Legend verticalAlign="top" height={36} />
+                <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -338,61 +366,64 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Appointments</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue Generated</th>
-                </tr>
-              </thead>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue Generated</th>
+                </tr >
+              </thead >
               <tbody className="bg-white divide-y divide-gray-100">
-                {doctorReport.map((d) => (
+                {revenueByDoctor.map((d) => (
                   <tr key={String(d.doctorId)}>
-                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{d.doctorName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{d.totalAppointments || 0}</td>
-                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(d.revenue || 0)}</td>
-                  </tr>
-                ))}
-                {!doctorReport.length && (
-                  <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>
-                      No data for selected filters
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+                    <td className="px-4 py-2 text-sm">{d.name || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(d.amount || 0)}</td>
+                  </tr >
+                ))
+                }
+                {
+                  !revenueByDoctor.length && (
+                    <tr>
+                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>
+                        No data for selected filters
+                      </td>
+                    </tr>
+                  )
+                }
+              </tbody >
+            </table >
+          </div >
+        </div >
+      </div >
 
       {/* Sidebars */}
       <AnimatePresence>
-        {isCancelledSidebarOpen && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 p-6 overflow-y-auto"
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-red-600">Cancelled Appointments</h3>
-              <button onClick={() => setIsCancelledSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              {cancelledAppointments.map((apt, i) => (
-                <div key={i} className="p-4 border rounded-lg bg-red-50">
-                  <p className="font-semibold">{apt.patientName}</p>
-                  <p className="text-sm text-gray-600">Service: {apt.serviceName}</p>
-                  {apt.treatment && <p className="text-sm text-gray-600">Treatment: {apt.treatment}</p>}
-                  {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">Note: {apt.notes}</p>}
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {
+          isCancelledSidebarOpen && (
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 p-6 overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-red-600">Cancelled Appointments</h3>
+                <button onClick={() => setIsCancelledSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {cancelledAppointments.map((apt, i) => (
+                  <div key={i} className="p-4 border rounded-lg bg-red-50">
+                    <p className="font-semibold">{apt.patientName}</p>
+                    <p className="text-sm text-gray-600">Service: {apt.serviceName}</p>
+                    {apt.treatment && <p className="text-sm text-gray-600">Treatment: {apt.treatment}</p>}
+                    {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">Note: {apt.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )
+        }
+      </AnimatePresence >
 
       <AnimatePresence>
         {isNoShowSidebarOpen && (
@@ -422,6 +453,6 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </div >
   );
 }

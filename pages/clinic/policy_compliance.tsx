@@ -73,7 +73,6 @@ type Policy = {
   ackPercentAgent?: number;
   ackPercentDoctor?: number;
 };
-
 type Playbook = {
   _id: string;
   scenarioName: string;
@@ -110,22 +109,22 @@ type TabKey = "sops" | "policies" | "playbooks" | "ack";
 
 const THEMES = {
   purple: {
-    card: "bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800",
-    title: "text-purple-700 dark:text-teal-100",
-    value: "text-purple-900 dark:text-teal-100",
-    subtitle: "text-purple-600 dark:text-teal-100",
+    card: "bg-purple-50 border-purple-200",
+    title: "text-purple-700",
+    value: "text-purple-900",
+    subtitle: "text-purple-600",
   },
   red: {
-    card: "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800",
-    title: "text-red-700 dark:text-teal-100",
-    value: "text-red-900 dark:text-teal-100",
-    subtitle: "text-red-600 dark:text-teal-100",
+    card: "bg-red-50 border-red-200",
+    title: "text-red-700",
+    value: "text-red-900",
+    subtitle: "text-red-600",
   },
   green: {
-    card: "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800",
-    title: "text-green-700 dark:text-teal-100",
-    value: "text-green-900 dark:text-teal-100",
-    subtitle: "text-green-600 dark:text-teal-100",
+    card: "bg-green-50 border-green-200",
+    title: "text-green-700",
+    value: "text-green-900",
+    subtitle: "text-green-600",
   }
 };
 
@@ -133,19 +132,19 @@ function StatCard({ title, value, subtitle, icon, theme }: { title: string; valu
   const t = THEMES[theme];
 
   return (
-    <div className={`flex items-center justify-between rounded-2xl border px-4 py-4 ${t.card} dark:bg-slate-800/50 dark:border-slate-700`}>
+    <div className={`flex items-center justify-between rounded-2xl border px-4 py-4 ${t.card}`}>
       <div>
-        <div className={`text-xs font-medium ${t.title} dark:text-teal-100`}>
+        <div className={`text-xs font-medium ${t.title}`}>
           {title}
         </div>
-        <div className={`mt-1 text-xl font-bold ${t.value} dark:text-teal-100`}>
+        <div className={`mt-1 text-xl font-bold ${t.value}`}>
           {value}
         </div>
-        <div className={`mt-1 text-[11px] ${t.subtitle} dark:text-teal-100/70`}>
+        <div className={`mt-1 text-[11px] ${t.subtitle}`}>
           {subtitle}
         </div>
       </div>
-      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/60 dark:bg-white/10">
+      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/60">
         {icon}
       </div>
     </div>
@@ -187,9 +186,6 @@ function PolicyCompliance() {
   const [scale, setScale] = useState(1.2);
   const [isLoading, setIsLoading] = useState(false);
   const [thumbnails, setThumbnails] = useState<string[]>([]);
-  const [viewerFileType, setViewerFileType] = useState<"pdf" | "doc" | "video" | "image" | "other">("pdf");
-  const [viewerBlobUrl, setViewerBlobUrl] = useState<string | null>(null);
-  const [viewerOriginalUrl, setViewerOriginalUrl] = useState<string | null>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const thumbnailContainerRef = useRef<HTMLDivElement | null>(null);
   const [ackModalOpen, setAckModalOpen] = useState(false);
@@ -200,7 +196,6 @@ function PolicyCompliance() {
   const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([]);
   const [currentAck, setCurrentAck] = useState<AckItem | null>(null);
   const [hideAckTabForStaff, setHideAckTabForStaff] = useState(false);
-  const [formToast, setFormToast] = useState<{ message: string; type: string } | null>(null);
 
   // Permission states
   const [permissions, setPermissions] = useState({
@@ -216,15 +211,12 @@ function PolicyCompliance() {
     if (!url) return;
     setCurrentAck(ack || null);
     setViewerUrl(url);
-    setViewerOriginalUrl(url);
     setViewerTitle(title || "Document Preview");
     setViewerOpen(true);
     setViewerError(null);
     setCurrentPage(1);
     setScale(1.2);
     setPdfDoc(null);
-    setViewerFileType("pdf");
-    if (viewerBlobUrl) { URL.revokeObjectURL(viewerBlobUrl); setViewerBlobUrl(null); }
   };
 
   const ensurePdfJs = async () => {
@@ -309,29 +301,15 @@ function PolicyCompliance() {
     }
   };
 
-  const detectFileType = (contentType: string, url: string): "pdf" | "doc" | "video" | "image" | "other" => {
-    const ct = (contentType || "").toLowerCase();
-    if (ct.includes("pdf")) return "pdf";
-    if (ct.includes("msword") || ct.includes("wordprocessingml") || ct.includes("presentationml") || ct.includes("ms-powerpoint") || ct.includes("spreadsheetml") || ct.includes("ms-excel")) return "doc";
-    if (ct.startsWith("video/")) return "video";
-    if (ct.startsWith("image/")) return "image";
-    // Fallback: check URL extension
-    const ext = (url.match(/\.([a-zA-Z0-9]+)(?:[?#]|$)/) || [])[1]?.toLowerCase() || "";
-    if (ext === "pdf") return "pdf";
-    if (["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(ext)) return "doc";
-    if (["mp4", "webm", "ogg", "mov", "avi"].includes(ext)) return "video";
-    if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) return "image";
-    return "other";
-  };
-
   const loadPdfIntoModal = async (pdfUrl: string) => {
     try {
       setViewerError(null);
       setIsLoading(true);
       setThumbnails([]);
+      await ensurePdfJs();
 
       const fullUrl = pdfUrl.startsWith("http") ? pdfUrl : `${window.location.origin}${pdfUrl}`;
-      const headers = { ...(getAuthHeaders() as Record<string, string>) };
+      const headers = { ...(getAuthHeaders() as Record<string, string>), Accept: "application/pdf" };
       const resp = await fetch(fullUrl, { headers, credentials: "include", cache: "no-store" });
 
       if (!resp.ok) {
@@ -351,47 +329,33 @@ function PolicyCompliance() {
         return;
       }
 
-      const contentType = resp.headers.get("content-type") || "";
-      const fileType = detectFileType(contentType, pdfUrl);
-      setViewerFileType(fileType);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const pdfjsLib = (window as any).pdfjsLib;
+      const task = pdfjsLib.getDocument({ url: objectUrl });
+      const pdf = await task.promise;
 
-      if (fileType === "pdf") {
-        // PDF: use pdf.js
-        await ensurePdfJs();
-        const blob = await resp.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        const pdfjsLib = (window as any).pdfjsLib;
-        const task = pdfjsLib.getDocument({ url: objectUrl });
-        const pdf = await task.promise;
+      setPdfDoc(pdf);
+      setTotalPages(pdf.numPages);
 
-        setPdfDoc(pdf);
-        setTotalPages(pdf.numPages);
-
-        // Generate all thumbnails
-        const thumbs: string[] = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 0.2 });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const ctx = canvas.getContext("2d")!;
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          thumbs.push(canvas.toDataURL());
-        }
-        setThumbnails(thumbs);
-        URL.revokeObjectURL(objectUrl);
-      } else {
-        // Non-PDF: create blob URL for direct viewing
-        const blob = await resp.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        if (viewerBlobUrl) URL.revokeObjectURL(viewerBlobUrl);
-        setViewerBlobUrl(blobUrl);
+      // Generate all thumbnails
+      const thumbs: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.2 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d")!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        thumbs.push(canvas.toDataURL());
       }
+      setThumbnails(thumbs);
 
       setIsLoading(false);
+      URL.revokeObjectURL(objectUrl);
     } catch (error: any) {
-      console.error("Error loading document:", error);
+      console.error("Error loading PDF:", error);
       setViewerError(error?.message || "Failed to load document");
       setIsLoading(false);
     }
@@ -513,11 +477,7 @@ function PolicyCompliance() {
 
   const onSopTitleClick = async (id: string, title: string) => {
     try {
-      const res = await fetch(`/api/compliance/sops?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
-      const json = await res.json();
-      if (!json.success || !json.item) return;
-      const url = json.item.documentUrl || (json.item.attachments?.[0]);
-      if (url) openViewer(url, title);
+      openViewer(`/api/compliance/file?type=sops&id=${encodeURIComponent(id)}`, title);
     } catch {
       // noop
     }
@@ -609,42 +569,6 @@ function PolicyCompliance() {
   useEffect(() => {
     if (!permissionsLoaded || !permissions.canRead) return;
     const load = async () => {
-      const isStaffPage = typeof window !== "undefined" && window.location.pathname.startsWith("/staff");
-
-      if (activeTab === "playbooks" && isStaffPage) {
-        try {
-          const playbooksRes = await fetch("/api/compliance/playbooks", { headers: getAuthHeaders() });
-          const playbooksJson = await playbooksRes.json();
-          if (!playbooksJson.success) return;
-          const allPlaybooks = playbooksJson.items || [];
-
-          const userInfo = getUserInfo();
-          if (!userInfo.id) {
-            setPlaybooks([]);
-            return;
-          }
-          const deptsRes = await fetch(`/api/clinic/doctor-departments?doctorStaffId=${encodeURIComponent(userInfo.id)}`, { headers: getAuthHeaders() });
-          const deptsJson = await deptsRes.json();
-          if (!deptsJson.success) {
-            setPlaybooks([]);
-            return;
-          }
-
-          const staffDeptNames = (deptsJson.departments || []).map((d: any) => String(d.name || "").trim().toUpperCase());
-
-          const filteredPlaybooks = allPlaybooks.filter((p: any) => {
-            const pDept = String(p.department || "").trim().toUpperCase();
-            return staffDeptNames.includes(pDept);
-          });
-
-          setPlaybooks(filteredPlaybooks);
-        } catch (err) {
-          console.error("Error loading playbooks for staff:", err);
-          setPlaybooks([]);
-        }
-        return;
-      }
-
       const res = await fetch(`/api/clinic/policy_compliance?type=${activeTab}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) return;
@@ -936,24 +860,9 @@ function PolicyCompliance() {
         setRowMenuId(null);
         return;
       }
-      if (type === "sops") {
-        const res = await fetch(`/api/compliance/sops?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
-        const json = await res.json();
-        if (!json.success || !json.item) return;
-        const url = json.item.documentUrl || (json.item.attachments?.[0]);
-        if (url) openViewer(url, title, ack || null);
-        setRowMenuId(null);
-        return;
-      }
-      if (type === "playbooks") {
-        const res = await fetch(`/api/compliance/playbooks?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
-        const json = await res.json();
-        if (!json.success || !json.item) return;
-        const url = json.item.documentUrl || (json.item.attachments?.[0]);
-        if (url) openViewer(url, title, ack || null);
-        setRowMenuId(null);
-        return;
-      }
+      const dlType = type === "playbooks" ? "playbooks" : "sops";
+      openViewer(`/api/compliance/file?type=${dlType}&id=${encodeURIComponent(id)}`, title, ack || null);
+      setRowMenuId(null);
     } catch { }
   };
 
@@ -1009,10 +918,8 @@ function PolicyCompliance() {
         setShowCreate(false);
         setEditingType(null);
         setEditingItem(null);
-        return { success: true };
-      } else {
-        return { success: false, message: json?.message || "Failed to save SOP" };
       }
+      return;
     }
     if (type === "policies") {
       const url = editingType ? `/api/compliance/policies?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/policies";
@@ -1029,10 +936,8 @@ function PolicyCompliance() {
         setShowCreate(false);
         setEditingType(null);
         setEditingItem(null);
-        return { success: true };
-      } else {
-        return { success: false, message: json?.message || "Failed to save policy" };
       }
+      return;
     }
     // if (type === "playbooks") {
     //   const url = editingType ? `/api/compliance/playbooks?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/playbooks";
@@ -1123,17 +1028,13 @@ function PolicyCompliance() {
         setShowCreate(false);
         setEditingType(null);
         setEditingItem(null);
-        return { success: true };
-      } else {
-        return { success: false, message: json?.message || "Failed to save playbook" };
       }
+      return;
     }
   };
 
   const CreateModal = () => {
     const [form, setForm] = useState<Record<string, any>>({});
-    const [errors, setErrors] = useState<Record<string, boolean>>({});
-    const [modalToast, setModalToast] = useState<{ message: string, type: string } | null>(null);
     const [step, setStep] = useState(1);
     const [formMenuOpen, setFormMenuOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1235,13 +1136,6 @@ function PolicyCompliance() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        {modalToast && (
-          <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${modalToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-            {modalToast.type === 'success' ? <CircleCheckBig className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-            <span className="text-[11px] font-medium">{modalToast.message}</span>
-            <button onClick={() => setModalToast(null)} className="ml-2"><X className="w-3 h-3" /></button>
-          </div>
-        )}
         <div className="w-full max-w-[95%] sm:max-w-2xl rounded-2xl bg-white p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
           <div className="flex items-center justify-between">
             <div className="text-lg font-bold text-gray-900">
@@ -1277,26 +1171,26 @@ function PolicyCompliance() {
               {step === 1 && (
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">SOP Title <span className="text-red-500">*</span></div>
-                    <input className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.name ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Enter SOP title" value={form.name || ""} onChange={e => { setForm({ ...form, name: e.target.value }); setErrors({ ...errors, name: false }); }} />
+                    <div className="text-sm font-medium text-gray-900">SOP Title *</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter SOP title" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">Department <span className="text-red-500">*</span></div>
-                    <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.department ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.department || ""} onChange={e => { setForm({ ...form, department: e.target.value }); setErrors({ ...errors, department: false }); }}>
+                    <div className="text-sm font-medium text-gray-900">Department *</div>
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
                       <option value="">Select department</option>
                       {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">Category <span className="text-red-500">*</span></div>
-                    <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.category ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.category || ""} onChange={e => { setForm({ ...form, category: e.target.value }); setErrors({ ...errors, category: false }); }}>
+                    <div className="text-sm font-medium text-gray-900">Category *</div>
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })}>
                       <option value="">Select category</option>
                       {(sopCategories.length ? sopCategories : ["General", "Operations", "Safety"]).map(t => (<option key={t} value={t}>{t}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">Risk Level <span className="text-red-500">*</span></div>
-                    <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.riskLevel ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.riskLevel || ""} onChange={e => { setForm({ ...form, riskLevel: e.target.value }); setErrors({ ...errors, riskLevel: false }); }}>
+                    <div className="text-sm font-medium text-gray-900">Risk Level *</div>
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.riskLevel || ""} onChange={e => setForm({ ...form, riskLevel: e.target.value })}>
                       <option value="">Select risk level</option>
                       {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
                     </select>
@@ -1345,10 +1239,10 @@ function PolicyCompliance() {
 
                   {/* Replace the existing "Applicable Roles *" section in your CreateModal with this improved version */}
                   <div className="space-y-1 sm:col-span-2">
-                    <div className="text-sm font-medium text-gray-900">Applicable Roles <span className="text-red-500">*</span></div>
+                    <div className="text-sm font-medium text-gray-900">Applicable Roles *</div>
 
                     {/* Main role selection - Clean pill buttons */}
-                    <div className={`flex flex-wrap gap-2 p-1 rounded-lg ${errors.applicableRoles ? 'border border-red-500 bg-red-50' : ''}`}>
+                    <div className="flex flex-wrap gap-2">
                       {roleOptions.map(r => {
                         const selected = (form.applicableRoles || []).includes(r);
                         return (
@@ -1389,7 +1283,6 @@ function PolicyCompliance() {
                                   applicableRoles: Array.from(curr)
                                 });
                               }
-                              setErrors({ ...errors, applicableRoles: false });
                             }}
                             className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${selected
                               ? "bg-gray-900 text-white border-gray-900 shadow-sm"
@@ -1726,32 +1619,8 @@ function PolicyCompliance() {
                 <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => setShowCreate(false)}>Cancel</button>
                 <div className="flex gap-2">
                   {step > 1 && <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => setStep(step - 1)}>Back</button>}
-                  {step < 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => {
-                    if (step === 1 && (editingType || activeTab) === "sops") {
-                      const newErrors: Record<string, boolean> = {};
-                      if (!form.name) newErrors.name = true;
-                      if (!form.department) newErrors.department = true;
-                      if (!form.category) newErrors.category = true;
-                      if (!form.riskLevel) newErrors.riskLevel = true;
-                      if (!form.applicableRoles || form.applicableRoles.length === 0) newErrors.applicableRoles = true;
-
-                      if (Object.keys(newErrors).length > 0) {
-                        setErrors(newErrors);
-                        setModalToast({ message: "Please fill all required fields", type: "error" });
-                        setTimeout(() => setModalToast(null), 3000);
-                        return;
-                      }
-                    }
-                    setErrors({});
-                    setStep(step + 1);
-                  }}>Next</button>}
-                  {step === 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={async () => {
-                    const res = await handleCreate(form);
-                    if (res && !res.success) {
-                      setModalToast({ message: res.message || "Failed to save SOP", type: "error" });
-                      setTimeout(() => setModalToast(null), 3000);
-                    }
-                  }}>{editingType ? "Update SOP" : "Create SOP"}</button>}
+                  {step < 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => setStep(step + 1)}>Next</button>}
+                  {step === 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update SOP" : "Create SOP"}</button>}
                 </div>
               </div>
             </>
@@ -1760,7 +1629,7 @@ function PolicyCompliance() {
             <>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Policy Name <span className="text-red-500">*</span></div>
+                  <div className="text-sm font-medium text-gray-900">Policy Name *</div>
                   <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter policy name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
                 </div>
                 <div className="space-y-1">
@@ -1771,7 +1640,7 @@ function PolicyCompliance() {
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Policy Type <span className="text-red-500">*</span></div>
+                  <div className="text-sm font-medium text-gray-900">Policy Type *</div>
                   <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.policyType || ""} onChange={e => setForm({ ...form, policyType: e.target.value })}>
                     <option value="">Select type</option>
                     {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (<option key={t} value={t}>{t}</option>))}
@@ -1819,7 +1688,7 @@ function PolicyCompliance() {
                   )}
                 </div> */}
                 <div className="space-y-1 sm:col-span-2">
-                  <div className="text-sm font-medium text-gray-900">Applies To Roles <span className="text-red-500">*</span></div>
+                  <div className="text-sm font-medium text-gray-900">Applies To Roles *</div>
 
                   {/* Main role selection - Clean pill buttons */}
                   <div className="flex flex-wrap gap-2">
@@ -2051,7 +1920,7 @@ function PolicyCompliance() {
                 </div>
 
                 <div className="space-y-1 sm:col-span-2">
-                  <div className="text-sm font-medium text-gray-900">Policy Description <span className="text-red-500">*</span></div>
+                  <div className="text-sm font-medium text-gray-900">Policy Description *</div>
                   <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter detailed policy description..." value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
                 </div>
                 {/* <div className="space-y-2 sm:col-span-2">
@@ -2120,13 +1989,7 @@ function PolicyCompliance() {
               </div>
               <div className="mt-6 flex justify-end">
                 <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={async () => {
-                  const res = await handleCreate(form);
-                  if (res && !res.success) {
-                    setModalToast({ message: res.message || "Failed to save policy", type: "error" });
-                    setTimeout(() => setModalToast(null), 3000);
-                  }
-                }}>{editingType ? "Update Policy" : "Create Policy"}</button>
+                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update Policy" : "Create Policy"}</button>
               </div>
             </>
           )}
@@ -2134,25 +1997,23 @@ function PolicyCompliance() {
             <>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Scenario Name <span className="text-red-500">*</span></div>
-                  <input className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.scenarioName ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="e.g., Patient Emergency Response" value={form.scenarioName || ""} onChange={e => { setForm({ ...form, scenarioName: e.target.value }); setErrors({ ...errors, scenarioName: false }); }} />
+                  <div className="text-sm font-medium text-gray-900">Scenario Name *</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g., Patient Emergency Response" value={form.scenarioName || ""} onChange={e => setForm({ ...form, scenarioName: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    When to Use (Trigger Condition) <span className="text-red-500">*</span>
-                  </div>
-                  <input className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.triggerCondition ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} placeholder="Describe when this playbook should be activated..." value={form.triggerCondition || ""} onChange={e => { setForm({ ...form, triggerCondition: e.target.value }); setErrors({ ...errors, triggerCondition: false }); }} />
+                  <div className="text-sm font-medium text-gray-900">When to Use (Trigger Condition) *</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Describe when this playbook should be activated..." value={form.triggerCondition || ""} onChange={e => setForm({ ...form, triggerCondition: e.target.value })} />
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Department <span className="text-red-500">*</span></div>
-                  <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.department ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.department || ""} onChange={e => { setForm({ ...form, department: e.target.value }); setErrors({ ...errors, department: false }); }}>
+                  <div className="text-sm font-medium text-gray-900">Department *</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
                     <option value="">Select department</option>
                     {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-sm font-medium text-gray-900">Risk Level<span className="text-red-500">*</span></div>
-                  <select className={`w-full rounded-lg border px-3 py-2 text-sm ${errors.riskLevel ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} value={form.riskLevel || ""} onChange={e => { setForm({ ...form, riskLevel: e.target.value }); setErrors({ ...errors, riskLevel: false }); }}>
+                  <div className="text-sm font-medium text-gray-900">Risk Level *</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.riskLevel || ""} onChange={e => setForm({ ...form, riskLevel: e.target.value })}>
                     <option value="">Select risk level</option>
                     {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
                   </select>
@@ -2192,20 +2053,17 @@ function PolicyCompliance() {
                 </div>
                 <div className="space-y-1 sm:col-span-2">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium text-gray-900">Step-by-Step Handling Process <span className="text-red-500">*</span></div>
+                    <div className="text-sm font-medium text-gray-900">Step-by-Step Handling Process *</div>
                     <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs">
                       <Sparkles className="h-3.5 w-3.5 text-purple-600" /> AI Suggest Steps
                     </button>
                   </div>
-                  <div className={`relative flex gap-2 ${errors.steps ? 'rounded-lg border border-red-500 bg-red-50 p-1' : ''}`}>
+                  <div className="relative flex gap-2">
                     <input className="flex-1 rounded-lg border px-3 py-2 text-sm" value={form._tmpStep || ""} onChange={e => setForm({ ...form, _tmpStep: e.target.value })} placeholder="Add a step..." />
                     <button className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-white" aria-label="Add step" onClick={() => {
                       const list = [...(form.steps || [])];
-                      if (form._tmpStep) {
-                        list.push(form._tmpStep);
-                        setForm({ ...form, steps: list, _tmpStep: "" });
-                        setErrors({ ...errors, steps: false });
-                      }
+                      if (form._tmpStep) list.push(form._tmpStep);
+                      setForm({ ...form, steps: list, _tmpStep: "" });
                     }}>+</button>
                   </div>
                   <div className="mt-2 space-y-2">
@@ -2292,23 +2150,7 @@ function PolicyCompliance() {
               </div>
               <div className="mt-6 flex justify-end">
                 <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={async () => {
-                  const res = await handleCreate(form);
-                  if (res && !res.success) {
-                    setModalToast({ message: res.message || "Failed to save playbook", type: "error" });
-                    setTimeout(() => setModalToast(null), 3000);
-
-                    const newErrors: Record<string, boolean> = {};
-                    if (!form.scenarioName) newErrors.scenarioName = true;
-                    if (!form.triggerCondition) newErrors.triggerCondition = true;
-                    if (!form.department) newErrors.department = true;
-                    if (!form.riskLevel) newErrors.riskLevel = true;
-                    if (!form.steps || form.steps.length === 0) newErrors.steps = true;
-                    setErrors(newErrors);
-                  } else {
-                    setErrors({});
-                  }
-                }}>{editingType ? "Update Playbook" : "Create Playbook"}</button>
+                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update Playbook" : "Create Playbook"}</button>
               </div>
             </>
           )}
@@ -2460,13 +2302,6 @@ function PolicyCompliance() {
 
   return (
     <>
-      {formToast && (
-        <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${formToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-          {formToast.type === 'success' ? <CircleCheckBig className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-          <span className="text-[11px] font-medium">{formToast.message}</span>
-          <button onClick={() => setFormToast(null)} className="ml-2"><X className="w-3 h-3" /></button>
-        </div>
-      )}
       <Head>
         <title>Process & Compliance | ZEVA</title>
       </Head>
@@ -2508,23 +2343,23 @@ function PolicyCompliance() {
               <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 <StatCard
                   title="Total Playbooks"
-                  value={typeof window !== "undefined" && window.location.pathname.startsWith("/staff") ? playbooks.length : (overview?.playbookCount || 0)}
+                  value={overview?.playbookCount || 0}
                   subtitle="Active scenarios"
-                  icon={<BookOpenCheck className="h-5 w-5 text-purple-500 dark:text-teal-100" />}
+                  icon={<BookOpenCheck className="h-5 w-5 text-purple-500" />}
                   theme="purple"
                 />
                 <StatCard
                   title="Critical Risk"
                   value={playbooks.filter(p => p.riskLevel === "Critical").length}
                   subtitle="High priority playbooks"
-                  icon={<AlertTriangle className="h-5 w-5 text-red-500 dark:text-teal-100" />}
+                  icon={<AlertTriangle className="h-5 w-5 text-red-500" />}
                   theme="red"
                 />
                 <StatCard
                   title="Avg Resolution"
                   value={`${avgResolution} min`}
                   subtitle="Average handling time"
-                  icon={<TrendingUp className="h-5 w-5 text-green-500 dark:text-teal-100" />}
+                  icon={<TrendingUp className="h-5 w-5 text-green-500" />}
                   theme="green"
                 />
               </div>
@@ -2534,35 +2369,35 @@ function PolicyCompliance() {
               <div className="mt-6 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border bg-blue-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-blue-900 dark:text-teal-100">Pending</div>
-                    <ClipboardList className="h-4 w-4 text-blue-400 dark:text-teal-100" />
+                    <div className="text-xs font-semibold text-blue-900">Pending</div>
+                    <ClipboardList className="h-4 w-4 text-blue-400" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-blue-900 dark:text-teal-100">{ackPending}</div>
-                  <div className="text-[11px] text-blue-700 dark:text-teal-100">Awaiting acknowledgment</div>
+                  <div className="mt-2 text-xl font-bold text-blue-900">{ackPending}</div>
+                  <div className="text-[11px] text-blue-700">Awaiting acknowledgment</div>
                 </div>
                 <div className="rounded-xl border bg-green-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-green-900 dark:text-teal-100">Completed</div>
-                    <ShieldCheck className="h-4 w-4 text-green-400 dark:text-teal-100" />
+                    <div className="text-xs font-semibold text-green-900">Completed</div>
+                    <ShieldCheck className="h-4 w-4 text-green-400" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-green-900 dark:text-teal-100">{ackCompleted}</div>
-                  <div className="text-[11px] text-green-700 dark:text-teal-100">Successfully acknowledged</div>
+                  <div className="mt-2 text-xl font-bold text-green-900">{ackCompleted}</div>
+                  <div className="text-[11px] text-green-700">Successfully acknowledged</div>
                 </div>
                 <div className="rounded-xl border bg-red-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-red-900 dark:text-teal-100">Overdue</div>
-                    <ShieldCheck className="h-4 w-4 text-red-400 dark:text-teal-100" />
+                    <div className="text-xs font-semibold text-red-900">Overdue</div>
+                    <ShieldCheck className="h-4 w-4 text-red-400" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-red-900 dark:text-teal-100">{ackOverdue}</div>
-                  <div className="text-[11px] text-red-700 dark:text-teal-100">Past due date</div>
+                  <div className="mt-2 text-xl font-bold text-red-900">{ackOverdue}</div>
+                  <div className="text-[11px] text-red-700">Past due date</div>
                 </div>
                 <div className="rounded-xl border bg-purple-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-purple-900 dark:text-teal-100">Compliance Rate</div>
-                    <FileText className="h-4 w-4 text-purple-400 dark:text-teal-100" />
+                    <div className="text-xs font-semibold text-purple-900">Compliance Rate</div>
+                    <FileText className="h-4 w-4 text-purple-400" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-purple-900 dark:text-teal-100">{ackComplianceRate}%</div>
-                  <div className="text-[11px] text-purple-700 dark:text-teal-100">Overall completion</div>
+                  <div className="mt-2 text-xl font-bold text-purple-900">{ackComplianceRate}%</div>
+                  <div className="text-[11px] text-purple-700">Overall completion</div>
                 </div>
               </div>
             )}
@@ -2675,7 +2510,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "sops" && (
-              <div className="mt-4 overflow-x-auto pb-24">
+              <div className="mt-4 overflow-x-auto">
                 <div className="mb-2 text-xs text-gray-600">{filteredSops.length} SOPs found</div>
                 <table className="min-w-max w-full border-collapse">
                   <thead>
@@ -2712,22 +2547,18 @@ function PolicyCompliance() {
                           <div className="flex flex-wrap gap-1">
                             {(i.applicableRoles || []).map((r, idx) => {
                               const ab = r.slice(0, 2).toUpperCase();
-                              return <span key={`${r}-${idx}`} className="inline-flex items-center justify-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-800 dark:text-orange-900">{ab}</span>;
+                              return <span key={`${r}-${idx}`} className="inline-flex items-center justify-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-700">{ab}</span>;
                             })}
                           </div>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.category}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-800 dark:text-red-900" :
-                            i.riskLevel === "High" ? "bg-orange-100 text-orange-800 dark:text-orange-900" :
-                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-800 dark:text-yellow-900" :
-                                "bg-green-100 text-green-800 dark:text-green-900"
-                            }`}>{i.riskLevel}</span>
+                          <span className="rounded-md bg-yellow-100 px-2 py-1 text-xs">{i.riskLevel}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{new Date(i.lastUpdated).toLocaleDateString('en-GB')}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" : i.status === "Under Review" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
@@ -2743,7 +2574,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-50 w-32 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("sops", i._id, i.name)}>View</button>
                               {canUpdateActions && (
                                 <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("sops", i)}>Edit</button>
@@ -2762,7 +2593,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "policies" && (
-              <div className="mt-4 overflow-x-auto pb-24">
+              <div className="mt-4 overflow-x-auto">
                 <div className="mb-2 text-xs text-gray-600">{filteredPolicies.length} policies found</div>
                 <table className="min-w-max w-full border-collapse">
                   <thead>
@@ -2793,18 +2624,18 @@ function PolicyCompliance() {
                           </div>
                         </td>
                         <td className="px-2 py-2 hidden sm:table-cell">
-                          <span className="rounded-md bg-gray-100 text-gray-800 dark:text-gray-900 px-2 py-1 text-xs">{i.policyType}</span>
+                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{i.policyType}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.appliesTo}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.approvalRequired ? "bg-orange-100 text-orange-800 dark:text-orange-900" : "bg-gray-100 text-gray-800 dark:text-gray-900"}`}>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.approvalRequired ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-700"}`}>
                             {i.approvalRequired ? "Required" : "Not Required"}
                           </span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{new Date(i.effectiveDate).toLocaleDateString()}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" : i.status === "Under Review" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
@@ -2820,7 +2651,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-50 w-32 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("policies", i._id, i.name)}>View</button>
                               {canUpdateActions && (
                                 <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("policies", i)}>Edit</button>
@@ -2839,7 +2670,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "playbooks" && (
-              <div className="mt-4 overflow-x-auto pb-24">
+              <div className="mt-4 overflow-x-auto">
                 <table className="min-w-max w-full border-collapse">
                   <thead>
                     <tr className="text-left text-xs text-gray-600">
@@ -2872,10 +2703,10 @@ function PolicyCompliance() {
                         </td>
                         <td className="px-2 py-2 text-gray-700">{i.department}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-800 dark:text-red-900" :
-                            i.riskLevel === "High" ? "bg-orange-100 text-orange-800 dark:text-orange-900" :
-                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-800 dark:text-yellow-900" :
-                                "bg-green-100 text-green-800 dark:text-green-900"
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-700" :
+                            i.riskLevel === "High" ? "bg-orange-100 text-orange-700" :
+                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700" :
+                                "bg-green-100 text-green-700"
                             }`}>{i.riskLevel}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">
@@ -2888,17 +2719,17 @@ function PolicyCompliance() {
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.resolutionTimeMinutes ? `${i.resolutionTimeMinutes} mins` : "-"}</td>
                         <td className="px-2 py-2 hidden lg:table-cell">
-                          <span className="rounded-md bg-purple-100 text-purple-800 dark:text-purple-900 px-2 py-1 text-xs">{i.escalationLevel || "-"}</span>
+                          <span className="rounded-md bg-purple-100 px-2 py-1 text-xs text-purple-700">{i.escalationLevel || "-"}</span>
                         </td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" : i.status === "Under Review" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-50 w-32 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("playbooks", i._id, i.scenarioName)}>View</button>
                               {canUpdateActions && (
                                 <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("playbooks", i)}>Edit</button>
@@ -2917,7 +2748,7 @@ function PolicyCompliance() {
             )}
 
             {canViewData && activeTab === "ack" && (
-              <div className="mt-4 overflow-x-auto pb-24">
+              <div className="mt-4 overflow-x-auto">
                 <div className="mb-2 text-xs text-gray-600">{filteredAckItems.length} records found</div>
                 <table className="min-w-max w-full border-collapse">
                   <thead>
@@ -2951,18 +2782,18 @@ function PolicyCompliance() {
                         <td className="px-2 py-2 text-gray-700">{i.role}</td>
                         <td className="px-2 py-2 text-gray-700">{i.documentName}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className="rounded-md bg-gray-100 text-gray-800 dark:text-gray-900 px-2 py-1 text-xs">{(i as any).documentType || i.type}</span>
+                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{(i as any).documentType || i.type}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2">
                           <span
                             className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${i.status === "Acknowledged"
-                              ? "bg-green-100 text-green-800 dark:text-green-900"
+                              ? "bg-green-100 text-green-700"
                               : i.status === "Pending"
-                                ? "bg-blue-100 text-blue-800 dark:text-blue-900"
+                                ? "bg-blue-100 text-blue-700"
                                 : i.status === "Viewed"
-                                  ? "bg-yellow-100 text-yellow-800 dark:text-yellow-900"
-                                  : "bg-red-100 text-red-800 dark:text-red-900"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
                               }`}
                           >
                             {i.status === "Acknowledged" && (
@@ -2992,7 +2823,7 @@ function PolicyCompliance() {
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-50 w-36 rounded-lg border bg-white shadow">
+                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
                                 handleRowView(t as TabKey, (i as any).documentId || i._id, i.documentName, i as any);
@@ -3060,7 +2891,6 @@ function PolicyCompliance() {
                 onClick={() => {
                   setViewerOpen(false);
                   setViewerError(null);
-                  if (viewerBlobUrl) { URL.revokeObjectURL(viewerBlobUrl); setViewerBlobUrl(null); }
                 }}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-all shadow-sm"
               >
@@ -3077,78 +2907,76 @@ function PolicyCompliance() {
               </div>
             )}
 
-            {/* Toolbar - only show PDF controls for PDF files */}
-            {viewerFileType === "pdf" && (
-              <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={goToPrevPage}
-                    disabled={currentPage <= 1 || !pdfDoc}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
-                    <input
-                      type="number"
-                      min={1}
-                      max={totalPages}
-                      value={currentPage}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (val >= 1 && val <= totalPages) setCurrentPage(val);
-                      }}
-                      className="w-12 text-center text-sm font-semibold text-slate-800 bg-transparent border-none outline-none"
-                    />
-                    <span className="text-sm text-slate-500">/ {totalPages}</span>
-                  </div>
-                  <button
-                    onClick={goToNextPage}
-                    disabled={currentPage >= totalPages || !pdfDoc}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToPrevPage}
+                  disabled={currentPage <= 1 || !pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg">
+                  <input
+                    type="number"
+                    min={1}
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= 1 && val <= totalPages) setCurrentPage(val);
+                    }}
+                    className="w-12 text-center text-sm font-semibold text-slate-800 bg-transparent border-none outline-none"
+                  />
+                  <span className="text-sm text-slate-500">/ {totalPages}</span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={zoomOut}
-                    disabled={!pdfDoc}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ZoomOut className="w-5 h-5" />
-                  </button>
-                  <div className="px-3 py-1.5 bg-slate-100 rounded-lg min-w-[70px] text-center">
-                    <span className="text-sm font-semibold text-slate-800">{Math.round(scale * 100)}%</span>
-                  </div>
-                  <button
-                    onClick={zoomIn}
-                    disabled={!pdfDoc}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ZoomIn className="w-5 h-5" />
-                  </button>
-                  <div className="w-px h-6 bg-slate-200 mx-1" />
-                  <button
-                    onClick={fitToWidth}
-                    disabled={!pdfDoc}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    title="Fit to Width"
-                  >
-                    <Maximize2 className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={fitToPage}
-                    disabled={!pdfDoc}
-                    className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                    title="Fit to Page"
-                  >
-                    <Minimize2 className="w-5 h-5" />
-                  </button>
-                </div>
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage >= totalPages || !pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </div>
-            )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={zoomOut}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ZoomOut className="w-5 h-5" />
+                </button>
+                <div className="px-3 py-1.5 bg-slate-100 rounded-lg min-w-[70px] text-center">
+                  <span className="text-sm font-semibold text-slate-800">{Math.round(scale * 100)}%</span>
+                </div>
+                <button
+                  onClick={zoomIn}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ZoomIn className="w-5 h-5" />
+                </button>
+                <div className="w-px h-6 bg-slate-200 mx-1" />
+                <button
+                  onClick={fitToWidth}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  title="Fit to Width"
+                >
+                  <Maximize2 className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={fitToPage}
+                  disabled={!pdfDoc}
+                  className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  title="Fit to Page"
+                >
+                  <Minimize2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
 
             {/* Main Content with Sidebar */}
             <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -3167,8 +2995,8 @@ function PolicyCompliance() {
                         key={idx}
                         onClick={() => setCurrentPage(idx + 1)}
                         className={`w-full rounded-lg overflow-hidden shadow-sm transition-all ${currentPage === idx + 1
-                          ? "ring-2 ring-indigo-500 ring-offset-1"
-                          : "hover:shadow-md"
+                            ? "ring-2 ring-indigo-500 ring-offset-1"
+                            : "hover:shadow-md"
                           }`}
                       >
                         <div className="relative">
@@ -3187,7 +3015,7 @@ function PolicyCompliance() {
                 </div>
               )}
 
-              {/* Document Content Area */}
+              {/* PDF Content Area */}
               <div
                 ref={pdfContainerRef}
                 className="flex-1 min-h-0 overflow-auto bg-slate-100 p-6 flex items-start justify-center"
@@ -3200,97 +3028,12 @@ function PolicyCompliance() {
                     </div>
                   </div>
                 )}
-                {/* PDF Viewer */}
-                {viewerFileType === "pdf" && pdfDoc && (
+                {pdfDoc && (
                   <div className="relative shadow-2xl rounded-xl overflow-hidden bg-white">
                     <canvas
                       ref={pdfCanvasRef}
                       className="block"
                     />
-                  </div>
-                )}
-                {/* DOC/DOCX/PPT/PPTX/XLS/XLSX Viewer */}
-                {viewerFileType === "doc" && viewerUrl && (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-2 min-h-[70vh]">
-                    {(() => {
-                      const absoluteUrl = viewerUrl.startsWith("http") ? viewerUrl : `${window.location.origin}${viewerUrl}`;
-                      const isLocalhost = absoluteUrl.includes("localhost") || absoluteUrl.includes("127.0.0.1") || absoluteUrl.includes("192.168.");
-
-                      if (isLocalhost) {
-                        return (
-                          <div className="flex flex-col items-center gap-3 bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white shadow-lg mx-auto mb-2">
-                              <FileText className="w-8 h-8" />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-800">Local Document Preview</h3>
-                            <p className="text-sm text-slate-500">
-                              Google Docs preview is not supported on <strong>localhost</strong>. In production, this document will be fully previewed here.
-                            </p>
-                            <a
-                              href={viewerBlobUrl || absoluteUrl}
-                              download={viewerTitle || "document"}
-                              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md"
-                            >
-                              <UploadCloud className="w-4 h-4 rotate-180" />
-                              Download File for Local Review
-                            </a>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <div className="w-full h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200" style={{ height: "75vh" }}>
-                          <iframe
-                            src={`https://docs.google.com/gview?url=${encodeURIComponent(absoluteUrl)}&embedded=true`}
-                            className="w-full h-full border-none"
-                            title={viewerTitle}
-                          />
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-                {/* Video Viewer */}
-                {viewerFileType === "video" && viewerBlobUrl && (
-                  <div className="w-full max-w-4xl mx-auto">
-                    <video
-                      src={viewerBlobUrl}
-                      controls
-                      className="w-full rounded-xl shadow-2xl bg-black"
-                      style={{ maxHeight: "70vh" }}
-                    >
-                      Your browser does not support video playback.
-                    </video>
-                  </div>
-                )}
-                {/* Image Viewer */}
-                {viewerFileType === "image" && viewerBlobUrl && (
-                  <div className="w-full flex items-center justify-center">
-                    <img
-                      src={viewerBlobUrl}
-                      alt={viewerTitle || "Document"}
-                      className="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain"
-                    />
-                  </div>
-                )}
-                {/* Other/Unknown File Type */}
-                {viewerFileType === "other" && viewerBlobUrl && (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-6">
-                    <div className="flex flex-col items-center gap-3 bg-white rounded-2xl shadow-lg p-8 max-w-md w-full">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white shadow-lg">
-                        <FileText className="w-8 h-8" />
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-800">Unsupported Preview</h3>
-                      <p className="text-sm text-slate-500 text-center">This file type cannot be previewed in the browser. Please download the file to view it.</p>
-                      <a
-                        href={viewerBlobUrl}
-                        download={viewerTitle || "document"}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all shadow-md mt-2"
-                      >
-                        <UploadCloud className="w-4 h-4 rotate-180" />
-                        Download File
-                      </a>
-                    </div>
                   </div>
                 )}
               </div>

@@ -98,12 +98,12 @@ export default async function handler(req, res) {
 
       // fetch by filters of ownerId
       if (req.query.ownerId) {
-        query.ownerId = req.query.ownerId;
+        query.owners = req.query.ownerId;
       }
 
       // if role is agent then only show assigned conversations
       if (me.role === "agent" || me.role === "doctorStaff") {
-        query.ownerId = me._id;
+        query.owners = me._id;
       }
 
       // Search by contact name or phone number
@@ -111,11 +111,13 @@ export default async function handler(req, res) {
       if (search) {
         const searchRegex = new RegExp(search, "i");
         const matchingLeads = await Lead.find({
-          $or: [
-            { name: searchRegex },
-            { phone: searchRegex },
-            { email: searchRegex },
-          ],
+          $or: [{ name: searchRegex }, { phone: searchRegex }],
+        }).select("_id");
+
+        leadIdsFromSearch = matchingLeads.map((c) => c._id).filter(Boolean);
+      } else {
+        const matchingLeads = await Lead.find({
+          phone: { $ne: null },
         }).select("_id");
 
         leadIdsFromSearch = matchingLeads.map((c) => c._id).filter(Boolean);
@@ -189,6 +191,43 @@ export default async function handler(req, res) {
       // Determine if there are more conversations
       const hasMore = page * limit < totalConversations;
 
+      const getStats = async () => {
+        // Remove status from query for read/unread counts
+        const { status, ...queryWithoutStatus } = query || {};
+
+        const stats = {};
+
+        // All conversations (excluding trashed and blocked)
+        stats.all = await Conversation.countDocuments({
+          ...query,
+          status: { $nin: ["trashed", "blocked"] },
+        });
+
+        // Read conversations
+        stats.read = await Conversation.countDocuments({
+          ...queryWithoutStatus,
+          unreadMessages: { $size: 0 },
+        });
+
+        // Unread conversations
+        stats.unread = await Conversation.countDocuments({
+          ...queryWithoutStatus,
+          unreadMessages: { $ne: [] },
+        });
+
+        // Status-based counts
+        const statuses = ["open", "closed", "trashed", "blocked", "archived"];
+        for (const statusType of statuses) {
+          stats[statusType] = await Conversation.countDocuments({
+            ...queryWithoutStatus,
+            status: statusType,
+          });
+        }
+
+        return stats;
+      };
+      const stats = await getStats();
+
       res.status(200).json({
         success: true,
         message: "Conversations Found.",
@@ -199,6 +238,7 @@ export default async function handler(req, res) {
           totalPages: Math.ceil(totalConversations / limit),
           hasMore,
         },
+        stats,
       });
     } catch (error) {
       console.error("Error fetching conversations:", error);

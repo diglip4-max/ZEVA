@@ -29,7 +29,7 @@ export default function EmailThreadMessage({
     : (message as any).recipientId?.email || "";
   const senderEmail = isOutgoing
     ? (message as any).recipientId?.email || ""
-    : (message as any).senderId?.email || "";
+    : (message as any).provider?.email || "";
   const recipientEmail = (message as any).recipientId?.email || "";
   const attachments = (message as any).attachments as
     | { fileName: string; fileSize?: string; mediaUrl?: string }[]
@@ -37,11 +37,14 @@ export default function EmailThreadMessage({
 
   const displayFrom = isOutgoing
     ? `You${senderEmail ? ` <${senderEmail}>` : ""}`
-    : `${fromName}${senderEmail ? ` <${senderEmail}>` : ""}`;
-  const displayTo = recipientEmail || "Unknown recipient";
-  const messageDate = message?.createdAt
-    ? new Date(message.createdAt).toLocaleString()
-    : "";
+    : `${fromName}${fromEmail ? ` <${fromEmail}>` : ""}`;
+  const displayTo = isOutgoing
+    ? `${fromName}${recipientEmail ? ` <${recipientEmail}>` : ""}`
+    : (message as any).provider?.email || `Unknown recipient`;
+  const messageDate =
+    message?.emailReceivedAt || message?.createdAt
+      ? new Date(message.emailReceivedAt || message.createdAt).toLocaleString()
+      : "";
 
   // Generate a short preview when collapsed
   const getPreview = () => {
@@ -101,26 +104,23 @@ export default function EmailThreadMessage({
                   <span>Date</span>
                   <span>{messageDate}</span>
                 </div>
-                {
-                  message.status === "scheduled" &&
+                {message.status === "scheduled" && (
                   <div className="pi-thread-info-row">
                     <span>Scheduled at: </span>
-                    <span>{formatScheduledTime(
-                      message?.schedule?.date,
-                      message?.schedule?.time,
-                      message?.schedule?.timezone,
-                    )}</span>
+                    <span>
+                      {formatScheduledTime(
+                        message?.schedule?.date,
+                        message?.schedule?.time,
+                        message?.schedule?.timezone,
+                      )}
+                    </span>
                   </div>
-                }
+                )}
               </div>
             )}
           </div>
         </div>
-        <div className="pi-reading-time">
-          {(message as any).createdAt
-            ? new Date((message as any).createdAt).toLocaleString()
-            : ""}
-        </div>
+        <div className="pi-reading-time">{messageDate}</div>
       </div>
 
       <div

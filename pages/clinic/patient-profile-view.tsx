@@ -1967,10 +1967,30 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
         }
       }
 
-      // Step 1.5: Create billing records for existing packages with balance usage OR paid amount
-      const existingPackagesToBill = packagesToSave.filter((p: any) =>
-        !p.isNewPackage && (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0 || p.paidAmount > 0)
+      // Step 1.5: Create billing records for packages that were newly added in
+      // the CURRENT save session only. We compute the diff between the packages
+      // already persisted on the patient record (patientData.packages) and the
+      // updated list in editFormData.packages. Only packages present in the
+      // updated list but NOT in the original patient record are treated as
+      // "newly added" — this prevents generating duplicate billings for
+      // packages that were already added and billed in a previous session.
+      const originalPackages = Array.isArray((patientData as any)?.packages)
+        ? (patientData as any).packages
+        : [];
+      const originalPackageIds = new Set(
+        originalPackages
+          .map((op: any) => op?.packageId?.toString?.() ?? String(op?.packageId ?? ''))
+          .filter(Boolean)
       );
+      const existingPackagesToBill = packagesToSave.filter((p: any) => {
+        const pkgIdStr = p?.packageId?.toString?.() ?? String(p?.packageId ?? '');
+        if (!pkgIdStr) return false;
+        // Only consider packages that did NOT exist on the patient record before
+        // this save — i.e. genuinely new in this session.
+        if (originalPackageIds.has(pkgIdStr)) return false;
+        // Only bill when there is actual payment/balance usage to record.
+        return (p.advanceBalanceUsed > 0 || p.claimAmountUsed > 0 || p.paidAmount > 0);
+      });
 
       if (existingPackagesToBill.length > 0) {
         for (const existingPkg of existingPackagesToBill) {
@@ -3693,6 +3713,19 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     }
   };
 
+  const getNormalizedEntityId = (value: any) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") return String(value._id || value.id || "");
+    return String(value);
+  };
+
+  const filterDoctorsByPatientClinic = (doctors: any[] = []) => {
+    const patientClinicId = getNormalizedEntityId(patientData?.clinicId);
+    if (!patientClinicId) return doctors;
+    return doctors.filter((doctor: any) => getNormalizedEntityId(doctor?.clinicId) === patientClinicId);
+  };
+
   // Fetch dropdown data for claim editing
   const fetchClaimDropdowns = async () => {
     try {
@@ -3705,7 +3738,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       ]);
       if (deptRes.data.success) setClaimDepartments(deptRes.data.departments || []);
       if (svcRes.data.success) setClaimServices(svcRes.data.services || []);
-      if (docRes.data.success) setClaimDoctors(docRes.data.data || []);
+      if (docRes.data.success) setClaimDoctors(filterDoctorsByPatientClinic(docRes.data.data || []));
     } catch (err) {
       console.error("Error fetching claim dropdowns:", err);
     }
@@ -3804,7 +3837,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       ]);
       if (deptRes.data.success) setNewClaimDepartments(deptRes.data.departments || []);
       if (svcRes.data.success) setNewClaimServices(svcRes.data.services || []);
-      if (docRes.data.success) setNewClaimDoctors(docRes.data.data || []);
+      if (docRes.data.success) setNewClaimDoctors(filterDoctorsByPatientClinic(docRes.data.data || []));
     } catch (err) {
       console.error("Error fetching new claim dropdowns:", err);
     }
@@ -3888,7 +3921,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
   const handleNewClaimDepartmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const deptId = e.target.value;
-    const dept = newClaimDepartments.find((d: any) => d._id === deptId);
+    const dept = newClaimDepartments.find((d: any) => getNormalizedEntityId(d?._id) === deptId);
     setNewClaimData((prev: any) => ({
       ...prev,
       departmentId: deptId,
@@ -8205,7 +8238,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             >
                               <option value="" disabled>{newClaimData.services.length > 0 ? "Add More Services..." : "Select Services"}</option>
                               {newClaimServices
-                                .filter((s: any) => !newClaimData.departmentId || String(s.departmentId) === String(newClaimData.departmentId))
+                                .filter((s: any) => !newClaimData.departmentId || getNormalizedEntityId(s.departmentId) === getNormalizedEntityId(newClaimData.departmentId))
                                 .map((s: any) => (
                                   <option key={s._id} value={s._id}>
                                     {s.name}
@@ -9114,7 +9147,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             Department
                           </label>
                           <select value={claimEditData.departmentId || ''} onChange={(e) => {
-                            const dept = claimDepartments.find((d: any) => d._id === e.target.value);
+                            const dept = claimDepartments.find((d: any) => getNormalizedEntityId(d?._id) === e.target.value);
                             setClaimEditData((prev: any) => ({
                               ...prev,
                               departmentId: e.target.value,
@@ -9185,7 +9218,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               >
                                 <option value="" disabled>{(claimEditData.services || []).length > 0 ? "Add More Services..." : "Select Services"}</option>
                                 {claimServices
-                                  .filter((s: any) => !claimEditData.departmentId || String(s.departmentId) === String(claimEditData.departmentId))
+                                  .filter((s: any) => !claimEditData.departmentId || getNormalizedEntityId(s.departmentId) === getNormalizedEntityId(claimEditData.departmentId))
                                   .map((s: any) => (
                                     <option key={s._id} value={s._id} className="py-2 px-3">
                                       {s.name}

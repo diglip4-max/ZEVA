@@ -1238,8 +1238,13 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'agents'
+<<<<<<< HEAD
                     ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
                     : 'text-teal-600 dark:text-teal-100'
+=======
+                    ? 'bg-white text-teal-900 shadow-sm'
+                    : 'text-teal-600 hover:text-teal-900'
+>>>>>>> 064999db0fa4a02cab11eead551996751d5764a2
                     }`}
                 >
                   Agents ({agents.length})
@@ -1247,8 +1252,13 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'doctorStaff'
+<<<<<<< HEAD
                     ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
                     : 'text-teal-600 dark:text-teal-100'
+=======
+                    ? 'bg-white text-teal-900 shadow-sm'
+                    : 'text-teal-600 hover:text-teal-900'
+>>>>>>> 064999db0fa4a02cab11eead551996751d5764a2
                     }`}
                 >
                   Doctors ({doctorStaff.length})

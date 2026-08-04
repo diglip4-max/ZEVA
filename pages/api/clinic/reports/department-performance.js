@@ -3,7 +3,6 @@ import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permissions-helper";
 import Billing from "../../../../models/Billing";
 import mongoose from "mongoose";
-import Department from "../../../../models/Department";
 import Appointment from "../../../../models/Appointment";
 
 export default async function handler(req, res) {
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
 
   try {
     await dbConnect();
-  } catch (e) {
+  } catch {
     return res.status(500).json({ success: false, message: "Database connection failed" });
   }
 
@@ -334,12 +333,231 @@ export default async function handler(req, res) {
           as: "serviceInfo",
         },
       },
+      { $unwind: { path: "$serviceInfo", preserveNullAndEmptyArrays: true } },
       {
-        $unwind: { path: "$serviceInfo", preserveNullAndEmptyArrays: true },
+        $lookup: {
+          from: "services",
+          localField: "serviceIds",
+          foreignField: "_id",
+          as: "servicesFromIds",
+        },
+      },
+      {
+        $lookup: {
+          from: "services",
+          localField: "services.serviceId",
+          foreignField: "_id",
+          as: "servicesFromItems",
+        },
+      },
+      {
+        $lookup: {
+          from: "doctordepartments",
+          localField: "doctorId",
+          foreignField: "doctorId",
+          as: "doctorDepartments",
+        },
+      },
+      {
+        $lookup: {
+          from: "billings",
+          let: { appointmentId: "$_id", clinicId: "$clinicId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$appointmentId", "$$appointmentId"] },
+                    { $eq: ["$clinicId", "$$clinicId"] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                selectedTreatments: 1,
+                treatment: 1,
+              },
+            },
+          ],
+          as: "appointmentBillings",
+        },
+      },
+      {
+        $addFields: {
+          billingTreatmentServiceIds: {
+            $reduce: {
+              input: { $ifNull: ["$appointmentBillings", []] },
+              initialValue: [],
+              in: {
+                $concatArrays: [
+                  "$$value",
+                  {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: { $ifNull: ["$$this.selectedTreatments", []] },
+                          as: "selectedTreatment",
+                          cond: {
+                            $and: [
+                              { $ne: ["$$selectedTreatment.treatmentServiceId", null] },
+                              { $ne: ["$$selectedTreatment.treatmentServiceId", ""] },
+                            ],
+                          },
+                        },
+                      },
+                      as: "selectedTreatment",
+                      in: {
+                        $convert: {
+                          input: "$$selectedTreatment.treatmentServiceId",
+                          to: "objectId",
+                          onError: null,
+                          onNull: null,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          billingTreatmentNames: {
+            $reduce: {
+              input: { $ifNull: ["$appointmentBillings", []] },
+              initialValue: [],
+              in: {
+                $concatArrays: [
+                  "$$value",
+                  {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: { $ifNull: ["$$this.selectedTreatments", []] },
+                          as: "selectedTreatment",
+                          cond: {
+                            $and: [
+                              { $ne: ["$$selectedTreatment.treatmentName", null] },
+                              { $ne: ["$$selectedTreatment.treatmentName", ""] },
+                            ],
+                          },
+                        },
+                      },
+                      as: "selectedTreatment",
+                      in: "$$selectedTreatment.treatmentName",
+                    },
+                  },
+                  {
+                    $cond: [
+                      {
+                        $and: [
+                          { $ne: ["$$this.treatment", null] },
+                          { $ne: ["$$this.treatment", ""] },
+                        ],
+                      },
+                      {
+                        $map: {
+                          input: { $split: ["$$this.treatment", ","] },
+                          as: "billingTreatmentName",
+                          in: { $trim: { input: "$$billingTreatmentName" } },
+                        },
+                      },
+                      [],
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "services",
+          let: {
+            serviceIds: {
+              $filter: {
+                input: { $ifNull: ["$billingTreatmentServiceIds", []] },
+                as: "serviceId",
+                cond: { $ne: ["$$serviceId", null] },
+              },
+            },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$serviceIds"] },
+              },
+            },
+            {
+              $project: {
+                departmentId: 1,
+              },
+            },
+          ],
+          as: "servicesFromBillings",
+        },
+      },
+      {
+        $lookup: {
+          from: "services",
+          let: {
+            treatmentNames: {
+              $filter: {
+                input: { $ifNull: ["$billingTreatmentNames", []] },
+                as: "treatmentName",
+                cond: {
+                  $and: [
+                    { $ne: ["$$treatmentName", null] },
+                    { $ne: ["$$treatmentName", ""] },
+                  ],
+                },
+              },
+            },
+            clinicId: "$clinicId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$clinicId", "$$clinicId"] },
+                    { $in: ["$name", "$$treatmentNames"] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                departmentId: 1,
+              },
+            },
+          ],
+          as: "servicesFromBillingNames",
+        },
+      },
+      {
+        $addFields: {
+          effectiveDepartmentId: {
+            $ifNull: [
+              "$serviceInfo.departmentId",
+              { $arrayElemAt: ["$servicesFromIds.departmentId", 0] },
+              { $arrayElemAt: ["$servicesFromItems.departmentId", 0] },
+              { $arrayElemAt: ["$servicesFromBillings.departmentId", 0] },
+              { $arrayElemAt: ["$servicesFromBillingNames.departmentId", 0] },
+              { $arrayElemAt: ["$doctorDepartments.clinicDepartmentId", 0] },
+              null,
+            ],
+          },
+        },
+      },
+      {
+        $match: {
+          effectiveDepartmentId: { $ne: null },
+        },
       },
       {
         $group: {
-          _id: "$serviceInfo.departmentId",
+          _id: "$effectiveDepartmentId",
           totalAppointments: { $sum: 1 },
         },
       },
@@ -354,10 +572,11 @@ export default async function handler(req, res) {
       {
         $project: {
           departmentId: "$_id",
-          departmentName: { $ifNull: [{ $arrayElemAt: ["$deptInfo.name", 0] }, "Unassigned"] },
+          departmentName: { $arrayElemAt: ["$deptInfo.name", 0] },
           totalAppointments: 1,
         },
       },
+      { $match: { departmentName: { $exists: true, $ne: null, $ne: "" } } },
       { $sort: { totalAppointments: -1 } },
     ];
 

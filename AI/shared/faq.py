@@ -3,10 +3,10 @@ import httpx
 import asyncio
 import logging
 import traceback
-from cache import get_cache, set_cache
-from appointment import get_header
+from shared.cache import get_cache, set_cache
+from shared.appointment import get_header
 from dotenv import load_dotenv
-from pagination import _fetch_all_pages
+from shared.pagination import _fetch_all_pages
 
 load_dotenv()
 
@@ -15,6 +15,7 @@ CACHE_TTL = 600
 AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
 
 SEMAPHORE = asyncio.Semaphore(10)
+
 
 async def get_services_for_doctor(doctor_id: str, clinicToken: str) -> list[str]:
     cache_key = f"services:{doctor_id}"
@@ -154,11 +155,23 @@ async def get_doctors_by_treatment(
 
 
 # ─── Clinic services ──────────────────────────────────────────────────────────
+async def get_clinic_currency(clinicToken: str) -> str:
+    """Fetches the clinic's configured currency code (e.g. 'INR', 'SAR',
+    'USD') directly from clinic settings — no symbol mapping, used as-is.
+    Falls back to 'INR' if the field is missing."""
+    header = get_header(clinicToken)
+    url = f"{AGENT_URL}/api/clinics/myallClinic"
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+        resp = await client.get(url, headers=header)
+        resp.raise_for_status()
+        data = resp.json()
+
+    return (data.get("clinic") or {}).get("currency") or "INR"
 
 
 async def get_services(clinicToken: str) -> dict:
     header = get_header(clinicToken)
-
+    currency_code = await get_clinic_currency(clinicToken)
     async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), headers=header) as client:
         items = await _fetch_all_pages(
             client,
@@ -166,7 +179,7 @@ async def get_services(clinicToken: str) -> dict:
             data_extractor=lambda d: [
                 {
                     "name": s.get("name"),
-                    "price": s.get("clinicPrice") or s.get("price"),
+                    "price": f"{currency_code} {s.get("clinicPrice") or s.get("price")}",
                     "duration_minutes": s.get("durationMinutes"),
                     "department": (
                         s.get("departmentId", {}).get("name")
@@ -190,10 +203,11 @@ async def get_services(clinicToken: str) -> dict:
         "status": "success",
         "total": len(items),
         "by_department": grouped,
+        "Currency of Price": currency_code,
     }
 
 
-# ─── Timings — single page, no change needed ─────────────────────────────────
+# ────────────────── Timings — single page, no change needed ──────────────────
 
 
 async def get_timings(clinicToken: str) -> dict:
