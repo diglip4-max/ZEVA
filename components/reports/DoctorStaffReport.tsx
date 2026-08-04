@@ -365,22 +365,22 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                 <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    name={`Revenue (${currency})`} 
-                    stroke="#0EA5E9" 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }} 
-                    activeDot={{ r: 6, strokeWidth: 0 }} 
-                  />
-                <Line 
-                  type="monotone" 
-                  dataKey="normalizedRevenue" 
-                  name="Normalized Revenue (%)" 
-                  stroke="#8884d8" 
-                  strokeWidth={2} 
+                <Legend verticalAlign="top" height={36} />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  name={`Revenue (${currency})`}
+                  stroke="#0EA5E9"
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#0EA5E9", strokeWidth: 2 }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="normalizedRevenue"
+                  name="Normalized Revenue (%)"
+                  stroke="#8884d8"
+                  strokeWidth={2}
                   strokeDasharray="5 5"
                   dot={{ r: 3, fill: "#8884d8" }}
                 />
@@ -388,43 +388,43 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
             </ResponsiveContainer>
           </div>
           <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                            {activeTab === 'doctor' ? 'Doctor Staff' : 'Agent/Staff'}
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
-                        {currentRevenues.map((r) => (
-                          <tr key={r.staffId}>
-                            <td className="px-4 py-2 text-sm">{r.staffName}</td>
-                            <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.revenue)}</td>
-                            <td className="px-4 py-2 text-sm">{r.invoices}</td>
-                            <td className="px-4 py-2 text-sm">
-                              <button
-                                onClick={() => setSelectedRevenueStaff(r)}
-                                className="text-blue-600 hover:text-blue-800 font-medium underline"
-                              >
-                                View
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        {!currentRevenues.length && (
-                          <tr>
-                            <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
-                              No revenue data for selected period
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
+                    {activeTab === 'doctor' ? 'Doctor Staff' : 'Agent/Staff'}
+                  </th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoices</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {currentRevenues.map((r) => (
+                  <tr key={r.staffId}>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.staffName}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.revenue)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.invoices}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                      <button
+                        onClick={() => setSelectedRevenueStaff(r)}
+                        className="text-blue-600 hover:text-blue-800 font-medium underline"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!currentRevenues.length && (
+                  <tr>
+                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={4}>
+                      No revenue data for selected period
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -434,19 +434,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">View</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor Staff</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Package Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoices</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">View</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {topPackageBilling.map((r) => (
                 <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">{r.count}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.count}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedPackageStaff(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -458,7 +458,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               ))}
               {!topPackageBilling.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={4}>
                     No package billing data for selected period
                   </td>
                 </tr>
@@ -485,21 +485,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Package Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedPackageStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <button
                           onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
                           className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -507,35 +507,35 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                           {(detail.patientName || "").trim() || "Unknown"}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">Package</span>
                           <span>{detail.packageName || "-"}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
                       </td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.amount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>Total</td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedPackageStaff.amount)}</td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedPackageStaff.amount)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
                     </td>
                   </tr>
@@ -552,8 +552,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-gray-800">
-                            {activeTab === 'doctor' ? 'Doctor Revenue Details' : 'Agent/Staff Revenue Details'} - {selectedRevenueStaff.staffName}
-                          </h2>
+                {activeTab === 'doctor' ? 'Doctor Revenue Details' : 'Agent/Staff Revenue Details'} - {selectedRevenueStaff.staffName}
+              </h2>
               <button
                 onClick={() => setSelectedRevenueStaff(null)}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -565,21 +565,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service/Package</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Service/Package</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedRevenueStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <button
                           onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
                           className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -587,8 +587,8 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                           {(detail.patientName || "").trim() || "Unknown"}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         {detail.service === "Package" ? (
                           <div className="flex flex-col gap-1">
                             {/* Show package portion */}
@@ -631,28 +631,28 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
                       </td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.amount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>Total</td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedRevenueStaff.revenue)}</td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedRevenueStaff.revenue)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
                     </td>
                   </tr>
@@ -680,21 +680,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Service</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedMembershipStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <button
                           onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
                           className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -702,39 +702,39 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                           {(detail.patientName || "").trim() || "Unknown"}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full">Membership</span>
                           <span>
-                            {detail.isFreeConsultation 
-                              ? "Free Consultation" 
+                            {detail.isFreeConsultation
+                              ? "Free Consultation"
                               : detail.treatmentName || detail.packageName || detail.service || "Service"}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
                       </td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.amount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.amount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>Total</td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedMembershipStaff.amount)}</td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedMembershipStaff.amount)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
                     </td>
                   </tr>
@@ -751,19 +751,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Membership Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoices</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor Staff</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Membership Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoices</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {topMembershipBilling.map((r) => (
                 <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">{r.count}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.count}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedMembershipStaff(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -775,7 +775,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               ))}
               {!topMembershipBilling.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={4}>
                     No membership billing data for selected period
                   </td>
                 </tr>
@@ -808,19 +808,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Staff</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor Staff</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Commission</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Entries</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {topDoctorStaffCommission.map((r) => (
                 <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
-                  <td className="px-4 py-2 text-sm">{r.entries}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.totalCommission)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.entries}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedDoctorStaffCommission(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -832,7 +832,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               ))}
               {!topDoctorStaffCommission.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={4}>
                     No commission data for selected period
                   </td>
                 </tr>
@@ -848,19 +848,19 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Agent</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Commission</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Entries</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Agent</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Commission</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Entries</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {topAgentCommission.map((r) => (
                 <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalCommission)}</td>
-                  <td className="px-4 py-2 text-sm">{r.entries}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.totalCommission)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.entries}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedAgentCommission(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -872,7 +872,7 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               ))}
               {!topAgentCommission.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={4}>
                     No commission data for selected period
                   </td>
                 </tr>
@@ -899,21 +899,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Commission</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Commission</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedDoctorStaffCommission.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <button
                           onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
                           className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -921,23 +921,23 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                           {(detail.patientName || "").trim() || "Unknown"}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
                       </td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.totalAmount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.commissionAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.totalAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.commissionAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={8}>Total</td>
-                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedDoctorStaffCommission.totalCommission)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={8}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedDoctorStaffCommission.totalCommission)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -963,21 +963,21 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">EMR No</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice #</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Commission</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">EMR No</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice #</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Commission</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
                   {[...selectedAgentCommission.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => (
                     <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         <button
                           onClick={() => router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)}
                           className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -985,23 +985,23 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                           {(detail.patientName || "").trim() || "Unknown"}
                         </button>
                       </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                         {detail.invoicedDate ? new Date(detail.invoicedDate).toLocaleDateString() : "-"}
                       </td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.totalAmount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.advance)}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{formatCurrency(detail.commissionAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.totalAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.commissionAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={8}>Total</td>
-                    <td className="px-4 py-2 text-sm font-semibold">{formatCurrency(selectedAgentCommission.totalCommission)}</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={8}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedAgentCommission.totalCommission)}</td>
                   </tr>
                 </tfoot>
               </table>

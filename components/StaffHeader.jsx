@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { jwtDecode } from "jwt-decode";
+import { useClinicTheme } from '../context/ClinicThemeContext';
 
 const AdminHeader = () => {
+  const { theme, toggleTheme } = useClinicTheme();
   let storedUser = {};
   const token = localStorage.getItem('userToken');
 
@@ -24,7 +26,7 @@ const AdminHeader = () => {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           keepalive: true,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } finally {
       localStorage.removeItem('userToken');
@@ -88,14 +90,31 @@ const AdminHeader = () => {
                 {storedUser.email || ''}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center">
                 <span className="text-white font-medium text-sm">
                   {storedUser?.name ? getInitials(storedUser.name) : 'A'}
                 </span>
               </div>
-              
+
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 text-xs font-medium text-gray-600 hover:text-[#2D9AA5] hover:bg-[#2D9AA5]/10 rounded-lg transition-colors duration-200 focus:outline-none flex-shrink-0"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? (
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3c4.418 0 8 3.582 8 8s-3.582 8-8 8-8-3.582-8-8 3.582-8 8-8z" />
+                  </svg>
+                )}
+              </button>
+
               <button
                 onClick={handleLogout}
                 className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"

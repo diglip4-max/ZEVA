@@ -417,11 +417,11 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         />
         {/* Compact Header */}
         <div className="max-w-9xl mx-auto px-1 sm:px-2 mb-2">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-teal-900">Job Management</h1>
-                <p className="text-xs sm:text-sm text-teal-700 mt-0.5">Manage your job postings and applications</p>
+                <h1 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-white">Job Management</h1>
+                <p className="text-xs sm:text-sm text-teal-700 mt-0.5 ">Manage your job postings and applications</p>
               </div>
               {(() => {
                 console.log('[Job Posting] Button render check - canCreate:', permissions.canCreate, 'permissionsLoaded:', permissionsLoaded);

@@ -1090,8 +1090,8 @@ const ManageAgentsPage = () => {
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-teal-900">Team Management</h1>
-                <p className="text-xs sm:text-sm text-teal-700 mt-1">Manage Staffs and Doctors accounts</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
+                <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-100 mt-1">Manage Staffs and Doctors accounts</p>
               </div>
             </div>
 
@@ -1155,8 +1155,8 @@ const ManageAgentsPage = () => {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-teal-900">Team Management</h1>
-            <p className="text-xs sm:text-sm text-teal-700 mt-1">Manage agents and doctor staff accounts</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
+            <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-100 mt-1">Manage agents and doctor staff accounts</p>
           </div>
           <button
             onClick={() => loadAll(false)}
@@ -1173,9 +1173,9 @@ const ManageAgentsPage = () => {
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-teal-700 uppercase tracking-wide">Total Team</p>
-                <p className="text-3xl font-bold text-teal-900 mt-2">{totalTeam}</p>
-                <p className="text-xs text-teal-700 mt-1">{approvalRate}% approved</p>
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-100 uppercase tracking-wide">Total Team</p>
+                <p className="text-3xl font-bold text-teal-900 dark:text-teal-100 mt-2">{totalTeam}</p>
+                <p className="text-xs text-teal-700 dark:text-teal-100 mt-1">{approvalRate}% approved</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
                 <Users className="w-6 h-6 text-teal-700" />
@@ -1228,8 +1228,8 @@ const ManageAgentsPage = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-teal-900">Team Members</h2>
-                <p className="text-sm text-teal-700 mt-0.5">
+                <h2 className="text-lg font-semibold text-teal-900 dark:text-teal-100">Team Members</h2>
+                <p className="text-sm text-teal-700 dark:text-teal-100 mt-0.5">
                   {currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'} total
                 </p>
               </div>
@@ -1238,8 +1238,8 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'agents'
-                    ? 'bg-white text-teal-900 shadow-sm'
-                    : 'text-teal-600 hover:text-teal-900'
+                    ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
+                    : 'text-teal-600 dark:text-teal-100'
                     }`}
                 >
                   Agents ({agents.length})
@@ -1247,8 +1247,8 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'doctorStaff'
-                    ? 'bg-white text-teal-900 shadow-sm'
-                    : 'text-teal-600 hover:text-teal-900'
+                    ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
+                    : 'text-teal-600 dark:text-teal-100'
                     }`}
                 >
                   Doctors ({doctorStaff.length})
@@ -1320,7 +1320,7 @@ const ManageAgentsPage = () => {
                           {agent.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-base font-semibold text-teal-900 truncate">
+                          <div className="text-base font-semibold text-teal-900 dark:text-teal-100 truncate">
                             {agent.name}
                           </div>
                           <div className="mt-1.5">
@@ -1414,15 +1414,15 @@ const ManageAgentsPage = () => {
                                       Rights
                                     </button>
                                     <button
-                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors border-t border-gray-200"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setTreatmentAgent(agent);
-                                          setMenuAgentId(null);
-                                        }}
-                                      >
-                                        Add Department
-                                      </button>
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 text-teal-700 transition-colors border-t border-gray-200"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTreatmentAgent(agent);
+                                        setMenuAgentId(null);
+                                      }}
+                                    >
+                                      Add Department
+                                    </button>
                                   </>
                                 )}
                                 {canDelete === true && (
@@ -1557,7 +1557,7 @@ const ManageAgentsPage = () => {
               <button
                 type="button"
                 onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-100 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -1630,9 +1630,9 @@ const ManageAgentsPage = () => {
 
       {profileAgent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-gray-500/30 backdrop-blur-md">
-          <div className="relative w-full max-w-5xl rounded-3xl shadow-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-200/30 bg-gradient-to-br from-white via-gray-50 to-white">
+          <div className="relative w-full max-w-5xl rounded-3xl shadow-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-200/30 bg-white">
             {/* Header Section */}
-            <div className="sticky top-0 bg-white/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl shadow-lg border-b border-gray-100">
+            <div className="sticky top-0 bg-white backdrop-blur-xl px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl shadow-lg border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-xl">
                   <UserPlus className="w-6 h-6 text-white" />
@@ -1652,7 +1652,7 @@ const ManageAgentsPage = () => {
             </div>
 
             {/* Content Section */}
-            <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
+            <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-gray-50">
               <div className="space-y-8">
                 {/* Basic Information Section */}
                 <div className="bg-white rounded-2xl border border-teal-100 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -1825,7 +1825,7 @@ const ManageAgentsPage = () => {
 
                 {/* Additional Information Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Additional Information</h3>
+                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Additional Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-teal-700 mb-1.5">Passport Number</label>
@@ -2092,7 +2092,7 @@ const ManageAgentsPage = () => {
 
                 {/* Other Document Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Other Document</h3>
+                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Other Document</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Commented out - Employee Visa Front */}
                     {/* <div>
@@ -2302,7 +2302,7 @@ const ManageAgentsPage = () => {
 
                 {/* Bank Permissions Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Bank Permissions</h3>
+                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Bank Permissions</h3>
                   <div className="space-y-4">
                     {clinicBankDetails?.card?.enabled && (
                       <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -2451,13 +2451,13 @@ const ManageAgentsPage = () => {
           <div className="w-full max-w-4xl sm:max-w-5xl lg:max-w-7xl bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col mx-auto">
             <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10 flex-shrink-0">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-sm font-semibold text-teal-900">View Profile</h3>
-                <p className="text-[11px] text-teal-700 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
+                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">View Profile</h3>
+                <p className="text-[11px] text-teal-700 dark:text-teal-100 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
               </div>
               <button
                 type="button"
                 onClick={() => { stopActivityRefresh(); setViewAgent(null); setViewProfile(null); setTotalAppointments(null); setActivity(null); }}
-                className="flex-shrink-0 p-1.5 sm:p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1.5 sm:p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-100 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2476,8 +2476,8 @@ const ManageAgentsPage = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="text-base sm:text-lg font-semibold text-teal-900 truncate">{viewAgent.name || '—'}</div>
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">{viewAgent.role || '—'}</span>
+                            <div className="text-base sm:text-lg font-semibold text-teal-900 dark:text-teal-100 truncate">{viewAgent.name || '—'}</div>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap dark:text-white">{viewAgent.role || '—'}</span>
                           </div>
                           <div className="mt-1 text-xs text-teal-700">
                             <div className="mt-1 flex flex-wrap gap-2 sm:gap-3">
@@ -2606,7 +2606,8 @@ const ManageAgentsPage = () => {
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
-                      <div className="text-base font-semibold text-teal-900 mb-4">Identity & Passport Documents</div>
+                      <div className="text-base font-semibold text-teal-900 dark:text-teal-100
+  mb-4">Identity & Passport Documents</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2620,7 +2621,7 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Identity Card Front</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Identity Card Front</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2634,7 +2635,7 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Identity Card Back</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Identity Card Back</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2648,7 +2649,7 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Passport Front</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Passport Front</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2662,14 +2663,14 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Passport Back</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Passport Back</div>
                         </div>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div className="bg-white border border-gray-200 rounded-xl p-5">
-                        <div className="text-sm font-semibold text-teal-900">Staff Status</div>
-                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
+                        <div className="text-sm font-semibold text-teal-900 dark:text-teal-100">Staff Status</div>
+                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 dark:text-teal-100 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
                           <span>Current Status</span>
                           <span className="inline-flex items-center gap-2">
                             {(() => {
@@ -2689,7 +2690,7 @@ const ManageAgentsPage = () => {
                         </div>
                       </div>
                       <div className="bg-white border border-gray-200 rounded-xl p-5">
-                        <div className="text-sm font-semibold text-teal-900">Activity Timeline</div>
+                        <div className="text-sm font-semibold dark:text-teal-100 text-teal-900">Activity Timeline</div>
                         <div className="relative mt-3 pl-6 space-y-4 text-sm text-teal-700">
                           <div className="absolute left-3 top-0 h-full w-px bg-gray-200" />
                           <div className="flex items-start gap-3">
@@ -2698,45 +2699,45 @@ const ManageAgentsPage = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v4" /><path d="M21 3l-7 7" /><rect x="3" y="11" width="10" height="10" rx="2" /></svg>
                               </div>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Last login</div>
-                              <div>{timeAgo(activity?.lastLogin)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Last login</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.lastLogin)}</div> 
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v10" /><path d="M21 7v10" /><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M8 7h8" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Password changed</div>
-                              <div>{timeAgo(activity?.passwordChangedAt)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Password changed</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.passwordChangedAt)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5h18" /><path d="M7 3v4" /><path d="M17 3v4" /><rect x="3" y="5" width="18" height="18" rx="2" /><path d="M3 10h18" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Contract updated</div>
-                              <div>{timeAgo(activity?.contractUpdatedAt)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Contract updated</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.contractUpdatedAt)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-7" /><path d="M8 12l4-4 4 4" /><rect x="3" y="4" width="18" height="16" rx="2" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Document uploaded</div>
-                              <div>{timeAgo(activity?.documentUploadedAt)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Document uploaded</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.documentUploadedAt)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 7v10" /><path d="M7 12h10" /><circle cx="12" cy="12" r="9" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Profile created</div>
-                              <div>{activity?.profileCreatedAt ? new Date(activity.profileCreatedAt).toLocaleDateString() : '—'}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Profile created</div>
+                              <div className="text-[10px] dark:text-white">{activity?.profileCreatedAt ? new Date(activity.profileCreatedAt).toLocaleDateString() : '—'}</div>
                             </div>
                           </div>
                         </div>
@@ -2797,7 +2798,7 @@ const ManageAgentsPage = () => {
                   </div> */}
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <div className="text-base font-semibold text-teal-900">Additional Documents</div>
+                      <div className="text-base font-semibold text-teal-900 dark:text-teal-100">Additional Documents</div>
                       <button
                         type="button"
                         onClick={() => {
@@ -2848,7 +2849,7 @@ const ManageAgentsPage = () => {
                     </div>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="text-base font-semibold text-teal-900 mb-4">Employment & Contract</div>
+                    <div className="text-base font-semibold text-teal-900 dark:text-white mb-4 mb-4">Employment & Contract</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
@@ -2950,7 +2951,7 @@ const ManageAgentsPage = () => {
 
                   {/* Staff Tips Section */}
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="text-base font-semibold text-teal-900 mb-4">Staff Tips</div>
+                    <div className="text-base font-semibold text-teal-900 dark:text-white mb-4">Staff Tips</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
@@ -3025,7 +3026,7 @@ const ManageAgentsPage = () => {
                 <p className="text-sm font-medium text-teal-900 dark:text-teal-100 mb-2">
                   Are you sure you want to delete this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'}?
                 </p>
-                <p className="text-sm text-teal-700 dark:text-teal-400">
+                <p className="text-sm text-teal-700 dark:text-teal-100">
                   This action cannot be undone. All data associated with this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'} will be permanently removed.
                 </p>
               </div>
@@ -3066,7 +3067,7 @@ const ManageAgentsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-semibold text-teal-900 dark:text-teal-100">Staff Tips Breakdown</h3>
-                  <p className="text-xs text-teal-700 dark:text-teal-400 mt-0.5">{viewAgent.name}</p>
+                  <p className="text-xs text-teal-700 dark:text-teal-100 mt-0.5">{viewAgent.name}</p>
                 </div>
                 <button
                   type="button"

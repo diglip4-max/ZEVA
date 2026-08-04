@@ -338,22 +338,22 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Appointments</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue Generated</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Appointments</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue Generated</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {doctorReport.map((d) => (
                   <tr key={String(d.doctorId)}>
-                    <td className="px-4 py-2 text-sm">{d.doctorName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm">{d.totalAppointments || 0}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(d.revenue || 0)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{d.doctorName || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{d.totalAppointments || 0}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(d.revenue || 0)}</td>
                   </tr>
                 ))}
                 {!doctorReport.length && (
                   <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>
                       No data for selected filters
                     </td>
                   </tr>

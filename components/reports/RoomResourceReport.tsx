@@ -133,17 +133,17 @@ export default function RoomResourceReport({ startDate, endDate, headers }: Prop
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Room Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Bookings</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Room Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Bookings</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Revenue</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {rooms.map((r) => (
                 <tr key={r.roomId}>
-                  <td className="px-4 py-2 text-sm">{r.roomName}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{r.totalBookings}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.totalRevenue)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.roomName}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{r.totalBookings}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.totalRevenue)}</td>
                 </tr>
               ))}
             </tbody>

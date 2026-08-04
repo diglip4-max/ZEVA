@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, {
@@ -828,12 +828,12 @@ const NewProductSalesPage: NextPageWithLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
               Product Sales & Dispensing
             </h1>
             <p className="text-xs sm:text-sm text-gray-600">
@@ -1260,7 +1260,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                               })}
                             </div>
                           ) : (
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-text-muted">
                               No quantities available by UOM
                             </div>
                           )}
@@ -1272,7 +1272,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   {/* Pagination */}
                   {pagination.totalPages > 1 && (
                     <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-text-muted">
                         Showing {(pagination.page - 1) * pagination.limit + 1}{" "}
                         to{" "}
                         {Math.min(
@@ -1595,14 +1595,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                 {/* Amount Breakdown */}
                 <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Products Amount:</span>
+                    <span className="text-text-muted">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
                       {getCurrencySymbol(currency)} {subtotal.toFixed(2)}
                     </span>
                   </div>
                   {previousPending > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Previous Pending:</span>
+                      <span className="text-text-muted">Previous Pending:</span>
                       <span className="font-semibold text-orange-600">
                         {getCurrencySymbol(currency)} {previousPending.toFixed(2)}
                       </span>
@@ -1621,19 +1621,19 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                 {/* Patient Balances */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Advance Balance:</span>
+                    <span className="text-text-muted">Advance Balance:</span>
                     <span className="font-medium text-teal-600">
                       {getCurrencySymbol(currency)} {balances.advanceBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Pending Balance:</span>
+                    <span className="text-text-muted">Pending Balance:</span>
                     <span className="font-medium text-orange-600">
                       {getCurrencySymbol(currency)} {balances.pendingBalance.toFixed(2)}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-600">Claim Amount:</span>
+                    <span className="text-text-muted">Claim Amount:</span>
                     <span className="font-medium text-blue-600">
                       {getCurrencySymbol(currency)} {balances.claimAmount.toFixed(2)}
                     </span>
@@ -1700,7 +1700,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                 {/* Summary */}
                 <div className="pt-3 border-t border-gray-200 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
+                    <span className="text-text-muted">
                       Total Applied (Paid + Advances):
                     </span>
                     <span className="font-semibold text-gray-900">
@@ -1728,7 +1728,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">New Pending Amount:</span>
+                    <span className="text-text-muted">New Pending Amount:</span>
                     <span
                       className={`font-semibold ${pendingAmount > 0 ? "text-orange-600" : "text-gray-900"}`}
                     >
@@ -1737,7 +1737,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   </div>
                   <div className="pt-2 border-t border-gray-200">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         New Advance Balance:
                       </span>
                       <span className="font-semibold text-teal-600">
@@ -1750,7 +1750,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         New Pending Balance:
                       </span>
                       <span className="font-semibold text-orange-600">
@@ -1774,14 +1774,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
               {/* Totals */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Products Amount</span>
+                  <span className="text-text-muted">Products Amount</span>
                   <span className="font-semibold text-gray-900">
                     {getCurrencySymbol(currency)} {subtotal.toFixed(2)}
                   </span>
                 </div>
                 {previousPending > 0 && (
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Previous Pending</span>
+                    <span className="text-text-muted">Previous Pending</span>
                     <span className="font-semibold text-orange-600">
                       {getCurrencySymbol(currency)} {previousPending.toFixed(2)}
                     </span>
@@ -1909,14 +1909,14 @@ const NewProductSalesPage: NextPageWithLayout = () => {
               <div className="mb-6">
                 <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Products Amount:</span>
+                    <span className="text-text-muted">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
                       {getCurrencySymbol(currency)} {currentSaleData.subtotal.toFixed(2)}
                     </span>
                   </div>
                   {currentSaleData.previousPending > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Previous Pending:</span>
+                      <span className="text-text-muted">Previous Pending:</span>
                       <span className="font-semibold text-orange-600">
                         {getCurrencySymbol(currency)} {currentSaleData.previousPending.toFixed(2)}
                       </span>
@@ -1938,7 +1938,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     Payment Breakdown
                   </h4>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Paid Now (Cash/Card):</span>
+                    <span className="text-text-muted">Paid Now (Cash/Card):</span>
                     <span className="font-semibold text-gray-900">
                       {getCurrencySymbol(currency)} {currentSaleData.paidAmount.toFixed(2)}
                     </span>
@@ -1984,7 +1984,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">New Pending Amount:</span>
+                    <span className="text-text-muted">New Pending Amount:</span>
                     <span
                       className={`font-semibold ${
                         currentSaleData.pendingAmount > 0
@@ -2105,7 +2105,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Products Amount:</span>
+                    <span className="text-text-muted">Products Amount:</span>
                     <span className="font-semibold text-gray-900">
                       {getCurrencySymbol(currency)} {transaction.subtotal}
                     </span>
@@ -2113,7 +2113,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                   {transaction.previousPending &&
                     parseFloat(transaction.previousPending) > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Previous Pending:</span>
+                        <span className="text-text-muted">Previous Pending:</span>
                         <span className="font-semibold text-orange-600">
                           {getCurrencySymbol(currency)} {transaction.previousPending}
                         </span>
@@ -2137,7 +2137,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                 </h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Paid Now:</span>
+                    <span className="text-text-muted">Paid Now:</span>
                     <span className="font-semibold text-gray-900">
                       {getCurrencySymbol(currency)} {transaction.paidAmount}
                     </span>
@@ -2187,7 +2187,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                       </div>
                     )}
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">New Pending:</span>
+                    <span className="text-text-muted">New Pending:</span>
                     <span
                       className={`font-semibold ${
                         transaction.pendingAmount &&
@@ -2242,7 +2242,7 @@ const NewProductSalesPage: NextPageWithLayout = () => {
                     : []),
                 ].map(({ label, value, mono }) => (
                   <div key={label} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{label}</span>
+                    <span className="text-text-muted">{label}</span>
                     <span
                       className={`font-medium text-gray-900 ${mono ? "font-mono text-xs" : ""}`}
                     >

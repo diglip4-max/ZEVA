@@ -508,7 +508,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
         <title>User Packages | Zeva360</title>
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+      <div className="min-h-screen ">
         {/* Header Section */}
         <div className="bg-white shadow-sm border-b border-green-200">
           <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6">
@@ -782,11 +782,11 @@ const UserPackagesPage: NextPageWithLayout = () => {
                 {/* Package Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-gradient-to-br from-emerald-50 to-green-100 p-4 rounded-lg border border-emerald-100">
-                    <div className="flex items-center gap-2 text-emerald-700 mb-2">
+                    <div className="flex items-center gap-2 text-emerald-700  dark:text-emerald-200  mb-2">
 
                       <span className="text-sm font-medium"> {getCurrencySymbol(currency)} Total Price</span>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-900">{getCurrencySymbol(currency)}{selectedPackage.totalPrice.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-emerald-900  dark:text-emerald-200">{getCurrencySymbol(currency)}{selectedPackage.totalPrice.toLocaleString()}</p>
                   </div>
                   <div className="bg-gradient-to-br from-green-50 to-emerald-100 p-4 rounded-lg border border-green-100">
                     <div className="flex items-center gap-2 text-green-700 mb-2">
@@ -809,13 +809,13 @@ const UserPackagesPage: NextPageWithLayout = () => {
                 {/* Status Information */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-700 mb-2">Package Status</p>
+                    <p className="text-sm text-green-700  dark:text-emerald-200 mb-2">Package Status</p>
                     <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getStatusColor(selectedPackage.status)}`}>
                       {selectedPackage.status.toUpperCase()}
                     </span>
                   </div>
                   <div className="border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-700 mb-2">Payment Status</p>
+                    <p className="text-sm text-green-700  dark:text-emerald-200 mb-2">Payment Status</p>
                     <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${getPaymentStatusColor(selectedPackage.paymentStatus)}`}>
                       {selectedPackage.paymentStatus.toUpperCase()}
                     </span>
@@ -825,8 +825,8 @@ const UserPackagesPage: NextPageWithLayout = () => {
                 {/* Treatments */}
                 {selectedPackage.treatments && selectedPackage.treatments.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-green-900 mb-3 flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-emerald-600" />
+                    <h3 className="text-lg font-semibold text-green-900 dark:text-emerald-200 mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-200" />
                       Treatments Included ({selectedPackage.treatments.length})
                     </h3>
                     <div className="space-y-3">
@@ -834,17 +834,17 @@ const UserPackagesPage: NextPageWithLayout = () => {
                         <div key={idx} className="bg-white border border-green-200 rounded-lg p-4">
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <h4 className="font-semibold text-green-900">{treatment.treatmentName}</h4>
-                              <p className="text-sm text-green-700">Treatment Slug: {treatment.treatmentSlug}</p>
+                              <h4 className="font-semibold text-green-900  dark:text-emerald-200">{treatment.treatmentName}</h4>
+                              <p className="text-sm text-green-700  dark:text-emerald-200">Treatment Slug: {treatment.treatmentSlug}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-green-900">{getCurrencySymbol(currency)}{treatment.allocatedPrice.toLocaleString()}</p>
-                              <p className="text-sm text-green-700">{treatment.usedSessions}/{treatment.sessions} sessions used</p>
+                              <p className="text-lg font-bold text-green-900  dark:text-emerald-200">{getCurrencySymbol(currency)}{treatment.allocatedPrice.toLocaleString()}</p>
+                              <p className="text-sm text-green-700  dark:text-emerald-200">{treatment.usedSessions}/{treatment.sessions} sessions used</p>
                             </div>
                           </div>
                           {/* Progress Bar */}
                           <div className="mt-2">
-                            <div className="flex justify-between text-xs text-green-700 mb-1">
+                            <div className="flex justify-between text-xs text-green-700  dark:text-emerald-200 mb-1">
                               <span>Progress</span>
                               <span>{Math.round((treatment.usedSessions / treatment.sessions) * 100)}%</span>
                             </div>

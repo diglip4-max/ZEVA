@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
@@ -197,7 +197,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
   useEffect(() => {
     let isMounted = true;
     const userRole = getUserRole();
-    
+
     const clinicToken = typeof window !== "undefined" ? localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken") : null;
     const doctorToken = typeof window !== "undefined" ? localStorage.getItem("doctorToken") || sessionStorage.getItem("doctorToken") : null;
     const agentToken = typeof window !== "undefined" ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") : null;
@@ -505,20 +505,20 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
   return (
     <div>
       {/* Header Section */}
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="bg-bg-surface border-b border-border-default px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-text-primary">
               Stock Quantity Adjustments
             </h1>
-            <p className="text-indigo-100 mt-2">
+            <p className="text-text-muted mt-2">
               Track and manage stock quantity adjustments
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors border border-white/30"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-page hover:bg-bg-surface text-text-primary rounded-lg transition-colors border border-border-default"
             >
               <Filter className="h-4 w-4" />
               Filter
@@ -526,7 +526,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
             {permissions.canCreate && (
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg font-medium transition-colors dark:bg-gray-700 dark:hover:bg-gray-600"
               >
                 <PlusIcon className="h-5 w-5" />
                 New Adjustment
@@ -724,7 +724,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                   />
                 </svg>
               </div>
-              <p className="text-gray-600">Loading stock adjustments...</p>
+              <p className="text-text-muted">Loading stock adjustments...</p>
             </div>
           ) : displayData.length === 0 ? (
             /* Empty State */
@@ -750,8 +750,8 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
           ) : (
             /* Data Table */
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Adjustment No
@@ -779,7 +779,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {displayData.map((record: any, index: number) => (
                     <React.Fragment key={record._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
@@ -800,7 +800,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                 {record.adjustmentNo ||
                                   `SQA-${record._id.slice(-6)}`}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-text-muted">
                                 ID: {record._id?.substring(0, 8)}...
                               </div>
                             </div>
@@ -881,11 +881,10 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                             </button>
                             <div
                               id={`menu-${record._id}`}
-                              className={`hidden absolute ${
-                                index >= displayData?.length - 2
+                              className={`hidden absolute ${index >= displayData?.length - 2
                                   ? "bottom-0 right-0"
                                   : "right-0"
-                              } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
+                                } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
                                 {permissions.canUpdate && (
@@ -1044,7 +1043,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                         <tr>
                           <td
                             colSpan={8}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            className="px-6 py-6 bg-bg-surface border-t border-border-default dark:border-border-default"
                           >
                             <div className="ml-8 mr-4">
                               <div className="flex items-center justify-between mb-4">
@@ -1116,8 +1115,8 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
 
                               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                  <table className="min-w-full divide-y divide-border-default">
+                                    <thead className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                           Item
@@ -1142,12 +1141,12 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="bg-white divide-y divide-border-default">
                                       {record.items?.map(
                                         (item: any, itemIndex: number) => (
                                           <tr
                                             key={itemIndex}
-                                            className="hover:bg-indigo-50 transition-colors duration-150"
+                                            className=" transition-colors duration-150"
                                           >
                                             <td className="px-4 py-3 whitespace-nowrap">
                                               <div className="flex items-center">
@@ -1182,8 +1181,8 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
                                               {item.expiryDate
                                                 ? new Date(
-                                                    item.expiryDate,
-                                                  ).toLocaleDateString()
+                                                  item.expiryDate,
+                                                ).toLocaleDateString()
                                                 : "-"}
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
@@ -1200,7 +1199,7 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                                         ),
                                       )}
                                     </tbody>
-                                    <tfoot className="bg-gray-50">
+                                    <tfoot className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <td
                                           colSpan={6}
@@ -1269,11 +1268,10 @@ const StockQtyAdjustmentPage: NextPageWithLayout = () => {
                         <button
                           key={pageNum}
                           onClick={() => handlePageChange(pageNum)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium ${
-                            pageNum === pagination.currentPage
+                          className={`px-3 py-2 rounded-lg text-sm font-medium ${pageNum === pagination.currentPage
                               ? "bg-indigo-600 text-white"
                               : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   X,
   Info,
@@ -107,7 +107,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-100">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-700 to-indigo-800 px-6 py-4 flex justify-between items-center">
+        <div className="bg-bg-surface border-b border-border-default px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg">
               <Truck className="w-6 h-6 text-white" />
@@ -143,7 +143,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Summary Toggle Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg">
@@ -242,7 +242,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
             </div>
 
             {/* Basic Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg">
                   <Info className="w-5 h-5 text-white" />
@@ -319,7 +319,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
             </div>
 
             {/* Branches Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
                   <Building className="w-5 h-5 text-white" />
@@ -415,7 +415,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
 
             {/* Notes Card */}
             {transfer?.notes && (
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg">
                     <FileText className="w-5 h-5 text-white" />
@@ -431,7 +431,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
             )}
 
             {/* Items Section */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default overflow-hidden shadow-sm">
               <div
                 onClick={toggleItemsExpand}
                 className="p-5 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
@@ -465,7 +465,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
               {expandedItems && (
                 <div className="border-t border-gray-100 overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-bg-surface dark:bg-opacity-50">
                       <tr>
                         <th className="px-6 py-3 text-left font-semibold text-gray-900">
                           <div className="flex items-center gap-2">
@@ -557,7 +557,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
                         ))
                       )}
                     </tbody>
-                    <tfoot className="bg-gray-50">
+                    <tfoot className="bg-bg-surface dark:bg-opacity-50">
                       <tr>
                         <td
                           colSpan={3}
@@ -579,7 +579,7 @@ const DirectStockTransferDetailModal: React.FC<Props> = ({
             </div>
 
             {/* Metadata Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg">
                   <FileText className="w-5 h-5 text-white" />

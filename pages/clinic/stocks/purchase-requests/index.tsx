@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
@@ -740,7 +740,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   // If permissions are not loaded yet, show loading spinner
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
@@ -752,7 +752,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   // If canRead is false, show access denied
   if (!permissions.canRead && !permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Building2 className="w-8 h-8 text-red-600" />
@@ -772,13 +772,13 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   // If canRead is false but canCreate is true, show only add button
   if (!permissions.canRead && permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6">
         {/* Header Section */}
         <div className="mb-8">
           <div className="max-w-9xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
                   Purchase Requests
                 </h1>
                 <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
@@ -815,13 +815,13 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
         <div className="max-w-9xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
                 Purchase Requests
               </h1>
               <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
@@ -1133,7 +1133,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                   ></path>
                 </svg>
               </div>
-              <p className="text-gray-600">Loading purchase requests...</p>
+              <p className="text-text-muted">Loading purchase requests...</p>
             </div>
           ) : displayData.length === 0 ? (
             /* Empty State */
@@ -1172,8 +1172,8 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
           ) : (
             /* Data Table */
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Order #
@@ -1204,7 +1204,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {displayData.map((request, index: number) => (
                     <React.Fragment key={request._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
@@ -1221,7 +1221,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                               <div className="text-sm font-medium text-gray-900">
                                 {request.orderNo}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-text-muted">
                                 ID: {request._id.substring(0, 8)}...
                               </div>
                             </div>
@@ -1522,7 +1522,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                         <tr>
                           <td colSpan={9} className="px-6 py-4 bg-gray-50">
                             <div className="overflow-x-auto">
-                              <table className="min-w-full divide-y divide-gray-200">
+                              <table className="min-w-full divide-y divide-border-default">
                                 <thead className="bg-white">
                                   <tr>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1539,7 +1539,7 @@ const PurchaseRequestsPage: NextPageWithLayout = ({
                                     </th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
+                                <tbody className="divide-y divide-border-default">
                                   {request.items.map((item, idx) => (
                                     <tr key={idx}>
                                       <td className="px-4 py-2 text-sm text-gray-900">

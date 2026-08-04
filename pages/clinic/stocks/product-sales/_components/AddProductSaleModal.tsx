@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useState,
   useMemo,
   useCallback,
@@ -843,7 +843,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                                   )}
                                 </div>
                               ) : (
-                                <div className="text-sm text-gray-500">
+                                <div className="text-sm text-text-muted">
                                   No quantities available by UOM
                                 </div>
                               )}
@@ -855,7 +855,7 @@ const AddProductSaleModal: React.FC<AddProductSaleModalProps> = ({
                       {/* Pagination */}
                       {pagination.totalPages > 1 && (
                         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-text-muted">
                             Showing{" "}
                             {(pagination.page - 1) * pagination.limit + 1} to{" "}
                             {Math.min(

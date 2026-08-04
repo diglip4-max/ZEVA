@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
@@ -139,8 +139,8 @@ const SuppliersPage: NextPageWithLayout = () => {
         setRole(decoded.role);
         setIsAgentStaff(
           decoded.role === "agent" ||
-            decoded.role === "staff" ||
-            decoded.role === "doctorstaff",
+          decoded.role === "staff" ||
+          decoded.role === "doctorstaff",
         );
 
         if (
@@ -421,17 +421,17 @@ const SuppliersPage: NextPageWithLayout = () => {
 
   // Access Denied Component
   const AccessDenied = () => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="bg-bg-surface rounded-2xl shadow-xl overflow-hidden">
           <div className="p-8 md:p-12 text-center">
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
               <Lock className="w-12 h-12 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-2xl font-bold text-text-primary mb-3">
               Access Denied
             </h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            <p className="text-text-muted mb-8 max-w-md mx-auto">
               You don't have permission to view this page. Please contact your
               clinic administrator for access.
             </p>
@@ -462,10 +462,10 @@ const SuppliersPage: NextPageWithLayout = () => {
 
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-text-muted">Loading...</p>
         </div>
       </div>
     );
@@ -476,16 +476,16 @@ const SuppliersPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
         <div className="max-w-9xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
                 Suppliers
               </h1>
-              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+              <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-text-muted">
                 Manage your supplier network and contact information
               </p>
             </div>
@@ -710,7 +710,7 @@ const SuppliersPage: NextPageWithLayout = () => {
                       ></path>
                     </svg>
                   </div>
-                  <p className="text-gray-600">Loading suppliers...</p>
+                  <p className="text-text-muted">Loading suppliers...</p>
                 </div>
               ) : suppliers.length === 0 ? (
                 /* Empty State */
@@ -749,8 +749,8 @@ const SuppliersPage: NextPageWithLayout = () => {
               ) : (
                 /* Data Table */
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-border-default">
+                    <thead className="bg-bg-surface dark:bg-opacity-50">
                       <tr>
                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Supplier Name
@@ -787,7 +787,7 @@ const SuppliersPage: NextPageWithLayout = () => {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-border-default">
                       {suppliers.map((supplier, index: number) => (
                         <tr
                           key={supplier._id}
@@ -804,7 +804,7 @@ const SuppliersPage: NextPageWithLayout = () => {
                                 <div className="text-sm font-medium text-gray-900">
                                   {supplier.name}
                                 </div>
-                                <div className="text-sm text-gray-500">
+                                <div className="text-sm text-text-muted">
                                   ID: {supplier._id.substring(0, 8)}...
                                 </div>
                               </div>
@@ -823,7 +823,7 @@ const SuppliersPage: NextPageWithLayout = () => {
                                   href={`https://wa.me/${supplier.mobile.replace(/\D/g, "")}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm transition-colors border border-blue-200"
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700  dark:text-white  rounded-lg text-sm transition-colors border border-blue-200"
                                 >
                                   <Phone className="w-3.5 h-3.5" />
                                   <span className="font-medium">
@@ -835,7 +835,7 @@ const SuppliersPage: NextPageWithLayout = () => {
                               {supplier?.email && (
                                 <a
                                   href={`mailto:${supplier.email}`}
-                                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg text-sm transition-colors border border-green-200"
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 dark:text-white  text-green-700 rounded-lg text-sm transition-colors border border-green-200"
                                 >
                                   <Mail className="w-3.5 h-3.5" />
                                   <span className="font-medium truncate max-w-[180px]">
@@ -845,7 +845,7 @@ const SuppliersPage: NextPageWithLayout = () => {
                               )}
 
                               {!supplier?.mobile && !supplier?.email && (
-                                <span className="text-sm text-gray-500">
+                                <span className="text-sm text-text-muted">
                                   N/A
                                 </span>
                               )}
@@ -867,32 +867,30 @@ const SuppliersPage: NextPageWithLayout = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                {
-                                  Active: "bg-green-100 text-green-800",
-                                  Inactive: "bg-red-100 text-red-800",
-                                  Allocated: "bg-yellow-100 text-yellow-800",
-                                }[
-                                  supplier.status as
-                                    | "Active"
-                                    | "Inactive"
-                                    | "Allocated"
-                                ] || "bg-gray-100 text-gray-800"
-                              }`}
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${{
+                                Active: "bg-green-100 text-green-800",
+                                Inactive: "bg-red-100 text-red-800",
+                                Allocated: "bg-yellow-100 text-yellow-800",
+                              }[
+                                supplier.status as
+                                | "Active"
+                                | "Inactive"
+                                | "Allocated"
+                              ] || "bg-gray-100 text-gray-800"
+                                }`}
                             >
                               <span
-                                className={`h-2 w-2 rounded-full mr-2 ${
-                                  {
-                                    Active: "bg-green-500",
-                                    Inactive: "bg-red-500",
-                                    Allocated: "bg-yellow-500",
-                                  }[
-                                    supplier.status as
-                                      | "Active"
-                                      | "Inactive"
-                                      | "Allocated"
-                                  ] || "bg-gray-500"
-                                }`}
+                                className={`h-2 w-2 rounded-full mr-2 ${{
+                                  Active: "bg-green-500",
+                                  Inactive: "bg-red-500",
+                                  Allocated: "bg-yellow-500",
+                                }[
+                                  supplier.status as
+                                  | "Active"
+                                  | "Inactive"
+                                  | "Allocated"
+                                ] || "bg-gray-500"
+                                  }`}
                               />
                               {supplier.status}
                             </span>

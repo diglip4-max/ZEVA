@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
@@ -164,7 +164,7 @@ const PurchaseInvoiceDetailModal: React.FC<Props> = ({
           ) : (
             <div className="space-y-6">
               {/* Basic Info Card */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <FileText className="w-4 h-4 text-blue-600" />
@@ -290,7 +290,7 @@ const PurchaseInvoiceDetailModal: React.FC<Props> = ({
               </div>
 
               {/* Linked GRNs Card */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-indigo-100 rounded-lg">
                     <Box className="w-4 h-4 text-indigo-600" />
@@ -343,7 +343,7 @@ const PurchaseInvoiceDetailModal: React.FC<Props> = ({
 
               {/* Notes Section */}
               {data.notes && (
-                <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+                <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="p-2 bg-amber-100 rounded-lg">
                       <FileText className="w-4 h-4 text-amber-600" />
@@ -361,7 +361,7 @@ const PurchaseInvoiceDetailModal: React.FC<Props> = ({
               {/* Items removed: PurchaseInvoice does not have item lines */}
 
               {/* System Information */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-gray-100 rounded-lg">
                     <FileText className="w-4 h-4 text-gray-600" />

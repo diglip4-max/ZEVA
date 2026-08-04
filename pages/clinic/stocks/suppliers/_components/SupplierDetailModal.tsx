@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { Supplier } from "@/types/stocks";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
@@ -102,7 +102,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Basic Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Building className="w-4 h-4 text-blue-600" />
@@ -158,7 +158,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
 
             {/* Contact Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Phone className="w-4 h-4 text-purple-600" />
@@ -255,7 +255,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
 
             {/* Financial Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-emerald-100 rounded-lg">
                   <Wallet className="w-4 h-4 text-emerald-600" />
@@ -341,7 +341,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
 
             {/* Additional Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-amber-100 rounded-lg">
                   <FileText className="w-4 h-4 text-amber-600" />

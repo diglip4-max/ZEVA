@@ -242,7 +242,7 @@ function ModernBlogForm() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const postsPerPage = 6;
@@ -292,7 +292,7 @@ function ModernBlogForm() {
 
         if (!token) return;
 
-        
+
 
         const base64Url = token.split('.')[1];
 
@@ -390,7 +390,7 @@ function ModernBlogForm() {
 
     if (agentPermissionsLoading) return;
 
-    
+
 
     setPermissions({
 
@@ -483,7 +483,7 @@ function ModernBlogForm() {
 
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
-                
+
                 // Check if "all" is true, which grants all permissions
                 const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
                 const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
@@ -553,20 +553,20 @@ function ModernBlogForm() {
             headers: { Authorization: `Bearer ${agentToken}` }
           });
           const data = res.data;
-          
+
           if (!isMounted) return;
-          
+
           // Use correct response structure - data.permissions.actions
           // API already normalizes actions to booleans
           if (data.success && data.permissions) {
             const moduleActions = data.permissions.actions || {};
             const hasAllPermission = moduleActions.all === true;
-            
+
             // Check both boolean true and string "true" for safety
             const checkAction = (action: any) => {
               return hasAllPermission || action === true || action === "true" || String(action).toLowerCase() === "true";
             };
-            
+
             const newPermissions = {
               canCreate: checkAction(moduleActions.create),
               canReadPublished: checkAction(moduleActions.read),
@@ -574,7 +574,7 @@ function ModernBlogForm() {
               canDeletePublished: checkAction(moduleActions.delete),
               canReadAnalytics: checkAction(moduleActions.read),
             };
-            
+
             console.log('[BlogForm] Agent permissions fetched:', {
               moduleActions,
               hasAllPermission,
@@ -584,7 +584,7 @@ function ModernBlogForm() {
               readType: typeof moduleActions.read,
               rawResponse: data
             });
-            
+
             if (isMounted) {
               setPermissions(newPermissions);
               console.log('[BlogForm] Permissions set in state:', newPermissions);
@@ -597,7 +597,7 @@ function ModernBlogForm() {
                 canReadPublished: false,
                 canUpdatePublished: false,
                 canDeletePublished: false,
-        canReadAnalytics: false,
+                canReadAnalytics: false,
               });
             }
           }
@@ -614,7 +614,7 @@ function ModernBlogForm() {
           }
         } finally {
           if (isMounted) {
-      setPermissionsLoaded(true);
+            setPermissionsLoaded(true);
           }
         }
       };
@@ -650,7 +650,7 @@ function ModernBlogForm() {
 
         const data = res.data;
 
-        
+
 
         if (!isMounted) return;
 
@@ -664,15 +664,15 @@ function ModernBlogForm() {
 
             const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
 
-            return normalizedModule === "write_blog" || moduleKey === "write_blog" || 
+            return normalizedModule === "write_blog" || moduleKey === "write_blog" ||
 
-                   moduleKey === "clinic_write_blog" || moduleKey === "doctor_write_blog" ||
+              moduleKey === "clinic_write_blog" || moduleKey === "doctor_write_blog" ||
 
-                   normalizedModule === "blogs" || moduleKey === "blogs" || moduleKey === "clinic_blogs";
+              normalizedModule === "blogs" || moduleKey === "blogs" || moduleKey === "clinic_blogs";
 
           });
 
-          
+
 
           if (modulePermission) {
 
@@ -702,7 +702,7 @@ function ModernBlogForm() {
 
             const moduleDelete = isTrue(actions.delete);
 
-            
+
 
             if (isMounted) {
 
@@ -788,7 +788,7 @@ function ModernBlogForm() {
 
     if (!post || typeof post !== 'object') return null;
 
-    
+
 
     let postedBy: PostType['postedBy'] = 'Anonymous';
 
@@ -824,39 +824,39 @@ function ModernBlogForm() {
 
 
 
-    const commentsArray = Array.isArray(post.comments) 
+    const commentsArray = Array.isArray(post.comments)
 
       ? post.comments.map((c: any) => ({
 
-          _id: String(c._id || ''),
+        _id: String(c._id || ''),
 
-          user: c.user ? String(c.user) : undefined,
+        user: c.user ? String(c.user) : undefined,
 
-          username: String(c.username || 'Anonymous'),
+        username: String(c.username || 'Anonymous'),
 
-          text: String(c.text || ''),
+        text: String(c.text || ''),
 
-          createdAt: String(c.createdAt || ''),
+        createdAt: String(c.createdAt || ''),
 
-          replies: Array.isArray(c.replies) 
+        replies: Array.isArray(c.replies)
 
-            ? c.replies.map((r: any) => ({
+          ? c.replies.map((r: any) => ({
 
-                _id: String(r._id || ''),
+            _id: String(r._id || ''),
 
-                user: r.user ? String(r.user) : undefined,
+            user: r.user ? String(r.user) : undefined,
 
-                username: String(r.username || 'Anonymous'),
+            username: String(r.username || 'Anonymous'),
 
-                text: String(r.text || ''),
+            text: String(r.text || ''),
 
-                createdAt: String(r.createdAt || ''),
+            createdAt: String(r.createdAt || ''),
 
-              }))
+          }))
 
-            : [],
+          : [],
 
-        }))
+      }))
 
       : [];
 
@@ -977,7 +977,7 @@ function ModernBlogForm() {
 
       }
 
-      
+
 
       if (draftsRes.status === 200) {
 
@@ -989,27 +989,27 @@ function ModernBlogForm() {
 
         );
 
-        
+
 
         const sanitized = Array.isArray(drafts)
 
           ? drafts
 
-              .map(sanitizePost)
+            .map(sanitizePost)
 
-              .filter((p): p is PostType => p !== null)
+            .filter((p): p is PostType => p !== null)
 
-              .filter((p) => {
+            .filter((p) => {
 
-                const isDraftStatus = p.status === 'draft' || (!p.status && p.status !== 'published');
+              const isDraftStatus = p.status === 'draft' || (!p.status && p.status !== 'published');
 
-                const notInPublished = !publishedIds.has(p._id);
+              const notInPublished = !publishedIds.has(p._id);
 
-                const notPublishedStatus = p.status !== 'published';
+              const notPublishedStatus = p.status !== 'published';
 
-                return isDraftStatus && notInPublished && notPublishedStatus;
+              return isDraftStatus && notInPublished && notPublishedStatus;
 
-              })
+            })
 
           : [];
 
@@ -1049,7 +1049,7 @@ function ModernBlogForm() {
       const userRole = getUserRole();
       const shouldLoadPosts = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canReadPublished;
       if (shouldLoadPosts) {
-      loadPosts();
+        loadPosts();
       } else {
         console.log('[BlogForm] Skipping loadPosts - no read permission');
         setLoading(false);
@@ -1075,7 +1075,7 @@ function ModernBlogForm() {
       document.body.style.position = 'fixed';
       document.body.style.top = `-${scrollY}px`;
       document.body.style.width = '100%';
-      
+
       return () => {
         // Restore scroll position and body styles
         document.body.style.overflow = '';
@@ -1159,7 +1159,7 @@ function ModernBlogForm() {
 
       const publishedIds = new Set(publishedPosts.map(p => p._id));
 
-      setDraftPosts(prevDrafts => 
+      setDraftPosts(prevDrafts =>
 
         prevDrafts.filter(draft => !publishedIds.has(draft._id))
 
@@ -1178,7 +1178,7 @@ function ModernBlogForm() {
   useEffect(() => {
     // Calculate publishedPostIds inside useEffect to avoid initialization order issues
     const publishedPostIdsSet = new Set(publishedPosts.map(p => p._id));
-    
+
     // Use allPosts directly instead of filteredPosts to avoid initialization order issues
     const allPostsToShow = [...publishedPosts, ...draftPosts].filter(post => {
       if (activeTab === 'feed') return true;
@@ -1250,7 +1250,7 @@ function ModernBlogForm() {
 
     if (!confirm('Are you sure you want to delete this post?')) return;
 
-    
+
 
     try {
 
@@ -1263,7 +1263,7 @@ function ModernBlogForm() {
       );
 
       loadPosts();
-      
+
       // Show success modal after deletion
       setShowDeleteSuccessModal(true);
 
@@ -1307,21 +1307,21 @@ function ModernBlogForm() {
 
       if (res.data.success) {
 
-        setPublishedPosts(prev => prev.map(post => 
+        setPublishedPosts(prev => prev.map(post =>
 
-          post._id === postId 
+          post._id === postId
 
-            ? { 
+            ? {
 
-                ...post, 
+              ...post,
 
-                likesCount: res.data.likesCount,
+              likesCount: res.data.likesCount,
 
-                liked: res.data.liked,
+              liked: res.data.liked,
 
-                likes: res.data.likesCount
+              likes: res.data.likesCount
 
-              }
+            }
 
             : post
 
@@ -1373,21 +1373,21 @@ function ModernBlogForm() {
 
       if (res.data.success) {
 
-        setPublishedPosts(prev => prev.map(post => 
+        setPublishedPosts(prev => prev.map(post =>
 
-          post._id === postId 
+          post._id === postId
 
-            ? { 
+            ? {
 
-                ...post, 
+              ...post,
 
-                commentsCount: res.data.commentsCount,
+              commentsCount: res.data.commentsCount,
 
-                comments: res.data.commentsCount,
+              comments: res.data.commentsCount,
 
-                commentsArray: [...(post.commentsArray || []), res.data.comment]
+              commentsArray: [...(post.commentsArray || []), res.data.comment]
 
-              }
+            }
 
             : post
 
@@ -1473,13 +1473,13 @@ function ModernBlogForm() {
 
         `/api/blog/published?id=${editUrlPost._id}`,
 
-        { 
+        {
 
-          title: editUrlTitle, 
+          title: editUrlTitle,
 
-          paramlink: editUrlParamlink, 
+          paramlink: editUrlParamlink,
 
-          content: editUrlPost.content 
+          content: editUrlPost.content
 
         },
 
@@ -1487,11 +1487,11 @@ function ModernBlogForm() {
 
       );
 
-      
 
-      setPublishedPosts(prev => prev.map(post => 
 
-        post._id === editUrlPost._id 
+      setPublishedPosts(prev => prev.map(post =>
+
+        post._id === editUrlPost._id
 
           ? { ...post, title: editUrlTitle, paramlink: editUrlParamlink }
 
@@ -1499,7 +1499,7 @@ function ModernBlogForm() {
 
       ));
 
-      
+
 
       setShowEditUrlModal(false);
 
@@ -1646,7 +1646,7 @@ function ModernBlogForm() {
 
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-      
+
 
       if (days === 0) return 'Today';
 
@@ -1674,7 +1674,7 @@ function ModernBlogForm() {
 
     }
 
-    
+
 
     const rawImageUrl = extractFirstImage(post.content);
     // Process image URL - convert relative URLs to absolute
@@ -1699,7 +1699,7 @@ function ModernBlogForm() {
 
     const topics = extractTopics(post.content);
 
-    
+
 
     const getAuthorName = (): string => {
 
@@ -1723,7 +1723,7 @@ function ModernBlogForm() {
 
     };
 
-    
+
 
     const authorName = getAuthorName();
 
@@ -1733,7 +1733,7 @@ function ModernBlogForm() {
 
     const safeDate = formatDate(post.createdAt);
 
-    
+
 
     return (
 
@@ -1777,7 +1777,7 @@ function ModernBlogForm() {
           )}
         </div>
 
-        
+
 
         <div className="p-4 overflow-hidden flex-1 flex flex-col min-h-[200px]">
           {topics.length > 0 && (
@@ -1849,16 +1849,15 @@ function ModernBlogForm() {
 
                 <>
 
-                  <button 
+                  <button
 
                     onClick={() => handleLike(post._id)}
 
-                    className={`flex items-center gap-1 p-1.5 rounded-md transition-all hover:scale-110 flex-shrink-0 ${
-                      post.liked 
+                    className={`flex items-center gap-1 p-1.5 rounded-md transition-all hover:scale-110 flex-shrink-0 ${post.liked
 
-                        ? 'text-rose-600 bg-rose-50' 
-                        : 'text-gray-600 hover:text-rose-600 hover:bg-rose-50'
-                    }`}
+                      ? 'text-rose-600 bg-rose-50'
+                      : 'text-gray-600 hover:text-rose-600 hover:bg-rose-50'
+                      }`}
 
                     title="Like"
                   >
@@ -1867,7 +1866,7 @@ function ModernBlogForm() {
                     <span className="text-xs font-medium">{Number(post.likesCount || post.likes) || 0}</span>
                   </button>
 
-                  <button 
+                  <button
 
                     onClick={() => openCommentsModal(post)}
 
@@ -1897,7 +1896,7 @@ function ModernBlogForm() {
                   >
                     <Eye className="w-4 h-4" />
                   </button> */}
-{/* 
+                  {/* 
                   <div className="flex items-center gap-1 text-gray-500 text-xs flex-shrink-0">
                     <Eye className="w-3.5 h-3.5" />
                     <span>{Number(post.views) || 0}</span>
@@ -1908,23 +1907,23 @@ function ModernBlogForm() {
 
             </div>
 
-            
+
 
             {/* Right: Edit, Link, External, Delete */}
 
             <div className="flex items-center gap-0.5 flex-shrink-0">
 
 
-            <button
-                    onClick={() => {
-                      setSelectedPostDetail(post);
-                      setShowPostDetailModal(true);
-                    }}
-                    className="p-1.5 rounded-md text-cyan-600 hover:text-cyan-600 hover:bg-cyan-50 transition-all hover:scale-110 flex-shrink-0"
-                    title="Preview"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
+              <button
+                onClick={() => {
+                  setSelectedPostDetail(post);
+                  setShowPostDetailModal(true);
+                }}
+                className="p-1.5 rounded-md text-cyan-600 hover:text-cyan-600 hover:bg-cyan-50 transition-all hover:scale-110 flex-shrink-0"
+                title="Preview"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
 
 
               {permissions.canUpdatePublished && (
@@ -2016,7 +2015,7 @@ function ModernBlogForm() {
   const allPosts = [...publishedPosts, ...draftPosts]
 
     .filter(post => post && typeof post === 'object' && post._id && post.title)
-    .sort((a, b) => 
+    .sort((a, b) =>
 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
 
@@ -2091,102 +2090,100 @@ function ModernBlogForm() {
       `}</style>
       {/* Fixed Header - No movement */}
       {permissions.canReadPublished && (
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-cyan-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 sm:py-4">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-1.5 mt-4 sm:p-2 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-lg shadow-md">
-                <Sparkles className="w-4 h-4 sm:w-5  sm:h-5 text-white" />
+        <div className="sticky top-0 z-30  backdrop-blur-xl border-b border-cyan-100 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 sm:py-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="p-1.5 mt-4 sm:p-2 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-lg shadow-md">
+                  <Sparkles className="w-4 h-4 sm:w-5  sm:h-5 text-white" />
+                </div>
+
+                <div>
+                  <h1 className="text-lg sm:text-xl mt-4  font-bold bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
+                    Blog Studio
+                  </h1>
+                  <p className="text-xs text-gray-600 hidden sm:block">Create & Share Your Stories</p>
+                </div>
               </div>
 
-              <div>
-                <h1 className="text-lg sm:text-xl mt-4  font-bold bg-gradient-to-r from-cyan-600 to-teal-600 bg-clip-text text-transparent">
-                  Blog Studio
-                </h1>
-                <p className="text-xs text-gray-600 hidden sm:block">Create & Share Your Stories</p>
-              </div>
-            </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search posts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 w-40 sm:w-56 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
+                  />
+                </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search posts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 w-40 sm:w-56 bg-gray-50 border border-gray-200 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
-                />
-              </div>
-
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing || loading}
-                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg text-gray-600 hover:text-cyan-600 transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh"
-              >
-                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-
-              {permissions.canCreate && (
                 <button
-                  onClick={handleCreatePost}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-lg text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all hover:scale-105"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || loading}
+                  className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 bg-white hover:bg-cyan-50 border border-gray-200 rounded-lg text-gray-600 hover:text-cyan-600 transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh"
                 >
-                  <PlusCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">New Post</span>
-                  <span className="sm:hidden">New</span>
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </button>
-              )}
+
+                {permissions.canCreate && (
+                  <button
+                    onClick={handleCreatePost}
+                    className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-lg text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all hover:scale-105"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span className="hidden sm:inline">New Post</span>
+                    <span className="sm:hidden">New</span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
 
 
 
-          <div className="flex items-center justify-end gap-2 sm:gap-3 overflow-x-auto scrollbar-hide ml-auto">
-            {[
-              { id: 'feed' as TabType, label: 'Feed', icon: Sparkles },
-              { id: 'published' as TabType, label: 'Published', icon: Bookmark },
-              { id: 'drafts' as TabType, label: 'Drafts', icon: Edit3 },
-              { id: 'trending' as TabType, label: 'Trending', icon: Flame },
-              { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
-            ].map((tab) => {
+            <div className="flex items-center justify-end gap-2 sm:gap-3 overflow-x-auto scrollbar-hide ml-auto">
+              {[
+                { id: 'feed' as TabType, label: 'Feed', icon: Sparkles },
+                { id: 'published' as TabType, label: 'Published', icon: Bookmark },
+                { id: 'drafts' as TabType, label: 'Drafts', icon: Edit3 },
+                { id: 'trending' as TabType, label: 'Trending', icon: Flame },
+                { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
+              ].map((tab) => {
 
-              const Icon = tab.icon;
+                const Icon = tab.icon;
 
-              return (
+                return (
 
-                <button
+                  <button
 
-                  key={tab.id}
+                    key={tab.id}
 
-                  onClick={() => setActiveTab(tab.id)}
+                    onClick={() => setActiveTab(tab.id)}
 
-                  className={`flex flex-col items-center gap-0.5 py-1 text-[10px] sm:text-xs font-medium transition-all whitespace-nowrap relative group ${
-                    activeTab === tab.id
+                    className={`flex flex-col items-center gap-0.5 py-1 text-[10px] sm:text-xs font-medium transition-all whitespace-nowrap relative group ${activeTab === tab.id
 
                       ? 'text-cyan-600'
                       : 'text-gray-600 hover:text-cyan-600'
-                  }`}
-                >
-                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>{tab.label}</span>
-                  <span className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-teal-600 transition-all ${
-                    activeTab === tab.id
+                      }`}
+                  >
+                    <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span>{tab.label}</span>
+                    <span className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-teal-600 transition-all ${activeTab === tab.id
                       ? 'opacity-100 scale-x-100'
                       : 'opacity-0 scale-x-0 group-hover:opacity-100 group-hover:scale-x-100'
-                  }`}></span>
-                </button>
+                      }`}></span>
+                  </button>
 
-              );
+                );
 
-            })}
+              })}
+
+            </div>
 
           </div>
 
         </div>
-
-      </div>
       )}
 
 
@@ -2208,7 +2205,7 @@ function ModernBlogForm() {
                 Please contact your administrator to request access to the Blog module.
               </p>
             </div>
-            
+
             {/* Show New Post button if user has create permission */}
             {permissions.canCreate && (
               <button
@@ -2221,7 +2218,7 @@ function ModernBlogForm() {
             )}
           </div>
         )}
-        
+
         {loading ? (
 
           <div className="flex items-center justify-center py-32">
@@ -2242,11 +2239,11 @@ function ModernBlogForm() {
                 if (activeTab === 'trending') {
                   // For trending: only show published posts with engagement (likes + comments)
                   if (post.status !== 'published') return false;
-                  
+
                   const likesCount = post.likesCount || post.likes || 0;
                   const commentsCount = post.commentsCount || (Array.isArray(post.comments) ? post.comments.length : 0) || 0;
                   const engagement = likesCount + commentsCount;
-                  
+
                   // Only show posts with engagement (at least 1 like or comment)
                   return engagement > 0;
                 }
@@ -2259,11 +2256,11 @@ function ModernBlogForm() {
                   const aLikes = a.likesCount || a.likes || 0;
                   const aComments = a.commentsCount || (Array.isArray(a.comments) ? a.comments.length : 0) || 0;
                   const aEngagement = aLikes + aComments;
-                  
+
                   const bLikes = b.likesCount || b.likes || 0;
                   const bComments = b.commentsCount || (Array.isArray(b.comments) ? b.comments.length : 0) || 0;
                   const bEngagement = bLikes + bComments;
-                  
+
                   // Sort by engagement (descending), then by date if engagement is equal
                   if (bEngagement !== aEngagement) {
                     return bEngagement - aEngagement;
@@ -2374,153 +2371,153 @@ function ModernBlogForm() {
                   const canReadAnalytics = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canReadAnalytics;
                   return !canReadAnalytics ? (
 
-                  <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="w-10 h-10 text-white" />
+                    <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                      <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <BarChart3 className="w-10 h-10 text-white" />
+                      </div>
+
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h3>
+                      <p className="text-gray-600">You don't have permission to view analytics.</p>
                     </div>
 
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h3>
-                    <p className="text-gray-600">You don't have permission to view analytics.</p>
-                  </div>
+                  ) : analyticsLoading ? (
 
-                ) : analyticsLoading ? (
+                    <div className="flex items-center justify-center py-32">
+                      <div className="flex flex-col items-center gap-4">
 
-                  <div className="flex items-center justify-center py-32">
-                    <div className="flex flex-col items-center gap-4">
-
-                      <div className="animate-spin rounded-full h-16 w-16 border-4 border-cyan-200 border-t-cyan-600"></div>
-                      <p className="text-cyan-700 font-semibold">Loading analytics...</p>
-                    </div>
-
-                  </div>
-
-                ) : analyticsData ? (
-
-                  <>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                      <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="p-2.5 bg-white/20 rounded-xl">
-                            <Bookmark className="w-6 h-6" />
-                          </div>
-
-                          <TrendingUp className="w-5 h-5 opacity-80" />
-                        </div>
-
-                        <p className="text-sm opacity-90 mb-1">Total Posts</p>
-                        <p className="text-4xl font-bold">
-                          {analyticsData.blogs?.length || publishedPosts.length || 0}
-
-                        </p>
-
-                        <p className="text-sm opacity-75 mt-2">
-                          {draftPosts.length} drafts
-
-                        </p>
-
-                      </div>
-
-
-
-                      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="p-2.5 bg-white/20 rounded-xl">
-                            <Eye className="w-6 h-6" />
-                          </div>
-
-                          <TrendingUp className="w-5 h-5 opacity-80" />
-                        </div>
-
-                        <p className="text-sm opacity-90 mb-1">Total Views</p>
-                        <p className="text-4xl font-bold">
-                          {publishedPosts.reduce((sum: number, post: PostType) => sum + (post.views || 0), 0).toLocaleString()}
-
-                        </p>
-
-                        <p className="text-sm opacity-75 mt-2">All time</p>
-                      </div>
-
-
-
-                      <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="p-2.5 bg-white/20 rounded-xl">
-                            <Heart className="w-6 h-6" />
-                          </div>
-
-                          <TrendingUp className="w-5 h-5 opacity-80" />
-                        </div>
-
-                        <p className="text-sm opacity-90 mb-1">Total Likes</p>
-                        <p className="text-4xl font-bold">
-                          {analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.likesCount || 0), 0) || 
-
-                           publishedPosts.reduce((sum: number, post: PostType) => sum + (post.likesCount || post.likes || 0), 0).toLocaleString()}
-
-                        </p>
-
-                        <p className="text-sm opacity-75 mt-2">Across all posts</p>
-                      </div>
-
-
-
-                      <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="p-2.5 bg-white/20 rounded-xl">
-                            <MessageCircle className="w-6 h-6" />
-                          </div>
-
-                          <TrendingUp className="w-5 h-5 opacity-80" />
-                        </div>
-
-                        <p className="text-sm opacity-90 mb-1">Total Comments</p>
-                        <p className="text-4xl font-bold">
-                          {analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.commentsCount || 0), 0) || 
-
-                           publishedPosts.reduce((sum: number, post: PostType) => sum + (post.commentsCount || post.comments || 0), 0).toLocaleString()}
-
-                        </p>
-
-                        <p className="text-sm opacity-75 mt-2">User engagement</p>
+                        <div className="animate-spin rounded-full h-16 w-16 border-4 border-cyan-200 border-t-cyan-600"></div>
+                        <p className="text-cyan-700 font-semibold">Loading analytics...</p>
                       </div>
 
                     </div>
 
-                  </>
+                  ) : analyticsData ? (
 
-                ) : (
+                    <>
 
-                  <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-                    <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="w-10 h-10 text-white" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="p-2.5 bg-white/20 rounded-xl">
+                              <Bookmark className="w-6 h-6" />
+                            </div>
+
+                            <TrendingUp className="w-5 h-5 opacity-80" />
+                          </div>
+
+                          <p className="text-sm opacity-90 mb-1">Total Posts</p>
+                          <p className="text-4xl font-bold">
+                            {analyticsData.blogs?.length || publishedPosts.length || 0}
+
+                          </p>
+
+                          <p className="text-sm opacity-75 mt-2">
+                            {draftPosts.length} drafts
+
+                          </p>
+
+                        </div>
+
+
+
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="p-2.5 bg-white/20 rounded-xl">
+                              <Eye className="w-6 h-6" />
+                            </div>
+
+                            <TrendingUp className="w-5 h-5 opacity-80" />
+                          </div>
+
+                          <p className="text-sm opacity-90 mb-1">Total Views</p>
+                          <p className="text-4xl font-bold">
+                            {publishedPosts.reduce((sum: number, post: PostType) => sum + (post.views || 0), 0).toLocaleString()}
+
+                          </p>
+
+                          <p className="text-sm opacity-75 mt-2">All time</p>
+                        </div>
+
+
+
+                        <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="p-2.5 bg-white/20 rounded-xl">
+                              <Heart className="w-6 h-6" />
+                            </div>
+
+                            <TrendingUp className="w-5 h-5 opacity-80" />
+                          </div>
+
+                          <p className="text-sm opacity-90 mb-1">Total Likes</p>
+                          <p className="text-4xl font-bold">
+                            {analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.likesCount || 0), 0) ||
+
+                              publishedPosts.reduce((sum: number, post: PostType) => sum + (post.likesCount || post.likes || 0), 0).toLocaleString()}
+
+                          </p>
+
+                          <p className="text-sm opacity-75 mt-2">Across all posts</p>
+                        </div>
+
+
+
+                        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl shadow-xl p-6 text-white transform hover:scale-105 transition-transform">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="p-2.5 bg-white/20 rounded-xl">
+                              <MessageCircle className="w-6 h-6" />
+                            </div>
+
+                            <TrendingUp className="w-5 h-5 opacity-80" />
+                          </div>
+
+                          <p className="text-sm opacity-90 mb-1">Total Comments</p>
+                          <p className="text-4xl font-bold">
+                            {analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.commentsCount || 0), 0) ||
+
+                              publishedPosts.reduce((sum: number, post: PostType) => sum + (post.commentsCount || post.comments || 0), 0).toLocaleString()}
+
+                          </p>
+
+                          <p className="text-sm opacity-75 mt-2">User engagement</p>
+                        </div>
+
+                      </div>
+
+                    </>
+
+                  ) : (
+
+                    <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                      <div className="w-20 h-20 bg-gradient-to-br from-cyan-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <BarChart3 className="w-10 h-10 text-white" />
+                      </div>
+
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">No Analytics Data</h3>
+                      <p className="text-gray-600 mb-4">Start publishing posts to see analytics.</p>
+                      {(() => {
+                        // ✅ For clinic/doctor/admin roles, always show create button (bypass permission check)
+                        const userRole = getUserRole();
+                        const canCreate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canCreate;
+                        return canCreate ? (
+
+                          <button
+
+                            onClick={handleCreatePost}
+
+                            className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                          >
+
+                            Create Your First Post
+
+                          </button>
+
+                        ) : null;
+                      })()}
+
                     </div>
 
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">No Analytics Data</h3>
-                    <p className="text-gray-600 mb-4">Start publishing posts to see analytics.</p>
-                    {(() => {
-                      // ✅ For clinic/doctor/admin roles, always show create button (bypass permission check)
-                      const userRole = getUserRole();
-                      const canCreate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canCreate;
-                      return canCreate ? (
-
-                      <button
-
-                        onClick={handleCreatePost}
-
-                        className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
-                      >
-
-                        Create Your First Post
-
-                      </button>
-
-                    ) : null;
-                    })()}
-
-                  </div>
-
-                );
+                  );
                 })()}
               </div>
             )}
@@ -2542,16 +2539,16 @@ function ModernBlogForm() {
                   const canCreate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canCreate;
                   return canCreate ? (
 
-                  <button
+                    <button
 
-                    onClick={handleCreatePost}
+                      onClick={handleCreatePost}
 
-                    className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
-                  >
+                      className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                    >
 
-                    Create Your First Post
+                      Create Your First Post
 
-                  </button>
+                    </button>
 
                   ) : null;
                 })()}
@@ -2973,60 +2970,60 @@ function ModernBlogForm() {
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl">
                     <Eye className="w-5 h-5 text-white" />
-                </div>
+                  </div>
 
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">Post Preview</h2>
                     <p className="text-sm text-gray-600">Full content view</p>
+                  </div>
+
                 </div>
 
-              </div>
-
                 <div className="flex items-center gap-2">
-                <a
+                  <a
 
-                  href={`${getBaseUrl()}/blogs/${selectedPostDetail.paramlink}`}
+                    href={`${getBaseUrl()}/blogs/${selectedPostDetail.paramlink}`}
 
-                  target="_blank"
+                    target="_blank"
 
-                  rel="noopener noreferrer"
+                    rel="noopener noreferrer"
 
                     className="p-2 rounded-lg hover:bg-cyan-100 text-cyan-600 transition"
                     title="Open in new tab"
-                >
+                  >
 
                     <ExternalLink className="w-5 h-5" />
-                </a>
+                  </a>
 
-                <button
+                  <button
 
-                  onClick={() => {
+                    onClick={() => {
 
-                    setShowPostDetailModal(false);
+                      setShowPostDetailModal(false);
 
-                    setSelectedPostDetail(null);
+                      setSelectedPostDetail(null);
 
-                  }}
+                    }}
 
                     className="p-2 rounded-lg hover:bg-rose-100 text-rose-600 transition"
                     title="Close"
-                >
+                  >
 
                     <X className="w-5 h-5" />
-                </button>
+                  </button>
+
+                </div>
 
               </div>
-
-            </div>
 
 
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-8 prose prose-cyan max-w-none">
                 <h1 className="text-3xl font-bold mb-4 text-gray-900">
-                {selectedPostDetail.title}
+                  {selectedPostDetail.title}
 
-              </h1>
+                </h1>
 
 
 
@@ -3036,24 +3033,24 @@ function ModernBlogForm() {
                     <span>
                       {typeof selectedPostDetail.postedBy === 'object'
                         ? selectedPostDetail.postedBy?.name ||
-                          selectedPostDetail.postedBy?.username ||
-                          'Anonymous'
+                        selectedPostDetail.postedBy?.username ||
+                        'Anonymous'
                         : selectedPostDetail.postedBy || 'Anonymous'}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
-                      <span>{formatDate(selectedPostDetail.createdAt)}</span>
+                    <span>{formatDate(selectedPostDetail.createdAt)}</span>
 
                   </div>
 
                   <div className="flex items-center gap-1">
                     <Eye className="w-4 h-4" />
                     <span>{selectedPostDetail.views || 0} views</span>
-                </div>
+                  </div>
 
-              </div>
+                </div>
 
 
 

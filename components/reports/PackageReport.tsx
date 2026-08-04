@@ -2328,58 +2328,58 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     <input type="checkbox" className="rounded" />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Package ID
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Package Name
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Patient
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Phone
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Doctor
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Branch
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Staff
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Value
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Paid
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Outstanding
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Sessions
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Usage
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Start
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Expiry
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Last Visit
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-800">
                     Actions
                   </th>
                 </tr>
@@ -2387,13 +2387,13 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
               <tbody className="divide-y divide-gray-100">
                 {soldRows.map((row, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                       <input type="checkbox" className="rounded" />
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 font-mono">
+                    <td className="px-4 py-3 text-sm text-gray-600 font-mono dark:text-gray-700">
                       PKG-{String(2405000 + index).padStart(3, '0')}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                       <div className="flex items-center gap-2">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{row.packageName || "Package"}</p>
@@ -2403,7 +2403,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
                           {(row.patientName || "NA").charAt(0)}
@@ -2414,24 +2414,24 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{row.phone || "-"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{row.doctorName || "Dr. Name"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{row.branch || "-"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{row.soldBy || "-"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(Number(row.totalValue) || 0)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(Number(row.totalPaid) || 0)}</td>
-                  <td className="px-4 py-3 text-sm text-red-600 font-semibold">{formatCurrency(Number(row.totalPending) || 0)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{row.phone || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-900">{row.doctorName || "Dr. Name"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{row.branch || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-900">{row.soldBy || "-"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-900">{formatCurrency(Number(row.totalValue) || 0)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-900">{formatCurrency(Number(row.totalPaid) || 0)}</td>
+                  <td className="px-4 py-3 text-sm text-red-600 font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(Number(row.totalPending) || 0)}</td>
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${(row.paymentStatus || "Paid") === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                       {row.paymentStatus || "Paid"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <div className="flex items-center gap-1">
                       <span className="text-sm text-gray-900">{row.sessionsUsed || 0}/{row.totalSessions || 0}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <div className="flex items-center gap-1">
                       <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500" style={{ width: `${row.totalSessions > 0 ? Math.min(100, Math.round(((row.sessionsUsed || 0) / row.totalSessions) * 100)) : 0}%` }}></div>
@@ -2439,15 +2439,15 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                       <span className="text-xs text-gray-500">{row.totalSessions > 0 ? Math.min(100, Math.round(((row.sessionsUsed || 0) / row.totalSessions) * 100)) : 0}%</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600">{formatDate(row.firstPurchaseDate)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600 dark:text-gray-700">{formatDate(row.firstPurchaseDate)}</td>
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <div className="flex items-center gap-1">
                       <span className="text-emerald-500">●</span>
                       <span className="text-xs whitespace-nowrap text-gray-600">{formatDate(row.expirationDate)}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600">{formatDate(row.lastActivityDate)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600 dark:text-gray-700">{formatDate(row.lastActivityDate)}</td>
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <div className="flex items-center gap-1">
                       <button 
                         onClick={() => openUsage(row.patientId || '123', row.packageName || 'Package', row.patientName || 'Patient')}
@@ -2595,17 +2595,17 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Treatment</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Used</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase">Max</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Treatment</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Used</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Max</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                           {(pkg.treatments || []).map((t: any, tIdx: number) => (
                             <tr key={tIdx}>
-                              <td className="px-3 py-2 text-sm">{t.treatmentName}</td>
-                              <td className="px-3 py-2 text-sm">{t.totalUsedSessions || 0}</td>
-                              <td className="px-3 py-2 text-sm">{t.maxSessions || 0}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-900">{t.treatmentName}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-900">{t.totalUsedSessions || 0}</td>
+                              <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-900">{t.maxSessions || 0}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2647,37 +2647,37 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Package Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Amount</th>
                         {kpiModal.data[0]?.paidAmount !== undefined && (
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Paid</th>
                         )}
                         {kpiModal.data[0]?.pending !== undefined && (
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Pending</th>
                         )}
                         {kpiModal.data[0]?.expirationDate && (
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Expiry Date</th>
                         )}
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Date</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {kpiModal.data.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.packageName || 'N/A'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{item.patientName || 'N/A'}</td>
-                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(item.amount || 0)}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-900">{item.packageName || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{item.patientName || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-900">{formatCurrency(item.amount || 0)}</td>
                           {item.paidAmount !== undefined && (
-                            <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(item.paidAmount || 0)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-emerald-600 text-gray-900 dark:text-gray-900">{formatCurrency(item.paidAmount || 0)}</td>
                           )}
                           {item.pending !== undefined && (
-                            <td className="px-4 py-3 text-sm text-right text-red-500">{formatCurrency(item.pending)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-red-500 text-gray-900 dark:text-gray-900">{formatCurrency(item.pending)}</td>
                           )}
                           {item.expirationDate && (
-                            <td className="px-4 py-3 text-sm text-gray-600">{new Date(item.expirationDate).toLocaleDateString()}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{new Date(item.expirationDate).toLocaleDateString()}</td>
                           )}
-                          <td className="px-4 py-3 text-sm text-gray-600">{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</td>
                         </tr>
                       ))}
                     </tbody>

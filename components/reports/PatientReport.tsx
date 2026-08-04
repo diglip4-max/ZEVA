@@ -269,20 +269,20 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {(data.highestPending || []).slice(0, 10).map((r: any) => (
                   <tr key={String(r.patientId)}>
-                    <td className="px-4 py-2 text-sm">{r.patientName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.pending || 0)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.patientName || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.pending || 0)}</td>
                   </tr>
                 ))}
                 {!data.highestPending?.length && (
                   <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>
+                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={2}>
                       No data
                     </td>
                   </tr>
@@ -297,20 +297,20 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {(data.highestAdvance || []).slice(0, 10).map((r: any) => (
                   <tr key={String(r.patientId)}>
-                    <td className="px-4 py-2 text-sm">{r.patientName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.advance || 0)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.patientName || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.advance || 0)}</td>
                   </tr>
                 ))}
                 {!data.highestAdvance?.length && (
                   <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>
+                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={2}>
                       No data
                     </td>
                   </tr>

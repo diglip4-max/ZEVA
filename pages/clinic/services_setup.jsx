@@ -1485,8 +1485,8 @@ function ServicesSetupPage() {
           <button
             onClick={() => setActiveTab("services")}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "services"
-              ? "border-gray-800 text-teal-900"
-              : "border-transparent text-teal-500 hover:text-teal-700"
+              ? "border-teal-500 text-teal-900 dark:text-white"
+              : "border-transparent text-teal-500 hover:text-teal-700 dark:text-gray-300 dark:hover:text-white"
               }`}
           >
             Services
@@ -1495,8 +1495,8 @@ function ServicesSetupPage() {
           <button
             onClick={() => setActiveTab("memberships")}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "memberships"
-              ? "border-gray-800 text-teal-900"
-              : "border-transparent text-teal-500 hover:text-teal-700"
+              ? "border-teal-500 text-teal-900 dark:text-white"
+              : "border-transparent text-teal-500 hover:text-teal-700 dark:text-gray-300 dark:hover:text-white"
               }`}
           >
             Memberships
@@ -1504,8 +1504,8 @@ function ServicesSetupPage() {
           <button
             onClick={() => setActiveTab("packages")}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === "packages"
-              ? "border-gray-800 text-teal-900"
-              : "border-transparent text-teal-500 hover:text-teal-700"
+              ? "border-teal-500 text-teal-900 dark:text-white"
+              : "border-transparent text-teal-500 hover:text-teal-700 dark:text-gray-300 dark:hover:text-white"
               }`}
           >
             Packages
@@ -1531,21 +1531,21 @@ function ServicesSetupPage() {
           <>
             {/* Service Creation Form - Modern Healthcare UI */}
             {permissions.canCreate && (
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-xl p-4 mb-5 shadow-sm">
+              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-transparent dark:to-transparent dark:bg-transparent border border-teal-200 rounded-xl p-4 mb-5 shadow-sm">
                 <div className="flex items-center gap-2.5 mb-4">
                   <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center shadow-sm">
                     <Wrench className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-teal-800 tracking-tight">Create New Service</h2>
-                    <p className="text-xs text-teal-600">Add a new service offering for your clinic</p>
+                    <h2 className="text-lg font-semibold text-teal-800 dark:text-white tracking-tight">Create New Service</h2>
+                    <p className="text-xs text-teal-600 dark:text-gray-300">Add a new service offering for your clinic</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleCreateBatch} className="space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">
+                      <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">
                         Department
                       </label>
                       <select
@@ -1567,7 +1567,7 @@ function ServicesSetupPage() {
                     {servicesBatch.map((row, idx) => (
                       <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Service Name</label>
+                          <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Service Name</label>
                           <input
                             type="text"
                             value={row.name}
@@ -1578,7 +1578,7 @@ function ServicesSetupPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Price ({getCurrencySymbol(currency)})</label>
+                          <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Price ({getCurrencySymbol(currency)})</label>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
                             <input
@@ -1594,7 +1594,7 @@ function ServicesSetupPage() {
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Duration (Minutes)</label>
+                          <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Duration (Minutes)</label>
                           <input
                             type="number"
                             min="5"
@@ -1607,7 +1607,7 @@ function ServicesSetupPage() {
                         </div>
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
-                            <label className="block text-xs font-medium text-teal-700 mb-1.5">Clinic Price ({getCurrencySymbol(currency)})</label>
+                            <label className="block text-xs font-medium text-teal-700 dark:text-gray-200 mb-1.5">Clinic Price ({getCurrencySymbol(currency)})</label>
                             <div className="relative">
                               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 font-medium text-sm">{getCurrencySymbol(currency)}</span>
                               <input

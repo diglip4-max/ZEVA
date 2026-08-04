@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
@@ -695,13 +695,13 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
         <div className="max-w-9xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
                 Purchase Orders
               </h1>
               <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
@@ -1024,7 +1024,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                   ></path>
                 </svg>
               </div>
-              <p className="text-gray-600">Loading purchase orders...</p>
+              <p className="text-text-muted">Loading purchase orders...</p>
             </div>
           ) : displayData.length === 0 ? (
             /* Empty State */
@@ -1063,8 +1063,8 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           ) : (
             /* Data Table */
             <div className="overflow-x-auto pb-32 min-h-[400px]">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Order #
@@ -1095,7 +1095,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {displayData.map((order: any, index: number) => (
                     <React.Fragment key={order._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
@@ -1110,7 +1110,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                               <div className="text-sm font-medium text-gray-900">
                                 {order.orderNo}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-text-muted">
                                 ID: {order._id.substring(0, 8)}...
                               </div>
                             </div>
@@ -1403,7 +1403,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                         <tr>
                           <td
                             colSpan={9}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            className="px-6 py-6 bg-bg-surface border-t border-border-default dark:border-border-default"
                           >
                             <div className="ml-8 mr-4">
                               <div className="flex items-center justify-between mb-4">
@@ -1471,8 +1471,8 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
 
                               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                  <table className="min-w-full divide-y divide-border-default">
+                                    <thead className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                           <div className="flex items-center">
@@ -1692,7 +1692,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
+                                    <tbody className="bg-white divide-y divide-border-default">
                                       {order.items.map(
                                         (item: any, itemIndex: number) => (
                                           <tr
@@ -1822,7 +1822,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         ),
                                       )}
                                     </tbody>
-                                    <tfoot className="bg-gray-50">
+                                    <tfoot className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <td
                                           colSpan={5}

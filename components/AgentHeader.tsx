@@ -4,6 +4,7 @@ import axios from 'axios';
 import NotificationBell from './NotificationBell';
 import { getCurrencySymbol } from '@/lib/currencyHelper';
 import { useCurrency } from '@/context/CurrencyContext';
+import { useClinicTheme } from '../context/ClinicThemeContext';
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
   isMobileOpen: boolean;
@@ -14,6 +15,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   isMobileOpen
 }) => {
   const { currency } = useCurrency();
+  const { theme, toggleTheme } = useClinicTheme();
   const [tokenUser, setTokenUser] = useState<{ name?: string; email?: string } | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const [commissionCount, setCommissionCount] = useState<number>(0);
@@ -308,6 +310,35 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                   {tokenUser?.name?.charAt(0)?.toUpperCase() || 'D'}
                 </span>
               </div>
+
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#2D9AA5] hover:bg-[#2D9AA5]/10 dark:hover:bg-[#2D9AA5]/10 transition-colors duration-200 focus:outline-none flex-shrink-0"
+                aria-label="Toggle theme"
+              >
+                {(theme === 'dark' ||
+                  (theme === 'system' &&
+                    typeof window !== 'undefined' &&
+                    window.matchMedia('(prefers-color-scheme: dark)').matches)) ? (
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71"
+                    />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+                    />
+                  </svg>
+                )}
+              </button>
 
               <button
                 onClick={handleLogout}

@@ -673,7 +673,7 @@ const ProvidersPage: NextPageWithLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
       <div className="px-6 pt-8 max-w-9xl mx-auto">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -682,18 +682,18 @@ const ProvidersPage: NextPageWithLayout = () => {
               <div className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
                 <Globe className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                 Communication Providers
               </h1>
             </div>
-            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Secure, encrypted communication channels for your clinic
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => fetchAllProviders()}
-              className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm text-xs sm:text-sm font-medium"
+              className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 transition-all duration-200 shadow-sm text-xs sm:text-sm font-medium"
             >
               <RefreshCw className="w-5 h-5" />
               Refresh
@@ -702,7 +702,7 @@ const ProvidersPage: NextPageWithLayout = () => {
             {permissions.canCreate && (
               <button
                 onClick={() => setShowAddModal(true)}
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 dark:bg-gray-700 hover:bg-gray-900 dark:hover:bg-gray-600 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
               >
                 <Plus className="h-5 w-5" />
                 Add Provider
@@ -714,75 +714,75 @@ const ProvidersPage: NextPageWithLayout = () => {
         {/* Stats Grid */}
         {permissions.canRead && (
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mt-8">
-            <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                     {stats.total}
                   </p>
                 </div>
-                <BarChart3 className="w-8 h-8 text-blue-600" />
+                <BarChart3 className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-5 border border-green-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl p-5 border border-green-200 dark:border-green-800 shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-green-700">Active</p>
-                  <p className="text-2xl font-bold text-green-900 mt-1">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-400">Active</p>
+                  <p className="text-2xl font-bold text-green-900 dark:text-green-300 mt-1">
                     {stats.active}
                   </p>
                 </div>
-                <Zap className="w-8 h-8 text-green-600" />
+                <Zap className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl p-5 border border-yellow-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 rounded-2xl p-5 border border-yellow-200 dark:border-yellow-800 shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-yellow-700">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-900 mt-1">
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-400">Pending</p>
+                  <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-300 mt-1">
                     {stats.pending}
                   </p>
                 </div>
-                <Clock className="w-8 h-8 text-yellow-600" />
+                <Clock className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-5 border border-emerald-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/30 dark:to-green-900/30 rounded-2xl p-5 border border-emerald-200 dark:border-emerald-800 shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-emerald-700">WhatsApp</p>
-                  <p className="text-2xl font-bold text-emerald-900 mt-1">
+                  <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">WhatsApp</p>
+                  <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mt-1">
                     {stats.whatsapp}
                   </p>
                 </div>
-                <Smartphone className="w-8 h-8 text-emerald-600" />
+                <Smartphone className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl p-5 border border-blue-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl p-5 border border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-700">SMS</p>
-                  <p className="text-2xl font-bold text-blue-900 mt-1">
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-400">SMS</p>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-300 mt-1">
                     {stats.sms}
                   </p>
                 </div>
-                <MessageSquare className="w-8 h-8 text-blue-600" />
+                <MessageSquare className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-5 border border-purple-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl p-5 border border-purple-200 dark:border-purple-800 shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-purple-700">Email</p>
-                  <p className="text-2xl font-bold text-purple-900 mt-1">
+                  <p className="text-sm font-medium text-purple-700 dark:text-purple-400">Email</p>
+                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-300 mt-1">
                     {stats.email}
                   </p>
                 </div>
-                <Mail className="w-8 h-8 text-purple-600" />
+                <Mail className="w-8 h-8 text-purple-600 dark:text-purple-400" />
               </div>
             </div>
           </div>
@@ -817,19 +817,19 @@ const ProvidersPage: NextPageWithLayout = () => {
       ) : (
         <div className="px-6 py-8 max-w-9xl mx-auto">
           {/* Controls */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-200 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 {/* Tabs */}
-                <div className="flex overflow-x-auto pb-2 -mx-2 px-2 bg-gray-100 p-1 rounded-xl">
+                <div className="flex overflow-x-auto pb-2 -mx-2 px-2 bg-gray-100 dark:bg-gray-900/50 p-1 rounded-xl">
                   {["all", "approved", "pending", "in-progress", "rejected"].map(
                     (tab) => (
                       <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={`flex-shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap mx-1 ${activeTab === tab
-                          ? "bg-white text-blue-600 shadow-sm"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                          ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                          : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-800"
                           }`}
                       >
                         {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -839,12 +839,12 @@ const ProvidersPage: NextPageWithLayout = () => {
                 </div>
 
                 {/* View Toggle */}
-                <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-xl">
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-900/50 p-1 rounded-xl">
                   <button
                     onClick={() => setViewMode("grid")}
                     className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "grid"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                       }`}
                   >
                     <Grid className="w-5 h-5" />
@@ -852,8 +852,8 @@ const ProvidersPage: NextPageWithLayout = () => {
                   <button
                     onClick={() => setViewMode("table")}
                     className={`p-2 rounded-lg transition-all duration-200 ${viewMode === "table"
-                      ? "bg-white text-blue-600 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                       }`}
                   >
                     <Table className="w-5 h-5" />
@@ -870,7 +870,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                     placeholder="Search providers..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 py-2.5 text-gray-600 text-sm w-full sm:w-64 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="pl-10 pr-4 py-2.5 text-gray-600 dark:text-gray-300 text-sm w-full sm:w-64 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -879,7 +879,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                   <select
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
-                    className="px-3 py-2.5 bg-gray-50 text-gray-600 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    className="px-3 py-2.5 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   >
                     <option value="all">All Types</option>
                     <option value="whatsapp">WhatsApp</option>

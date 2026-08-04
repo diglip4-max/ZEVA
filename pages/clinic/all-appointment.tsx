@@ -836,8 +836,8 @@ const AllAppointmentsPage: NextPageWithLayout = ({
               <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
                   <div>
-                    <h1 className="text-base sm:text-lg md:text-xl font-bold text-teal-900">All Appointments</h1>
-                    <p className="text-[10px] sm:text-xs md:text-sm text-teal-700 mt-0.5 hidden sm:block">View and manage all appointment records</p>
+                    <h1 className="text-base sm:text-lg md:text-xl font-bold text-teal-900 dark:text-teal-100">All Appointments</h1>
+                    <p className="text-[10px] sm:text-xs md:text-sm text-teal-700 dark:text-teal-100 mt-0.5 hidden sm:block">View and manage all appointment records</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {/* <button
@@ -869,7 +869,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                       handleFilterChange("search", e.target.value);
                     }}
                     onKeyDown={handleSearchKeyDown}
-                    className="w-full pl-7 sm:pl-9 md:pl-10 pr-2 sm:pr-3 md:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
+                    className="w-full pl-7 sm:pl-9 md:pl-10 pr-2 sm:pr-3 md:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900 dark:text-teal-100"
                   />
                 </div>
               </div>
@@ -878,7 +878,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
               {Object.keys(statusCounts).length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-200 ml-2 sm:ml-2 md:ml-4" ref={statusPopoverRef}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-semibold text-gray-600">Today's Status:</span>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-teal-100">Today's Status:</span>
                   </div>
                   <div className="flex flex-wrap gap-2 mb-5">
                     {Object.entries(statusCounts)
@@ -896,12 +896,12 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           Rescheduled: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", icon: "text-indigo-500" },
                           Waiting: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: "text-amber-500" },
                           Rejected: { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: "text-rose-500" },
-                          Completed: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", icon: "text-teal-500" },
+                          Completed: { bg: "bg-teal-50", text: "text-teal-700 dark:text-teal-100", border: "border-teal-200", icon: "text-teal-500" },
                           invoice: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200", icon: "text-cyan-500" },
-                          "No Show": { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200", icon: "text-gray-500" },
+                          "No Show": { bg: "bg-gray-50", text: "text-gray-700 dark:text-teal-100", border: "border-gray-200", icon: "text-gray-500 dark:text-teal-100" },
                         };
 
-                        const colors = statusColors[status] || { bg: "bg-gray-50", text: "text-gray-700", border: "border-gray-200", icon: "text-gray-500" };
+                        const colors = statusColors[status] || { bg: "bg-gray-50", text: "text-gray-700 dark:text-teal-100", border: "border-gray-200", icon: "text-gray-500 dark:text-teal-100" };
                         const isActive = activeStatusPopover === status;
 
                         return (
@@ -923,10 +923,10 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                             {isActive && (
                               <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
                                 <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-                                  <span className="text-xs font-semibold text-gray-700 capitalize">
+                                  <span className="text-xs font-semibold text-gray-700 dark:text-teal-100 capitalize">
                                     {status === "No Show" ? "No Show" : status.toLowerCase()}
                                   </span>
-                                  <span className="text-xs text-gray-500">{statusPopoverData.length} record{statusPopoverData.length !== 1 ? 's' : ''}</span>
+                                  <span className="text-xs text-gray-500 dark:text-teal-100">{statusPopoverData.length} record{statusPopoverData.length !== 1 ? 's' : ''}</span>
                                 </div>
                                 <div className="px-3 py-1.5 bg-teal-50 border-b border-gray-200 flex items-center justify-between">
                                   <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wide">Patient's Name</span>
@@ -934,19 +934,19 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                 </div>
                                 <div className="max-h-60 overflow-y-auto">
                                   {statusPopoverLoading ? (
-                                    <div className="px-3 py-4 text-center text-xs text-gray-500">Loading...</div>
+                                    <div className="px-3 py-4 text-center text-xs text-gray-500 dark:text-teal-100">Loading...</div>
                                   ) : statusPopoverData.length === 0 ? (
-                                    <div className="px-3 py-4 text-center text-xs text-gray-500">No records found</div>
+                                    <div className="px-3 py-4 text-center text-xs text-gray-500 dark:text-teal-100">No records found</div>
                                   ) : (
                                     statusPopoverData.map((record, idx) => (
                                       <div
                                         key={idx}
                                         className={`px-3 py-2 flex items-center justify-between text-xs ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition-colors`}
                                       >
-                                        <span className="font-medium text-gray-800 truncate max-w-[55%]" title={record.patientName}>
+                                        <span className="font-medium text-gray-800 dark:text-teal-100 truncate max-w-[55%]" title={record.patientName}>
                                           {record.patientName}
                                         </span>
-                                        <span className="text-gray-500 truncate max-w-[40%] text-right" title={record.doctorName}>
+                                        <span className="text-gray-500 dark:text-teal-100 truncate max-w-[40%] text-right" title={record.doctorName}>
                                           {record.doctorName}
                                         </span>
                                       </div>
@@ -979,7 +979,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           value={pendingFilters.emrNumber}
                           onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
                           placeholder="EMR #"
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         />
                       </div>
 
@@ -992,7 +992,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           type="date"
                           value={pendingFilters.fromDate}
                           onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         />
                       </div>
 
@@ -1005,7 +1005,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           type="date"
                           value={pendingFilters.toDate}
                           onChange={(e) => handleFilterChange("toDate", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         />
                       </div>
 
@@ -1017,7 +1017,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                         <select
                           value={pendingFilters.doctorId}
                           onChange={(e) => handleFilterChange("doctorId", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         >
                           <option value="">All</option>
                           {doctors.map((doc) => (
@@ -1036,7 +1036,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                         <select
                           value={pendingFilters.roomId}
                           onChange={(e) => handleFilterChange("roomId", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         >
                           <option value="">All</option>
                           {rooms.map((room) => (
@@ -1055,7 +1055,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                         <select
                           value={pendingFilters.status}
                           onChange={(e) => handleFilterChange("status", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         >
                           <option value="">All</option>
                           {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
@@ -1074,7 +1074,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                         <select
                           value={pendingFilters.followType}
                           onChange={(e) => handleFilterChange("followType", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         >
                           <option value="">All</option>
                           <option value="first time">First Time</option>
@@ -1091,7 +1091,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                         <select
                           value={pendingFilters.referral}
                           onChange={(e) => handleFilterChange("referral", e.target.value)}
-                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 bg-white"
+                          className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none text-teal-900 dark:text-teal-100 bg-white"
                         >
                           <option value="">All</option>
                           <option value="direct">Direct</option>
@@ -1104,7 +1104,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                     <div className="mt-3 flex justify-end gap-2">
                       <button
                         onClick={clearFilters}
-                        className="px-3 py-1.5 text-[10px] sm:text-xs text-teal-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition font-medium"
+                        className="px-3 py-1.5 text-[10px] sm:text-xs text-teal-700 dark:text-teal-100 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition font-medium"
                       >
                         Clear All
                       </button>
@@ -1121,14 +1121,14 @@ const AllAppointmentsPage: NextPageWithLayout = ({
             )}
 
             {/* Results Count */}
-            <div className="mb-2 sm:mb-3 text-[10px] sm:text-xs md:text-sm text-teal-700">
+            <div className="mb-2 sm:mb-3 text-[10px] sm:text-xs md:text-sm text-teal-700 dark:text-teal-100">
               Showing {appointments.length} of {total} appointments
             </div>
 
             {/* Table */}
             {!permissionsLoaded ? (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                <p className="text-sm text-teal-700">Loading permissions...</p>
+                <p className="text-sm text-teal-700 dark:text-teal-100">Loading permissions...</p>
               </div>
             ) : !permissions.canRead ? (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -1136,8 +1136,8 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                   <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertTriangle className="w-8 h-8 text-red-600" />
                   </div>
-                  <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
-                  <p className="text-sm text-teal-700 mb-4">
+                  <h2 className="text-xl font-bold text-teal-900 dark:text-teal-100 mb-2">Access Denied</h2>
+                  <p className="text-sm text-teal-700 dark:text-teal-100 mb-4">
                     You do not have permission to view scheduled appointments.
                   </p>
                   <p className="text-xs text-teal-600">
@@ -1147,7 +1147,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
               </div>
             ) : loading ? (
               <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-                <p className="text-sm text-teal-700">Loading appointments...</p>
+                <p className="text-sm text-teal-700 dark:text-teal-100">Loading appointments...</p>
               </div>
             ) : error ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
@@ -1155,13 +1155,13 @@ const AllAppointmentsPage: NextPageWithLayout = ({
               </div>
             ) : appointments.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                <p className="text-sm text-teal-700">No appointments found</p>
+                <p className="text-sm text-teal-700 dark:text-teal-100">No appointments found</p>
               </div>
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
 
                 {/* Horizontal Scroll Indicator */}
-                <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gray-50 border-b border-gray-200 text-[10px] sm:text-xs text-teal-700 flex items-center justify-center gap-1 sm:gap-2">
+                <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gray-50 border-b border-gray-200 text-[10px] sm:text-xs text-teal-700 dark:text-teal-100 flex items-center justify-center gap-1 sm:gap-2">
                   <span className="hidden md:inline">← Scroll horizontally to view all columns →</span>
                   <span className="hidden sm:inline md:hidden">← Scroll to view all →</span>
                   <span className="sm:hidden">← Swipe →</span>
@@ -1266,17 +1266,17 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           </td>
                           <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
                             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <User className="w-4 h-4 sm:w-6 sm:h-6 text-teal-700" />
+                              <User className="w-4 h-4 sm:w-6 sm:h-6 text-teal-700 dark:text-teal-100" />
                             </div>
                           </td>
                           <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
                             {apt.bookedByName ? (
                               <div className="flex flex-col">
-                                <span className="text-[10px] sm:text-xs font-semibold text-teal-900 truncate max-w-[100px]" title={apt.bookedByName}>
+                                <span className="text-[10px] sm:text-xs font-semibold text-teal-900 dark:text-teal-100 truncate max-w-[100px]" title={apt.bookedByName}>
                                   {apt.bookedByName}
                                 </span>
                                 {apt.bookedByRole && (
-                                  <span className="text-[8px] sm:text-[9px] text-gray-500 italic truncate max-w-[100px]" title={apt.bookedByRole}>
+                                  <span className="text-[8px] sm:text-[9px] text-gray-500 dark:text-teal-100 italic truncate max-w-[100px]" title={apt.bookedByRole}>
                                     ({apt.bookedByRole})
                                   </span>
                                 )}
@@ -1288,23 +1288,23 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px]">
                             <div className="space-y-0.5">
                               <div>
-                                <span className="text-teal-700">Reg: </span>
-                                <span className="font-medium text-teal-900">{formatDate(apt.registeredDate)}</span>
+                                <span className="text-teal-700 dark:text-teal-100">Reg: </span>
+                                <span className="font-medium text-teal-900 dark:text-teal-100">{formatDate(apt.registeredDate)}</span>
                                 {apt.registeredTime && (
                                   <span className="text-red-600 ml-0.5 text-[7px]">{apt.registeredTime}</span>
                                 )}
                               </div>
                               <div>
-                                <span className="text-teal-700">Inv: </span>
-                                <span className="font-medium text-teal-900">{formatDate(apt.invoicedDate)}</span>
-                                {apt.invoicedTime && <span className="text-teal-700 ml-0.5 text-[7px]">{apt.invoicedTime}</span>}
+                                <span className="text-teal-700 dark:text-teal-100">Inv: </span>
+                                <span className="font-medium text-teal-900 dark:text-teal-100">{formatDate(apt.invoicedDate)}</span>
+                                {apt.invoicedTime && <span className="text-teal-700 dark:text-teal-100 ml-0.5 text-[7px]">{apt.invoicedTime}</span>}
                               </div>
                             </div>
                           </td>
                           <td className="px-1 py-1.5 text-[8px] sm:text-[9px]">
                             <div className="space-y-0.5">
                               <div
-                                className="font-semibold text-teal-900 cursor-pointer hover:text-teal-700 hover:underline transition-colors"
+                                className="font-semibold text-teal-900 dark:text-teal-100 cursor-pointer hover:text-teal-700 dark:text-teal-100 hover:underline transition-colors"
                                 onClick={() => {
                                   if (permissions.canUpdate) {
                                     appointmentRef.current = apt;
@@ -1320,7 +1320,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                   ID: {apt.patientId.slice(-4) || "N/A"}
                                 </span>
                                 {userRole !== "doctorStaff" && (
-                                  <span className="text-teal-700 text-[7px] sm:text-[8px]">{apt.patientNumber}</span>
+                                  <span className="text-teal-700 dark:text-teal-100 text-[7px] sm:text-[8px]">{apt.patientNumber}</span>
                                 )}
                                 {apt.gender && (
                                   <span className="px-0.5 py-0.5 bg-gray-100 text-teal-800 rounded text-[7px] sm:text-[8px] flex items-center gap-0.5">
@@ -1343,23 +1343,23 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-0.5">
                                   <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
-                                  <span className="font-medium text-teal-900">{apt.doctorName}</span>
+                                  <span className="font-medium text-teal-900 dark:text-teal-100">{apt.doctorName}</span>
                                 </div>
-                                <div className="text-teal-700 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
+                                <div className="text-teal-700 dark:text-teal-100 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
                               </div>
                             </td>
                           )}
-                          <td className="px-1 py-1.5 text-[8px] sm:text-[9px] text-teal-900 max-w-[120px]">
+                          <td className="px-1 py-1.5 text-[8px] sm:text-[9px] text-teal-900 dark:text-teal-100 max-w-[120px]">
                             <div className="truncate" title={apt.serviceNames?.join(", ") || apt.serviceName || "-"}>
                               {apt.serviceNames && apt.serviceNames.length > 0
                                 ? apt.serviceNames.join(", ")
                                 : apt.serviceName || "-"}
                             </div>
                           </td>
-                          <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900 truncate max-w-[90px]">
+                          <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900 dark:text-teal-100 truncate max-w-[90px]">
                             {apt.roomName || "-"}
                           </td>
-                          <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] max-w-[100px] truncate text-teal-900">
+                          <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] max-w-[100px] truncate text-teal-900 dark:text-teal-100">
                             {apt.notes || "No Remarks"}
                           </td>
                           <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
@@ -1436,7 +1436,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                   }}
                                   className="p-0.5 hover:bg-gray-200 rounded transition"
                                 >
-                                  <MoreVertical className="w-3.5 h-3.5 text-teal-700" />
+                                  <MoreVertical className="w-3.5 h-3.5 text-teal-700 dark:text-teal-100" />
                                 </button>
                               )}
 
@@ -1481,7 +1481,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                             e.preventDefault();
                                             e.stopPropagation();
                                           }}
-                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 dark:text-teal-100 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
                                         >
                                           <Edit className="w-4 h-4" />
                                           Edit
@@ -1501,7 +1501,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                           e.preventDefault();
                                           e.stopPropagation();
                                         }}
-                                        className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                        className="w-full px-4 py-2 text-left text-sm text-teal-700 dark:text-teal-100 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
                                       >
                                         <History className="w-4 h-4" />
                                         Appointment History
@@ -1520,7 +1520,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                             e.preventDefault();
                                             e.stopPropagation();
                                           }}
-                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 dark:text-teal-100 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
                                         >
                                           <FileText className="w-4 h-4" />
                                           Report
@@ -1540,7 +1540,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                             e.preventDefault();
                                             e.stopPropagation();
                                           }}
-                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 dark:text-teal-100 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
                                         >
                                           <Receipt className="w-4 h-4" />
                                           Billing
@@ -1579,7 +1579,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                 {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-gray-50  border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                    <div className="text-[10px] sm:text-xs md:text-sm text-teal-700">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-teal-700 dark:text-teal-100">
                       Page {page} of {totalPages}
                     </div>
                     <div className="flex gap-1.5 sm:gap-2">
@@ -1689,25 +1689,25 @@ const AllAppointmentsPage: NextPageWithLayout = ({
               <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
                 <AlertTriangle className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-2xl font-bold text-teal-900 text-center mb-2">
+              <h2 className="text-2xl font-bold text-teal-900 dark:text-teal-100 text-center mb-2">
                 Delete Appointment
               </h2>
-              <p className="text-teal-700 text-center mb-6">
+              <p className="text-teal-700 dark:text-teal-100 text-center mb-6">
                 Are you sure you want to delete this appointment?
               </p>
               {appointmentToDelete && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-teal-700 mb-1">
+                  <p className="text-sm text-teal-700 dark:text-teal-100 mb-1">
                     <span className="font-semibold">Patient:</span> {appointmentToDelete.patientName}
                   </p>
-                  <p className="text-sm text-teal-700 mb-1">
+                  <p className="text-sm text-teal-700 dark:text-teal-100 mb-1">
                     <span className="font-semibold">Booked By:</span>{" "}
                     {appointmentToDelete.bookedByName || "N/A"}
                     {appointmentToDelete.bookedByRole
                       ? ` (${appointmentToDelete.bookedByRole})`
                       : ""}
                   </p>
-                  <p className="text-sm text-teal-700">
+                  <p className="text-sm text-teal-700 dark:text-teal-100">
                     <span className="font-semibold">Date:</span> {formatDate(appointmentToDelete.startDate)} {appointmentToDelete.fromTime}
                   </p>
                 </div>
@@ -1723,7 +1723,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                     setAppointmentToDelete(null);
                   }}
                   disabled={deleting}
-                  className="px-4 py-2 text-teal-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-teal-700 dark:text-teal-100 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>

@@ -280,111 +280,112 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
   const revenueExportSections = useMemo(() => {
     const currencyLabel = currency;
     return [
-    {
-      title: "Revenue Summary",
-      headers: ["Metric", `Amount (${currencyLabel})`],
-      data: [
-        { "Metric": "Total Revenue", [`Amount (${currencyLabel})`]: Math.round(totalRevenue || 0) },
-        { "Metric": "Treatment / Service Revenue", [`Amount (${currencyLabel})`]: Math.round(treatmentRevenue || 0) },
-        { "Metric": "Package Billing Revenue", [`Amount (${currencyLabel})`]: Math.round(packageRevenue || 0) },
-        // { "Metric": "Advance Payment Revenue", [`Amount (${currencyLabel})`]: Math.round(advanceRevenue || 0) },
-        { "Metric": "Pending Cleared", [`Amount (${currencyLabel})`]: Math.round(pendingCleared || 0) },
-      ],
-    },
-    {
-      title: "Revenue by Doctor",
-      headers: ["Doctor", `Revenue (${currencyLabel})`],
-      data: revenueByDoctor.map(r => ({
-        "Doctor": r.name || "Unknown",
-        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-      })),
-    },
-    {
-      title: "Revenue by Staff (Direct Billings)",
-      headers: ["Staff/Agent", `Revenue (${currencyLabel})`],
-      data: revenueByStaff.map(r => ({
-        "Staff/Agent": r.name || "Unknown",
-        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-      })),
-    },
-    {
-      title: "Revenue by Service",
-      headers: ["Service", `Revenue (${currencyLabel})`],
-      data: revenueByService.map(r => ({
-        "Service": r.name || "Unknown",
-        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-      })),
-    },
-    {
-      title: "Revenue by Package",
-      headers: ["Package", `Revenue (${currencyLabel})`],
-      data: revenueByPackage.map(r => ({
-        "Package": r.packageName || "Unknown",
-        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-      })),
-    },
-    {
-      title: "Revenue by Department",
-      headers: ["Department", `Revenue (${currencyLabel})`],
-      data: revenueByDepartment.map(r => ({
-        "Department": r.name || "Unknown",
-        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-      })),
-    },
-    {
-      title: "Revenue by Payment Method",
-      headers: ["Payment Method", `Revenue (${currencyLabel})`],
-      data: revenueByPaymentMethod.map(r => ({
-        "Payment Method": r.method || "Unknown",
-        [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
-      })),
-    },
-    {
-      title: "Top Pending Patients",
-      headers: ["Patient Name", `Pending Amount (${currencyLabel})`],
-      data: topPendingPatients.map(p => ({
-        "Patient Name": p.name || "Unknown",
-        [`Pending Amount (${currencyLabel})`]: Math.round(p.amount || 0),
-      })),
-    },
-    {
-      title: "Top Advance Patients",
-      headers: ["Patient Name", `Advance Amount (${currencyLabel})`],
-      data: topAdvancePatients.map(p => ({
-        "Patient Name": p.name || "Unknown",
-        [`Advance Amount (${currencyLabel})`]: Math.round(p.amount || 0),
-      })),
-    },
-    {
-      title: "Pending / Advance Payment Report",
-      headers: ["Patient Name", "Invoice Number", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, `Pending Amount (${currencyLabel})`, `Advance Amount (${currencyLabel})`, "Due Date"],
-      data: pendingPayments.map(pp => ({
-        "Patient Name": pp.patientName || "Unknown",
-        "Invoice Number": pp.invoiceNumber || "-",
-        "Service": pp.serviceName || "Unknown",
-        "Doctor": pp.doctorName || "—",
-        [`Total Amount (${currencyLabel})`]: Math.round(pp.totalAmount || 0),
-        [`Paid Amount (${currencyLabel})`]: Math.round(pp.paidAmount || 0),
-        [`Pending Amount (${currencyLabel})`]: Math.round(pp.pendingAmount || 0),
-        [`Advance Amount (${currencyLabel})`]: Math.round(pp.advanceAmount || 0),
-        "Due Date": pp.dueDate ? new Date(pp.dueDate).toLocaleDateString() : "-",
-      })),
-    },
-    {
-      title: "Payment Reports",
-      headers: ["Invoice Number", "Patient Name", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, "Payment Method", "Payment Date"],
-      data: payments.map(p => ({
-        "Invoice Number": p.invoiceNumber || "-",
-        "Patient Name": p.patientName || "Unknown",
-        "Service": p.service || "Unknown",
-        "Doctor": p.doctorName || "—",
-        [`Total Amount (${currencyLabel})`]: Math.round(p.amount || 0),
-        [`Paid Amount (${currencyLabel})`]: Math.round(p.paidAmount || 0),
-        "Payment Method": p.paymentMethod || "-",
-        "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-",
-      })),
-    },
-  ]}, [totalRevenue, treatmentRevenue, packageRevenue, advanceRevenue, pendingCleared, revenueByDoctor, revenueByService, revenueByPackage, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments, currency]);
+      {
+        title: "Revenue Summary",
+        headers: ["Metric", `Amount (${currencyLabel})`],
+        data: [
+          { "Metric": "Total Revenue", [`Amount (${currencyLabel})`]: Math.round(totalRevenue || 0) },
+          { "Metric": "Treatment / Service Revenue", [`Amount (${currencyLabel})`]: Math.round(treatmentRevenue || 0) },
+          { "Metric": "Package Billing Revenue", [`Amount (${currencyLabel})`]: Math.round(packageRevenue || 0) },
+          // { "Metric": "Advance Payment Revenue", [`Amount (${currencyLabel})`]: Math.round(advanceRevenue || 0) },
+          { "Metric": "Pending Cleared", [`Amount (${currencyLabel})`]: Math.round(pendingCleared || 0) },
+        ],
+      },
+      {
+        title: "Revenue by Doctor",
+        headers: ["Doctor", `Revenue (${currencyLabel})`],
+        data: revenueByDoctor.map(r => ({
+          "Doctor": r.name || "Unknown",
+          [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
+        })),
+      },
+      {
+        title: "Revenue by Staff (Direct Billings)",
+        headers: ["Staff/Agent", `Revenue (${currencyLabel})`],
+        data: revenueByStaff.map(r => ({
+          "Staff/Agent": r.name || "Unknown",
+          [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
+        })),
+      },
+      {
+        title: "Revenue by Service",
+        headers: ["Service", `Revenue (${currencyLabel})`],
+        data: revenueByService.map(r => ({
+          "Service": r.name || "Unknown",
+          [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
+        })),
+      },
+      {
+        title: "Revenue by Package",
+        headers: ["Package", `Revenue (${currencyLabel})`],
+        data: revenueByPackage.map(r => ({
+          "Package": r.packageName || "Unknown",
+          [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
+        })),
+      },
+      {
+        title: "Revenue by Department",
+        headers: ["Department", `Revenue (${currencyLabel})`],
+        data: revenueByDepartment.map(r => ({
+          "Department": r.name || "Unknown",
+          [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
+        })),
+      },
+      {
+        title: "Revenue by Payment Method",
+        headers: ["Payment Method", `Revenue (${currencyLabel})`],
+        data: revenueByPaymentMethod.map(r => ({
+          "Payment Method": r.method || "Unknown",
+          [`Revenue (${currencyLabel})`]: Math.round(r.amount || 0),
+        })),
+      },
+      {
+        title: "Top Pending Patients",
+        headers: ["Patient Name", `Pending Amount (${currencyLabel})`],
+        data: topPendingPatients.map(p => ({
+          "Patient Name": p.name || "Unknown",
+          [`Pending Amount (${currencyLabel})`]: Math.round(p.amount || 0),
+        })),
+      },
+      {
+        title: "Top Advance Patients",
+        headers: ["Patient Name", `Advance Amount (${currencyLabel})`],
+        data: topAdvancePatients.map(p => ({
+          "Patient Name": p.name || "Unknown",
+          [`Advance Amount (${currencyLabel})`]: Math.round(p.amount || 0),
+        })),
+      },
+      {
+        title: "Pending / Advance Payment Report",
+        headers: ["Patient Name", "Invoice Number", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, `Pending Amount (${currencyLabel})`, `Advance Amount (${currencyLabel})`, "Due Date"],
+        data: pendingPayments.map(pp => ({
+          "Patient Name": pp.patientName || "Unknown",
+          "Invoice Number": pp.invoiceNumber || "-",
+          "Service": pp.serviceName || "Unknown",
+          "Doctor": pp.doctorName || "—",
+          [`Total Amount (${currencyLabel})`]: Math.round(pp.totalAmount || 0),
+          [`Paid Amount (${currencyLabel})`]: Math.round(pp.paidAmount || 0),
+          [`Pending Amount (${currencyLabel})`]: Math.round(pp.pendingAmount || 0),
+          [`Advance Amount (${currencyLabel})`]: Math.round(pp.advanceAmount || 0),
+          "Due Date": pp.dueDate ? new Date(pp.dueDate).toLocaleDateString() : "-",
+        })),
+      },
+      {
+        title: "Payment Reports",
+        headers: ["Invoice Number", "Patient Name", "Service", "Doctor", `Total Amount (${currencyLabel})`, `Paid Amount (${currencyLabel})`, "Payment Method", "Payment Date"],
+        data: payments.map(p => ({
+          "Invoice Number": p.invoiceNumber || "-",
+          "Patient Name": p.patientName || "Unknown",
+          "Service": p.service || "Unknown",
+          "Doctor": p.doctorName || "—",
+          [`Total Amount (${currencyLabel})`]: Math.round(p.amount || 0),
+          [`Paid Amount (${currencyLabel})`]: Math.round(p.paidAmount || 0),
+          "Payment Method": p.paymentMethod || "-",
+          "Payment Date": p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-",
+        })),
+      },
+    ]
+  }, [totalRevenue, treatmentRevenue, packageRevenue, advanceRevenue, pendingCleared, revenueByDoctor, revenueByService, revenueByPackage, revenueByDepartment, revenueByPaymentMethod, topPendingPatients, topAdvancePatients, pendingPayments, payments, currency]);
 
   return (
     <div className="space-y-8">
@@ -413,7 +414,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             <div className="text-sm text-gray-500">Package Billing</div>
             <div className="text-2xl font-bold text-purple-600">{fmtCurrency(packageRevenue)}</div>
           </div>
-         
+
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Pending Cleared</div>
             <div className="text-2xl font-bold text-amber-600">{fmtCurrency(pendingCleared)}</div>
@@ -459,21 +460,21 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Doctor</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {revenueByDoctor.map((r) => (
                 <tr key={r.doctorId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedDoctor(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -484,7 +485,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByDoctor.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -521,21 +522,21 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Staff (Direct Billings)</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Staff/Agent</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Staff/Agent</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {revenueByStaff.map((r) => (
                 <tr key={r.staffId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedStaff(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -546,7 +547,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByStaff.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -555,21 +556,21 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Service</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Service</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {revenueByService.map((r) => (
                 <tr key={r.serviceId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedService(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -580,7 +581,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByService.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -589,21 +590,21 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Package</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Package</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Package</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {revenueByPackage.map((r) => (
                 <tr key={r.packageName}>
-                  <td className="px-4 py-2 text-sm">{r.packageName}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.packageName}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedPackage(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -614,7 +615,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByPackage.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -623,21 +624,21 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Department</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Department</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Department</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {revenueByDepartment.map((r) => (
                 <tr key={r.departmentId}>
-                  <td className="px-4 py-2 text-sm">{r.name}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.name}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedDepartment(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -648,7 +649,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByDepartment.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -657,21 +658,21 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Revenue by Payment Method</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Method</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Method</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Revenue</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {revenueByPaymentMethod.map((r) => (
                 <tr key={r.method}>
-                  <td className="px-4 py-2 text-sm">{r.method}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(r.amount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.method}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(r.amount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     <button
                       onClick={() => setSelectedPaymentMethod(r)}
                       className="text-blue-600 hover:text-blue-800 font-medium underline"
@@ -682,7 +683,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tr>
               ))}
               {!revenueByPaymentMethod.length && (
-                <tr><td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>No data</td></tr>
+                <tr><td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={3}>No data</td></tr>
               )}
             </tbody>
           </table>
@@ -711,40 +712,40 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice Number</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service/Membership/Package</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Due Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice Number</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Service/Membership/Package</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Due Date</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {pendingPayments.map((pp) => (
                 <tr key={`${pp.invoiceNumber}-${pp.pendingAmount}`}>
-                  <td className="px-4 py-2 text-sm">{pp.patientName || "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm">{pp.invoiceNumber}</td>
-                  <td className="px-4 py-2 text-sm">{pp.serviceName || "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm">{pp.doctorName || "—"}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(pp.totalAmount)}</td>
-                  <td className="px-4 py-2 text-sm">{fmtCurrency(pp.paidAmount)}</td>
-                  <td className="px-4 py-2 text-sm text-red-600 font-semibold">{fmtCurrency(pp.pendingAmount)}</td>
-                  <td className="px-4 py-2 text-sm text-green-700 font-semibold">{fmtCurrency(pp.advanceAmount)}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{pp.patientName || "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{pp.invoiceNumber}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{pp.serviceName || "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{pp.doctorName || "—"}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(pp.totalAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{fmtCurrency(pp.paidAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-red-600 font-semibold text-gray-900 dark:text-gray-900">{fmtCurrency(pp.pendingAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-green-700 font-semibold text-gray-900 dark:text-gray-900">{fmtCurrency(pp.advanceAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     {pp.dueDate ? new Date(pp.dueDate).toLocaleDateString() : "-"}
                   </td>
                 </tr>
               ))}
               {!pendingPayments.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={9}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={9}>
                     No pending payments for selected period
                   </td>
                 </tr>
@@ -756,38 +757,38 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
 
       <div className="bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold text-gray-800 mb-3">Payment Reports</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Invoice Number</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Service</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Paid Amount</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Method</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Payment Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Invoice Number</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Service</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Payment Method</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Payment Date</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {payments.map((p, idx) => (
                 <tr key={`${p.invoiceNumber}-${p.paymentMethod}-${idx}`}>
-                  <td className="px-4 py-2 text-sm">{p.invoiceNumber}</td>
-                  <td className="px-4 py-2 text-sm">{p.patientName || "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm">{p.service || "Unknown"}</td>
-                  <td className="px-4 py-2 text-sm">{p.doctorName || "—"}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(p.amount)}</td>
-                  <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(p.paidAmount)}</td>
-                  <td className="px-4 py-2 text-sm">{p.paymentMethod}</td>
-                  <td className="px-4 py-2 text-sm">
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{p.invoiceNumber}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{p.patientName || "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{p.service || "Unknown"}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{p.doctorName || "—"}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(p.amount)}</td>
+                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(p.paidAmount)}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{p.paymentMethod}</td>
+                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                     {p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : "-"}
                   </td>
                 </tr>
               ))}
               {!payments.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={8}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={8}>
                     No payments found for selected period
                   </td>
                 </tr>
@@ -844,25 +845,25 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Patient Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       EMR No
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Service/Package
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Invoice #
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Total Amount
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Paid
                     </th>
                   </tr>
@@ -871,7 +872,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   {[...selectedDoctor.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     return (
                       <tr key={index}>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           <button
                             onClick={() =>
                               router.push(
@@ -883,10 +884,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                             {detail.patientName?.trim() || "Unknown"}
                           </button>
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.emrNumber || "-"}
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.service === "Package" ? (
                             <div className="flex items-center gap-2">
                               <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
@@ -910,18 +911,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.invoiceNumber || "-"}
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.invoicedDate
                             ? new Date(detail.invoicedDate).toLocaleDateString()
                             : "-"}
                         </td>
-                        <td className="px-4 py-2 text-sm font-medium">
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">
                           {fmtCurrency(detail.amount)}
                         </td>
-                        <td className="px-4 py-2 text-sm font-medium">
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">
                           {fmtCurrency(detail.paid)}
                         </td>
                       </tr>
@@ -930,13 +931,12 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td
-                      className="px-4 py-2 text-sm font-semibold"
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900"
                       colSpan={5}
                     >
                       Total
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(
                         selectedDoctor.details.reduce(
                           (sum, d) => sum + Number(d.amount || 0),
@@ -944,7 +944,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedDoctor.amount)}
                     </td>
                   </tr>
@@ -973,25 +973,25 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Patient Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       EMR No
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Service/Package
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Invoice #
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Total Amount
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Paid
                     </th>
                   </tr>
@@ -1000,7 +1000,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   {[...selectedStaff.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     return (
                       <tr key={index}>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           <button
                             onClick={() =>
                               router.push(
@@ -1012,10 +1012,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                             {detail.patientName?.trim() || "Unknown"}
                           </button>
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.emrNumber || "-"}
                         </td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.service === "Package" ? (
                             <div className="flex flex-col gap-1">
                               {/* Show package portion */}
@@ -1063,27 +1063,26 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                             detail.service || "-"
                           )}
                         </td>
-                        <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                        <td className="px-4 py-2 text-sm">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                           {detail.invoicedDate
                             ? new Date(detail.invoicedDate).toLocaleDateString()
                             : "-"}
                         </td>
-                        <td className="px-4 py-2 text-sm">{fmtCurrency(detail.amount)}</td>
-                        <td className="px-4 py-2 text-sm">{fmtCurrency(detail.paid)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{fmtCurrency(detail.amount)}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{fmtCurrency(detail.paid)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td
-                      className="px-4 py-2 text-sm font-semibold"
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900"
                       colSpan={5}
                     >
                       Total
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(
                         selectedStaff.details.reduce(
                           (sum, d) => sum + Number(d.amount || 0),
@@ -1091,7 +1090,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedStaff.amount)}
                     </td>
                   </tr>
@@ -1120,25 +1119,25 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Patient Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       EMR No
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Service/Package
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Invoice #
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Total Amount
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Revenue
                     </th>
                   </tr>
@@ -1147,60 +1146,60 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   {[...selectedService.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     const revenue = Number(detail.paid || 0) + Number(detail.advanceUsed || 0) + Number(detail.claimAmountUsed || 0) + Number(detail.cashbackWalletUsed || 0);
                     return (
-                    <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
-                        <button
-                          onClick={() =>
-                            router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)
-                          }
-                          className="text-blue-600 hover:text-blue-800 font-medium underline"
-                        >
-                          {detail.patientName?.trim() || "Unknown"}
-                        </button>
-                      </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
-                        {detail.service === "Package" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                              Package
-                            </span>
-                            <span>{detail.packageName || "Package"}</span>
-                          </div>
-                        ) : detail.service === "Treatment" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                              Treatment
-                            </span>
-                            <span>{detail.treatmentName || "Treatment"}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
-                              {detail.service || "Service"}
-                            </span>
-                            <span>{detail.treatmentName || detail.service || "Service"}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
-                        {detail.invoicedDate
-                          ? new Date(detail.invoicedDate).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.amount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">{fmtCurrency(revenue)}</td>
-                    </tr>
-                  );
+                      <tr key={index}>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                          <button
+                            onClick={() =>
+                              router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)
+                            }
+                            className="text-blue-600 hover:text-blue-800 font-medium underline"
+                          >
+                            {detail.patientName?.trim() || "Unknown"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                          {detail.service === "Package" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                Package
+                              </span>
+                              <span>{detail.packageName || "Package"}</span>
+                            </div>
+                          ) : detail.service === "Treatment" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Treatment
+                              </span>
+                              <span>{detail.treatmentName || "Treatment"}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                {detail.service || "Service"}
+                              </span>
+                              <span>{detail.treatmentName || detail.service || "Service"}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                          {detail.invoicedDate
+                            ? new Date(detail.invoicedDate).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(detail.amount)}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5] text-gray-900 dark:text-gray-900">{fmtCurrency(revenue)}</td>
+                      </tr>
+                    );
                   })}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>
                       Total
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(
                         selectedService.details.reduce(
                           (sum, d) => sum + Number(d.amount || 0),
@@ -1208,7 +1207,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedService.amount)}
                     </td>
                   </tr>
@@ -1237,28 +1236,28 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Patient Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       EMR No
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Service/Package
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Invoice #
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Sold By
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Total Amount
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Revenue
                     </th>
                   </tr>
@@ -1267,61 +1266,61 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   {[...selectedPackage.details].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
                     const revenue = Number(detail.paid || 0) + Number(detail.advanceUsed || 0) + Number(detail.claimAmountUsed || 0) + Number(detail.cashbackWalletUsed || 0);
                     return (
-                    <tr key={index}>
-                      <td className="px-4 py-2 text-sm">
-                        <button
-                          onClick={() =>
-                            router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)
-                          }
-                          className="text-blue-600 hover:text-blue-800 font-medium underline"
-                        >
-                          {detail.patientName?.trim() || "Unknown"}
-                        </button>
-                      </td>
-                      <td className="px-4 py-2 text-sm">{detail.emrNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
-                        {detail.service === "Package" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                              Package
-                            </span>
-                            <span>{detail.packageName || "Package"}</span>
-                          </div>
-                        ) : detail.service === "Treatment" ? (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                              Treatment
-                            </span>
-                            <span>{detail.treatmentName || "Treatment"}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
-                              {detail.service || "Service"}
-                            </span>
-                            <span>{detail.treatmentName || detail.service || "Service"}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-sm">{detail.invoiceNumber || "-"}</td>
-                      <td className="px-4 py-2 text-sm">
-                        {detail.invoicedDate
-                          ? new Date(detail.invoicedDate).toLocaleDateString()
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-2 text-sm">{detail.packageSoldBy || "-"}</td>
-                      <td className="px-4 py-2 text-sm font-medium">{fmtCurrency(detail.amount)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">{fmtCurrency(revenue)}</td>
-                    </tr>
-                  );
+                      <tr key={index}>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                          <button
+                            onClick={() =>
+                              router.push(`/clinic/patient-profile-view?id=${detail.patientId}`)
+                            }
+                            className="text-blue-600 hover:text-blue-800 font-medium underline"
+                          >
+                            {detail.patientName?.trim() || "Unknown"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.emrNumber || "-"}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                          {detail.service === "Package" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                Package
+                              </span>
+                              <span>{detail.packageName || "Package"}</span>
+                            </div>
+                          ) : detail.service === "Treatment" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Treatment
+                              </span>
+                              <span>{detail.treatmentName || "Treatment"}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                {detail.service || "Service"}
+                              </span>
+                              <span>{detail.treatmentName || detail.service || "Service"}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.invoiceNumber || "-"}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
+                          {detail.invoicedDate
+                            ? new Date(detail.invoicedDate).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{detail.packageSoldBy || "-"}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{fmtCurrency(detail.amount)}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5] text-gray-900 dark:text-gray-900">{fmtCurrency(revenue)}</td>
+                      </tr>
+                    );
                   })}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>
                       Total
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(
                         selectedPackage.details.reduce(
                           (sum, d) => sum + Number(d.amount || 0),
@@ -1329,7 +1328,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedPackage.amount)}
                     </td>
                   </tr>
@@ -1358,25 +1357,25 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Patient Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       EMR No
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Service/Package
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Invoice #
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Total Amount
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Revenue
                     </th>
                   </tr>
@@ -1391,7 +1390,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                     .map((detail, index) => {
                       return (
                         <tr key={index}>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             <button
                               onClick={() =>
                                 router.push(
@@ -1403,10 +1402,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                               {detail.patientName?.trim() || "Unknown"}
                             </button>
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.emrNumber || "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.service === "Package" ? (
                               <div className="flex items-center gap-2">
                                 <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
@@ -1432,18 +1431,18 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.invoiceNumber || "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.invoicedDate
                               ? new Date(detail.invoicedDate).toLocaleDateString()
                               : "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm font-medium">
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">
                             {fmtCurrency(detail.totalAmount)}
                           </td>
-                          <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">
+                          <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                             {fmtCurrency(detail.revenue)}
                           </td>
                         </tr>
@@ -1452,10 +1451,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>
                       Total
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(
                         selectedDepartment.details.reduce(
                           (sum, d) => sum + Number(d.totalAmount || 0),
@@ -1463,7 +1462,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedDepartment.amount)}
                     </td>
                   </tr>
@@ -1492,25 +1491,25 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Patient Name
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       EMR No
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Service/Package
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Invoice #
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Date
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Total Amount
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Revenue
                     </th>
                   </tr>
@@ -1527,7 +1526,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                       const serviceName = detail.package || detail.treatment || detail.service || "Service";
                       return (
                         <tr key={index}>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             <button
                               onClick={() =>
                                 router.push(
@@ -1539,33 +1538,32 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                               {detail.patientName?.trim() || "Unknown"}
                             </button>
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.emrNumber || "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             <div className="flex items-center gap-2">
-                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                serviceLabel === "Package" ? "bg-blue-100 text-blue-800" :
-                                serviceLabel === "Treatment" ? "bg-green-100 text-green-800" :
-                                "bg-purple-100 text-purple-800"
-                              }`}>
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${serviceLabel === "Package" ? "bg-blue-100 text-blue-800" :
+                                  serviceLabel === "Treatment" ? "bg-green-100 text-green-800" :
+                                    "bg-purple-100 text-purple-800"
+                                }`}>
                                 {serviceLabel}
                               </span>
                               <span>{serviceName}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.invoiceNumber || "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm">
+                          <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                             {detail.invoicedDate
                               ? new Date(detail.invoicedDate).toLocaleDateString()
                               : "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm font-medium">
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">
                             {fmtCurrency(detail.totalAmount)}
                           </td>
-                          <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5]">
+                          <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                             {fmtCurrency(detail.revenue)}
                           </td>
                         </tr>
@@ -1574,10 +1572,10 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold" colSpan={5}>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>
                       Total
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold">
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
                       {fmtCurrency(
                         selectedPaymentMethod.details.reduce(
                           (sum, d) => sum + Number(d.totalAmount || 0),
@@ -1585,7 +1583,7 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                         )
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
+                    <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedPaymentMethod.amount)}
                     </td>
                   </tr>

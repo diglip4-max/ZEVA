@@ -323,7 +323,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             <div className="flex-1">
                               <div className="font-medium text-xs text-slate-800 dark:text-slate-200">{item.label}</div>
                               {item.description && (
-                                <div className="text-[10px] text-slate-550 dark:text-slate-400">{item.description}</div>
+                                <div className="text-[10px] text-slate-600 dark:text-slate-300">{item.description}</div>
                               )}
                             </div>
                             <svg
@@ -366,7 +366,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                           "text-sm p-1.5 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                           {
                                             "bg-white/20 text-white": childActive,
-                                            "text-slate-550 dark:text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 group-hover:bg-sky-50 dark:group-hover:bg-zinc-700": !childActive,
+                                            "text-slate-600 dark:text-slate-300 group-hover:text-sky-700 dark:group-hover:text-sky-400 group-hover:bg-sky-50 dark:group-hover:bg-zinc-700": !childActive,
                                           }
                                         )}
                                       >
@@ -390,7 +390,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                               "text-[10px] mt-0.5 transition-all duration-200",
                                               {
                                                 "text-white/80": childActive,
-                                                "text-slate-550 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300": !childActive,
+                                                "text-slate-600 dark:text-slate-300 group-hover:text-slate-700 dark:group-hover:text-slate-200": !childActive,
                                               }
                                             )}
                                           >
@@ -436,7 +436,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 "text-base p-1.5 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                 {
                                   "bg-white/20 text-white": isActive,
-                                  "text-slate-550 dark:text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 group-hover:bg-sky-50 dark:group-hover:bg-zinc-700": !isActive,
+                                  "text-slate-600 dark:text-slate-300 group-hover:text-sky-700 dark:group-hover:text-sky-400 group-hover:bg-sky-50 dark:group-hover:bg-zinc-700": !isActive,
                                 }
                               )}
                             >
@@ -455,7 +455,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 <div
                                   className={clsx("text-[10px] mt-0.5 transition-colors duration-200", {
                                     "text-white/80": isActive,
-                                    "text-slate-550 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-350": !isActive,
+                                    "text-slate-600 dark:text-slate-300 group-hover:text-slate-700 dark:group-hover:text-slate-200": !isActive,
                                   })}
                                 >
                                   {item.description}
@@ -736,7 +736,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       "text-xs mt-0.5 transition-all duration-200",
                                       {
                                         "text-white/80": isActive,
-                                        "text-slate-550 dark:text-slate-400": !isActive,
+                                        "text-slate-600 dark:text-slate-300": !isActive,
                                       }
                                     )}
                                   >

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { PurchaseRecord } from "@/types/stocks";
 import {
   FileText,
@@ -143,7 +143,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Basic Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <FileText className="w-4 h-4 text-blue-600" />
@@ -268,7 +268,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
 
             {/* Notes Section */}
             {purchaseOrder.notes && (
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-amber-100 rounded-lg">
                     <FileText className="w-4 h-4 text-amber-600" />
@@ -286,7 +286,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
             {/* Contact Information Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Ship To */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-orange-100 rounded-lg">
                     <Truck className="w-4 h-4 text-orange-600" />
@@ -340,7 +340,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
               </div>
 
               {/* Bill To */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-green-100 rounded-lg">
                     <CreditCard className="w-4 h-4 text-green-600" />
@@ -394,7 +394,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
               </div>
 
               {/* Contact Info of Buyer */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-purple-100 rounded-lg">
                     <User className="w-4 h-4 text-purple-600" />
@@ -449,7 +449,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
             </div>
 
             {/* Items Section - Enhanced with all item information */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-indigo-100 rounded-lg">
@@ -468,8 +468,8 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
               </div>
 
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-border-default">
+                  <thead className="bg-bg-surface dark:bg-opacity-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
@@ -551,7 +551,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-border-default">
                     {purchaseOrder.items.map((item, index) => (
                       <tr
                         key={index}
@@ -661,7 +661,7 @@ const PurchaseOrderDetailModal: React.FC<PurchaseOrderDetailModalProps> = ({
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-gray-50">
+                  <tfoot className="bg-bg-surface dark:bg-opacity-50">
                     <tr>
                       <td
                         colSpan={5}

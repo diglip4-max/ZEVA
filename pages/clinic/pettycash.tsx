@@ -776,7 +776,7 @@ function PettyCashPage() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">Patient Cash</p>
-                    <p className="text-lg font-bold text-blue-700">{fmt(summary.totalCashIn)}</p>
+                    <p className="text-lg font-bold text-blue-700 dark:text-white">{fmt(summary.totalCashIn)}</p>
                     <p className="text-[10px] text-gray-400">{summary.totalRecords} records</p>
                   </div>
                 </div>
@@ -1119,11 +1119,11 @@ function PettyCashPage() {
                   {/* Total */}
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-blue-600 font-medium">Total Patient Cash</p>
-                      <p className="text-2xl font-bold text-blue-700">{fmt(summary.totalCashIn)}</p>
+                      <p className="text-xs text-blue-600 dark:text-white font-medium">Total Patient Cash</p>
+                      <p className="text-2xl font-bold text-blue-700 dark:text-white">{fmt(summary.totalCashIn)}</p>
                     </div>
-                    <div className="p-3 bg-blue-100 rounded-xl">
-                      <Receipt className="text-blue-700" size={22} />
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-xl">
+                      <Receipt className="text-blue-700 dark:text-blue-300" size={22} />
                     </div>
                   </div>
 
@@ -1166,7 +1166,7 @@ function PettyCashPage() {
                             ) : record.service === "Package" ? (
                               <div>
                                 <div className="flex items-center gap-1.5 mb-1">
-                                  <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 font-medium">Package</span>
+                                  <span className="text-[10px] bg-blue-50 text-blue-700 dark:text border border-blue-200 rounded px-1.5 py-0.5 font-medium">Package</span>
                                   <span className="text-xs text-gray-700 font-semibold">{record.package}</span>
                                 </div>
                                 {record.selectedPackageTreatments?.length > 0 && (
@@ -1301,7 +1301,7 @@ function PettyCashPage() {
                       </label>
                       <button
                         onClick={() => setIsAddSupplierOpen(true)}
-                        className="text-xs text-blue-600 hover:underline font-medium"
+                        className="text-xs text-blue-600 dark:text-blue-300 hover:underline font-medium"
                       >
                         + Add New Vendor
                       </button>
@@ -1353,7 +1353,7 @@ function PettyCashPage() {
                     ))}
                     <button
                       onClick={addExpenseItem}
-                      className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1 mt-1"
+                      className="text-xs text-blue-600 dark:text-blue-300 hover:underline font-medium flex items-center gap-1 mt-1"
                     >
                       <Plus size={12} /> Add more items
                     </button>
@@ -1398,8 +1398,8 @@ function PettyCashPage() {
 
                   {/* Total Preview */}
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 flex justify-between items-center">
-                    <span className="text-sm font-medium text-blue-700">Total Expense:</span>
-                    <span className="text-lg font-bold text-blue-700">{fmt(totalExpenseAmount)}</span>
+                    <span className="text-sm font-medium text-blue-700 dark:text-white">Total Expense:</span>
+                    <span className="text-lg font-bold text-blue-700 dark:text-white">{fmt(totalExpenseAmount)}</span>
                   </div>
 
                   <button

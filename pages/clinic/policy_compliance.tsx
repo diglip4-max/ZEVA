@@ -110,22 +110,22 @@ type TabKey = "sops" | "policies" | "playbooks" | "ack";
 
 const THEMES = {
   purple: {
-    card: "bg-purple-50 border-purple-200",
-    title: "text-purple-700",
-    value: "text-purple-900",
-    subtitle: "text-purple-600",
+    card: "bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800",
+    title: "text-purple-700 dark:text-teal-100",
+    value: "text-purple-900 dark:text-teal-100",
+    subtitle: "text-purple-600 dark:text-teal-100",
   },
   red: {
-    card: "bg-red-50 border-red-200",
-    title: "text-red-700",
-    value: "text-red-900",
-    subtitle: "text-red-600",
+    card: "bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-800",
+    title: "text-red-700 dark:text-teal-100",
+    value: "text-red-900 dark:text-teal-100",
+    subtitle: "text-red-600 dark:text-teal-100",
   },
   green: {
-    card: "bg-green-50 border-green-200",
-    title: "text-green-700",
-    value: "text-green-900",
-    subtitle: "text-green-600",
+    card: "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800",
+    title: "text-green-700 dark:text-teal-100",
+    value: "text-green-900 dark:text-teal-100",
+    subtitle: "text-green-600 dark:text-teal-100",
   }
 };
 
@@ -133,19 +133,19 @@ function StatCard({ title, value, subtitle, icon, theme }: { title: string; valu
   const t = THEMES[theme];
 
   return (
-    <div className={`flex items-center justify-between rounded-2xl border px-4 py-4 ${t.card}`}>
+    <div className={`flex items-center justify-between rounded-2xl border px-4 py-4 ${t.card} dark:bg-slate-800/50 dark:border-slate-700`}>
       <div>
-        <div className={`text-xs font-medium ${t.title}`}>
+        <div className={`text-xs font-medium ${t.title} dark:text-teal-100`}>
           {title}
         </div>
-        <div className={`mt-1 text-xl font-bold ${t.value}`}>
+        <div className={`mt-1 text-xl font-bold ${t.value} dark:text-teal-100`}>
           {value}
         </div>
-        <div className={`mt-1 text-[11px] ${t.subtitle}`}>
+        <div className={`mt-1 text-[11px] ${t.subtitle} dark:text-teal-100/70`}>
           {subtitle}
         </div>
       </div>
-      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/60">
+      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/60 dark:bg-white/10">
         {icon}
       </div>
     </div>
@@ -2510,21 +2510,21 @@ function PolicyCompliance() {
                   title="Total Playbooks"
                   value={typeof window !== "undefined" && window.location.pathname.startsWith("/staff") ? playbooks.length : (overview?.playbookCount || 0)}
                   subtitle="Active scenarios"
-                  icon={<BookOpenCheck className="h-5 w-5 text-purple-500" />}
+                  icon={<BookOpenCheck className="h-5 w-5 text-purple-500 dark:text-teal-100" />}
                   theme="purple"
                 />
                 <StatCard
                   title="Critical Risk"
                   value={playbooks.filter(p => p.riskLevel === "Critical").length}
                   subtitle="High priority playbooks"
-                  icon={<AlertTriangle className="h-5 w-5 text-red-500" />}
+                  icon={<AlertTriangle className="h-5 w-5 text-red-500 dark:text-teal-100" />}
                   theme="red"
                 />
                 <StatCard
                   title="Avg Resolution"
                   value={`${avgResolution} min`}
                   subtitle="Average handling time"
-                  icon={<TrendingUp className="h-5 w-5 text-green-500" />}
+                  icon={<TrendingUp className="h-5 w-5 text-green-500 dark:text-teal-100" />}
                   theme="green"
                 />
               </div>
@@ -2534,35 +2534,35 @@ function PolicyCompliance() {
               <div className="mt-6 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-xl border bg-blue-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-blue-900">Pending</div>
-                    <ClipboardList className="h-4 w-4 text-blue-400" />
+                    <div className="text-xs font-semibold text-blue-900 dark:text-teal-100">Pending</div>
+                    <ClipboardList className="h-4 w-4 text-blue-400 dark:text-teal-100" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-blue-900">{ackPending}</div>
-                  <div className="text-[11px] text-blue-700">Awaiting acknowledgment</div>
+                  <div className="mt-2 text-xl font-bold text-blue-900 dark:text-teal-100">{ackPending}</div>
+                  <div className="text-[11px] text-blue-700 dark:text-teal-100">Awaiting acknowledgment</div>
                 </div>
                 <div className="rounded-xl border bg-green-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-green-900">Completed</div>
-                    <ShieldCheck className="h-4 w-4 text-green-400" />
+                    <div className="text-xs font-semibold text-green-900 dark:text-teal-100">Completed</div>
+                    <ShieldCheck className="h-4 w-4 text-green-400 dark:text-teal-100" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-green-900">{ackCompleted}</div>
-                  <div className="text-[11px] text-green-700">Successfully acknowledged</div>
+                  <div className="mt-2 text-xl font-bold text-green-900 dark:text-teal-100">{ackCompleted}</div>
+                  <div className="text-[11px] text-green-700 dark:text-teal-100">Successfully acknowledged</div>
                 </div>
                 <div className="rounded-xl border bg-red-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-red-900">Overdue</div>
-                    <ShieldCheck className="h-4 w-4 text-red-400" />
+                    <div className="text-xs font-semibold text-red-900 dark:text-teal-100">Overdue</div>
+                    <ShieldCheck className="h-4 w-4 text-red-400 dark:text-teal-100" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-red-900">{ackOverdue}</div>
-                  <div className="text-[11px] text-red-700">Past due date</div>
+                  <div className="mt-2 text-xl font-bold text-red-900 dark:text-teal-100">{ackOverdue}</div>
+                  <div className="text-[11px] text-red-700 dark:text-teal-100">Past due date</div>
                 </div>
                 <div className="rounded-xl border bg-purple-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-semibold text-purple-900">Compliance Rate</div>
-                    <FileText className="h-4 w-4 text-purple-400" />
+                    <div className="text-xs font-semibold text-purple-900 dark:text-teal-100">Compliance Rate</div>
+                    <FileText className="h-4 w-4 text-purple-400 dark:text-teal-100" />
                   </div>
-                  <div className="mt-2 text-xl font-bold text-purple-900">{ackComplianceRate}%</div>
-                  <div className="text-[11px] text-purple-700">Overall completion</div>
+                  <div className="mt-2 text-xl font-bold text-purple-900 dark:text-teal-100">{ackComplianceRate}%</div>
+                  <div className="text-[11px] text-purple-700 dark:text-teal-100">Overall completion</div>
                 </div>
               </div>
             )}
@@ -2712,18 +2712,22 @@ function PolicyCompliance() {
                           <div className="flex flex-wrap gap-1">
                             {(i.applicableRoles || []).map((r, idx) => {
                               const ab = r.slice(0, 2).toUpperCase();
-                              return <span key={`${r}-${idx}`} className="inline-flex items-center justify-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-700">{ab}</span>;
+                              return <span key={`${r}-${idx}`} className="inline-flex items-center justify-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-800 dark:text-orange-900">{ab}</span>;
                             })}
                           </div>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.category}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className="rounded-md bg-yellow-100 px-2 py-1 text-xs">{i.riskLevel}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-800 dark:text-red-900" :
+                            i.riskLevel === "High" ? "bg-orange-100 text-orange-800 dark:text-orange-900" :
+                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-800 dark:text-yellow-900" :
+                                "bg-green-100 text-green-800 dark:text-green-900"
+                            }`}>{i.riskLevel}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{new Date(i.lastUpdated).toLocaleDateString('en-GB')}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" : i.status === "Under Review" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
@@ -2789,18 +2793,18 @@ function PolicyCompliance() {
                           </div>
                         </td>
                         <td className="px-2 py-2 hidden sm:table-cell">
-                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{i.policyType}</span>
+                          <span className="rounded-md bg-gray-100 text-gray-800 dark:text-gray-900 px-2 py-1 text-xs">{i.policyType}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.appliesTo}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.approvalRequired ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-700"}`}>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.approvalRequired ? "bg-orange-100 text-orange-800 dark:text-orange-900" : "bg-gray-100 text-gray-800 dark:text-gray-900"}`}>
                             {i.approvalRequired ? "Required" : "Not Required"}
                           </span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{new Date(i.effectiveDate).toLocaleDateString()}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" : i.status === "Under Review" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
@@ -2868,10 +2872,10 @@ function PolicyCompliance() {
                         </td>
                         <td className="px-2 py-2 text-gray-700">{i.department}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-700" :
-                            i.riskLevel === "High" ? "bg-orange-100 text-orange-700" :
-                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700" :
-                                "bg-green-100 text-green-700"
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-800 dark:text-red-900" :
+                            i.riskLevel === "High" ? "bg-orange-100 text-orange-800 dark:text-orange-900" :
+                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-800 dark:text-yellow-900" :
+                                "bg-green-100 text-green-800 dark:text-green-900"
                             }`}>{i.riskLevel}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">
@@ -2884,10 +2888,10 @@ function PolicyCompliance() {
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.resolutionTimeMinutes ? `${i.resolutionTimeMinutes} mins` : "-"}</td>
                         <td className="px-2 py-2 hidden lg:table-cell">
-                          <span className="rounded-md bg-purple-100 px-2 py-1 text-xs text-purple-700">{i.escalationLevel || "-"}</span>
+                          <span className="rounded-md bg-purple-100 text-purple-800 dark:text-purple-900 px-2 py-1 text-xs">{i.escalationLevel || "-"}</span>
                         </td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300" : i.status === "Under Review" ? "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
@@ -2947,18 +2951,18 @@ function PolicyCompliance() {
                         <td className="px-2 py-2 text-gray-700">{i.role}</td>
                         <td className="px-2 py-2 text-gray-700">{i.documentName}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{(i as any).documentType || i.type}</span>
+                          <span className="rounded-md bg-gray-100 text-gray-800 dark:text-gray-900 px-2 py-1 text-xs">{(i as any).documentType || i.type}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2">
                           <span
                             className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${i.status === "Acknowledged"
-                              ? "bg-green-100 text-green-700"
+                              ? "bg-green-100 text-green-800 dark:text-green-900"
                               : i.status === "Pending"
-                                ? "bg-blue-100 text-blue-700"
+                                ? "bg-blue-100 text-blue-800 dark:text-blue-900"
                                 : i.status === "Viewed"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-red-100 text-red-700"
+                                  ? "bg-yellow-100 text-yellow-800 dark:text-yellow-900"
+                                  : "bg-red-100 text-red-800 dark:text-red-900"
                               }`}
                           >
                             {i.status === "Acknowledged" && (

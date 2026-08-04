@@ -2218,7 +2218,7 @@ function ClinicManagementDashboard(): ReactElement {
 
         {/* Tabs - Positioned below header */}
         <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 max-w-7xl">
-          <div className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-1.5 sm:px-2 overflow-x-auto whitespace-nowrap scrollbar-thin">
+          <div className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 rounded-full bg-white bg-opacity-80 border border-gray-200 shadow-sm px-1.5 sm:px-2 overflow-x-auto whitespace-nowrap scrollbar-thin">
             {(() => {
               // Determine which tabs to show based on permissions
               const allTabs = [

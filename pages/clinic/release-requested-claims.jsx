@@ -634,9 +634,8 @@ function ReleaseRequestedClaimsPage() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab ? "border-teal-600 text-teal-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    }`}
+                    className={`px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab ? "border-teal-600 text-teal-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      }`}
                   >
                     {tab}
                     <span className="ml-1.5 px-1.5 py-0.5 text-[10px] sm:text-xs rounded-full bg-gray-100">{tabCounts[tab]}</span>
@@ -709,22 +708,22 @@ function ReleaseRequestedClaimsPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-blue-50/50 rounded-lg p-2 border border-blue-100/50">
+                          <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
                             <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Provider</p>
                             <p className="text-xs font-semibold text-gray-900 truncate">{claim.insuranceProvider}</p>
                           </div>
-                          <div className="bg-blue-50/50 rounded-lg p-2 border border-blue-100/50">
+                          <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
                             <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Policy #</p>
                             <p className="text-xs font-semibold text-gray-900 truncate">{claim.policyNumber}</p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
+                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
                             <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Amount</p>
                             <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                           </div>
-                          <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
+                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
                             <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Department</p>
                             <p className="text-xs font-semibold text-gray-900 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
@@ -756,9 +755,9 @@ function ReleaseRequestedClaimsPage() {
 
                     {/* Card Footer */}
                     <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50/80 rounded-b-xl flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">#{claim._id?.slice(-6)}</span>
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-white uppercase tracking-widest">#{claim._id?.slice(-6)}</span>
                       <div className="flex items-center gap-1.5">
-                        <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
+                        <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
                           <Eye className="w-4 h-4" />
                         </button>
                         {claim.status === "Completed" && (
@@ -802,7 +801,7 @@ function ReleaseRequestedClaimsPage() {
       {rejectModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-3 sm:p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-red-100 bg-red-50/50 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-red-100 bg-red-50 flex items-center justify-between">
               <h2 className="text-base sm:text-lg font-bold text-red-900 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" /> Reject Claim
               </h2>
@@ -990,7 +989,7 @@ function ReleaseRequestedClaimsPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto border border-gray-200">
             <div className={`px-4 sm:px-6 py-3 sm:py-4 border-b sticky top-0 bg-white z-10 flex items-center justify-between ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
               <div className="flex items-center gap-2 sm:gap-3">
-                <h2 className="text-base sm:text-lg font-bold">
+                <h2 className="text-base sm:text-lg font-bold text-black">
                   {viewModal.status === "Completed" ? "Completed Claim" : viewModal.status === "Released" ? "Released Claim" : "Rejected Claim"}
                 </h2>
                 <button
@@ -1080,7 +1079,7 @@ function ReleaseRequestedClaimsPage() {
                                     </div>
                                   </div>
                                   {step.reason && (
-                                    <div className="mt-4 p-3 bg-red-50/50 border border-red-100 rounded-lg">
+                                    <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
                                       <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Reason</p>
                                       <p className="text-xs text-red-800 leading-relaxed italic">"{step.reason}"</p>
                                     </div>
@@ -1114,8 +1113,8 @@ function ReleaseRequestedClaimsPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Mobile:</span>
                           <span className="font-medium text-gray-900">
-                            {userRole === "doctorStaff" 
-                              ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-") 
+                            {userRole === "doctorStaff"
+                              ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-")
                               : (viewModal.patientMobileNumber || "-")}
                           </span>
                         </div>

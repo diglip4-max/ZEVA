@@ -1171,7 +1171,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       {embedded ? (
-        <div className="relative w-full max-w-6xl h-[80vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-teal-100">
+        <div className="relative w-full max-w-6xl h-[80vh] bg-white dark:bg-[var(--bg-surface)] rounded-2xl shadow-2xl flex flex-col border border-teal-100 dark:border-slate-700">
           <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-blue-600 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <Edit className="w-5 h-5 text-white flex-shrink-0" />
@@ -1194,8 +1194,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 <button
                   onClick={() => setActiveTab("update")}
                   className={`px-4 py-2 text-[11px] font-semibold transition-all duration-300 flex items-center gap-1 ${activeTab === "update"
-                      ? "text-indigo-700 border-b-2 border-indigo-500 bg-indigo-50 rounded-t-lg"
-                      : "text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-t-lg"
+                    ? "text-indigo-700 border-b-2 border-indigo-500 bg-indigo-50 rounded-t-lg"
+                    : "text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-t-lg"
                     }`}
                 >
                   <Edit className="w-3 h-3" />
@@ -1208,7 +1208,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 <>
                   {/* Invoice Information Section - REMOVED - Users cannot edit invoice details */}
                   {/* 
-                <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md`}>
+                <div className={`bg-transparent dark:bg-slate-800/30 rounded-xl p-4 border border-indigo-200 dark:border-slate-700 shadow-md`}>
                   <h2 className={`text-[14px] font-bold text-indigo-700 mb-2 flex items-center gap-1`}>
                     <Calendar className={`w-4 h-4 text-indigo-600 flex-shrink-0`} />
                     Invoice Information
@@ -1240,7 +1240,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 </div>
                 */}
 
-                  <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md`}>
+                  <div className={`bg-transparent dark:bg-slate-800/30 rounded-xl p-4 border border-indigo-200 dark:border-slate-700 shadow-md`}>
                     <h2 className={`text-[14px] font-bold text-blue-700 mb-2 flex items-center gap-1`}>
                       <User className={`w-4 h-4 text-blue-600`} />
                       Patient Information
@@ -1314,7 +1314,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       />
                     </div>
                   </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200 shadow-md">
+                  <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-4 border border-purple-200 dark:border-slate-700 shadow-md">
                     <div className="flex flex-col gap-4">
                       {/* Row 1: Referred By */}
                       <div className="w-full">
@@ -1342,7 +1342,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       {/* Membership and Package Section - Side by Side */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Membership Card */}
-                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm max-h-[400px] overflow-y-auto">
+                        <div className="bg-transparent dark:bg-slate-800/50 rounded-lg p-3 border border-gray-200 dark:border-slate-700 shadow-sm max-h-[400px] overflow-y-auto">
                           <h3 className="text-[14px] font-bold text-indigo-700 mb-2 flex items-center gap-1">
                             <User className="w-4 h-4 text-indigo-600" />
                             Membership
@@ -1573,7 +1573,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         </div>
 
                         {/* Package Card */}
-                        <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm max-h-[400px] overflow-y-auto">
+                        <div className="bg-transparent dark:bg-slate-800/50 rounded-lg p-3 border border-gray-200 dark:border-slate-700 shadow-sm max-h-[400px] overflow-y-auto">
                           <h3 className="text-[14px] font-bold text-purple-700 mb-2 flex items-center gap-1">
                             <FileText className="w-4 h-4 text-purple-600" />
                             Package
@@ -1722,7 +1722,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                     </div>
                   </div>
 
-                  <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-indigo-200 shadow-md`}>
+                  <div className={`bg-transparent dark:bg-slate-800/30 rounded-xl p-4 border border-indigo-200 dark:border-slate-700 shadow-md`}>
                     <h2 className={`text-[14px] font-bold text-purple-700 mb-2`}>Insurance Details</h2>
                     <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3`}>
                       <EditableField

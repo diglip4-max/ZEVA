@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
@@ -168,7 +168,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
           ) : (
             <div className="space-y-6">
               {/* Basic Info Card */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <FileText className="w-4 h-4 text-blue-600" />
@@ -273,7 +273,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
 
               {/* Notes Section */}
               {data.notes && (
-                <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+                <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="p-2 bg-amber-100 rounded-lg">
                       <FileText className="w-4 h-4 text-amber-600" />
@@ -289,7 +289,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
               )}
 
               {/* Items Section */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <div className="p-2 bg-indigo-100 rounded-lg">
@@ -308,8 +308,8 @@ const AdjustmentDetailModal: React.FC<Props> = ({
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-border-default">
+                    <thead className="bg-bg-surface dark:bg-opacity-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                           SI No
@@ -337,7 +337,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-border-default">
                       {data.items?.length === 0 ? (
                         <tr>
                           <td
@@ -414,7 +414,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
                       )}
                     </tbody>
                     {data.items?.length > 0 && (
-                      <tfoot className="bg-gray-50">
+                      <tfoot className="bg-bg-surface dark:bg-opacity-50">
                         <tr>
                           <td
                             colSpan={6}
@@ -437,7 +437,7 @@ const AdjustmentDetailModal: React.FC<Props> = ({
               </div>
 
               {/* System Information */}
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-gray-100 rounded-lg">
                     <FileText className="w-4 h-4 text-gray-600" />
