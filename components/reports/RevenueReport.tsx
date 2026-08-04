@@ -1331,7 +1331,17 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                       )}
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5]">
-                      {fmtCurrency(selectedPackage.amount)}
+                      {fmtCurrency(
+                        selectedPackage.details.reduce(
+                          (sum, d) =>
+                            sum +
+                            Number(d.paid || 0) +
+                            Number(d.advanceUsed || 0) +
+                            Number(d.claimAmountUsed || 0) +
+                            Number(d.cashbackWalletUsed || 0),
+                          0
+                        )
+                      )}
                     </td>
                   </tr>
                 </tfoot>
