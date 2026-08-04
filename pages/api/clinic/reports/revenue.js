@@ -125,13 +125,15 @@ export default async function handler(req, res) {
           // No breakdown at all (null / missing / empty array / not an array)
           {
             $lte: [
-              { $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }},
+              {
+                $size: {
+                  $cond: [
+                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                    []
+                  ]
+                }
+              },
               0,
             ],
           },
@@ -188,13 +190,17 @@ export default async function handler(req, res) {
         $match: {
           $expr: {
             $or: [
-              { $lte: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+              {
+                $lte: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
               { $ne: ["Package", { $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }] },
             ]
@@ -219,13 +225,17 @@ export default async function handler(req, res) {
                       $cond: [
                         {
                           $and: [
-                            { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                            {
+                              $gt: [{
+                                $size: {
+                                  $cond: [
+                                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                                    []
+                                  ]
+                                }
+                              }, 0]
+                            },
                             { $eq: [{ $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }, "Treatment"] },
                           ],
                         },
@@ -241,13 +251,17 @@ export default async function handler(req, res) {
                     {
                       $and: [
                         { $eq: ["$service", "Package"] },
-                        { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                        {
+                          $gt: [{
+                            $size: {
+                              $cond: [
+                                { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                { $ifNull: ["$selectedTreatments", []] },
+                                []
+                              ]
+                            }
+                          }, 0]
+                        },
                       ],
                     },
                     {
@@ -278,7 +292,7 @@ export default async function handler(req, res) {
     // revenue component: advance-only payments
     const advanceRevenueAgg = await Billing.aggregate([
       { $match: { ...clinicMatch, ...dateMatch, isAdvanceOnly: true } },
-      { $group: { _id: null, total: { $sum: { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] } ] } } } },
+      { $group: { _id: null, total: { $sum: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] }] } } } },
     ]);
     const advanceRevenue = Math.round(Number(advanceRevenueAgg[0]?.total || 0));
 
@@ -291,13 +305,17 @@ export default async function handler(req, res) {
         $match: {
           $expr: {
             $or: [
-              { $lte: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+              {
+                $lte: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
             ]
           }
@@ -485,12 +503,14 @@ export default async function handler(req, res) {
         ...basePipeline,
         { $match: { invoiceNumber: "INV-20260728-984415" } },
         { $addFields: { selectedTreatmentsSize: { $size: { $ifNull: ["$selectedTreatments", []] } } } },
-        { $addFields: {
+        {
+          $addFields: {
             matchesCondition1: { $lte: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
             matchesCondition2: { $eq: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
             matchesCondition3: { $and: [{ $eq: ["$service", "Treatment"] }, { $ne: [{ $ifNull: ["$appointmentId", null] }, null] }] },
             matchesCondition4: { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }, { $ne: [{ $ifNull: ["$appointmentId", null] }, null] }] },
-        } },
+          }
+        },
         { $addFields: { matchesAnyCondition: { $or: ["$matchesCondition1", "$matchesCondition2", "$matchesCondition3", "$matchesCondition4"] } } },
         { $project: { invoiceNumber: 1, service: 1, selectedTreatmentsSize: 1, matchesCondition1: 1, matchesCondition2: 1, matchesCondition3: 1, matchesCondition4: 1, matchesAnyCondition: 1 } }
       ]);
@@ -606,16 +626,20 @@ export default async function handler(req, res) {
                   as: "pkg",
                   cond: {
                     $and: [
-                      { $eq: ["$$pkg.packageName", {
-                        $cond: [
-                          { $or: [
-                            { $eq: ["$package", ""] },
-                            { $eq: ["$package", null] },
-                          ]},
-                          { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-                          "$package",
-                        ],
-                      }] },
+                      {
+                        $eq: ["$$pkg.packageName", {
+                          $cond: [
+                            {
+                              $or: [
+                                { $eq: ["$package", ""] },
+                                { $eq: ["$package", null] },
+                              ]
+                            },
+                            { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                            "$package",
+                          ],
+                        }]
+                      },
                       { $ne: ["$$pkg.packageName", ""] },
                       { $ne: ["$$pkg.packageName", null] },
                     ],
@@ -661,16 +685,20 @@ export default async function handler(req, res) {
           },
           appointmentServiceIds: {
             $concatArrays: [
-              { $map: {
-                input: { $ifNull: ["$appointment.serviceIds", []] },
-                as: "sid",
-                in: { $toString: "$$sid" },
-              }},
-              { $map: {
-                input: { $ifNull: ["$appointment.services", []] },
-                as: "s",
-                in: { $toString: "$$s.serviceId" },
-              }},
+              {
+                $map: {
+                  input: { $ifNull: ["$appointment.serviceIds", []] },
+                  as: "sid",
+                  in: { $toString: "$$sid" },
+                }
+              },
+              {
+                $map: {
+                  input: { $ifNull: ["$appointment.services", []] },
+                  as: "s",
+                  in: { $toString: "$$s.serviceId" },
+                }
+              },
               { $cond: [{ $ifNull: ["$appointment.serviceId", false] }, [{ $toString: "$appointment.serviceId" }], []] },
             ],
           },
@@ -684,13 +712,17 @@ export default async function handler(req, res) {
               {
                 $and: [
                   // Must have selectedTreatments
-                  { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                          { $ifNull: ["$selectedTreatments", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
                   // Check if any billingServiceId is in appointmentServiceIds
                   {
                     $gt: [
@@ -712,13 +744,17 @@ export default async function handler(req, res) {
               // (actual clearance billing, not self-referencing breakdown on original billing)
               {
                 $and: [
-                  { $gt: [{ $size: {
-                    $cond: [
-                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                      { $ifNull: ["$pendingClearedBreakdown", []] },
-                      []
-                    ]
-                  }}, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                          { $ifNull: ["$pendingClearedBreakdown", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
                   { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] }
                 ]
               },
@@ -803,13 +839,17 @@ export default async function handler(req, res) {
           $expr: {
             $or: [
               "$isTreatmentFromAppointment",
-              { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+              {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
             ],
           },
         },
@@ -873,7 +913,60 @@ export default async function handler(req, res) {
         $match: {
           $or: [
             { service: { $ne: "Package" } },
-            { $and: [{ service: "Package" }, { packageSoldByRole: "doctor" }] }
+            { $and: [{ service: "Package" }, { packageSoldByRole: "doctor" }] },
+            // Clearance billing: let it pass so the cleared facet stream can process its breakdown items
+            {
+              $and: [
+                { service: "Package" },
+                {
+                  $expr: {
+                    $and: [
+                      {
+                        $gt: [{
+                          $size: {
+                            $cond: [
+                              { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                              { $ifNull: ["$selectedTreatments", []] },
+                              []
+                            ]
+                          }
+                        }, 0]
+                      },
+                      { $ne: [{ $ifNull: ["$appointmentId", null] }, null] },
+                      {
+                        $gt: [{
+                          $size: {
+                            $cond: [
+                              { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                              { $ifNull: ["$pendingClearedBreakdown", []] },
+                              []
+                            ]
+                          }
+                        }, 0]
+                      },
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              $expr: {
+                $and: [
+                  { $gt: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                          { $ifNull: ["$pendingClearedBreakdown", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  }
+                ]
+              }
+            }
           ]
         }
       },
@@ -890,13 +983,17 @@ export default async function handler(req, res) {
                   {
                     $expr: {
                       $and: [
-                        { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                        {
+                          $gt: [{
+                            $size: {
+                              $cond: [
+                                { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                { $ifNull: ["$selectedTreatments", []] },
+                                []
+                              ]
+                            }
+                          }, 0]
+                        },
                         { $ne: [{ $ifNull: ["$appointmentId", null] }, null] }
                       ]
                     }
@@ -916,13 +1013,17 @@ export default async function handler(req, res) {
                   {
                     $expr: {
                       $and: [
-                        { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                        {
+                          $gt: [{
+                            $size: {
+                              $cond: [
+                                { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                { $ifNull: ["$selectedTreatments", []] },
+                                []
+                              ]
+                            }
+                          }, 0]
+                        },
                         { $ne: [{ $ifNull: ["$appointmentId", null] }, null] }
                       ]
                     }
@@ -941,13 +1042,17 @@ export default async function handler(req, res) {
                 $expr: {
                   $and: [
                     { $eq: ["$service", "Package"] },
-                    { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                    {
+                      $gt: [{
+                        $size: {
+                          $cond: [
+                            { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                            { $ifNull: ["$selectedTreatments", []] },
+                            []
+                          ]
+                        }
+                      }, 0]
+                    },
                     { $ne: [{ $ifNull: ["$appointmentId", null] }, null] }
                   ]
                 }
@@ -987,13 +1092,17 @@ export default async function handler(req, res) {
               $match: {
                 $expr: {
                   $and: [
-                    { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                    {
+                      $gt: [{
+                        $size: {
+                          $cond: [
+                            { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                            { $ifNull: ["$pendingClearedBreakdown", []] },
+                            []
+                          ]
+                        }
+                      }, 0]
+                    },
                     { $gt: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
                   ],
                 },
@@ -1100,13 +1209,17 @@ export default async function handler(req, res) {
                 $expr: {
                   $or: [
                     // No pendingClearedBreakdown = regular billing
-                    { $lte: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                    {
+                      $lte: [{
+                        $size: {
+                          $cond: [
+                            { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                            { $ifNull: ["$pendingClearedBreakdown", []] },
+                            []
+                          ]
+                        }
+                      }, 0]
+                    },
                     // Has pendingClearedBreakdown but pendingUsed = 0 = original billing that was cleared
                     { $eq: [{ $ifNull: ["$pendingUsed", 0] }, 0] },
                     // Treatment service billing with appointmentId = appointment-matched treatment
@@ -1198,13 +1311,17 @@ export default async function handler(req, res) {
                         {
                           $and: [
                             { $eq: ["$service", "Treatment"] },
-                            { $gt: [{ $size: {
-                              $cond: [
-                                { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                                { $ifNull: ["$pendingClearedBreakdown", []] },
-                                []
-                              ]
-                            }}, 0] },
+                            {
+                              $gt: [{
+                                $size: {
+                                  $cond: [
+                                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                                    []
+                                  ]
+                                }
+                              }, 0]
+                            },
                           ]
                         },
                         { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
@@ -1260,13 +1377,15 @@ export default async function handler(req, res) {
                           { $ne: ["$service", "Treatment"] },  // Exclude Treatment service billings
                           {
                             $gt: [
-                              { $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }},
+                              {
+                                $size: {
+                                  $cond: [
+                                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                                    []
+                                  ]
+                                }
+                              },
                               0,
                             ],
                           },
@@ -1408,22 +1527,30 @@ export default async function handler(req, res) {
                       $expr: {
                         $and: [
                           { $eq: ["$service", "Package"] },
-                          { $gt: [{ $size: {
-                            $cond: [
-                              { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                              { $ifNull: ["$selectedTreatments", []] },
-                              []
-                            ]
-                          }}, 0] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                  { $ifNull: ["$selectedTreatments", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                           { $ne: [{ $ifNull: ["$appointmentId", null] }, null] },
                           // Exclude clearance billings (already handled above)
-                          { $lte: [{ $size: {
-                            $cond: [
-                              { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                              { $ifNull: ["$pendingClearedBreakdown", []] },
-                              []
-                            ]
-                          }}, 0] },
+                          {
+                            $lte: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                         ],
                       },
                     },
@@ -1443,16 +1570,20 @@ export default async function handler(req, res) {
                     $addFields: {
                       appointmentServiceIds: {
                         $concatArrays: [
-                          { $map: {
-                            input: { $ifNull: ["$appointment.serviceIds", []] },
-                            as: "sid",
-                            in: { $toString: "$$sid" },
-                          }},
-                          { $map: {
-                            input: { $ifNull: ["$appointment.services", []] },
-                            as: "s",
-                            in: { $toString: "$$s.serviceId" },
-                          }},
+                          {
+                            $map: {
+                              input: { $ifNull: ["$appointment.serviceIds", []] },
+                              as: "sid",
+                              in: { $toString: "$$sid" },
+                            }
+                          },
+                          {
+                            $map: {
+                              input: { $ifNull: ["$appointment.services", []] },
+                              as: "s",
+                              in: { $toString: "$$s.serviceId" },
+                            }
+                          },
                           { $cond: [{ $ifNull: ["$appointment.serviceId", false] }, [{ $toString: "$appointment.serviceId" }], []] },
                         ],
                       },
@@ -2023,14 +2154,16 @@ export default async function handler(req, res) {
       },
       { $addFields: { packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] } } },
       // Only include billings where package was sold by doctorStaff or agent
-      { $match: { 
-        $expr: {
-          $and: [
-            { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
-            { $ne: ["$packageSoldByUserId", null] },
-          ],
-        },
-      } },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
+              { $ne: ["$packageSoldByUserId", null] },
+            ],
+          },
+        }
+      },
       // Calculate treatment portion amount and package portion amount
       {
         $addFields: {
@@ -2162,9 +2295,9 @@ export default async function handler(req, res) {
       const patients = await PatientRegistration.find({ _id: { $in: patientIds } }).select("_id packages firstName lastName emrNumber").lean();
       const patientMap = new Map(patients.map(p => [String(p._id), p]));
       // Separate map for patient name/emrNumber (to avoid conflicts with existing patient variable used for package matching)
-      const patientDetailsMap = new Map(patients.map(p => [String(p._id), { 
+      const patientDetailsMap = new Map(patients.map(p => [String(p._id), {
         name: `${p.firstName || ''} ${p.lastName || ''}`.trim(),
-        emrNumber: p.emrNumber 
+        emrNumber: p.emrNumber
       }]));
 
       // Group billings by effectiveSoldByUserId
@@ -2260,7 +2393,7 @@ export default async function handler(req, res) {
     // SEPARATE PIPELINE: Package clearance billings (pending amount cleared for packages)
     // When a package's pending amount is cleared, attribute revenue based on packageSoldByRole
     // This handles the edge case where clearing pending amount was incorrectly removing previous revenue
-    
+
     // DEBUG: Check if clearance billings exist
     const clearanceBillingsCheck = await Billing.find({
       ...clinicMatch,
@@ -2275,7 +2408,7 @@ export default async function handler(req, res) {
       hasBreakdown: b.pendingClearedBreakdown?.length > 0,
       breakdownService: b.pendingClearedBreakdown?.[0]?.service
     })));
-    
+
     const packageClearanceAgg = await Billing.aggregate([
       // Match clinic + date range
       { $match: { ...clinicMatch, ...dateMatch } },
@@ -2390,7 +2523,7 @@ export default async function handler(req, res) {
       {
         $lookup: {
           from: "users",
-          let: { 
+          let: {
             packageSoldByUserId: "$packageSoldByUserId",
             packageSoldByName: "$packageSoldBy.packageSoldBy"
           },
@@ -2400,17 +2533,21 @@ export default async function handler(req, res) {
                 $expr: {
                   $or: [
                     // If packageSoldByUserId is valid, match by _id
-                    { $and: [
-                      { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
-                      { $ne: ["$$packageSoldByUserId", null] },
-                      { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
-                    ]},
+                    {
+                      $and: [
+                        { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
+                        { $ne: ["$$packageSoldByUserId", null] },
+                        { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
+                      ]
+                    },
                     // If packageSoldByUserId is null, match by name
-                    { $and: [
-                      { $ne: ["$$packageSoldByName", null] },
-                      { $ne: ["$$packageSoldByName", ""] },
-                      { $eq: ["$name", "$$packageSoldByName"] }
-                    ]}
+                    {
+                      $and: [
+                        { $ne: ["$$packageSoldByName", null] },
+                        { $ne: ["$$packageSoldByName", ""] },
+                        { $eq: ["$name", "$$packageSoldByName"] }
+                      ]
+                    }
                   ]
                 }
               }
@@ -2420,20 +2557,24 @@ export default async function handler(req, res) {
           as: "packageSoldByUser",
         },
       },
-      { $addFields: { 
-        packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
-        // If packageSoldByUserId was null, use the found user's _id
-        resolvedPackageSoldByUserId: {
-          $cond: [
-            { $and: [
-              { $eq: ["$packageSoldByUserId", null] },
-              { $gt: [{ $size: "$packageSoldByUser" }, 0] }
-            ]},
-            { $arrayElemAt: ["$packageSoldByUser._id", 0] },
-            "$packageSoldByUserId"
-          ]
+      {
+        $addFields: {
+          packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+          // If packageSoldByUserId was null, use the found user's _id
+          resolvedPackageSoldByUserId: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$packageSoldByUserId", null] },
+                  { $gt: [{ $size: "$packageSoldByUser" }, 0] }
+                ]
+              },
+              { $arrayElemAt: ["$packageSoldByUser._id", 0] },
+              "$packageSoldByUserId"
+            ]
+          }
         }
-      } },
+      },
       // DEBUG: Log packageSoldByRole before match
       {
         $addFields: {
@@ -2445,14 +2586,16 @@ export default async function handler(req, res) {
         }
       },
       // Only include billings where package was sold by doctorStaff or agent
-      { $match: { 
-        $expr: {
-          $and: [
-            { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
-            { $ne: ["$resolvedPackageSoldByUserId", null] },
-          ],
-        },
-      } },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
+              { $ne: ["$resolvedPackageSoldByUserId", null] },
+            ],
+          },
+        }
+      },
       // DEBUG: Log billings that pass the filter
       {
         $addFields: {
@@ -2555,10 +2698,12 @@ export default async function handler(req, res) {
       { $match: { "pendingClearedBreakdown.service": "Package" } },
       // FIXED: Deduplicate by invoiceNumber - each billing should only create ONE detail entry
       // Without this, billings with multiple breakdown entries create duplicate details (each with full paid amount)
-      { $group: {
-        _id: "$invoiceNumber",
-        doc: { $first: "$$ROOT" },
-      }},
+      {
+        $group: {
+          _id: "$invoiceNumber",
+          doc: { $first: "$$ROOT" },
+        }
+      },
       { $replaceRoot: { newRoot: "$doc" } },
       // Lookup patient to extract packageSoldBy info
       {
@@ -2609,7 +2754,7 @@ export default async function handler(req, res) {
       {
         $lookup: {
           from: "users",
-          let: { 
+          let: {
             packageSoldByUserId: "$packageSoldByUserId",
             packageSoldByName: "$packageSoldBy.packageSoldBy"
           },
@@ -2618,16 +2763,20 @@ export default async function handler(req, res) {
               $match: {
                 $expr: {
                   $or: [
-                    { $and: [
-                      { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
-                      { $ne: ["$$packageSoldByUserId", null] },
-                      { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
-                    ]},
-                    { $and: [
-                      { $ne: ["$$packageSoldByName", null] },
-                      { $ne: ["$$packageSoldByName", ""] },
-                      { $eq: ["$name", "$$packageSoldByName"] }
-                    ]}
+                    {
+                      $and: [
+                        { $ne: [{ $toString: "$$packageSoldByUserId" }, "null"] },
+                        { $ne: ["$$packageSoldByUserId", null] },
+                        { $eq: [{ $toString: "$_id" }, { $toString: "$$packageSoldByUserId" }] }
+                      ]
+                    },
+                    {
+                      $and: [
+                        { $ne: ["$$packageSoldByName", null] },
+                        { $ne: ["$$packageSoldByName", ""] },
+                        { $eq: ["$name", "$$packageSoldByName"] }
+                      ]
+                    }
                   ]
                 }
               }
@@ -2637,28 +2786,34 @@ export default async function handler(req, res) {
           as: "packageSoldByUser",
         },
       },
-      { $addFields: { 
-        packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
-        resolvedPackageSoldByUserId: {
-          $cond: [
-            { $and: [
-              { $eq: ["$packageSoldByUserId", null] },
-              { $gt: [{ $size: "$packageSoldByUser" }, 0] }
-            ]},
-            { $arrayElemAt: ["$packageSoldByUser._id", 0] },
-            "$packageSoldByUserId"
-          ]
+      {
+        $addFields: {
+          packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+          resolvedPackageSoldByUserId: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$packageSoldByUserId", null] },
+                  { $gt: [{ $size: "$packageSoldByUser" }, 0] }
+                ]
+              },
+              { $arrayElemAt: ["$packageSoldByUser._id", 0] },
+              "$packageSoldByUserId"
+            ]
+          }
         }
-      } },
+      },
       // Only include billings where package was sold by doctorStaff or agent
-      { $match: { 
-        $expr: {
-          $and: [
-            { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
-            { $ne: ["$resolvedPackageSoldByUserId", null] },
-          ],
-        },
-      } },
+      {
+        $match: {
+          $expr: {
+            $and: [
+              { $in: ["$packageSoldByRole", ["doctorStaff", "agent"]] },
+              { $ne: ["$resolvedPackageSoldByUserId", null] },
+            ],
+          },
+        }
+      },
       // Lookup patient for display fields
       {
         $lookup: {
@@ -3127,13 +3282,17 @@ export default async function handler(req, res) {
                     $cond: [
                       {
                         $and: [
-                          { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                           { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
                         ],
                       },
@@ -3159,13 +3318,17 @@ export default async function handler(req, res) {
             {
               isClearedItem: false,
               service: "Package",
-              $expr: { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] }
+              $expr: {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                      { $ifNull: ["$selectedTreatments", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              }
             },
             // EDGE-CASE: Cleared Package billings with selectedTreatments
             // (mixed billings after clearance). Only include the first breakdown
@@ -3174,13 +3337,17 @@ export default async function handler(req, res) {
             {
               isClearedItem: true,
               service: "Package",
-              $expr: { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+              $expr: {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                      { $ifNull: ["$selectedTreatments", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               "pendingClearedBreakdown.newStatus": "Partial",
             },
           ],
@@ -3200,13 +3367,17 @@ export default async function handler(req, res) {
                   {
                     $and: [
                       { $eq: ["$service", "Package"] },
-                      { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                      {
+                        $gt: [{
+                          $size: {
+                            $cond: [
+                              { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                              { $ifNull: ["$selectedTreatments", []] },
+                              []
+                            ]
+                          }
+                        }, 0]
+                      },
                     ],
                   },
                   { $arrayElemAt: ["$selectedTreatments.treatmentName", 0] },
@@ -3221,13 +3392,17 @@ export default async function handler(req, res) {
               {
                 $and: [
                   { $eq: ["$service", "Package"] },
-                  { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                          { $ifNull: ["$selectedTreatments", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
                 ],
               },
               {
@@ -3281,13 +3456,17 @@ export default async function handler(req, res) {
                       {
                         $and: [
                           { $eq: ["$service", "Package"] },
-                          { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                  { $ifNull: ["$selectedTreatments", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                         ],
                       },
                       "$effectiveAmountForService",
@@ -3306,13 +3485,17 @@ export default async function handler(req, res) {
                       {
                         $and: [
                           { $eq: ["$service", "Package"] },
-                          { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                  { $ifNull: ["$selectedTreatments", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                         ],
                       },
                       "$effectiveAmountForService",
@@ -3325,7 +3508,7 @@ export default async function handler(req, res) {
               advance: { $cond: ["$isClearedItem", 0, "$advance"] },
               advanceUsed: { $cond: ["$isClearedItem", 0, { $ifNull: ["$advanceUsed", 0] }] },
               claimAmountUsed: { $cond: ["$isClearedItem", 0, { $ifNull: ["$claimAmountUsed", 0] }] },
-             
+
               cashbackWalletUsed: { $cond: ["$isClearedItem", 0, { $ifNull: ["$cashbackWalletUsed", 0] }] },
               pendingUsed: { $cond: ["$isClearedItem", "$effectiveAmount", { $ifNull: ["$pendingUsed", 0] }] },
               pendingClaimUsed: { $cond: ["$isClearedItem", 0, { $ifNull: ["$pendingClaimUsed", 0] }] },
@@ -3385,16 +3568,20 @@ export default async function handler(req, res) {
                   as: "pkg",
                   cond: {
                     $and: [
-                      { $eq: ["$$pkg.packageName", {
-                        $cond: [
-                          { $or: [
-                            { $eq: ["$package", ""] },
-                            { $eq: ["$package", null] },
-                          ]},
-                          { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-                          "$package",
-                        ],
-                      }] },
+                      {
+                        $eq: ["$$pkg.packageName", {
+                          $cond: [
+                            {
+                              $or: [
+                                { $eq: ["$package", ""] },
+                                { $eq: ["$package", null] },
+                              ]
+                            },
+                            { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                            "$package",
+                          ],
+                        }]
+                      },
                       { $ne: ["$$pkg.packageName", ""] },
                       { $ne: ["$$pkg.packageName", null] },
                     ],
@@ -3443,13 +3630,17 @@ export default async function handler(req, res) {
           // NOT a mixed billing if both are Package (unpaid package clearance)
           _isMixedBilling: {
             $and: [
-              { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+              {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
               { $ne: ["$service", { $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }] },
             ],
@@ -3461,6 +3652,7 @@ export default async function handler(req, res) {
       {
         $unwind: {
           path: "$pendingClearedBreakdown",
+          includeArrayIndex: "pendingClearedBreakdownIndex",
           preserveNullAndEmptyArrays: true,
         },
       },
@@ -3498,14 +3690,62 @@ export default async function handler(req, res) {
                 $cond: [
                   // Self-referencing clearance: billing cleared its own pending
                   // (invoiceNumber === breakdown.invoiceNumber)
-                  // The billing's paid already includes the cleared amount
+                  // The billing's paid already includes the cleared amount.
+                  // For mixed Package billings, only the package portion should
+                  // stay in Revenue by Package.
                   { $eq: ["$invoiceNumber", "$pendingClearedBreakdown.invoiceNumber"] },
                   {
-                    $add: [
-                      { $ifNull: ["$paid", 0] },
-                      { $ifNull: ["$advanceUsed", 0] },
-                      { $ifNull: ["$claimAmountUsed", 0] },
-                      { $ifNull: ["$cashbackWalletUsed", 0] },
+                    $cond: [
+                      {
+                        $and: [
+                          { $eq: ["$service", "Package"] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                  { $ifNull: ["$selectedTreatments", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
+                        ],
+                      },
+                      {
+                        $subtract: [
+                          {
+                            $add: [
+                              { $ifNull: ["$paid", 0] },
+                              { $ifNull: ["$advanceUsed", 0] },
+                              { $ifNull: ["$claimAmountUsed", 0] },
+                              { $ifNull: ["$cashbackWalletUsed", 0] },
+                            ],
+                          },
+                          {
+                            $sum: {
+                              $map: {
+                                input: "$selectedTreatments",
+                                as: "st",
+                                in: {
+                                  $multiply: [
+                                    { $ifNull: ["$$st.price", 0] },
+                                    { $ifNull: ["$$st.quantity", 1] },
+                                  ],
+                                },
+                              },
+                            },
+                          },
+                        ],
+                      },
+                      {
+                        $add: [
+                          { $ifNull: ["$paid", 0] },
+                          { $ifNull: ["$advanceUsed", 0] },
+                          { $ifNull: ["$claimAmountUsed", 0] },
+                          { $ifNull: ["$cashbackWalletUsed", 0] },
+                        ],
+                      },
                     ],
                   },
                   // Nested $cond for mixed billing vs clearance billing
@@ -3561,13 +3801,17 @@ export default async function handler(req, res) {
                           {
                             $and: [
                               { $eq: ["$service", "Package"] },
-                              { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                              {
+                                $gt: [{
+                                  $size: {
+                                    $cond: [
+                                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                      { $ifNull: ["$selectedTreatments", []] },
+                                      []
+                                    ]
+                                  }
+                                }, 0]
+                              },
                             ],
                           },
                           {
@@ -3645,13 +3889,38 @@ export default async function handler(req, res) {
                   {
                     $or: [
                       { $ne: ["$service", "Package"] },
-                      { $eq: ["$invoiceNumber", "$pendingClearedBreakdown.invoiceNumber"] },
+                      {
+                        $and: [
+                          { $eq: ["$invoiceNumber", "$pendingClearedBreakdown.invoiceNumber"] },
+                          {
+                            $or: [
+                              {
+                                $lte: [{
+                                  $size: {
+                                    $cond: [
+                                      { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                      { $ifNull: ["$selectedTreatments", []] },
+                                      []
+                                    ]
+                                  }
+                                }, 0]
+                              },
+                              { $eq: ["$pendingClearedBreakdownIndex", 0] },
+                            ],
+                          },
+                        ],
+                      },
                     ]
                   }
                 ]
               }
             },
-            { isClearedItem: true, service: "Package", _isMixedBilling: true },
+            {
+              isClearedItem: true,
+              service: "Package",
+              _isMixedBilling: true,
+              pendingClearedBreakdownIndex: 0,
+            },
           ],
         },
       },
@@ -3706,10 +3975,12 @@ export default async function handler(req, res) {
               // breakdown's packageName if billing's package is empty
               {
                 $cond: [
-                  { $or: [
-                    { $eq: ["$package", ""] },
-                    { $eq: ["$package", null] },
-                  ]},
+                  {
+                    $or: [
+                      { $eq: ["$package", ""] },
+                      { $eq: ["$package", null] },
+                    ]
+                  },
                   { $ifNull: ["$effectivePackageName", "Unknown"] },
                   { $ifNull: ["$package", "Unknown"] },
                 ],
@@ -3748,10 +4019,12 @@ export default async function handler(req, res) {
                   { $and: ["$isClearedItem", "$_isMixedBilling"] },
                   {
                     $cond: [
-                      { $or: [
-                        { $eq: ["$package", ""] },
-                        { $eq: ["$package", null] },
-                      ]},
+                      {
+                        $or: [
+                          { $eq: ["$package", ""] },
+                          { $eq: ["$package", null] },
+                        ]
+                      },
                       { $ifNull: ["$effectivePackageName", "Unknown"] },
                       "$package",
                     ],
@@ -3792,13 +4065,17 @@ export default async function handler(req, res) {
                         $and: [
                           { $not: "$isClearedItem" },
                           { $eq: ["$service", "Package"] },
-                          { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                                  { $ifNull: ["$selectedTreatments", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                         ],
                       },
                       "$effectiveAmount",
@@ -4023,13 +4300,17 @@ export default async function handler(req, res) {
                     $cond: [
                       {
                         $and: [
-                          { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                          {
+                            $gt: [{
+                              $size: {
+                                $cond: [
+                                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                                  { $ifNull: ["$pendingClearedBreakdown", []] },
+                                  []
+                                ]
+                              }
+                            }, 0]
+                          },
                           { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
                         ],
                       },
@@ -4052,17 +4333,6 @@ export default async function handler(req, res) {
           $or: [
             { isClearedItem: false, service: { $in: ["Treatment", "Service"] } },
             { isClearedItem: true, effectiveService: { $in: ["Treatment", "Service"] } },
-            {
-              isClearedItem: false,
-              service: "Package",
-              $expr: { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] }
-            },
           ],
         },
       },
@@ -4267,11 +4537,11 @@ export default async function handler(req, res) {
     const departmentIds = byDepartmentAgg.map((d) => d._id).filter(Boolean);
     const departmentMap = departmentIds.length
       ? new Map(
-          (await Department.find({ _id: { $in: departmentIds } }).select("_id name").lean()).map((d) => [
-            String(d._id),
-            d.name || "Unknown",
-          ])
-        )
+        (await Department.find({ _id: { $in: departmentIds } }).select("_id name").lean()).map((d) => [
+          String(d._id),
+          d.name || "Unknown",
+        ])
+      )
       : new Map();
     const revenueByDepartment = byDepartmentAgg.map((d) => {
       // Flatten nested details arrays (service-level details pushed into department-level)
@@ -4317,13 +4587,17 @@ export default async function handler(req, res) {
           {
             $or: [
               { $ne: ["$service", "Package"] },
-              { $lte: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+              {
+                $lte: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               { $eq: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
               { $ne: ["Package", { $arrayElemAt: ["$pendingClearedBreakdown.service", 0] }] },
             ]
@@ -4527,10 +4801,12 @@ export default async function handler(req, res) {
               // Resolve package name: billing's package field, or from unpaidPackagesPaid, or from breakdown
               package: {
                 $cond: [
-                  { $or: [
-                    { $eq: ["$package", ""] },
-                    { $eq: ["$package", null] },
-                  ]},
+                  {
+                    $or: [
+                      { $eq: ["$package", ""] },
+                      { $eq: ["$package", null] },
+                    ]
+                  },
                   {
                     $ifNull: [
                       { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
@@ -4544,13 +4820,17 @@ export default async function handler(req, res) {
               // For regular billings, show the billing's own invoice number (INV-...)
               invoiceNumber: {
                 $cond: [
-                  { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                          { $ifNull: ["$pendingClearedBreakdown", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
                   { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
                   "$invoiceNumber",
                 ],
@@ -4805,13 +5085,15 @@ export default async function handler(req, res) {
             package: "$package",
             treatment: "$treatment",
             hasBreakdown: {
-              $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0]
+              $gt: [{
+                $size: {
+                  $cond: [
+                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                    []
+                  ]
+                }
+              }, 0]
             }
           }
         }
@@ -4828,13 +5110,15 @@ export default async function handler(req, res) {
             paid: "$paid",
             pending: "$pending",
             hasBreakdown: {
-              $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0]
+              $gt: [{
+                $size: {
+                  $cond: [
+                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                    []
+                  ]
+                }
+              }, 0]
             },
             breakdownInvoice: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }
           }
@@ -5582,16 +5866,20 @@ export default async function handler(req, res) {
                   as: "pkg",
                   cond: {
                     $and: [
-                      { $eq: ["$$pkg.packageName", {
-                        $cond: [
-                          { $or: [
-                            { $eq: ["$package", ""] },
-                            { $eq: ["$package", null] },
-                          ]},
-                          { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-                          "$package",
-                        ],
-                      }] },
+                      {
+                        $eq: ["$$pkg.packageName", {
+                          $cond: [
+                            {
+                              $or: [
+                                { $eq: ["$package", ""] },
+                                { $eq: ["$package", null] },
+                              ]
+                            },
+                            { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                            "$package",
+                          ],
+                        }]
+                      },
                       { $ne: ["$$pkg.packageName", ""] },
                       { $ne: ["$$pkg.packageName", null] },
                     ],
@@ -5678,10 +5966,12 @@ export default async function handler(req, res) {
           // DEBUG: Log packageSoldBy resolution for hfejhbrfjhb package
           _debug_hfejhbrfjhbSoldBy: {
             $cond: [
-              { $or: [
-                { $eq: ["$invoiceNumber", "PKG-1784551192006-203"] },
-                { $eq: ["$invoiceNumber", "PKG-1784551806232-204"] },
-              ]},
+              {
+                $or: [
+                  { $eq: ["$invoiceNumber", "PKG-1784551192006-203"] },
+                  { $eq: ["$invoiceNumber", "PKG-1784551806232-204"] },
+                ]
+              },
               {
                 invoiceNumber: "$invoiceNumber",
                 service: "$service",
@@ -5811,16 +6101,20 @@ export default async function handler(req, res) {
           // Extract serviceIds from appointment
           appointmentServiceIds: {
             $concatArrays: [
-              { $map: {
-                input: { $ifNull: ["$appointment.serviceIds", []] },
-                as: "sid",
-                in: { $toString: "$$sid" },
-              }},
-              { $map: {
-                input: { $ifNull: ["$appointment.services", []] },
-                as: "s",
-                in: { $toString: "$$s.serviceId" },
-              }},
+              {
+                $map: {
+                  input: { $ifNull: ["$appointment.serviceIds", []] },
+                  as: "sid",
+                  in: { $toString: "$$sid" },
+                }
+              },
+              {
+                $map: {
+                  input: { $ifNull: ["$appointment.services", []] },
+                  as: "s",
+                  in: { $toString: "$$s.serviceId" },
+                }
+              },
               { $cond: [{ $ifNull: ["$appointment.serviceId", false] }, [{ $toString: "$appointment.serviceId" }], []] },
             ],
           },
@@ -5845,13 +6139,17 @@ export default async function handler(req, res) {
         $lookup: {
           from: "billings",
           let: {
-            hasBreakdown: { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+            hasBreakdown: {
+              $gt: [{
+                $size: {
+                  $cond: [
+                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                    { $ifNull: ["$pendingClearedBreakdown", []] },
+                    []
+                  ]
+                }
+              }, 0]
+            },
             invNum: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }
           },
           pipeline: [
@@ -5866,13 +6164,17 @@ export default async function handler(req, res) {
           // For clearance-only billings: check if original billing was direct (doctor != appointment doctor)
           isClearanceFromDirectBilling: {
             $cond: [
-              { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+              {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               {
                 $cond: [
                   { $gt: [{ $size: "$originalBillingForClearance" }, 0] },
@@ -5894,13 +6196,17 @@ export default async function handler(req, res) {
               {
                 $and: [
                   { $eq: ["$service", "Package"] },
-                  { $eq: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$selectedTreatments" }, "array"] },
-                  { $ifNull: ["$selectedTreatments", []] },
-                  []
-                ]
-              }}, 0] }
+                  {
+                    $eq: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$selectedTreatments" }, "array"] },
+                          { $ifNull: ["$selectedTreatments", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  }
                 ]
               },
               null,
@@ -5924,13 +6230,17 @@ export default async function handler(req, res) {
               // For non-clearance, non-package billings: direct if no appointment match
               {
                 $cond: [
-                  { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                          { $ifNull: ["$pendingClearedBreakdown", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
                   "$isClearanceFromDirectBilling",
                   {
                     $cond: [
@@ -6095,10 +6405,12 @@ export default async function handler(req, res) {
                   { $eq: ["$selectedTreatments", null] },
                   {
                     $cond: [
-                      { $or: [
-                        { $eq: ["$package", ""] },
-                        { $eq: ["$package", null] },
-                      ]},
+                      {
+                        $or: [
+                          { $eq: ["$package", ""] },
+                          { $eq: ["$package", null] },
+                        ]
+                      },
                       {
                         $ifNull: [
                           { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
@@ -6127,13 +6439,17 @@ export default async function handler(req, res) {
               // For regular billings, show the billing's own invoice number (INV-...)
               invoiceNumber: {
                 $cond: [
-                  { $gt: [{ $size: {
-                $cond: [
-                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                  []
-                ]
-              }}, 0] },
+                  {
+                    $gt: [{
+                      $size: {
+                        $cond: [
+                          { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                          { $ifNull: ["$pendingClearedBreakdown", []] },
+                          []
+                        ]
+                      }
+                    }, 0]
+                  },
                   { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
                   "$invoiceNumber",
                 ],
@@ -6263,7 +6579,7 @@ export default async function handler(req, res) {
     })));
 
     // DEBUG: Log ALL details for suchi in staffRevenueAgg
-    console.log("DEBUG suchi ALL details in staffRevenueAgg:", suchiResults.flatMap(r => 
+    console.log("DEBUG suchi ALL details in staffRevenueAgg:", suchiResults.flatMap(r =>
       (r.details || []).map(d => ({
         invoiceNumber: d.invoiceNumber,
         service: d.service,
@@ -6290,7 +6606,7 @@ export default async function handler(req, res) {
         detail.invoiceNumber === "PKG-1784551192006-203" || detail.invoiceNumber === "PKG-1784551806232-204"
       )
     );
-    
+
 
     // DEBUG: Log all Package billings in the pipeline
     const allPackagesDebug = staffRevenueAgg.filter(r =>
@@ -6306,15 +6622,15 @@ export default async function handler(req, res) {
     const afterIsFromAppointmentDebug = staffRevenueAgg.filter(r =>
       (r.details || []).some(detail => detail._debug_afterIsFromAppointment)
     );
-    
-    
+
+
     // DEBUG: Log package billing details to trace sold by attribution
     const packageDebug = staffRevenueAgg.filter(r =>
       (r.details || []).some(detail =>
         detail.invoiceNumber === "INV-20260718-913514"
       )
     );
-    
+
 
     // DEBUG: Log INV-20260721-759828 package sold by resolution
     const debug759828 = staffRevenueAgg.filter(r =>
@@ -6574,7 +6890,7 @@ export default async function handler(req, res) {
     })));
 
     // DEBUG: Log all details for INV-20260723-905621 in FINAL result
-    const inv905621FinalDetails = finalSuchiResults.flatMap(r => 
+    const inv905621FinalDetails = finalSuchiResults.flatMap(r =>
       (r.details || []).filter(d => d.invoiceNumber === "INV-20260723-905621")
     );
     console.log("DEBUG FINAL INV-20260723-905621 details:", inv905621FinalDetails.map(d => ({
@@ -6590,11 +6906,11 @@ export default async function handler(req, res) {
     const doctorIds = byDoctorAgg.map((d) => d._id).filter(Boolean);
     const doctorMap = doctorIds.length
       ? new Map(
-          (await User.find({ _id: { $in: doctorIds } }).select("_id name").lean()).map((u) => [
-            String(u._id),
-            u.name || "Unknown",
-          ])
-        )
+        (await User.find({ _id: { $in: doctorIds } }).select("_id name").lean()).map((u) => [
+          String(u._id),
+          u.name || "Unknown",
+        ])
+      )
       : new Map();
     const revenueByDoctor = byDoctorAgg.map((d) => ({
       doctorId: String(d._id || ""),
@@ -6607,11 +6923,11 @@ export default async function handler(req, res) {
     const staffIds = staffRevenueAgg.map((r) => r._id).filter(Boolean);
     const staffUserMap = staffIds.length
       ? new Map(
-          (await User.find({ _id: { $in: staffIds } }).select("_id name").lean()).map((u) => [
-            String(u._id),
-            u.name || "Unknown",
-          ])
-        )
+        (await User.find({ _id: { $in: staffIds } }).select("_id name").lean()).map((u) => [
+          String(u._id),
+          u.name || "Unknown",
+        ])
+      )
       : new Map();
 
     const revenueByStaff = staffRevenueAgg.map((r) => ({

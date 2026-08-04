@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,17 +15,47 @@ interface Props {
   headers: HeadersRecord;
 }
 
+type DoctorDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+  advanceUsed: number;
+  claimAmountUsed: number;
+  cashbackWalletUsed: number;
+  pendingUsed: number;
+  pendingClaimUsed: number;
+  packageAmount?: number;
+  selectedTreatments?: Array<{
+    treatmentName: string;
+    price: number;
+    quantity: number;
+    total: number;
+  }>;
+};
+
 type RevenueByDoctorRow = {
   doctorId: string;
   name: string;
   amount: number;
+  details?: DoctorDetail[];
 };
 
 export default function AppointmentReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
+  const router = useRouter();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({ totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 });
   const [revenueByDoctor, setRevenueByDoctor] = useState<RevenueByDoctorRow[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<RevenueByDoctorRow | null>(null);
   const [doctorFilter, setDoctorFilter] = useState<string>("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("");
   const [doctorOptions, setDoctorOptions] = useState<any[]>([]);
@@ -368,30 +399,36 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Name</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue Generated</th>
-                </tr >
-              </thead >
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {revenueByDoctor.map((d) => (
                   <tr key={String(d.doctorId)}>
                     <td className="px-4 py-2 text-sm">{d.name || "Unknown"}</td>
                     <td className="px-4 py-2 text-sm font-medium">{formatCurrency(d.amount || 0)}</td>
-                  </tr >
-                ))
-                }
-                {
-                  !revenueByDoctor.length && (
-                    <tr>
-                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>
-                        No data for selected filters
-                      </td>
-                    </tr>
-                  )
-                }
-              </tbody >
-            </table >
-          </div >
-        </div >
-      </div >
+                    <td className="px-4 py-2 text-sm">
+                      <button
+                        onClick={() => setSelectedDoctor(d)}
+                        className="text-blue-600 hover:text-blue-800 font-medium underline"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!revenueByDoctor.length && (
+                  <tr>
+                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
+                      No data for selected filters
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       {/* Sidebars */}
       <AnimatePresence>
@@ -453,6 +490,136 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
           </motion.div>
         )}
       </AnimatePresence>
-    </div >
+
+      {/* Modal for doctor details */}
+      {selectedDoctor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedDoctor.name}
+              </h2>
+              <button
+                onClick={() => setSelectedDoctor(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Paid
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...(selectedDoctor.details || [])].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
+                    return (
+                      <tr key={index}>
+                        <td className="px-4 py-2 text-sm">
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/clinic/patient-profile-view?id=${detail.patientId}`
+                              )
+                            }
+                            className="text-blue-600 hover:text-blue-800 font-medium underline"
+                          >
+                            {detail.patientName?.trim() || "Unknown"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.emrNumber || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.service === "Package" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                Package
+                              </span>
+                              <span>{detail.packageName || "Package"}</span>
+                            </div>
+                          ) : detail.service === "Treatment" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Treatment
+                              </span>
+                              <span>{detail.treatmentName || "Treatment"}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                {detail.service || "Service"}
+                              </span>
+                              <span>{detail.treatmentName || detail.service || "Service"}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.invoiceNumber || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.invoicedDate
+                            ? new Date(detail.invoicedDate).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {formatCurrency(detail.amount)}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {formatCurrency(detail.paid)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td
+                      className="px-4 py-2 text-sm font-semibold"
+                      colSpan={5}
+                    >
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(
+                        (selectedDoctor.details || []).reduce(
+                          (sum, d) => sum + Number(d.amount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedDoctor.amount)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

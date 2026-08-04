@@ -11531,8 +11531,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   const history = billing.paymentHistory || [];
 
                   // Derive individual payments from paymentHistory
-                  // If a history entry has multiplePayments with >=1 item,
-                  // expand each sub-payment as its own entry.
+                  // Combine both sub-payments and primary payment method if not already included.
                   const allPayments = [];
                   let prevPaid = 0;
 
@@ -11541,42 +11540,30 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     const currentPaid = Number(entry.paid || 0);
                     const paymentAmount = currentPaid - prevPaid;
                     const subPayments = entry.multiplePayments || [];
-                    const isMultiPay = subPayments.length >= 1;
 
+                    const entryPayments = [];
+                    // Add all multiple/sub payments
+                    for (let j = 0; j < subPayments.length; j++) {
+                      const sub = subPayments[j];
+                      entryPayments.push({
+                        paymentMethod: sub.paymentMethod || 'Cash',
+                        amount: Number(sub.amount || 0),
+                        paidAt: sub.paidAt || entry.updatedAt,
+                        status: entry.status,
+                        transactionType: sub.transactionType || (i === 0 ? 'INITIAL_PAYMENT' : 'PENDING_CLEARANCE'),
+                        paidByName: sub.paidByName || entry.paidByName || billing.invoicedBy || 'N/A',
+                        isSubPayment: true,
+                        parentIndex: i,
+                      });
+                    }
+
+                    // Check if the primary payment is missing from subPayments
                     if (paymentAmount > 0) {
-                      if (isMultiPay) {
-                        // Expand each sub-payment as its own entry
-                        for (let j = 0; j < subPayments.length; j++) {
-                          const sub = subPayments[j];
-                          allPayments.push({
-                            paymentMethod: sub.paymentMethod || 'Cash',
-                            amount: Number(sub.amount || 0),
-                            paidAt: entry.updatedAt,
-                            status: entry.status,
-                            transactionType: sub.transactionType || (i === 0 ? 'INITIAL_PAYMENT' : 'PENDING_CLEARANCE'),
-                            paidByName: sub.paidByName || entry.paidByName || billing.invoicedBy || 'N/A',
-                            isSubPayment: true,
-                            parentIndex: i,
-                          });
-                        }
-
-                        // If paymentAmount is greater than the sum of sub-payments, push the remaining as a base/initial payment
-                        const subPaymentsSum = subPayments.reduce((sum: number, sub: any) => sum + Number(sub.amount || 0), 0);
-                        const remainingAmount = paymentAmount - subPaymentsSum;
-                        if (remainingAmount > 0) {
-                          allPayments.push({
-                            paymentMethod: entry.paymentMethod || billing.paymentMethod || 'Cash',
-                            amount: remainingAmount,
-                            paidAt: entry.updatedAt,
-                            status: entry.status,
-                            transactionType: i === 0 ? 'INITIAL_PAYMENT' : 'PAYMENT',
-                            paidByName: entry.paidByName || billing.invoicedBy || 'N/A',
-                          });
-                        }
-                      } else {
-                        // Single payment method — use the entry directly
-                        allPayments.push({
-                          paymentMethod: entry.paymentMethod || subPayments[0]?.paymentMethod || 'Cash',
+                      const primaryMethod = entry.paymentMethod || 'Cash';
+                      const hasPrimary = subPayments.some((sub: any) => sub.paymentMethod === primaryMethod);
+                      if (!hasPrimary) {
+                        entryPayments.push({
+                          paymentMethod: primaryMethod,
                           amount: paymentAmount,
                           paidAt: entry.updatedAt,
                           status: entry.status,
@@ -11585,11 +11572,32 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         });
                       }
                     }
+
+                    allPayments.push(...entryPayments);
                     prevPaid = currentPaid;
                   }
 
-                  // If no payments derived from history, fall back to multiplePayments
-                  const paymentsToShow = allPayments.length > 0 ? allPayments : (billing.multiplePayments || []);
+                  // If no payments derived from history, fall back to multiplePayments with the same merge logic
+                  let paymentsToShow = allPayments;
+                  if (paymentsToShow.length === 0) {
+                    const fallbackMulti = billing.multiplePayments || [];
+                    const fallbackPayments = [...fallbackMulti];
+                    if (Number(billing.paid || 0) > 0) {
+                      const primaryMethod = billing.paymentMethod || 'Cash';
+                      const hasPrimary = fallbackMulti.some((mp: any) => mp.paymentMethod === primaryMethod);
+                      if (!hasPrimary) {
+                        fallbackPayments.push({
+                          paymentMethod: primaryMethod,
+                          amount: Number(billing.paid || 0),
+                          paidAt: billing.createdAt || billing.updatedAt,
+                          status: billing.paymentStatus || 'Active',
+                          transactionType: 'PAYMENT',
+                          paidByName: billing.invoicedBy || 'N/A',
+                        });
+                      }
+                    }
+                    paymentsToShow = fallbackPayments;
+                  }
 
                   if (paymentsToShow.length === 0) {
                     return (
