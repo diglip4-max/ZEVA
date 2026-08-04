@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import {
   X,
   FileText,
@@ -834,7 +834,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                       <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
                         <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                       </div>
-                      <p className="text-gray-600">
+                      <p className="text-text-muted">
                         Loading purchase requests...
                       </p>
                     </div>
@@ -848,9 +848,9 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                       </p>
                     </div>
                   ) : (
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="border border-border-default rounded-lg overflow-hidden">
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
+                        <table className="min-w-full divide-y divide-border-default">
                           <thead className="bg-gray-800">
                             <tr>
                               <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -870,7 +870,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="bg-white divide-y divide-border-default">
                             {purchaseRequests
                               .filter(
                                 (pr) =>
@@ -1254,7 +1254,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                 </div>
 
                 {/* Item Form - Updated to match image */}
-                <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="border border-border-default rounded-lg p-4 bg-gray-50">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                     {/* Item Name */}
                     <div className="sm:col-span-3 space-y-1">
@@ -1552,9 +1552,9 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                 </div>
 
                 {/* Items Table - Updated to match image */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-border-default rounded-lg overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-full divide-y divide-border-default">
                       <thead className="bg-gray-800">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -1594,7 +1594,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-border-default">
                         {items.length === 0 ? (
                           <tr>
                             <td

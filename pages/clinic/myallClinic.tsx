@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Clock,
   MapPin,
-  DollarSign,
   Users,
   Star,
   Heart,
@@ -545,27 +544,27 @@ function ClinicManagementDashboard(): ReactElement {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     console.log("[myallClinic] Token status:", {
@@ -862,18 +861,18 @@ function ClinicManagementDashboard(): ReactElement {
           const sanitizePhotos = (arr: any[]) =>
             Array.isArray(arr)
               ? arr
-                  .map((p: any) =>
-                    typeof p === "string"
-                      ? p.trim().replace(/^['\"`]+|['\"`]+$/g, "")
-                      : p,
-                  )
-                  .filter((p: any) => typeof p === "string" && p.length > 0)
+                .map((p: any) =>
+                  typeof p === "string"
+                    ? p.trim().replace(/^['\"`]+|['\"`]+$/g, "")
+                    : p,
+                )
+                .filter((p: any) => typeof p === "string" && p.length > 0)
               : [];
           const clinicObj = response.data.clinic
             ? {
-                ...response.data.clinic,
-                photos: sanitizePhotos(response.data.clinic.photos || []),
-              }
+              ...response.data.clinic,
+              photos: sanitizePhotos(response.data.clinic.photos || []),
+            }
             : null;
           setClinics(clinicObj ? [clinicObj] : []);
           if (
@@ -1172,7 +1171,7 @@ function ClinicManagementDashboard(): ReactElement {
           const kb = (parseInt(len, 10) / 1024).toFixed(1) + " KB";
           setDocSizes((p) => ({ ...p, [idx]: kb }));
         }
-      } catch {}
+      } catch { }
     };
     (editForm.documents || []).forEach((d: any, i: number) => {
       const u = String(d?.url || "");
@@ -1518,19 +1517,19 @@ function ClinicManagementDashboard(): ReactElement {
     setEditingClinicId(clinic._id);
     const sanitizedPhotos = Array.isArray(clinic.photos)
       ? clinic.photos
-          .map((p: any) =>
-            typeof p === "string"
-              ? p
-                  .trim()
-                  .replace(/^['"`]+|['"`]+$/g, "")
-                  .replace(/\\/g, "/")
-              : p,
-          )
-          .filter((p: any) => {
-            if (p instanceof File) return true;
-            if (typeof p === "string") return p.length > 0;
-            return false;
-          })
+        .map((p: any) =>
+          typeof p === "string"
+            ? p
+              .trim()
+              .replace(/^['"`]+|['"`]+$/g, "")
+              .replace(/\\/g, "/")
+            : p,
+        )
+        .filter((p: any) => {
+          if (p instanceof File) return true;
+          if (typeof p === "string") return p.length > 0;
+          return false;
+        })
       : [];
     setEditForm({ ...clinic, photos: sanitizedPhotos as any });
     setCurrentPhotoIndex(
@@ -1632,21 +1631,22 @@ function ClinicManagementDashboard(): ReactElement {
 
   // Handle update
   const handleUpdate = async () => {
+    toast.loading("Saving changes...", { id: "clinic-update" });
     if (!permissions.canUpdate) {
-      toast.error("You do not have permission to update clinic information");
+      toast.error("You do not have permission to update clinic information", { id: "clinic-update" });
       return;
     }
     console.log("🟢 Save Changes clicked");
     if (!editingClinicId) {
       console.error("❌ No clinic ID found");
-      toast.error("No clinic selected for update");
+      toast.error("No clinic selected for update", { id: "clinic-update" });
       return;
     }
     setUpdating(true);
     try {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) {
-        toast.error("You are not authenticated");
+        toast.error("You are not authenticated", { id: "clinic-update" });
         return;
       }
       const toRelativeUploadPath = (s: string) => {
@@ -1661,7 +1661,7 @@ function ClinicManagementDashboard(): ReactElement {
             const u = new URL(out);
             return u.pathname || out;
           }
-        } catch {}
+        } catch { }
         if (out.includes("uploads")) {
           const idx = out.indexOf("uploads");
           return `/${out.substring(idx).replace(/\\/g, "/")}`;
@@ -1782,7 +1782,7 @@ function ClinicManagementDashboard(): ReactElement {
             { headers: { ...authHeaders } },
           );
           if (!response.data.success) {
-            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update-error" });
+            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update" });
             return;
           }
         } catch (err: any) {
@@ -1795,9 +1795,9 @@ function ClinicManagementDashboard(): ReactElement {
             (missing.includes("name") || missing.includes("address"))
           ) {
             if (missing.includes("address")) {
-              toast.error("Address field is mandatory. Please fill it.", { id: "address-error" });
+              toast.error("Address field is mandatory. Please fill it.", { id: "clinic-update" });
             } else {
-              toast.error("Name field is mandatory. Please fill it.", { id: "name-error" });
+              toast.error("Name field is mandatory. Please fill it.", { id: "clinic-update" });
             }
             return;
           } else {
@@ -1805,10 +1805,10 @@ function ClinicManagementDashboard(): ReactElement {
             if (msg === "File upload failed") {
               toast.error(
                 "File upload failed: only JPG/PNG up to 5MB are allowed.",
-                { id: "clinic-update-error" }
+                { id: "clinic-update" }
               );
             } else {
-              toast.error(msg, { id: "clinic-update-error" });
+              toast.error(msg, { id: "clinic-update" });
             }
             return;
           }
@@ -1853,7 +1853,7 @@ function ClinicManagementDashboard(): ReactElement {
             },
           );
           if (!response.data.success) {
-            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update-error" });
+            toast.error(response.data.message || "Failed to update clinic", { id: "clinic-update" });
             return;
           }
         } catch (err: any) {
@@ -1866,20 +1866,20 @@ function ClinicManagementDashboard(): ReactElement {
             (missing.includes("name") || missing.includes("address"))
           ) {
             if (missing.includes("address")) {
-              toast.error("Address field is mandatory. Please fill it.", { id: "address-error" });
+              toast.error("Address field is mandatory. Please fill it.", { id: "clinic-update" });
             } else {
-              toast.error("Name field is mandatory. Please fill it.", { id: "name-error" });
+              toast.error("Name field is mandatory. Please fill it.", { id: "clinic-update" });
             }
             return;
           } else {
             const msg = err?.response?.data?.message || "Update failed";
-            toast.error(msg, { id: "clinic-update-error" });
+            toast.error(msg, { id: "clinic-update" });
             return;
           }
         }
       }
       console.log("🔔 About to show success toast");
-      toast.success("Clinic updated successfully", { id: "clinic-update-success" });
+      toast.success("Clinic updated successfully", { id: "clinic-update" });
       console.log("🔔 Success toast shown");
       // Sync currency to global context after successful save
       setGlobalCurrency(clinicCurrency);
@@ -1898,12 +1898,12 @@ function ClinicManagementDashboard(): ReactElement {
         const sanitizePhotos = (arr: any[]) =>
           Array.isArray(arr)
             ? arr
-                .map((p: any) =>
-                  typeof p === "string"
-                    ? p.trim().replace(/^['\"`]+|['\"`]+$/g, "")
-                    : p,
-                )
-                .filter((p: any) => typeof p === "string" && p.length > 0)
+              .map((p: any) =>
+                typeof p === "string"
+                  ? p.trim().replace(/^['\"`]+|['\"`]+$/g, "")
+                  : p,
+              )
+              .filter((p: any) => typeof p === "string" && p.length > 0)
             : [];
         console.log("🔄 Refresh response clinic:", refreshResponse.data.clinic);
         console.log(
@@ -1912,9 +1912,9 @@ function ClinicManagementDashboard(): ReactElement {
         );
         const clinicObj = refreshResponse.data.clinic
           ? {
-              ...refreshResponse.data.clinic,
-              photos: sanitizePhotos(refreshResponse.data.clinic.photos || []),
-            }
+            ...refreshResponse.data.clinic,
+            photos: sanitizePhotos(refreshResponse.data.clinic.photos || []),
+          }
           : null;
         setClinics(clinicObj ? [clinicObj] : []);
         if (
@@ -1969,32 +1969,32 @@ function ClinicManagementDashboard(): ReactElement {
             integrations,
             bankDetails: (clinicObj as any).bankDetails
               ? {
-                  bankTransfer: (clinicObj as any).bankDetails
-                    ?.bankTransfer || {
-                    enabled: false,
-                    type: "flat",
-                    value: 0,
-                    applyOn: "earned",
-                  },
-                  tabby: (clinicObj as any).bankDetails?.tabby || {
-                    enabled: false,
-                    type: "flat",
-                    value: 0,
-                    applyOn: "earned",
-                  },
-                  card: (clinicObj as any).bankDetails?.card || {
-                    enabled: false,
-                    type: "flat",
-                    value: 0,
-                    applyOn: "earned",
-                  },
-                  tamara: (clinicObj as any).bankDetails?.tamara || {
-                    enabled: false,
-                    type: "flat",
-                    value: 0,
-                    applyOn: "earned",
-                  },
-                }
+                bankTransfer: (clinicObj as any).bankDetails
+                  ?.bankTransfer || {
+                  enabled: false,
+                  type: "flat",
+                  value: 0,
+                  applyOn: "earned",
+                },
+                tabby: (clinicObj as any).bankDetails?.tabby || {
+                  enabled: false,
+                  type: "flat",
+                  value: 0,
+                  applyOn: "earned",
+                },
+                card: (clinicObj as any).bankDetails?.card || {
+                  enabled: false,
+                  type: "flat",
+                  value: 0,
+                  applyOn: "earned",
+                },
+                tamara: (clinicObj as any).bankDetails?.tamara || {
+                  enabled: false,
+                  type: "flat",
+                  value: 0,
+                  applyOn: "earned",
+                },
+              }
               : bankDetails,
           });
         }
@@ -2178,7 +2178,7 @@ function ClinicManagementDashboard(): ReactElement {
                   <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">
                     Manage Health Center
                   </h1>
-                  {isDirty ? (
+                  {/* {isDirty ? (
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-amber-100 text-amber-700 rounded-full border border-amber-200">
                       Unsaved Changes
                     </span>
@@ -2186,7 +2186,7 @@ function ClinicManagementDashboard(): ReactElement {
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
                       Saved
                     </span>
-                  )}
+                  )} */}
                 </div>
                 <p className="text-xs sm:text-sm text-gray-600">
                   Configure your clinic settings and preferences
@@ -2218,7 +2218,7 @@ function ClinicManagementDashboard(): ReactElement {
 
         {/* Tabs - Positioned below header */}
         <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 max-w-7xl">
-          <div className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 rounded-full bg-white/80 border border-gray-200 shadow-sm px-1.5 sm:px-2 overflow-x-auto whitespace-nowrap scrollbar-thin">
+          <div className="flex items-center gap-1.5 sm:gap-2 h-9 sm:h-10 rounded-full bg-white bg-opacity-80 border border-gray-200 shadow-sm px-1.5 sm:px-2 overflow-x-auto whitespace-nowrap scrollbar-thin">
             {(() => {
               // Determine which tabs to show based on permissions
               const allTabs = [
@@ -2250,11 +2250,10 @@ function ClinicManagementDashboard(): ReactElement {
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`h-6 sm:h-7 px-2 sm:px-3 rounded-full text-[11px] sm:text-sm font-medium transition-all flex-shrink-0 ${
-                  activeTab === tab
-                    ? "bg-teal-600 text-white shadow-sm"
-                    : "bg-transparent text-gray-800 hover:bg-gray-100"
-                }`}
+                className={`h-6 sm:h-7 px-2 sm:px-3 rounded-full text-[11px] sm:text-sm font-medium transition-all flex-shrink-0 ${activeTab === tab
+                  ? "bg-teal-600 text-white shadow-sm"
+                  : "bg-transparent text-gray-800 hover:bg-gray-100"
+                  }`}
               >
                 {tab}
               </button>
@@ -2452,7 +2451,7 @@ function ClinicManagementDashboard(): ReactElement {
                               Click to upload logo
                             </span>
                             <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                              PNG, JPG up to 5MB
+                              PNG, JPG up to 50MB
                             </div>
                           </div>
                         )}
@@ -2474,6 +2473,10 @@ function ClinicManagementDashboard(): ReactElement {
                             if (fieldDisabled) return;
                             const f = e.target.files?.[0];
                             if (!f) return;
+                            if (f.size > 50 * 1024 * 1024) {
+                                toast.error("File size exceeds 50MB");
+                                return;
+                            }
                             const url = URL.createObjectURL(f);
                             setCoverPreview(url);
                             setCoverFile(f);
@@ -2492,7 +2495,7 @@ function ClinicManagementDashboard(): ReactElement {
                               Click to upload cover
                             </span>
                             <div className="text-xs sm:text-sm text-gray-500 mt-1">
-                              PNG, JPG up to 5MB
+                              PNG, JPG up to 50MB
                             </div>
                           </div>
                         )}
@@ -2552,7 +2555,7 @@ function ClinicManagementDashboard(): ReactElement {
                   {selectedTreatmentIndex != null &&
                     editForm.treatments &&
                     (editForm.treatments as any[])?.[
-                      selectedTreatmentIndex as number
+                    selectedTreatmentIndex as number
                     ] && (
                       <div className="mb-3 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-2">
@@ -2654,11 +2657,10 @@ function ClinicManagementDashboard(): ReactElement {
                                 />
                                 <button
                                   onClick={handleAddSubTreatment}
-                                  className={`px-2 sm:px-3 py-1.5 sm:py-2 text-white rounded-lg transition-colors text-xs sm:text-sm flex-shrink-0 flex items-center justify-center gap-1 min-w-[40px] sm:min-w-auto ${
-                                    customAdded
-                                      ? "bg-teal-600"
-                                      : "bg-teal-600 hover:bg-teal-700"
-                                  }`}
+                                  className={`px-2 sm:px-3 py-1.5 sm:py-2 text-white rounded-lg transition-colors text-xs sm:text-sm flex-shrink-0 flex items-center justify-center gap-1 min-w-[40px] sm:min-w-auto ${customAdded
+                                    ? "bg-teal-600"
+                                    : "bg-teal-600 hover:bg-teal-700"
+                                    }`}
                                   disabled={
                                     !newSubTreatment.trim() || customAdded
                                   }
@@ -2747,7 +2749,7 @@ function ClinicManagementDashboard(): ReactElement {
                                     <div className="text-xs text-teal-800 flex-1">
                                       {sc.name}{" "}
                                       {typeof sc.price === "number" &&
-                                      sc.price > 0 ? (
+                                        sc.price > 0 ? (
                                         <span className="font-semibold text-teal-900">
                                           {getCurrencySymbol(clinicCurrency)}
                                           {sc.price}
@@ -2760,7 +2762,7 @@ function ClinicManagementDashboard(): ReactElement {
                                       className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
                                       defaultValue={
                                         typeof sc.price === "number" &&
-                                        sc.price > 0
+                                          sc.price > 0
                                           ? sc.price
                                           : ""
                                       }
@@ -2797,7 +2799,7 @@ function ClinicManagementDashboard(): ReactElement {
                                     onClick={() => {
                                       const customPrice =
                                         customSubTreatmentPrices[
-                                          subTreatmentKey
+                                        subTreatmentKey
                                         ];
                                       const subTreatmentWithPrice = {
                                         ...sc,
@@ -2805,7 +2807,7 @@ function ClinicManagementDashboard(): ReactElement {
                                           customPrice && customPrice > 0
                                             ? customPrice
                                             : typeof sc.price === "number" &&
-                                                sc.price > 0
+                                              sc.price > 0
                                               ? sc.price
                                               : undefined,
                                       };
@@ -2815,11 +2817,10 @@ function ClinicManagementDashboard(): ReactElement {
                                       );
                                     }}
                                     disabled={!!isAdded}
-                                    className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
-                                      isAdded
-                                        ? "bg-teal-600 cursor-default"
-                                        : "bg-gray-900 hover:bg-gray-800"
-                                    }`}
+                                    className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${isAdded
+                                      ? "bg-teal-600 cursor-default"
+                                      : "bg-gray-900 hover:bg-gray-800"
+                                      }`}
                                   >
                                     {isAdded ? "Saved" : "Add"}
                                   </button>
@@ -2988,7 +2989,7 @@ function ClinicManagementDashboard(): ReactElement {
                                           !mainTreatment ||
                                           !mainTreatment.subcategories ||
                                           mainTreatment.subcategories.length ===
-                                            0
+                                          0
                                         ) {
                                           return (
                                             <div className="px-3 py-2 text-xs text-gray-500">
@@ -3018,7 +3019,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                     {sc.name}{" "}
                                                     {typeof sc.price ===
                                                       "number" &&
-                                                    sc.price > 0 ? (
+                                                      sc.price > 0 ? (
                                                       <span className="font-semibold text-teal-900">
                                                         {getCurrencySymbol(
                                                           clinicCurrency,
@@ -3034,13 +3035,13 @@ function ClinicManagementDashboard(): ReactElement {
                                                     defaultValue={
                                                       isAdded
                                                         ? treatment.subTreatments?.find(
-                                                            (st: any) =>
-                                                              st.name.toLowerCase() ===
-                                                              sc.name.toLowerCase(),
-                                                          )?.price || ""
+                                                          (st: any) =>
+                                                            st.name.toLowerCase() ===
+                                                            sc.name.toLowerCase(),
+                                                        )?.price || ""
                                                         : typeof sc.price ===
-                                                              "number" &&
-                                                            sc.price > 0
+                                                          "number" &&
+                                                          sc.price > 0
                                                           ? sc.price
                                                           : ""
                                                     }
@@ -3049,8 +3050,8 @@ function ClinicManagementDashboard(): ReactElement {
                                                       const value = e.target
                                                         .value
                                                         ? parseFloat(
-                                                            e.target.value,
-                                                          )
+                                                          e.target.value,
+                                                        )
                                                         : 0;
                                                       setCustomSubTreatmentPrices(
                                                         (prev) => ({
@@ -3069,18 +3070,18 @@ function ClinicManagementDashboard(): ReactElement {
                                                         const value = e
                                                           .currentTarget.value
                                                           ? parseFloat(
-                                                              e.currentTarget
-                                                                .value,
-                                                            )
+                                                            e.currentTarget
+                                                              .value,
+                                                          )
                                                           : 0;
                                                         const subTreatmentWithPrice =
-                                                          {
-                                                            ...sc,
-                                                            price:
-                                                              value > 0
-                                                                ? value
-                                                                : undefined,
-                                                          };
+                                                        {
+                                                          ...sc,
+                                                          price:
+                                                            value > 0
+                                                              ? value
+                                                              : undefined,
+                                                        };
                                                         addSubTreatmentFromAvailable(
                                                           subTreatmentWithPrice,
                                                           index,
@@ -3093,32 +3094,31 @@ function ClinicManagementDashboard(): ReactElement {
                                                   onClick={() => {
                                                     const customPrice =
                                                       customSubTreatmentPrices[
-                                                        subTreatmentKey
+                                                      subTreatmentKey
                                                       ];
                                                     const subTreatmentWithPrice =
-                                                      {
-                                                        ...sc,
-                                                        price:
-                                                          customPrice &&
+                                                    {
+                                                      ...sc,
+                                                      price:
+                                                        customPrice &&
                                                           customPrice > 0
-                                                            ? customPrice
-                                                            : typeof sc.price ===
-                                                                  "number" &&
-                                                                sc.price > 0
-                                                              ? sc.price
-                                                              : undefined,
-                                                      };
+                                                          ? customPrice
+                                                          : typeof sc.price ===
+                                                            "number" &&
+                                                            sc.price > 0
+                                                            ? sc.price
+                                                            : undefined,
+                                                    };
                                                     addSubTreatmentFromAvailable(
                                                       subTreatmentWithPrice,
                                                       index,
                                                     );
                                                   }}
                                                   disabled={!!isAdded}
-                                                  className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
-                                                    isAdded
-                                                      ? "bg-teal-600 cursor-default"
-                                                      : "bg-gray-900 hover:bg-gray-800"
-                                                  }`}
+                                                  className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${isAdded
+                                                    ? "bg-teal-600 cursor-default"
+                                                    : "bg-gray-900 hover:bg-gray-800"
+                                                    }`}
                                                 >
                                                   {isAdded ? "Added" : "Add"}
                                                 </button>
@@ -3360,6 +3360,10 @@ function ClinicManagementDashboard(): ReactElement {
                         onChange={(e) => {
                           const f = e.target.files?.[0] || null;
                           if (f) {
+                            if (f.size > 50 * 1024 * 1024) {
+                                toast.error("File size exceeds 50MB");
+                                return;
+                            }
                             setNewDocFile(f);
                             setNewDocName(f.name.split(".")[0]);
                           }
@@ -3371,8 +3375,8 @@ function ClinicManagementDashboard(): ReactElement {
 
                 {/* Document Grid - Only show if canRead is true */}
                 {permissions.canRead &&
-                editForm.documents &&
-                editForm.documents.length > 0 ? (
+                  editForm.documents &&
+                  editForm.documents.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     {(() => {
                       console.log(
@@ -3391,10 +3395,10 @@ function ClinicManagementDashboard(): ReactElement {
                           const fileType = isImage
                             ? "Image"
                             : (
-                                url.split(".").pop() ||
-                                doc.type ||
-                                "PDF"
-                              ).toUpperCase();
+                              url.split(".").pop() ||
+                              doc.type ||
+                              "PDF"
+                            ).toUpperCase();
                           const isPending = !hasUrl && doc.file; // New document not yet saved
 
                           return (
@@ -3590,11 +3594,13 @@ function ClinicManagementDashboard(): ReactElement {
                         return;
                       }
 
-                      if (file.size > 5 * 1024 * 1024) {
-                        toast.error("File size exceeds 5MB");
+
+
+                      if (file.size > 50 * 1024 * 1024) {
+                        toast.error("File size exceeds 50MB");
                         return;
                       }
-
+ 
                       setNewDocFile(file);
                       setNewDocName(file.name.split(".")[0]);
                     }}
@@ -3610,8 +3616,7 @@ function ClinicManagementDashboard(): ReactElement {
                         Drag and drop your files here, or click to browse
                       </p>
                       <p className="text-xs text-gray-400 mb-4">
-                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max
-                        5MB)
+                        Supported formats: PDF, DOC, DOCX, TXT, JPG, PNG (Max 50MB)
                       </p>
 
                       {/* Quick Upload Form */}
@@ -3868,7 +3873,7 @@ function ClinicManagementDashboard(): ReactElement {
                                         }
                                         checked={
                                           listingVisibility.showServices !==
-                                            false &&
+                                          false &&
                                           (editForm.treatments as any[]).every(
                                             (t: any) => t.enabled !== false,
                                           )
@@ -4079,14 +4084,14 @@ function ClinicManagementDashboard(): ReactElement {
                                                                   subIdx
                                                                 ] = {
                                                                   ...updatedSubs[
-                                                                    subIdx
+                                                                  subIdx
                                                                   ],
                                                                   enabled:
                                                                     isSubOn,
                                                                 };
                                                                 updated[idx] = {
                                                                   ...updated[
-                                                                    idx
+                                                                  idx
                                                                   ],
                                                                   subTreatments:
                                                                     updatedSubs,
@@ -4673,9 +4678,11 @@ function ClinicManagementDashboard(): ReactElement {
             {activeTab === "Banks" && (
               <div className="w-full">
                 <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+
                   <h3 className="text-lg font-bold text-gray-900 mb-4">
                     Payment Methods
                   </h3>
+
                   <div className="space-y-4">
                     {[
                       { key: "bankTransfer", label: "Bank Transfer" },
@@ -4692,9 +4699,6 @@ function ClinicManagementDashboard(): ReactElement {
                             <div
                               className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${bankDetails[payment.key as keyof typeof bankDetails].enabled ? "bg-teal-100" : "bg-gray-100"}`}
                             >
-                              <DollarSign
-                                className={`w-5 h-5 ${bankDetails[payment.key as keyof typeof bankDetails].enabled ? "text-teal-600" : "text-gray-400"}`}
-                              />
                             </div>
                             <p className="text-sm font-semibold text-gray-900">
                               {payment.label}
@@ -4726,102 +4730,102 @@ function ClinicManagementDashboard(): ReactElement {
                         </div>
                         {bankDetails[payment.key as keyof typeof bankDetails]
                           .enabled && (
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                Amount Type
-                              </label>
-                              <select
-                                value={
-                                  bankDetails[
-                                    payment.key as keyof typeof bankDetails
-                                  ].type
-                                }
-                                disabled={fieldDisabled}
-                                onChange={(e) => {
-                                  if (fieldDisabled) return;
-                                  setBankDetails((prev) => ({
-                                    ...prev,
-                                    [payment.key]: {
-                                      ...prev[payment.key as keyof typeof prev],
-                                      type: e.target.value as
-                                        | "flat"
-                                        | "percentage",
-                                    },
-                                  }));
-                                }}
-                                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                              >
-                                <option value="flat">Flat</option>
-                                <option value="percentage">Percentage</option>
-                              </select>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                  Amount Type
+                                </label>
+                                <select
+                                  value={
+                                    bankDetails[
+                                      payment.key as keyof typeof bankDetails
+                                    ].type
+                                  }
+                                  disabled={fieldDisabled}
+                                  onChange={(e) => {
+                                    if (fieldDisabled) return;
+                                    setBankDetails((prev) => ({
+                                      ...prev,
+                                      [payment.key]: {
+                                        ...prev[payment.key as keyof typeof prev],
+                                        type: e.target.value as
+                                          | "flat"
+                                          | "percentage",
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                                >
+                                  <option value="flat">Flat</option>
+                                  <option value="percentage">Percentage</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                  Apply On
+                                </label>
+                                <select
+                                  value={
+                                    bankDetails[
+                                      payment.key as keyof typeof bankDetails
+                                    ].applyOn
+                                  }
+                                  disabled={fieldDisabled}
+                                  onChange={(e) => {
+                                    if (fieldDisabled) return;
+                                    setBankDetails((prev) => ({
+                                      ...prev,
+                                      [payment.key]: {
+                                        ...prev[payment.key as keyof typeof prev],
+                                        applyOn: e.target.value as
+                                          | "earned"
+                                          | "paid",
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                                >
+                                  <option value="earned">Earned Amount</option>
+                                  <option value="paid">Paid Amount</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                  Value
+                                </label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={
+                                    bankDetails[
+                                      payment.key as keyof typeof bankDetails
+                                    ].value
+                                  }
+                                  disabled={fieldDisabled}
+                                  readOnly={fieldDisabled}
+                                  onChange={(e) => {
+                                    if (fieldDisabled) return;
+                                    setBankDetails((prev) => ({
+                                      ...prev,
+                                      [payment.key]: {
+                                        ...prev[payment.key as keyof typeof prev],
+                                        value: parseFloat(e.target.value) || 0,
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                  placeholder={
+                                    bankDetails[
+                                      payment.key as keyof typeof bankDetails
+                                    ].type === "percentage"
+                                      ? "e.g. 2.5"
+                                      : "e.g. 50"
+                                  }
+                                />
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                Apply On
-                              </label>
-                              <select
-                                value={
-                                  bankDetails[
-                                    payment.key as keyof typeof bankDetails
-                                  ].applyOn
-                                }
-                                disabled={fieldDisabled}
-                                onChange={(e) => {
-                                  if (fieldDisabled) return;
-                                  setBankDetails((prev) => ({
-                                    ...prev,
-                                    [payment.key]: {
-                                      ...prev[payment.key as keyof typeof prev],
-                                      applyOn: e.target.value as
-                                        | "earned"
-                                        | "paid",
-                                    },
-                                  }));
-                                }}
-                                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                              >
-                                <option value="earned">Earned Amount</option>
-                                <option value="paid">Paid Amount</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-                                Value
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={
-                                  bankDetails[
-                                    payment.key as keyof typeof bankDetails
-                                  ].value
-                                }
-                                disabled={fieldDisabled}
-                                readOnly={fieldDisabled}
-                                onChange={(e) => {
-                                  if (fieldDisabled) return;
-                                  setBankDetails((prev) => ({
-                                    ...prev,
-                                    [payment.key]: {
-                                      ...prev[payment.key as keyof typeof prev],
-                                      value: parseFloat(e.target.value) || 0,
-                                    },
-                                  }));
-                                }}
-                                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                placeholder={
-                                  bankDetails[
-                                    payment.key as keyof typeof bankDetails
-                                  ].type === "percentage"
-                                    ? "e.g. 2.5"
-                                    : "e.g. 50"
-                                }
-                              />
-                            </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     ))}
                   </div>
@@ -4992,9 +4996,7 @@ function ClinicManagementDashboard(): ReactElement {
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
-                      <DollarSign className="w-5 h-5 text-teal-700" />
-                    </div>
+
                     <div>
                       <h2 className="text-xl font-bold text-gray-900">
                         Payment Methods
@@ -5028,7 +5030,7 @@ function ClinicManagementDashboard(): ReactElement {
                   ) : paymentMethods.length === 0 ? (
                     <div className="p-8 text-center">
                       <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                        <DollarSign className="w-8 h-8 text-gray-400" />
+                        <span className="w-8 h-8 text-gray-400" >{getCurrencySymbol(clinicCurrency)} </span>
                       </div>
                       <h3 className="text-lg font-medium text-gray-900 mb-1">
                         No payment methods yet
@@ -5062,7 +5064,7 @@ function ClinicManagementDashboard(): ReactElement {
                         >
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-                              <DollarSign className="w-5 h-5 text-teal-600" />
+                              <span className="w-5 h-5 text-teal-600" >{getCurrencySymbol(clinicCurrency)} </span>
                             </div>
                             <div>
                               <h4 className="font-medium text-gray-900">
@@ -5083,28 +5085,25 @@ function ClinicManagementDashboard(): ReactElement {
                                 onClick={() =>
                                   handleTogglePaymentMethodStatus(paymentMethod)
                                 }
-                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 ${
-                                  paymentMethod.status === "active"
-                                    ? "bg-teal-600"
-                                    : "bg-gray-200"
-                                }`}
+                                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 ${paymentMethod.status === "active"
+                                  ? "bg-teal-600"
+                                  : "bg-gray-200"
+                                  }`}
                               >
                                 <span
-                                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                    paymentMethod.status === "active"
-                                      ? "translate-x-5"
-                                      : "translate-x-0"
-                                  }`}
+                                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${paymentMethod.status === "active"
+                                    ? "translate-x-5"
+                                    : "translate-x-0"
+                                    }`}
                                 />
                               </button>
                             )}
                             {/* Status Label */}
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                paymentMethod.status === "active"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${paymentMethod.status === "active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                                }`}
                             >
                               {paymentMethod.status.charAt(0).toUpperCase() +
                                 paymentMethod.status.slice(1)}
@@ -5292,13 +5291,13 @@ function ClinicManagementDashboard(): ReactElement {
                                 idx === 0
                                   ? t
                                   : {
-                                      ...t,
-                                      open: baseTime.open,
-                                      opening: baseTime.opening,
-                                      closing: baseTime.closing,
-                                      breakStart: baseTime.breakStart,
-                                      breakEnd: baseTime.breakEnd,
-                                    },
+                                    ...t,
+                                    open: baseTime.open,
+                                    opening: baseTime.opening,
+                                    closing: baseTime.closing,
+                                    breakStart: baseTime.breakStart,
+                                    breakEnd: baseTime.breakEnd,
+                                  },
                               ),
                             );
                             toast.success(
@@ -6053,7 +6052,7 @@ function ClinicManagementDashboard(): ReactElement {
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1.5 sm:gap-2">
-                                      <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-500 flex-shrink-0" />
+                                      <span className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-teal-500 flex-shrink-0">{getCurrencySymbol(clinicCurrency)} </span>
                                       <span className="text-xs sm:text-sm">
                                         {clinic.pricing}
                                       </span>
@@ -6063,18 +6062,18 @@ function ClinicManagementDashboard(): ReactElement {
                                       <span className="text-xs sm:text-sm break-words">
                                         {Array.isArray(clinic.timings)
                                           ? (() => {
-                                              const open = (
-                                                clinic.timings as any[]
-                                              ).filter((t: any) => t.isOpen);
-                                              if (open.length === 0)
-                                                return "All days closed";
-                                              return open
-                                                .map(
-                                                  (t: any) =>
-                                                    `${t.day}: ${t.openingTime} - ${t.closingTime}`,
-                                                )
-                                                .join(", ");
-                                            })()
+                                            const open = (
+                                              clinic.timings as any[]
+                                            ).filter((t: any) => t.isOpen);
+                                            if (open.length === 0)
+                                              return "All days closed";
+                                            return open
+                                              .map(
+                                                (t: any) =>
+                                                  `${t.day}: ${t.openingTime} - ${t.closingTime}`,
+                                              )
+                                              .join(", ");
+                                          })()
                                           : clinic.timings || "No timings set"}
                                       </span>
                                     </div>
@@ -6169,9 +6168,9 @@ function ClinicManagementDashboard(): ReactElement {
                                                     prev.map((o) =>
                                                       o._id === offer._id
                                                         ? {
-                                                            ...o,
-                                                            enabled: nextOn,
-                                                          }
+                                                          ...o,
+                                                          enabled: nextOn,
+                                                        }
                                                         : o,
                                                     ),
                                                   );
@@ -6193,7 +6192,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                     if (!res?.data?.success) {
                                                       throw new Error(
                                                         res?.data?.message ||
-                                                          "Failed to update offer",
+                                                        "Failed to update offer",
                                                       );
                                                     }
                                                   } catch {
@@ -6204,10 +6203,10 @@ function ClinicManagementDashboard(): ReactElement {
                                                       prev.map((o) =>
                                                         o._id === offer._id
                                                           ? {
-                                                              ...o,
-                                                              enabled:
-                                                                offer.enabled,
-                                                            }
+                                                            ...o,
+                                                            enabled:
+                                                              offer.enabled,
+                                                          }
                                                           : o,
                                                       ),
                                                     );
@@ -6220,11 +6219,10 @@ function ClinicManagementDashboard(): ReactElement {
                                         </div>
                                         <div className="mt-2 flex flex-wrap gap-1">
                                           <span
-                                            className={`px-2 py-0.5 rounded-full text-[11px] border ${
-                                              isEnabled
-                                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                            }`}
+                                            className={`px-2 py-0.5 rounded-full text-[11px] border ${isEnabled
+                                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                              : "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                              }`}
                                           >
                                             {isEnabled ? "enabled" : "disabled"}
                                           </span>
@@ -6326,23 +6324,23 @@ function ClinicManagementDashboard(): ReactElement {
                                                           ).map((t, i) =>
                                                             i === tIndex
                                                               ? {
-                                                                  ...t,
-                                                                  enabled:
-                                                                    checked,
-                                                                  subTreatments:
-                                                                    (
-                                                                      t.subTreatments ||
-                                                                      []
-                                                                    ).map(
-                                                                      (st) =>
-                                                                        checked
-                                                                          ? st
-                                                                          : {
-                                                                              ...st,
-                                                                              enabled: false,
-                                                                            },
-                                                                    ),
-                                                                }
+                                                                ...t,
+                                                                enabled:
+                                                                  checked,
+                                                                subTreatments:
+                                                                  (
+                                                                    t.subTreatments ||
+                                                                    []
+                                                                  ).map(
+                                                                    (st) =>
+                                                                      checked
+                                                                        ? st
+                                                                        : {
+                                                                          ...st,
+                                                                          enabled: false,
+                                                                        },
+                                                                  ),
+                                                              }
                                                               : t,
                                                           ),
                                                         };
@@ -6364,7 +6362,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                           throw new Error(
                                                             res?.data
                                                               ?.message ||
-                                                              "Failed to update",
+                                                            "Failed to update",
                                                           );
                                                         }
                                                       } catch {
@@ -6380,7 +6378,7 @@ function ClinicManagementDashboard(): ReactElement {
                                             </div>
                                             {treatment.subTreatments &&
                                               treatment.subTreatments.length >
-                                                0 && (
+                                              0 && (
                                                 <div className="flex flex-wrap gap-1 sm:gap-1.5">
                                                   {treatment.subTreatments.map(
                                                     (subTreatment, sIndex) => (
@@ -6394,7 +6392,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                         {typeof subTreatment.price ===
                                                           "number" &&
                                                           subTreatment.price >
-                                                            0 && (
+                                                          0 && (
                                                             <span className="text-teal-800 font-bold whitespace-nowrap">
                                                               {getCurrencySymbol(
                                                                 clinicCurrency,
@@ -6435,29 +6433,29 @@ function ClinicManagementDashboard(): ReactElement {
                                                                         []),
                                                                     ];
                                                                     const curr =
-                                                                      {
-                                                                        ...ts[
-                                                                          tIndex
-                                                                        ],
-                                                                      };
+                                                                    {
+                                                                      ...ts[
+                                                                      tIndex
+                                                                      ],
+                                                                    };
                                                                     const subs =
                                                                       Array.isArray(
                                                                         curr.subTreatments,
                                                                       )
                                                                         ? [
-                                                                            ...curr.subTreatments,
-                                                                          ]
+                                                                          ...curr.subTreatments,
+                                                                        ]
                                                                         : [];
                                                                     if (
                                                                       subs[
-                                                                        sIndex
+                                                                      sIndex
                                                                       ]
                                                                     )
                                                                       subs[
                                                                         sIndex
                                                                       ] = {
                                                                         ...subs[
-                                                                          sIndex
+                                                                        sIndex
                                                                         ],
                                                                         enabled:
                                                                           checked,
@@ -6507,12 +6505,12 @@ function ClinicManagementDashboard(): ReactElement {
                                                                               j,
                                                                             ) =>
                                                                               j ===
-                                                                              sIndex
+                                                                                sIndex
                                                                                 ? {
-                                                                                    ...st,
-                                                                                    enabled:
-                                                                                      checked,
-                                                                                  }
+                                                                                  ...st,
+                                                                                  enabled:
+                                                                                    checked,
+                                                                                }
                                                                                 : st,
                                                                           );
                                                                         return {
@@ -6523,24 +6521,24 @@ function ClinicManagementDashboard(): ReactElement {
                                                                       },
                                                                     );
                                                                   const payload =
-                                                                    {
-                                                                      name: base.name,
-                                                                      address:
-                                                                        base.address,
-                                                                      treatments:
-                                                                        updatedTreatments,
-                                                                    };
+                                                                  {
+                                                                    name: base.name,
+                                                                    address:
+                                                                      base.address,
+                                                                    treatments:
+                                                                      updatedTreatments,
+                                                                  };
                                                                   const res =
                                                                     await axios.put(
                                                                       `/api/clinics/${base._id}`,
                                                                       payload,
                                                                       {
                                                                         headers:
-                                                                          {
-                                                                            ...authHeaders,
-                                                                            "Content-Type":
-                                                                              "application/json",
-                                                                          },
+                                                                        {
+                                                                          ...authHeaders,
+                                                                          "Content-Type":
+                                                                            "application/json",
+                                                                        },
                                                                       },
                                                                     );
                                                                   if (
@@ -6550,7 +6548,7 @@ function ClinicManagementDashboard(): ReactElement {
                                                                     throw new Error(
                                                                       res?.data
                                                                         ?.message ||
-                                                                        "Failed to update",
+                                                                      "Failed to update",
                                                                     );
                                                                   }
                                                                 } catch {
@@ -6810,15 +6808,14 @@ function ClinicManagementDashboard(): ReactElement {
                                               (_, i) => (
                                                 <Star
                                                   key={i}
-                                                  className={`w-3 h-3 ${
-                                                    i <
+                                                  className={`w-3 h-3 ${i <
                                                     Math.round(
                                                       reviewsData.averageRating ||
-                                                        0,
+                                                      0,
                                                     )
-                                                      ? "fill-amber-400 text-amber-400"
-                                                      : "text-gray-300"
-                                                  }`}
+                                                    ? "fill-amber-400 text-amber-400"
+                                                    : "text-gray-300"
+                                                    }`}
                                                 />
                                               ),
                                             )}
@@ -6881,12 +6878,11 @@ function ClinicManagementDashboard(): ReactElement {
                                                             (_, i) => (
                                                               <Star
                                                                 key={i}
-                                                                className={`w-2.5 h-2.5 ${
-                                                                  i <
+                                                                className={`w-2.5 h-2.5 ${i <
                                                                   review.rating
-                                                                    ? "fill-amber-400 text-amber-400"
-                                                                    : "text-gray-300"
-                                                                }`}
+                                                                  ? "fill-amber-400 text-amber-400"
+                                                                  : "text-gray-300"
+                                                                  }`}
                                                               />
                                                             ),
                                                           )}
@@ -7364,12 +7360,12 @@ function ClinicManagementDashboard(): ReactElement {
                           prev.map((b) =>
                             b.id === branchModal.targetId
                               ? {
-                                  ...b,
-                                  name: branchModal.name,
-                                  address: branchModal.address,
-                                  phone: branchModal.phone,
-                                  email: branchModal.email,
-                                }
+                                ...b,
+                                name: branchModal.name,
+                                address: branchModal.address,
+                                phone: branchModal.phone,
+                                email: branchModal.email,
+                              }
                               : b,
                           ),
                         );
@@ -7531,7 +7527,7 @@ const getDocumentUrl = (docPath: string) => {
       }
       return clean;
     }
-  } catch {}
+  } catch { }
   if (clean.startsWith("/uploads/")) return `${uploadsOrigin}${clean}`;
   if (clean.includes("uploads")) {
     const idx = clean.indexOf("uploads");

@@ -122,10 +122,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
   const getToken = () =>
     typeof window !== "undefined"
       ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken") ||
-        localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken") ||
-        ""
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      ""
       : "";
 
   // Fetch departments on mount
@@ -224,7 +224,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
       return;
     }
     setSubmitting(true);
-    
+
     let uploadedFileUrl = null;
     let uploadedFileName = null;
     let uploadedFileSize = null;
@@ -234,7 +234,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
       try {
         const formData = new FormData();
         formData.append("file", uploadedFile);
-        
+
         const token = getToken();
         const uploadResponse = await fetch("/api/upload", {
           method: "POST",
@@ -245,7 +245,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
         });
 
         const uploadData = await uploadResponse.json();
-        
+
         if (uploadResponse.ok && uploadData.success) {
           uploadedFileUrl = uploadData.url;
           uploadedFileName = uploadedFile.name;
@@ -328,20 +328,18 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                 <React.Fragment key={step.id}>
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-md shadow-blue-200"
-                          : isCompleted
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${isActive
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                        : isCompleted
                           ? "bg-blue-100 text-blue-600"
                           : "bg-gray-100 text-gray-400"
-                      }`}
+                        }`}
                     >
                       {isCompleted ? <Check size={14} /> : step.id}
                     </div>
                     <span
-                      className={`text-xs mt-1 text-center whitespace-pre-line leading-tight font-medium ${
-                        isActive ? "text-blue-600" : isCompleted ? "text-blue-500" : "text-gray-400"
-                      }`}
+                      className={`text-xs mt-1 text-center whitespace-pre-line leading-tight font-medium ${isActive ? "text-blue-600" : isCompleted ? "text-blue-500" : "text-gray-400"
+                        }`}
                       style={{ maxWidth: 56 }}
                     >
                       {step.label}
@@ -349,9 +347,8 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                   </div>
                   {idx < STEPS.length - 1 && (
                     <div
-                      className={`flex-1 h-0.5 mx-1 transition-all ${
-                        currentStep > step.id ? "bg-blue-400" : "bg-gray-200"
-                      }`}
+                      className={`flex-1 h-0.5 mx-1 transition-all ${currentStep > step.id ? "bg-blue-400" : "bg-gray-200"
+                        }`}
                     />
                   )}
                 </React.Fragment>
@@ -372,11 +369,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                 onDrop={handleFileDrop}
                 onDragOver={(e) => e.preventDefault()}
                 onClick={() => !uploadedFile && fileInputRef.current?.click()}
-                className={`relative rounded-xl border-2 border-dashed transition-all cursor-pointer min-h-[220px] flex flex-col items-center justify-center gap-3 ${
-                  uploadedFile
-                    ? "border-green-400 bg-green-50"
-                    : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50"
-                }`}
+                className={`relative rounded-xl border-2 border-dashed transition-all cursor-pointer min-h-[220px] flex flex-col items-center justify-center gap-3 ${uploadedFile
+                  ? "border-green-400 bg-green-50"
+                  : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50"
+                  }`}
               >
                 {uploadedFile ? (
                   <>
@@ -470,7 +466,7 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                           type="checkbox"
                           checked={selectedDeptIds.includes(d._id)}
                           onChange={() => {
-                            setSelectedDeptIds(prev => 
+                            setSelectedDeptIds(prev =>
                               prev.includes(d._id) ? prev.filter(id => id !== d._id) : [...prev, d._id]
                             );
                           }}
@@ -492,11 +488,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                       key={lang}
                       type="button"
                       onClick={() => setLanguage(lang)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                        language === lang
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
-                      }`}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${language === lang
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+                        }`}
                     >
                       {lang}
                     </button>
@@ -614,11 +609,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                     return (
                       <label
                         key={svc._id}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
-                          selected
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                        }`}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selected
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                          }`}
                       >
                         <input
                           type="checkbox"
@@ -677,11 +671,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
               <div className="space-y-4">
                 {/* Option 1 */}
                 <label
-                  className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    enableDigitalSignature
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
+                  className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${enableDigitalSignature
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
+                    }`}
                 >
                   <div className="pt-0.5">
                     <input
@@ -706,11 +699,10 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
 
                 {/* Option 2 */}
                 <label
-                  className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    requireNameConfirmation
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
+                  className={`flex items-start gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${requireNameConfirmation
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
+                    }`}
                 >
                   <div className="pt-0.5">
                     <input
@@ -771,8 +763,8 @@ function UploadConsentModal({ onClose, onSuccess }: UploadConsentModalProps) {
                         selectedDeptIds.length === 0
                           ? "Not selected"
                           : selectedDeptIds.length === departments.length
-                          ? "All Departments"
-                          : departments
+                            ? "All Departments"
+                            : departments
                               .filter((d) => selectedDeptIds.includes(d._id))
                               .map((d) => d.name)
                               .join(", ")
@@ -904,9 +896,8 @@ function SignatureStatus({ label, enabled }: { label: string; enabled: boolean }
   return (
     <div className="flex items-center gap-2">
       <span
-        className={`w-5 h-5 rounded-full flex items-center justify-center ${
-          enabled ? "bg-green-100" : "bg-gray-100"
-        }`}
+        className={`w-5 h-5 rounded-full flex items-center justify-center ${enabled ? "bg-green-100" : "bg-gray-100"
+          }`}
       >
         {enabled ? (
           <Check size={12} className="text-green-600" />
@@ -1095,7 +1086,7 @@ function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
                   {consent.serviceIds.map((svc) => (
                     <span
                       key={svc._id}
-                      className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-sm font-medium"
+                      className="px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 dark:text-white text-sm font-medium"
                     >
                       {svc.name}
                     </span>
@@ -1117,11 +1108,10 @@ function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
                   <span className="text-sm font-medium text-gray-700">Digital Signature</span>
                 </div>
                 <span
-                  className={`px-2 py-1 rounded text-xs font-semibold ${
-                    consent.enableDigitalSignature
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
+                  className={`px-2 py-1 rounded text-xs font-semibold ${consent.enableDigitalSignature
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-500"
+                    }`}
                 >
                   {consent.enableDigitalSignature ? "Enabled" : "Disabled"}
                 </span>
@@ -1132,11 +1122,10 @@ function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
                   <span className="text-sm font-medium text-gray-700">Name Confirmation</span>
                 </div>
                 <span
-                  className={`px-2 py-1 rounded text-xs font-semibold ${
-                    consent.requireNameConfirmation
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-500"
-                  }`}
+                  className={`px-2 py-1 rounded text-xs font-semibold ${consent.requireNameConfirmation
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-500"
+                    }`}
                 >
                   {consent.requireNameConfirmation ? "Enabled" : "Disabled"}
                 </span>
@@ -1149,18 +1138,16 @@ function ViewConsentModal({ consent, onClose }: ViewConsentModalProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-3 h-3 rounded-full ${
-                    consent.status === "published" ? "bg-green-500" : "bg-gray-400"
-                  }`}
+                  className={`w-3 h-3 rounded-full ${consent.status === "published" ? "bg-green-500" : "bg-gray-400"
+                    }`}
                 />
                 <span className="text-sm font-medium text-gray-700">Current Status</span>
               </div>
               <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                  consent.status === "published"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-500"
-                }`}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${consent.status === "published"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-500"
+                  }`}
               >
                 {consent.status === "published" ? (
                   <Check size={12} />
@@ -1452,7 +1439,7 @@ const ConsentPage: NextPageWithLayout = () => {
             headers: { Authorization: `Bearer ${agentStaffToken}` },
           });
           let data = res.data;
-          
+
           // If not found, try clinic_consent_Form (lowercase)
           if (!data?.permissions && data?.error?.includes("not found")) {
             res = await axios.get("/api/agent/get-module-permissions", {
@@ -1461,7 +1448,7 @@ const ConsentPage: NextPageWithLayout = () => {
             });
             data = res.data;
           }
-          
+
           // If still not found, try clinic_consent_form
           if (!data?.permissions && data?.error?.includes("not found")) {
             res = await axios.get("/api/agent/get-module-permissions", {
@@ -1470,7 +1457,7 @@ const ConsentPage: NextPageWithLayout = () => {
             });
             data = res.data;
           }
-          
+
           console.log("Agent Permissions API Response:", data);
 
           if (!isMounted) return;
@@ -1546,10 +1533,10 @@ const ConsentPage: NextPageWithLayout = () => {
   const getToken = () =>
     typeof window !== "undefined"
       ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken") ||
-        localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken") ||
-        ""
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      ""
       : "";
 
   const fetchConsents = useCallback(async () => {
@@ -1650,8 +1637,8 @@ const ConsentPage: NextPageWithLayout = () => {
           )}
         </div>
 
-          {/* READ-ONLY SECTION: Stats, Search, and Table - Only shown when canRead is true */}
-          {permissions.canRead && (
+        {/* READ-ONLY SECTION: Stats, Search, and Table - Only shown when canRead is true */}
+        {permissions.canRead && (
           <>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -1667,174 +1654,173 @@ const ConsentPage: NextPageWithLayout = () => {
 
             {/* Search + Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">All Consent Forms</h2>
-            <div className="relative w-64">
-              <Search
-                size={14}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search forms..."
-                className="w-full border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-gray-700">All Consent Forms</h2>
+                <div className="relative w-64">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search forms..."
+                    className="w-full border border-gray-200 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-              <FileText size={40} className="mb-3 opacity-30" />
-              <p className="text-sm font-medium">No consent forms found</p>
-              <p className="text-xs mt-1">
-                Click &quot;Upload Consent Form&quot; to get started
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-semibold tracking-wide">
-                  <tr>
-                    <th className="px-6 py-3 text-left">Form Name</th>
-                    <th className="px-4 py-3 text-left">Department</th>
-                    <th className="px-4 py-3 text-left">Language</th>
-                    <th className="px-4 py-3 text-left">Version</th>
-                    <th className="px-4 py-3 text-left">Services</th>
-                    <th className="px-4 py-3 text-left">Signature</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                    <th className="px-4 py-3 text-left">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filtered.map((consent) => (
-                    <tr key={consent._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-blue-200 transition-colors" onClick={() => handleView(consent)}>
-                            <FileText size={13} className="text-blue-600" />
-                          </div>
-                          <span 
-                            className="font-medium text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
-                            onClick={() => handleView(consent)}
-                          >
-                            {consent.formName}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {consent.departmentIds && consent.departmentIds.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {consent.departmentIds.slice(0, 2).map((d) => (
+              {loading ? (
+                <div className="flex items-center justify-center h-48">
+                  <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                  <FileText size={40} className="mb-3 opacity-30" />
+                  <p className="text-sm font-medium">No consent forms found</p>
+                  <p className="text-xs mt-1">
+                    Click &quot;Upload Consent Form&quot; to get started
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-semibold tracking-wide">
+                      <tr>
+                        <th className="px-6 py-3 text-left">Form Name</th>
+                        <th className="px-4 py-3 text-left">Department</th>
+                        <th className="px-4 py-3 text-left">Language</th>
+                        <th className="px-4 py-3 text-left">Version</th>
+                        <th className="px-4 py-3 text-left">Services</th>
+                        <th className="px-4 py-3 text-left">Signature</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filtered.map((consent) => (
+                        <tr key={consent._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 cursor-pointer hover:bg-blue-200 transition-colors" onClick={() => handleView(consent)}>
+                                <FileText size={13} className="text-blue-600" />
+                              </div>
                               <span
-                                key={d._id}
-                                className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px]"
+                                className="font-medium text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
+                                onClick={() => handleView(consent)}
                               >
-                                {d.name}
+                                {consent.formName}
                               </span>
-                            ))}
-                            {consent.departmentIds.length > 2 && (
-                              <span className="text-[10px] text-gray-400">
-                                +{consent.departmentIds.length - 2}
-                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {consent.departmentIds && consent.departmentIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {consent.departmentIds.slice(0, 2).map((d) => (
+                                  <span
+                                    key={d._id}
+                                    className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px]"
+                                  >
+                                    {d.name}
+                                  </span>
+                                ))}
+                                {consent.departmentIds.length > 2 && (
+                                  <span className="text-[10px] text-gray-400">
+                                    +{consent.departmentIds.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">—</span>
                             )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">
-                          <Globe size={10} />
-                          {consent.language}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">v{consent.version}</td>
-                      <td className="px-4 py-3">
-                        {consent.serviceIds.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {consent.serviceIds.slice(0, 2).map((s) => (
-                              <span
-                                key={s._id}
-                                className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-xs"
-                              >
-                                {s.name}
-                              </span>
-                            ))}
-                            {consent.serviceIds.length > 2 && (
-                              <span className="text-xs text-gray-400">
-                                +{consent.serviceIds.length - 2}
-                              </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">
+                              <Globe size={10} />
+                              {consent.language}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">v{consent.version}</td>
+                          <td className="px-4 py-3">
+                            {consent.serviceIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {consent.serviceIds.slice(0, 2).map((s) => (
+                                  <span
+                                    key={s._id}
+                                    className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-white text-xs"
+                                  >
+                                    {s.name}
+                                  </span>
+                                ))}
+                                {consent.serviceIds.length > 2 && (
+                                  <span className="text-xs text-gray-400">
+                                    +{consent.serviceIds.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-300 text-xs">None</span>
                             )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-300 text-xs">None</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1.5">
-                          {consent.enableDigitalSignature && (
-                            <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-xs font-medium">
-                              Digital
-                            </span>
-                          )}
-                          {consent.requireNameConfirmation && (
-                            <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-xs font-medium">
-                              Name
-                            </span>
-                          )}
-                          {!consent.enableDigitalSignature && !consent.requireNameConfirmation && (
-                            <span className="text-gray-300 text-xs">—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            consent.status === "published"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-500"
-                          }`}
-                        >
-                          {consent.status === "published" ? (
-                            <Check size={10} />
-                          ) : (
-                            <AlertCircle size={10} />
-                          )}
-                          {consent.status.charAt(0).toUpperCase() + consent.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button 
-                            onClick={() => handleView(consent)}
-                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          {permissions.canDelete && (
-                            <button
-                              onClick={() => handleDelete(consent._id)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-1.5">
+                              {consent.enableDigitalSignature && (
+                                <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 dark:text-white text-xs font-medium">
+                                  Digital
+                                </span>
+                              )}
+                              {consent.requireNameConfirmation && (
+                                <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-xs font-medium">
+                                  Name
+                                </span>
+                              )}
+                              {!consent.enableDigitalSignature && !consent.requireNameConfirmation && (
+                                <span className="text-gray-300 text-xs">—</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${consent.status === "published"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-500"
+                                }`}
                             >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                              {consent.status === "published" ? (
+                                <Check size={10} />
+                              ) : (
+                                <AlertCircle size={10} />
+                              )}
+                              {consent.status.charAt(0).toUpperCase() + consent.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleView(consent)}
+                                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              {permissions.canDelete && (
+                                <button
+                                  onClick={() => handleDelete(consent._id)}
+                                  className="p-1.5 rounded-lg hover:bg-red-50 text-gray-500 hover:text-red-600 transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        </>
+          </>
         )}
       </div>
 

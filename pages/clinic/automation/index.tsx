@@ -483,7 +483,7 @@ const AutomationPage: NextPageWithLayout = () => {
 
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-bg-page flex items-center justify-center p-4">
         <Loader />
       </div>
     );
@@ -507,7 +507,7 @@ const AutomationPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-bg-page">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800">
         <div className="px-4 sm:px-6 lg:px-8 py-12">
@@ -559,7 +559,7 @@ const AutomationPage: NextPageWithLayout = () => {
         <>
         {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200/60">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
@@ -578,7 +578,7 @@ const AutomationPage: NextPageWithLayout = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200/60">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
@@ -597,7 +597,7 @@ const AutomationPage: NextPageWithLayout = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200/60">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">
@@ -618,7 +618,7 @@ const AutomationPage: NextPageWithLayout = () => {
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200/60 mb-8">
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200 mb-8">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -710,7 +710,7 @@ const AutomationPage: NextPageWithLayout = () => {
                   return (
                     <div
                       key={workflow._id}
-                      className="group bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200/60 hover:border-transparent transition-all duration-300 overflow-hidden"
+                      className="group bg-white rounded-2xl shadow-sm hover:shadow-xl border border-gray-200 hover:border-transparent transition-all duration-300 overflow-hidden"
                     >
                       <div
                         className={`h-2 bg-gradient-to-r ${gradientColors[color]}`}
@@ -842,11 +842,11 @@ const AutomationPage: NextPageWithLayout = () => {
                 })}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50/50 border-b border-gray-100">
+                      <tr className="bg-gray-50 border-b border-gray-100">
                         <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
                           Workflow
                         </th>
@@ -879,7 +879,7 @@ const AutomationPage: NextPageWithLayout = () => {
                         return (
                           <tr
                             key={workflow._id}
-                            className="group hover:bg-gray-50/50 transition-colors"
+                            className="group hover:bg-gray-50 transition-colors"
                           >
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">

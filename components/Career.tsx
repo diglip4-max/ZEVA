@@ -25,8 +25,8 @@ import {
   Search,
   MapPin,
   DollarSign,
-} from "lucide-react";
 
+} from "lucide-react";
 type Job = {
   _id: string;
   companyName: string;
@@ -139,7 +139,7 @@ export default function Career() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      
+
       // Add filters
       Object.entries(filters).forEach(([k, v]) => {
         if (v) params.append(k, v);
@@ -156,7 +156,7 @@ export default function Career() {
       }
 
       params.append("limit", "20");
-      
+
       const res = await axios.get<{ jobs: Job[] }>(
         `/api/job-postings/all?${params.toString()}`
       );
@@ -262,112 +262,112 @@ export default function Career() {
 
         {/* Filters Section */}
         <div className="mt-8 flex flex-wrap items-center gap-4 justify-between">
-            {/* Date Posted */}
-            <div className="ml-10 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-white" />
-              <div className="flex items-center gap-2">
-                {[
-                  { value: "", label: "All time" },
-                  { value: "week", label: "Last 7 days" },
-                ].map((option) => (
-                  <label key={option.value} className="flex items-center cursor-pointer group">
-                    <input
-                      type="radio"
-                      name="time"
-                      value={option.value}
-                      checked={filters.time === option.value}
-                      onChange={handleFilterChange}
-                      className="w-3.5 h-3.5 text-blue-800 border-white/30 focus:ring-white"
-                    />
-                    <span className="ml-1.5 text-xs text-white group-hover:text-yellow-300">
-                      {option.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Job Type */}
+          {/* Date Posted */}
+          <div className="ml-10 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-white" />
             <div className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-white" />
-              <select
-                name="jobType"
-                value={filters.jobType}
-                onChange={handleFilterChange}
-                className="px-3 py-1.5 text-xs text-gray-900 bg-white border border-white/30 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-colors"
-              >
-                <option value="">All Types</option>
-                <option>Full Time</option>
-                <option>Part Time</option>
-                <option>Internship</option>
-              </select>
+              {[
+                { value: "", label: "All time" },
+                { value: "week", label: "Last 7 days" },
+              ].map((option) => (
+                <label key={option.value} className="flex items-center cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="time"
+                    value={option.value}
+                    checked={filters.time === option.value}
+                    onChange={handleFilterChange}
+                    className="w-3.5 h-3.5 text-blue-800 border-white/30 focus:ring-white"
+                  />
+                  <span className="ml-1.5 text-xs text-white group-hover:text-yellow-300">
+                    {option.label}
+                  </span>
+                </label>
+              ))}
             </div>
+          </div>
 
-            {/* Experience Level */}
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-white" />
-              <select
-                name="experience"
-                value={filters.experience}
-                onChange={handleFilterChange}
-                className="px-3 py-1.5 text-xs text-gray-900 bg-white border border-white/30 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-colors"
-              >
-                <option value="">All Levels</option>
-                <option value="fresher">Fresher</option>
-                <option value="1-2">1-2 years</option>
-                <option value="2-4">2-4 years</option>
-                <option value="4-6">4-6 years</option>
-                <option value="7+">7+ years</option>
-              </select>
-            </div>
+          {/* Job Type */}
+          <div className="flex items-center gap-2">
+            <Briefcase className="w-4 h-4 text-white" />
+            <select
+              name="jobType"
+              value={filters.jobType}
+              onChange={handleFilterChange}
+              className="px-3 py-1.5 text-xs text-gray-900 bg-white border border-white/30 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-colors"
+            >
+              <option value="">All Types</option>
+              <option>Full Time</option>
+              <option>Part Time</option>
+              <option>Internship</option>
+            </select>
+          </div>
 
-            {/* Department */}
-            <div className="flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-white" />
-              <select
-                name="department"
-                value={filters.department}
-                onChange={handleFilterChange}
-                className="px-3 py-1.5 text-xs text-gray-900 bg-white border border-white/30 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-colors"
-              >
-                <option value="">All Departments</option>
-                <option>Software Development</option>
-                <option>Frontend</option>
-                <option>Backend</option>
-                <option>Full Stack</option>
-                <option>DevOps</option>
-                <option>QA & Testing</option>
-                <option>UI/UX</option>
-                <option>Data Science</option>
-                <option>AI/ML</option>
-                <option>General Medicine</option>
-                <option>Cardiology</option>
-                <option>Dental</option>
-                <option>Pediatrics</option>
-                <option>Administration</option>
-                <option>Other</option>
-              </select>
-            </div>
+          {/* Experience Level */}
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-white" />
+            <select
+              name="experience"
+              value={filters.experience}
+              onChange={handleFilterChange}
+              className="px-3 py-1.5 text-xs text-gray-900 bg-white border border-white/30 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-colors"
+            >
+              <option value="">All Levels</option>
+              <option value="fresher">Fresher</option>
+              <option value="1-2">1-2 years</option>
+              <option value="2-4">2-4 years</option>
+              <option value="4-6">4-6 years</option>
+              <option value="7+">7+ years</option>
+            </select>
+          </div>
 
-            {/* Filters Label - Right Corner */}
-            <div className="flex items-center gap-2  mr-auto">
-              <Filter className="w-4 h-4 text-white" />
-              <span className="text-xs font-semibold text-white">Filters</span>
-              {activeFiltersCount > 0 && (
-                <span className="px-1.5 py-0.5 bg-yellow-400 text-blue-900 text-xs font-semibold rounded-full">
-                  {activeFiltersCount}
-                </span>
-              )}
-              {activeFiltersCount > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-white hover:text-yellow-300 font-medium flex items-center gap-1"
-                >
-                  <X className="w-3 h-3" />
-                  Clear
-                </button>
-              )}
-            </div>
+          {/* Department */}
+          <div className="flex items-center gap-2">
+            <Briefcase className="w-4 h-4 text-white" />
+            <select
+              name="department"
+              value={filters.department}
+              onChange={handleFilterChange}
+              className="px-3 py-1.5 text-xs text-gray-900 bg-white border border-white/30 rounded-lg focus:ring-2 focus:ring-white focus:border-white transition-colors"
+            >
+              <option value="">All Departments</option>
+              <option>Software Development</option>
+              <option>Frontend</option>
+              <option>Backend</option>
+              <option>Full Stack</option>
+              <option>DevOps</option>
+              <option>QA & Testing</option>
+              <option>UI/UX</option>
+              <option>Data Science</option>
+              <option>AI/ML</option>
+              <option>General Medicine</option>
+              <option>Cardiology</option>
+              <option>Dental</option>
+              <option>Pediatrics</option>
+              <option>Administration</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          {/* Filters Label - Right Corner */}
+          <div className="flex items-center gap-2  mr-auto">
+            <Filter className="w-4 h-4 text-white" />
+            <span className="text-xs font-semibold text-white">Filters</span>
+            {activeFiltersCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-yellow-400 text-blue-900 text-xs font-semibold rounded-full">
+                {activeFiltersCount}
+              </span>
+            )}
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="text-xs text-white hover:text-yellow-300 font-medium flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Cards Carousel */}
@@ -393,9 +393,9 @@ export default function Career() {
                 onClick={clearFilters}
                 className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-blue-900 px-6 py-2.5 rounded-lg font-medium transition-colors"
               >
-                Clear all 
-                
-                
+                Clear all
+
+
               </button>
             </div>
           ) : (
@@ -421,78 +421,78 @@ export default function Career() {
                           key={`page-${pageIndex}`}
                           className="flex-shrink-0 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2"
                         >
-                        {pageJobs.map((job) => {
-                          const Icon = getDepartmentIcon(job.department || job.role);
-                          // Use database slug if available and locked, otherwise fallback to generated slug
-                          const jobSlug = (job.slug && job.slugLocked) 
-                            ? job.slug 
-                            : createJobSlug(job.jobTitle || job.role, job._id);
-                          
-                          return (
-                            <Link
-                              key={job._id}
-                              href={`/job-details/${jobSlug}`}
-                              className="group block no-underline"
-                            >
-                              <div className="border border-white/20 rounded-2xl p-6 md:p-8 bg-white hover:shadow-xl transition-all duration-300 text-left h-full">
-                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-teal-50 flex items-center justify-center">
-                                  <Icon className="w-6 h-6 md:w-7 md:h-7 text-teal-700" />
+                          {pageJobs.map((job) => {
+                            const Icon = getDepartmentIcon(job.department || job.role);
+                            // Use database slug if available and locked, otherwise fallback to generated slug
+                            const jobSlug = (job.slug && job.slugLocked)
+                              ? job.slug
+                              : createJobSlug(job.jobTitle || job.role, job._id);
+
+                            return (
+                              <Link
+                                key={job._id}
+                                href={`/job-details/${jobSlug}`}
+                                className="group block no-underline"
+                              >
+                                <div className="border border-white/20 rounded-2xl p-6 md:p-8 bg-white hover:shadow-xl transition-all duration-300 text-left h-full">
+                                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-teal-50 flex items-center justify-center">
+                                    <Icon className="w-6 h-6 md:w-7 md:h-7 text-teal-700" />
+                                  </div>
+
+                                  <h3 className="mt-5 md:mt-6 text-gray-900 font-semibold text-base md:text-lg line-clamp-2">
+                                    {job.jobTitle || job.role}
+                                  </h3>
+
+                                  <p className="mt-2 text-sm font-medium text-amber-500">
+                                    {job.companyName}
+                                  </p>
+
+                                  <div className="mt-3 space-y-2">
+                                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                                      <MapPin className="w-3 h-3 text-teal-700" />
+                                      <span className="truncate">{job.location}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs">
+                                      {/* <DollarSign className="w-3 h-3 text-teal-700" /> */}
+                                      <span className="font-semibold text-teal-700">
+                                        {formatSalary(job)}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                                      <Clock className="w-3 h-3 text-teal-700" />
+                                      <span>{formatPostedDate(job.createdAt)}</span>
+                                    </div>
+                                  </div>
+
+                                  {job.jobType && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                        {job.jobType}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-
-                                <h3 className="mt-5 md:mt-6 text-gray-900 font-semibold text-base md:text-lg line-clamp-2">
-                                  {job.jobTitle || job.role}
-                                </h3>
-
-                                <p className="mt-2 text-sm font-medium text-amber-500">
-                                  {job.companyName}
-                                </p>
-
-                                <div className="mt-3 space-y-2">
-                                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                                    <MapPin className="w-3 h-3 text-teal-700" />
-                                    <span className="truncate">{job.location}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs">
-                                    <DollarSign className="w-3 h-3 text-teal-700" />
-                                    <span className="font-semibold text-teal-700">
-                                      {formatSalary(job)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                                    <Clock className="w-3 h-3 text-teal-700" />
-                                    <span>{formatPostedDate(job.createdAt)}</span>
-                                  </div>
-                                </div>
-
-                                {job.jobType && (
-                                  <div className="mt-4 pt-4 border-t border-gray-200">
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                      {job.jobType}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </Link>
-                          );
-                        })}
-                        {/* Fill empty slots if last page has fewer than 4 cards */}
-                        {pageJobs.length < CARDS_PER_VIEW &&
-                          Array.from({ length: CARDS_PER_VIEW - pageJobs.length }).map(
-                            (_, idx) => <div key={`empty-${idx}`} />
-                          )}
-                      </div>
-                    );
-                  })
+                              </Link>
+                            );
+                          })}
+                          {/* Fill empty slots if last page has fewer than 4 cards */}
+                          {pageJobs.length < CARDS_PER_VIEW &&
+                            Array.from({ length: CARDS_PER_VIEW - pageJobs.length }).map(
+                              (_, idx) => <div key={`empty-${idx}`} />
+                            )}
+                        </div>
+                      );
+                    })
                   ) : (
                     // Show static grid when less than 2 pages
                     <div className="flex-shrink-0 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
                       {jobs.map((job) => {
                         const Icon = getDepartmentIcon(job.department || job.role);
                         // Use database slug if available and locked, otherwise fallback to generated slug
-                        const jobSlug = (job.slug && job.slugLocked) 
-                          ? job.slug 
+                        const jobSlug = (job.slug && job.slugLocked)
+                          ? job.slug
                           : createJobSlug(job.jobTitle || job.role, job._id);
-                        
+
                         return (
                           <Link
                             key={job._id}
@@ -518,8 +518,9 @@ export default function Career() {
                                   <span className="truncate">{job.location}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs">
-                                  <DollarSign className="w-3 h-3 text-teal-700" />
+                                  {/* <DollarSign className="w-3 h-3 text-teal-700" /> */}
                                   <span className="font-semibold text-teal-700">
+
                                     {formatSalary(job)}
                                   </span>
                                 </div>
@@ -558,11 +559,10 @@ export default function Career() {
                       }
                     }}
                     disabled={!canGoPrevious}
-                    className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-4 flex items-center justify-center transition-all duration-200 z-10 p-2 ${
-                      !canGoPrevious
-                        ? "text-white/30 cursor-not-allowed opacity-50 pointer-events-none"
-                        : "text-white hover:text-white/80 cursor-pointer active:scale-95"
-                    }`}
+                    className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-4 flex items-center justify-center transition-all duration-200 z-10 p-2 ${!canGoPrevious
+                      ? "text-white/30 cursor-not-allowed opacity-50 pointer-events-none"
+                      : "text-white hover:text-white/80 cursor-pointer active:scale-95"
+                      }`}
                     aria-label="Previous cards"
                   >
                     <ChevronLeft className="w-6 h-6 md:w-7 md:h-7 drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
@@ -578,11 +578,10 @@ export default function Career() {
                       }
                     }}
                     disabled={!canGoNext}
-                    className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-4 flex items-center justify-center transition-all duration-200 z-10 p-2 ${
-                      !canGoNext
-                        ? "text-white/30 cursor-not-allowed opacity-50 pointer-events-none"
-                        : "text-white hover:text-white/80 cursor-pointer active:scale-95"
-                    }`}
+                    className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-4 flex items-center justify-center transition-all duration-200 z-10 p-2 ${!canGoNext
+                      ? "text-white/30 cursor-not-allowed opacity-50 pointer-events-none"
+                      : "text-white hover:text-white/80 cursor-pointer active:scale-95"
+                      }`}
                     aria-label="Next cards"
                   >
                     <ChevronRight className="w-6 h-6 md:w-7 md:h-7 drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
@@ -597,11 +596,10 @@ export default function Career() {
                     <button
                       key={index}
                       onClick={() => setCurrentPage(index)}
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        currentPage === index
-                          ? "w-8 bg-white"
-                          : "w-2 bg-white/50 hover:bg-white/75"
-                      }`}
+                      className={`h-2 rounded-full transition-all duration-300 ${currentPage === index
+                        ? "w-8 bg-white"
+                        : "w-2 bg-white/50 hover:bg-white/75"
+                        }`}
                       aria-label={`Go to page ${index + 1}`}
                     />
                   ))}

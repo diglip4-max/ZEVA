@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../../context/AuthContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 import {
   Bell, Home, LogOut, Briefcase, MessageCircle, User, Calendar, MapPin,
-  DollarSign, Clock, Building, Award, Users, FileText, TrendingUp,
-  Activity,Menu, X, BarChart3
+  Clock, Building, Award, Users, FileText, TrendingUp,
+  Activity, Menu, X, BarChart3
 } from "lucide-react";
 
 // Utility Functions
@@ -27,7 +29,7 @@ const statusStyles = {
 const apiCall = async (endpoint, token) => {
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "";
   const response = await fetch(`${apiBase}${endpoint}`, {
-    headers: { 
+    headers: {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
@@ -106,20 +108,20 @@ const useNotifications = () => {
           headers: { 'Authorization': `Bearer ${token}` },
           credentials: 'include'
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           const fetchedNotifications = data.notifications || data.data || data || [];
-          
+
           // Filter out cleared notifications
-          const clearedIds = typeof window !== "undefined" 
+          const clearedIds = typeof window !== "undefined"
             ? new Set(JSON.parse(localStorage.getItem("clearedNotifications") || "[]"))
             : new Set();
-          
+
           const filteredNotifications = fetchedNotifications.filter(
             n => !clearedIds.has(n._id)
           );
-          
+
           setNotifications(filteredNotifications);
         }
       } catch (err) {
@@ -136,29 +138,29 @@ const useNotifications = () => {
     const newReadSet = new Set(readNotifications);
     newReadSet.add(notificationId);
     setReadNotifications(newReadSet);
-    
+
     if (typeof window !== "undefined") {
       localStorage.setItem("readNotifications", JSON.stringify([...newReadSet]));
     }
-    
+
     // Update notification in state
-    setNotifications(prev => 
+    setNotifications(prev =>
       prev.map(n => n._id === notificationId ? { ...n, isRead: true } : n)
     );
   };
 
   const clearNotifications = () => {
     const notificationIds = notifications.map(n => n._id);
-    const clearedIds = typeof window !== "undefined" 
+    const clearedIds = typeof window !== "undefined"
       ? new Set(JSON.parse(localStorage.getItem("clearedNotifications") || "[]"))
       : new Set();
-    
+
     notificationIds.forEach(id => clearedIds.add(id));
-    
+
     if (typeof window !== "undefined") {
       localStorage.setItem("clearedNotifications", JSON.stringify([...clearedIds]));
     }
-    
+
     setNotifications([]);
     setReadNotifications(new Set());
     if (typeof window !== "undefined") {
@@ -235,7 +237,7 @@ const TopNav = ({ user, notifications, showNotif, setShowNotif, onLogout, active
                   </span>
                 )}
               </button>
-              
+
               {showNotif && (
                 <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -259,8 +261,8 @@ const TopNav = ({ user, notifications, showNotif, setShowNotif, onLogout, active
                       notifications.slice(0, 10).map(notif => {
                         const isRead = notif.isRead || readNotifications.has(notif._id);
                         return (
-                          <div 
-                            key={notif._id} 
+                          <div
+                            key={notif._id}
                             onClick={() => markAsRead(notif._id)}
                             className={`p-4 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-all duration-150 ${!isRead ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
                           >
@@ -315,11 +317,10 @@ const TopNav = ({ user, notifications, showNotif, setShowNotif, onLogout, active
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-all ${
-                activeTab === id
+              className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-all ${activeTab === id
                   ? "border-blue-600 text-blue-600 font-semibold"
                   : "border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300"
-              }`}
+                }`}
             >
               <Icon className="w-4 h-4" />
               <span>{label}</span>
@@ -341,9 +342,8 @@ const TopNav = ({ user, notifications, showNotif, setShowNotif, onLogout, active
               <button
                 key={id}
                 onClick={() => { setActiveTab(id); setMobileMenu(false); }}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${
-                  activeTab === id ? "bg-blue-50 text-blue-600 font-semibold" : "text-slate-600"
-                }`}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg ${activeTab === id ? "bg-blue-50 text-blue-600 font-semibold" : "text-slate-600"
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span>{label}</span>
@@ -429,9 +429,8 @@ const OverviewTab = ({ jobs, comments, chats }) => {
             recentActivity.map((activity, idx) => (
               <div key={idx} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                 <div className="flex items-center space-x-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    activity.type === "job" ? "bg-blue-50" : "bg-purple-50"
-                  }`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${activity.type === "job" ? "bg-blue-50" : "bg-purple-50"
+                    }`}>
                     {activity.type === "job" ? (
                       <Briefcase className="w-5 h-5 text-blue-600" />
                     ) : (
@@ -455,21 +454,23 @@ const OverviewTab = ({ jobs, comments, chats }) => {
   );
 };
 
-const JobsTab = ({ jobs }) => (
+const JobsTab = ({ jobs, currency }) => (
   <div className="space-y-6">
-    <div>
-      <h2 className="text-2xl font-bold text-slate-900 mb-2">Applied Jobs</h2>
-      <p className="text-slate-500">Track all your job applications</p>
+    <div className="flex justify-between items-center">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Applied Jobs</h2>
+        <p className="text-slate-500">Track all your job applications</p>
+      </div>
     </div>
-    
+
     {jobs.length === 0 ? (
       <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
         <Briefcase className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">No applications yet</h3>
-        <p className="text-slate-500">Start applying to jobs to see them here</p>
+        <p className="text-slate-600 font-medium mb-1">No job applications yet</p>
+        <p className="text-slate-500 text-sm">When you apply to jobs, they will appear here.</p>
       </div>
     ) : (
-      <div className="space-y-4">
+      <div className="space-y-4 w-full">
         {jobs.map(app => app.jobId && (
           <div key={app._id} className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition-shadow">
             <div className="flex justify-between items-start mb-4">
@@ -484,13 +485,13 @@ const JobsTab = ({ jobs }) => (
                 {app.status}
               </span>
             </div>
-            
+
             <div className="flex flex-wrap gap-4 text-sm text-slate-600 mb-4">
-              <span className="flex items-center"><DollarSign className="w-4 h-4 mr-1" />{app.jobId.salary}</span>
+              <span className="flex items-center"><span className="w-4 h-4 flex items-center justify-center font-bold text-xs mr-1">{getCurrencySymbol(currency)}</span>{app.jobId.salary}</span>
               <span className="flex items-center"><Clock className="w-4 h-4 mr-1" />{app.jobId.jobTiming}</span>
               <span className="flex items-center"><Calendar className="w-4 h-4 mr-1" />{app.jobId.workingDays}</span>
             </div>
-            
+
             <div className="text-sm text-slate-500">
               Applied on {new Date(app.createdAt).toLocaleDateString()}
             </div>
@@ -536,7 +537,7 @@ const CommentsTab = ({ comments }) => (
 
 const ChatsTab = ({ chats }) => {
   const router = useRouter();
-  
+
   return (
     <div className="space-y-6">
       <div>
@@ -585,6 +586,7 @@ const ChatsTab = ({ chats }) => {
 // Main Component
 const Dashboard = () => {
   const router = useRouter();
+  const { currency } = useCurrency();
   const [activeTab, setActiveTab] = useState("overview");
   const { user: authUser } = useAuth(); // Get user from AuthContext
   const { jobs, comments, chats, loading: dataLoading } = useDashboardData();
@@ -624,10 +626,10 @@ const Dashboard = () => {
         clearNotifications={clearNotifications}
         readNotifications={readNotifications}
       />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {activeTab === "overview" && <OverviewTab jobs={jobs} comments={comments} chats={chats} />}
-        {activeTab === "jobs" && <JobsTab jobs={jobs} />}
+        {activeTab === "jobs" && <JobsTab jobs={jobs} currency={currency} />}
         {activeTab === "comments" && <CommentsTab comments={comments} />}
         {activeTab === "chats" && <ChatsTab chats={chats} />}
       </main>

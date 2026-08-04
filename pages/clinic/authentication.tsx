@@ -1165,7 +1165,7 @@ function AuthSettingsPage() {
           </div>
         </div>
       ) : (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 p-4 sm:p-6 lg:p-8">
+      <div className="min-h-screen bg-transparent p-4 sm:p-6 lg:p-8">
         {/* Animated Background Elements */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse"></div>
@@ -1181,13 +1181,13 @@ function AuthSettingsPage() {
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Authentication Settings</h1>
-                  <p className="text-sm text-gray-500 mt-1">Configure OTP delivery channels and staff permissions</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Authentication Settings</h1>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure OTP delivery channels and staff permissions</p>
                 </div>
               </div>
               
               {/* Last Updated Badge */}
-              <div className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 px-3 py-2 rounded-lg shadow-sm">
                 <Clock className="h-3.5 w-3.5" />
                 <span>Last updated: {new Date().toLocaleDateString('en-GB')}</span>
               </div>
@@ -1195,30 +1195,30 @@ function AuthSettingsPage() {
             
             {/* Stats Cards Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Total Staff</p>
-                    <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Staff</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
                   </div>
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">OTP Enabled</p>
-                    <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.enabled}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">OTP Enabled</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.enabled}</p>
                   </div>
-                  <div className="p-2 bg-green-50 rounded-lg">
-                    <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                  <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
                 <div className="mt-2">
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full"
                       style={{ width: `${(stats.enabled / stats.total) * 100 || 0}%` }}
@@ -1227,26 +1227,26 @@ function AuthSettingsPage() {
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Agents</p>
-                    <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.agents}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Agents</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.agents}</p>
                   </div>
-                  <div className="p-2 bg-purple-50 rounded-lg">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
               </div>
               
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+              <div className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-slate-700 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 font-medium">Doctor Staff</p>
-                    <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{stats.doctors}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Doctor Staff</p>
+                    <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.doctors}</p>
                   </div>
-                  <div className="p-2 bg-amber-50 rounded-lg">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                 </div>
               </div>
@@ -1257,15 +1257,15 @@ function AuthSettingsPage() {
             {/* Left Column - OTP Settings - Enhanced to match OTP modal */}
             <div className="lg:col-span-1 space-y-6">
               {/* Delivery Channels Card - Now matches OTP modal styling */}
-              <div className="bg-white/80 mt-10 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 overflow-hidden animate-slideIn ">
-                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <div className="bg-white/80 dark:bg-slate-800/80 mt-10 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-slideIn ">
+                <div className="p-6 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-gray-50 to-white dark:from-slate-800 dark:to-slate-800/50">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-xl">
-                      <Key className="h-5 w-5 text-blue-600" />
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                      <Key className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">OTP Delivery Channels</h2>
-                      <p className="text-xs text-gray-500">Configure where OTPs will be sent</p>
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">OTP Delivery Channels</h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Configure where OTPs will be sent</p>
                     </div>
                   </div>
                 </div>
@@ -1273,10 +1273,10 @@ function AuthSettingsPage() {
                 <div className="p-6 space-y-6">
                   {/* WhatsApp Number - Enhanced with WhatsApp icon */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                       <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-green-100 rounded-lg">
-                          <WhatsAppIcon className="h-4 w-4 text-green-600" />
+                        <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                          <WhatsAppIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
                         </div>
                         <span>WhatsApp Number</span>
                       </div>
@@ -1300,10 +1300,10 @@ function AuthSettingsPage() {
                         readOnly={!permissions.canUpdate}
                         className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                           !permissions.canUpdate
-                            ? "bg-gray-100 cursor-not-allowed"
+                            ? "bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-200 dark:border-slate-800"
                             : phoneError 
-                            ? "border-red-300 focus:ring-red-200 focus:border-red-400" 
-                            : "border-gray-200 focus:ring-green-200 focus:border-green-400"
+                            ? "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-red-300 focus:ring-red-200 focus:border-red-400" 
+                            : "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-200 dark:border-slate-700 focus:ring-green-200 dark:focus:ring-green-900/20 focus:border-green-400"
                         }`}
                       />
                       {otpWhatsAppNumber && (
@@ -1318,8 +1318,8 @@ function AuthSettingsPage() {
                     
                     {/* Format Hint - Matches OTP modal styling */}
                     {showPhoneFormatHint && (
-                      <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg animate-slideIn">
-                        <p className="text-xs text-green-700 flex items-center gap-2">
+                      <div className="mt-2 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/30 rounded-lg animate-slideIn">
+                        <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-2">
                           <CheckCircle className="h-3.5 w-3.5" />
                           Enter 10-digit WhatsApp number (e.g., +919876543210)
                         </p>
@@ -1344,10 +1344,10 @@ function AuthSettingsPage() {
 
                   {/* Email Address - Enhanced */}
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
                       <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-blue-100 rounded-lg">
-                          <Mail className="h-4 w-4 text-blue-600" />
+                        <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                          <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         </div>
                         <span>Email Address</span>
                       </div>
@@ -1369,10 +1369,10 @@ function AuthSettingsPage() {
                         readOnly={!permissions.canUpdate}
                         className={`w-full pl-10 pr-10 py-3 border-2 rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                           !permissions.canUpdate
-                            ? "bg-gray-100 cursor-not-allowed"
+                            ? "bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-200 dark:border-slate-800"
                             : emailError 
-                            ? "border-red-300 focus:ring-red-200 focus:border-red-400" 
-                            : "border-gray-200 focus:ring-blue-200 focus:border-blue-400"
+                            ? "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-red-300 focus:ring-red-200 focus:border-red-400" 
+                            : "bg-white dark:bg-slate-900 text-gray-900 dark:text-white border-gray-200 dark:border-slate-700 focus:ring-blue-200 dark:focus:ring-blue-900/20 focus:border-blue-400"
                         }`}
                       />
                       {otpEmail && (
@@ -1423,9 +1423,9 @@ function AuthSettingsPage() {
 
                   {/* Error Message */}
                   {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 animate-shake">
+                    <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 rounded-xl flex items-start gap-2 animate-shake">
                       <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-red-700">{error}</p>
+                      <p className="text-xs text-red-700 dark:text-red-400">{error}</p>
                     </div>
                   )}
                 </div>
@@ -1434,16 +1434,16 @@ function AuthSettingsPage() {
 
             {/* Right Column - Staff Management - Enhanced */}
             <div className="lg:col-span-2">
-              <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 overflow-hidden animate-slideIn">
-                <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+              <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-2xl shadow-xl border border-gray-200 dark:border-slate-700 overflow-hidden animate-slideIn">
+                <div className="p-6 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-gray-50 to-white dark:from-slate-800 dark:to-slate-800/50">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 rounded-xl">
-                        <Users className="h-5 w-5 text-purple-600" />
+                      <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                        <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                       </div>
                       <div>
-                        <h2 className="text-lg font-semibold text-gray-900">Staff OTP Permissions</h2>
-                        <p className="text-xs text-gray-500">Enable or disable OTP for individual staff members</p>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Staff OTP Permissions</h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Enable or disable OTP for individual staff members</p>
                       </div>
                     </div>
                     
@@ -1455,14 +1455,14 @@ function AuthSettingsPage() {
                           placeholder="Search staff..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="w-full sm:w-48 pl-8 pr-3 py-2 border-2 border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+                          className="w-full sm:w-48 pl-8 pr-3 py-2 border-2 border-gray-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900/30 focus:border-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-white"
                         />
                         <Users className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-gray-400" />
                       </div>
                       <select
                         value={roleFilter}
                         onChange={(e) => setRoleFilter(e.target.value as any)}
-                        className="w-full sm:w-32 border-2 border-gray-200 rounded-xl px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+                        className="w-full sm:w-32 border-2 border-gray-200 dark:border-slate-700 rounded-xl px-2 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900/30 focus:border-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-white"
                       >
                         <option value="all">All Roles</option>
                         <option value="agent">Agents</option>
@@ -1476,53 +1476,53 @@ function AuthSettingsPage() {
                 <div className="overflow-x-auto max-h-[450px] overflow-y-auto">
                   <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                        <thead className="bg-gray-50 dark:bg-slate-900 sticky top-0 z-10">
                           <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff Member</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                            <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">OTP Status</th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Staff Member</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
+                            <th scope="col" className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">OTP Status</th>
+                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                           {filteredStaff.map((s, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-sm font-bold ${
                                     s.role === 'agent' 
-                                      ? 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700' 
-                                      : 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700'
+                                      ? 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 dark:from-purple-900/30 dark:to-purple-800/40 dark:text-purple-300' 
+                                      : 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700 dark:from-amber-900/30 dark:to-amber-800/40 dark:text-amber-300'
                                   }`}>
                                     {s.name?.charAt(0) || '?'}
                                   </div>
                                   <div className="ml-3">
-                                    <p className="text-sm font-medium text-gray-900">{s.name}</p>
-                                    <p className="text-xs text-gray-500 md:hidden">{s.email}</p>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{s.name}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 md:hidden">{s.email}</p>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                   s.role === 'agent' 
-                                    ? 'bg-purple-100 text-purple-800' 
-                                    : 'bg-amber-100 text-amber-800'
+                                    ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300' 
+                                    : 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300'
                                 }`}>
                                   {s.role === 'agent' ? 'Agent' : 'Doctor Staff'}
                                 </span>
                               </td>
                               <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
-                                <p className="text-sm text-gray-600">{s.email}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-300">{s.email}</p>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   <div className={`h-2 w-2 rounded-full mr-2 ${
-                                    s.otpEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-300'
+                                    s.otpEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-300 dark:bg-slate-600'
                                   }`}></div>
                                   <span className={`text-xs font-medium ${
-                                    s.otpEnabled ? 'text-green-600' : 'text-gray-500'
+                                    s.otpEnabled ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'
                                   }`}>
                                     {s.otpEnabled ? 'Enabled' : 'Disabled'}
                                   </span>
@@ -1530,7 +1530,7 @@ function AuthSettingsPage() {
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right">
                                 <label className="inline-flex items-center cursor-pointer">
-                                  <span className="mr-3 text-xs text-gray-600 hidden sm:inline">
+                                  <span className="mr-3 text-xs text-gray-600 dark:text-gray-300 hidden sm:inline">
                                     {s.otpEnabled ? 'Disable' : 'Enable'}
                                   </span>
                                   <div className="relative">
@@ -1548,7 +1548,7 @@ function AuthSettingsPage() {
                                         updateStaffOtp(s.email, v);
                                       }}
                                     />
-                                    <div className={`w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 ${!permissions.canUpdate ? 'cursor-not-allowed opacity-50' : ''}`}></div>
+                                    <div className={`w-11 h-6 bg-gray-200 dark:bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-600 peer-checked:to-indigo-600 ${!permissions.canUpdate ? 'cursor-not-allowed opacity-50' : ''}`}></div>
                                   </div>
                                 </label>
                               </td>
@@ -1575,14 +1575,14 @@ function AuthSettingsPage() {
                 </div>
 
                 {/* Table Footer */}
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                <div className="px-6 py-4 bg-gray-50 dark:bg-slate-900 border-t border-gray-100 dark:border-slate-700">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">
-                      Showing <span className="font-medium">{filteredStaff.length}</span> of{' '}
-                      <span className="font-medium">{staff.length}</span> staff members
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Showing <span className="font-medium text-gray-900 dark:text-white">{filteredStaff.length}</span> of{' '}
+                      <span className="font-medium text-gray-900 dark:text-white">{staff.length}</span> staff members
                     </p>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         {Math.round((filteredStaff.length / staff.length) * 100) || 0}% of total
                       </span>
                     </div>

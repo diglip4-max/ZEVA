@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
-  Calendar, User, DollarSign, FileText, AlertCircle, Activity,
+  Calendar, User, FileText, AlertCircle, Activity,
   CreditCard, TrendingUp, Package, Phone,
   Mail, Clock, Shield, X, CheckCircle, XCircle,
   ExternalLink,
@@ -2263,7 +2263,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     billings.slice(0, 3).forEach((b: any) => {
       if (b.paid > 0) {
         const dateStr = b.invoicedDate || (b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
-        items.push({ icon: DollarSign, title: 'Payment Received', subtitle: `${getCurrencySymbol(currency)}${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
+        items.push({ icon: CreditCard, title: 'Payment Received', subtitle: `${getCurrencySymbol(currency)}${b.paid.toLocaleString()} — ${b.invoiceNumber || ''}`, date: dateStr, color: 'bg-green-500' });
       }
     });
 
@@ -4450,7 +4450,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 onClick={() => setActiveTab('advance')}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
-                {/* <DollarSign className="w-3.5 h-3.5" /> */}
+
                 {getCurrencySymbol(currency)} Add Payment
               </button>
             </div>
@@ -4480,8 +4480,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap rounded-lg ${activeTab === tab.id
-                    ? 'text-teal-600 bg-white shadow-sm ring-1 ring-gray-200 underline underline-offset-4'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  ? 'text-teal-600 bg-white shadow-sm ring-1 ring-gray-200 underline underline-offset-4'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
               >
                 {tab.label}
@@ -4501,8 +4501,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   key={filter.key}
                   onClick={() => setAppointmentFilter(filter.key)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap cursor-move ${appointmentFilter === filter.key
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
                     }`}
                   draggable
                   onDragStart={(e) => handleStatusTabDragStart(e, filter.key)}
@@ -4652,8 +4652,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
             {/* Toast Notification */}
             {pmToast && (
               <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${pmToast.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
-                  pmToast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
-                    'bg-blue-50 border-blue-200 text-blue-800'
+                pmToast.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+                  'bg-blue-50 border-blue-200 text-blue-800'
                 }`}>
                 {pmToast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                 <span className="text-[11px] font-medium">{pmToast.message}</span>
@@ -4662,7 +4662,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
             )}
 
             {/* Editable Membership & Package */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200 shadow-md">
+            <div className="rounded-xl p-4 border border-purple-200 shadow-md">
               <div className="flex flex-col gap-4">
                 {/* Membership and Package Side by Side */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4699,10 +4699,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         <Plus className="w-3 h-3" /> Add Membership
                       </button>
                     ) : (
-                      <div className="border border-indigo-200 rounded-lg p-2 bg-indigo-50 mb-2">
+                      <div className="border border-indigo-200 rounded-lg p-2 bg-indigo-50 dark:bg-gray-800 dark:border-indigo-500/30 mb-2">
                         <div className="flex flex-wrap gap-2 items-end">
                           <div className="flex-1 min-w-[150px]">
-                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Membership to Add</label>
+                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700 dark:text-gray-200">Select Membership to Add</label>
                             <select
                               value={selectedMembershipToAdd}
                               onChange={(e) => {
@@ -4729,26 +4729,26 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             </select>
                           </div>
                           <div className="flex-1 min-w-[120px]">
-                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Start Date</label>
+                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700 dark:text-gray-200">Start Date</label>
                             <input
                               type="date"
                               value={addMembStartDate}
                               readOnly
-                              className="w-full px-2 py-1.5 text-[10px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                              className="w-full px-2 py-1.5 text-[10px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 cursor-not-allowed"
                             />
                           </div>
                           <div className="flex-1 min-w-[120px]">
-                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700">End Date</label>
+                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700 dark:text-gray-200">End Date</label>
                             <input
                               type="date"
                               value={addMembEndDate}
                               readOnly
-                              className="w-full px-2 py-1.5 text-[10px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                              className="w-full px-2 py-1.5 text-[10px] border border-gray-200 rounded-lg bg-gray-50 text-gray-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 cursor-not-allowed"
                             />
                           </div>
                           <div className="flex gap-1">
                             <button type="button" onClick={handlePmAddMembership} disabled={!selectedMembershipToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
-                            <button type="button" onClick={() => { setShowAddMembershipDropdown(false); setSelectedMembershipToAdd(''); }} className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400">Cancel</button>
+                            <button type="button" onClick={() => { setShowAddMembershipDropdown(false); setSelectedMembershipToAdd(''); }} className="px-3 py-1.5 bg-red-400 text-white text-[10px] font-medium rounded-lg hover:bg-red-500">Cancel</button>
                           </div>
                         </div>
                       </div>
@@ -4890,10 +4890,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         </button>
                       </div>
                     ) : (
-                      <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 mb-2">
+                      <div className="border border-purple-200 rounded-lg p-2 bg-purple-50 dark:bg-gray-800 dark:border-purple-500/30 mb-2">
                         <div className="flex flex-wrap gap-2 items-end">
                           <div className="flex-1 min-w-[150px]">
-                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700">Select Package to Add</label>
+                            <label className="block text-[9px] mb-0.5 font-medium text-gray-700 dark:text-gray-200">Select Package to Add</label>
                             <select
                               value={selectedPackageToAdd}
                               onChange={(e) => setSelectedPackageToAdd(e.target.value)}
@@ -4907,7 +4907,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                           </div>
                           <div className="flex gap-1">
                             <button type="button" onClick={handlePmAddPackage} disabled={!selectedPackageToAdd} className="px-3 py-1.5 bg-green-600 text-white text-[10px] font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">Add</button>
-                            <button type="button" onClick={() => { setShowAddPackageDropdown(false); setSelectedPackageToAdd(''); }} className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400">Cancel</button>
+                            <button type="button" onClick={() => { setShowAddPackageDropdown(false); setSelectedPackageToAdd(''); }} className="px-3 py-1.5 bg-red-400 text-white text-[10px] font-medium rounded-lg hover:bg-red-400">Cancel</button>
                           </div>
                         </div>
                       </div>
@@ -5146,7 +5146,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 <div className="text-center">
                                   <p className="text-[8px] text-violet-600 font-medium">Remaining</p>
                                   <p className={`text-[9px] font-bold ${Math.abs((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)) < 0.01
-                                      ? "text-teal-600" : "text-amber-600"
+                                    ? "text-teal-600" : "text-amber-600"
                                     }`}>
                                     {getCurrencySymbol(currency)}{((parseFloat(pkgModalPrice) || 0) - pkgSelectedTreatments.reduce((sum, t) => sum + (t.allocatedPrice || 0), 0)).toFixed(2)}
                                   </p>
@@ -5379,7 +5379,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                       </span>
                                     )}
                                     {p.packageSoldBy && (
-                                      <span className="px-1.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold uppercase text-[7px] border border-emerald-100 flex items-center gap-1 shadow-sm">
+                                      <span className="px-1.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 dark:text-white  font-bold uppercase text-[7px] border border-emerald-100 flex items-center gap-1 shadow-sm">
                                         <User className="w-2 h-2" />
                                         Sold by: {p.packageSoldBy}
                                       </span>
@@ -5389,7 +5389,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   {/* Validity & Dates */}
                                   {(validity || startDate || endDate) && (
                                     <div className={`mt-1.5 grid grid-cols-2 gap-2 p-1.5 rounded border ${isExpired ? 'bg-red-50/50 border-red-100' : 'bg-white/60 border-purple-100'}`}>
-                                      <div className={`col-span-2 text-[9px] font-bold flex items-center gap-1 ${isExpired ? 'text-red-700' : 'text-purple-700'}`}>
+                                      <div className={`col-span-2 text-[9px] font-bold flex items-center gap-1 ${isExpired ? 'text-red-700' : 'text-purple-700 dark:text-white'}`}>
                                         <Clock className="w-2.5 h-2.5" />
                                         Validity: {validity || 0} Months
                                       </div>
@@ -5466,8 +5466,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <div className="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[95vh] overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
                       <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-6 py-4 flex items-center justify-between flex-shrink-0">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm text-white">
-                            <DollarSign className="w-5 h-5" />
+                          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm text-white w-9 h-9 flex items-center justify-center font-bold text-base leading-none">
+                            {getCurrencySymbol(currency)}
                           </div>
                           <div>
                             <h3 className="text-lg font-bold text-white leading-tight">Pay for Package</h3>
@@ -5678,7 +5678,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider px-1">Payment Method</label>
                               <div className="grid grid-cols-4 gap-2">
                                 {[
-                                  { id: 'Cash', icon: <DollarSign className="w-4 h-4" />, label: 'Cash', color: 'text-emerald-500', bg: 'bg-emerald-50' },
+                                  { id: 'Cash', icon: <span className="font-bold text-xs leading-none h-4 flex items-center justify-center">{getCurrencySymbol(currency)}</span>, label: 'Cash', color: 'text-emerald-500', bg: 'bg-emerald-50' },
                                   { id: 'Card', icon: <CreditCard className="w-4 h-4" />, label: 'Card', color: 'text-blue-500', bg: 'bg-blue-50' },
                                   { id: 'Tabby', icon: <Activity className="w-4 h-4" />, label: 'Tabby', color: 'text-purple-500', bg: 'bg-purple-50' },
                                   { id: 'Tamara', icon: <Activity className="w-4 h-4" />, label: 'Tamara', color: 'text-orange-500', bg: 'bg-orange-50' }
@@ -5688,8 +5688,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     type="button"
                                     onClick={() => setPkgPaymentMethod(method.id)}
                                     className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border-2 transition-all ${pkgPaymentMethod === method.id
-                                        ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/10'
-                                        : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200'
+                                      ? 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/10'
+                                      : 'border-gray-100 bg-white text-gray-400 hover:border-gray-200'
                                       }`}
                                   >
                                     <div className={pkgPaymentMethod === method.id ? method.color : 'text-gray-400'}>
@@ -6102,8 +6102,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 <div className="text-[9px] text-gray-500 uppercase font-bold mb-0.5">Status</div>
                                 <div className="flex flex-wrap gap-1">
                                   <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${pkg.status === 'active' ? 'bg-green-100 text-green-700' :
-                                      pkg.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-gray-100 text-gray-700'
+                                    pkg.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                                      'bg-gray-100 text-gray-700'
                                     }`}>
                                     {pkg.status || 'Active'}
                                   </span>
@@ -6148,8 +6148,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${isComplete ? 'bg-green-100 text-green-700' :
-                                              used > 0 ? 'bg-blue-100 text-blue-700' :
-                                                'bg-gray-100 text-gray-600'
+                                            used > 0 ? 'bg-blue-100 text-blue-700' :
+                                              'bg-gray-100 text-gray-600'
                                             }`}>
                                             {used}/{max}
                                           </span>
@@ -6173,8 +6173,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                       <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden mb-0.5">
                                         <div
                                           className={`h-full rounded-full transition-all duration-500 ${isComplete ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                                              used > 0 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
-                                                'bg-gray-400'
+                                            used > 0 ? 'bg-gradient-to-r from-blue-500 to-cyan-500' :
+                                              'bg-gray-400'
                                             }`}
                                           style={{ width: `${percent}%` }}
                                         />
@@ -6984,7 +6984,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                       {/* Icon circle */}
                       <div className="relative mb-6">
                         <div className="w-24 h-24 rounded-full bg-gradient-to-br from-teal-50 to-cyan-100 border-2 border-teal-200 flex items-center justify-center shadow-inner">
-                          <DollarSign className="w-10 h-10 text-teal-400" />
+                          <span className="text-4xl font-extrabold text-teal-500">{getCurrencySymbol(currency)}</span>
                         </div>
                         <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-orange-100 border-2 border-white flex items-center justify-center">
                           <FileText className="w-3.5 h-3.5 text-orange-500" />
@@ -7030,8 +7030,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             <button
                               onClick={() => setBillingSearchType('all')}
                               className={`px-3 py-1.5 text-xs font-medium transition-colors ${billingSearchType === 'all'
-                                  ? 'bg-teal-600 text-white'
-                                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
                                 }`}
                             >
                               All
@@ -7039,8 +7039,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             <button
                               onClick={() => setBillingSearchType('invoice')}
                               className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${billingSearchType === 'invoice'
-                                  ? 'bg-teal-600 text-white'
-                                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
                                 }`}
                             >
                               Invoice
@@ -7048,8 +7048,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             <button
                               onClick={() => setBillingSearchType('treatment')}
                               className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${billingSearchType === 'treatment'
-                                  ? 'bg-teal-600 text-white'
-                                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-white text-gray-600 hover:bg-gray-50'
                                 }`}
                             >
                               Treatment
@@ -7287,9 +7287,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                         {offerType && (
                                           <>
                                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold ${offerType === 'instant_discount' ? 'bg-purple-100 text-purple-700 border border-purple-200' :
-                                                offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700 border border-cyan-200' :
-                                                  offerType === 'bundle' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
-                                                    'bg-gray-100 text-gray-700 border border-gray-200'
+                                              offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700 border border-cyan-200' :
+                                                offerType === 'bundle' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
+                                                  'bg-gray-100 text-gray-700 border border-gray-200'
                                               }`}>
                                               {offerType === 'instant_discount' ? 'Instant' :
                                                 offerType === 'cashback' ? 'Cashback' :
@@ -7637,8 +7637,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   <td className="px-2 py-2 text-center">
                                     {offerType || cashbackOfferName ? (
                                       <span className={`inline-flex items-center px-1 py-0.5 rounded text-[7px] font-bold ${offerType === 'instant_discount' ? 'bg-purple-100 text-purple-700' :
-                                          offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
-                                            offerType === 'bundle' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700'
+                                        offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
+                                          offerType === 'bundle' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700'
                                         }`}>
                                         {offerType === 'instant_discount' ? 'Inst' : offerType === 'cashback' ? 'CB' : offerType === 'bundle' ? 'Bndl' : '—'}
                                       </span>
@@ -7819,8 +7819,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   )}
                                   {offerType && (
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold ${offerType === 'instant_discount' ? 'bg-purple-100 text-purple-700' :
-                                        offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
-                                          offerType === 'bundle' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700'
+                                      offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
+                                        offerType === 'bundle' ? 'bg-pink-100 text-pink-700' : 'bg-gray-100 text-gray-700'
                                       }`}>
                                       {offerType === 'instant_discount' ? 'Instant' : offerType === 'cashback' ? 'Cashback' : offerType === 'bundle' ? 'Bundle' : offerType}
                                     </span>
@@ -8605,12 +8605,12 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     const effectiveStatus = events.length > 0 ? events[0].status : (claim.status || 'Under Review');
                                     return (
                                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${effectiveStatus === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                          effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                            effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                              effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
-                                                effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
-                                                  effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                                                    'bg-gray-100 text-gray-800 border-gray-300'
+                                        effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                          effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                            effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                                              effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                                effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                                  'bg-gray-100 text-gray-800 border-gray-300'
                                         }`}>
                                         {effectiveStatus}
                                       </span>
@@ -8790,9 +8790,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         <div>
                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Status</p>
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold border ${claimViewModal.status === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                              claimViewModal.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                claimViewModal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                  'bg-blue-100 text-blue-800 border-blue-300'
+                            claimViewModal.status === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                              claimViewModal.status === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                'bg-blue-100 text-blue-800 border-blue-300'
                             }`}>{claimViewModal.status}</span>
                         </div>
                         {/* Show pending claim in modal only if balance.pendingClaim > 0 */}
@@ -8930,7 +8930,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                           if (ctm.rejectedAt || ctm.rejectedBy) allSteps.push({ type: "rejected", date: ctm.rejectedAt, title: "Claim Rejected", badge: "Rejected", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-red-500 to-rose-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedByName, role: ctm.rejectedByRole });
                           if (ctm.readyAt || ctm.readyBy) allSteps.push({ type: "ready", date: ctm.readyAt, title: "Claim Checked by Financial Department", subtitle: "Ready", badge: "Ready", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-indigo-500 to-violet-500", cardBg: "bg-indigo-50", border: "border-indigo-200", titleColor: "text-indigo-900", badgeColor: "text-indigo-600 bg-indigo-100", reviewer: ctm.readyByName, role: ctm.readyByRole });
                           if (ctm.completedAt || ctm.completedBy) allSteps.push({ type: "completed", date: ctm.completedAt, title: "Claim Completed with Treatment Plan by Doctor", badge: "Completed", icon: <CheckCircle className="w-5 h-5 text-white" />, bg: "from-purple-500 to-pink-500", cardBg: "bg-purple-50", border: "border-purple-200", titleColor: "text-purple-900", badgeColor: "text-purple-600 bg-purple-100", reviewer: ctm.completedByName, role: ctm.completedByRole });
-                          if (ctm.releasedAt || ctm.releasedBy) allSteps.push({ type: "released", date: ctm.releasedAt, title: "Claim Released", badge: "Released", icon: <DollarSign className="w-5 h-5 text-white" />, bg: "from-blue-500 to-cyan-500", cardBg: "bg-blue-50", border: "border-blue-200", titleColor: "text-blue-900", badgeColor: "text-blue-600 bg-blue-100", reviewer: ctm.releasedByName, role: ctm.releasedByRole, extra: <><p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200"><strong>Advance Amount:</strong> {ctm.advanceAmount?.toLocaleString() || 'N/A'}</p></> });
+                          if (ctm.releasedAt || ctm.releasedBy) allSteps.push({ type: "released", date: ctm.releasedAt, title: "Claim Released", badge: "Released", icon: <span className="font-extrabold text-sm text-white">{getCurrencySymbol(currency)}</span>, bg: "from-blue-500 to-cyan-500", cardBg: "bg-blue-50", border: "border-blue-200", titleColor: "text-blue-900", badgeColor: "text-blue-600 bg-blue-100", reviewer: ctm.releasedByName, role: ctm.releasedByRole, extra: <><p className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-200"><strong>Advance Amount:</strong> {ctm.advanceAmount?.toLocaleString() || 'N/A'}</p></> });
                           if (ctm.rejectedFromReleaseRequested) allSteps.push({ type: "rejectRelease", date: ctm.rejectedFromReleaseRequestedAt, title: "Rejected from Release", badge: "Release Reject", icon: <XCircle className="w-5 h-5 text-white" />, bg: "from-orange-500 to-red-500", cardBg: "bg-red-50", border: "border-red-200", titleColor: "text-red-900", badgeColor: "text-red-600 bg-red-100", reviewer: ctm.rejectedFromReleaseRequestedByName, role: ctm.rejectedFromReleaseRequestedByRole });
                           allSteps.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                           const iconMap: Record<string, React.ReactNode> = { approved: <CheckCircle className="w-4 h-4 text-green-600" />, rejected: <XCircle className="w-4 h-4 text-red-600" />, rejectPass: <AlertCircle className="w-4 h-4 text-orange-600" />, rejectRelease: <AlertCircle className="w-4 h-4 text-orange-600" />, ready: <CheckCircle className="w-4 h-4 text-indigo-600" />, released: <CheckCircle className="w-4 h-4 text-blue-600" />, completed: <CheckCircle className="w-4 h-4 text-purple-600" />, created: <FileText className="w-4 h-4 text-purple-600" /> };
@@ -9010,12 +9010,12 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const effectiveStatus = events.length > 0 ? events[0].status : (ctm.status || 'Under Review');
                               return (
                                 <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-bold border ${effectiveStatus === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                    effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
-                                      effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
-                                        effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
-                                          effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
-                                            effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                                              'bg-gray-100 text-gray-800 border-gray-300'
+                                  effectiveStatus === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' :
+                                    effectiveStatus === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' :
+                                      effectiveStatus === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' :
+                                        effectiveStatus === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                          effectiveStatus === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                            'bg-gray-100 text-gray-800 border-gray-300'
                                   }`}>
                                   {effectiveStatus}
                                 </span>
@@ -9467,8 +9467,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               <button
                 onClick={() => setMediaSubTab('before-after')}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${mediaSubTab === 'before-after'
-                    ? 'bg-teal-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-teal-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
                 <span className="flex items-center gap-2">
@@ -9487,8 +9487,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   }
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${mediaSubTab === 'payment-proofs'
-                    ? 'bg-purple-600 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
                 <span className="flex items-center gap-2">
@@ -10017,8 +10017,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         key={f}
                         onClick={() => setTreatmentFilter(f)}
                         className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors capitalize flex items-center gap-2 ${treatmentFilter === f
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                          ? 'bg-teal-600 text-white'
+                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                           }`}
                       >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -10031,8 +10031,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   <button
                     onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                     className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors flex items-center gap-2 ${showAdvancedFilters || treatmentDateRange.from || treatmentDoctorFilter || treatmentSearch
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}
                   >
                     <Filter className="w-4 h-4" />
@@ -10203,7 +10203,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               )}
                               {/* Invoice Number - Show only for billing model items (not for appointments) */}
                               {item.invoiceNumber && isFromBilling && (
-                                <p className="text-xs text-blue-600 mt-1 font-medium">Invoice : {item.invoiceNumber}</p>
+                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1.5 font-medium">Invoice : {item.invoiceNumber}</p>
                               )}
                               {/* Show "Invoice Not Generated" tag for completed treatments without invoice */}
                               {isCompletedNoInvoice && (
@@ -10213,7 +10213,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 </span>
                               )}
                               {/* Source badge */}
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${isFromBilling ? 'bg-purple-50 text-purple-700' : 'bg-teal-50 text-teal-700'
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${isFromBilling ? 'bg-purple-50 text-white' : 'bg-teal-50 text-teal-700'
                                 }`}>
                                 {isFromBilling ? 'Billing' : 'Appointment'}
                               </span>
@@ -10262,7 +10262,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     }}
                                     className="w-full px-3 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5"
                                   >
-                                    <DollarSign className="w-3.5 h-3.5" />
+                                    <span className="font-extrabold text-[10px] leading-none">{getCurrencySymbol(currency)}</span>
                                     Pay Pending
                                   </button>
                                 </div>
@@ -10571,8 +10571,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               </span>
                             </div>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ml-2 ${consent.status === 'signed'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-yellow-100 text-yellow-700'
                               }`}>
                               {consent.status === 'signed' ? 'Signed' : 'Sent'}
                             </span>
@@ -10639,10 +10639,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               </p>
                             </div>
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ml-2 ${pkg.approvalStatus === 'approved'
-                                ? 'bg-green-100 text-green-700'
-                                : pkg.approvalStatus === 'rejected'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-yellow-100 text-yellow-700'
+                              ? 'bg-green-100 text-green-700'
+                              : pkg.approvalStatus === 'rejected'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-yellow-100 text-yellow-700'
                               }`}>
                               {pkg.approvalStatus}
                             </span>
@@ -10792,7 +10792,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   <span className="truncate">Activity Timeline</span>
                 </h3>
 
-                <div className={`space-y-2 ${timelineItems.length > 4 ? 'max-h-[280px] overflow-y-auto custom-scrollbar pr-2' : ''}`}>
+                <div className={`space-y-2 ${timelineItems.length > 4 ? 'max-h-[480px] overflow-y-auto custom-scrollbar pr-2' : ''}`}>
                   {timelineItems.map((item, index) => (
                     <div key={index} className="relative flex gap-2 pb-3 last:pb-0">
                       {/* Timeline Line */}
@@ -10823,7 +10823,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               {/* Financial Snapshot - Compact Row Layout */}
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2.5 flex items-center gap-2">
-                  {/* <DollarSign className="w-4 h-4 text-green-600 flex-shrink-0" /> */}
+
                   Financial Snapshot
                 </h3>
 
@@ -11390,9 +11390,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
             </div>
 
             {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto bg-white">
               {/* Invoice Summary Card */}
-              <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-slate-50 border-b border-gray-200">
+              <div className="px-6 py-4 bg-white border-b-2 border-gray-300">
                 {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center">
                     <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Total Amount</p>
@@ -11423,36 +11423,38 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 {/* Invoice Details */}
                 <div className="mt-4 grid grid-cols-3 gap-4 text-xs">
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase">Service</p>
-                    <p className="font-semibold text-gray-700">{selectedPaymentHistoryBilling.service || 'Treatment'}</p>
+                    {/* <p style={{ color: '#111827', fontWeight: 700 , color: 'dark:text-white', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Service</p> */}
+                   <p className="text-black dark:text-white font-bold text-[10px] uppercase tracking-wide">
+  Service
+</p>
+                  <p className="text-[10px] font-bold uppercase mb-1 text-black dark:text-white">{selectedPaymentHistoryBilling.service || 'Treatment'}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase">Invoiced Date</p>
-                    <p className="font-semibold text-gray-700">
+                   <p className="text-[10px] font-bold uppercase tracking-wide text-black dark:text-white">
+  Invoiced Date
+</p>
+                    <p className="text-black dark:text-white">
                       {selectedPaymentHistoryBilling.invoicedDate
                         ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                         : 'N/A'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-gray-500 uppercase">Invoiced By</p>
-                    <p className="font-semibold text-gray-700">{selectedPaymentHistoryBilling.invoicedBy || 'N/A'}</p>
+               <p className="text-[10px] font-bold uppercase tracking-wide text-black dark:text-white">
+  Invoiced By
+</p>
+                    <p className="text-black dark:text-white">{selectedPaymentHistoryBilling.invoicedBy || 'N/A'}</p>
                   </div>
-                  {selectedPaymentHistoryBilling.advanceUsed > 0 && (
-                    <div>
-                      <p className="text-[10px] text-amber-600 uppercase font-bold">Advance Amount Used</p>
-                      <p className="font-semibold text-amber-700">
-                        {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.advanceUsed).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Package/Treatment Info */}
                 {(selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment) && (
-                  <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
-                    <p className="text-[10px] text-gray-500 uppercase mb-1">{selectedPaymentHistoryBilling.service === 'Package' ? 'Package' : 'Treatment'}</p>
-                    <p className="text-sm font-bold text-indigo-700">{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                  <div className="mt-3 p-3 rounded-lg border" style={{ backgroundColor: '#ffffff', borderColor: '#d1d5db' }}>
+                    <p style={{ color: '#111827', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px' }}>{selectedPaymentHistoryBilling.service === 'Package' ? 'Package' : 'Treatment'}</p>
+                    <div className="flex items-center justify-between">
+                      <p style={{ color: '#3730a3', fontWeight: 700, fontSize: '14px' }}>{selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment}</p>
+                      <p style={{ color: '#065f46', fontWeight: 700, fontSize: '12px' }}>Paid: {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.paid || 0).toLocaleString()}</p>
+                    </div>
                     {selectedPaymentHistoryBilling.selectedPackageTreatments && selectedPaymentHistoryBilling.selectedPackageTreatments.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {selectedPaymentHistoryBilling.selectedPackageTreatments.map((treatment: any, idx: number) => (
@@ -11462,27 +11464,18 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         ))}
                       </div>
                     )}
-                    {selectedPaymentHistoryBilling.selectedTreatments && selectedPaymentHistoryBilling.selectedTreatments.length > 0 && (
-                      <div className="mt-3 border-t border-gray-100 pt-2">
-                        <p className="text-[10px] text-gray-500 uppercase mb-2 font-semibold">Treatment Breakdown</p>
-                        <div className="space-y-1.5">
-                          {selectedPaymentHistoryBilling.selectedTreatments.map((treatment: any, idx: number) => (
-                            <div key={idx} className="flex justify-between items-center bg-gray-50/50 px-2 py-1.5 rounded border border-gray-100/80">
-                              <div className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                                <span className="text-xs font-medium text-gray-700">{treatment.treatmentName}</span>
-                                {treatment.quantity > 1 && (
-                                  <span className="text-[10px] bg-gray-200 text-gray-600 px-1 rounded ml-1">x{treatment.quantity}</span>
-                                )}
-                              </div>
-                              <span className="text-xs font-semibold text-gray-900">
-                                {getCurrencySymbol(currency)} {Number((treatment.price || 0) * (treatment.quantity || 1)).toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  </div>
+                )}
+
+                {/* Pending Amount Card */}
+                {selectedPaymentHistoryBilling.pending > 0 && (
+                  <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <p className="text-[10px] text-orange-700 uppercase font-bold mb-1">
+                      Pending Amount ({selectedPaymentHistoryBilling.invoiceNumber || 'N/A'})
+                    </p>
+                    <p className="text-sm font-bold text-orange-800">
+                      {getCurrencySymbol(currency)}{Number(selectedPaymentHistoryBilling.pending).toLocaleString()}
+                    </p>
                   </div>
                 )}
 
@@ -11518,20 +11511,20 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
                 {/* Cashback Info */}
                 {selectedPaymentHistoryBilling.cashbackEarned > 0 && (
-                  <div className="mt-3 flex items-center gap-2 p-2 bg-emerald-50 rounded-lg">
+                  <div className="mt-3 flex items-center gap-2 p-2 bg-emerald-50 rounded-lg border border-emerald-200">
                     <div className="p-1.5 bg-emerald-100 rounded-full">
-                      <Wallet className="w-4 h-4 text-emerald-600" />
+                      <Wallet className="w-4 h-4 text-emerald-700" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-emerald-600 uppercase font-bold">Cashback Earned</p>
-                      <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.cashbackEarned}</p>
+                      <p className="text-[10px] text-emerald-700 uppercase font-bold">Cashback Earned</p>
+                      <p className="text-sm font-bold text-emerald-800">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.cashbackEarned}</p>
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Payment Details Section */}
-              <div className="px-6 py-4">
+              <div className="px-6 py-4 bg-white">
                 {/* Build complete payment timeline from paymentHistory */}
                 {(() => {
                   const billing = selectedPaymentHistoryBilling;
@@ -11609,14 +11602,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   if (paymentsToShow.length === 0) {
                     return (
                       <div className="mb-4">
-                        <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                          <div className="p-1.5 bg-indigo-100 rounded-full">
-                            <CreditCard className="w-4 h-4 text-indigo-600" />
+                        <h4 className="mb-3 flex items-center gap-2" style={{ fontSize: '14px', fontWeight: 700, color: '#000000' }}>
+                          <div className="rounded-full" style={{ padding: '6px', backgroundColor: '#e0e7ff' }}>
+                            <CreditCard className="w-4 h-4" style={{ color: '#4338ca' }} />
                           </div>
                           Payment Details
                         </h4>
-                        <div className="p-4 rounded-xl border-2 border-gray-200 bg-gray-50">
-                          <p className="text-sm text-gray-600">No payments recorded yet</p>
+                        <div className="p-4 rounded-xl border-2" style={{ borderColor: '#d1d5db', backgroundColor: '#f9fafb' }}>
+                          <p style={{ fontSize: '14px', fontWeight: 500, color: '#1f2937' }}>No payments recorded yet</p>
                         </div>
                       </div>
                     );
@@ -11624,150 +11617,179 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
                   return (
                     <div className="mb-4">
-                      <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                        <div className="p-1.5 bg-indigo-100 rounded-full">
-                          <CreditCard className="w-4 h-4 text-indigo-600" />
+                      <h4 className="mb-3 flex items-center gap-2 text-black dark:text-white">
+                        <div className="rounded-full" style={{ padding: '6px', backgroundColor: '#e0e7ff' }}>
+                          <CreditCard className="w-4 h-4" style={{ color: '#4338ca' }} />
                         </div>
                         All Payments ({paymentsToShow.length})
                       </h4>
                       <div className="space-y-3">
-                        {paymentsToShow.map((payment: any, idx: number) => (
-                          <div key={idx} className="relative">
-                            {/* Payment Card */}
-                            <div className={`p-4 rounded-xl border-2 ${payment.transactionType === 'ADVANCE_USAGE'
-                                ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
-                                : payment.transactionType === 'CLAIM_USAGE'
-                                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-                                  : payment.transactionType === 'PENDING_CLEARANCE'
-                                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                                    : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
-                              }`}>
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                  {/* Payment Method Icon */}
-                                  <div className={`p-2.5 rounded-xl ${payment.paymentMethod === 'Cash' ? 'bg-green-100' :
-                                      payment.paymentMethod === 'Card' ? 'bg-blue-100' :
-                                        payment.paymentMethod === 'BT' ? 'bg-purple-100' :
-                                          payment.paymentMethod === 'Advance Balance' ? 'bg-amber-100' :
-                                            payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim' ? 'bg-purple-100' :
-                                              'bg-gray-100'
-                                    }`}>
-                                    {payment.paymentMethod === 'Cash' && <span className="text-lg">💵</span>}
-                                    {payment.paymentMethod === 'Card' && <span className="text-lg">💳</span>}
-                                    {payment.paymentMethod === 'BT' && <span className="text-lg">🏦</span>}
-                                    {payment.paymentMethod === 'Advance Balance' && <Wallet className="w-5 h-5 text-amber-600" />}
-                                    {(payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim') && <span className="text-lg">🏥</span>}
-                                    {!['Cash', 'Card', 'BT', 'Advance Balance', 'Insurance', 'Claim'].includes(payment.paymentMethod) && <CreditCard className="w-5 h-5 text-gray-600" />}
+                        {paymentsToShow.map((payment: any, idx: number) => {
+                          const cardStyle = payment.transactionType === 'ADVANCE_USAGE'
+                            ? { backgroundColor: '#fff7ed', borderColor: '#fdba74' }
+                            : payment.transactionType === 'CLAIM_USAGE'
+                              ? { backgroundColor: '#eff6ff', borderColor: '#93c5fd' }
+                              : payment.transactionType === 'PENDING_CLEARANCE'
+                                ? { backgroundColor: '#ecfdf5', borderColor: '#86efac' }
+                                : { backgroundColor: '#f9fafb', borderColor: '#d1d5db' };
+                          const badgeStyle = payment.transactionType === 'ADVANCE_USAGE'
+                            ? { backgroundColor: '#fef3c7', color: '#92400e' }
+                            : payment.transactionType === 'CLAIM_USAGE'
+                              ? { backgroundColor: '#dbeafe', color: '#1e40af' }
+                              : (payment.transactionType === 'PENDING_CLEARANCE' && selectedPaymentHistoryBilling.pending === 0)
+                                ? { backgroundColor: '#dcfce7', color: '#166534' }
+                                : payment.status === 'Completed'
+                                  ? { backgroundColor: '#dcfce7', color: '#166534' }
+                                  : { backgroundColor: '#e5e7eb', color: '#1f2937' };
+                          const badgeLabel = payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
+                            payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
+                              (payment.transactionType === 'PENDING_CLEARANCE' && selectedPaymentHistoryBilling.pending === 0) ? 'Pending Clear' :
+                                payment.status === 'Completed' ? 'Paid' : 'Payment';
+                          return (
+                            <div key={idx} className="relative">
+                              {/* Payment Card */}
+                              <div className="relative p-4 rounded-xl border-2" style={cardStyle}>
+                                {/* Cleared Invoice Badge */}
+                                {(() => {
+                                  if (payment.transactionType === 'PENDING_CLEARANCE') {
+                                    const clearanceIndex = paymentsToShow
+                                      .slice(0, idx + 1)
+                                      .filter((p: any) => p.transactionType === 'PENDING_CLEARANCE')
+                                      .length - 1;
+                                    const matchingBreakdown = selectedPaymentHistoryBilling.pendingClearedBreakdown?.[clearanceIndex];
+                                    if (matchingBreakdown && matchingBreakdown.invoiceNumber) {
+                                      return (
+                                        <div style={{ background: 'linear-gradient(to right, #f97316, #f59e0b)', color: '#ffffff', fontSize: '9px', fontWeight: 700, padding: '2px 10px', borderTopRightRadius: '10px', borderBottomLeftRadius: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }} className="absolute top-0 right-0">
+                                          Cleared Invoice: {matchingBreakdown.invoiceNumber}
+                                        </div>
+                                      );
+                                    }
+                                  }
+                                  return null;
+                                })()}
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    {/* Payment Method Icon */}
+                                    <div className="p-2.5 rounded-xl" style={{
+                                      backgroundColor: payment.paymentMethod === 'Cash' ? '#dcfce7' :
+                                        payment.paymentMethod === 'Card' ? '#dbeafe' :
+                                          payment.paymentMethod === 'BT' ? '#f3e8ff' :
+                                            payment.paymentMethod === 'Advance Balance' ? '#fef3c7' :
+                                              (payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim') ? '#f3e8ff' :
+                                                '#f3f4f6'
+                                    }}>
+                                      {payment.paymentMethod === 'Cash' && <span className="text-lg">💵</span>}
+                                      {payment.paymentMethod === 'Card' && <span className="text-lg">💳</span>}
+                                      {payment.paymentMethod === 'BT' && <span className="text-lg">🏦</span>}
+                                      {payment.paymentMethod === 'Advance Balance' && <Wallet className="w-5 h-5" style={{ color: '#b45309' }} />}
+                                      {(payment.paymentMethod === 'Insurance' || payment.paymentMethod === 'Claim') && <span className="text-lg">🏥</span>}
+                                      {!['Cash', 'Card', 'BT', 'Advance Balance', 'Insurance', 'Claim'].includes(payment.paymentMethod) && <CreditCard className="w-5 h-5" style={{ color: '#4b5563' }} />}
+                                    </div>
+                                    <div>
+                                      <p style={{ color: '#000000', fontWeight: 700, fontSize: '14px' }}>{payment.paymentMethod}</p>
+                                      <p style={{ color: '#374151', fontWeight: 500, fontSize: '10px' }}>
+                                        {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', {
+                                          month: 'short', day: 'numeric', year: 'numeric',
+                                          hour: '2-digit', minute: '2-digit'
+                                        }) : 'N/A'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p style={{ color: '#000000', fontWeight: 700, fontSize: '20px' }}>{getCurrencySymbol(currency)}{Number(payment.amount || 0).toLocaleString()}</p>
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold" style={badgeStyle}>
+                                      {badgeLabel}
+                                    </span>
+                                  </div>
+                                </div>
+                                {/* Transaction Details */}
+                                <div className="mt-3 pt-3 grid grid-cols-3 gap-2" style={{ borderTop: '1px solid #9ca3af' }}>
+                                  <div>
+                                    <p style={{ color: '#111827', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Transaction Type</p>
+                                    <p style={{ color: '#000000', fontWeight: 600, fontSize: '12px' }}>{payment.transactionType || 'PAYMENT'}</p>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-bold text-gray-800">{payment.paymentMethod}</p>
-                                    <p className="text-[10px] text-gray-500">
-                                      {payment.paidAt ? new Date(payment.paidAt).toLocaleString('en-US', {
-                                        month: 'short', day: 'numeric', year: 'numeric',
-                                        hour: '2-digit', minute: '2-digit'
-                                      }) : 'N/A'}
-                                    </p>
+                                    <p style={{ color: '#111827', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Paid By</p>
+                                    <p style={{ color: '#000000', fontWeight: 600, fontSize: '12px' }}>{payment.paidByName || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <p style={{ color: '#111827', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Payment #</p>
+                                    <p style={{ color: '#000000', fontWeight: 600, fontSize: '12px' }}>#{idx + 1}</p>
                                   </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-xl font-bold text-gray-900">{getCurrencySymbol(currency)}{Number(payment.amount || 0).toLocaleString()}</p>
-                                  <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${payment.transactionType === 'ADVANCE_USAGE' ? 'bg-amber-100 text-amber-700' :
-                                      payment.transactionType === 'CLAIM_USAGE' ? 'bg-blue-100 text-blue-700' :
-                                        payment.transactionType === 'PENDING_CLEARANCE' ? 'bg-green-100 text-green-700' :
-                                          payment.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                                            'bg-gray-100 text-gray-600'
-                                    }`}>
-                                    {payment.transactionType === 'ADVANCE_USAGE' ? 'Advance' :
-                                      payment.transactionType === 'CLAIM_USAGE' ? 'Claim' :
-                                        payment.transactionType === 'PENDING_CLEARANCE' ? 'Pending Clear' :
-                                          payment.status === 'Completed' ? 'Paid' :
-                                            'Payment'}
-                                  </span>
-                                </div>
                               </div>
-                              {/* Transaction Details */}
-                              <div className="mt-3 pt-3 border-t border-gray-200/50 grid grid-cols-3 gap-2">
-                                <div>
-                                  <p className="text-[9px] text-gray-400 uppercase">Transaction Type</p>
-                                  <p className="text-xs font-semibold text-gray-600">{payment.transactionType || 'PAYMENT'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] text-gray-400 uppercase">Paid By</p>
-                                  <p className="text-xs font-semibold text-gray-600">{payment.paidByName || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[9px] text-gray-400 uppercase">Payment #</p>
-                                  <p className="text-xs font-semibold text-gray-600">#{idx + 1}</p>
-                                </div>
-                              </div>
+                              {/* Timeline connector */}
+                              {idx < paymentsToShow.length - 1 && (
+                                <div className="absolute left-1/2 -bottom-3 w-0.5 h-3" style={{ backgroundColor: '#9ca3af' }}></div>
+                              )}
                             </div>
-                            {/* Timeline connector */}
-                            {idx < paymentsToShow.length - 1 && (
-                              <div className="absolute left-1/2 -bottom-3 w-0.5 h-3 bg-gray-300"></div>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );
                 })()}
                 {/* Pending Cleared Breakdown - from PatientPendingLedger */}
                 {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                      <div className="p-1.5 bg-emerald-100 rounded-full">
-                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <div className="pt-4" style={{ borderTop: '1px solid #d1d5db' }}>
+                  <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-black dark:text-white">
+                      <div className="rounded-full" style={{ padding: '6px', backgroundColor: '#d1fae5' }}>
+                        <CheckCircle className="w-4 h-4" style={{ color: '#047857' }} />
                       </div>
                       Pending Cleared Breakdown ({selectedPaymentHistoryBilling.pendingClearedBreakdown.length})
                     </h4>
                     <div className="space-y-2">
-                      {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => (
-                        <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-green-50">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">
-                                {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
-                              </span>
-                              <div>
-                                <p className="text-xs font-bold text-gray-800">
-                                  {item.treatmentName || item.packageName || item.service || 'N/A'}
-                                </p>
-                                <p className="text-[10px] text-gray-500">
-                                  {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
-                                </p>
+                      {selectedPaymentHistoryBilling.pendingClearedBreakdown.map((item: any, idx: number) => {
+                        const badgeStyle = item.newStatus === 'Closed'
+                          ? { backgroundColor: '#dcfce7', color: '#166534' }
+                          : { backgroundColor: '#fef3c7', color: '#92400e' };
+                        return (
+                          <div key={idx} className="p-3 rounded-xl border" style={{ backgroundColor: '#ecfdf5', borderColor: '#6ee7b7' }}>
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">
+                                  {item.service === 'Treatment' ? '🩺' : item.service === 'Package' ? '📦' : '🧾'}
+                                </span>
+                                <div>
+                                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#000000' }}>
+                                    {item.treatmentName || item.packageName || item.service || 'N/A'}
+                                  </p>
+                                  <p style={{ fontSize: '10px', fontWeight: 500, color: '#374151' }}>
+                                    {item.service || 'Service'}{item.invoiceNumber ? ` • ${item.invoiceNumber}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p style={{ fontSize: '14px', fontWeight: 700, color: '#065f46' }}>{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
+                                <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold" style={badgeStyle}>
+                                  {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
+                                </span>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-emerald-700">{getCurrencySymbol(currency)}{Number(item.amountCleared || 0).toLocaleString()}</p>
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${item.newStatus === 'Closed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                                }`}>
-                                {item.newStatus === 'Closed' ? '✓ Closed' : '⏳ Partial'}
-                              </span>
-                            </div>
+                            {item.newRemaining > 0 && (
+                              <div className="mt-2 pt-2" style={{ borderTop: '1px solid #6ee7b7' }}>
+                                <p style={{ fontSize: '10px', fontWeight: 500, color: '#374151' }}>Remaining: <span style={{ fontWeight: 700, color: '#b45309' }}>{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
+                              </div>
+                            )}
+                            {item.paymentMethod && (
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className="text-[10px]">
+                                  {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
+                                </span>
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#1f2937' }}>Paid via {item.paymentMethod}</span>
+                              </div>
+                            )}
+                            {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                <span className="text-[10px]">
+                                  {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
+                                </span>
+                                <span style={{ fontSize: '10px', fontWeight: 700, color: '#1f2937' }}>Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
+                              </div>
+                            )}
                           </div>
-                          {item.newRemaining > 0 && (
-                            <div className="mt-2 pt-2 border-t border-emerald-200/50">
-                              <p className="text-[10px] text-gray-500">Remaining: <span className="font-bold text-amber-600">{getCurrencySymbol(currency)}{Number(item.newRemaining).toLocaleString()}</span></p>
-                            </div>
-                          )}
-                          {item.paymentMethod && (
-                            <div className="mt-1.5 flex items-center gap-1.5">
-                              <span className="text-[10px]">
-                                {item.paymentMethod === 'Cash' ? '💵' : item.paymentMethod === 'Card' ? '💳' : item.paymentMethod === 'BT' ? '🏦' : '💰'}
-                              </span>
-                              <span className="text-[10px] font-semibold text-gray-600">Paid via {item.paymentMethod}</span>
-                            </div>
-                          )}
-                          {!item.paymentMethod && selectedPaymentHistoryBilling.multiplePayments && selectedPaymentHistoryBilling.multiplePayments.length > 0 && (
-                            <div className="mt-1.5 flex items-center gap-1.5">
-                              <span className="text-[10px]">
-                                {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Cash' ? '💵' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'Card' ? '💳' : selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod === 'BT' ? '🏦' : '💰'}
-                              </span>
-                              <span className="text-[10px] font-semibold text-gray-600">Paid via {selectedPaymentHistoryBilling.multiplePayments[0]?.paymentMethod || 'Cash'}</span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -11775,14 +11797,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
             </div>
 
             {/* Footer */}
-            <div className="shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-xs text-gray-500">
+            <div className="shrink-0 px-6 py-4 bg-gray-50 border-t border-gray-300 flex items-center justify-between">
+              <div className="text-xs text-gray-700 font-medium">
                 <p>Invoice: {selectedPaymentHistoryBilling.invoiceNumber}</p>
                 <p>Created: {selectedPaymentHistoryBilling.createdAt ? new Date(selectedPaymentHistoryBilling.createdAt).toLocaleString() : 'N/A'}</p>
               </div>
               <button
                 onClick={() => setShowPaymentHistoryModal(false)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-xs font-bold text-gray-700 transition-colors"
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded-lg text-xs font-bold text-white transition-colors shadow-sm"
               >
                 Close
               </button>
@@ -12067,8 +12089,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                       key={m}
                       onClick={() => setInvoicePayMethod(m)}
                       className={`py-1.5 text-xs font-semibold rounded-lg border transition-all ${invoicePayMethod === m
-                          ? "bg-red-600 text-white border-red-600"
-                          : "bg-white text-gray-600 border-gray-300 hover:border-red-400"
+                        ? "bg-red-600 text-white border-red-600"
+                        : "bg-white text-gray-600 border-gray-300 hover:border-red-400"
                         }`}
                     >
                       {m}

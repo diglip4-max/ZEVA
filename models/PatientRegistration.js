@@ -70,15 +70,15 @@ const patientRegistrationSchema = new mongoose.Schema(
       default: "+91",
     },
     mobileNumber: {
-            type: String,
-            required: true,
-            trim: true,
-        },
-        city: {
-            type: String,
-            trim: true,
-        },
-        referredBy: { type: String, trim: true },
+      type: String,
+      required: true,
+      trim: true,
+    },
+    city: {
+      type: String,
+      trim: true,
+    },
+    referredBy: { type: String, trim: true },
     patientType: {
       type: String,
       enum: ["New", "Old"],

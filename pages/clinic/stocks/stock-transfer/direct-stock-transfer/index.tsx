@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
@@ -42,6 +42,7 @@ const getStoredToken = () => {
 
 const DirectStockTransferPage: NextPageWithLayout = () => {
   const router = useRouter();
+  const token = getTokenByPath() || getStoredToken() || "";
   const [permissions, setPermissions] = useState({
     canRead: false,
     canCreate: false,
@@ -91,7 +92,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
     debounce(async (page = 1, search = "", filters: any = {}) => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", String(page));
         params.append("limit", String(pagination.limit || 10));
@@ -105,7 +106,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
 
         const res = await axios.get(
           `/api/stocks/direct-stock-transfer?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
         if (res.data?.success) {
           setRecords(res.data.data.records || []);
@@ -288,21 +289,36 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
               });
             } else {
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_direct_transfer") return true;
-                if (p.module === "stock_direct_transfer") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_direct_transfer" ||
+                  mod === "stock_direct_transfer" ||
+                  modKey === "clinic_stock_direct_transfer" ||
+                  modKey === "stock_direct_transfer"
+                );
               });
 
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) => 
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) => 
-                    sm?.moduleKey === "clinic_stock_direct_transfer"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_direct_transfer" ||
+                        key === "stock_direct_transfer" ||
+                        name === "clinic_stock_direct_transfer" ||
+                        name === "direct stock transfer" ||
+                        name === "direct_stock_transfer" ||
+                        name === "stock_direct_transfer"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: foundInSubModule.actions };
+                      break;
+                    }
+                  }
                 }
               }
 
@@ -513,7 +529,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
   // If permissions are not loaded yet, show loading state
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
@@ -522,68 +538,55 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
     );
   }
 
-  // If canRead is false but canCreate is true, show only new transfer button
-  if (!permissions.canRead && permissions.canCreate) {
-    return (
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-white">
-              Direct Stock Transfer
-            </h1>
-            <p className="text-indigo-100 mt-2">
-              Manage and track direct stock transfers between branches
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleAdd}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
-            >
-              <PlusIcon className="h-5 w-5" />
-              New Transfer
-            </button>
-
-            <AddDirectStockTransferModal
-              isOpen={isAddOpen}
-              onClose={() => setIsAddOpen(false)}
-              onSuccess={() => fetchRecords(1, searchTerm, filterData)}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // If canRead is false (and canCreate is also false), show access denied
+  // Show access denied message if no read permission (but still allow create if permitted)
   if (!permissions.canRead) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-red-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
-            You do not have permission to view direct stock transfers.
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
+            You do not have permission to view direct stock transfers. Please contact your administrator.
           </p>
-          <p className="text-xs text-gray-600">
-            Please contact your administrator to request access.
-          </p>
+          {/* Show create buttons even if read is denied but create is allowed */}
+          {permissions.canCreate && (
+            <div className="flex flex-col gap-2 mt-4">
+              <button
+                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={handleAdd}
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                New Transfer
+              </button>
+            </div>
+          )}
         </div>
+        {permissions.canCreate && (
+          <AddDirectStockTransferModal
+            isOpen={isAddOpen}
+            onClose={() => setIsAddOpen(false)}
+            onSuccess={() => fetchRecords(1, searchTerm, filterData)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="bg-bg-surface border-b border-border-default px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-text-primary">
               Direct Stock Transfer
             </h1>
-            <p className="text-indigo-100 mt-2">
+            <p className="text-text-muted mt-2">
               Manage and track direct stock transfers between branches
             </p>
           </div>
@@ -591,7 +594,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
             {permissions.canRead && (
               <button
                 onClick={() => setIsFilterOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors border border-white/30"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-page hover:bg-bg-surface text-text-primary rounded-lg transition-colors border border-border-default"
               >
                 <Filter className="h-4 w-4" />
                 Filter
@@ -601,7 +604,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
             {permissions.canCreate && (
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg font-medium transition-colors dark:bg-gray-700 dark:hover:bg-gray-600"
               >
                 <PlusIcon className="h-5 w-5" />
                 New Transfer
@@ -809,7 +812,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                   />
                 </svg>
               </div>
-              <p className="text-gray-600">Loading transfers...</p>
+              <p className="text-text-muted">Loading transfers...</p>
             </div>
           ) : displayData.length === 0 ? (
             <div className="p-12 text-center">
@@ -822,17 +825,19 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by creating your first direct stock transfer.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                <PlusIcon className="h-5 w-5" /> Create Transfer
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  <PlusIcon className="h-5 w-5" /> Create Transfer
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       DST No
@@ -857,7 +862,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {displayData.map((r: any, idx: number) => (
                     <React.Fragment key={r._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
@@ -874,7 +879,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                               <div className="text-sm font-medium text-gray-900">
                                 {r.directStockTransferNo}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-text-muted">
                                 ID: {r._id?.substring(0, 8)}...
                               </div>
                             </div>
@@ -1076,7 +1081,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                         <tr>
                           <td
                             colSpan={7}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            className="px-6 py-6 bg-bg-surface border-t border-border-default dark:border-border-default"
                           >
                             <div className="ml-8 mr-4">
                               <div className="flex items-center justify-between mb-4">
@@ -1118,8 +1123,8 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
 
                               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                  <table className="min-w-full divide-y divide-border-default">
+                                    <thead className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                           Item
@@ -1132,7 +1137,7 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-border-default">
                                       {(r.items || []).map(
                                         (item: any, itemIndex: number) => (
                                           <tr

@@ -509,7 +509,7 @@ function ReportPage() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full sm:w-auto bg-white border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full sm:w-auto bg-white border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-900 dark:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -518,7 +518,7 @@ function ReportPage() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full sm:w-auto bg-white border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full sm:w-auto bg-white border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-900 dark:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>

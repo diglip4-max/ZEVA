@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
@@ -58,6 +58,7 @@ const getUserRole = (): string | null => getUserInfo().role;
 const MODULE_KEY = "clinic_stock_material_consumptions";
 
 const MaterialConsumptionPage: NextPageWithLayout = () => {
+  const token = getTokenByPath() || getStoredToken() || "";
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,7 +110,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
     debounce(async (page = 1, search = "", filters: any = {}) => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", String(page));
         params.append("limit", String(pagination.limit || 10));
@@ -125,7 +126,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
 
         const res = await axios.get(
           `/api/stocks/material-consumptions?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
         if (res.data?.success) {
           setRecords(res.data.data || []);
@@ -191,22 +192,57 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
             if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
               setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
             } else {
+              let parentActions = {};
+              const parentStockModule = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return mod === "clinic_stock" || mod === "stock" || modKey === "clinic_stock" || modKey === "stock";
+              });
+              if (parentStockModule && parentStockModule.actions) {
+                parentActions = parentStockModule.actions;
+              }
+
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_material_consumptions") return true;
-                if (p.module === "material_consumptions") return true;
-                if (p.module === "stock_material_consumptions") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_material_consumptions" ||
+                  mod === "material_consumptions" ||
+                  mod === "stock_material_consumptions" ||
+                  modKey === "clinic_stock_material_consumptions" ||
+                  modKey === "material_consumptions" ||
+                  modKey === "stock_material_consumptions"
+                );
               });
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_material_consumptions"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_material_consumptions" ||
+                        key === "material_consumptions" ||
+                        key === "stock_material_consumptions" ||
+                        name === "clinic_stock_material_consumptions" ||
+                        name === "material consumptions" ||
+                        name === "material_consumptions" ||
+                        name === "material consumption" ||
+                        name === "material_consumption" ||
+                        name === "stock material consumptions" ||
+                        name === "stock_material_consumptions"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: { ...parentActions, ...foundInSubModule.actions } };
+                      break;
+                    }
+                  }
                 }
+              }
+
+              if (!modulePermission && parentStockModule) {
+                modulePermission = { actions: parentActions };
               }
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
@@ -222,7 +258,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                   canDelete: moduleAll || moduleDelete,
                 });
               } else {
-                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
+                setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
               }
             }
           } else {
@@ -380,20 +416,20 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="bg-bg-surface border-b border-border-default px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-text-primary">
               Material Consumptions
             </h1>
-            <p className="text-indigo-100 mt-2">
+            <p className="text-text-muted mt-2">
               Track and manage material consumption records
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors border border-white/30"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-page hover:bg-bg-surface text-text-primary rounded-lg transition-colors border border-border-default"
             >
               <Filter className="h-4 w-4" />
               Filter
@@ -401,7 +437,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
             {permissions.canCreate && (
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg font-medium transition-colors dark:bg-gray-700 dark:hover:bg-gray-600"
               >
                 <PlusIcon className="h-5 w-5" />
                 New Consumption
@@ -602,7 +638,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                   />
                 </svg>
               </div>
-              <p className="text-gray-600">Loading material consumptions...</p>
+              <p className="text-text-muted">Loading material consumptions...</p>
             </div>
           ) : displayData.length === 0 ? (
             <div className="p-12 text-center">
@@ -615,17 +651,19 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by creating your first material consumption record.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                <PlusIcon className="h-5 w-5" /> Create Consumption
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  <PlusIcon className="h-5 w-5" /> Create Consumption
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       MC No
@@ -653,7 +691,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {displayData.map((r: any, idx: number) => (
                     <React.Fragment key={r._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
@@ -670,7 +708,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                               <div className="text-sm font-medium text-gray-900">
                                 {r.materialConsumptionNo}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-text-muted">
                                 ID: {r._id?.substring(0, 8)}...
                               </div>
                             </div>
@@ -884,7 +922,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                         <tr>
                           <td
                             colSpan={8}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            className="px-6 py-6 bg-bg-surface border-t border-border-default dark:border-border-default"
                           >
                             <div className="ml-8 mr-4">
                               <div className="flex items-center justify-between mb-4">
@@ -926,8 +964,8 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
 
                               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                  <table className="min-w-full divide-y divide-border-default">
+                                    <thead className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                           Item
@@ -940,7 +978,7 @@ const MaterialConsumptionPage: NextPageWithLayout = () => {
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-border-default">
                                       {(r.items || []).map(
                                         (item: any, itemIndex: number) => (
                                           <tr

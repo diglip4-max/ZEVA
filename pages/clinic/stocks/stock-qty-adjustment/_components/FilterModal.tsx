@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { X, Filter, Calendar, Building, Tag } from "lucide-react";
 import useClinicBranches from "@/hooks/useClinicBranches";
@@ -42,7 +42,7 @@ const FilterModal: React.FC<Props> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-100">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex justify-between items-center">
+        <div className="bg-bg-surface border-b border-border-default px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
               <Filter className="h-5 w-5 text-white" />

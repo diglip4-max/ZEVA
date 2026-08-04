@@ -305,7 +305,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
         </div>
         <div className="w-full" style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
+            <LineChart
               data={resolvedDepartmentAppointments.map((d: any) => ({ name: d.departmentName, appointments: d.count || 0 }))}
               margin={{ top: 10, right: 10, left: 0, bottom: 40 }}
             >
@@ -313,7 +313,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
-              <Legend verticalAlign="top" height={36}/>
+              <Legend verticalAlign="top" height={36} />
               <Line type="monotone" dataKey="appointments" stroke="#2D9AA5" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Total Appointments" />
             </LineChart>
           </ResponsiveContainer>
@@ -331,14 +331,14 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <div className="text-xs text-gray-500">Completed Appointments</div>
             <div className="text-xl font-semibold">{summary.completedAppointments || 0}</div>
           </div>
-          <div 
+          <div
             className="p-4 border rounded cursor-pointer hover:bg-red-50 transition-colors"
             onClick={() => setIsCancelledSidebarOpen(true)}
           >
             <div className="text-xs text-gray-500">Cancelled Appointments</div>
             <div className="text-xl font-semibold text-red-600">{summary.cancelledAppointments || 0}</div>
           </div>
-          <div 
+          <div
             className="p-4 border rounded cursor-pointer hover:bg-yellow-50 transition-colors"
             onClick={() => setIsNoShowSidebarOpen(true)}
           >
@@ -370,7 +370,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <Cell fill="#F59E0B" />
               </Pie>
               <Tooltip />
-              <Legend verticalAlign="bottom" height={36}/>
+              <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -388,8 +388,8 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                 <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
+                <Legend verticalAlign="top" height={36} />
+                <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -432,33 +432,35 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
 
       {/* Sidebars */}
       <AnimatePresence>
-        {isCancelledSidebarOpen && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 p-6 overflow-y-auto"
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-red-600">Cancelled Appointments</h3>
-              <button onClick={() => setIsCancelledSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              {cancelledAppointments.map((apt, i) => (
-                <div key={i} className="p-4 border rounded-lg bg-red-50">
-                  <p className="font-semibold">{apt.patientName}</p>
-                  <p className="text-sm text-gray-600">Service: {apt.serviceName}</p>
-                  {apt.treatment && <p className="text-sm text-gray-600">Treatment: {apt.treatment}</p>}
-                  {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">Note: {apt.notes}</p>}
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {
+          isCancelledSidebarOpen && (
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 p-6 overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-red-600">Cancelled Appointments</h3>
+                <button onClick={() => setIsCancelledSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {cancelledAppointments.map((apt, i) => (
+                  <div key={i} className="p-4 border rounded-lg bg-red-50">
+                    <p className="font-semibold">{apt.patientName}</p>
+                    <p className="text-sm text-gray-600">Service: {apt.serviceName}</p>
+                    {apt.treatment && <p className="text-sm text-gray-600">Treatment: {apt.treatment}</p>}
+                    {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">Note: {apt.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )
+        }
+      </AnimatePresence >
 
       <AnimatePresence>
         {isNoShowSidebarOpen && (

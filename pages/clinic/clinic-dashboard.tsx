@@ -7384,11 +7384,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               {(patientDemographics.totalNewPatients !== undefined || patientDemographics.totalOldPatients !== undefined) && (
                                 <div className="grid grid-cols-2 gap-4 mb-6">
                                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                    <p className="text-sm font-medium text-blue-900 mb-1">New Patients</p>
+                                    <p className="text-sm font-medium text-white dark:text-teal-100 mb-1">New Patients</p>
                                     <p className="text-3xl font-bold text-blue-600">{patientDemographics.totalNewPatients || 0}</p>
                                   </div>
                                   <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                                    <p className="text-sm font-medium text-green-900 mb-1">Old Patients</p>
+                                    <p className="text-sm font-medium text-green-900 dark:text-teal-100 mb-1">Old Patients</p>
                                     <p className="text-3xl font-bold text-green-600">{patientDemographics.totalOldPatients || 0}</p>
                                   </div>
                                 </div>

@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
@@ -63,6 +63,7 @@ const getUserRole = (): string | null => getUserInfo().role;
 const MODULE_KEY = "clinic_stock_transfer_requests";
 
 const StockTransferRequestPage: NextPageWithLayout = () => {
+  const token = getTokenByPath() || getStoredToken() || "";
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,7 +115,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
     debounce(async (page = 1, search = "", filters: any = {}) => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", String(page));
         params.append("limit", String(pagination.limit || 10));
@@ -134,7 +135,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
 
         const res = await axios.get(
           `/api/stocks/stock-transfer-requests?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
         if (res.data?.success) {
           setRecords(res.data.data.records || []);
@@ -194,23 +195,58 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
             if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
               setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
             } else {
+              let parentActions = {};
+              const parentStockModule = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return mod === "clinic_stock" || mod === "stock" || modKey === "clinic_stock" || modKey === "stock";
+              });
+              if (parentStockModule && parentStockModule.actions) {
+                parentActions = parentStockModule.actions;
+              }
+
               let modulePermission = res.data.permissions.find((p: any) => {
-                if (!p?.module) return false;
-                if (p.module === "clinic_stock_transfer_requests") return true;
-                if (p.module === "transfer_requests") return true;
-                if (p.module === "stock_transfer_requests") return true;
-                return false;
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_transfer_requests" ||
+                  mod === "transfer_requests" ||
+                  mod === "stock_transfer_requests" ||
+                  modKey === "clinic_stock_transfer_requests" ||
+                  modKey === "transfer_requests" ||
+                  modKey === "stock_transfer_requests"
+                );
               });
               // Check parent module subModules
               if (!modulePermission) {
-                const parentStockModule = res.data.permissions.find((p: any) =>
-                  p?.module === "clinic_stock" && Array.isArray(p.subModules)
-                );
-                if (parentStockModule) {
-                  modulePermission = parentStockModule.subModules.find((sm: any) =>
-                    sm?.moduleKey === "clinic_stock_transfer_requests"
-                  );
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
+                      const key = (sm.moduleKey || "").toLowerCase();
+                      const name = (sm.name || "").toLowerCase();
+                      return (
+                        key === "clinic_stock_transfer_requests" ||
+                        key === "transfer_requests" ||
+                        key === "stock_transfer_requests" ||
+                        name === "clinic_stock_transfer_requests" ||
+                        name === "stock transfer requests" ||
+                        name === "stock_transfer_requests" ||
+                        name === "stock transfer request" ||
+                        name === "stock_transfer_request" ||
+                        name === "transfer requests" ||
+                        name === "transfer_requests"
+                      );
+                    });
+                    if (foundInSubModule) {
+                      modulePermission = { actions: { ...parentActions, ...foundInSubModule.actions } };
+                      break;
+                    }
+                  }
                 }
+              }
+
+              if (!modulePermission && parentStockModule) {
+                modulePermission = { actions: parentActions };
               }
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
@@ -226,7 +262,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                   canDelete: moduleAll || moduleDelete,
                 });
               } else {
-                setPermissions({ canRead: true, canCreate: false, canUpdate: false, canDelete: false });
+                setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
               }
             }
           } else {
@@ -389,20 +425,20 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
 
   return (
     <div>
-      <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="bg-bg-surface border-b border-border-default px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-text-primary">
               Stock Transfer Requests
             </h1>
-            <p className="text-indigo-100 mt-2">
+            <p className="text-text-muted mt-2">
               Manage and track all stock transfer requests
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors border border-white/30"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-page hover:bg-bg-surface text-text-primary rounded-lg transition-colors border border-border-default"
             >
               <Filter className="h-4 w-4" />
               Filter
@@ -410,7 +446,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
             {permissions.canCreate && (
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 hover:bg-gray-50 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-800 text-white hover:bg-gray-900 rounded-lg font-medium transition-colors dark:bg-gray-700 dark:hover:bg-gray-600"
               >
                 <PlusIcon className="h-5 w-5" />
                 New Transfer
@@ -611,7 +647,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                   />
                 </svg>
               </div>
-              <p className="text-gray-600">Loading stock transfers...</p>
+              <p className="text-text-muted">Loading stock transfers...</p>
             </div>
           ) : displayData.length === 0 ? (
             <div className="p-12 text-center">
@@ -624,17 +660,19 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
               <p className="text-gray-500 mb-6">
                 Get started by creating your first stock transfer request.
               </p>
-              <button
-                onClick={handleAdd}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
-              >
-                <PlusIcon className="h-5 w-5" /> Create Transfer
-              </button>
+              {permissions.canCreate && (
+                <button
+                  onClick={handleAdd}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2.5 rounded-xl"
+                >
+                  <PlusIcon className="h-5 w-5" /> Create Transfer
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       STR No
@@ -665,7 +703,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {displayData.map((r: any, idx: number) => (
                     <React.Fragment key={r._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
@@ -682,7 +720,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                               <div className="text-sm font-medium text-gray-900">
                                 {r.stockTransferRequestNo}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-text-muted">
                                 ID: {r._id?.substring(0, 8)}...
                               </div>
                             </div>
@@ -712,26 +750,24 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              r.status === "New"
-                                ? "bg-blue-100 text-blue-800"
-                                : r.status === "Transfered"
-                                  ? "bg-green-100 text-green-800"
-                                  : r.status === "Cancelled"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
-                            }`}
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${r.status === "New"
+                              ? "bg-blue-100 text-blue-800"
+                              : r.status === "Transfered"
+                                ? "bg-green-100 text-green-800"
+                                : r.status === "Cancelled"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             <span
-                              className={`h-2 w-2 rounded-full mr-2 ${
-                                r.status === "New"
-                                  ? "bg-blue-500"
-                                  : r.status === "Transfered"
-                                    ? "bg-green-500"
-                                    : r.status === "Cancelled"
-                                      ? "bg-red-500"
-                                      : "bg-gray-500"
-                              }`}
+                              className={`h-2 w-2 rounded-full mr-2 ${r.status === "New"
+                                ? "bg-blue-500"
+                                : r.status === "Transfered"
+                                  ? "bg-green-500"
+                                  : r.status === "Cancelled"
+                                    ? "bg-red-500"
+                                    : "bg-gray-500"
+                                }`}
                             />
                             {String(r.status || "").replace(/_/g, " ")}
                           </span>
@@ -777,25 +813,25 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                                 {!["Transferred", "Cancelled"].includes(
                                   r.status || "",
                                 ) && (
-                                  <button
-                                    onClick={() => {
-                                      handleEdit(r);
-                                      const menuEl = document.getElementById(
-                                        `menu-${r._id}`,
-                                      );
-                                      if (menuEl) {
-                                        menuEl.classList.remove("block");
-                                        menuEl.classList.add("hidden");
-                                      }
-                                    }}
-                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <div className="flex items-center">
-                                      <PencilIcon className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </div>
-                                  </button>
-                                )}
+                                    <button
+                                      onClick={() => {
+                                        handleEdit(r);
+                                        const menuEl = document.getElementById(
+                                          `menu-${r._id}`,
+                                        );
+                                        if (menuEl) {
+                                          menuEl.classList.remove("block");
+                                          menuEl.classList.add("hidden");
+                                        }
+                                      }}
+                                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                    >
+                                      <div className="flex items-center">
+                                        <PencilIcon className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </div>
+                                    </button>
+                                  )}
                                 <button
                                   onClick={() => {
                                     // Open print page in new tab
@@ -919,7 +955,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                         <tr>
                           <td
                             colSpan={8}
-                            className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
+                            className="px-6 py-6 bg-bg-surface border-t border-border-default dark:border-border-default"
                           >
                             <div className="ml-8 mr-4">
                               <div className="flex items-center justify-between mb-4">
@@ -961,8 +997,8 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
 
                               <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="overflow-x-auto">
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
+                                  <table className="min-w-full divide-y divide-border-default">
+                                    <thead className="bg-bg-surface dark:bg-opacity-50">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                           Item
@@ -975,7 +1011,7 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-border-default">
                                       {(r.items || []).map(
                                         (item: any, itemIndex: number) => (
                                           <tr

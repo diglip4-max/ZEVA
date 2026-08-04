@@ -8,6 +8,7 @@ const ContractSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+
     contractTitle: {
       type: String,
       required: true,

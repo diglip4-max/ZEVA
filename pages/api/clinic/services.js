@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       }
 
       const { departmentId } = req.query;
-      const criteria = { clinicId };
+      const criteria = { clinicId, isDeleted: { $ne: true } };
       if (departmentId) {
         criteria.departmentId = departmentId;
       }
@@ -235,6 +235,7 @@ export default async function handler(req, res) {
         clinicId,
         departmentId: departmentId || null,
         name: name.trim(),
+        isDeleted: { $ne: true },
       });
       if (exists) {
         return res.status(400).json({
@@ -348,6 +349,7 @@ export default async function handler(req, res) {
         name: name.trim(),
         departmentId: departmentId ?? service.departmentId ?? null,
         _id: { $ne: serviceId },
+        isDeleted: { $ne: true },
       });
       if (duplicate) {
         return res.status(400).json({
@@ -430,7 +432,16 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Service not found" });
       }
 
-      await Service.findByIdAndDelete(serviceId);
+      // Soft delete: set isDeleted to true
+      await Service.updateOne(
+        { _id: serviceId },
+        {
+          $set: {
+            isDeleted: true,
+            name: `${service.name}`
+          }
+        }
+      );
       return res
         .status(200)
         .json({ success: true, message: "Service deleted" });

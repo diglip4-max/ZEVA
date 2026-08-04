@@ -24,7 +24,7 @@ const Sidebar = () => {
   // Fetch cancelled advance claims count for doctorStaff
   const fetchCancelledClaimsCount = async () => {
     if (role !== "doctorStaff") return;
-    
+
     try {
       const token = localStorage.getItem("userToken");
       const response = await fetch('/api/staff/cancelled-claims', {
@@ -32,7 +32,7 @@ const Sidebar = () => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setCancelledClaims(data.data || []);
@@ -80,105 +80,105 @@ const Sidebar = () => {
 
   if (role === "staff") {
     navItems = [
-      { 
-        label: "Dashboard", 
-        path: "/staff/staff-dashboard", 
-        icon: "🏠", 
-        description: "Overview & analytics" 
+      {
+        label: "Dashboard",
+        path: "/staff/staff-dashboard",
+        icon: "🏠",
+        description: "Overview & analytics"
       },
-      { 
-        label: "Add Service", 
-        path: "/staff/add-service", 
-        icon: "➕", 
-        description: "Add package/treatment" 
+      {
+        label: "Add Service",
+        path: "/staff/add-service",
+        icon: "➕",
+        description: "Add package/treatment"
       },
-      { 
-        label: "Patient Registration", 
-        path: "/staff/patient-registration", 
-        icon: "🧍‍♂️", 
-        description: "Manage Clinic" 
+      {
+        label: "Patient Registration",
+        path: "/staff/patient-registration",
+        icon: "🧍‍♂️",
+        description: "Manage Clinic"
       },
-      { 
-        label: "Patient Information", 
-        path: "/staff/patient-information", 
-        icon: "📋", 
-        description: "Manage Clinic" 
+      {
+        label: "Patient Information",
+        path: "/staff/patient-information",
+        icon: "📋",
+        description: "Manage Clinic"
       },
-      { 
-        label: "Add EOD Task", 
-        path: "/staff/eodNotes", 
-        icon: "✅", 
-        description: "Manage Clinic" 
+      {
+        label: "Add EOD Task",
+        path: "/staff/eodNotes",
+        icon: "✅",
+        description: "Manage Clinic"
       },
-      { 
-        label: "Add Expense", 
-        path: "/staff/AddPettyCashForm", 
-        icon: "💸", 
-        description: "Add Petty Cash Entry" 
+      {
+        label: "Add Expense",
+        path: "/staff/AddPettyCashForm",
+        icon: "💸",
+        description: "Add Petty Cash Entry"
       },
-       { 
-        label: " Add Vendor", 
-        path: "/staff/add-vendor", 
-        icon: "🧑‍💼", 
-        description: "Manage vendor" 
+      {
+        label: " Add Vendor",
+        path: "/staff/add-vendor",
+        icon: "🧑‍💼",
+        description: "Manage vendor"
       },
-      { 
-        label: "Membership", 
-        path: "/staff/membership", 
-        icon: "🧑‍💼", 
-        description: "Manage Membership" 
+      {
+        label: "Membership",
+        path: "/staff/membership",
+        icon: "🧑‍💼",
+        description: "Manage Membership"
       },
-      { 
-        label: "All Contracts", 
-        path: "/staff/contract", 
-        icon: "🧑‍💼", 
-        description: "See all contracts" 
+      {
+        label: "All Contracts",
+        path: "/staff/contract",
+        icon: "🧑‍💼",
+        description: "See all contracts"
       },
-      
+
     ];
   }
 
   if (role === "doctorStaff") {
     navItems = [
-      { 
-        label: "Dashboard", 
-        path: "/staff/staff-dashboard", 
-        icon: "🏠", 
-        description: "Doctor Overview & Appointments" 
-      },
-      { 
-        label: "Booked Appointments", 
-        path: "/staff/booked-appointments", 
-        icon: "📅", 
-        description: "View your schedule" 
-      },
-      { 
-        label: "Pending Claims", 
-        path: "/staff/pending-claims", 
-        icon: "🧑‍⚕️", 
-        description: "View & Manage Patients" 
+      {
+        label: "Dashboard",
+        path: "/staff/staff-dashboard",
+        icon: "🏠",
+        description: "Doctor Overview & Appointments"
       },
       {
-        label: "Add Treatment", 
-        path: "/staff/add-treatment", 
-        icon: "➕", 
-        description: "Manage doctor treatments" 
+        label: "Booked Appointments",
+        path: "/staff/booked-appointments",
+        icon: "📅",
+        description: "View your schedule"
       },
-      { 
-        label: "EOD Notes", 
-        path: "/staff/eodNotes", 
-        icon: "📝", 
-        description: "End of Day Notes" 
+      {
+        label: "Pending Claims",
+        path: "/staff/pending-claims",
+        icon: "🧑‍⚕️",
+        description: "View & Manage Patients"
       },
-      { 
-        label: "Cancelled Claims", 
-        path: "/staff/cancelled-claims", 
-        icon: "❌", 
+      {
+        label: "Add Treatment",
+        path: "/staff/add-treatment",
+        icon: "➕",
+        description: "Manage doctor treatments"
+      },
+      {
+        label: "EOD Notes",
+        path: "/staff/eodNotes",
+        icon: "📝",
+        description: "End of Day Notes"
+      },
+      {
+        label: "Cancelled Claims",
+        path: "/staff/cancelled-claims",
+        icon: "❌",
         description: `View Cancelled Claims (${cancelledClaims.length})`,
         badge: cancelledClaims.length > 0 ? cancelledClaims.length : null
       },
-      
-      
+
+
     ];
   }
 

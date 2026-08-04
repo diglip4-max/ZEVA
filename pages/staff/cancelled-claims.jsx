@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { 
-  AlertCircle, User, Calendar, DollarSign, FileText, Phone, Mail, 
+import {
+  AlertCircle, User, Calendar, FileText, Phone, Mail,
   RefreshCw, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, X
 } from "lucide-react";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 import { jwtDecode } from "jwt-decode";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const ITEMS_PER_PAGE = 15;
 
@@ -34,6 +36,7 @@ const ErrorMessage = ({ message, onRetry }) => (
 );
 
 const ClaimCard = ({ claim, onView, onEdit }) => {
+  const { currency } = useCurrency();
   return (
     <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-all">
       <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-4">
@@ -65,11 +68,11 @@ const ClaimCard = ({ claim, onView, onEdit }) => {
           </div>
           <div>
             <p className="text-gray-600 text-xs mb-0.5">Total Amount</p>
-            <p className="text-gray-900 font-bold">د.إ{claim.amount?.toFixed(2) || '0.00'}</p>
+            <p className="text-gray-900 font-bold">{getCurrencySymbol(currency)}{claim.amount?.toFixed(2) || '0.00'}</p>
           </div>
           <div>
             <p className="text-gray-600 text-xs mb-0.5">Pending</p>
-            <p className="text-red-600 font-bold">د.إ{claim.pending?.toFixed(2) || '0.00'}</p>
+            <p className="text-red-600 font-bold">{getCurrencySymbol(currency)}{claim.pending?.toFixed(2) || '0.00'}</p>
           </div>
         </div>
 
@@ -92,6 +95,7 @@ const ClaimCard = ({ claim, onView, onEdit }) => {
 };
 
 const ViewModal = ({ claim, onClose }) => {
+  const { currency } = useCurrency();
   if (!claim) return null;
 
   return (
@@ -161,25 +165,25 @@ const ViewModal = ({ claim, onClose }) => {
 
             <div className="space-y-3">
               <h4 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-indigo-600" />
+                <span className="w-5 h-5 flex items-center justify-center font-bold text-sm text-indigo-600">{getCurrencySymbol(currency)}</span>
                 Financial Details
               </h4>
               <div className="space-y-2 text-sm">
                 <div>
                   <p className="text-gray-600 text-xs">Total Amount</p>
-                  <p className="text-gray-900 font-bold text-base">د.إ{claim.amount?.toFixed(2) || '0.00'}</p>
+                  <p className="text-gray-900 font-bold text-base">{getCurrencySymbol(currency)}{claim.amount?.toFixed(2) || '0.00'}</p>
                 </div>
                 <div>
                   <p className="text-gray-600 text-xs">Amount Paid</p>
-                  <p className="text-green-600 font-medium">د.إ{claim.paid?.toFixed(2) || '0.00'}</p>
+                  <p className="text-green-600 font-medium">{getCurrencySymbol(currency)}{claim.paid?.toFixed(2) || '0.00'}</p>
                 </div>
                 <div>
                   <p className="text-gray-600 text-xs">Advance</p>
-                  <p className="text-blue-600 font-medium">د.إ{claim.advance?.toFixed(2) || '0.00'}</p>
+                  <p className="text-blue-600 font-medium">{getCurrencySymbol(currency)}{claim.advance?.toFixed(2) || '0.00'}</p>
                 </div>
                 <div>
                   <p className="text-gray-600 text-xs">Pending</p>
-                  <p className="text-red-600 font-medium">د.إ{claim.pending?.toFixed(2) || '0.00'}</p>
+                  <p className="text-red-600 font-medium">{getCurrencySymbol(currency)}{claim.pending?.toFixed(2) || '0.00'}</p>
                 </div>
               </div>
             </div>
@@ -330,19 +334,19 @@ const EditModal = ({ claim, onClose, onSave, saving }) => {
               ].map(({ label, key }) => (
                 <div key={key}>
                   <label className="block text-xs font-semibold text-gray-800 mb-1">{label}</label>
-                  <input 
-                    value={form[key]} 
-                    onChange={(e) => setForm({...form, [key]: e.target.value})} 
+                  <input
+                    value={form[key]}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               ))}
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-gray-800 mb-1">Notes</label>
-                <textarea 
-                  rows={3} 
-                  value={form.notes} 
-                  onChange={(e) => setForm({...form, notes: e.target.value})} 
+                <textarea
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -433,6 +437,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
 
 const CancelledClaimsPage = () => {
   const router = useRouter();
+  const { currency } = useCurrency();
   const [cancelledClaims, setCancelledClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -461,7 +466,7 @@ const CancelledClaimsPage = () => {
   const fetchCancelledClaims = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const token = localStorage.getItem("userToken");
       if (!token) throw new Error("No authentication token found");
@@ -520,13 +525,13 @@ const CancelledClaimsPage = () => {
 
   const filteredClaims = cancelledClaims.filter(claim => {
     const matchesSearch = claim.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.doctor.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesFilter = filterType === "all" || 
-                         (filterType === "payment" && (claim.status === "Cancelled" || claim.status === "Rejected")) ||
-                         (filterType === "advance" && claim.advanceClaimStatus === "Cancelled");
-    
+      claim.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      claim.doctor.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesFilter = filterType === "all" ||
+      (filterType === "payment" && (claim.status === "Cancelled" || claim.status === "Rejected")) ||
+      (filterType === "advance" && claim.advanceClaimStatus === "Cancelled");
+
     return matchesSearch && matchesFilter;
   });
 
@@ -599,9 +604,9 @@ const CancelledClaimsPage = () => {
             <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No Cancelled Claims Found</h3>
             <p className="text-gray-600 text-sm">
-              {searchTerm || filterType !== "all" 
+              {searchTerm || filterType !== "all"
                 ? "No claims match your search criteria."
-                : doctorName 
+                : doctorName
                   ? `No cancelled claims for Dr. ${doctorName}.`
                   : "No cancelled claims available."
               }

@@ -222,25 +222,25 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Membership Name
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Patient Name
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Start Date
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Expiry Date
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Status
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Total Revenue
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-right text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Actions
                 </th>
               </tr>
@@ -248,17 +248,17 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
             <tbody className="bg-white divide-y divide-gray-100">
               {rows.map((r) => (
                 <tr key={`${r.membershipName}-${r.patientName}-${r.startDate}`}>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[120px] sm:max-w-none truncate">{r.membershipName || "-"}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">{r.patientName || "-"}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[120px] sm:max-w-none truncate dark:text-gray-700">{r.membershipName || "-"}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate text-gray-900 dark:text-gray-900">{r.patientName || "-"}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap text-gray-900 dark:text-gray-900">
                     {r.startDate ? new Date(r.startDate).toLocaleDateString() : "-"}
                   </td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap text-gray-900 dark:text-gray-900">
                     {r.endDate ? new Date(r.endDate).toLocaleDateString() : "-"}
                   </td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{r.status}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{formatCurrency(r.totalRevenue || 0)}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-right whitespace-nowrap">
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap text-gray-900 dark:text-gray-900">{r.status}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap text-gray-900 dark:text-gray-900">{formatCurrency(r.totalRevenue || 0)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-right whitespace-nowrap text-gray-900 dark:text-gray-900">
                     <button
                       className="px-3 py-1.5 rounded bg-[#2D9AA5] text-white text-xs"
                       onClick={async () => {
@@ -291,7 +291,7 @@ export default function MembershipReport({ startDate, endDate, headers }: Props)
               ))}
               {!rows.length && (
                 <tr>
-                  <td className="px-4 py-4 text-sm text-gray-500" colSpan={7}>
+                  <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={7}>
                     No membership data for selected period
                   </td>
                 </tr>

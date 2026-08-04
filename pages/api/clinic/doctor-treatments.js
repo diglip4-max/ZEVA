@@ -110,6 +110,10 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(doctorStaffId);
+<<<<<<< HEAD
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
+        return res.status(404).json({ success: false, message: "Doctor staff not found" });
+=======
       if (
         !doctorStaff ||
         !["doctorStaff", "agent"].includes(doctorStaff.role)
@@ -117,6 +121,7 @@ export default async function handler(req, res) {
         return res
           .status(404)
           .json({ success: false, message: "Doctor staff not found" });
+>>>>>>> 064999db0fa4a02cab11eead551996751d5764a2
       }
 
       // Verify clinic access for non-admin roles
@@ -237,6 +242,10 @@ export default async function handler(req, res) {
     try {
       // Verify doctorStaff exists and belongs to clinic
       const doctorStaff = await User.findById(targetDoctorStaffId);
+<<<<<<< HEAD
+      if (!doctorStaff || !['doctorStaff', 'agent'].includes(doctorStaff.role)) {
+        return res.status(404).json({ success: false, message: "Doctor staff not found" });
+=======
       if (
         !doctorStaff ||
         !["doctorStaff", "agent"].includes(doctorStaff.role)
@@ -244,6 +253,7 @@ export default async function handler(req, res) {
         return res
           .status(404)
           .json({ success: false, message: "Doctor staff not found" });
+>>>>>>> 064999db0fa4a02cab11eead551996751d5764a2
       }
 
       // Verify clinic access for non-admin roles

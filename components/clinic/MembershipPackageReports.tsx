@@ -18,9 +18,26 @@ interface MembershipPackageReportsProps {
 }
 
 interface SummaryStats {
-  activeMemberships: { count: number; change: number };
-  expiredMemberships: { count: number; change: number };
-  activePackages: { count: number; change: number };
+  activeMemberships: { 
+    count: number; 
+    change: number; 
+    items?: { id: string; name: string }[] 
+  };
+  expiredMemberships: { 
+    count: number; 
+    change: number; 
+    items?: { id: string; name: string }[] 
+  };
+  activePackages: { 
+    count: number; 
+    change: number; 
+    items?: { id: string; name: string }[] 
+  };
+  expiredPackages?: { 
+    count: number; 
+    change: number; 
+    items?: { id: string; name: string }[] 
+  };
 }
 
 interface RevenueData {
@@ -38,8 +55,6 @@ interface PackageUsage {
   color?: string;
 }
 
-
-
 const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ clinicId, timeRange = 'month', selectedDate }) => {
   const [loading, setLoading] = useState(true);
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
@@ -47,6 +62,7 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
   const [_packageUsage, setPackageUsage] = useState<PackageUsage[]>([]);
   const [packageRevenueMonthWise, setPackageRevenueMonthWise] = useState<RevenueData[]>([]);
   const [clinicCurrency, setClinicCurrency] = useState<string>('INR');
+  const [selectedCard, setSelectedCard] = useState<string | null>(null);
 
   // Helper functions
   const pad2 = (n: number) => n.toString().padStart(2, '0');
@@ -266,143 +282,301 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
       </div>
 
       {/* Summary Statistics Cards - First Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {/* Active Memberships Card */}
-        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-green-500 to-green-600 shadow-lg p-5 transition-all hover:shadow-xl">
-          {/* Decorative circular shape in top-right */}
-          <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-          
-          <div className="relative z-10">
-            {/* Icon Container */}
-            <div className="mb-3">
-              <div className="w-11 h-11 rounded-xl bg-green-400/30 backdrop-blur-sm flex items-center justify-center border border-green-300/30">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
+        <div className="relative">
+          <div 
+            onClick={() => setSelectedCard(prev => prev === 'activeMemberships' ? null : 'activeMemberships')}
+            className={`relative overflow-hidden rounded-[20px] bg-gradient-to-br from-green-500 to-green-600 shadow-lg p-5 transition-all hover:shadow-xl cursor-pointer select-none hover:-translate-y-0.5 ${
+              selectedCard === 'activeMemberships' ? 'ring-4 ring-green-300 ring-offset-2' : ''
+            }`}
+          >
+            {/* Decorative circular shape in top-right */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10">
+              {/* Icon Container */}
+              <div className="mb-3">
+                <div className="w-11 h-11 rounded-xl bg-green-400/30 backdrop-blur-sm flex items-center justify-center border border-green-300/30">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Title */}
+              <p className="text-sm font-medium text-white/90 mb-1.5">Active Memberships</p>
+              
+              {/* Large Number */}
+              <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
+                {summaryStats?.activeMemberships.count ?? 0}
+              </p>
+              
+              {/* Growth Indicator */}
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                  (summaryStats?.activeMemberships.change ?? 0) >= 0 
+                    ? 'text-white' 
+                    : 'text-white/80'
+                }`}>
+                  {(summaryStats?.activeMemberships.change ?? 0) >= 0 ? (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                    </svg>
+                  )}
+                  {Math.abs(summaryStats?.activeMemberships.change ?? 0)}%
+                </span>
+                <span className="text-xs text-white/80 font-medium">from last month</span>
               </div>
             </div>
-
-            {/* Title */}
-            <p className="text-sm font-medium text-white/90 mb-1.5">Active Memberships</p>
-            
-            {/* Large Number */}
-            <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
-              {summaryStats?.activeMemberships.count ?? 0}
-            </p>
-            
-            {/* Growth Indicator */}
-            <div className="flex items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                (summaryStats?.activeMemberships.change ?? 0) >= 0 
-                  ? 'text-white' 
-                  : 'text-white/80'
-              }`}>
-                {(summaryStats?.activeMemberships.change ?? 0) >= 0 ? (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                  </svg>
-                )}
-                {Math.abs(summaryStats?.activeMemberships.change ?? 0)}%
-              </span>
-              <span className="text-xs text-white/80 font-medium">from last month</span>
-            </div>
           </div>
+
+          {/* Active Memberships Dropdown Popover */}
+          {selectedCard === 'activeMemberships' && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white text-black shadow-xl rounded-xl border border-gray-200 p-3 min-w-[260px]">
+              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-100">
+                <span className="text-xs font-bold text-gray-800">Active Memberships</span>
+                <span className="text-xs text-gray-500 font-semibold">{summaryStats?.activeMemberships.items?.length ?? 0} records</span>
+              </div>
+              <div className="overflow-y-auto max-h-48 custom-scrollbar pr-1 flex flex-col divide-y divide-gray-100 animate-fadeIn">
+                {summaryStats?.activeMemberships.items && summaryStats.activeMemberships.items.length > 0 ? (
+                  summaryStats.activeMemberships.items.map((item) => (
+                    <div key={item.id} className="h-10 flex items-center text-sm font-semibold text-gray-700 hover:bg-gray-50 px-2 rounded transition-colors" title={item.name}>
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-xs text-gray-400">No records</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Expired Memberships Card */}
-        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-red-500 to-red-600 shadow-lg p-5 transition-all hover:shadow-xl">
-          {/* Decorative circular shape in top-right */}
-          <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-          
-          <div className="relative z-10">
-            {/* Icon Container */}
-            <div className="mb-3">
-              <div className="w-11 h-11 rounded-xl bg-red-400/30 backdrop-blur-sm flex items-center justify-center border border-red-300/30">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+        <div className="relative">
+          <div 
+            onClick={() => setSelectedCard(prev => prev === 'expiredMemberships' ? null : 'expiredMemberships')}
+            className={`relative overflow-hidden rounded-[20px] bg-gradient-to-br from-red-500 to-red-600 shadow-lg p-5 transition-all hover:shadow-xl cursor-pointer select-none hover:-translate-y-0.5 ${
+              selectedCard === 'expiredMemberships' ? 'ring-4 ring-red-300 ring-offset-2' : ''
+            }`}
+          >
+            {/* Decorative circular shape in top-right */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10">
+              {/* Icon Container */}
+              <div className="mb-3">
+                <div className="w-11 h-11 rounded-xl bg-red-400/30 backdrop-blur-sm flex items-center justify-center border border-red-300/30">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Title */}
+              <p className="text-sm font-medium text-white/90 mb-1.5">Expired Memberships</p>
+              
+              {/* Large Number */}
+              <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
+                {summaryStats?.expiredMemberships.count ?? 0}
+              </p>
+              
+              {/* Growth Indicator */}
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                  (summaryStats?.expiredMemberships.change ?? 0) <= 0 
+                    ? 'text-white' 
+                    : 'text-white/80'
+                }`}>
+                  {(summaryStats?.expiredMemberships.change ?? 0) <= 0 ? (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  )}
+                  {Math.abs(summaryStats?.expiredMemberships.change ?? 0)}%
+                </span>
+                <span className="text-xs text-white/80 font-medium">from last month</span>
               </div>
             </div>
-
-            {/* Title */}
-            <p className="text-sm font-medium text-white/90 mb-1.5">Expired Memberships</p>
-            
-            {/* Large Number */}
-            <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
-              {summaryStats?.expiredMemberships.count ?? 0}
-            </p>
-            
-            {/* Growth Indicator */}
-            <div className="flex items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                (summaryStats?.expiredMemberships.change ?? 0) <= 0 
-                  ? 'text-white' 
-                  : 'text-white/80'
-              }`}>
-                {(summaryStats?.expiredMemberships.change ?? 0) <= 0 ? (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                  </svg>
-                ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                )}
-                {Math.abs(summaryStats?.expiredMemberships.change ?? 0)}%
-              </span>
-              <span className="text-xs text-white/80 font-medium">from last month</span>
-            </div>
           </div>
+
+          {/* Expired Memberships Dropdown Popover */}
+          {selectedCard === 'expiredMemberships' && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white text-black shadow-xl rounded-xl border border-gray-200 p-3 min-w-[260px]">
+              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-100">
+                <span className="text-xs font-bold text-gray-800">Expired Memberships</span>
+                <span className="text-xs text-gray-500 font-semibold">{summaryStats?.expiredMemberships.items?.length ?? 0} records</span>
+              </div>
+              <div className="overflow-y-auto max-h-48 custom-scrollbar pr-1 flex flex-col divide-y divide-gray-100 animate-fadeIn">
+                {summaryStats?.expiredMemberships.items && summaryStats.expiredMemberships.items.length > 0 ? (
+                  summaryStats.expiredMemberships.items.map((item) => (
+                    <div key={item.id} className="h-10 flex items-center text-sm font-semibold text-gray-700 hover:bg-gray-50 px-2 rounded transition-colors" title={item.name}>
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-xs text-gray-400">No records</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Active Packages Card */}
-        <div className="relative overflow-hidden rounded-[20px] bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg p-5 transition-all hover:shadow-xl">
-          {/* Decorative circular shape in top-right */}
-          <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
-          
-          <div className="relative z-10">
-            {/* Icon Container */}
-            <div className="mb-3">
-              <div className="w-11 h-11 rounded-xl bg-purple-400/30 backdrop-blur-sm flex items-center justify-center border border-purple-300/30">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+        <div className="relative">
+          <div 
+            onClick={() => setSelectedCard(prev => prev === 'activePackages' ? null : 'activePackages')}
+            className={`relative overflow-hidden rounded-[20px] bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg p-5 transition-all hover:shadow-xl cursor-pointer select-none hover:-translate-y-0.5 ${
+              selectedCard === 'activePackages' ? 'ring-4 ring-purple-300 ring-offset-2' : ''
+            }`}
+          >
+            {/* Decorative circular shape in top-right */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10">
+              {/* Icon Container */}
+              <div className="mb-3">
+                <div className="w-11 h-11 rounded-xl bg-purple-400/30 backdrop-blur-sm flex items-center justify-center border border-purple-300/30">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Title */}
+              <p className="text-sm font-medium text-white/90 mb-1.5">Active Packages</p>
+              
+              {/* Large Number */}
+              <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
+                {summaryStats?.activePackages.count ?? 0}
+              </p>
+              
+              {/* Growth Indicator */}
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                  (summaryStats?.activePackages.change ?? 0) >= 0 
+                    ? 'text-white' 
+                    : 'text-white/80'
+                }`}>
+                  {(summaryStats?.activePackages.change ?? 0) >= 0 ? (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                    </svg>
+                  )}
+                  {Math.abs(summaryStats?.activePackages.change ?? 0)}%
+                </span>
+                <span className="text-xs text-white/80 font-medium">from last month</span>
               </div>
             </div>
+          </div>
 
-            {/* Title */}
-            <p className="text-sm font-medium text-white/90 mb-1.5">Active Packages</p>
-            
-            {/* Large Number */}
-            <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
-              {summaryStats?.activePackages.count ?? 0}
-            </p>
-            
-            {/* Growth Indicator */}
-            <div className="flex items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                (summaryStats?.activePackages.change ?? 0) >= 0 
-                  ? 'text-white' 
-                  : 'text-white/80'
-              }`}>
-                {(summaryStats?.activePackages.change ?? 0) >= 0 ? (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
+          {/* Active Packages Dropdown Popover */}
+          {selectedCard === 'activePackages' && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white text-black shadow-xl rounded-xl border border-gray-200 p-3 min-w-[260px]">
+              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-100">
+                <span className="text-xs font-bold text-gray-800">Active Packages</span>
+                <span className="text-xs text-gray-500 font-semibold">{summaryStats?.activePackages.items?.length ?? 0} records</span>
+              </div>
+              <div className="overflow-y-auto max-h-48 custom-scrollbar pr-1 flex flex-col divide-y divide-gray-100 animate-fadeIn">
+                {summaryStats?.activePackages.items && summaryStats.activePackages.items.length > 0 ? (
+                  summaryStats.activePackages.items.map((item) => (
+                    <div key={item.id} className="h-10 flex items-center text-sm font-semibold text-gray-700 hover:bg-gray-50 px-2 rounded transition-colors" title={item.name}>
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                  ))
                 ) : (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                  </svg>
+                  <div className="text-center py-4 text-xs text-gray-400">No records</div>
                 )}
-                {Math.abs(summaryStats?.activePackages.change ?? 0)}%
-              </span>
-              <span className="text-xs text-white/80 font-medium">from last month</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Expired Packages Card */}
+        <div className="relative">
+          <div 
+            onClick={() => setSelectedCard(prev => prev === 'expiredPackages' ? null : 'expiredPackages')}
+            className={`relative overflow-hidden rounded-[20px] bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg p-5 transition-all hover:shadow-xl cursor-pointer select-none hover:-translate-y-0.5 ${
+              selectedCard === 'expiredPackages' ? 'ring-4 ring-orange-300 ring-offset-2' : ''
+            }`}
+          >
+            {/* Decorative circular shape in top-right */}
+            <div className="absolute -top-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
+            
+            <div className="relative z-10">
+              {/* Icon Container */}
+              <div className="mb-3">
+                <div className="w-11 h-11 rounded-xl bg-orange-400/30 backdrop-blur-sm flex items-center justify-center border border-orange-300/30">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Title */}
+              <p className="text-sm font-medium text-white/90 mb-1.5">Expired Packages</p>
+              
+              {/* Large Number */}
+              <p className="text-[40px] font-bold text-white leading-tight mb-1.5">
+                {summaryStats?.expiredPackages?.count ?? 0}
+              </p>
+              
+              {/* Growth Indicator */}
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                  (summaryStats?.expiredPackages?.change ?? 0) <= 0 
+                    ? 'text-white' 
+                    : 'text-white/80'
+                }`}>
+                  {(summaryStats?.expiredPackages?.change ?? 0) <= 0 ? (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                  )}
+                  {Math.abs(summaryStats?.expiredPackages?.change ?? 0)}%
+                </span>
+                <span className="text-xs text-white/80 font-medium">from last month</span>
+              </div>
             </div>
           </div>
+
+          {/* Expired Packages Dropdown Popover */}
+          {selectedCard === 'expiredPackages' && (
+            <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white text-black shadow-xl rounded-xl border border-gray-200 p-3 min-w-[260px]">
+              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-100">
+                <span className="text-xs font-bold text-gray-800">Expired Packages</span>
+                <span className="text-xs text-gray-500 font-semibold">{summaryStats?.expiredPackages?.count ?? 0} records</span>
+              </div>
+              <div className="overflow-y-auto max-h-48 custom-scrollbar pr-1 flex flex-col divide-y divide-gray-100 animate-fadeIn">
+                {summaryStats?.expiredPackages?.items && summaryStats.expiredPackages.items.length > 0 ? (
+                  summaryStats.expiredPackages.items.map((item) => (
+                    <div key={item.id} className="h-10 flex items-center text-sm font-semibold text-gray-700 hover:bg-gray-50 px-2 rounded transition-colors" title={item.name}>
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-xs text-gray-400">No records</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -514,8 +688,6 @@ const MembershipPackageReports: React.FC<MembershipPackageReportsProps> = ({ cli
           </div>
         </div>
       </div>
-
-
     </div>
   );
 };

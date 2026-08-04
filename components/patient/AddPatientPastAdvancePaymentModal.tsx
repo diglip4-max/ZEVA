@@ -13,6 +13,8 @@ import {
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
 import { clsx, type ClassValue } from "clsx";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -82,6 +84,7 @@ const AddPatientPastAdvancePaymentModal: React.FC<
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { currency } = useCurrency();
 
   const colorConfig = {
     amber: {
@@ -248,7 +251,7 @@ const AddPatientPastAdvancePaymentModal: React.FC<
           {/* Amount Input */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
-              <DollarSign className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4", colorConfig.text)} />
+              <span className={cn("text-sm font-bold", colorConfig.text)}>{getCurrencySymbol(currency)}</span>
               {pastAdvanceType} Past Balance Amount{" "}
               <span className="text-red-500">*</span>
             </label>
@@ -259,7 +262,7 @@ const AddPatientPastAdvancePaymentModal: React.FC<
                   `group-focus-within:${colorConfig.text}`,
                 )}
               >
-                <span className="text-base sm:text-lg font-bold">AED</span>
+                <span className="text-base sm:text-lg font-bold">{getCurrencySymbol(currency)}</span>
               </div>
               <input
                 type="number"

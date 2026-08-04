@@ -118,14 +118,14 @@ function OffersPage() {
         }
 
         const userRole = getUserRole();
-        
+
         // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
         if (userRole === "clinic" || userRole === "doctor") {
           try {
             const res = await axios.get("/api/clinic/sidebar-permissions", {
               headers: authHeaders,
             });
-            
+
             if (res.data.success) {
               // Check if permissions array exists and is not null
               // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
@@ -151,7 +151,7 @@ function OffersPage() {
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-                  
+
                   // Check if "all" is true, which grants all permissions
                   const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
                   const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
@@ -207,12 +207,12 @@ function OffersPage() {
             if (token) {
               const payload = JSON.parse(atob(token.split('.')[1]));
               const agentId = payload.userId || payload.id;
-              
+
               if (agentId) {
                 const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
                   headers: authHeaders,
                 });
-                
+
                 if (res.data.success && res.data.data) {
                   permissionsData = res.data.data;
                 }
@@ -237,7 +237,7 @@ function OffersPage() {
 
             if (modulePermission) {
               const actions = modulePermission.actions || {};
-              
+
               // Module-level "all" grants all permissions
               const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
               const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
@@ -294,9 +294,9 @@ function OffersPage() {
 
     fetchPermissions();
   }, []);
-  
+
   const userRole = getUserRole();
-  
+
   // Helper to resolve name from ID or Object
   const resolveName = (item, map, fallback = "—") => {
     if (!item) return fallback;
@@ -317,10 +317,10 @@ function OffersPage() {
   const fetchOffers = async () => {
     const authHeaders = getAuthHeaders();
     if (!authHeaders) return;
-  
+
     // Wait for permissions to load
     if (!permissionsLoaded) return;
-    
+
     // ✅ Strict check: If user doesn't have read permission, don't make API call
     if (finalCanRead !== true) {
       setOffers([]);
@@ -328,7 +328,7 @@ function OffersPage() {
       if (typeof window !== "undefined") {
         try {
           sessionStorage.removeItem("offersCache");
-        } catch {}
+        } catch { }
       }
       return;
     }
@@ -341,7 +341,7 @@ function OffersPage() {
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) setOffers(parsed);
         }
-      } catch {}
+      } catch { }
     }
 
     try {
@@ -352,7 +352,7 @@ function OffersPage() {
         },
       });
       const data = await res.json();
-      
+
       // ✅ Handle 403 permission denied explicitly
       if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
         setOffers([]);
@@ -360,18 +360,18 @@ function OffersPage() {
         if (typeof window !== "undefined") {
           try {
             sessionStorage.removeItem("offersCache");
-          } catch {}
+          } catch { }
         }
         return;
       }
-      
+
       if (data.success) {
         const next = data.offers || [];
         setOffers(next);
         if (typeof window !== "undefined") {
           try {
             sessionStorage.setItem("offersCache", JSON.stringify(next));
-          } catch {}
+          } catch { }
         }
       } else {
         // If permission denied, clear offers
@@ -462,8 +462,8 @@ function OffersPage() {
         if (res.data.success && res.data.clinic?.currency) {
           setCurrency(res.data.clinic.currency);
         }
-      } catch (e) { 
-        console.error('Error fetching clinic currency:', e); 
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
       }
     };
     fetchClinicCurrency();
@@ -488,14 +488,14 @@ function OffersPage() {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
-      
+
       // ✅ Handle 403 permission denied explicitly
       if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
         toast.error(data.message || "You do not have permission to update offers");
         setModalOpen(false);
         return;
       }
-      
+
       if (data.success) {
         setEditingOfferData(data.offer);
       } else {
@@ -551,14 +551,14 @@ function OffersPage() {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
-      
+
       // ✅ Handle 403 permission denied explicitly
       if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
         toast.error(data.message || "You do not have permission to delete offers");
         setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
         return;
       }
-      
+
       if (data.success) {
         setOffers((prev) => prev.filter((o) => o._id !== confirmModal.offerId));
         toast.success("Offer deleted successfully");
@@ -580,12 +580,12 @@ function OffersPage() {
       toast.error("You do not have permission to export offers");
       return;
     }
-    
+
     if (offers.length === 0) {
       toast.error("No offers to export");
       return;
     }
-    
+
     // Define CSV headers
     const headers = [
       "Title",
@@ -600,7 +600,7 @@ function OffersPage() {
       "Created At",
       "Updated At"
     ];
-    
+
     // Prepare CSV content
     const csvContent = [
       headers.join(","),
@@ -618,7 +618,7 @@ function OffersPage() {
         `"${offer.updatedAt ? new Date(offer.updatedAt).toLocaleString() : ''}"`
       ].join(","))
     ].join("\n");
-    
+
     // Create and download the CSV file
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -629,7 +629,7 @@ function OffersPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast.success(`${offers.length} offers exported successfully!`);
   };
 
@@ -642,10 +642,10 @@ function OffersPage() {
   }, 0);
   const percentageOffers = offers.filter((o) => o.type === "percentage").length;
   const fixedOffers = offers.filter((o) => o.type === "fixed").length;
-  const averageDiscount = offers.length > 0 
-    ? offers.reduce((sum, o) => sum + (o.value || 0), 0) / offers.length 
+  const averageDiscount = offers.length > 0
+    ? offers.reduce((sum, o) => sum + (o.value || 0), 0) / offers.length
     : 0;
-  
+
   // Calculate expiring soon (next 7 days)
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -654,7 +654,7 @@ function OffersPage() {
     const endDate = new Date(o.endsAt);
     return endDate >= now && endDate <= sevenDaysFromNow;
   }).length;
-  
+
   const modalToken = token || getStoredToken() || "";
 
   return (
@@ -672,36 +672,87 @@ function OffersPage() {
           },
         }}
       />
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
-      <div className="max-w-9xl mx-auto space-y-3">
-        {!permissionsLoaded ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
-          </div>
-        ) : !finalCanRead && !finalCanCreate ? (
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-red-600" />
-              </div>
-              <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
-              <p className="text-sm text-teal-700 mb-4">
-                You do not have permission to view or create clinic offers.
-              </p>
-              <p className="text-xs text-teal-600">
-                Please contact your administrator to request access to the Offers module.
-              </p>
+      <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+        <div className="max-w-9xl mx-auto space-y-3">
+          {!permissionsLoaded ? (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+              <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
             </div>
-          </div>
-        ) : !finalCanRead && finalCanCreate ? (
-          <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
-            <div className="max-w-9xl mx-auto space-y-3">
+          ) : !finalCanRead && !finalCanCreate ? (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Package className="w-8 h-8 text-red-600" />
+                </div>
+                <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+                <p className="text-sm text-teal-700 mb-4">
+                  You do not have permission to view or create clinic offers.
+                </p>
+                <p className="text-xs text-teal-600">
+                  Please contact your administrator to request access to the Offers module.
+                </p>
+              </div>
+            </div>
+          ) : !finalCanRead && finalCanCreate ? (
+            <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+              <div className="max-w-9xl mx-auto space-y-3">
+                {/* Compact Header Section */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+                    <div>
+                      <h1 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-white mb-0.5">Offers Management</h1>
+                      <p className="text-[10px] sm:text-xs text-teal-600 dark:text-white">Create promotional offers for your clinic</p>
+                    </div>
+                    <div className="flex gap-2">
+                      {finalCanCreate === true && (
+                        <button
+                          onClick={() => {
+                            setEditingOfferId(null);
+                            setEditingOfferData(null);
+                            setModalOpen(true);
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
+                        >
+                          <PlusCircle className="h-3 w-3" />
+                          <span>Create New Offer</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={exportOffersToCSV}
+                        className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span>Export</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Message when read is false but create is true */}
+                <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-6 text-center">
+                  <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Package className="w-6 h-6 text-amber-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-teal-900 mb-2">
+                    Limited Access
+                  </h3>
+                  <p className="text-sm text-teal-700 mb-3">
+                    You can create new offers, but you don't have permission to view existing offers.
+                  </p>
+                  <p className="text-xs text-teal-600">
+                    Use the "Create New Offer" button above to add a new offer.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
               {/* Compact Header Section */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                   <div>
-                    <h1 className="text-lg sm:text-xl font-bold text-teal-900 mb-0.5">Offers Management</h1>
-                    <p className="text-[10px] sm:text-xs text-teal-600">Create promotional offers for your clinic</p>
+                    <h1 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-white mb-0.5">Offers Management</h1>
+                    <p className="text-[10px] sm:text-xs text-teal-600 ">Create and manage promotional offers for your clinic</p>
                   </div>
                   <div className="flex gap-2">
                     {finalCanCreate === true && (
@@ -711,442 +762,387 @@ function OffersPage() {
                           setEditingOfferData(null);
                           setModalOpen(true);
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
+                        className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                       >
-                        <PlusCircle className="h-3 w-3" />
+                        <PlusCircle className="h-3.5 w-3.5" />
                         <span>Create New Offer</span>
                       </button>
                     )}
-                    <button
-                      onClick={exportOffersToCSV}
-                      className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
-                    >
-                      <Download className="h-3 w-3" />
-                      <span>Export</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Message when read is false but create is true */}
-              <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-6 text-center">
-                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Package className="w-6 h-6 text-amber-600" />
-                </div>
-                <h3 className="text-lg font-bold text-teal-900 mb-2">
-                  Limited Access
-                </h3>
-                <p className="text-sm text-teal-700 mb-3">
-                  You can create new offers, but you don't have permission to view existing offers.
-                </p>
-                <p className="text-xs text-teal-600">
-                  Use the "Create New Offer" button above to add a new offer.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Compact Header Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-teal-900 mb-0.5">Offers Management</h1>
-                  <p className="text-[10px] sm:text-xs text-teal-600">Create and manage promotional offers for your clinic</p>
-                </div>
-                <div className="flex gap-2">
-                  {finalCanCreate === true && (
-                    <button
-                      onClick={() => {
-                        setEditingOfferId(null);
-                        setEditingOfferData(null);
-                        setModalOpen(true);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                    >
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      <span>Create New Offer</span>
-                    </button>
-                  )}
-                  {/* <button
+                    {/* <button
                     onClick={exportOffersToCSV}
                     className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>Export</span>
                   </button> */}
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Stats Cards - Compact */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center">
-                    <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Total</p>
-                </div>
-                <p className="text-lg sm:text-xl font-bold text-teal-900">{offers.length}</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
-                    <TrendingUp className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Active</p>
-                </div>
-                <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center">
-                    <Package className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Inactive</p>
-                </div>
-                <p className="text-lg sm:text-xl font-bold text-teal-700">{inactiveOffers}</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <span className="text-[10px] font-bold text-white">%</span>
-                  </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Percent</p>
-                </div>
-                <p className="text-lg sm:text-xl font-bold text-blue-600">{percentageOffers}</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-purple-600 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
-                  </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Fixed</p>
-                </div>
-                <p className="text-lg sm:text-xl font-bold text-purple-600">{fixedOffers}</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
-                    <Calendar className="h-3.5 w-3.5 text-white" />
-                  </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Expiring</p>
-                </div>
-                <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringSoon}</p>
-              </div>
-
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-indigo-600 p-2.5 sm:p-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
-                  </div>
-                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Avg Value</p>
-                </div>
-                <p className="text-base sm:text-lg font-bold text-indigo-600">{getCurrencySymbol(currency)}{Math.round(averageDiscount)}</p>
-              </div>
-            </div>
-
-            {/* Compact Offers Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-3 py-2.5 border-b border-gray-200 bg-teal-50">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-teal-800" />
-                  <h2 className="text-sm sm:text-base font-bold text-teal-900">All Offers</h2>
-                  <span className="ml-auto text-[10px] text-teal-600 bg-teal-100 px-2 py-0.5 rounded-md">
-                    {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
-                  </span>
                 </div>
               </div>
 
-              <div className="p-2.5 sm:p-3">
-                {offers.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-10 h-10 bg-teal-100 rounded-lg mb-2">
-                      <Package className="h-5 w-5 text-teal-800" />
+              {/* Enhanced Stats Cards - Compact */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center">
+                      <Package className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <h3 className="text-sm font-bold text-teal-900 mb-1">No offers yet</h3>
-                    {finalCanRead === true ? (
-                      <p className="text-teal-600 text-xs mb-3">Get started by creating your first promotional offer</p>
-                    ) : (
-                      <p className="text-teal-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
-                    )}
-                    {finalCanCreate === true && (
-                      <button
-                        onClick={() => {
-                          setEditingOfferId(null);
-                          setEditingOfferData(null);
-                          setModalOpen(true);
-                        }}
-                        className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
-                      >
-                        <PlusCircle className="h-3.5 w-3.5" />
-                        <span>Create Your First Offer</span>
-                      </button>
-                    )}
-                    {finalCanCreate !== true && (
-                      <p className="text-red-500 text-xs">You do not have permission to create offers</p>
-                    )}
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Total</p>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
-                            Offer Details
-                          </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
-                            Value
-                          </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
-                            Validity
-                          </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-2 py-2 text-right text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-teal-100">
-                        {offers.map((offer) => {
-                          const isExpiringSoon = offer.endsAt && offer.status === "active" && 
-                            new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
-                            new Date(offer.endsAt) >= new Date();
-                          
-                          return (
-                            <tr key={offer._id} className="hover:bg-teal-50 transition-colors">
-                              <td className="px-2 py-2">
-                                <div className="flex items-center gap-2">
-                                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                    offer.offerType === "instant_discount" ? "bg-green-600" :
-                                    offer.offerType === "bundle" ? "bg-amber-500" : "bg-blue-600"
-                                  }`}>
-                                    <Package className="h-3 w-3 text-white" />
+                  <p className="text-lg sm:text-xl font-bold text-teal-900">{offers.length}</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Active</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center">
+                      <Package className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Inactive</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-teal-700">{inactiveOffers}</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <span className="text-[10px] font-bold text-white">%</span>
+                    </div>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Percent</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-blue-600">{percentageOffers}</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-purple-600 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
+                    </div>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Fixed</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-purple-600">{fixedOffers}</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
+                      <Calendar className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Expiring</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringSoon}</p>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-sm border-l-4 border-indigo-600 p-2.5 sm:p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
+                      <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
+                    </div>
+                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Avg Value</p>
+                  </div>
+                  <p className="text-base sm:text-lg font-bold text-indigo-600">{getCurrencySymbol(currency)}{Math.round(averageDiscount)}</p>
+                </div>
+              </div>
+
+              {/* Compact Offers Table */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-3 py-2.5 border-b border-gray-200 bg-teal-50">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-teal-800 dark:text-white" />
+                    <h2 className="text-sm sm:text-base font-bold text-teal-900 dark:text-white">All Offers</h2>
+                    <span className="ml-auto text-[10px] text-teal-600 bg-teal-100 px-2 py-0.5 rounded-md">
+                      {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-2.5 sm:p-3">
+                  {offers.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="inline-flex items-center justify-center w-10 h-10 bg-teal-100 rounded-lg mb-2">
+                        <Package className="h-5 w-5 text-teal-800" />
+                      </div>
+                      <h3 className="text-sm font-bold text-teal-900 mb-1">No offers yet</h3>
+                      {finalCanRead === true ? (
+                        <p className="text-teal-600 text-xs mb-3">Get started by creating your first promotional offer</p>
+                      ) : (
+                        <p className="text-teal-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
+                      )}
+                      {finalCanCreate === true && (
+                        <button
+                          onClick={() => {
+                            setEditingOfferId(null);
+                            setEditingOfferData(null);
+                            setModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
+                        >
+                          <PlusCircle className="h-3.5 w-3.5" />
+                          <span>Create Your First Offer</span>
+                        </button>
+                      )}
+                      {finalCanCreate !== true && (
+                        <p className="text-red-500 text-xs">You do not have permission to create offers</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-200">
+                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                              Offer Details
+                            </th>
+                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                              Type
+                            </th>
+                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                              Value
+                            </th>
+                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                              Validity
+                            </th>
+                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-2 py-2 text-right text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-teal-100">
+                          {offers.map((offer) => {
+                            const isExpiringSoon = offer.endsAt && offer.status === "active" &&
+                              new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
+                              new Date(offer.endsAt) >= new Date();
+
+                            return (
+                              <tr key={offer._id} className="hover:bg-teal-50 transition-colors">
+                                <td className="px-2 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${offer.offerType === "instant_discount" ? "bg-green-600" :
+                                      offer.offerType === "bundle" ? "bg-amber-500" : "bg-blue-600"
+                                      }`}>
+                                      <Package className="h-3 w-3 text-white" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-teal-900 dark:text-white text-xs truncate">{offer.title}</p>
+                                      <p className="text-[10px] text-teal-500 dark:text-white">ID: {offer._id.slice(-6)}</p>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0">
-                                    <p className="font-bold text-teal-900 text-xs truncate">{offer.title}</p>
-                                    <p className="text-[10px] text-teal-500">ID: {offer._id.slice(-6)}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-2 py-2">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${
-                                  offer.offerType === "instant_discount" ? "bg-green-100 text-green-800" :
-                                  offer.offerType === "bundle" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
-                                }`}>
-                                  {offer.offerType?.replace("_", " ") || "—"}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2">
-                                <span className="text-xs sm:text-sm font-bold text-teal-900">
-                                  {offer.offerType === "instant_discount" ? (
-                                    offer.discountMode === "percentage" ? `${offer.discountValue}% OFF` : `${getCurrencySymbol(currency)}${offer.discountValue} OFF`
-                                  ) : offer.offerType === "bundle" ? (
-                                    `Buy ${offer.buyQty} Get ${offer.freeQty}`
-                                  ) : (
-                                    `${getCurrencySymbol(currency)}${offer.cashbackAmount} Cashback`
-                                  )}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2">
-                                <div className="flex items-center gap-1 text-teal-700">
-                                  <Calendar className="h-3 w-3 text-teal-400 flex-shrink-0" />
-                                  <span className="text-[10px] sm:text-xs">
-                                    {offer.endsAt
-                                      ? new Date(offer.endsAt).toLocaleDateString("en-US", {
+                                </td>
+                                <td className="px-2 py-2">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${offer.offerType === "instant_discount" ? "bg-green-100 text-green-800" :
+                                    offer.offerType === "bundle" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
+                                    }`}>
+                                    {offer.offerType?.replace("_", " ") || "—"}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2">
+                                  <span className="text-xs sm:text-sm font-bold text-teal-900 dark:text-white">
+                                    {offer.offerType === "instant_discount" ? (
+                                      offer.discountMode === "percentage" ? `${offer.discountValue}% OFF` : `${getCurrencySymbol(currency)}${offer.discountValue} OFF`
+                                    ) : offer.offerType === "bundle" ? (
+                                      `Buy ${offer.buyQty} Get ${offer.freeQty}`
+                                    ) : (
+                                      `${getCurrencySymbol(currency)}${offer.cashbackAmount} Cashback`
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2">
+                                  <div className="flex items-center gap-1 text-teal-700">
+                                    <Calendar className="h-3 w-3 text-teal-400 flex-shrink-0" />
+                                    <span className="text-[10px] sm:text-xs">
+                                      {offer.endsAt
+                                        ? new Date(offer.endsAt).toLocaleDateString("en-US", {
                                           day: "numeric",
                                           month: "short",
                                           year: "numeric",
                                         })
-                                      : "No expiry"}
-                                  </span>
-                                  {isExpiringSoon && (
-                                    <span className="ml-1 px-1 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-semibold rounded">
-                                      Soon
+                                        : "No expiry"}
                                     </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-2 py-2">
-                                <span
-                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    offer.status === "active"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-teal-200 text-teal-700"
-                                  }`}
-                                >
+                                    {isExpiringSoon && (
+                                      <span className="ml-1 px-1 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-semibold rounded">
+                                        Soon
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-2 py-2">
                                   <span
-                                    className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                      offer.status === "active" ? "bg-green-500" : "bg-teal-500"
-                                    }`}
-                                  ></span>
-                                  {offer.status}
-                                </span>
-                              </td>
-                              <td className="px-2 py-2">
-                                <div className="flex items-center justify-end gap-1">
-                                  {finalCanRead === true && (
-                                    <button
-                                      onClick={() => setViewingOffer(offer)}
-                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
-                                      title="View offer"
-                                    >
-                                      <Eye className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                  {finalCanUpdate === true && (
-                                    <button
-                                      onClick={() => openEditModal(offer._id)}
-                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
-                                      title="Edit offer"
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                  {finalCanDelete === true && (
-                                    <button
-                                      onClick={() => requestDeleteOffer(offer)}
-                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                      title="Delete offer"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                  {!finalCanUpdate && !finalCanDelete && (
-                                    <span className="text-[10px] text-teal-400">—</span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold dark:text-white ${offer.status === "active"
+                                      ? "bg-green-100 text-green-700 dark:text-white"
+                                      : "bg-teal-200 text-teal-700 dark:text-white"
+                                      }`}
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active" ? "bg-green-500" : "bg-teal-500"
+                                        }`}
+                                    ></span>
+                                    {offer.status}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2">
+                                  <div className="flex items-center justify-end gap-1">
+                                    {finalCanRead === true && (
+                                      <button
+                                        onClick={() => setViewingOffer(offer)}
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
+                                        title="View offer"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                    {finalCanUpdate === true && (
+                                      <button
+                                        onClick={() => openEditModal(offer._id)}
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
+                                        title="Edit offer"
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                    {finalCanDelete === true && (
+                                      <button
+                                        onClick={() => requestDeleteOffer(offer)}
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 dark:bg-red-600 dark:text-red-50 hover:bg-red-100 transition-colors"
+                                        title="Delete offer"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                    {!finalCanUpdate && !finalCanDelete && (
+                                      <span className="text-[10px] text-teal-400">—</span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
 
-      {/* Modal */}
-      <CreateOfferModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingOfferId(null);
-          setEditingOfferData(null);
-        }}
-        onCreated={(offer) => handleOfferSaved(offer, !!editingOfferId)}
-        token={modalToken}
-        offer={editingOfferData}
-        mode={editingOfferId ? "update" : "create"}
-      />
-      {/* View Offer Modal */}
-      {viewingOffer && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/30 backdrop-blur-sm"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setViewingOffer(null);
-            }
+        {/* Modal */}
+        <CreateOfferModal
+          isOpen={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingOfferId(null);
+            setEditingOfferData(null);
           }}
-          role="dialog"
-          aria-modal="true"
-        >
+          onCreated={(offer) => handleOfferSaved(offer, !!editingOfferId)}
+          token={modalToken}
+          offer={editingOfferData}
+          mode={editingOfferId ? "update" : "create"}
+        />
+        {/* View Offer Modal */}
+        {viewingOffer && (
           <div
-            className="bg-white rounded-lg shadow-xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh]"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/30 backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setViewingOffer(null);
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
           >
-            <div className="bg-teal-100 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-teal-200">
-                  <Eye className="w-4 h-4 text-teal-700" />
+            <div
+              className="bg-white rounded-lg shadow-xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[95vh]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-teal-100 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-teal-200">
+                    <Eye className="w-4 h-4 text-teal-700" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-teal-700 dark:text-teal-100">Offer Details</p>
+                    <p className="text-[10px] text-teal-700 truncate max-w-[320px]">{viewingOffer.title}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-teal-900">Offer Details</p>
-                  <p className="text-[10px] text-teal-700 truncate max-w-[320px]">{viewingOffer.title}</p>
-                </div>
+                <button
+                  onClick={() => setViewingOffer(null)}
+                  className="text-teal-700 hover:bg-teal-200 rounded-lg p-1.5 transition-colors"
+                  aria-label="Close details dialog"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => setViewingOffer(null)}
-                className="text-teal-700 hover:bg-teal-200 rounded-lg p-1.5 transition-colors"
-                aria-label="Close details dialog"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-6 text-xs sm:text-sm text-gray-700">
-              {/* META INFORMATION - Top Full Width */}
-              <div className="mb-6 bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
-                <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
-                  <h3 className="text-sm font-bold text-teal-900">Meta Information</h3>
-                </div>
-                <div className="px-5 py-4">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div>
-                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Clinic</p>
-                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
-                        {resolveName(viewingOffer?.clinicId, clinicNamesMap)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Created By</p>
-                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
-                        {resolveName(viewingOffer?.createdBy, userNamesMap)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Updated By</p>
-                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
-                        {resolveName(viewingOffer?.updatedBy, userNamesMap)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Created At</p>
-                      <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100">
-                        {viewingOffer?.createdAt ? new Date(viewingOffer.createdAt).toLocaleString() : "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Updated At</p>
-                      <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
-                        {viewingOffer?.updatedAt ? new Date(viewingOffer.updatedAt).toLocaleString() : "—"}
-                      </p>
+              <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-6 text-xs sm:text-sm text-gray-700">
+                {/* META INFORMATION - Top Full Width */}
+                <div className="mb-6 bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                  <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                    <h3 className="text-sm font-bold text-teal-700 dark:text-teal-100">Meta Information</h3>
+                  </div>
+                  <div className="px-5 py-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-100 mb-1.5">Clinic</p>
+                        <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
+                          {resolveName(viewingOffer?.clinicId, clinicNamesMap)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-100 mb-1.5">Created By</p>
+                        <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
+                          {resolveName(viewingOffer?.createdBy, userNamesMap)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Updated By</p>
+                        <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100 truncate">
+                          {resolveName(viewingOffer?.updatedBy, userNamesMap)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Created At</p>
+                        <p className="text-xs text-gray-900 bg-teal-50 px-2 py-2 rounded-lg border border-teal-100">
+                          {viewingOffer?.createdAt ? new Date(viewingOffer.createdAt).toLocaleString() : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Updated At</p>
+                        <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
+                          {viewingOffer?.updatedAt ? new Date(viewingOffer.updatedAt).toLocaleString() : "—"}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* TWO-COLUMN GRID FOR ALL SECTIONS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* LEFT COLUMN */}
-                <div className="space-y-6">
-                  {/* BASIC SETTINGS */}
-                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
-                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
-                      <h3 className="text-sm font-bold text-teal-900">Basic Settings</h3>
-                    </div>
-                    <div className="px-5 py-4 space-y-4">
-                      <div>
-                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Title</p>
-                        <p className="text-sm font-semibold text-gray-900 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100">{viewingOffer.title || "—"}</p>
+                {/* TWO-COLUMN GRID FOR ALL SECTIONS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* LEFT COLUMN */}
+                  <div className="space-y-6">
+                    {/* BASIC SETTINGS */}
+                    <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                      <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                        <h3 className="text-sm font-bold text-teal-700 dark:text-teal-100">Basic Settings</h3>
                       </div>
-                      {/* <div>
+                      <div className="px-5 py-4 space-y-4">
+                        <div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Title</p>
+                          <p className="text-sm font-semibold text-gray-900 bg-teal-50 px-3 py-1 rounded-lg border border-teal-100">{viewingOffer.title || "—"}</p>
+                        </div>
+                        {/* <div>
                         <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Description</p>
                         {viewingOffer.description && viewingOffer.description.trim().length > 0 ? (
                           <p className="text-sm text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100 break-words">{viewingOffer.description}</p>
@@ -1154,232 +1150,231 @@ function OffersPage() {
                           <div className="border border-teal-200 rounded-lg px-3 py-2 min-h-[40px] bg-gray-50"></div>
                         )}
                       </div> */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Offer Type</p>
-                          <span className="inline-flex items-center px-6 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
-                            {viewingOffer.offerType?.replace("_", " ") || viewingOffer.type || "—"}
-                          </span>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Offer Type</p>
+                            <span className="inline-flex items-center px-6 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                              {viewingOffer.offerType?.replace("_", " ") || viewingOffer.type || "—"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Status</p>
+                            <span className="inline-flex items-center px-6 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                              {viewingOffer.status || "—"}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Status</p>
-                          <span className="inline-flex items-center px-6 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
-                            {viewingOffer.status || "—"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* <div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* <div>
                           <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Code</p>
                           <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">{viewingOffer.code || "—"}</p>
                         </div> */}
-                        {/* <div>
+                          {/* <div>
                           <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Slug</p>
                           <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100 break-words">{viewingOffer.slug || "—"}</p>
                         </div> */}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Starts At</p>
-                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
-                            {viewingOffer.startsAt ? new Date(viewingOffer.startsAt).toLocaleString() : "—"}
-                          </p>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Ends At</p>
-                          <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
-                            {viewingOffer.endsAt ? new Date(viewingOffer.endsAt).toLocaleString() : "—"}
-                          </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Starts At</p>
+                            <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
+                              {viewingOffer.startsAt ? new Date(viewingOffer.startsAt).toLocaleString() : "—"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Ends At</p>
+                            <p className="text-xs text-gray-900 bg-teal-50 px-3 py-2 rounded-lg border border-teal-100">
+                              {viewingOffer.endsAt ? new Date(viewingOffer.endsAt).toLocaleString() : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+
+                          {/* </div> */}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        
-                        {/* </div> */}
+                    </div>
+
+                    {/* OFFER DETAILS */}
+                    <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                      <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                        <h3 className="text-sm font-bold text-teal-700 dark:text-teal-100">Offer Details</h3>
+                      </div>
+                      <div className="px-5 py-4 space-y-4">
+                        {viewingOffer.offerType === "instant_discount" && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Discount Mode</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                                {viewingOffer.discountMode || "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Discount Value</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {viewingOffer.discountMode === "percentage" ? `${viewingOffer.discountValue}%` : `${getCurrencySymbol(currency)}${viewingOffer.discountValue}`}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {viewingOffer.offerType === "bundle" && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Buy Quantity</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {viewingOffer.buyQty ?? "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Free Quantity</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {viewingOffer.freeQty ?? "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {viewingOffer.offerType === "cashback" && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Cashback Amount</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {getCurrencySymbol(currency)}{viewingOffer.cashbackAmount ?? "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-white mb-1.5">Cashback Expiry (Days)</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {viewingOffer.cashbackExpiryDays ?? "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {(!viewingOffer.offerType || (!["instant_discount", "bundle", "cashback"].includes(viewingOffer.offerType))) && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Type</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                                {viewingOffer.type || "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Value</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                {typeof viewingOffer.value === "number" ? viewingOffer.value : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* OFFER DETAILS */}
-                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
-                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
-                      <h3 className="text-sm font-bold text-teal-900">Offer Details</h3>
-                    </div>
-                    <div className="px-5 py-4 space-y-4">
-                      {viewingOffer.offerType === "instant_discount" && (
-                        <div className="grid grid-cols-2 gap-4">
+                  {/* RIGHT COLUMN */}
+                  <div className="space-y-6">
+                    {/* STACKING & CONTROL */}
+                    <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                      <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                        <h3 className="text-sm font-bold text-teal-700 dark:text-teal-100">Stacking & Control</h3>
+                      </div>
+                      <div className="px-5 py-4 space-y-4">
+                        <div className="grid grid-cols-1 gap-4">
                           <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Discount Mode</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
-                              {viewingOffer.discountMode || "—"}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Discount Value</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                              {viewingOffer.discountMode === "percentage" ? `${viewingOffer.discountValue}%` : `${getCurrencySymbol(currency)}${viewingOffer.discountValue}`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {viewingOffer.offerType === "bundle" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Buy Quantity</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                              {viewingOffer.buyQty ?? "—"}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Free Quantity</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                              {viewingOffer.freeQty ?? "—"}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {viewingOffer.offerType === "cashback" && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Cashback Amount</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                              {getCurrencySymbol(currency)}{viewingOffer.cashbackAmount ?? "—"}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Cashback Expiry (Days)</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                              {viewingOffer.cashbackExpiryDays ?? "—"}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      {(!viewingOffer.offerType || (!["instant_discount", "bundle", "cashback"].includes(viewingOffer.offerType))) && (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Type</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
-                              {viewingOffer.type || "—"}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Value</p>
-                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                              {typeof viewingOffer.value === "number" ? viewingOffer.value : "—"}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* RIGHT COLUMN */}
-                <div className="space-y-6">
-                  {/* STACKING & CONTROL */}
-                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
-                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
-                      <h3 className="text-sm font-bold text-teal-900">Stacking & Control</h3>
-                    </div>
-                    <div className="px-5 py-4 space-y-4">
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Auto Apply Best Offer</p>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border ${
-                            viewingOffer.autoApplyBestOffer !== false 
-                              ? "bg-green-50 text-green-700 border-green-200" 
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Auto Apply Best Offer</p>
+                            <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold border ${viewingOffer.autoApplyBestOffer !== false
+                              ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-gray-50 text-gray-700 border-gray-200"
-                          }`}>
-                            {viewingOffer.autoApplyBestOffer !== false ? "ENABLED" : "DISABLED"}
-                          </span>
+                              }`}>
+                              {viewingOffer.autoApplyBestOffer !== false ? "ENABLED" : "DISABLED"}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Allow Stacking</p>
-                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                            {viewingOffer.allowCombiningWithOtherOffers ? "Yes" : "No"}
-                          </span>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Allow Stacking</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.allowCombiningWithOtherOffers ? "Yes" : "No"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Receptionist Discount</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.allowReceptionistDiscount ? "Yes" : "No"}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Receptionist Discount</p>
-                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                            {viewingOffer.allowReceptionistDiscount ? "Yes" : "No"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Max Benefit Cap (%)</p>
-                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                            {viewingOffer.maxBenefitCap ?? "—"}%
-                          </span>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Min Bill Amount</p>
-                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                            {viewingOffer.minimumBillAmount ? `${getCurrencySymbol(currency)}${viewingOffer.minimumBillAmount}` : "—"}
-                          </span>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Max Benefit Cap (%)</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.maxBenefitCap ?? "—"}%
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Min Bill Amount</p>
+                            <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              {viewingOffer.minimumBillAmount ? `${getCurrencySymbol(currency)}${viewingOffer.minimumBillAmount}` : "—"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* APPLICABILITY CONTROL */}
-                  <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
-                    <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
-                      <h3 className="text-sm font-bold text-teal-900">Applicability Control</h3>
-                    </div>
-                    <div className="px-5 py-4 space-y-4">
-                      <div>
-                        <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Apply On</p>
-                        <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
-                          {viewingOffer.applyOnAllServices ? "All Services" : 
-                           viewingOffer.departmentIds?.length > 0 ? "Selected Departments" :
-                           viewingOffer.doctorIds?.length > 0 ? "Selected Doctors" :
-                           viewingOffer.serviceIds?.length > 0 ? "Selected Services" : "—"}
-                        </span>
+                    {/* APPLICABILITY CONTROL */}
+                    <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                      <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
+                        <h3 className="text-sm font-bold text-teal-700 dark:text-teal-100">Applicability Control</h3>
                       </div>
-                      {viewingOffer.serviceIds?.length > 0 && (
+                      <div className="px-5 py-4 space-y-4">
                         <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Services</p>
-                          <div className="flex flex-wrap gap-2">
-                            {Array.isArray(viewingOffer.serviceIds) && viewingOffer.serviceIds.map((s, idx) => (
-                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                                {resolveName(s, serviceNamesMap)}
-                              </span>
-                            ))}
-                          </div>
+                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Apply On</p>
+                          <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 capitalize font-medium">
+                            {viewingOffer.applyOnAllServices ? "All Services" :
+                              viewingOffer.departmentIds?.length > 0 ? "Selected Departments" :
+                                viewingOffer.doctorIds?.length > 0 ? "Selected Doctors" :
+                                  viewingOffer.serviceIds?.length > 0 ? "Selected Services" : "—"}
+                          </span>
                         </div>
-                      )}
-                      {viewingOffer.departmentIds?.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Departments</p>
-                          <div className="flex flex-wrap gap-2">
-                            {Array.isArray(viewingOffer.departmentIds) && viewingOffer.departmentIds.map((d, idx) => (
-                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                                {resolveName(d, departmentNamesMap)}
-                              </span>
-                            ))}
+                        {viewingOffer.serviceIds?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Services</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Array.isArray(viewingOffer.serviceIds) && viewingOffer.serviceIds.map((s, idx) => (
+                                <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                  {resolveName(s, serviceNamesMap)}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {viewingOffer.doctorIds?.length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Doctors</p>
-                          <div className="flex flex-wrap gap-2">
-                            {Array.isArray(viewingOffer.doctorIds) && viewingOffer.doctorIds.map((doc, idx) => (
-                              <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
-                                {resolveName(doc, doctorNamesMap)}
-                              </span>
-                            ))}
+                        )}
+                        {viewingOffer.departmentIds?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Departments</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Array.isArray(viewingOffer.departmentIds) && viewingOffer.departmentIds.map((d, idx) => (
+                                <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                  {resolveName(d, departmentNamesMap)}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                        {viewingOffer.doctorIds?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-teal-700 mb-1.5">Selected Doctors</p>
+                            <div className="flex flex-wrap gap-2">
+                              {Array.isArray(viewingOffer.doctorIds) && viewingOffer.doctorIds.map((doc, idx) => (
+                                <span key={idx} className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                                  {resolveName(doc, doctorNamesMap)}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* SMART TOGGLES - COMMENTED OUT */}
-                  {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    {/* SMART TOGGLES - COMMENTED OUT */}
+                    {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
                     <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
                       <h3 className="text-sm font-bold text-teal-900">Smart Toggles</h3>
                     </div>
@@ -1415,8 +1410,8 @@ function OffersPage() {
                     </div>
                   </div> */}
 
-                  {/* USAGE LIMITS */}
-                  {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    {/* USAGE LIMITS */}
+                    {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
                     <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
                       <h3 className="text-sm font-bold text-teal-900">Usage Limits</h3>
                     </div>
@@ -1444,8 +1439,8 @@ function OffersPage() {
                     </div>
                   </div> */}
 
-                  {/* TREATMENTS & SUBTREATMENTS */}
-                  {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
+                    {/* TREATMENTS & SUBTREATMENTS */}
+                    {/* <div className="bg-white rounded-xl border border-teal-200 shadow-sm overflow-hidden">
                     <div className="bg-teal-50 px-5 py-3 border-b border-teal-200">
                       <h3 className="text-sm font-bold text-teal-900">Treatments</h3>
                     </div>
@@ -1480,13 +1475,13 @@ function OffersPage() {
                       </div>
                     </div>
                   </div> */}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
       {/* Compact Delete Confirmation Modal */}
       {confirmModal.isOpen && (
         <div

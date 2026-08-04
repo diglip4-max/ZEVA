@@ -542,39 +542,39 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">#</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Doctor Name</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Total Claims</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Total Amount</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Pending</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Approved</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Released</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Completed</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">#</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor Name</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Claims</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Approved</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Released</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Completed</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {topDoctors.length > 0 ? topDoctors.map((doctor, index) => (
                 <tr key={doctor.doctorId} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-500">{index + 1}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{doctor.doctorName}</td>
-                  <td className="px-4 py-3 text-center text-sm font-bold text-teal-600">{doctor.claimsCount}</td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(doctor.totalClaimAmount)}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-700">{index + 1}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-900">{doctor.doctorName}</td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-teal-600 text-gray-900 dark:text-gray-900">{doctor.claimsCount}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(doctor.totalClaimAmount)}</td>
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                       {doctor.pendingClaims}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       {doctor.approvedClaims}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                       {doctor.releasedClaims}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-cyan-100 text-cyan-800">
                       {doctor.completedClaims}
                     </span>
@@ -582,7 +582,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                 </tr>
               )) : (
                 <tr>
-                  <td className="px-4 py-8 text-sm text-gray-500 text-center" colSpan={8}>
+                  <td className="px-4 py-8 text-sm text-gray-500 text-center dark:text-gray-700" colSpan={8}>
                     No doctor claims data available for selected period
                   </td>
                 </tr>
@@ -599,37 +599,37 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Patient Name</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Mobile</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Total Claims</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Pending Claims</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Advance Claims</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Total Amount</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Pending Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Mobile</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Claims</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending Claims</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance Claims</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending Amount</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {patientsWithPending.length > 0 ? patientsWithPending.map((patient, index) => (
                 <tr key={patient.patientId} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{patient.patientName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{patient.patientMobile || "-"}</td>
-                  <td className="px-4 py-3 text-center text-sm font-bold text-teal-600">{patient.totalClaims}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-900">{patient.patientName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{patient.patientMobile || "-"}</td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-teal-600 text-gray-900 dark:text-gray-900">{patient.totalClaims}</td>
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                       {patient.pendingClaims}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                       {patient.advanceClaims}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(patient.totalAmount)}</td>
-                  <td className="px-4 py-3 text-right text-sm font-medium text-amber-600">{formatCurrency(patient.pendingAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(patient.totalAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-amber-600 text-gray-900 dark:text-gray-900">{formatCurrency(patient.pendingAmount)}</td>
                 </tr>
               )) : (
                 <tr>
-                  <td className="px-4 py-8 text-sm text-gray-500 text-center" colSpan={7}>
+                  <td className="px-4 py-8 text-sm text-gray-500 text-center dark:text-gray-700" colSpan={7}>
                     No patients with pending or advance claims for selected period
                   </td>
                 </tr>
@@ -646,21 +646,21 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Patient Name</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Mobile</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Total Claims</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Pending</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Advance</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Total Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Mobile</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Claims</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {allPatients.length > 0 ? allPatients.map((patient, index) => (
                 <tr key={patient.patientId} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{patient.patientName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{patient.patientMobile || "-"}</td>
-                  <td className="px-4 py-3 text-center text-sm font-bold text-teal-600">{patient.totalClaims}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-900">{patient.patientName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{patient.patientMobile || "-"}</td>
+                  <td className="px-4 py-3 text-center text-sm font-bold text-teal-600 text-gray-900 dark:text-gray-900">{patient.totalClaims}</td>
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     {patient.pendingClaims > 0 ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                         {patient.pendingClaims}
@@ -669,7 +669,7 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     {patient.advanceClaims > 0 ? (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                         {patient.advanceClaims}
@@ -678,11 +678,11 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                       <span className="text-gray-400">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(patient.totalAmount)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(patient.totalAmount)}</td>
                 </tr>
               )) : (
                 <tr>
-                  <td className="px-4 py-8 text-sm text-gray-500 text-center" colSpan={6}>
+                  <td className="px-4 py-8 text-sm text-gray-500 text-center dark:text-gray-700" colSpan={6}>
                     No patient claims data available for selected period
                   </td>
                 </tr>
@@ -715,29 +715,29 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Patient</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Doctor</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Provider</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Type</th>
-                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Doctor</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Provider</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Type</th>
+                <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {recentClaims.length > 0 ? recentClaims.map((claim, index) => (
                 <tr key={claim.id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{claim.patientName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{claim.doctorName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[150px]">{claim.provider}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-900">{claim.patientName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{claim.doctorName}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[150px] dark:text-gray-700">{claim.provider}</td>
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                       claim.claimType === "Advance" ? "bg-red-100 text-red-800" : "bg-teal-100 text-teal-800"
                     }`}>
                       {claim.claimType}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-3 text-center text-gray-900 dark:text-gray-900">
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                       claim.status === "Completed" ? "bg-green-100 text-green-800" :
                       claim.status === "Approved" ? "bg-blue-100 text-blue-800" :
@@ -748,12 +748,12 @@ export default function InsuranceClaimsReport({ startDate, endDate, headers }: P
                       {claim.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium">{formatCurrency(claim.claimAmount)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{claim.createdAt ? new Date(claim.createdAt).toLocaleDateString() : "-"}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(claim.claimAmount)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-700">{claim.createdAt ? new Date(claim.createdAt).toLocaleDateString() : "-"}</td>
                 </tr>
               )) : (
                 <tr>
-                  <td className="px-4 py-8 text-sm text-gray-500 text-center" colSpan={7}>
+                  <td className="px-4 py-8 text-sm text-gray-500 text-center dark:text-gray-700" colSpan={7}>
                     No recent claims for selected period
                   </td>
                 </tr>

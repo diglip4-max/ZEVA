@@ -1,5 +1,5 @@
 // components/JobPostingForm.tsx
-import React, { useMemo, useState, useEffect, useRef} from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
 
@@ -148,7 +148,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
         [{ 'header': [1, 2, 3, false] }],
         ['bold', 'italic', 'underline', 'strike'],
         [{ 'color': [] }, { 'background': [] }],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
         [{ 'align': [] }],
         ['link', 'image'],
         ['clean']
@@ -228,21 +228,21 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
 
         const editorRect = editorElement.getBoundingClientRect();
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        
+
         const top = editorRect.top + bounds.top + scrollTop - 50;
         const left = editorRect.left + bounds.left;
-        
+
         const toolbarWidth = 320;
         const viewportWidth = window.innerWidth;
         let finalLeft = left;
         let finalTop = top;
-        
+
         if (left + toolbarWidth / 2 > viewportWidth) {
           finalLeft = viewportWidth - toolbarWidth / 2 - 10;
         } else if (left - toolbarWidth / 2 < 0) {
           finalLeft = toolbarWidth / 2 + 10;
         }
-        
+
         if (top < 10) {
           finalTop = editorRect.top + bounds.top + scrollTop + 30;
         }
@@ -278,7 +278,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
 
     quill.focus();
     let currentRange = quill.getSelection(true);
-    
+
     if (!currentRange || currentRange.length === 0) {
       if (lastRangeRef.current) {
         currentRange = lastRangeRef.current;
@@ -778,7 +778,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                         name="salaryType"
                         value={formData.salaryType}
                         onChange={handleChange}
-                        className={`${isCompact ? 'w-full sm:w-auto sm:min-w-[100px]' : 'w-full sm:w-auto sm:min-w-[120px]'} rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
+                        className={`${isCompact ? 'w-full sm:w-auto sm:min-w-[8px]' : 'w-full sm:w-auto sm:min-w-[120px]'} rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                       >
                         <option value="">Select</option>
                         <option value="month">Per Month</option>
@@ -847,7 +847,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                         style={{ ["--ql-primary"]: "#1f2937" }}
                       />
                     </div>
-                    
+
                     {/* Floating Toolbar */}
                     {showFloatingToolbar && (
                       <div

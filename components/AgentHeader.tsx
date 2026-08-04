@@ -54,7 +54,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           keepalive: true,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } finally {
       localStorage.removeItem("agentToken");
@@ -331,7 +331,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                     {Number(
                                       (it.finalCommissionAmount ??
                                         it.commissionAmount) ||
-                                        0,
+                                      0,
                                     ).toFixed(2)}
                                   </div>
                                 </div>
@@ -343,8 +343,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                 <div className="mt-0.5 text-[10px] text-gray-500">
                                   {it.invoicedDate
                                     ? new Date(
-                                        it.invoicedDate,
-                                      ).toLocaleDateString()
+                                      it.invoicedDate,
+                                    ).toLocaleDateString()
                                     : ""}
                                 </div>
                               </li>
