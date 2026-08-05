@@ -12,6 +12,7 @@ const UserSchema = new mongoose.Schema(
     name: { type: String, required: true },
     phone: { type: String },
     email: { type: String, required: true },
+    photo: { type: String, default: "" },
     password: { type: String, required: false },
     role: {
       type: String,

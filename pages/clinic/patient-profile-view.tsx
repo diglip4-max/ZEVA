@@ -5543,9 +5543,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 }}
                                 className={`p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1.5 ${pkgPaymentType === 'Full' ? 'border-purple-600 bg-purple-50 text-purple-700 shadow-md' : 'border-gray-100 bg-gray-50 text-gray-500 hover:border-purple-200'}`}
                               >
-                                <CheckCircle className={`w-5 h-5 ${pkgPaymentType === 'Full' ? 'text-purple-600' : 'text-gray-300'}`} />
-                                <span className="font-bold text-[11px]">Full Payment</span>
-                                <span className="text-[9px] opacity-70">Pay 100% ({getCurrencySymbol(currency)}{pkgTotalAmount})</span>
+                                <CheckCircle
+                                  className={`w-5 h-5 ${pkgPaymentType === 'Full'
+                                      ? 'text-purple-600 dark:text-teal-100'
+                                      : 'text-gray-300 dark:text-gray-500'
+                                    }`}
+                                />
+                                <span className="font-bold text-[11px] dark:text-teal-100 ">Full Payment</span>
+                                <span className="text-[9px] opacity-70 dark:text-teal-100">Pay 100% ({getCurrencySymbol(currency)}{pkgTotalAmount})</span>
                               </button>
                               <button
                                 type="button"

@@ -7,6 +7,8 @@ import { Bot, Sparkles } from "lucide-react";
 import { useClinicTheme } from "../context/ClinicThemeContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { normalizeImagePath } from "@/lib/utils";
+
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
   isMobileOpen: boolean;
@@ -21,6 +23,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   const [tokenUser, setTokenUser] = useState<{
     name?: string;
     email?: string;
+    photo?: string;
   } | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const [receptionistOpen, setReceptionistOpen] = useState(false);
@@ -69,42 +72,66 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     }
   };
 
-  useEffect(() => {
-    // Get user info from localStorage (stored during login)
-    const getUserInfo = () => {
-      if (typeof window !== "undefined") {
-        // First try to get from agentUser
-        const agentUserRaw = localStorage.getItem("agentUser");
-        if (agentUserRaw) {
-          try {
-            const user = JSON.parse(agentUserRaw);
-            setTokenUser({ name: user.name, email: user.email });
-            return;
-          } catch (error) {
-            console.error("Error parsing agentUser:", error);
-          }
-        }
-
-        // Fallback: decode token if agentUser is not available
-        const token =
-          localStorage.getItem("agentToken") ||
-          localStorage.getItem("userToken");
-        if (token) {
-          try {
-            const parts = token.split(".");
-            if (parts.length === 3) {
-              const payload = JSON.parse(atob(parts[1]));
-              setTokenUser({ name: payload.name, email: payload.email });
-            }
-          } catch (error) {
-            console.error("Error decoding token in header:", error);
-          }
+  const getUserInfo = useCallback(() => {
+    if (typeof window !== "undefined") {
+      // First try to get from agentUser
+      const agentUserRaw =
+        localStorage.getItem("agentUser") ||
+        sessionStorage.getItem("agentUser");
+      if (agentUserRaw) {
+        try {
+          const user = JSON.parse(agentUserRaw);
+          setTokenUser({ name: user.name, email: user.email, photo: user.photo });
+          return;
+        } catch (error) {
+          console.error("Error parsing agentUser:", error);
         }
       }
-    };
 
-    getUserInfo();
+      // Check doctorUser fallback
+      const doctorUserRaw =
+        localStorage.getItem("doctorUser") ||
+        sessionStorage.getItem("doctorUser");
+      if (doctorUserRaw) {
+        try {
+          const user = JSON.parse(doctorUserRaw);
+          setTokenUser({ name: user.name, email: user.email, photo: user.photo });
+          return;
+        } catch (error) {
+          console.error("Error parsing doctorUser:", error);
+        }
+      }
+
+      // Fallback: decode token if user object is not available
+      const token =
+        localStorage.getItem("agentToken") ||
+        localStorage.getItem("userToken") ||
+        sessionStorage.getItem("agentToken") ||
+        sessionStorage.getItem("userToken");
+      if (token) {
+        try {
+          const parts = token.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            setTokenUser({ name: payload.name, email: payload.email, photo: payload.photo });
+          }
+        } catch (error) {
+          console.error("Error decoding token in header:", error);
+        }
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    getUserInfo();
+    const handleStorageChange = () => getUserInfo();
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("userProfileUpdated", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("userProfileUpdated", handleStorageChange);
+    };
+  }, [getUserInfo]);
 
   const getAuthHeaders = useCallback(() => {
     if (typeof window === "undefined") return null;
@@ -385,40 +412,48 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
             <button
               onClick={toggleTheme}
-              className="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#2D9AA5] hover:bg-[#2D9AA5]/10 dark:hover:bg-[#2D9AA5]/10 transition-colors duration-200 focus:outline-none flex-shrink-0"
-              aria-label="Toggle theme"
+              className="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#2D9AA5] hover:bg-[#2D9AA5]/10 dark:hover:bg-[#2D9AA5]/10 transition-colors duration-200 focus:outline-none flex-shrink-0 flex items-center gap-1.5"
+              aria-label={`Toggle theme (current: ${theme})`}
+              title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`}
             >
               {theme === "dark" ||
                 (theme === "system" &&
                   typeof window !== "undefined" &&
                   window.matchMedia("(prefers-color-scheme: dark)").matches) ? (
-                <svg
-                  className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71"
-                  />
-                </svg>
+                <>
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="12" r="4" strokeWidth={2} />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium whitespace-nowrap">Dark Mode</span>
+                </>
               ) : (
-                <svg
-                  className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
-                  />
-                </svg>
+                <>
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium whitespace-nowrap">Light Mode</span>
+                </>
               )}
             </button>
             <div className="relative"></div>
@@ -435,10 +470,18 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-3">
-              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-medium text-[10px] sm:text-sm">
-                  {tokenUser?.name?.charAt(0)?.toUpperCase() || "D"}
-                </span>
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {tokenUser?.photo ? (
+                  <img
+                    src={normalizeImagePath(tokenUser.photo)}
+                    alt={tokenUser?.name || "User"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-white font-medium text-[10px] sm:text-sm">
+                    {tokenUser?.name?.charAt(0)?.toUpperCase() || "D"}
+                  </span>
+                )}
               </div>
 
               <button
