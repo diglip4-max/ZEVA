@@ -11075,14 +11075,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         className="w-full flex items-center justify-between px-3 py-2 hover:bg-amber-100/50 transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+                          <span className="text-[10px] font-bold text-amber-800 dark:text-white uppercase tracking-wider">
                             Pending Breakdown
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-amber-200 text-amber-900">
                             {pendingLedgerRows.length}
                           </span>
                         </div>
-                        <span className="text-[10px] text-amber-700 font-semibold">
+                        <span className="text-[10px] text-amber-700 dark:text-white font-semibold">
                           {showPendingLedgerPanel ? "Hide" : "Show details"}
                         </span>
                       </button>
@@ -11120,7 +11120,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   </div>
                                 </div>
                                 <div className="text-right shrink-0 ml-2">
-                                  <div className="text-xs font-bold text-rose-600">
+                                  <div className="text-xs font-bold text-rose-600 dark:text-red-900">
                                     {formatAED(Number(row.remainingAmount || 0))}
                                   </div>
                                   {isPartial && Number(row.paidAmount || 0) > 0 && (
@@ -11456,15 +11456,15 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 <div className="mt-4 grid grid-cols-3 gap-4 text-xs">
                   <div>
                     {/* <p style={{ color: '#111827', fontWeight: 700 , color: 'dark:text-white', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Service</p> */}
-                   <p className="text-black dark:text-white font-bold text-[10px] uppercase tracking-wide">
-  Service
-</p>
-                  <p className="text-[10px] font-bold uppercase mb-1 text-black dark:text-white">{selectedPaymentHistoryBilling.service || 'Treatment'}</p>
+                    <p className="text-black dark:text-white font-bold text-[10px] uppercase tracking-wide">
+                      Service
+                    </p>
+                    <p className="text-[10px] font-bold uppercase mb-1 text-black dark:text-white">{selectedPaymentHistoryBilling.service || 'Treatment'}</p>
                   </div>
                   <div>
-                   <p className="text-[10px] font-bold uppercase tracking-wide text-black dark:text-white">
-  Invoiced Date
-</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-black dark:text-white">
+                      Invoiced Date
+                    </p>
                     <p className="text-black dark:text-white">
                       {selectedPaymentHistoryBilling.invoicedDate
                         ? new Date(selectedPaymentHistoryBilling.invoicedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -11472,9 +11472,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     </p>
                   </div>
                   <div>
-               <p className="text-[10px] font-bold uppercase tracking-wide text-black dark:text-white">
-  Invoiced By
-</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-black dark:text-white">
+                      Invoiced By
+                    </p>
                     <p className="text-black dark:text-white">{selectedPaymentHistoryBilling.invoicedBy || 'N/A'}</p>
                   </div>
                 </div>
@@ -11774,7 +11774,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 {/* Pending Cleared Breakdown - from PatientPendingLedger */}
                 {selectedPaymentHistoryBilling.pendingClearedBreakdown && selectedPaymentHistoryBilling.pendingClearedBreakdown.length > 0 && (
                   <div className="pt-4" style={{ borderTop: '1px solid #d1d5db' }}>
-                  <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-black dark:text-white">
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-black dark:text-white">
                       <div className="rounded-full" style={{ padding: '6px', backgroundColor: '#d1fae5' }}>
                         <CheckCircle className="w-4 h-4" style={{ color: '#047857' }} />
                       </div>

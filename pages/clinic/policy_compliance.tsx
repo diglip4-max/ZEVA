@@ -2553,12 +2553,12 @@ function PolicyCompliance() {
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.category}</td>
                         <td className="px-2 py-2 hidden md:table-cell">
-                          <span className="rounded-md bg-yellow-100 px-2 py-1 text-xs">{i.riskLevel}</span>
+                          <span className="rounded-md bg-yellow-100 dark:text-black px-2 py-1 text-xs">{i.riskLevel}</span>
                         </td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{new Date(i.lastUpdated).toLocaleDateString('en-GB')}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 dark:text-black text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
@@ -2635,7 +2635,7 @@ function PolicyCompliance() {
                         <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
                         <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{new Date(i.effectiveDate).toLocaleDateString()}</td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 dark:text-black  text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
@@ -2705,7 +2705,7 @@ function PolicyCompliance() {
                         <td className="px-2 py-2">
                           <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-700" :
                             i.riskLevel === "High" ? "bg-orange-100 text-orange-700" :
-                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700" :
+                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700 dark:text-black" :
                                 "bg-green-100 text-green-700"
                             }`}>{i.riskLevel}</span>
                         </td>
@@ -2722,7 +2722,7 @@ function PolicyCompliance() {
                           <span className="rounded-md bg-purple-100 px-2 py-1 text-xs text-purple-700">{i.escalationLevel || "-"}</span>
                         </td>
                         <td className="px-2 py-2">
-                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                          <span className={`rounded-md px-2 py-1 text-xs dark:text-black ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
                         <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">

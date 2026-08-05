@@ -638,20 +638,20 @@ const UserPackagesPage: NextPageWithLayout = () => {
                         {/* Price & Sessions */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-green-50 p-2.5 rounded-lg border border-green-100">
-                            <div className="flex items-center gap-1.5 text-green-700 text-xs mb-0.5">
+                            <div className="flex items-center gap-1.5 text-green-700 dark:text-green-100 text-xs mb-0.5">
 
                               <span> {getCurrencySymbol(currency)} Total Price</span>
                             </div>
-                            <p className="text-base font-bold text-green-900">
+                            <p className="text-base font-bold text-green-900 dark:text-green-100">
                               {getCurrencySymbol(currency)}{pkg.totalPrice.toLocaleString()}
                             </p>
                           </div>
                           <div className="bg-green-50 p-2.5 rounded-lg border border-green-100">
-                            <div className="flex items-center gap-1.5 text-green-700 text-xs mb-0.5">
+                            <div className="flex items-center gap-1.5 text-green-700 dark:text-green-100 text-xs mb-0.5">
                               <Package className="w-3.5 h-3.5" />
                               <span>Sessions</span>
                             </div>
-                            <p className="text-base font-bold text-green-900">
+                            <p className="text-base font-bold text-green-900 dark:text-green-100">
                               {pkg.remainingSessions}/{pkg.totalSessions}
                             </p>
                           </div>
@@ -669,11 +669,11 @@ const UserPackagesPage: NextPageWithLayout = () => {
 
                         {/* Date Range */}
                         <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5 text-xs text-green-700">
+                          <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-100">
                             <Calendar className="w-3.5 h-3.5" />
                             <span>Start: {formatDate(pkg.startDate)}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-green-700">
+                          <div className="flex items-center gap-1.5 text-xs text-green-700 dark:text-green-100">
                             <Calendar className="w-3.5 h-3.5" />
                             <span>End: {formatDate(pkg.endDate)}</span>
                           </div>
@@ -682,7 +682,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                         {/* Treatments */}
                         {pkg.treatments && pkg.treatments.length > 0 && (
                           <div className="border-t border-green-200 pt-3">
-                            <h4 className="text-xs font-semibold text-green-800 mb-1.5 flex items-center gap-1.5">
+                            <h4 className="text-xs font-semibold text-green-800 dark:text-green-100  mb-1.5 flex items-center gap-1.5">
                               <TrendingUp className="w-3.5 h-3.5" />
                               Treatments ({pkg.treatments.length})
                             </h4>
@@ -690,10 +690,10 @@ const UserPackagesPage: NextPageWithLayout = () => {
                               {pkg.treatments.map((treatment, idx) => (
                                 <div key={idx} className="text-xs">
                                   <div className="flex justify-between items-center">
-                                    <span className="text-green-800 font-medium truncate">
+                                    <span className="text-green-800 dark:text-green-100 font-medium truncate">
                                       {treatment.treatmentName}
                                     </span>
-                                    <span className="text-green-600 text-[10px]">
+                                    <span className="text-green-600 dark:text-green-100 text-[10px]">
                                       {treatment.usedSessions}/{treatment.sessions} sessions
                                     </span>
                                   </div>
@@ -761,19 +761,19 @@ const UserPackagesPage: NextPageWithLayout = () => {
               <div className="p-6 space-y-6">
                 {/* Patient Information */}
                 <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                  <h3 className="text-lg font-semibold text-green-900 mb-3 flex items-center gap-2">
-                    <User className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-lg font-semibold text-green-900 dark:text-white  mb-3 flex items-center gap-2">
+                    <User className="w-5 h-5 text-emerald-600 dark:text-white" />
                     Patient Information
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-green-700">Name</p>
-                      <p className="font-medium text-green-900">{getPatientName(selectedPackage.patientId)}</p>
+                      <p className="text-sm text-green-700 dark:text-white">Name</p>
+                      <p className="font-medium text-green-900 dark:text-white">{getPatientName(selectedPackage.patientId)}</p>
                     </div>
                     {selectedPackage.patientId?.emrNumber && (
                       <div>
-                        <p className="text-sm text-green-700">EMR Number</p>
-                        <p className="font-medium text-green-900">{selectedPackage.patientId.emrNumber}</p>
+                        <p className="text-sm text-green-700 dark:text-white">EMR Number</p>
+                        <p className="font-medium text-green-900 dark:text-white">{selectedPackage.patientId.emrNumber}</p>
                       </div>
                     )}
                   </div>
@@ -800,7 +800,7 @@ const UserPackagesPage: NextPageWithLayout = () => {
                       <Calendar className="w-5 h-5" />
                       <span className="text-sm font-medium">Duration</span>
                     </div>
-                    <p className="text-sm font-bold text-teal-900">
+                    <p className="text-sm font-bold text-teal-900   dark:text-green-100">
                       {formatDate(selectedPackage.startDate)} - {formatDate(selectedPackage.endDate)}
                     </p>
                   </div>
@@ -863,15 +863,15 @@ const UserPackagesPage: NextPageWithLayout = () => {
 
                 {/* Additional Information */}
                 <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-                  <h3 className="text-lg font-semibold text-green-900 mb-3">Additional Information</h3>
+                  <h3 className="text-lg font-semibold text-green-900 dark:text-white mb-3">Additional Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-green-700">Created At</p>
-                      <p className="font-medium text-green-900">{formatDate(selectedPackage.createdAt)}</p>
+                      <p className="text-sm text-green-700 dark:text-white">Created At</p>
+                      <p className="font-medium text-green-900 dark:text-white">{formatDate(selectedPackage.createdAt)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-green-700">Session Price</p>
-                      <p className="font-medium text-green-900">{getCurrencySymbol(currency)}{selectedPackage.sessionPrice.toLocaleString()}</p>
+                      <p className="text-sm text-green-700 dark:text-white">Session Price</p>
+                      <p className="font-medium text-green-900 dark:text-white">{getCurrencySymbol(currency)}{selectedPackage.sessionPrice.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

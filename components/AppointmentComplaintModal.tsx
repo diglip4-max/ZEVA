@@ -3540,40 +3540,40 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
         <div className="px-4 py-3 space-y-2">
           {!report && (
             <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-blue-100">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-blue-700">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500  dark:bg-teal-100 mt-1.5 flex-shrink-0" />
+              <p className="text-xs text-blue-700 dark:text-teal-100">
                 Record patient vitals for this appointment
               </p>
             </div>
           )}
           {!complaints.trim() && (
-            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
+            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border  dark:bg-teal-100 border-gray-100">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-blue-600">
+              <p className="text-xs text-blue-600 dark:text-teal-100 ">
                 Document chief complaints
               </p>
             </div>
           )}
           {!selectedConsentId && (
-            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
+            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg dark:text-teal-100 border border-gray-100">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-blue-600">
+              <p className="text-xs text-blue-600 dark:text-teal-100">
                 Send consent form to patient
               </p>
             </div>
           )}
           {selectedServices.length === 0 && (
-            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-blue-600">
+            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg dark:text-teal-100 border border-gray-100">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 dark:text-teal-100 mt-1.5 flex-shrink-0" />
+              <p className="text-xs text-blue-600 dark:text-teal-100">
                 Add services to the appointment
               </p>
             </div>
           )}
           {!nextSessionBooked && (
-            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg border border-gray-100">
+            <div className="flex items-start gap-2 p-2 bg-blue-50 rounded-lg dark:text-teal-100 border border-gray-100">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-              <p className="text-xs text-blue-600">
+              <p className="text-xs text-blue-600 dark:text-teal-100">
                 Schedule the next session
               </p>
             </div>
@@ -3716,7 +3716,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <span className="text-sm sm:text-base font-bold text-gray-900 truncate">
                           {details.patientName}
                         </span>
-                        <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5 font-medium">
+                        <span className="text-xs bg-blue-50 text-blue-700 dark:text-white border border-blue-200 rounded-full px-2 py-0.5 font-medium">
                           ID: {details.emrNumber || details.patientId.slice(-8)}
                         </span>
                       </div>
@@ -4342,14 +4342,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             )}
                                           </div>
                                           <span
-                                            className={`text-sm font-medium ${isSelected ? "text-blue-800" : "text-gray-700"}`}
+                                            className={`text-sm font-medium ${isSelected ? "text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-200"}`}
                                           >
                                             {svc.name}
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-3">
                                           <span
-                                            className={`text-sm font-bold ${isSelected ? "text-blue-700" : "text-gray-900"}`}
+                                            className={`text-sm font-bold ${isSelected ? "text-gray-900 dark:text-white" : "text-gray-900 dark:text-gray-200"}`}
                                           >
                                             {getCurrencySymbol(currency)}{" "}
                                             {(svc.clinicPrice != null
@@ -5296,7 +5296,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                 Smart Recommendation
                                               </span>
                                             ) : (
-                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:text-blue-100 border border-blue-100">
                                                 Standard
                                               </span>
                                             )}
@@ -14486,7 +14486,7 @@ const ComplaintDetailModal: React.FC<{
                 <h2 className="text-xl font-semibold text-white">
                   Complaint Details
                 </h2>
-                <p className="text-sm text-gray-300 mt-0.5">
+                <p className="text-sm text-gray-300 dark:text-white mt-0.5">
                   ID: {complaint._id.slice(-8).toUpperCase()}
                 </p>
               </div>
@@ -14505,7 +14505,7 @@ const ComplaintDetailModal: React.FC<{
           {/* Status Banner */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 dark:text-green-100 rounded-full">
                 <Activity className="w-4 h-4" />
                 <span className="text-xs font-medium">Active</span>
               </div>
