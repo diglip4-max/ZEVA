@@ -2474,8 +2474,8 @@ function ClinicManagementDashboard(): ReactElement {
                             const f = e.target.files?.[0];
                             if (!f) return;
                             if (f.size > 50 * 1024 * 1024) {
-                                toast.error("File size exceeds 50MB");
-                                return;
+                              toast.error("File size exceeds 50MB");
+                              return;
                             }
                             const url = URL.createObjectURL(f);
                             setCoverPreview(url);
@@ -3361,8 +3361,8 @@ function ClinicManagementDashboard(): ReactElement {
                           const f = e.target.files?.[0] || null;
                           if (f) {
                             if (f.size > 50 * 1024 * 1024) {
-                                toast.error("File size exceeds 50MB");
-                                return;
+                              toast.error("File size exceeds 50MB");
+                              return;
                             }
                             setNewDocFile(f);
                             setNewDocName(f.name.split(".")[0]);
@@ -3600,7 +3600,7 @@ function ClinicManagementDashboard(): ReactElement {
                         toast.error("File size exceeds 50MB");
                         return;
                       }
- 
+
                       setNewDocFile(file);
                       setNewDocName(file.name.split(".")[0]);
                     }}
@@ -3695,7 +3695,7 @@ function ClinicManagementDashboard(): ReactElement {
                     </p>
 
                     {/* Info Alert Box */}
-                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                    <div className="mt-4 bg-blue-50  dark:text-whiteborder border-blue-200 rounded-lg p-4 flex items-start gap-3">
                       <svg
                         className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"
                         fill="none"
@@ -3710,10 +3710,10 @@ function ClinicManagementDashboard(): ReactElement {
                         />
                       </svg>
                       <div>
-                        <h3 className="text-base font-normal text-blue-900">
+                        <h3 className="text-base font-normal text-blue-900 dark:text-white">
                           These settings control visibility on Zeva marketplace
                         </h3>
-                        <p className="text-sm text-blue-800 font-medium">
+                        <p className="text-sm text-blue-800 font-medium dark:text-white">
                           Changes will be reflected on your public profile
                         </p>
                       </div>

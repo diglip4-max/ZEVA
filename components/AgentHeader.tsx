@@ -4,6 +4,9 @@ import axios from "axios";
 import NotificationBell from "./NotificationBell";
 import ReceptionistChat from "./ReceptionistChat";
 import { Bot, Sparkles } from "lucide-react";
+import { useClinicTheme } from "../context/ClinicThemeContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
   isMobileOpen: boolean;
@@ -13,6 +16,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   handleToggleMobile,
   isMobileOpen,
 }) => {
+  const { theme, toggleTheme } = useClinicTheme();
+  const { currency } = useCurrency();
   const [tokenUser, setTokenUser] = useState<{
     name?: string;
     email?: string;
@@ -127,6 +132,26 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     loadCommissions();
   }, [loadCommissions]);
 
+  const [clinicName, setClinicName] = useState<string>("");
+
+  const loadClinicInfo = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.get("/api/clinics/myallClinic", { headers });
+      if (res.data && res.data.success && res.data.clinic?.name) {
+        setClinicName(res.data.clinic.name);
+      }
+    } catch (err) {
+      // Silent fail
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadCommissions();
+    loadClinicInfo();
+  }, [loadCommissions, loadClinicInfo]);
+
   const computeDropdownPos = () => {
     if (typeof window === "undefined") return;
     const btn = walletBtnRef.current;
@@ -165,7 +190,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   //   };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+    <header className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 shadow-sm flex-shrink-0">
       <div className="px-2 sm:px-4 py-1.5 sm:py-2">
         <div className="flex items-center justify-between gap-2">
           {/* Left: Mobile Hamburger + Brand */}
@@ -173,11 +198,11 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             {/* Mobile Hamburger - Only visible on mobile, positioned on left */}
             <button
               onClick={handleToggleMobile}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0 lg:hidden"
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-200 flex-shrink-0 lg:hidden"
               aria-label="Toggle sidebar"
             >
               <svg
-                className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${isMobileOpen ? "rotate-90" : ""}`}
+                className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400 transition-transform duration-300"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -207,13 +232,13 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                     <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full"></div>
                   </div>
                 </div>
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-[#2D9AA5] rounded-full border-2 border-white"></div>
+                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-[#2D9AA5] rounded-full border-2 border-white dark:border-zinc-900"></div>
               </div>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate">
-                  ZEVA
+                <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-zinc-300 bg-clip-text text-transparent truncate">
+                  {clinicName || "ZEVA"}
                 </h1>
-                <p className="text-[10px] sm:text-xs text-[#2D9AA5] font-medium -mt-0.5 truncate">
+                <p className="text-[10px] sm:text-xs text-[#2D9AA5] dark:text-teal-100 font-medium -mt-0.5 truncate">
                   Healthcare Excellence
                 </p>
               </div>
@@ -299,7 +324,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                             Your Commissions
                           </div>
                           <div className="text-xs text-teal-700 font-semibold">
-                            Total ₹ {Number(totalCommission || 0).toFixed(2)}
+                            Total {getCurrencySymbol(currency)} {Number(totalCommission || 0).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -322,12 +347,12 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                 </div>
                                 <div className="mt-0.5 flex items-center justify-between">
                                   <div className="text-[10px] text-gray-700">
-                                    Paid ₹{" "}
+                                    Paid {getCurrencySymbol(currency)}{" "}
                                     {Number(it.paidAmount || 0).toFixed(2)} •{" "}
                                     {Number(it.commissionPercent || 0)}%
                                   </div>
                                   <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
-                                    Commission ₹{" "}
+                                    Commission {getCurrencySymbol(currency)}{" "}
                                     {Number(
                                       (it.finalCommissionAmount ??
                                         it.commissionAmount) ||
@@ -357,6 +382,45 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                   document.body,
                 )}
             </div>
+
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#2D9AA5] hover:bg-[#2D9AA5]/10 dark:hover:bg-[#2D9AA5]/10 transition-colors duration-200 focus:outline-none flex-shrink-0"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ||
+                (theme === "system" &&
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(prefers-color-scheme: dark)").matches) ? (
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+                  />
+                </svg>
+              )}
+            </button>
             <div className="relative"></div>
             <div className="hidden sm:block">
               <NotificationBell />
@@ -379,7 +443,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
               <button
                 onClick={handleLogout}
-                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600  rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
                 aria-label="Logout"
               >
                 <div className="flex items-center gap-1 sm:gap-2">

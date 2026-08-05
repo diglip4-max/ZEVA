@@ -1238,8 +1238,8 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'agents'
-                    ? 'bg-white text-teal-900 shadow-sm'
-                    : 'text-teal-600 hover:text-teal-900'
+                    ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
+                    : 'text-teal-600  hover:text-teal-900'
                     }`}
                 >
                   Agents ({agents.length})
@@ -1247,7 +1247,7 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'doctorStaff'
-                    ? 'bg-white text-teal-900 shadow-sm'
+                    ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
                     : 'text-teal-600 hover:text-teal-900'
                     }`}
                 >
@@ -2701,7 +2701,7 @@ const ManageAgentsPage = () => {
                             </div>
                             <div className="flex-1 dark:text-teal-100">
                               <div className="font-medium text-teal-900 dark:text-teal-100">Last login</div>
-                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.lastLogin)}</div> 
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.lastLogin)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">

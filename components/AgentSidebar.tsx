@@ -269,7 +269,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                 <span className="font-semibold text-sm">AG</span>
               </div>
               <div>
-                <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 block">Staff Portal</span>
+                <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 block">Agent Portal</span>
 
               </div>
             </div>
