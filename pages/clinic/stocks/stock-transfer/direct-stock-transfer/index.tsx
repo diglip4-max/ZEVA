@@ -11,7 +11,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { ArrowRight, Filter, Info, Loader2, Building2 } from "lucide-react";
+import { ArrowRight, Filter, Info, Loader2} from "lucide-react";
 import debounce from "lodash.debounce";
 import AddDirectStockTransferModal from "./_components/AddDirectStockTransferModal";
 import EditDirectStockTransferModal from "./_components/EditDirectStockTransferModal";

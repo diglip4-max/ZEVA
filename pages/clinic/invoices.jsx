@@ -511,8 +511,8 @@ function InvoicesPage() {
               {/* Filters Section */}
               {showFilters && (
                 <div className="bg-white rounded-2xl shadow-lg border border-green-100 mb-4 sm:mb-6 p-4 sm:p-6 ">
-                  <div className="bg-gradient-to-br from-green-50 to-green-50 rounded-xl p-4 sm:p-5 border border-green-100">
-                    <h3 className="text-sm font-semibold text-green-900 mb-4 flex items-center gap-2">
+                  <div className=" rounded-xl p-4 sm:p-5 border border-green-100">
+                    <h3 className="text-sm font-semibold text-green-900 dark:text-white mb-4 flex items-center gap-2">
                       <Filter className="h-4 w-4" />
                       Filter Options
                     </h3>
@@ -663,11 +663,11 @@ function InvoicesPage() {
                       }}
                       className="w-full sm:w-auto flex items-center justify-center gap-3 px-4 sm:px-6 py-2 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100"
                     >
-                      <span className="text-purple-700 font-semibold">
+                      <span className="text-purple-700 dark:text-teal-100 font-semibold">
                         Pending Amount
                       </span>
 
-                      <span className="text-purple-700 font-bold">
+                      <span className="text-purple-700 dark:text-teal-100 font-bold">
                         {pendingPatients.length}
                       </span>
                     </button>
@@ -754,11 +754,11 @@ function InvoicesPage() {
               </div>
 
               {/* Summary Stats */}
-              <div className="mb-0 mt-3 sm:mb-3 text-sm text-green-700 bg-white px-4 py-3 rounded-xl shadow-sm border border-green-100 flex items-center gap-2">
+              <div className="mb-0 mt-3 sm:mb-3 text-sm text-green-700 dark:text-teal-100 bg-white px-4 py-3 rounded-xl shadow-sm border border-green-100 flex items-center gap-2">
                 <span className="font-semibold">Showing</span>
-                <span className="font-bold text-green-900">{complaints.length}</span>
+                <span className="font-bold text-green-900 dark:text-teal-100">{complaints.length}</span>
                 <span>of</span>
-                <span className="font-bold text-green-900">{total}</span>
+                <span className="font-bold text-green-900 dark:text-teal-100">{total}</span>
                 <span>complaints</span>
               </div>
 
@@ -876,11 +876,11 @@ function InvoicesPage() {
                               return (
                                 <tr
                                   key={comp._id}
-                                  className={`transition-all duration-200 ${isEven ? 'bg-white' : 'bg-green-50/30'} hover:bg-gradient-to-r from-green-50 to-green-50 cursor-default`}
+                                  className={`transition-all duration-200 ${isEven ? 'bg-white' : 'bg-green-50/30'} cursor-default`}
                                 >
                                   <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
                                     <div className="text-sm">
-                                      <div className="font-semibold text-green-900 text-base">{comp.patientName}</div>
+                                      <div className="font-semibold text-green-900 dark:text-teal-100 text-base">{comp.patientName}</div>
                                       <div className="text-green-600 text-xs mt-1 flex items-center gap-2 flex-wrap">
                                         <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-medium">
                                           EMR: {comp.emrNumber || "-"}
@@ -906,11 +906,11 @@ function InvoicesPage() {
                                     </div>
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
-                                    <div className="text-sm text-green-900 font-medium">{comp.doctorName}</div>
+                                    <div className="text-sm text-green-900 dark:text-teal-100 font-medium">{comp.doctorName}</div>
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap border-b border-green-100">
                                     <div className="text-sm">
-                                      <div className="text-green-900 flex items-center gap-2">
+                                      <div className="text-green-900 dark:text-teal-100 flex items-center gap-2">
                                         <Clock className="h-4 w-4 text-green-400" />
                                         {apptDetails.startDate
                                           ? new Date(apptDetails.startDate).toLocaleDateString("en-GB", {
@@ -921,14 +921,14 @@ function InvoicesPage() {
                                           : comp.appointmentDate || "-"}
                                       </div>
                                       {apptDetails.fromTime && apptDetails.toTime && (
-                                        <div className="text-green-600 text-xs mt-1">
+                                        <div className="text-green-600 dark:text-teal-100 text-xs mt-1">
                                           {apptDetails.fromTime} - {apptDetails.toTime}
                                         </div>
                                       )}
                                     </div>
                                   </td>
                                   <td className="px-4 py-4 border-b border-green-100">
-                                    <div className="text-sm text-green-900 max-w-[200px]">
+                                    <div className="text-sm text-green-900 dark:text-teal-100 max-w-[200px]">
                                       {comp.services && comp.services.length > 0
                                         ? comp.services.slice(0, 2).join(", ") + (comp.services.length > 2 ? "..." : "")
                                         : "-"}
@@ -950,7 +950,7 @@ function InvoicesPage() {
                                         {comp.complaintNote.substring(0, 50)}...
                                       </button>
                                     ) : (
-                                      <div className="text-sm text-green-900 max-w-[180px]">
+                                      <div className="text-sm text-green-900 dark:text-teal-100 max-w-[180px]">
                                         {comp.complaintNote || "-"}
                                       </div>
                                     )}
@@ -1003,11 +1003,11 @@ function InvoicesPage() {
                                             className="fixed inset-0 z-[9998]"
                                             onClick={() => setOpenActionMenu(null)}
                                           />
-                                          <div className="absolute right-0 top-full mt-2 z-[9999] bg-white rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
+                                          <div className="absolute right-0 top-full mt-2 z-[9999] bg-white  rounded-xl shadow-2xl border border-green-200 min-w-[140px] overflow-hidden">
                                             {permissions.canCreate && (
                                               <button
                                                 onClick={() => handleBillingClick(comp.appointment)}
-                                                className="w-full text-left px-4 py-3 text-sm text-green-900 hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
+                                                className="w-full text-left px-4 py-3 text-sm text-green-900  hover:bg-green-50 flex items-center gap-2 transition-all duration-200"
                                               >
                                                 <Receipt className="h-4 w-4" />
                                                 Billing
@@ -1177,7 +1177,7 @@ function InvoicesPage() {
                         <button
                           disabled={page <= 1}
                           onClick={() => setPage(page - 1)}
-                          className="px-4 py-2 text-sm bg-white border-2 border-green-200 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium text-green-700"
+                          className="px-4 py-2 text-sm bg-white border-2 border-green-200 dark:text-teal-100 rounded-lg hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium text-green-700"
                         >
                           ← Previous
                         </button>

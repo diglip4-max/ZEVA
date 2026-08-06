@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { MODULE_CUSTOM_ACTIONS, getCustomActionsForModule } from '../config/actionRegistry';
+import { getCustomActionsForModule } from '../config/actionRegistry';
 
 interface SubModule {
   name: string;
@@ -514,7 +514,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
       try {
         // Sanitize and ensure module-level actions are included
         const sanitizedPermissions = sanitizePermissions(permissionsToSave);
-        
+
         // Ensure every module has actions object with all required fields
         const finalPermissions = sanitizedPermissions.map(perm => {
           // Ensure actions object exists and has all required fields
@@ -525,7 +525,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             update: false,
             delete: false
           };
-          
+
           // Ensure all action fields are present (even if false)
           const completeActions = {
             all: Boolean(actions.all),
@@ -536,7 +536,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             import: Boolean((actions as any).import || false),
             export: Boolean((actions as any).export || false)
           };
-          
+
           return {
             module: perm.module,
             actions: completeActions,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactElement, useMemo } from "react";
+import React, { useState, useEffect, ReactElement } from "react";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 import {
@@ -1112,56 +1112,6 @@ function ClinicManagementDashboard(): ReactElement {
     });
   }, [mapsLoaded, editForm?._id]);
 
-  const isDirty = useMemo(() => {
-    if (!stateSnapshot) return false;
-    const current = {
-      editForm,
-      generalInfo,
-      contactForm,
-      listingVisibility,
-      timing,
-      notificationSettings,
-      brandPrimary,
-      brandSecondary,
-      logoPreview,
-      coverPreview,
-      integrations,
-      bankDetails,
-    };
-    const saved = {
-      editForm: stateSnapshot.editForm,
-      generalInfo: stateSnapshot.generalInfo,
-      contactForm: stateSnapshot.contactForm,
-      listingVisibility: stateSnapshot.listingVisibility,
-      timing: stateSnapshot.timing,
-      notificationSettings: stateSnapshot.notificationSettings,
-      brandPrimary: stateSnapshot.brandPrimary,
-      brandSecondary: stateSnapshot.brandSecondary,
-      logoPreview: stateSnapshot.logoPreview,
-      coverPreview: stateSnapshot.coverPreview,
-      integrations: stateSnapshot.integrations,
-      bankDetails: stateSnapshot.bankDetails,
-    };
-    try {
-      return JSON.stringify(current) !== JSON.stringify(saved);
-    } catch {
-      return true;
-    }
-  }, [
-    editForm,
-    generalInfo,
-    contactForm,
-    listingVisibility,
-    timing,
-    notificationSettings,
-    brandPrimary,
-    brandSecondary,
-    logoPreview,
-    coverPreview,
-    integrations,
-    bankDetails,
-    stateSnapshot,
-  ]);
   useEffect(() => {
     const fetchSize = async (u: string, idx: number) => {
       try {

@@ -232,6 +232,10 @@ export default function EditAppointmentModal({
           (fallbackMessage.toLowerCase().includes("time slot is blocked") ||
             fallbackMessage.toLowerCase().includes("blocked time slot"));
         if (isBlockedSlotError) {
+          // Dismiss any previous toasts so the user only sees one current message.
+          // CRITICAL: Do NOT call onSuccess() here — the parent doesn't show a
+          // success toast for edits, but calling onSuccess on a failed update
+          // would still be wrong (closes the modal as if the update succeeded).
           toast.dismiss(TOAST_IDS.blockedEdit);
           toast.dismiss(TOAST_IDS.editSuccess);
           toast.error(fallbackMessage, {
@@ -246,13 +250,6 @@ export default function EditAppointmentModal({
             },
             icon: '🚫',
           });
-          if (typeof onSuccess === "function") {
-            try {
-              onSuccess();
-            } catch {
-              // best-effort
-            }
-          }
         } else {
           setError(fallbackMessage);
         }
@@ -271,6 +268,8 @@ export default function EditAppointmentModal({
           errorMessage.toLowerCase().includes("blocked time slot"));
 
       if (isBlockedSlotError) {
+        // Dismiss any previous toasts so the user only sees one current message.
+        // CRITICAL: Do NOT call onSuccess() here — see comment in the else branch.
         toast.dismiss(TOAST_IDS.blockedEdit);
         toast.dismiss(TOAST_IDS.editSuccess);
         toast.error(errorMessage, {
@@ -285,13 +284,6 @@ export default function EditAppointmentModal({
           },
           icon: '🚫',
         });
-        if (typeof onSuccess === "function") {
-          try {
-            onSuccess();
-          } catch {
-            // best-effort: don't break the modal if parent handler errors
-          }
-        }
         return;
       }
 

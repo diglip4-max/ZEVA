@@ -926,6 +926,7 @@ export default function AppointmentBookingModal({
         // The success toast is shown by the parent's handleBookingSuccess
         // (avoids double-firing when both modal and parent toast).
         toast.dismiss(TOAST_IDS.blockedBooking);
+        toast.dismiss(TOAST_IDS.bookingSuccess);
         onSuccess();
         handleClose();
         // Reset form
@@ -938,8 +939,11 @@ export default function AppointmentBookingModal({
           (fallbackMessage.toLowerCase().includes("time slot is blocked") ||
             fallbackMessage.toLowerCase().includes("blocked time slot"));
         if (isBlockedSlotError) {
-          // Dismiss any previous blocked-slot toasts and any stale success toast
-          // so the user only sees one current message at a time.
+          // Dismiss any previous toasts so the user only sees one current message.
+          // CRITICAL: Do NOT call onSuccess() here — that callback triggers the
+          // parent's "Appointment booked successfully!" toast, which is wrong
+          // because the booking was rejected. The blocked-slot list is already
+          // up-to-date in the parent, so no refresh is needed.
           toast.dismiss(TOAST_IDS.blockedBooking);
           toast.dismiss(TOAST_IDS.bookingSuccess);
           toast.error(fallbackMessage, {
@@ -954,13 +958,6 @@ export default function AppointmentBookingModal({
             },
             icon: '🚫',
           });
-          if (typeof onSuccess === "function") {
-            try {
-              onSuccess();
-            } catch {
-              // best-effort
-            }
-          }
         } else {
           setError(fallbackMessage);
         }
@@ -999,8 +996,11 @@ export default function AppointmentBookingModal({
           errorMessage.toLowerCase().includes("blocked time slot"));
 
       if (isBlockedSlotError) {
-        // Dismiss any previous blocked-slot toasts and any stale success toast
-        // so the user only sees one current message at a time.
+        // Dismiss any previous toasts so the user only sees one current message.
+        // CRITICAL: Do NOT call onSuccess() here — that callback triggers the
+        // parent's "Appointment booked successfully!" toast, which is wrong
+        // because the booking was rejected. The blocked-slot list is already
+        // up-to-date in the parent, so no refresh is needed.
         toast.dismiss(TOAST_IDS.blockedBooking);
         toast.dismiss(TOAST_IDS.bookingSuccess);
         toast.error(errorMessage, {
@@ -1015,14 +1015,6 @@ export default function AppointmentBookingModal({
           },
           icon: '🚫',
         });
-        // Refresh blocked slots on the parent so the grid overlay updates
-        if (typeof onSuccess === "function") {
-          try {
-            onSuccess();
-          } catch {
-            // best-effort: don't break the booking modal if parent handler errors
-          }
-        }
         return;
       }
 

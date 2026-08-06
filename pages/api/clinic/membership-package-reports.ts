@@ -142,33 +142,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const activeMembershipsCount = activeMembershipsList.length;
       const expiredMembershipsCount = expiredMembershipsList.length;
 
-      const membershipStatusAgg = await MembershipPlan.aggregate([
-        {
-          $match: { clinicId, isDeleted: { $ne: true } }
-        },
-        {
-          $addFields: {
-            endDate: {
-              $dateAdd: {
-                startDate: "$createdAt",
-                unit: "month",
-                amount: "$durationMonths"
-              }
-            }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            activeCount: {
-              $sum: { $cond: [{ $gte: ["$endDate", nowDate] }, 1, 0] }
-            },
-            expiredCount: {
-              $sum: { $cond: [{ $lt: ["$endDate", nowDate] }, 1, 0] }
-            }
-          }
-        }
-      ]);
+      // const membershipStatusAgg = await MembershipPlan.aggregate([
+      //   {
+      //     $match: { clinicId, isDeleted: { $ne: true } }
+      //   },
+      //   {
+      //     $addFields: {
+      //       endDate: {
+      //         $dateAdd: {
+      //           startDate: "$createdAt",
+      //           unit: "month",
+      //           amount: "$durationMonths"
+      //         }
+      //       }
+      //     }
+      //   },
+      //   {
+      //     $group: {
+      //       _id: null,
+      //       activeCount: {
+      //         $sum: { $cond: [{ $gte: ["$endDate", nowDate] }, 1, 0] }
+      //       },
+      //       expiredCount: {
+      //         $sum: { $cond: [{ $lt: ["$endDate", nowDate] }, 1, 0] }
+      //       }
+      //     }
+      //   }
+      // ]);
 
       // ACTIVE PACKAGES: All packages in system
       const activePackagesCount = await Package.countDocuments({

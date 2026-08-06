@@ -271,17 +271,28 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="p-1 text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200 focus:outline-none flex-shrink-0"
-              aria-label="Toggle theme"
+              className="p-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors duration-200 focus:outline-none flex-shrink-0 flex items-center gap-1.5"
+              aria-label={`Toggle theme (current: ${theme})`}
+              title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`}
             >
-              {theme === 'dark' ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71" />
-                </svg>
+              {theme === "dark" ||
+                (theme === "system" &&
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(prefers-color-scheme: dark)").matches) ? (
+                <>
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="4" strokeWidth={2} />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71" />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium whitespace-nowrap">Dark Mode</span>
+                </>
               ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3c4.418 0 8 3.582 8 8s-3.582 8-8 8-8-3.582-8-8 3.582-8 8-8z" />
-                </svg>
+                <>
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium whitespace-nowrap">Light Mode</span>
+                </>
               )}
             </button>
             {/* Logout Button - Icon only */}

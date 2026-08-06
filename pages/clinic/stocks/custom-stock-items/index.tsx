@@ -13,9 +13,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { CustomStockItem as CustomStockItemType } from "@/types/stocks";
 import {
-  Lock,
-  Home,
-  LogOut,
+ 
   Package,
   Percent,
   Loader2,
@@ -650,45 +648,45 @@ const CustomStockItemsPage: NextPageWithLayout = ({
   };
 
   // Access Denied Component
-  const AccessDenied = () => (
-    <div className="min-h-screen bg-bg-page p-4 md:p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-bg-surface rounded-2xl shadow-xl overflow-hidden">
-          <div className="p-8 md:p-12 text-center">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
-              <Lock className="w-12 h-12 text-red-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-text-primary mb-3">
-              Access Denied
-            </h2>
-            <p className="text-text-muted mb-8 max-w-md mx-auto">
-              You don't have permission to view this page. Please contact your
-              clinic administrator for access.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => router.push("/clinic/clinic-dashboard")}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-all"
-              >
-                <Home className="w-5 h-5" />
-                Go to Dashboard
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.removeItem("token");
-                  router.push("/");
-                }}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-all"
-              >
-                <LogOut className="w-5 h-5" />
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // const AccessDenied = () => (
+  //   <div className="min-h-screen bg-bg-page p-4 md:p-6">
+  //     <div className="max-w-4xl mx-auto">
+  //       <div className="bg-bg-surface rounded-2xl shadow-xl overflow-hidden">
+  //         <div className="p-8 md:p-12 text-center">
+  //           <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
+  //             <Lock className="w-12 h-12 text-red-500" />
+  //           </div>
+  //           <h2 className="text-2xl font-bold text-text-primary mb-3">
+  //             Access Denied
+  //           </h2>
+  //           <p className="text-text-muted mb-8 max-w-md mx-auto">
+  //             You don't have permission to view this page. Please contact your
+  //             clinic administrator for access.
+  //           </p>
+  //           <div className="flex flex-col sm:flex-row gap-3 justify-center">
+  //             <button
+  //               onClick={() => router.push("/clinic/clinic-dashboard")}
+  //               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium transition-all"
+  //             >
+  //               <Home className="w-5 h-5" />
+  //               Go to Dashboard
+  //             </button>
+  //             <button
+  //               onClick={() => {
+  //                 localStorage.removeItem("token");
+  //                 router.push("/");
+  //               }}
+  //               className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-all"
+  //             >
+  //               <LogOut className="w-5 h-5" />
+  //               Logout
+  //             </button>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   </div>
+  // );
 
   // If permissions are not loaded yet, show loading spinner
   if (!permissionsLoaded) {

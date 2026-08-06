@@ -750,6 +750,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
     completed: 0,
     invoiced: 0,
     noshow: 0,
+    block: 0,
+    unblock: 0,
     daily: {
       patients: 0,
       jobs: 0,

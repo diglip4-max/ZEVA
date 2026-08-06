@@ -327,6 +327,24 @@ function generateTimeSlots(startTime: string, endTime: string): TimeSlot[] {
   return slots;
 }
 
+// Helper to decide if we should display the reason text in the middle of a blocked range of slots
+function shouldShowBlockReason(
+  block: BlockedSlotEntry,
+  currentSlotTime: string,
+  slots: TimeSlot[]
+): boolean {
+  if (!slots || slots.length === 0) return false;
+  const bFrom = timeStringToMinutes(block.fromTime);
+  const bTo = timeStringToMinutes(block.toTime);
+  const activeSlots = slots.filter((s) => {
+    const sMin = timeStringToMinutes(s.time);
+    return sMin < bTo && (sMin + ROW_INTERVAL_MINUTES) > bFrom;
+  });
+  if (activeSlots.length === 0) return false;
+  const midIdx = Math.floor(activeSlots.length / 2);
+  return activeSlots[midIdx].time === currentSlotTime;
+}
+
 // Format time for display
 function formatTime(time24: string): string {
   const [hour, min] = time24.split(":").map(Number);
@@ -4529,14 +4547,20 @@ function AppointmentPage({
                                             setUnblockConfirm(seg.block);
                                           }}
                                         >
-                                          <div className="flex items-center gap-1 min-w-0">
-                                            <Ban className="w-3 h-3 text-red-700 dark:text-red-800 flex-shrink-0" />
-                                            <span className="text-[10px] font-semibold text-red-800 dark:text-red-900 truncate">
-                                              {seg.block.reason
-                                                ? seg.block.reason
-                                                : "Blocked"}
-                                            </span>
-                                          </div>
+                                          {shouldShowBlockReason(
+                                            seg.block,
+                                            slot.time,
+                                            timeSlots,
+                                          ) && (
+                                            <div className="flex items-center gap-1 min-w-0">
+                                              <Ban className="w-3 h-3 text-red-700 dark:text-red-800 flex-shrink-0" />
+                                              <span className="text-[10px] font-semibold text-red-800 dark:text-red-900 truncate">
+                                                {seg.block.reason
+                                                  ? seg.block.reason
+                                                  : "Blocked"}
+                                              </span>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
@@ -4937,14 +4961,20 @@ function AppointmentPage({
                                             setUnblockConfirm(seg.block);
                                           }}
                                         >
-                                          <div className="flex items-center gap-1 min-w-0">
-                                            <Ban className="w-3 h-3 text-red-700 dark:text-red-800 flex-shrink-0" />
-                                            <span className="text-[10px] font-semibold text-red-800 dark:text-red-900 truncate">
-                                              {seg.block.reason
-                                                ? seg.block.reason
-                                                : "Blocked"}
-                                            </span>
-                                          </div>
+                                          {shouldShowBlockReason(
+                                            seg.block,
+                                            slot.time,
+                                            timeSlots,
+                                          ) && (
+                                            <div className="flex items-center gap-1 min-w-0">
+                                              <Ban className="w-3 h-3 text-red-700 dark:text-red-800 flex-shrink-0" />
+                                              <span className="text-[10px] font-semibold text-red-800 dark:text-red-900 truncate">
+                                                {seg.block.reason
+                                                  ? seg.block.reason
+                                                  : "Blocked"}
+                                              </span>
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
