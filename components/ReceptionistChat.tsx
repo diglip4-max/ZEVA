@@ -11,7 +11,6 @@ import {
   Search,
   Download,
   Loader2,
-  Bot,
   Check,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
@@ -122,7 +121,7 @@ const DISPLAY_FONT = "'Fraunces', Georgia, 'Times New Roman', serif";
 const BODY_FONT =
   "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
-const MARKER_LINE_RE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
+// const MARKER_LINE_RE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 const MARKER_TOKEN_RE = /\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g;
 
 const KNOWN_HEADERS: Record<string, string[]> = {
@@ -262,12 +261,12 @@ function parseAgentContent(raw: string): ContentSegment[] {
 
 // Kept for any external callers expecting flattened text (e.g. plain
 // error/success tone detection runs against joined text).
-function normalizeAgentContent(raw: string): string {
-  return parseAgentContent(raw)
-    .map((seg) => (seg.type === "text" ? seg.content : ""))
-    .join("\n\n")
-    .trim();
-}
+// function normalizeAgentContent(raw: string): string {
+//   return parseAgentContent(raw)
+//     .map((seg) => (seg.type === "text" ? seg.content : ""))
+//     .join("\n\n")
+//     .trim();
+// }
 
 const MarkdownComponents: React.ComponentProps<
   typeof ReactMarkdown
