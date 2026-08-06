@@ -65,6 +65,13 @@ interface AddPatientForm {
   patientType: string;
 }
 
+// Stable toast IDs so a fresh attempt replaces any stale toast of the same kind
+// (prevents the "blocked" + "success" toasts from stacking on screen).
+const TOAST_IDS = {
+  bookingSuccess: "appointment-booking-success",
+  blockedBooking: "appointment-booking-blocked",
+};
+
 const COUNTRY_CODES: CountryCode[] = [
   { code: "+1", name: "United States", flag: "🇺🇸" },
   { code: "+1", name: "Canada", flag: "🇨🇦" },
@@ -914,20 +921,62 @@ export default function AppointmentBookingModal({
       );
 
       if (res.data.success) {
+        // Dismiss any stale blocked-slot toasts so a successful booking
+        // doesn't share the screen with an old error.
+        // The success toast is shown by the parent's handleBookingSuccess
+        // (avoids double-firing when both modal and parent toast).
+        toast.dismiss(TOAST_IDS.blockedBooking);
         onSuccess();
         handleClose();
         // Reset form
         resetForm();
       } else {
-        setError(res.data.message || "Failed to book appointment");
+        const fallbackMessage = res.data.message || "Failed to book appointment";
+        // Blocked-slot errors should surface as a toast (not inline)
+        const isBlockedSlotError =
+          typeof fallbackMessage === "string" &&
+          (fallbackMessage.toLowerCase().includes("time slot is blocked") ||
+            fallbackMessage.toLowerCase().includes("blocked time slot"));
+        if (isBlockedSlotError) {
+          // Dismiss any previous blocked-slot toasts and any stale success toast
+          // so the user only sees one current message at a time.
+          toast.dismiss(TOAST_IDS.blockedBooking);
+          toast.dismiss(TOAST_IDS.bookingSuccess);
+          toast.error(fallbackMessage, {
+            id: TOAST_IDS.blockedBooking,
+            duration: 4000,
+            style: {
+              background: '#fef2f2',
+              color: '#991b1b',
+              border: '1px solid #fecaca',
+              fontSize: '13px',
+              fontWeight: '500',
+            },
+            icon: '🚫',
+          });
+          if (typeof onSuccess === "function") {
+            try {
+              onSuccess();
+            } catch {
+              // best-effort
+            }
+          }
+        } else {
+          setError(fallbackMessage);
+        }
       }
     } catch (err: any) {
       const status = err.response?.status;
       const errorData = err.response?.data;
-     
+      const errorMessage: string =
+        errorData?.message || err?.message || "Failed to book appointment";
+
       // Handle 403 authentication error
       if (status === 403) {
+        toast.dismiss(TOAST_IDS.blockedBooking);
+        toast.dismiss(TOAST_IDS.bookingSuccess);
         toast.error("Session expired. Please login again.", {
+          id: "auth-expired",
           duration: 4000,
           style: {
             background: '#fef2f2',
@@ -940,11 +989,47 @@ export default function AppointmentBookingModal({
         setError("Authentication failed. Please login again.");
         return;
       }
-     
+
+      // Blocked-slot errors should surface as a toast (not inline)
+      // — the user cannot fix the form to make this succeed; they need to
+      // unblock the slot from the schedule or pick a different time.
+      const isBlockedSlotError =
+        typeof errorMessage === "string" &&
+        (errorMessage.toLowerCase().includes("time slot is blocked") ||
+          errorMessage.toLowerCase().includes("blocked time slot"));
+
+      if (isBlockedSlotError) {
+        // Dismiss any previous blocked-slot toasts and any stale success toast
+        // so the user only sees one current message at a time.
+        toast.dismiss(TOAST_IDS.blockedBooking);
+        toast.dismiss(TOAST_IDS.bookingSuccess);
+        toast.error(errorMessage, {
+          id: TOAST_IDS.blockedBooking,
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+          icon: '🚫',
+        });
+        // Refresh blocked slots on the parent so the grid overlay updates
+        if (typeof onSuccess === "function") {
+          try {
+            onSuccess();
+          } catch {
+            // best-effort: don't break the booking modal if parent handler errors
+          }
+        }
+        return;
+      }
+
       if (errorData?.errors) {
         // Field-level errors from API
         setFieldErrors(errorData.errors);
-        setError(errorData.message || "Please fix the errors below");
+        setError(errorMessage);
       } else if (errorData?.missingFields) {
         // Convert missing fields to field errors
         const missingFieldErrors: Record<string, string> = {};
@@ -956,9 +1041,9 @@ export default function AppointmentBookingModal({
           missingFieldErrors[field] = `${fieldLabel} is required`;
         });
         setFieldErrors(missingFieldErrors);
-        setError(errorData.message || "Please fill all required fields");
+        setError(errorMessage);
       } else {
-        setError(errorData?.message || "Failed to book appointment");
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);

@@ -4,6 +4,7 @@ import Clinic from "../../../../models/Clinic";
 import User from "../../../../models/Users";
 import Room from "../../../../models/Room";
 import PatientRegistration from "../../../../models/PatientRegistration";
+import BlockedSlot from "../../../../models/BlockedSlot";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
@@ -248,6 +249,8 @@ export default async function handler(req, res) {
       "Completed",
       "invoice",
       "No Show",
+      "Block",
+      "Unblock",
     ];
     if (!validStatuses.includes(status)) {
       return res
@@ -301,6 +304,80 @@ export default async function handler(req, res) {
     // If status is "Arrived", set arrivedAt timestamp
     if (status === "Arrived" && appointment.status !== "Arrived") {
       updateData.arrivedAt = new Date();
+    }
+
+    // Validation: Check if the time slot is blocked by a "Block" status appointment
+    // Skip this check if the appointment itself is the one being updated to Block
+    if (status !== "Block") {
+      const updateDate = new Date(startDate);
+      const startOfDay = new Date(Date.UTC(updateDate.getUTCFullYear(), updateDate.getUTCMonth(), updateDate.getUTCDate(), 0, 0, 0, 0));
+      const endOfDay = new Date(Date.UTC(updateDate.getUTCFullYear(), updateDate.getUTCMonth(), updateDate.getUTCDate(), 23, 59, 59, 999));
+
+      const blockScopeConditions = [];
+      if (doctorId) blockScopeConditions.push({ doctorId });
+      if (roomId) blockScopeConditions.push({ roomId });
+
+      if (blockScopeConditions.length > 0) {
+        const blockedAppointment = await Appointment.findOne({
+          clinicId,
+          status: "Block",
+          _id: { $ne: appointmentId }, // Exclude the current appointment
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+          $and: [{ $or: blockScopeConditions }],
+          $or: [
+            // Exact time match
+            { fromTime, toTime },
+            // Blocked appointment starts during new appointment time
+            { fromTime: { $gte: fromTime, $lt: toTime } },
+            // Blocked appointment ends during new appointment time
+            { toTime: { $gt: fromTime, $lte: toTime } },
+            // Blocked appointment completely encompasses new appointment time
+            { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+          ],
+        });
+
+        if (blockedAppointment) {
+          return res.status(400).json({
+            success: false,
+            message: "This time slot is blocked. Cannot move an appointment to a blocked time slot.",
+          });
+        }
+      }
+
+      // Validation: Check if the time slot is blocked via the BlockedSlot collection
+      // (new decoupled model: separate from Appointment.status enum)
+      if (blockScopeConditions.length > 0) {
+        const timeOverlapConditions = [
+          // Exact time match
+          { fromTime, toTime },
+          // Blocked range starts during new appointment time
+          { fromTime: { $gte: fromTime, $lt: toTime } },
+          // Blocked range ends during new appointment time
+          { toTime: { $gt: fromTime, $lte: toTime } },
+          // Blocked range completely encompasses new appointment time
+          { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+        ];
+
+        const blockedSlotEntry = await BlockedSlot.findOne({
+          clinicId,
+          isActive: true,
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+          $and: [
+            { $or: blockScopeConditions },
+            { $or: timeOverlapConditions },
+          ],
+        });
+
+        if (blockedSlotEntry) {
+          return res.status(400).json({
+            success: false,
+            message:
+              blockedSlotEntry.reason
+                ? `This time slot is blocked (${blockedSlotEntry.reason}). Cannot move an appointment to a blocked time slot.`
+                : "This time slot is blocked. Cannot move an appointment to a blocked time slot.",
+          });
+        }
+      }
     }
 
     const updatedAppointment = await Appointment.findByIdAndUpdate(

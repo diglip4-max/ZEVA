@@ -4,6 +4,13 @@ import axios from "axios";
 import { X, Loader2, Calendar, Clock, AlertCircle, ChevronDown, Check } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
 import { ModalPortal } from "../lib/modalPortal";
+import { toast } from "react-hot-toast";
+
+// Stable toast IDs so a fresh attempt replaces any stale toast of the same kind
+const TOAST_IDS = {
+  editSuccess: "appointment-edit-success",
+  blockedEdit: "appointment-edit-blocked",
+};
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -210,16 +217,87 @@ export default function EditAppointmentModal({
       );
 
       if (response.data.success) {
+        toast.dismiss(TOAST_IDS.blockedEdit);
+        toast.dismiss(TOAST_IDS.editSuccess);
+        toast.success("Appointment updated successfully!", {
+          id: TOAST_IDS.editSuccess,
+          duration: 2500,
+        });
         onSuccess();
         onClose();
       } else {
-        setError(response.data.message || "Failed to update appointment");
+        const fallbackMessage = response.data.message || "Failed to update appointment";
+        const isBlockedSlotError =
+          typeof fallbackMessage === "string" &&
+          (fallbackMessage.toLowerCase().includes("time slot is blocked") ||
+            fallbackMessage.toLowerCase().includes("blocked time slot"));
+        if (isBlockedSlotError) {
+          toast.dismiss(TOAST_IDS.blockedEdit);
+          toast.dismiss(TOAST_IDS.editSuccess);
+          toast.error(fallbackMessage, {
+            id: TOAST_IDS.blockedEdit,
+            duration: 4000,
+            style: {
+              background: '#fef2f2',
+              color: '#991b1b',
+              border: '1px solid #fecaca',
+              fontSize: '13px',
+              fontWeight: '500',
+            },
+            icon: '🚫',
+          });
+          if (typeof onSuccess === "function") {
+            try {
+              onSuccess();
+            } catch {
+              // best-effort
+            }
+          }
+        } else {
+          setError(fallbackMessage);
+        }
       }
     } catch (err: any) {
       const errorData = err.response?.data;
+      const errorMessage: string =
+        errorData?.message || err?.message || "Failed to update appointment";
+
+      // Blocked-slot errors should surface as a toast (not inline)
+      // — the user cannot fix the form to make this succeed; they need to
+      // unblock the slot from the schedule or pick a different time.
+      const isBlockedSlotError =
+        typeof errorMessage === "string" &&
+        (errorMessage.toLowerCase().includes("time slot is blocked") ||
+          errorMessage.toLowerCase().includes("blocked time slot"));
+
+      if (isBlockedSlotError) {
+        toast.dismiss(TOAST_IDS.blockedEdit);
+        toast.dismiss(TOAST_IDS.editSuccess);
+        toast.error(errorMessage, {
+          id: TOAST_IDS.blockedEdit,
+          duration: 4000,
+          style: {
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca',
+            fontSize: '13px',
+            fontWeight: '500',
+          },
+          icon: '🚫',
+        });
+        if (typeof onSuccess === "function") {
+          try {
+            onSuccess();
+          } catch {
+            // best-effort: don't break the modal if parent handler errors
+          }
+        }
+        return;
+      }
+
       if (errorData?.errors) {
         setFieldErrors(errorData.errors);
-        setError(errorData.message || "Please fix the errors below");
+        setError(errorMessage);
       } else if (errorData?.missingFields) {
         const missingFieldErrors: Record<string, string> = {};
         errorData.missingFields.forEach((field: string, index: number) => {
@@ -227,9 +305,9 @@ export default function EditAppointmentModal({
           missingFieldErrors[field] = `${fieldLabel} is required`;
         });
         setFieldErrors(missingFieldErrors);
-        setError(errorData.message || "Please fill all required fields");
+        setError(errorMessage);
       } else {
-        setError(errorData?.message || "Failed to update appointment");
+        setError(errorMessage);
       }
     } finally {
       setLoading(false);
