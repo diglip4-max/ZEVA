@@ -48,7 +48,8 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
   const [scenarios, setScenarios] = useState<ScenarioRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-
+  const [serviceEnabled, setServiceEnabled] = useState<boolean>(true);
+  const [savingService, setSavingService] = useState(false);
   const [behaviorStyle, setBehaviorStyle] = useState<string>("default");
   const [savingStyle, setSavingStyle] = useState(false);
 
@@ -96,12 +97,14 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const [scenarioRes, styleRes] = await Promise.all([
+      const [scenarioRes, styleRes, serviceRes] = await Promise.all([
         axios.get(`${API_BASE}/dashboard/scenarios`, authHeaders(token)),
         axios.get(`${API_BASE}/dashboard/behavior-style`, authHeaders(token)),
+        axios.get(`${API_BASE}/dashboard/service-status`, authHeaders(token)),
       ]);
       setScenarios(scenarioRes.data.scenarios || []);
       setBehaviorStyle(styleRes.data.behavior_style || "default");
+      setServiceEnabled(serviceRes.data.is_enabled ?? true);
     } catch (err: any) {
       setLoadError(
         err?.response?.data?.detail ||
@@ -160,7 +163,28 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
     setPickerOpen(false);
     setPickerSearch("");
   }
-
+  async function toggleServiceEnabled(nextEnabled: boolean) {
+    setSavingService(true);
+    try {
+      await axios.post(
+        `${API_BASE}/dashboard/service-status`,
+        { is_enabled: nextEnabled },
+        authHeaders(token),
+      );
+      setServiceEnabled(nextEnabled);
+      showToast(
+        "success",
+        nextEnabled ? "KAKA service turned on." : "KAKA service turned off.",
+      );
+    } catch (err: any) {
+      showToast(
+        "error",
+        err?.response?.data?.detail || "Could not update service status.",
+      );
+    } finally {
+      setSavingService(false);
+    }
+  }
   async function saveBehaviorStyle(value: string) {
     setBehaviorStyle(value);
     setSavingStyle(true);
@@ -482,7 +506,83 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
             {loadError}
           </div>
         )}
+        {/* ── SERVICE STATUS SECTION ── */}
+        <section
+          className="mb-6 overflow-hidden"
+          style={{
+            borderRadius: 16,
+            background: serviceEnabled
+              ? "linear-gradient(135deg, #c8f0da 0%, #a8e2c2 100%)"
+              : "linear-gradient(135deg, #dde3e8 0%, #c5cdd6 100%)",
+            border: serviceEnabled
+              ? "1px solid rgba(5,74,50,.15)"
+              : "1px solid rgba(50,60,72,.15)",
+          }}
+        >
+          <div className="px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: serviceEnabled
+                    ? "rgba(5,74,50,.14)"
+                    : "rgba(50,60,72,.14)",
+                  color: serviceEnabled ? "#054a32" : "#3a4452",
+                }}
+              >
+                {serviceEnabled ? (
+                  <CheckCircle className="w-5 h-5" />
+                ) : (
+                  <XCircle className="w-5 h-5" />
+                )}
+              </div>
+              <h2
+                className="text-sm font-bold"
+                style={{ color: serviceEnabled ? "#054a32" : "#3a4452" }}
+              >
+                KAKA Service — {serviceEnabled ? "Active" : "Turned Off"}
+              </h2>
+            </div>
 
+            <button
+              onClick={() => toggleServiceEnabled(!serviceEnabled)}
+              disabled={savingService}
+              role="switch"
+              aria-checked={serviceEnabled}
+              className="flex-shrink-0 disabled:opacity-60"
+              style={{
+                position: "relative",
+                width: 52,
+                height: 30,
+                borderRadius: 15,
+                border: "none",
+                cursor: savingService ? "not-allowed" : "pointer",
+                transition: "background .2s, box-shadow .2s",
+                background: serviceEnabled ? "#1f9d5c" : "#8a93a0",
+                boxShadow: serviceEnabled
+                  ? "0 2px 10px rgba(31,157,92,.5)"
+                  : "0 2px 6px rgba(0,0,0,.2)",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  left: 3,
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "transform .2s",
+                  transform: serviceEnabled
+                    ? "translateX(22px)"
+                    : "translateX(0)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,.25)",
+                }}
+              />
+            </button>
+          </div>
+        </section>
         {/* ── BEHAVIOR STYLE SECTION ── */}
         <section
           className="mb-6 overflow-hidden"

@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path
+
+from langgraph.prebuilt import ToolNode
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from datetime import datetime
 import os
 import re
@@ -16,35 +22,39 @@ from langchain_core.messages import (
     BaseMessage,
     SystemMessage,
     ToolMessage,
-    trim_messages,
 )
-from cache import redis_client
+from shared.cache import redis_client
 from fastapi import Header
-from urllib.parse import urlencode
 import asyncio
 from psycopg.rows import dict_row
 from langchain_core.runnables import RunnableConfig
 from contextlib import asynccontextmanager
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.tools import tool
-from faq import get_clinic_id, get_doctors_by_treatment, get_services, get_timings
-from apt_reschedule import find_latest_appointment, reschedule_apt
-from appointment import buildGraph, get_header
+from shared.faq import (
+    get_clinic_id,
+    get_doctors_by_treatment,
+    get_services,
+    get_timings,
+)
+from shared.apt_reschedule import find_latest_appointment, reschedule_apt
+from shared.appointment import buildGraph, get_header
 from fastapi.responses import JSONResponse
 from psycopg import AsyncConnection
 from contextvars import ContextVar
-from prompts import prompt, LANGUAGE_RULE
-from scenario_keys import SCENARIO_KEYS
-from scenario_tagging_prompt import SCENARIO_TAGGING_PROMPT
-from clinic_context import fetch_clinic_id
-from response_resolver import (
+from shared.prompts import prompt, LANGUAGE_RULE
+from shared.scenario_keys import SCENARIO_KEYS
+from shared.scenario_tagging_prompt import SCENARIO_TAGGING_PROMPT
+from shared.clinic_context import fetch_clinic_id
+from shared.response_resolver import (
     resolve_response,
     preview_rewrite,
     preview_style_only_rewrite,
 )
-import templates_db as db
-from scenario_keys import BEHAVIOR_STYLES, DEFAULT_BEHAVIOR_STYLE
+from psycopg_pool import AsyncConnectionPool
+import shared.templates_db as db
+from shared.scenario_keys import BEHAVIOR_STYLES, DEFAULT_BEHAVIOR_STYLE
+from shared.kaka_service_gate import is_kaka_enabled, set_kaka_enabled
 
 load_dotenv()
 
@@ -78,24 +88,32 @@ def get_context(config: RunnableConfig) -> tuple[str, str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    checkpointer_conn = await AsyncConnection.connect(
-        os.getenv("DATABASE_URL"), autocommit=True, prepare_threshold=None
+    checkpointer_pool = AsyncConnectionPool(
+        conninfo=os.getenv("DATABASE_URL"),
+        min_size=2,
+        max_size=10,
+        kwargs={"autocommit": True, "prepare_threshold": None},
+        open=False,
     )
-    await checkpointer_conn.set_autocommit(True)
-    checkpointer = AsyncPostgresSaver(checkpointer_conn)
+    await checkpointer_pool.open()
+    checkpointer = AsyncPostgresSaver(checkpointer_pool)
     await checkpointer.setup()
     app.state.workflow = build_workflow(checkpointer)
 
-    dashboard_conn = await AsyncConnection.connect(
-        os.getenv("DATABASE_URL"), autocommit=True, prepare_threshold=None
+    dashboard_pool = AsyncConnectionPool(
+        conninfo=os.getenv("DATABASE_URL"),
+        min_size=2,
+        max_size=10,
+        kwargs={"autocommit": True, "prepare_threshold": None},
+        open=False,
     )
-    await dashboard_conn.set_autocommit(True)
-    app.state.db_conn = dashboard_conn
+    await dashboard_pool.open()
+    app.state.db_pool = dashboard_pool
 
     yield
     await redis_client.aclose()
-    await checkpointer_conn.close()
-    await dashboard_conn.close()
+    await checkpointer_pool.close()
+    await dashboard_pool.close()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -172,6 +190,11 @@ class TemplatePreviewRequest(BaseModel):
     sample_message: str | None = None
 
 
+class ServiceToggleRequest(BaseModel):
+    is_enabled: bool
+    updated_by: str | None = None
+
+
 SAMPLE_MESSAGES = {
     "greeting": "Welcome! I'm KAKA, your appointment assistant. What can I help you with today?",
     "booking_success": "🎉 Your appointment is confirmed!\n\nWe'll see you on 05-07-2026 at 14:30 with Dr. Preet.",
@@ -191,6 +214,27 @@ async def resolve_clinic_id_or_401(clinicToken: str) -> str:
             status_code=401, detail="Invalid or unrecognized clinicToken."
         )
     return clinic_id
+
+
+PLACEHOLDER_LINK_RE = re.compile(
+    r"(?:🔗\s*)?(?:\[.*?\]\()?<url>\)?|SCHEDULER_LINK:\s*<url>",
+    re.IGNORECASE,
+)
+
+
+def strip_placeholder_link(content: str) -> str:
+    """Removes any literal '<url>' placeholder the LLM echoed from the
+    prompt instead of substituting a real URL, plus its wrapping label."""
+    lines = content.split("\n")
+    out = []
+    for line in lines:
+        if PLACEHOLDER_LINK_RE.search(line):
+            continue
+        if re.match(r"^\s*(📅\s*)?\*?Book online\*?\s*$", line, re.IGNORECASE):
+            continue
+        out.append(line)
+    cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(out))
+    return cleaned.strip()
 
 
 def format_for_whatsapp(text: str) -> str:
@@ -1035,6 +1079,16 @@ async def get_clinic_token(authorization: str = Header(...)) -> str:
 async def chat(req: ChatRequest):
     clinic_token_var.set(req.clinicToken)
     conversation_id_var.set(req.conversation_id)
+    clinic_id = await get_clinic_id_cached(req.clinicToken)
+    if clinic_id:
+        async with app.state.db_pool.connection() as conn:
+            enabled = await is_kaka_enabled(conn, clinic_id)
+        if not enabled:
+            return {
+                "response": None,
+                "scenario_key": "service_disabled",
+                "suppress_send": True,
+            }
     clinic_name = await fetch_clinic_name(req.clinicToken)
     clinic_name_var.set(clinic_name)
     config = {
@@ -1060,6 +1114,8 @@ async def chat(req: ChatRequest):
         last_msg = response["messages"][-1]
         content = last_msg.content
 
+    content = strip_placeholder_link(content)
+
     clinic_id = await get_clinic_id_cached(req.clinicToken)
 
     if scenario_key == "booking_opening":
@@ -1067,24 +1123,26 @@ async def chat(req: ChatRequest):
 
     if clinic_id and scenario_key:
         try:
-            async with app.state.db_conn.cursor() as cur:
-                await cur.execute(
-                    """
+            async with app.state.db_pool.connection() as conn:
+                async with conn.cursor(row_factory=dict_row) as cur:
+                    await cur.execute(
+                        """
                 INSERT INTO kaka_events (thread_id, clinic_id, scenario_key, channel)
                 VALUES (%s, %s, %s, %s)
                 """,
-                    (req.conversation_id, clinic_id, scenario_key, req.channel),
-                )
+                        (req.conversation_id, clinic_id, scenario_key, req.channel),
+                    )
         except Exception as e:
             print(f"[analytics] Failed to log kaka_event: {e}")
 
     if clinic_id and scenario_key:
-        content = await resolve_response(
-            conn=app.state.db_conn,
-            clinic_id=clinic_id,
-            scenario_key=scenario_key,
-            kaka_message=content,
-        )
+        async with app.state.db_pool.connection() as conn:
+            content = await resolve_response(
+                conn=conn,
+                clinic_id=clinic_id,
+                scenario_key=scenario_key,
+                kaka_message=content,
+            )
 
     if content and req.channel == "whatsapp":
         content = format_for_whatsapp(content)
@@ -1128,7 +1186,8 @@ async def get_token(req: GetTokenRequest, request: Request):
 @app.get("/dashboard/scenarios")
 async def list_scenarios(clinicToken: str = Depends(get_clinic_token)):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
-    saved = await db.list_templates(app.state.db_conn, clinic_id)
+    async with app.state.db_pool.connection() as conn:
+        saved = await db.list_templates(conn, clinic_id)
     saved_by_key = {t.scenario_key: t.to_dict() for t in saved}
     result = []
     for key in SCENARIO_KEYS:
@@ -1156,14 +1215,16 @@ async def upsert_template_endpoint(
         raise HTTPException(
             status_code=400, detail=f"Unknown scenario_key: {req.scenario_key}"
         )
-    saved = await db.upsert_template(
-        app.state.db_conn,
-        clinic_id=clinic_id,
-        scenario_key=req.scenario_key,
-        template_text=req.template_text,
-        is_enabled=req.is_enabled,
-        updated_by=req.updated_by,
-    )
+    async with app.state.db_pool.connection() as conn:
+
+        saved = await db.upsert_template(
+            conn,
+            clinic_id=clinic_id,
+            scenario_key=req.scenario_key,
+            template_text=req.template_text,
+            is_enabled=req.is_enabled,
+            updated_by=req.updated_by,
+        )
     return saved.to_dict()
 
 
@@ -1178,13 +1239,14 @@ async def set_template_enabled_endpoint(
         raise HTTPException(
             status_code=400, detail=f"Unknown scenario_key: {scenario_key}"
         )
-    updated = await db.set_template_enabled(
-        app.state.db_conn,
-        clinic_id=clinic_id,
-        scenario_key=scenario_key,
-        is_enabled=req.is_enabled,
-        updated_by=req.updated_by,
-    )
+    async with app.state.db_pool.connection() as conn:
+        updated = await db.set_template_enabled(
+            conn,
+            clinic_id=clinic_id,
+            scenario_key=scenario_key,
+            is_enabled=req.is_enabled,
+            updated_by=req.updated_by,
+        )
     if updated is None:
         raise HTTPException(
             status_code=404,
@@ -1198,7 +1260,8 @@ async def delete_template_endpoint(
     scenario_key: str, clinicToken: str = Depends(get_clinic_token)
 ):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
-    deleted = await db.delete_template(app.state.db_conn, clinic_id, scenario_key)
+    async with app.state.db_pool.connection() as conn:
+        deleted = await db.delete_template(conn, clinic_id, scenario_key)
     if not deleted:
         raise HTTPException(status_code=404, detail="No template found to delete.")
     return {"deleted": True, "scenario_key": scenario_key}
@@ -1207,7 +1270,8 @@ async def delete_template_endpoint(
 @app.get("/dashboard/behavior-style")
 async def get_behavior_style_endpoint(clinicToken: str = Depends(get_clinic_token)):
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
-    style = await db.get_behavior_style(app.state.db_conn, clinic_id)
+    async with app.state.db_pool.connection() as conn:
+        style = await db.get_behavior_style(conn, clinic_id)
     return {"clinic_id": clinic_id, "behavior_style": style}
 
 
@@ -1220,12 +1284,13 @@ async def set_behavior_style_endpoint(
         raise HTTPException(
             status_code=400, detail=f"Unknown behavior_style: {req.behavior_style}"
         )
-    saved_style = await db.set_behavior_style(
-        app.state.db_conn,
-        clinic_id=clinic_id,
-        behavior_style=req.behavior_style,
-        updated_by=req.updated_by,
-    )
+    async with app.state.db_pool.connection() as conn:
+        saved_style = await db.set_behavior_style(
+            conn,
+            clinic_id=clinic_id,
+            behavior_style=req.behavior_style,
+            updated_by=req.updated_by,
+        )
     return {"clinic_id": clinic_id, "behavior_style": saved_style}
 
 
@@ -1281,6 +1346,24 @@ async def preview_template_endpoint(
     }
 
 
+@app.get("/dashboard/service-status")
+async def get_service_status_endpoint(clinicToken: str = Depends(get_clinic_token)):
+    clinic_id = await resolve_clinic_id_or_401(clinicToken)
+    async with app.state.db_pool.connection() as conn:
+        enabled = await is_kaka_enabled(conn, clinic_id)
+    return {"clinic_id": clinic_id, "is_enabled": enabled}
+
+
+@app.post("/dashboard/service-status")
+async def set_service_status_endpoint(
+    req: ServiceToggleRequest, clinicToken: str = Depends(get_clinic_token)
+):
+    clinic_id = await resolve_clinic_id_or_401(clinicToken)
+    async with app.state.db_pool.connection() as conn:
+        saved = await set_kaka_enabled(conn, clinic_id, req.is_enabled, req.updated_by)
+    return {"clinic_id": clinic_id, "is_enabled": saved}
+
+
 def range_to_since_sql(range: str) -> str:
     if range == "today":
         return "(DATE_TRUNC('day', now() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata')"
@@ -1303,12 +1386,13 @@ async def analytics_summary(
     """
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
-    async with app.state.db_conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            f"""                                         
-        SELECT                                          
-          COUNT(*)                                                           AS ai_interactions,
-          COUNT(DISTINCT thread_id)                                         
+    async with app.state.db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"""                                         
+            SELECT                                          
+              COUNT(*)                                                           AS ai_interactions,
+              COUNT(DISTINCT thread_id)                                         
             FILTER (WHERE scenario_key NOT IN ('greeting','off_topic'))     AS patients_addressed,                                          
           COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings_completed,                                          
           COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules_completed,                                           
@@ -1319,9 +1403,9 @@ async def analytics_summary(
         WHERE clinic_id = %s                                        
           AND created_at >= {since_sql}                                       
         """,
-            (clinic_id,),
-        )
-        rows = await cur.fetchall()
+                (clinic_id,),
+            )
+            rows = await cur.fetchall()
 
     row = rows[0] if rows else {}
     return {
@@ -1346,24 +1430,25 @@ async def analytics_daily(
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
 
-    async with app.state.db_conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            f"""                                         
-        SELECT                                          
-          DATE(created_at AT TIME ZONE 'Asia/Kolkata')                      AS date,                                        
-          COUNT(DISTINCT thread_id)                                         AS conversations,                                          
-          COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings,                                        
-          COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules,                                         
-          COUNT(*) FILTER (WHERE scenario_key = 'escalation')               AS escalations                                          
-        FROM kaka_events                                        
-        WHERE clinic_id = %s                                        
+    async with app.state.db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"""                                         
+            SELECT                                          
+              DATE(created_at AT TIME ZONE 'Asia/Kolkata')                      AS date,                                        
+              COUNT(DISTINCT thread_id)                                         AS conversations,                                          
+              COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings,                                        
+              COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules,                                         
+              COUNT(*) FILTER (WHERE scenario_key = 'escalation')               AS escalations                                          
+            FROM kaka_events                                        
+            WHERE clinic_id = %s                                        
           AND created_at >= {since_sql}                                       
         GROUP BY DATE(created_at AT TIME ZONE 'Asia/Kolkata')                                           
         ORDER BY date ASC                                           
         """,
-            (clinic_id,),
-        )
-        rows = await cur.fetchall()
+                (clinic_id,),
+            )
+            rows = await cur.fetchall()
 
     return {
         "data": [
@@ -1388,21 +1473,22 @@ async def analytics_query_mix(
     """
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
-    async with app.state.db_conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            f"""                                         
-        SELECT                                          
-          scenario_key,                                         
-          COUNT(*) AS cnt                                           
+    async with app.state.db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"""                                         
+            SELECT                                          
+              scenario_key,                                         
+              COUNT(*) AS cnt                                           
         FROM kaka_events                                        
         WHERE clinic_id = %s                                        
           AND created_at >= {since_sql}                                           
         GROUP BY scenario_key                                           
         ORDER BY cnt DESC                                           
         """,
-            (clinic_id,),
-        )
-        rows = await cur.fetchall()
+                (clinic_id,),
+            )
+            rows = await cur.fetchall()
 
     total = sum(r["cnt"] for r in rows) or 1
     return {
@@ -1427,11 +1513,12 @@ async def analytics_peak_hours(
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
 
-    async with app.state.db_conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            f"""                                         
-            SELECT                                          
-              EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Kolkata')::int AS hour,                                           
+    async with app.state.db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"""                                         
+                SELECT                                          
+                  EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Kolkata')::int AS hour,                                           
               COUNT(*) AS volume                                        
             FROM kaka_events                                        
             WHERE clinic_id = %s                                        
@@ -1439,9 +1526,9 @@ async def analytics_peak_hours(
             GROUP BY hour                                           
             ORDER BY hour ASC                                           
             """,
-            (clinic_id,),
-        )
-        rows = await cur.fetchall()
+                (clinic_id,),
+            )
+            rows = await cur.fetchall()
 
     by_hour = {r["hour"]: r["volume"] for r in rows}
     return {"data": [{"hour": h, "volume": by_hour.get(h, 0)} for h in HOURS_IN_DAY]}
@@ -1457,12 +1544,13 @@ async def analytics_weekly(
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
     since_sql = range_to_since_sql(range)
 
-    async with app.state.db_conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            f"""                                         
-        SELECT                                          
-          DATE_TRUNC('week', created_at AT TIME ZONE 'Asia/Kolkata')        AS week_start,                                          
-          COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings,                                        
+    async with app.state.db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"""                                         
+            SELECT                                          
+              DATE_TRUNC('week', created_at AT TIME ZONE 'Asia/Kolkata')        AS week_start,                                          
+              COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings,                                        
           COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules                                          
         FROM kaka_events                                        
         WHERE clinic_id = %s                                        
@@ -1470,9 +1558,9 @@ async def analytics_weekly(
         GROUP BY week_start                                         
         ORDER BY week_start ASC                                         
         """,
-            (clinic_id,),
-        )
-        rows = await cur.fetchall()
+                (clinic_id,),
+            )
+            rows = await cur.fetchall()
 
     return {
         "data": [
@@ -1519,30 +1607,31 @@ async def analytics_day_detail(date: str, clinicToken: str = Depends(get_clinic_
         ((%(date)s::date + interval '1 day') AT TIME ZONE 'Asia/Kolkata') AS day_end
     """
 
-    async with app.state.db_conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            f"""
-            WITH bounds AS (SELECT {day_bounds_sql})
-            SELECT
-              COUNT(*)                                                           AS ai_interactions,
-              COUNT(DISTINCT thread_id)                                          AS total_conversations,
-              COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings_completed,
-              COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules_completed,
-              COUNT(*) FILTER (WHERE scenario_key = 'escalation')               AS escalations_to_staff,
-              COUNT(*) FILTER (WHERE channel = 'web')                           AS channel_web,
+    async with app.state.db_pool.connection() as conn:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                f"""
+                WITH bounds AS (SELECT {day_bounds_sql})
+                SELECT
+                  COUNT(*)                                                           AS ai_interactions,
+                  COUNT(DISTINCT thread_id)                                          AS total_conversations,
+                  COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings_completed,
+                  COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules_completed,
+                  COUNT(*) FILTER (WHERE scenario_key = 'escalation')               AS escalations_to_staff,
+                  COUNT(*) FILTER (WHERE channel = 'web')                           AS channel_web,
               COUNT(*) FILTER (WHERE channel = 'whatsapp')                      AS channel_whatsapp
             FROM kaka_events, bounds
             WHERE clinic_id = %(clinic_id)s
               AND created_at >= bounds.day_start
               AND created_at < bounds.day_end
             """,
-            {"date": date, "clinic_id": clinic_id},
-        )
-        summary_rows = await cur.fetchall()
-        summary_row = summary_rows[0] if summary_rows else {}
+                {"date": date, "clinic_id": clinic_id},
+            )
+            summary_rows = await cur.fetchall()
+            summary_row = summary_rows[0] if summary_rows else {}
 
-        await cur.execute(
-            f"""
+            await cur.execute(
+                f"""
             WITH bounds AS (SELECT {day_bounds_sql})
             SELECT
               EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Kolkata')::int AS hour,
@@ -1554,38 +1643,38 @@ async def analytics_day_detail(date: str, clinicToken: str = Depends(get_clinic_
             GROUP BY hour
             ORDER BY hour ASC
             """,
-            {"date": date, "clinic_id": clinic_id},
-        )
-        hour_rows = await cur.fetchall()
-        by_hour = {r["hour"]: r["volume"] for r in hour_rows}
-        hourly = [{"hour": h, "volume": by_hour.get(h, 0)} for h in range(24)]
+                {"date": date, "clinic_id": clinic_id},
+            )
+            hour_rows = await cur.fetchall()
+            by_hour = {r["hour"]: r["volume"] for r in hour_rows}
+            hourly = [{"hour": h, "volume": by_hour.get(h, 0)} for h in range(24)]
 
-        await cur.execute(
-            f"""
-            WITH bounds AS (SELECT {day_bounds_sql})
-            SELECT
-              scenario_key,
-              COUNT(*) AS cnt
-            FROM kaka_events, bounds
-            WHERE clinic_id = %(clinic_id)s
-              AND created_at >= bounds.day_start
-              AND created_at < bounds.day_end
-            GROUP BY scenario_key
-            ORDER BY cnt DESC
-            """,
-            {"date": date, "clinic_id": clinic_id},
-        )
-        scenario_rows = await cur.fetchall()
+            await cur.execute(
+                f"""
+                WITH bounds AS (SELECT {day_bounds_sql})
+                SELECT
+                  scenario_key,
+                  COUNT(*) AS cnt
+                FROM kaka_events, bounds
+                WHERE clinic_id = %(clinic_id)s
+                  AND created_at >= bounds.day_start
+                  AND created_at < bounds.day_end
+                GROUP BY scenario_key
+                ORDER BY cnt DESC
+                """,
+                {"date": date, "clinic_id": clinic_id},
+            )
+            scenario_rows = await cur.fetchall()
 
-    total_scenario = sum(r["cnt"] for r in scenario_rows) or 1
-    scenario_breakdown = [
-        {
-            "scenario_key": r["scenario_key"],
-            "count": r["cnt"],
-            "percent": round(r["cnt"] / total_scenario * 100, 1),
-        }
-        for r in scenario_rows
-    ]
+        total_scenario = sum(r["cnt"] for r in scenario_rows) or 1
+        scenario_breakdown = [
+            {
+                "scenario_key": r["scenario_key"],
+                "count": r["cnt"],
+                "percent": round(r["cnt"] / total_scenario * 100, 1),
+            }
+            for r in scenario_rows
+        ]
 
     return {
         "date": date,
