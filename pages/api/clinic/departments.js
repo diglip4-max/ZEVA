@@ -26,9 +26,9 @@ export default async function handler(req, res) {
   // Get clinic ID from user
   const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
   if (clinicError || !clinicId) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       success: false,
-      message: clinicError || "Unable to determine clinic access" 
+      message: clinicError || "Unable to determine clinic access"
     });
   }
 
@@ -39,11 +39,11 @@ export default async function handler(req, res) {
       // Default to "clinic_addRoom" for backward compatibility
       // When accessed from create-agent page, it should check "clinic_create_agent"
       const moduleToCheck = req.query.module || "clinic_addRoom";
-      
+
       // For Clinic_services_setup module, allow access if user has create OR read permission
       // This ensures departments can be loaded for the create form even when read is false
       let hasPermission = false;
-      
+
       if (moduleToCheck === "Clinic_services_setup" || moduleToCheck === "clinic_services_setup") {
         // Check both read and create permissions
         const { hasPermission: canRead } = await checkClinicPermission(
@@ -80,7 +80,11 @@ export default async function handler(req, res) {
         });
       }
 
-      const departments = await Department.find({ clinicId })
+      const departments = await Department.find({
+        clinicId,
+        isDeleted: { $ne: true },
+        name: { $not: /_deleted_/ }
+      })
         .sort({ createdAt: -1 })
         .lean();
 
@@ -104,7 +108,7 @@ export default async function handler(req, res) {
     try {
       // Determine which module to check permissions for based on query parameter or body
       const moduleToCheck = req.query.module || req.body.module || "clinic_addRoom";
-      
+
       // Check create permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
@@ -129,6 +133,7 @@ export default async function handler(req, res) {
       const existingDepartment = await Department.findOne({
         clinicId,
         name: name.trim(),
+        isDeleted: { $ne: true },
       });
 
       if (existingDepartment) {
@@ -171,7 +176,7 @@ export default async function handler(req, res) {
     try {
       // Determine which module to check permissions for based on query parameter or body
       const moduleToCheck = req.query.module || req.body.module || "clinic_addRoom";
-      
+
       // Check update permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
@@ -205,6 +210,7 @@ export default async function handler(req, res) {
         clinicId,
         name: normalizedName,
         _id: { $ne: departmentId },
+        isDeleted: { $ne: true },
       });
 
       if (duplicateDepartment) {
@@ -238,7 +244,7 @@ export default async function handler(req, res) {
     try {
       // Determine which module to check permissions for based on query parameter
       const moduleToCheck = req.query.module || "clinic_addRoom";
-      
+
       // Check delete permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
@@ -265,7 +271,16 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Department not found" });
       }
 
-      await Department.findByIdAndDelete(departmentId);
+      // Soft delete: set isDeleted to true and update name to prevent index collisions
+      await Department.updateOne(
+        { _id: departmentId },
+        {
+          $set: {
+            isDeleted: true,
+            name: `${department.name}`
+          }
+        }
+      );
 
       return res.status(200).json({
         success: true,
@@ -280,4 +295,7 @@ export default async function handler(req, res) {
   res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: "Method not allowed" });
 }
+
+
+
 

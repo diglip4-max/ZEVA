@@ -149,28 +149,28 @@ function ClinicCommissionPage() {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
 
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     if (userRole === "admin") {
@@ -447,7 +447,7 @@ function ClinicCommissionPage() {
         setPackageList(
           Array.isArray(pRes.data?.packages) ? pRes.data.packages : [],
         );
-      } catch {}
+      } catch { }
     })();
   }, [permissionsLoaded, permissions.canRead]);
 
@@ -539,7 +539,7 @@ function ClinicCommissionPage() {
                 d.emrNumber ||
                 pid;
               transferNameMap[pid] = name;
-            } catch {}
+            } catch { }
           }),
         );
         const entries = [];
@@ -780,10 +780,10 @@ function ClinicCommissionPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-500">
+              <h2 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">
                 Commission Tracker
               </h2>
-              <p className="text-xs sm:text-sm text-teal-600 dark:text-teal-400">
+              <p className="text-xs sm:text-sm text-teal-600 dark:text-teal-100">
                 Referral and doctor/staff commissions
               </p>
             </div>
@@ -803,7 +803,7 @@ function ClinicCommissionPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm dark:text-gray-900 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="flex mt-5 gap-2">
                 <button
                   className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md border border-gray-300 text-teal-700 hover:bg-teal-50 transition-all whitespace-nowrap"
                   onClick={() => setSearchQuery("")}
@@ -866,28 +866,28 @@ function ClinicCommissionPage() {
               <table className="min-w-full text-xs sm:text-sm">
                 <thead>
                   <tr className="text-left text-gray-600 dark:text-gray-300">
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-100">
                       Name
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-100">
                       Type
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       Type
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       %{" "}
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       Earned
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       Paid
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap dark:text-gray-100">
                       Count
                     </th>
-                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-700">
+                    <th className="px-2 sm:px-4 py-3 font-medium whitespace-nowrap  dark:text-gray-100">
                       Actions
                     </th>
                   </tr>
@@ -898,26 +898,26 @@ function ClinicCommissionPage() {
                       key={`${row.source}-${row.personId}`}
                       className="border-t border-gray-200 hover:bg-gray-50"
                     >
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-900">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-100">
                         {row.name || "—"}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-100">
                         {row.source === "referral"
                           ? "Referral"
                           : "Doctor/Staff"}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-100">
                         {row.percent ?? 0}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-100">
                         {getCurrencySymbol(currency)}{" "}
                         {Number(row.totalEarned || 0).toFixed(2)}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-100">
                         {getCurrencySymbol(currency)}{" "}
                         {Number(row.totalPaid || 0).toFixed(2)}
                       </td>
-                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-700">
+                      <td className="px-2 sm:px-4 py-3 whitespace-nowrap dark:text-gray-100">
                         {row.count}
                       </td>
                       <td className="px-2 sm:px-4 py-3">
@@ -931,11 +931,10 @@ function ClinicCommissionPage() {
                           </button>
                           {permissions.canUpdate && (
                             <button
-                              className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 text-xs rounded-md flex items-center justify-center gap-1 font-medium transition-all shadow-sm ${
-                                Number(row.pendingApprovalCount || 0) > 0
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                              }`}
+                              className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 text-xs rounded-md flex items-center justify-center gap-1 font-medium transition-all shadow-sm ${Number(row.pendingApprovalCount || 0) > 0
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                }`}
                               disabled={
                                 Number(row.pendingApprovalCount || 0) === 0
                               }
@@ -974,7 +973,7 @@ function ClinicCommissionPage() {
               {/* Modal Header */}
               <div className="flex items-center justify-between px-2 py-2 border-b border-gray-200 flex-shrink-0">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold text-teal-900 dark:text-teal-500 truncate">
+                  <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100 truncate">
                     {selectedPerson?.source === "referral"
                       ? "Referral History"
                       : "Doctor/Staff History"}
@@ -1013,40 +1012,40 @@ function ClinicCommissionPage() {
                     <table className="min-w-full text-[9px]">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Patient
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             EMR
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Invoice
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Paid
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Ref. Ded.
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Bank Ded.
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Payment
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Earned
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Comm.
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Doctor
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Date
                           </th>
-                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                          <th className="px-1.5 py-2 text-left text-[8px] font-medium text-gray-500 dark:text-gray-100 uppercase tracking-wider whitespace-nowrap">
                             Action
                           </th>
                         </tr>
@@ -1055,42 +1054,42 @@ function ClinicCommissionPage() {
                         {filteredModalItems.map((it) => (
                           <React.Fragment key={it.commissionId}>
                             <tr className="hover:bg-gray-50">
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-900">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {it.patientName || "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {it.patientEmr || "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {it.invoiceNumber || "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {getCurrencySymbol(currency)}{" "}
                                 {Number(it.paidAmount || 0).toFixed(2)}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {Number(it.referralCommissionDeducted || 0) > 0
                                   ? `${getCurrencySymbol(currency)} ${Number(it.referralCommissionDeducted).toFixed(2)}`
                                   : "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {it.bankDeduction?.deductionAmount
                                   ? `${getCurrencySymbol(currency)} ${Number(it.bankDeduction.deductionAmount).toFixed(2)}`
                                   : "—"}
                               </td>
                               <td className="px-1.5 py-1.5 whitespace-nowrap text-[8px]">
                                 {it.multiplePayments &&
-                                it.multiplePayments.length > 0 ? (
+                                  it.multiplePayments.length > 0 ? (
                                   <div className="flex flex-col gap-0.5">
                                     {it.multiplePayments.map((mp, idx) => (
                                       <div
                                         key={idx}
                                         className="flex items-center justify-between gap-1"
                                       >
-                                        <span className="font-medium text-gray-700 dark:text-gray-900">
+                                        <span className="font-medium text-gray-700 dark:text-gray-100">
                                           {mp.paymentMethod}
                                         </span>
-                                        <span className="text-gray-600 dark:text-gray-700">
+                                        <span className="text-gray-600 dark:text-gray-100">
                                           {getCurrencySymbol(currency)}{" "}
                                           {Number(mp.amount).toFixed(2)}
                                         </span>
@@ -1098,16 +1097,16 @@ function ClinicCommissionPage() {
                                     ))}
                                   </div>
                                 ) : it.paymentMethod === "Cash" ? (
-                                  <span className="text-gray-700 dark:text-gray-900">
+                                  <span className="text-gray-700 dark:text-gray-100">
                                     Cash
                                   </span>
                                 ) : it.paymentMethod &&
                                   it.bankDeduction?.enabled ? (
                                   <div className="flex flex-col gap-0.5">
-                                    <span className="font-medium text-gray-700 dark:text-gray-900">
+                                    <span className="font-medium text-gray-700 dark:text-gray-100">
                                       {it.paymentMethod}
                                     </span>
-                                    <span className="text-gray-600 dark:text-gray-700">
+                                    <span className="text-gray-600 dark:text-gray-100">
                                       {it.bankDeduction.type === "flat"
                                         ? `${getCurrencySymbol(currency)} ${Number(it.bankDeduction.value).toFixed(2)}`
                                         : `${Number(it.bankDeduction.value).toFixed(0)}%`}
@@ -1117,32 +1116,32 @@ function ClinicCommissionPage() {
                                   <span className="text-gray-400">—</span>
                                 )}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {Number(
                                   (it.finalCommissionAmount ??
                                     it.commissionAmount) ||
-                                    0,
+                                  0,
                                 ) > 0
                                   ? `${getCurrencySymbol(currency)} ${Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)}`
                                   : "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {Number(
                                   (it.finalCommissionAmount ??
                                     it.commissionAmount) ||
-                                    0,
+                                  0,
                                 ) > 0
                                   ? `${getCurrencySymbol(currency)} ${Number((it.finalCommissionAmount ?? it.commissionAmount) || 0).toFixed(2)} (${Number(it.commissionPercent || 0)}%)`
                                   : "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {it.doctorName || "—"}
                               </td>
-                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-700">
+                              <td className="px-1.5 py-1.5 whitespace-nowrap text-[9px] dark:text-gray-100">
                                 {it.invoicedDate
                                   ? new Date(
-                                      it.invoicedDate,
-                                    ).toLocaleDateString()
+                                    it.invoicedDate,
+                                  ).toLocaleDateString()
                                   : "—"}
                               </td>
                               <td className="px-1.5 py-1.5 whitespace-nowrap">
@@ -1166,11 +1165,10 @@ function ClinicCommissionPage() {
                                           ? "Unmark submission"
                                           : "Mark as submitted"
                                       }
-                                      className={`p-1 sm:p-1.5 rounded-md transition-all ${
-                                        it.isSubmitted
-                                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                          : "bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-200"
-                                      }`}
+                                      className={`p-1 sm:p-1.5 rounded-md transition-all ${it.isSubmitted
+                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                                        : "bg-gray-100 text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 border border-gray-200"
+                                        }`}
                                     >
                                       <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                     </button>
@@ -1234,14 +1232,14 @@ function ClinicCommissionPage() {
                                         {Number(
                                           it.membershipDiscountApplied || 0,
                                         ) > 0 && (
-                                          <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[8px] bg-teal-100 text-teal-700 font-medium">
-                                            Discount:{" "}
-                                            {getCurrencySymbol(currency)}
-                                            {Number(
-                                              it.membershipDiscountApplied,
-                                            ).toFixed(2)}
-                                          </span>
-                                        )}
+                                            <span className="inline-flex items-center px-1 py-0.5 rounded-full text-[8px] bg-teal-100 text-teal-700 font-medium">
+                                              Discount:{" "}
+                                              {getCurrencySymbol(currency)}
+                                              {Number(
+                                                it.membershipDiscountApplied,
+                                              ).toFixed(2)}
+                                            </span>
+                                          )}
                                       </div>
                                       <div className="flex flex-wrap items-center gap-1 w-full sm:w-auto">
                                         {(() => {
@@ -1249,13 +1247,13 @@ function ClinicCommissionPage() {
                                             (it.totalPendingBalance ??
                                               it.pendingAmount ??
                                               0) ||
-                                              0,
+                                            0,
                                           );
                                           const totalAdvance = Number(
                                             (it.totalAdvanceBalance ??
                                               it.advanceAmount ??
                                               0) ||
-                                              0,
+                                            0,
                                           );
                                           return (
                                             <>
@@ -1267,7 +1265,7 @@ function ClinicCommissionPage() {
                                                 </span>
                                               )}
                                               {totalAdvance > 0 && (
-                                                <span className="inline-flex items-center px-1 py-0.5 rounded-md text-[8px] font-semibold text-green-700 bg-green-50 border border-green-100">
+                                                <span className="inline-flex items-center px-1 py-0.5 rounded-md text-[8px] font-semibold text-green-700 dark:text-white bg-green-50 border border-green-100">
                                                   Advance:{" "}
                                                   {getCurrencySymbol(currency)}{" "}
                                                   {totalAdvance.toFixed(2)}
@@ -1285,7 +1283,7 @@ function ClinicCommissionPage() {
                                         it.selectedPackageTreatments,
                                       ) &&
                                       it.selectedPackageTreatments.length >
-                                        0 && (
+                                      0 && (
                                         <div className="mb-1.5">
                                           <div className="text-[9px] text-gray-600 font-semibold mb-0.5">
                                             Treatments:
@@ -1308,88 +1306,88 @@ function ClinicCommissionPage() {
                                     {/* Expenses for this billing */}
                                     {(Number(it.expenseTotal || 0) > 0 ||
                                       Number(it.complaintExpenseTotal || 0) >
-                                        0) && (
-                                      <div className="mb-1.5">
-                                        <div className="text-[9px] text-gray-600 font-semibold mb-0.5">
-                                          Expenses:
-                                        </div>
-                                        <div className="flex flex-wrap gap-1">
-                                          {(Array.isArray(it.expenses)
-                                            ? it.expenses
-                                            : []
-                                          ).map((ex, iEx) => (
-                                            <span
-                                              key={`be-${iEx}`}
-                                              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-amber-100 text-amber-800 border border-amber-200"
-                                            >
-                                              {ex.name}:{" "}
-                                              {getCurrencySymbol(currency)}
-                                              {Number(ex.amount || 0).toFixed(
-                                                2,
+                                      0) && (
+                                        <div className="mb-1.5">
+                                          <div className="text-[9px] text-gray-600 font-semibold mb-0.5">
+                                            Expenses:
+                                          </div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {(Array.isArray(it.expenses)
+                                              ? it.expenses
+                                              : []
+                                            ).map((ex, iEx) => (
+                                              <span
+                                                key={`be-${iEx}`}
+                                                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-amber-100 text-amber-800 border border-amber-200"
+                                              >
+                                                {ex.name}:{" "}
+                                                {getCurrencySymbol(currency)}
+                                                {Number(ex.amount || 0).toFixed(
+                                                  2,
+                                                )}
+                                              </span>
+                                            ))}
+                                            {Array.isArray(
+                                              it.complaintExpenses,
+                                            ) &&
+                                              it.complaintExpenses.length > 0 &&
+                                              it.complaintExpenses.map(
+                                                (cx, idx) => (
+                                                  <span
+                                                    key={`ce-${idx}`}
+                                                    className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-orange-100 text-orange-800 border border-orange-200"
+                                                  >
+                                                    {cx.name} • {cx.quantity}{" "}
+                                                    {cx.uom} •{" "}
+                                                    {getCurrencySymbol(currency)}
+                                                    {Number(
+                                                      cx.totalAmount || 0,
+                                                    ).toFixed(2)}
+                                                  </span>
+                                                ),
                                               )}
-                                            </span>
-                                          ))}
-                                          {Array.isArray(
-                                            it.complaintExpenses,
-                                          ) &&
-                                            it.complaintExpenses.length > 0 &&
-                                            it.complaintExpenses.map(
-                                              (cx, idx) => (
-                                                <span
-                                                  key={`ce-${idx}`}
-                                                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-orange-100 text-orange-800 border border-orange-200"
-                                                >
-                                                  {cx.name} • {cx.quantity}{" "}
-                                                  {cx.uom} •{" "}
+                                            {Number(it.expenseTotal || 0) > 0 && (
+                                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-amber-200 text-amber-900 font-semibold">
+                                                Manual total:{" "}
+                                                {getCurrencySymbol(currency)}
+                                                {Number(
+                                                  it.expenseTotal || 0,
+                                                ).toFixed(2)}
+                                              </span>
+                                            )}
+                                            {Number(
+                                              it.complaintExpenseTotal || 0,
+                                            ) > 0 && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-orange-200 text-orange-900 font-semibold">
+                                                  Items total:{" "}
                                                   {getCurrencySymbol(currency)}
                                                   {Number(
-                                                    cx.totalAmount || 0,
+                                                    it.complaintExpenseTotal || 0,
                                                   ).toFixed(2)}
                                                 </span>
-                                              ),
-                                            )}
-                                          {Number(it.expenseTotal || 0) > 0 && (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-amber-200 text-amber-900 font-semibold">
-                                              Manual total:{" "}
-                                              {getCurrencySymbol(currency)}
-                                              {Number(
-                                                it.expenseTotal || 0,
-                                              ).toFixed(2)}
-                                            </span>
-                                          )}
-                                          {Number(
-                                            it.complaintExpenseTotal || 0,
-                                          ) > 0 && (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-orange-200 text-orange-900 font-semibold">
-                                              Items total:{" "}
-                                              {getCurrencySymbol(currency)}
-                                              {Number(
-                                                it.complaintExpenseTotal || 0,
-                                              ).toFixed(2)}
-                                            </span>
-                                          )}
+                                              )}
+                                          </div>
                                         </div>
-                                      </div>
-                                    )}
+                                      )}
                                     {/* Commission base amount summary */}
                                     <div className="mt-1 flex flex-wrap items-center gap-1">
                                       {Number(it.commissionBaseAmount || 0) >
                                         0 && (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-semibold text-teal-700 bg-teal-50 border border-teal-200">
-                                          Comm Base:{" "}
-                                          {getCurrencySymbol(currency)}
-                                          {Number(
-                                            it.commissionBaseAmount || 0,
-                                          ).toFixed(2)}
-                                        </span>
-                                      )}
-                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200">
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-semibold text-teal-700 dark:text-white bg-teal-50 border border-teal-200">
+                                            Comm Base:{" "}
+                                            {getCurrencySymbol(currency)}
+                                            {Number(
+                                              it.commissionBaseAmount || 0,
+                                            ).toFixed(2)}
+                                          </span>
+                                        )}
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-semibold text-emerald-700 dark:text-white bg-emerald-50 border border-emerald-200">
                                         Final Comm:{" "}
                                         {getCurrencySymbol(currency)}
                                         {Number(
                                           it.finalCommissionAmount ||
-                                            it.commissionAmount ||
-                                            0,
+                                          it.commissionAmount ||
+                                          0,
                                         ).toFixed(2)}{" "}
                                         ({Number(it.commissionPercent || 0)}%)
                                       </span>
@@ -1447,7 +1445,7 @@ function ClinicCommissionPage() {
                                           </button>
                                         ) : (
                                           <div className="rounded-md border border-violet-200 bg-violet-50/40 p-2 mt-1">
-                                            <div className="text-[9px] font-semibold text-violet-800 mb-1.5">
+                                            <div className="text-[9px] font-semibold text-violet-800 dark:text-white mb-1.5">
                                               Add Expenses
                                             </div>
                                             {newExpenses.map((exp, idx) => (
@@ -1464,10 +1462,10 @@ function ClinicCommissionPage() {
                                                       prev.map((x, i) =>
                                                         i === idx
                                                           ? {
-                                                              ...x,
-                                                              name: e.target
-                                                                .value,
-                                                            }
+                                                            ...x,
+                                                            name: e.target
+                                                              .value,
+                                                          }
                                                           : x,
                                                       ),
                                                     )
@@ -1484,10 +1482,10 @@ function ClinicCommissionPage() {
                                                       prev.map((x, i) =>
                                                         i === idx
                                                           ? {
-                                                              ...x,
-                                                              price:
-                                                                e.target.value,
-                                                            }
+                                                            ...x,
+                                                            price:
+                                                              e.target.value,
+                                                          }
                                                           : x,
                                                       ),
                                                     )
@@ -1518,7 +1516,7 @@ function ClinicCommissionPage() {
                                                     { name: "", price: "" },
                                                   ])
                                                 }
-                                                className="px-2 py-1 text-[9px] rounded-md border border-violet-300 text-violet-700 hover:bg-violet-100"
+                                                className="px-2 py-1 text-[9px] rounded-md border border-violet-300 text-violet-700 dark:text-black hover:bg-violet-100"
                                               >
                                                 + Add Row
                                               </button>
@@ -1589,7 +1587,7 @@ function ClinicCommissionPage() {
                                               </span>
                                             )}
                                             {showPackage && (
-                                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-blue-100 text-blue-700">
+                                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[8px] bg-blue-100 dark:text-black text-blue-700">
                                                 Package assigned
                                               </span>
                                             )}
@@ -1615,7 +1613,7 @@ function ClinicCommissionPage() {
                                                 .displayMemberships,
                                             )
                                               ? patientInfoMap[it.patientId]
-                                                  .displayMemberships
+                                                .displayMemberships
                                               : [];
                                             const filtered = list.filter(
                                               (m) =>
@@ -1638,13 +1636,13 @@ function ClinicCommissionPage() {
                                                   m?.name || "Membership";
                                                 const start = mItem.startDate
                                                   ? new Date(
-                                                      mItem.startDate,
-                                                    ).toLocaleDateString()
+                                                    mItem.startDate,
+                                                  ).toLocaleDateString()
                                                   : "-";
                                                 const end = mItem.endDate
                                                   ? new Date(
-                                                      mItem.endDate,
-                                                    ).toLocaleDateString()
+                                                    mItem.endDate,
+                                                  ).toLocaleDateString()
                                                   : "-";
                                                 const usageMap =
                                                   patientInfoMap[it.patientId]
@@ -1685,7 +1683,7 @@ function ClinicCommissionPage() {
                                                     (t) =>
                                                       t.type === "in" &&
                                                       String(t.membershipId) ===
-                                                        String(mId),
+                                                      String(mId),
                                                   );
                                                 const memKey = `${mId}|${start}|${end}`;
                                                 const isOpen =
@@ -1753,8 +1751,8 @@ function ClinicCommissionPage() {
                                                             {typeof m.benefits
                                                               .discountPercentage ===
                                                               "number" &&
-                                                            m.benefits
-                                                              .discountPercentage >
+                                                              m.benefits
+                                                                .discountPercentage >
                                                               0 ? (
                                                               <span className="inline-flex px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-[11px]">
                                                                 Discount{" "}
@@ -1784,7 +1782,7 @@ function ClinicCommissionPage() {
                                                 .packageUsage,
                                             )
                                               ? patientInfoMap[it.patientId]
-                                                  .packageUsage
+                                                .packageUsage
                                               : [];
                                             const usageList = usage.filter(
                                               (pkg) => pkg && pkg.packageName,
@@ -1794,18 +1792,18 @@ function ClinicCommissionPage() {
                                                 (pkg, idx) => {
                                                   const totalUsed =
                                                     typeof pkg.totalSessions ===
-                                                    "number"
+                                                      "number"
                                                       ? pkg.totalSessions
                                                       : Array.isArray(
-                                                            pkg.treatments,
-                                                          )
+                                                        pkg.treatments,
+                                                      )
                                                         ? pkg.treatments.reduce(
-                                                            (s, t) =>
-                                                              s +
-                                                              (t.totalUsedSessions ||
-                                                                0),
-                                                            0,
-                                                          )
+                                                          (s, t) =>
+                                                            s +
+                                                            (t.totalUsedSessions ||
+                                                              0),
+                                                          0,
+                                                        )
                                                         : 0;
                                                   const inTransferred =
                                                     !!pkg.isTransferred;
@@ -1817,7 +1815,7 @@ function ClinicCommissionPage() {
                                                       key={`pkg-usage-${idx}`}
                                                       className="rounded-md border border-blue-200 bg-blue-50/40 p-2"
                                                     >
-                                                      <div className="text-[11px] font-semibold text-blue-800 mb-1">
+                                                      <div className="text-[11px] font-semibold text-blue-800 dark:text-black mb-1">
                                                         Package
                                                       </div>
                                                       <div className="flex flex-wrap items-center gap-2">
@@ -1839,7 +1837,7 @@ function ClinicCommissionPage() {
                                                               }),
                                                             )
                                                           }
-                                                          className="ml-auto inline-flex px-2 py-0.5 rounded-md bg-white border border-blue-200 text-[11px] text-blue-700 hover:bg-blue-100"
+                                                          className="ml-auto inline-flex px-2 py-0.5 rounded-md  border border-blue-200 text-[11px] text-blue-700 dark:text-white "
                                                         >
                                                           {isOpen
                                                             ? "Hide treatments"
@@ -1857,7 +1855,7 @@ function ClinicCommissionPage() {
                                                           pkg.treatments,
                                                         ) &&
                                                         pkg.treatments.length >
-                                                          0 && (
+                                                        0 && (
                                                           <div className="mt-2 rounded-md bg-white border border-blue-100 p-2">
                                                             <div className="text-[11px] text-gray-700 font-medium mb-1">
                                                               Treatments
@@ -1936,7 +1934,7 @@ function ClinicCommissionPage() {
                                                     (t) =>
                                                       t.type === "in" &&
                                                       String(t.packageId) ===
-                                                        String(pid),
+                                                      String(pid),
                                                   );
                                                 const pkgKey = `id:${pid}`;
                                                 const isOpen =
@@ -1968,7 +1966,7 @@ function ClinicCommissionPage() {
                                                             }),
                                                           )
                                                         }
-                                                        className="ml-auto inline-flex px-2 py-0.5 rounded-md bg-white border border-blue-200 text-[11px] text-blue-700 hover:bg-blue-100"
+                                                        className="ml-auto inline-flex px-2 py-0.5 rounded-md bg-white border dark:text-white border-blue-200 text-[11px] text-blue-700 hover:bg-blue-100"
                                                       >
                                                         {isOpen
                                                           ? "Hide treatments"
@@ -1980,7 +1978,7 @@ function ClinicCommissionPage() {
                                                         pkgDef?.treatments,
                                                       ) &&
                                                       pkgDef.treatments.length >
-                                                        0 && (
+                                                      0 && (
                                                         <div className="mt-2 rounded-md bg-white border border-blue-100 p-2">
                                                           <div className="text-[11px] text-gray-700 font-medium mb-1">
                                                             Treatments

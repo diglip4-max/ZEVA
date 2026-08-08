@@ -15,11 +15,13 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
+  Ban,
 } from "lucide-react";
 import Loader from "../../components/Loader";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
+import BlockSlotModal from "../../components/BlockSlotModal";
 import { toast, Toaster } from "react-hot-toast";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 
@@ -146,6 +148,18 @@ interface Appointment {
       slug: string;
     }>;
   }>;
+}
+
+interface BlockedSlotEntry {
+  _id: string;
+  doctorId: string | null;
+  roomId: string | null;
+  startDate: string;
+  fromTime: string;
+  toTime: string;
+  reason?: string;
+  isActive: boolean;
+  blockedByName?: string | null;
 }
 
 // Helper: convert "HH:MM AM/PM" 12-hour string to "HH:MM" 24-hour string
@@ -313,6 +327,24 @@ function generateTimeSlots(startTime: string, endTime: string): TimeSlot[] {
   return slots;
 }
 
+// Helper to decide if we should display the reason text in the middle of a blocked range of slots
+function shouldShowBlockReason(
+  block: BlockedSlotEntry,
+  currentSlotTime: string,
+  slots: TimeSlot[]
+): boolean {
+  if (!slots || slots.length === 0) return false;
+  const bFrom = timeStringToMinutes(block.fromTime);
+  const bTo = timeStringToMinutes(block.toTime);
+  const activeSlots = slots.filter((s) => {
+    const sMin = timeStringToMinutes(s.time);
+    return sMin < bTo && (sMin + ROW_INTERVAL_MINUTES) > bFrom;
+  });
+  if (activeSlots.length === 0) return false;
+  const midIdx = Math.floor(activeSlots.length / 2);
+  return activeSlots[midIdx].time === currentSlotTime;
+}
+
 // Format time for display
 function formatTime(time24: string): string {
   const [hour, min] = time24.split(":").map(Number);
@@ -436,6 +468,28 @@ function AppointmentPage({
     selectedDate: new Date().toISOString().split("T")[0],
     bookedFrom: "doctor",
   });
+
+  // Block / Unblock slot state
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlotEntry[]>([]);
+  const [blockedSlotsLoading, setBlockedSlotsLoading] =
+    useState<boolean>(false);
+  const [blockSlotModal, setBlockSlotModal] = useState<{
+    isOpen: boolean;
+    defaultFromTime: string;
+    defaultToTime: string;
+    defaultDoctorId: string;
+    defaultRoomId: string;
+  }>({
+    isOpen: false,
+    defaultFromTime: "",
+    defaultToTime: "",
+    defaultDoctorId: "",
+    defaultRoomId: "",
+  });
+  const [unblockConfirm, setUnblockConfirm] = useState<BlockedSlotEntry | null>(
+    null,
+  );
+  const [unblockLoading, setUnblockLoading] = useState<boolean>(false);
 
   // Drag selection state for time slots (doctors)
   const [timeDragSelection, setTimeDragSelection] = useState<{
@@ -1746,6 +1800,146 @@ function AppointmentPage({
       loadAppointments();
     }
   }, [selectedDate, loadAppointments]);
+
+  // Load blocked slots for the currently selected date
+  const loadBlockedSlots = useCallback(async () => {
+    if (!permissions.canRead) {
+      setBlockedSlots([]);
+      return;
+    }
+    try {
+      setBlockedSlotsLoading(true);
+      const res = await axios.get(
+        `/api/clinic/blocked-slots?date=${selectedDate}`,
+        { headers: getAuthHeaders() },
+      );
+      if (res.data.success) {
+        setBlockedSlots(res.data.blockedSlots || []);
+      } else {
+        // Silent: keep existing state on error
+        setBlockedSlots([]);
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 403) {
+        // Permission issue - clear the list quietly
+        setBlockedSlots([]);
+      } else {
+        // Other errors are also silent to avoid noisy toasts
+        setBlockedSlots([]);
+      }
+    } finally {
+      setBlockedSlotsLoading(false);
+    }
+  }, [selectedDate, routeContext, permissions.canRead, getAuthHeaders]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      loadBlockedSlots();
+    }
+  }, [selectedDate, loadBlockedSlots]);
+
+  // Helper: check whether a given (doctorId, roomId, sub-slot start, sub-slot end) is currently blocked
+  const getBlockingForCell = (
+    doctorId: string | null,
+    roomId: string | null,
+    subStartMinutes: number,
+    subEndMinutes: number,
+  ): BlockedSlotEntry | null => {
+    if (!blockedSlots || blockedSlots.length === 0) return null;
+    for (const b of blockedSlots) {
+      if (!b.isActive) continue;
+      // Block must reference either this doctor or this room
+      const doctorMatch = b.doctorId && doctorId && b.doctorId === doctorId;
+      const roomMatch = b.roomId && roomId && b.roomId === roomId;
+      if (!doctorMatch && !roomMatch) continue;
+      const bFrom = timeStringToMinutes(b.fromTime);
+      const bTo = timeStringToMinutes(b.toTime);
+      // Overlap test
+      if (subStartMinutes < bTo && subEndMinutes > bFrom) {
+        return b;
+      }
+    }
+    return null;
+  };
+
+  // Get the full blocked range (in minutes) that intersects with the given row,
+  // for a specific doctor or room. Used to render the overlay exactly once per row.
+  const getRowBlockedSegments = (
+    doctorId: string | null,
+    roomId: string | null,
+    rowStartMinutes: number,
+    rowEndMinutes: number,
+  ): Array<{
+    block: BlockedSlotEntry;
+    fromMinutes: number;
+    toMinutes: number;
+  }> => {
+    if (!blockedSlots || blockedSlots.length === 0) return [];
+    const segments: Array<{
+      block: BlockedSlotEntry;
+      fromMinutes: number;
+      toMinutes: number;
+    }> = [];
+    for (const b of blockedSlots) {
+      if (!b.isActive) continue;
+      const doctorMatch = b.doctorId && doctorId && b.doctorId === doctorId;
+      const roomMatch = b.roomId && roomId && b.roomId === roomId;
+      if (!doctorMatch && !roomMatch) continue;
+      const bFrom = timeStringToMinutes(b.fromTime);
+      const bTo = timeStringToMinutes(b.toTime);
+      const from = Math.max(bFrom, rowStartMinutes);
+      const to = Math.min(bTo, rowEndMinutes);
+      if (to > from) {
+        segments.push({ block: b, fromMinutes: from, toMinutes: to });
+      }
+    }
+    return segments;
+  };
+
+  // Handlers
+  const openBlockSlotModal = (opts?: {
+    fromTime?: string;
+    toTime?: string;
+    doctorId?: string;
+    roomId?: string;
+  }) => {
+    if (!permissions.canCreate) {
+      showErrorToast("You do not have permission to block time slots");
+      return;
+    }
+    setBlockSlotModal({
+      isOpen: true,
+      defaultFromTime: opts?.fromTime || "",
+      defaultToTime: opts?.toTime || "",
+      defaultDoctorId: opts?.doctorId || "",
+      defaultRoomId: opts?.roomId || "",
+    });
+  };
+
+  const handleUnblock = async (block: BlockedSlotEntry) => {
+    setUnblockLoading(true);
+    try {
+      const res = await axios.patch(
+        `/api/clinic/blocked-slots/${block._id}`,
+        { action: "unblock" },
+        { headers: getAuthHeaders() },
+      );
+      if (res.data.success) {
+        toast.success("Time slot unblocked", { duration: 2000 });
+        setUnblockConfirm(null);
+        await loadBlockedSlots();
+      } else {
+        toast.error(res.data.message || "Failed to unblock slot");
+      }
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || "Failed to unblock slot",
+      );
+    } finally {
+      setUnblockLoading(false);
+    }
+  };
 
   // Update appointment function
   const updateAppointment = useCallback(
@@ -3807,11 +4001,34 @@ function AppointmentPage({
                         )}
                     </button>
                   </div>
+                  {/* Block Slot Option */}
+                  {permissions.canCreate && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => openBlockSlotModal()}
+                        className="inline-flex items-center gap-1 rounded border border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-100 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-800 hover:bg-red-100 dark:hover:bg-red-200 transition-colors focus:outline-none focus:ring-1 focus:ring-red-500"
+                        title="Block time slots so no new appointments can be booked"
+                      >
+                        {blockedSlotsLoading ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Ban className="w-3 h-3" />
+                        )}
+                        Block Slot
+                        {blockedSlots.length > 0 && (
+                          <span className="ml-1 text-[10px] bg-red-200 text-red-800 rounded-full px-1.5">
+                            {blockedSlots.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
               <div
-                className="border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50"
+                className="relative z-10 border border-gray-200 dark:border-gray-300 rounded bg-white dark:bg-gray-50"
                 style={{ maxHeight: "75vh" }}
               >
                 {/* Unified grid container with single scroll */}
@@ -4123,6 +4340,15 @@ function AppointmentPage({
                                               currentMinutes) &&
                                           slotWithinClosing;
 
+                                        // Check if this sub-slot is blocked
+                                        const blockingEntry = getBlockingForCell(
+                                          doctor._id,
+                                          null,
+                                          subStartMinutes,
+                                          subEndMinutes,
+                                        );
+                                        const isBlocked = !!blockingEntry;
+
                                         const isSelected =
                                           isInSelection &&
                                           isSlotInSelection(
@@ -4144,15 +4370,19 @@ function AppointmentPage({
                                                 ? "bg-green-200 dark:bg-green-200 border-l-2 border-green-500 dark:border-green-600"
                                                 : isSelected
                                                   ? "bg-blue-200 dark:bg-blue-200 border-l-2 border-blue-500 dark:border-blue-600 cursor-crosshair"
-                                                  : canBookSlot
-                                                    ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-100 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
-                                                    : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                                  : isBlocked
+                                                    ? "bg-red-100 dark:bg-red-200 border-l-2 border-red-500 dark:border-red-600 cursor-not-allowed"
+                                                    : canBookSlot
+                                                      ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-100 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
+                                                      : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
                                             }`}
                                             style={{
                                               height: SUB_SLOT_HEIGHT_PX,
                                             }}
                                             title={
-                                              draggedAppointmentId
+                                              isBlocked
+                                                ? `Blocked${blockingEntry?.reason ? `: ${blockingEntry.reason}` : ""}${blockingEntry?.blockedByName ? ` (by ${blockingEntry.blockedByName})` : ""}`
+                                                : draggedAppointmentId
                                                 ? `Drop appointment here to move to ${minutesToDisplay(subStartMinutes)}`
                                                 : canBookSlot
                                                   ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
@@ -4166,7 +4396,8 @@ function AppointmentPage({
                                               if (
                                                 permissions.canUpdate &&
                                                 draggedAppointmentId &&
-                                                canBookSlot
+                                                canBookSlot &&
+                                                !isBlocked
                                               ) {
                                                 handleTimeSlotDragOver(
                                                   e,
@@ -4180,7 +4411,8 @@ function AppointmentPage({
                                               if (
                                                 permissions.canUpdate &&
                                                 draggedAppointmentId &&
-                                                canBookSlot
+                                                canBookSlot &&
+                                                !isBlocked
                                               ) {
                                                 handleTimeSlotDrop(
                                                   e,
@@ -4193,7 +4425,8 @@ function AppointmentPage({
                                             onMouseDown={(e) => {
                                               if (
                                                 canBookSlot &&
-                                                !draggedAppointmentId
+                                                !draggedAppointmentId &&
+                                                !isBlocked
                                               ) {
                                                 handleTimeSlotMouseDown(
                                                   e,
@@ -4214,11 +4447,17 @@ function AppointmentPage({
                                                 currentMinutes,
                                                 isToday,
                                                 isPastDay,
+                                                isBlocked,
                                               });
                                               if (!permissions.canCreate) {
                                                 showErrorToast(
                                                   "You do not have permission to book appointments",
                                                 );
+                                                return;
+                                              }
+                                              // If this sub-slot is blocked, offer unblock instead of booking
+                                              if (isBlocked && blockingEntry) {
+                                                setUnblockConfirm(blockingEntry);
                                                 return;
                                               }
                                               if (!canBookSlot) {
@@ -4261,6 +4500,70 @@ function AppointmentPage({
                                       },
                                     )}
                                   </div>
+
+                                  {/* Blocked slot overlay (doctor) */}
+                                  {permissions.canRead &&
+                                    getRowBlockedSegments(
+                                      doctor._id,
+                                      null,
+                                      rowStartMinutes,
+                                      rowStartMinutes + ROW_INTERVAL_MINUTES,
+                                    ).map((seg) => {
+                                      const fromOffset =
+                                        seg.fromMinutes - rowStartMinutes;
+                                      const toOffset =
+                                        seg.toMinutes - rowStartMinutes;
+                                      const topPx =
+                                        (fromOffset / ROW_INTERVAL_MINUTES) *
+                                        ROW_HEIGHT_PX;
+                                      const heightPx = Math.max(
+                                        ((toOffset - fromOffset) /
+                                          ROW_INTERVAL_MINUTES) *
+                                          ROW_HEIGHT_PX -
+                                          2,
+                                        6,
+                                      );
+                                      return (
+                                        <div
+                                          key={`block-${seg.block._id}-${slot.time}-${doctor._id}`}
+                                          className="absolute left-0.5 right-0.5 border border-red-500/70 bg-red-200/40 dark:bg-red-300/30 rounded-sm flex items-center px-1.5 py-0.5 pointer-events-auto cursor-pointer hover:bg-red-200/60 dark:hover:bg-red-300/50 transition-colors"
+                                          style={{
+                                            top: `${topPx + 1}px`,
+                                            height: `${heightPx}px`,
+                                            zIndex: 11,
+                                          }}
+                                          title={
+                                            seg.block.reason
+                                              ? `Blocked: ${seg.block.reason}` +
+                                                (seg.block.blockedByName
+                                                  ? ` (by ${seg.block.blockedByName})`
+                                                  : "")
+                                              : seg.block.blockedByName
+                                                ? `Blocked by ${seg.block.blockedByName}`
+                                                : "Blocked"
+                                          }
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setUnblockConfirm(seg.block);
+                                          }}
+                                        >
+                                          {shouldShowBlockReason(
+                                            seg.block,
+                                            slot.time,
+                                            timeSlots,
+                                          ) && (
+                                            <div className="flex items-center gap-1 min-w-0">
+                                              <Ban className="w-3 h-3 text-red-700 dark:text-red-800 flex-shrink-0" />
+                                              <span className="text-[10px] font-semibold text-red-800 dark:text-red-900 truncate">
+                                                {seg.block.reason
+                                                  ? seg.block.reason
+                                                  : "Blocked"}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
 
                                   {permissions.canRead &&
                                   rowAppointments.length > 0
@@ -4455,6 +4758,15 @@ function AppointmentPage({
                                               currentMinutes) &&
                                           slotWithinClosing;
 
+                                        // Check if this sub-slot is blocked
+                                        const blockingEntry = getBlockingForCell(
+                                          null,
+                                          room._id,
+                                          subStartMinutes,
+                                          subEndMinutes,
+                                        );
+                                        const isBlocked = !!blockingEntry;
+
                                         const isSelected =
                                           isInRoomSelection &&
                                           isRoomSlotInSelection(
@@ -4469,28 +4781,33 @@ function AppointmentPage({
                                             className={`flex-1 transition-all ${
                                               isSelected
                                                 ? "bg-emerald-200 dark:bg-emerald-200 border-l-2 border-emerald-500 dark:border-emerald-600 cursor-crosshair"
-                                                : canBookSlot
-                                                  ? "cursor-crosshair hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
-                                                  : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                                : isBlocked
+                                                  ? "bg-red-100 dark:bg-red-200 border-l-2 border-red-500 dark:border-red-600 cursor-not-allowed"
+                                                  : canBookSlot
+                                                    ? "cursor-crosshair hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
+                                                    : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
                                             }`}
                                             style={{
                                               height: SUB_SLOT_HEIGHT_PX,
                                             }}
                                             title={
-                                              !permissions.canCreate
-                                                ? "You do not have permission to book appointments"
-                                                : canBookSlot
-                                                  ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
-                                                  : isPastDay
-                                                    ? "Cannot book appointments for past dates"
-                                                    : slotWithinClosing
-                                                      ? "Cannot book past time slots"
-                                                      : "Cannot book beyond clinic closing time"
+                                              isBlocked
+                                                ? `Blocked${blockingEntry?.reason ? `: ${blockingEntry.reason}` : ""}${blockingEntry?.blockedByName ? ` (by ${blockingEntry.blockedByName})` : ""}`
+                                                : !permissions.canCreate
+                                                  ? "You do not have permission to book appointments"
+                                                  : canBookSlot
+                                                    ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
+                                                    : isPastDay
+                                                      ? "Cannot book appointments for past dates"
+                                                      : slotWithinClosing
+                                                        ? "Cannot book past time slots"
+                                                        : "Cannot book beyond clinic closing time"
                                             }
                                             onMouseDown={(e) => {
                                               if (
                                                 canBookSlot &&
-                                                !draggedAppointmentId
+                                                !draggedAppointmentId &&
+                                                !isBlocked
                                               ) {
                                                 handleRoomSlotMouseDown(
                                                   e,
@@ -4503,7 +4820,8 @@ function AppointmentPage({
                                               if (
                                                 permissions.canUpdate &&
                                                 draggedAppointmentId &&
-                                                canBookSlot
+                                                canBookSlot &&
+                                                !isBlocked
                                               ) {
                                                 handleRoomTimeSlotDragOver(
                                                   e,
@@ -4517,7 +4835,8 @@ function AppointmentPage({
                                               if (
                                                 permissions.canUpdate &&
                                                 draggedAppointmentId &&
-                                                canBookSlot
+                                                canBookSlot &&
+                                                !isBlocked
                                               ) {
                                                 handleTimeSlotDrop(
                                                   e,
@@ -4541,12 +4860,18 @@ function AppointmentPage({
                                                   currentMinutes,
                                                   isToday,
                                                   isPastDay,
+                                                  isBlocked,
                                                 },
                                               );
                                               if (!permissions.canCreate) {
                                                 showErrorToast(
                                                   "You do not have permission to book appointments",
                                                 );
+                                                return;
+                                              }
+                                              // If this sub-slot is blocked, offer unblock instead of booking
+                                              if (isBlocked && blockingEntry) {
+                                                setUnblockConfirm(blockingEntry);
                                                 return;
                                               }
                                               if (!canBookSlot) {
@@ -4589,6 +4914,70 @@ function AppointmentPage({
                                       },
                                     )}
                                   </div>
+
+                                  {/* Blocked slot overlay (room) */}
+                                  {permissions.canRead &&
+                                    getRowBlockedSegments(
+                                      null,
+                                      room._id,
+                                      rowStartMinutes,
+                                      rowStartMinutes + ROW_INTERVAL_MINUTES,
+                                    ).map((seg) => {
+                                      const fromOffset =
+                                        seg.fromMinutes - rowStartMinutes;
+                                      const toOffset =
+                                        seg.toMinutes - rowStartMinutes;
+                                      const topPx =
+                                        (fromOffset / ROW_INTERVAL_MINUTES) *
+                                        ROW_HEIGHT_PX;
+                                      const heightPx = Math.max(
+                                        ((toOffset - fromOffset) /
+                                          ROW_INTERVAL_MINUTES) *
+                                          ROW_HEIGHT_PX -
+                                          2,
+                                        6,
+                                      );
+                                      return (
+                                        <div
+                                          key={`block-${seg.block._id}-${slot.time}-${room._id}`}
+                                          className="absolute left-0.5 right-0.5 border border-red-500/70 bg-red-200/40 dark:bg-red-300/30 rounded-sm flex items-center px-1.5 py-0.5 pointer-events-auto cursor-pointer hover:bg-red-200/60 dark:hover:bg-red-300/50 transition-colors"
+                                          style={{
+                                            top: `${topPx + 1}px`,
+                                            height: `${heightPx}px`,
+                                            zIndex: 11,
+                                          }}
+                                          title={
+                                            seg.block.reason
+                                              ? `Blocked: ${seg.block.reason}` +
+                                                (seg.block.blockedByName
+                                                  ? ` (by ${seg.block.blockedByName})`
+                                                  : "")
+                                              : seg.block.blockedByName
+                                                ? `Blocked by ${seg.block.blockedByName}`
+                                                : "Blocked"
+                                          }
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setUnblockConfirm(seg.block);
+                                          }}
+                                        >
+                                          {shouldShowBlockReason(
+                                            seg.block,
+                                            slot.time,
+                                            timeSlots,
+                                          ) && (
+                                            <div className="flex items-center gap-1 min-w-0">
+                                              <Ban className="w-3 h-3 text-red-700 dark:text-red-800 flex-shrink-0" />
+                                              <span className="text-[10px] font-semibold text-red-800 dark:text-red-900 truncate">
+                                                {seg.block.reason
+                                                  ? seg.block.reason
+                                                  : "Blocked"}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
 
                                   {permissions.canRead &&
                                   roomAppointments.length > 0
@@ -5016,6 +5405,126 @@ function AppointmentPage({
           getAuthHeaders={getAuthHeaders}
         />
 
+        {/* Block Slot Modal */}
+        {permissions.canCreate && (
+          <BlockSlotModal
+            isOpen={blockSlotModal.isOpen}
+            onClose={() => setBlockSlotModal({ ...blockSlotModal, isOpen: false })}
+            onSuccess={() => {
+              loadBlockedSlots();
+            }}
+            defaultDate={selectedDate}
+            defaultFromTime={blockSlotModal.defaultFromTime}
+            defaultToTime={blockSlotModal.defaultToTime}
+            defaultDoctorId={blockSlotModal.defaultDoctorId}
+            defaultRoomId={blockSlotModal.defaultRoomId}
+            doctorStaff={doctorStaff}
+            rooms={rooms}
+            getAuthHeaders={getAuthHeaders}
+          />
+        )}
+
+        {/* Unblock confirmation popover */}
+        {unblockConfirm && (
+          <ModalPortal>
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[10000] p-4"
+              onClick={() => !unblockLoading && setUnblockConfirm(null)}
+            >
+              <div
+                className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-4 sm:p-5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                    <Ban className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold text-gray-900">
+                      Unblock Time Slot
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Restore booking for this time range.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setUnblockConfirm(null)}
+                    disabled={unblockLoading}
+                    className="p-1 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                    type="button"
+                    aria-label="Close"
+                  >
+                    <X className="w-4 h-4 text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 mb-3 text-xs space-y-1">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-500">Date</span>
+                    <span className="font-medium text-gray-900">
+                      {(() => {
+                        const raw = unblockConfirm.startDate;
+                        if (!raw) return selectedDate;
+                        const d = new Date(raw);
+                        if (Number.isNaN(d.getTime())) return String(raw);
+                        return d.toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        });
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-500">Time</span>
+                    <span className="font-medium text-gray-900">
+                      {unblockConfirm.fromTime} - {unblockConfirm.toTime}
+                    </span>
+                  </div>
+                  {unblockConfirm.reason && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-500">Reason</span>
+                      <span className="font-medium text-gray-900 text-right max-w-[60%] truncate">
+                        {unblockConfirm.reason}
+                      </span>
+                    </div>
+                  )}
+                  {unblockConfirm.blockedByName && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-500">Blocked by</span>
+                      <span className="font-medium text-gray-900">
+                        {unblockConfirm.blockedByName}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setUnblockConfirm(null)}
+                    disabled={unblockLoading}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUnblock(unblockConfirm)}
+                    disabled={unblockLoading}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    {unblockLoading && (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    )}
+                    Unblock
+                  </button>
+                </div>
+              </div>
+            </div>
+          </ModalPortal>
+        )}
+
         {activeDoctorTooltip && (
           <div
             className="fixed z-[80] w-[180px] max-w-[85vw] -translate-x-1/2"
@@ -5209,9 +5718,9 @@ function AppointmentPage({
                   const currentUserRole = getUserInfo().role;
                   const shouldShowContact = currentUserRole !== "agent" && currentUserRole !== "doctorStaff";
                   const hasContactInfo = hoveredAppointment.appointment.patientEmail || hoveredAppointment.appointment.patientMobileNumber;
-                  
+                 
                   if (!shouldShowContact || !hasContactInfo) return null;
-                  
+                 
                   return (
                     <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
                       {hoveredAppointment.appointment.patientMobileNumber && (

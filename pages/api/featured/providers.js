@@ -11,9 +11,11 @@ const normalizeImageUrl = (imagePath) => {
   // Normalize slashes first (Windows paths)
   imagePath = String(imagePath).replace(/\\/g, "/");
 
+  const isWindowsDrivePath = (str) => /(?:^|[^A-Za-z])[A-Za-z]:[\\/]/.test(str);
+
   // Handle malformed URLs like "http://localhost:3000C:/Users/..."
-  if (imagePath.includes("localhost") && /[A-Za-z]:/.test(imagePath)) {
-    const driveMatch = imagePath.match(/([A-Za-z]:.*)/);
+  if (imagePath.includes("localhost") && isWindowsDrivePath(imagePath)) {
+    const driveMatch = imagePath.match(/(?:^|[^A-Za-z])([A-Za-z]:.*)/);
     if (driveMatch) imagePath = driveMatch[1];
   }
 
@@ -28,7 +30,7 @@ const normalizeImageUrl = (imagePath) => {
   }
 
   // Windows absolute path => extract "/uploads/..." if present
-  if (/^[A-Za-z]:/.test(imagePath)) {
+  if (isWindowsDrivePath(imagePath)) {
     const uploadsIndex = imagePath.indexOf("/uploads/");
     if (uploadsIndex !== -1) {
       return imagePath.substring(uploadsIndex).replace(/\/+/g, "/");

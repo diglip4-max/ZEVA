@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Eye, Edit, Trash2, Power, PowerOff, X, Building2, MapPin, Clock, Briefcase, GraduationCap, Users, DollarSign, Calendar, FileText} from 'lucide-react';
+import { Eye, Edit, Trash2, Power, PowerOff, X, Building2, MapPin, Clock, Briefcase, GraduationCap, Users, Calendar, FileText } from 'lucide-react';
 import JobPostingForm, { JobFormData } from './JobPostingForm';
 import { getCurrencySymbol } from '@/lib/currencyHelper';
 
@@ -121,7 +121,7 @@ const getStatusConfig = (status: string) => {
   }
 };
 
-const JobManagement: React.FC<JobManagementProps> = ({ 
+const JobManagement: React.FC<JobManagementProps> = ({
   config = {
     title: 'My Job Posts',
     subtitle: 'Manage your job postings and track applications',
@@ -200,12 +200,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
         headers: { Authorization: `Bearer ${token}` },
         validateStatus: (status) => status === 200 || status === 403,
       });
-      
+
       if (res.status === 403) {
         setJobs([]);
         return;
       }
-      
+
       setJobs(res.data.jobs);
     } catch (error) {
       console.error('Error fetching jobs:', error);
@@ -262,7 +262,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
     document.body.removeChild(link);
     toast.success("Jobs exported successfully");
   };
-  
+
   void exportJobsToCSV;
 
   // Get unique departments and job types for filters
@@ -282,9 +282,9 @@ const JobManagement: React.FC<JobManagementProps> = ({
       const matchesSearch = job.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (job.companyName && job.companyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (job.department && job.department.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      const matchesStatus = statusFilter === 'all' || 
-        (statusFilter === 'active' && job.isActive) || 
+
+      const matchesStatus = statusFilter === 'all' ||
+        (statusFilter === 'active' && job.isActive) ||
         (statusFilter === 'inactive' && !job.isActive) ||
         (statusFilter === 'pending' && job.status === 'pending') ||
         (statusFilter === 'approved' && job.status === 'approved') ||
@@ -344,13 +344,13 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
   const executeAction = async (): Promise<void> => {
     if (!confirmAction) return;
-    
+
     const token = getAuthToken();
     if (!token) {
       toast.error("Authentication token not found. Please log in again.");
       return;
     }
-    
+
     try {
       if (confirmAction.type === 'toggle') {
         await axios.patch('/api/job-postings/toggle', {
@@ -366,7 +366,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
         });
         toast.success('Job deleted successfully');
       }
-      
+
       fetchJobs();
       setShowConfirmModal(false);
       setConfirmAction(null);
@@ -430,29 +430,27 @@ const JobManagement: React.FC<JobManagementProps> = ({
   // Confirmation Modal Component
   const ConfirmationModal: React.FC = () => (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
         onClick={cancelAction}
       />
-      
+
       <div className="fixed inset-x-4 top-1/2 transform -translate-y-1/2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[400px] z-50">
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-          
-          <div className={`px-6 py-4 ${
-            confirmAction?.action === 'delete' 
-              ? 'bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200' 
-              : confirmAction?.action === 'activate'
+
+          <div className={`px-6 py-4 ${confirmAction?.action === 'delete'
+            ? 'bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200'
+            : confirmAction?.action === 'activate'
               ? 'bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200'
               : 'bg-gradient-to-r from-orange-50 to-orange-100 border-b border-orange-200'
-          }`}>
+            }`}>
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
-                confirmAction?.action === 'delete' 
-                  ? 'bg-red-500' 
-                  : confirmAction?.action === 'activate'
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${confirmAction?.action === 'delete'
+                ? 'bg-red-500'
+                : confirmAction?.action === 'activate'
                   ? 'bg-green-500'
                   : 'bg-orange-500'
-              }`}>
+                }`}>
                 {confirmAction?.action === 'delete' ? (
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16" />
@@ -469,24 +467,23 @@ const JobManagement: React.FC<JobManagementProps> = ({
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-900">
-                  {confirmAction?.action === 'delete' 
-                    ? 'Delete Job Posting' 
+                  {confirmAction?.action === 'delete'
+                    ? 'Delete Job Posting'
                     : confirmAction?.action === 'activate'
-                    ? 'Activate Job Posting'
-                    : 'Deactivate Job Posting'}
+                      ? 'Activate Job Posting'
+                      : 'Deactivate Job Posting'}
                 </h3>
-                <p className={`text-sm ${
-                  confirmAction?.action === 'delete' 
-                    ? 'text-red-700' 
-                    : confirmAction?.action === 'activate'
+                <p className={`text-sm ${confirmAction?.action === 'delete'
+                  ? 'text-red-700'
+                  : confirmAction?.action === 'activate'
                     ? 'text-green-700'
                     : 'text-orange-700'
-                }`}>
-                  {confirmAction?.action === 'delete' 
-                    ? 'This action cannot be undone' 
+                  }`}>
+                  {confirmAction?.action === 'delete'
+                    ? 'This action cannot be undone'
                     : confirmAction?.action === 'activate'
-                    ? 'Job will be visible to candidates'
-                    : 'Job will be hidden from candidates'}
+                      ? 'Job will be visible to candidates'
+                      : 'Job will be hidden from candidates'}
                 </p>
               </div>
             </div>
@@ -511,19 +508,18 @@ const JobManagement: React.FC<JobManagementProps> = ({
               </button>
               <button
                 onClick={executeAction}
-                className={`px-6 py-2 rounded-xl font-medium transition-all duration-200 ${
-                  confirmAction?.action === 'delete'
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : confirmAction?.action === 'activate'
+                className={`px-6 py-2 rounded-xl font-medium transition-all duration-200 ${confirmAction?.action === 'delete'
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : confirmAction?.action === 'activate'
                     ? 'bg-green-600 hover:bg-green-700 text-white'
                     : 'bg-orange-600 hover:bg-orange-700 text-white'
-                }`}
+                  }`}
               >
-                {confirmAction?.action === 'delete' 
-                  ? 'Delete Job' 
+                {confirmAction?.action === 'delete'
+                  ? 'Delete Job'
                   : confirmAction?.action === 'activate'
-                  ? 'Activate Job'
-                  : 'Deactivate Job'}
+                    ? 'Activate Job'
+                    : 'Deactivate Job'}
               </button>
             </div>
           </div>
@@ -574,7 +570,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
   return (
     <div className="bg-gray-50 p-1 sm:p-2">
       <div className="w-full">
-        
+
         {/* Header - Compact */}
         <div className="mb-4 sm:mb-4">
           <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
@@ -701,18 +697,17 @@ const JobManagement: React.FC<JobManagementProps> = ({
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-[9px] sm:text-[10px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
-                      showFilters 
-                        ? 'bg-gray-900 text-white' 
-                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                    }`}
+                    className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-[9px] sm:text-[10px] font-medium transition-all duration-200 flex items-center gap-1.5 ${showFilters
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                      }`}
                   >
                     <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                     </svg>
                     Filters
                   </button>
-                  
+
                   <button
                     onClick={clearAllFilters}
                     className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-all duration-200 text-[9px] sm:text-[10px] font-medium flex items-center gap-1.5"
@@ -722,7 +717,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     </svg>
                     Clear
                   </button>
-                  
+
                   {/* <button
                     onClick={exportJobsToCSV}
                     className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-all duration-200 text-[9px] sm:text-[10px] font-medium flex items-center gap-1.5"
@@ -812,7 +807,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   Showing {filteredAndSortedJobs.length} of {jobs.length} jobs
                   {searchTerm && ` matching "${searchTerm}"`}
                 </div>
-                
+
                 {/* Active Filters Tags */}
                 <div className="flex flex-wrap gap-2">
                   {searchTerm && (
@@ -879,12 +874,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
               </h3>
               <p className="text-[9px] sm:text-[10px] text-gray-700 mb-4 max-w-md mx-auto">
                 {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all'
-                  ? 'Try adjusting your search criteria or filters to find what you\'re looking for.' 
+                  ? 'Try adjusting your search criteria or filters to find what you\'re looking for.'
                   : config.emptyStateDescription
                 }
               </p>
               {(!searchTerm && statusFilter === 'all' && selectedDepartment === 'all' && selectedJobType === 'all') && (
-                <button 
+                <button
                   className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors text-[9px] sm:text-[10px] font-medium shadow-sm"
                 >
                   {config.emptyStateButtonText}
@@ -897,13 +892,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
               return (
                 <div key={job._id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
                   <div className="p-2 sm:p-3">
-                    
+
                     {/* Job Header - Compact */}
                     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2 sm:gap-3">
                       <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md flex items-center justify-center shadow-sm flex-shrink-0 ${
-                          job.isActive ? statusConfig.bg : 'bg-gray-100'
-                        }`}>
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md flex items-center justify-center shadow-sm flex-shrink-0 ${job.isActive ? statusConfig.bg : 'bg-gray-100'
+                          }`}>
                           <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${job.isActive ? statusConfig.text.replace('text-', 'text-').replace('-800', '-600') : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-8 0V6a2 2 0 00-2 2v6.001" />
                           </svg>
@@ -920,7 +914,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           <p className="font-medium text-[9px] sm:text-[10px] text-gray-700 truncate">
                             {job.companyName || job.clinicName || job.hospitalName}
                           </p>
-                          
+
                           {/* Job Details - Compact */}
                           <div className="flex flex-wrap gap-1.5 mt-1.5 text-[8px] sm:text-[9px] text-gray-700">
                             {job.department && (
@@ -955,19 +949,18 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Status and Action Buttons - Compact Header Style */}
                       <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
                         {/* Active/Inactive Badge */}
-                        <div className={`px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-semibold flex items-center gap-0.5 ${
-                          job.isActive 
-                            ? 'bg-emerald-100 text-emerald-800' 
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
+                        <div className={`px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-semibold flex items-center gap-0.5 ${job.isActive
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-gray-100 text-gray-800'
+                          }`}>
                           <div className={`w-1.5 h-1.5 rounded-full ${job.isActive ? 'bg-emerald-600' : 'bg-gray-600'}`}></div>
                           {job.isActive ? 'Active' : 'Inactive'}
                         </div>
-                        
+
                         {/* Action Buttons - Compact Header Style */}
                         <button
                           onClick={() => setPreviewJob(job)}
@@ -993,13 +986,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
                             <button
                               onClick={() => handleToggleJob(job._id, job.isActive, job.jobTitle)}
                               disabled={job.status !== 'approved'}
-                              className={`px-1.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium transition-all duration-200 flex items-center gap-0.5 ${
-                                job.status !== 'approved'
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : job.isActive 
-                                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                              className={`px-1.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium transition-all duration-200 flex items-center gap-0.5 ${job.status !== 'approved'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : job.isActive
+                                  ? 'bg-orange-500 text-white hover:bg-orange-600'
                                   : 'bg-green-500 text-white hover:bg-green-600'
-                              }`}
+                                }`}
                               title={job.status !== 'approved' ? 'Only approved jobs can be activated/deactivated' : ''}
                             >
                               {job.isActive ? <PowerOff className="w-2.5 h-2.5" /> : <Power className="w-2.5 h-2.5" />}
@@ -1031,7 +1023,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                         </div>
                       </div>
                     )}
-                    
+
                     {job.status === 'declined' && (
                       <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
                         <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px]">
@@ -1051,7 +1043,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </summary>
-                      
+
                       <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-700">
                         {/* Main details grid - 4 columns on large screens */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
@@ -1063,13 +1055,13 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           <div><strong>Job Timing:</strong> {job.jobTiming || 'N/A'}</div>
                           <div><strong>No. of Openings:</strong> {job.noOfOpenings !== undefined ? job.noOfOpenings : 'N/A'}</div>
                           <div><strong>Establishment:</strong> {job.establishment || 'N/A'}</div>
-                           <div><strong>Experience:</strong> {job.experience || 'N/A'}</div>
+                          <div><strong>Experience:</strong> {job.experience || 'N/A'}</div>
                           <div><strong>Created:</strong> {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'N/A'}</div>
-                          
+
                           {/* Skills Row */}
                           {job.skills && job.skills.length > 0 && (
                             <div className="sm:col-span-2 lg:col-span-4">
-                              <strong>Skills:</strong> 
+                              <strong>Skills:</strong>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {job.skills.map((skill, index) => (
                                   <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
@@ -1079,11 +1071,11 @@ const JobManagement: React.FC<JobManagementProps> = ({
                               </div>
                             </div>
                           )}
-                          
+
                           {/* Perks Row */}
                           {job.perks && job.perks.length > 0 && (
                             <div className="sm:col-span-2 lg:col-span-4">
-                              <strong>Perks:</strong> 
+                              <strong>Perks:</strong>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {job.perks.map((perk, index) => (
                                   <span key={index} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
@@ -1093,11 +1085,11 @@ const JobManagement: React.FC<JobManagementProps> = ({
                               </div>
                             </div>
                           )}
-                          
+
                           {/* Languages Row */}
                           {job.languagesPreferred && job.languagesPreferred.length > 0 && (
                             <div className="sm:col-span-2 lg:col-span-4">
-                              <strong>Languages:</strong> 
+                              <strong>Languages:</strong>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {job.languagesPreferred.map((lang, index) => (
                                   <span key={index} className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
@@ -1107,7 +1099,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                               </div>
                             </div>
                           )}
-                          
+
                           {/* Description Row */}
                           {job.description && (
                             <div className="sm:col-span-2 lg:col-span-4 border-t border-gray-200 pt-3 mt-2">
@@ -1190,7 +1182,9 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   )}
                   {previewJob.salary && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold shadow-sm">
-                      <DollarSign className="w-3.5 h-3.5" />
+                      <span className="w-3.5 h-3.5" >
+                        {getCurrencySymbol(currency)}
+                      </span>
                       {formatSalary(previewJob.salary, currency)}
                     </span>
                   )}
@@ -1321,7 +1315,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                       </div>
                       Job Description
                     </h4>
-                    <div 
+                    <div
                       className="text-gray-700 text-sm leading-relaxed p-5 bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 shadow-inner"
                       dangerouslySetInnerHTML={{ __html: previewJob.description }}
                     />

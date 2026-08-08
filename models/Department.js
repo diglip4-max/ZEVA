@@ -18,6 +18,10 @@ const DepartmentSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
@@ -25,5 +29,10 @@ const DepartmentSchema = new mongoose.Schema(
 // Ensure unique department names per clinic
 DepartmentSchema.index({ clinicId: 1, name: 1 }, { unique: true });
 
-export default mongoose.models.Department || mongoose.model("Department", DepartmentSchema);
+// Prevent caching of model schema in Next.js development hot-reloading
+if (mongoose.models.Department) {
+  delete mongoose.models.Department;
+}
+
+export default mongoose.model("Department", DepartmentSchema);
 

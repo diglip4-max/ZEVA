@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { AlertTriangle, X } from "lucide-react";
@@ -60,7 +60,7 @@ const DeleteConsumptionModal: React.FC<Props> = ({
             <p className="text-gray-700 mb-2">
               Are you sure you want to delete this material consumption record?
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-text-muted">
               <strong>MC No:</strong> {mcNo}
             </p>
             <p className="text-sm text-red-600 font-medium mt-2">

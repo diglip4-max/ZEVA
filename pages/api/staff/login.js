@@ -44,6 +44,7 @@ export default async function handler(req, res) {
       name: user.name,
       email: user.email,
       role: user.role,
+      photo: user.photo,
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET); // expires in 7 days
@@ -61,7 +62,7 @@ export default async function handler(req, res) {
       message: "Login successful",
       token,
       tokenKey: user.role === "agent" ? "agentToken" : "userToken",
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, photo: user.photo },
     });
 
   } catch (err) {

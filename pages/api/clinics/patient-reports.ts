@@ -307,14 +307,14 @@ export default async function handler(
       }));
 
     // 4. Top Patients (VIP) - Based on billing revenue from Billing model (date-aware)
-    console.log('💰 Found', billings.length, 'billing records');
-    console.log('📅 Billing date filter applied:', billingDateFilter);
+    // console.log('💰 Found', billings.length, 'billing records');
+    // console.log('📅 Billing date filter applied:', billingDateFilter);
     // Log first 5 billings for verification
     if (billings.length > 0) {
-      console.log('📄 Sample billings:');
-      billings.slice(0, 5).forEach(b =>
-        console.log('-', b.invoiceNumber, '|', (b.invoicedDate || b.createdAt), '| Paid:', b.paid)
-      );
+      // console.log('📄 Sample billings:');
+      // billings.slice(0, 5).forEach(b =>
+      //   console.log('-', b.invoiceNumber, '|', (b.invoicedDate || b.createdAt), '| Paid:', b.paid)
+      // );
     }
 
     // Group billings by patient and calculate total revenue and count

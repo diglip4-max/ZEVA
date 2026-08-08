@@ -18,6 +18,8 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
     canApprove: false,
     canPrint: false,
     canExport: false,
+    canAdvance: false,
+    canCopy: false,
     canAll: false
   });
   const [loading, setLoading] = useState(true);
@@ -39,6 +41,7 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
           canApprove: false,
           canPrint: false,
           canExport: false,
+          canAdvance: false,
           canAll: false
         });
         setLoading(false);
@@ -72,18 +75,11 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
 
         if (data.success && data.permissions) {
           const moduleActions = data.permissions.actions || {};
+          // customActions is at the module level (same level as actions), not inside actions
+          const moduleCustomActions = data.permissions.customActions || {};
           
           // Debug: Log the raw API response
-          console.log('Raw API Response for', moduleKey, ':', {
-            success: data.success,
-            permissions: data.permissions,
-            module: data.permissions.module,
-            actions: moduleActions,
-            deleteValue: moduleActions.delete,
-            deleteType: typeof moduleActions.delete,
-            allValue: moduleActions.all,
-            allType: typeof moduleActions.all
-          });
+         
           
           // Verify moduleKey matches (with or without prefix)
           const storedModule = data.permissions.module || '';
@@ -106,8 +102,19 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
             
             if (subModule) {
               const subActions = subModule.actions || {};
+              // customActions at module and submodule levels
+              const subCustomActions = subModule.customActions || {};
               // Module-level "all" grants all submodule permissions
               const moduleAll = moduleActions.all === true;
+              // If advance is explicitly set in customActions, it overrides "all"
+              const hasModuleAdvance = 'advance' in moduleCustomActions;
+              const hasSubAdvance = 'advance' in subCustomActions;
+              const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : moduleAll;
+              const subAdvanceVal = hasSubAdvance ? subCustomActions.advance === true : (moduleAll || subActions.all === true);
+              const hasModuleCopy = 'copy' in moduleCustomActions;
+              const hasSubCopy = 'copy' in subCustomActions;
+              const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : moduleAll;
+              const subCopyVal = hasSubCopy ? subCustomActions.copy === true : (moduleAll || subActions.all === true);
               
               setPermissions({
                 canCreate: moduleAll || moduleActions.create === true || subActions.create === true || subActions.all === true,
@@ -117,10 +124,17 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
                 canApprove: moduleAll || moduleActions.approve === true || subActions.approve === true || subActions.all === true,
                 canPrint: moduleAll || moduleActions.print === true || subActions.print === true || subActions.all === true,
                 canExport: moduleAll || moduleActions.export === true || subActions.export === true || subActions.all === true,
-                canAll: moduleAll || subActions.all === true
+                canAdvance: hasSubAdvance ? subAdvanceVal : moduleAdvanceVal,
+                canAll: moduleAll || subActions.all === true,
+                canCopy: hasSubCopy ? subCopyVal : moduleCopyVal,
               });
             } else {
               // Submodule not found, use module-level permissions
+              // If advance is explicitly set in customActions, it overrides "all"
+              const hasModuleAdvance = 'advance' in moduleCustomActions;
+              const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : moduleActions.all === true;
+              const hasModuleCopy = 'copy' in moduleCustomActions;
+const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : moduleActions.all === true;
               setPermissions({
                 canCreate: moduleActions.all === true || moduleActions.create === true,
                 canRead: moduleActions.all === true || moduleActions.read === true,
@@ -129,12 +143,16 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
                 canApprove: moduleActions.all === true || moduleActions.approve === true,
                 canPrint: moduleActions.all === true || moduleActions.print === true,
                 canExport: moduleActions.all === true || moduleActions.export === true,
+                canAdvance: moduleAdvanceVal,
+                canCopy: moduleCopyVal,
                 canAll: moduleActions.all === true
               });
             }
           } else {
             // Module-level permissions only
-            // IMPORTANT: Explicitly check for true values only - if delete is false or undefined, set canDelete to false
+            // If advance is explicitly set in customActions, it overrides "all"
+            const hasModuleAdvance = 'advance' in moduleCustomActions;
+            const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : moduleActions.all === true;
             const parsedPermissions = {
               canCreate: moduleActions.all === true || moduleActions.create === true,
               canRead: moduleActions.all === true || moduleActions.read === true,
@@ -143,6 +161,7 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
               canApprove: moduleActions.all === true || moduleActions.approve === true,
               canPrint: moduleActions.all === true || moduleActions.print === true,
               canExport: moduleActions.all === true || moduleActions.export === true,
+              canAdvance: moduleAdvanceVal,
               canAll: moduleActions.all === true
             };
             
@@ -155,6 +174,7 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
               canApprove: Boolean(parsedPermissions.canApprove),
               canPrint: Boolean(parsedPermissions.canPrint),
               canExport: Boolean(parsedPermissions.canExport),
+              canAdvance: Boolean(parsedPermissions.canAdvance),
               canAll: Boolean(parsedPermissions.canAll)
             };
             
@@ -186,6 +206,7 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
             canApprove: false,
             canPrint: false,
             canExport: false,
+            canAdvance: false,
             canAll: false
           });
         }
@@ -200,6 +221,7 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
           canApprove: false,
           canPrint: false,
           canExport: false,
+          canAdvance: false,
           canAll: false
         });
       } finally {

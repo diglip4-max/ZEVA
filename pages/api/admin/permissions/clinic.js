@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { checkAgentPermission } from "../../agent/permissions-helper";
 import ClinicNavigationItem from "../../../../models/ClinicNavigationItem";
+import { MODULE_CUSTOM_ACTIONS } from "../../../../config/actionRegistry";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -275,10 +276,12 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Invalid role provided" });
       }
 
-      // Note: Clinic role permissions can now be managed.
-      // If you want clinic to have full access by default, ensure permissions are set accordingly.
-
-      // console.log('Received clinic permission request:', { clinicId, role: normalizedRole, permissions });
+      // DEBUG: Log raw incoming permissions for patient registration
+      const incomingPatientReg = permissions.find(
+        (p) => p.module === "clinic_patient_registration"
+      );
+      console.log("[POST STEP 1] Incoming patient_registration customActions:", JSON.stringify(incomingPatientReg?.customActions));
+      console.log("[POST STEP 1] Incoming patient_registration full:", JSON.stringify(incomingPatientReg, null, 2));
 
       if (!clinicId || !permissions) {
         return res.status(400).json({
@@ -321,6 +324,24 @@ export default async function handler(req, res) {
           }
         }
 
+        // Validate module-level custom actions against the registry
+        if (permission.customActions && typeof permission.customActions === "object") {
+          for (const actionKey of Object.keys(permission.customActions)) {
+            if (typeof permission.customActions[actionKey] !== "boolean") {
+              return res.status(400).json({
+                success: false,
+                message: `Custom action '${actionKey}' must be a boolean`,
+              });
+            }
+            if (!MODULE_CUSTOM_ACTIONS[permission.module]?.some((a) => a.key === actionKey)) {
+              return res.status(400).json({
+                success: false,
+                message: `Custom action '${actionKey}' is not registered for module '${permission.module}'`,
+              });
+            }
+          }
+        }
+
         // Validate sub-modules if present
         if (permission.subModules && Array.isArray(permission.subModules)) {
           for (const subModule of permission.subModules) {
@@ -343,6 +364,24 @@ export default async function handler(req, res) {
                   success: false,
                   message: `Sub-module action '${action}' must be a boolean`,
                 });
+              }
+            }
+
+            // Validate submodule-level custom actions against the registry
+            if (subModule.customActions && typeof subModule.customActions === "object") {
+              for (const actionKey of Object.keys(subModule.customActions)) {
+                if (typeof subModule.customActions[actionKey] !== "boolean") {
+                  return res.status(400).json({
+                    success: false,
+                    message: `Sub-module custom action '${actionKey}' must be a boolean`,
+                  });
+                }
+                if (!MODULE_CUSTOM_ACTIONS[permission.module]?.some((a) => a.key === actionKey)) {
+                  return res.status(400).json({
+                    success: false,
+                    message: `Sub-module custom action '${actionKey}' is not registered for module '${permission.module}'`,
+                  });
+                }
               }
             }
           }
@@ -398,7 +437,6 @@ export default async function handler(req, res) {
               (item) =>
                 item.path === subModule.path || item.name === subModule.name,
             );
-            console.log({ findModule, findSubModule });
             return {
               ...subModule,
               icon: findSubModule?.icon || "",
@@ -408,25 +446,126 @@ export default async function handler(req, res) {
         };
       });
 
-      // Create or update clinic permissions
-      const clinicPermission = await ClinicPermission.findOneAndUpdate(
-        { clinicId, role: normalizedRole },
-        {
+      // DEBUG: Log updatedPermissions for patient registration
+      const updatedPatientReg = updatedPermissions.find(
+        (p) => p.module === "clinic_patient_registration"
+      );
+      console.log("[POST STEP 2] updatedPermissions patient_registration customActions:", JSON.stringify(updatedPatientReg?.customActions));
+
+      // Use findOne + save() instead of findOneAndUpdate to properly
+      // handle Mongoose Map fields (customActions). findOneAndUpdate
+      // does not reliably cast plain objects to Maps in nested subdocs.
+      let clinicPermission = await ClinicPermission.findOne({
+        clinicId,
+        role: normalizedRole,
+      });
+
+      if (!clinicPermission) {
+        clinicPermission = new ClinicPermission({
           clinicId,
           role: normalizedRole,
-          permissions: updatedPermissions,
           grantedBy: adminObjectId,
-          lastModified: new Date(),
           isActive: true,
+        });
+      }
+
+      // Build the permissions subdocument array — Step 1: assign WITHOUT customActions.
+      // This lets Mongoose create proper subdocuments with their own Map instances.
+      const builtPermissions = updatedPermissions.map((p) => ({
+        module: p.module,
+        actions: {
+          all: Boolean(p.actions.all),
+          create: Boolean(p.actions.create),
+          read: Boolean(p.actions.read),
+          update: Boolean(p.actions.update),
+          delete: Boolean(p.actions.delete),
+          import: Boolean(p.actions.import),
+          export: Boolean(p.actions.export),
         },
-        {
-          new: true,
-          upsert: true,
-          setDefaultsOnInsert: true,
-          runValidators: true,
-          context: "query",
-        },
+        subModules: (p.subModules || []).map((sub) => ({
+          name: sub.name,
+          path: sub.path || "",
+          icon: sub.icon || "",
+          order: sub.order || 0,
+          moduleKey: sub.moduleKey || "",
+          actions: {
+            all: Boolean(sub.actions.all),
+            create: Boolean(sub.actions.create),
+            read: Boolean(sub.actions.read),
+            update: Boolean(sub.actions.update),
+            delete: Boolean(sub.actions.delete),
+            import: Boolean(sub.actions.import),
+            export: Boolean(sub.actions.export),
+          },
+        })),
+      }));
+
+      clinicPermission.permissions = builtPermissions;
+
+      // Step 2: Set customActions on the ACTUAL Mongoose subdocuments
+      // using .set() on their real Map instances. Assigning plain objects with
+      // Map instances doesn't persist — Mongoose replaces them during casting.
+      updatedPermissions.forEach((p, i) => {
+        const subDoc = clinicPermission.permissions[i];
+        if (!subDoc) return;
+
+        // Ensure the Map is initialized (Mongoose may not create it from schema default)
+        if (!(subDoc.customActions instanceof Map)) {
+          subDoc.customActions = new Map();
+        }
+
+        // Module-level customActions
+        const moduleCustomActions = p.customActions || {};
+        for (const [key, val] of Object.entries(moduleCustomActions)) {
+          subDoc.customActions.set(key, Boolean(val));
+        }
+
+        // Submodule-level customActions
+        (p.subModules || []).forEach((sub, j) => {
+          const subSubDoc = subDoc.subModules?.[j];
+          if (!subSubDoc) return;
+          if (!(subSubDoc.customActions instanceof Map)) {
+            subSubDoc.customActions = new Map();
+          }
+          const subCustomActions = sub.customActions || {};
+          for (const [key, val] of Object.entries(subCustomActions)) {
+            subSubDoc.customActions.set(key, Boolean(val));
+          }
+        });
+      });
+
+      // DEBUG: Log built permissions for patient registration
+      const builtPatientReg = clinicPermission.permissions.find(
+        (p) => p.module === "clinic_patient_registration"
       );
+      console.log("[POST STEP 3] Built patient_registration customActions Map entries:", 
+        builtPatientReg?.customActions instanceof Map 
+          ? Array.from(builtPatientReg.customActions.entries()) 
+          : "NOT A MAP: " + typeof builtPatientReg?.customActions
+      );
+
+      clinicPermission.grantedBy = adminObjectId;
+      clinicPermission.lastModified = new Date();
+      clinicPermission.isActive = true;
+
+      await clinicPermission.save();
+
+      // DEBUG: Verify what was actually saved
+      const savedPatientReg = clinicPermission.permissions.find(
+        (p) => p.module === "clinic_patient_registration"
+      );
+      console.log("[POST STEP 4] After save - patient_registration customActions:", 
+        savedPatientReg?.customActions instanceof Map
+          ? JSON.stringify(Object.fromEntries(savedPatientReg.customActions))
+          : "NOT A MAP: " + JSON.stringify(savedPatientReg?.customActions)
+      );
+
+      // DEBUG: Re-fetch from DB to verify persistence
+      const verifyDoc = await ClinicPermission.findOne({ clinicId, role: normalizedRole }).lean();
+      const verifyPatientReg = verifyDoc?.permissions?.find(
+        (p) => p.module === "clinic_patient_registration"
+      );
+      console.log("[POST STEP 5] DB verify - patient_registration customActions:", JSON.stringify(verifyPatientReg?.customActions));
 
       // console.log('Clinic permission saved successfully:', clinicPermission._id);
 

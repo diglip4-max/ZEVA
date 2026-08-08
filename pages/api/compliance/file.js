@@ -70,9 +70,49 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: "Document URL missing" });
     }
 
+    // Detect MIME type from file extension
+    const getMimeType = (filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeMap = {
+        ".pdf": "application/pdf",
+        ".doc": "application/msword",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".ppt": "application/vnd.ms-powerpoint",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".xls": "application/vnd.ms-excel",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".mp4": "video/mp4",
+        ".webm": "video/webm",
+        ".ogg": "video/ogg",
+        ".mov": "video/quicktime",
+        ".avi": "video/x-msvideo",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+        ".svg": "image/svg+xml",
+        ".txt": "text/plain",
+        ".csv": "text/csv",
+      };
+      return mimeMap[ext] || "application/octet-stream";
+    };
+
+    const getFileExtFromUrl = (url) => {
+      try {
+        const urlPath = new URL(url, "http://localhost").pathname;
+        return path.extname(urlPath).toLowerCase();
+      } catch {
+        return path.extname(url).toLowerCase();
+      }
+    };
+
     const sendBuffer = async (buf) => {
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", "inline; filename=\"document.pdf\"");
+      const ext = getFileExtFromUrl(docUrl);
+      const mime = getMimeType(docUrl);
+      const safeName = `document${ext || ".pdf"}`;
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
       res.setHeader("Cache-Control", "no-store");
       return res.status(200).send(buf);
     };
@@ -117,10 +157,13 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: "Local file not found" });
     }
     const stat = fs.statSync(diskPath);
-    res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    const fileMime = getMimeType(diskPath);
+    const fileExt = path.extname(diskPath).toLowerCase();
+    const safeName = `document${fileExt || ""}`;
+    res.setHeader("Content-Type", fileMime);
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.setHeader("Content-Length", String(stat.size));
-    res.setHeader("Content-Disposition", 'inline; filename="document.pdf"');
+    res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
     const stream = fs.createReadStream(diskPath);
     stream.on("error", () => res.status(500).end());
     stream.pipe(res);

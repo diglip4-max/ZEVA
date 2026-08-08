@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, adminToken, defaultRole }) => {
   // Note: 'token' prop represents clinicToken (clinic users)
@@ -70,10 +71,11 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
     
     // Validate phone number if provided
     if (phone && phone.length !== 10) {
-      alert("Please enter a valid 10-digit phone number or leave it empty");
+      toast.error("Please enter a valid 10-digit phone number or leave it empty");
       return;
     }
     
+    const toastId = toast.loading(`Creating ${role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}...`);
     setSubmitting(true);
     try {
       const { data } = await axios.post(
@@ -82,18 +84,16 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (data?.success) {
+        toast.success(`${role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'} created successfully!`, { id: toastId });
         setName(''); setEmail(''); setPhone(''); setPassword(''); setRole(defaultRole || 'agent');
         onCreated?.();
         onClose?.();
       } else {
-        alert(data?.message || 'Failed to create user');
+        toast.error(data?.message || 'Failed to create user', { id: toastId });
       }
     } catch (err) {
-      if (err.response?.data?.message) {
-        alert(err.response.data.message);
-      } else {
-        alert('Failed to create user');
-      }
+      const errorMessage = err.response?.data?.message || 'Failed to create user';
+      toast.error(errorMessage, { id: toastId });
       console.error('Create user error:', err);
     } finally {
       setSubmitting(false);

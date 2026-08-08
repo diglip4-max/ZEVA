@@ -518,15 +518,15 @@ const CampaignsPage: NextPageWithLayout = () => {
   if (!permissions.canRead && !permissions.canCreate) {
     console.log("Rendering Access Denied - permissions:", permissions);
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Calendar className="w-8 h-8 text-yellow-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
             Access Denied
           </h3>
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
             You do not have permission to view or create campaigns. Please
             contact your administrator.
           </p>
@@ -536,15 +536,15 @@ const CampaignsPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen">
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
               Campaigns
             </h1>
-            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+            <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               Manage your communication campaigns
             </p>
           </div>
@@ -553,8 +553,10 @@ const CampaignsPage: NextPageWithLayout = () => {
               onClick={refreshCampaigns}
               disabled={isRefreshing}
               className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${
-                !isRefreshing ? "bg-white" : "bg-gray-200"
-              } border border-gray-200 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
+                !isRefreshing
+                  ? "bg-white dark:bg-gray-800"
+                  : "bg-gray-200 dark:bg-gray-700"
+              } border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
             >
               <RefreshCcw
                 className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
@@ -564,7 +566,7 @@ const CampaignsPage: NextPageWithLayout = () => {
             {permissions.canCreate && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 dark:bg-gray-700 hover:bg-gray-900 dark:hover:bg-gray-600 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
               >
                 <Plus className="h-5 w-5" />
                 Create Campaign
@@ -579,64 +581,72 @@ const CampaignsPage: NextPageWithLayout = () => {
         <>
           {/* Stats Overview */}
           <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Campaigns</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Total Campaigns
+                  </p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {formatNumber(totalCampaigns)}
                   </p>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <BarChart3 className="h-6 w-6 text-blue-600" />
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                  <BarChart3 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">WhatsApp Campaigns</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    WhatsApp Campaigns
+                  </p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {campaigns.filter((c) => c.type === "whatsapp").length}
                   </p>
                 </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <FaWhatsapp className="h-6 w-6 text-green-600" />
+                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                  <FaWhatsapp className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Email Campaigns</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Email Campaigns
+                  </p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {campaigns.filter((c) => c.type === "email").length}
                   </p>
                 </div>
-                <div className="p-3 bg-red-50 rounded-lg">
-                  <Mail className="h-6 w-6 text-red-600" />
+                <div className="p-3 bg-red-50 dark:bg-red-900/30 rounded-lg">
+                  <Mail className="h-6 w-6 text-red-600 dark:text-red-400" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">SMS Campaigns</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    SMS Campaigns
+                  </p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {campaigns.filter((c) => c.type === "sms").length}
                   </p>
                 </div>
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <MessageSquare className="h-6 w-6 text-purple-600" />
+                <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+                  <MessageSquare className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Filters and Search */}
-          <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-6 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex flex-col md:flex-row gap-4">
               {/* Search */}
               <div className="flex-1 relative">
@@ -644,20 +654,20 @@ const CampaignsPage: NextPageWithLayout = () => {
                 <input
                   type="text"
                   placeholder="Search campaigns by name, description..."
-                  className="w-full pl-10 pr-4 py-2.5 text-gray-500 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full pl-10 pr-4 py-2.5 text-gray-500 dark:text-gray-300 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-800/20 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
 
               {/* View Toggle */}
-              <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-1 rounded-lg">
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50 p-1 rounded-lg">
                 <button
                   onClick={() => setViewMode("grid")}
                   className={`p-2 rounded ${
                     viewMode === "grid"
-                      ? "bg-white shadow"
-                      : "hover:bg-gray-100"
+                      ? "bg-white dark:bg-gray-700 shadow"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                 >
                   <Grid className="h-5 w-5" />
@@ -666,8 +676,8 @@ const CampaignsPage: NextPageWithLayout = () => {
                   onClick={() => setViewMode("list")}
                   className={`p-2 rounded ${
                     viewMode === "list"
-                      ? "bg-white shadow"
-                      : "hover:bg-gray-100"
+                      ? "bg-white dark:bg-gray-700 shadow"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
                 >
                   <List className="h-5 w-5" />
@@ -678,11 +688,11 @@ const CampaignsPage: NextPageWithLayout = () => {
             <div className="flex flex-wrap gap-3 mt-4">
               {/* Type Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Channel
                 </label>
                 <select
-                  className="bg-white border border-gray-300 text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
                 >
@@ -695,11 +705,11 @@ const CampaignsPage: NextPageWithLayout = () => {
 
               {/* Status Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Status
                 </label>
                 <select
-                  className="bg-white border border-gray-300 text-gray-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                 >
@@ -729,22 +739,22 @@ const CampaignsPage: NextPageWithLayout = () => {
                 return (
                   <div
                     key={campaign._id}
-                    className="flex flex-col justify-between bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                    className="flex flex-col justify-between bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow"
                   >
                     <div>
                       {/* Campaign Header */}
-                      <div className="p-4 border-b border-gray-100">
+                      <div className="p-4 border-b border-gray-100 dark:border-gray-700">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-2">
-                            <div className="p-2 bg-gray-100 text-gray-500 border border-gray-200 rounded-lg">
+                            <div className="p-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg">
                               {getCampaignTypeIcon(campaign.type)}
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-800 truncate max-w-[180px]">
+                              <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[180px]">
                                 {campaign.name}
                               </h3>
-                              <p className="text-xs text-gray-500">
-                                {campaign.recipients?.length || 0} recipients
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {campaign.recipients.length} recipients
                               </p>
                             </div>
                           </div>
@@ -756,7 +766,7 @@ const CampaignsPage: NextPageWithLayout = () => {
                         {/* Type and Schedule */}
                         <div className="flex items-center gap-2 mt-2">
                           {getCampaignTypeBadge(campaign.type)}
-                          <span className="text-xs text-gray-500 px-2 py-1 bg-gray-50 rounded">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 bg-gray-50 dark:bg-gray-700 rounded">
                             {campaign.scheduleType === "now"
                               ? "Send Now"
                               : `Scheduled: ${campaign.scheduleTime?.date} at ${campaign.scheduleTime?.time}`}
@@ -766,26 +776,26 @@ const CampaignsPage: NextPageWithLayout = () => {
 
                       {/* Campaign Content Preview */}
                       <div className="p-4">
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-4">
                           {campaign.description || "No description"}
                         </p>
 
                         {/* Progress Bar */}
                         {campaign.status === "processing" && (
                           <div className="mb-4">
-                            <div className="flex justify-between text-xs text-gray-600 mb-1">
+                            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
                               <span>Progress</span>
                               <span>{progress}%</span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                               <div
                                 className="bg-green-600 h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {campaign.sentMessages || 0} of{" "}
-                              {campaign.totalMessages || 0} sent
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {campaign.sentMessages} of{" "}
+                              {campaign.totalMessages} sent
                             </div>
                           </div>
                         )}
@@ -793,8 +803,8 @@ const CampaignsPage: NextPageWithLayout = () => {
                         {/* Metrics */}
                         {(campaign.status === "completed" ||
                           campaign.sentMessages > 0) && (
-                          <div className="border-t border-gray-100 pt-4 mb-3">
-                            <h4 className="text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                          <div className="border-t border-gray-100 dark:border-gray-700 pt-4 mb-3">
+                            <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
                               Campaign Analytics
                             </h4>
 

@@ -1992,7 +1992,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Mobile Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-72 bg-[#F3F4F6] border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-72 bg-bg-sidebar border-r border-border-default transform transition-transform duration-300 ease-in-out lg:hidden",
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
@@ -2003,19 +2003,19 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       >
         <div className="flex flex-col h-full">
           {/* Mobile Header Section */}
-          <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
+          <div className="p-4 border-b border-border-default flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#F3F4F6] transition-all duration-200 border border-gray-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-bg-sidebar transition-all duration-200 border border-border-default">
                 <div className="w-10 h-10 bg-[#2D9AA5] rounded-lg flex items-center justify-center">
                   <span className="text-white font-medium inter-font text-lg">
                     Z
                   </span>
                 </div>
                 <div>
-                  <span className="font-medium text-base text-[#374151] block inter-font">
+                  <span className="font-medium text-base text-text-primary block inter-font">
                     ZEVA
                   </span>
-                  <span className="text-xs text-[#374151] font-medium inter-font">
+                  <span className="text-xs text-text-secondary font-medium inter-font">
                     Clinic Panel
                   </span>
                 </div>
@@ -2336,7 +2336,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={clsx(
-          "transition-all duration-300 ease-in-out bg-[#F3F4F6] border-r border-gray-200 flex-col min-h-screen w-72 hidden lg:flex",
+          "transition-all duration-300 ease-in-out bg-bg-sidebar border-r border-border-default flex-col min-h-screen w-72 hidden lg:flex",
           {
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
@@ -2347,19 +2347,19 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       >
         <div className="flex flex-col h-full">
           {/* Desktop Header Section */}
-          <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
+          <div className="p-4 border-b border-border-default flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#F3F4F6] transition-all duration-200 border border-gray-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-bg-sidebar transition-all duration-200 border border-border-default">
                 <div className="w-10 h-10 bg-[#2D9AA5] rounded-lg flex items-center justify-center">
                   <span className="text-white font-medium inter-font text-lg">
                     Z
                   </span>
                 </div>
                 <div>
-                  <span className="font-medium text-base text-[#374151] block inter-font">
+                  <span className="font-medium text-base text-text-primary block inter-font">
                     ZEVA
                   </span>
-                  <span className="text-xs text-[#374151] font-medium inter-font">
+                  <span className="text-xs text-text-secondary font-medium inter-font">
                     Clinic Panel
                   </span>
                 </div>
@@ -2369,7 +2369,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {/* Desktop Close Button */}
             <button
               onClick={handleToggleDesktop}
-              className="absolute right-4 top-4 text-[#374151] p-1.5 transition-all duration-200"
+              className="absolute right-4 top-4 text-text-secondary p-1.5 transition-all duration-200"
               aria-label="Close sidebar"
             >
               <svg
@@ -2425,7 +2425,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move mt-3 mb-1",
                             {
                               "bg-[#2D9AA5] text-white": isActive,
-                              "text-[#374151] hover:bg-gray-100": !isActive,
+                              "text-text-secondary hover:bg-bg-hover": !isActive,
                             },
                           )}
                         >
@@ -2515,7 +2515,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                       "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
                                       {
                                         "bg-[#2D9AA5] text-white": childActive,
-                                        "text-[#374151] hover:bg-gray-100":
+                                        "text-text-secondary hover:bg-bg-hover":
                                           !childActive,
                                       },
                                     )}
@@ -2528,7 +2528,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                         "flex-shrink-0 mt-0.5",
                                         childActive
                                           ? "text-white"
-                                          : "text-[#6B7280] group-hover:text-[#374151]",
+                                          : "text-text-muted group-hover:text-text-primary",
                                       )}
                                     >
                                       {renderIcon(child.icon, childActive)}
@@ -2563,7 +2563,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         "group relative block rounded-lg transition-all duration-200 cursor-move p-2.5 touch-manipulation",
                         {
                           "bg-[#2D9AA5] text-white": isActive,
-                          "hover:bg-gray-100 text-[#374151]": !isActive,
+                          "hover:bg-bg-hover text-text-secondary": !isActive,
                         },
                       )}
                       onClick={safeClick(() => {
@@ -2579,7 +2579,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
                               "text-white": isActive,
-                              "text-[#6B7280] group-hover:text-[#374151]":
+                              "text-text-muted group-hover:text-text-primary":
                                 !isActive,
                             },
                           )}
@@ -2598,7 +2598,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                               "inter-font font-medium text-sm transition-colors duration-200",
                               {
                                 "text-white": isActive,
-                                "text-[#374151]": !isActive,
+                                "text-text-secondary": !isActive,
                                 uppercase:
                                   (item.label || "").toUpperCase() ===
                                   "DASHBOARD",

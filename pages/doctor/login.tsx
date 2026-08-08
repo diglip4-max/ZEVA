@@ -81,7 +81,7 @@ export default function DoctorLoginPage() {
         name: data.doctor.name,
         email: data.doctor.email,
       };
-      
+
       setAuthData(doctorUser, data.token);
 
       setToastMessage(data.message || 'Login successful!');
@@ -134,7 +134,7 @@ export default function DoctorLoginPage() {
             <div className="flex items-center gap-3 mb-12">
               <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
                 <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 9h-4v4h-4v-4H6v-4h4V4h4v4h4v4z"/>
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 9h-4v4h-4v-4H6v-4h4V4h4v4h4v4z" />
                 </svg>
               </div>
               <div>
@@ -176,7 +176,7 @@ export default function DoctorLoginPage() {
             <div className="inline-flex items-center gap-2 mb-2">
               <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 9h-4v4h-4v-4H6v-4h4V4h4v4h4v4z"/>
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 9h-4v4h-4v-4H6v-4h4V4h4v4h4v4z" />
                 </svg>
               </div>
               <span className="text-xl font-bold text-gray-900">ZEVA Healthcare</span>

@@ -4,7 +4,7 @@ import AdminHeader from './StaffHeader';
 
 const AdminLayout = ({ children }) => {
   return (
-    <div className="flex min-h-screen bg-gray-100" role="application">
+    <div className="flex min-h-screen bg-bg-page text-text-primary" role="application">
       {/* Sidebar - StaffSidebar manages its own mobile state */}
       <div className="h-screen sticky top-0 z-50">
         <AdminSidebar />
@@ -18,10 +18,10 @@ const AdminLayout = ({ children }) => {
         </div>
 
         {/* Page Content */}
-        <main 
-          className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8" 
+        <main
+          className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8"
           role="main"
-          style={{ 
+          style={{
             overflowX: 'visible',
             minWidth: 0,
             width: '100%'

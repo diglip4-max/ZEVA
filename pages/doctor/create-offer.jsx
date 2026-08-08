@@ -6,7 +6,7 @@ import {
   Package,
   TrendingUp,
   Calendar,
-  DollarSign,
+
 } from "lucide-react";
 import CreateOfferModal from "../../components/CreateOfferModal";
 import DoctorLayout from "../../components/DoctorLayout";
@@ -28,8 +28,8 @@ const DoctorOffersPage = () => {
   const token =
     typeof window !== "undefined"
       ? localStorage.getItem("doctorToken") ||
-        sessionStorage.getItem("doctorToken") ||
-        ""
+      sessionStorage.getItem("doctorToken") ||
+      ""
       : "";
 
   const fetchPermissions = useCallback(async () => {
@@ -323,11 +323,11 @@ const DoctorOffersPage = () => {
                   Total Discount Value
                 </p>
                 <p className="text-xl font-bold text-teal-600">
-                  ₹{totalValue.toLocaleString()}
+                  {getCurrencySymbol(currency)}{totalValue.toLocaleString()}
                 </p>
               </div>
               <div className="bg-teal-100 p-2 rounded-md">
-                <DollarSign className="h-5 w-5 text-teal-600" />
+
               </div>
             </div>
           </div>
@@ -437,31 +437,29 @@ const DoctorOffersPage = () => {
                             <span className="text-[11px]">
                               {offer.endsAt
                                 ? new Date(offer.endsAt).toLocaleDateString(
-                                    "en-IN",
-                                    {
-                                      day: "numeric",
-                                      month: "short",
-                                      year: "numeric",
-                                    }
-                                  )
+                                  "en-IN",
+                                  {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  }
+                                )
                                 : "No expiry"}
                             </span>
                           </div>
                         </td>
                         <td className="px-3 py-3">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              offer.status === "active"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-200 text-gray-700"
-                            }`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${offer.status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-200 text-gray-700"
+                              }`}
                           >
                             <span
-                              className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                offer.status === "active"
-                                  ? "bg-green-500"
-                                  : "bg-gray-500"
-                              }`}
+                              className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active"
+                                ? "bg-green-500"
+                                : "bg-gray-500"
+                                }`}
                             ></span>
                             {offer.status}
                           </span>

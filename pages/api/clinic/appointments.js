@@ -5,6 +5,7 @@ import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
 import Room from "../../../models/Room"; // Import Room model to register it for population
+import BlockedSlot from "../../../models/BlockedSlot";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import { formatDoctorTreatments } from "../../../server/staff/doctorTreatmentService";
@@ -647,6 +648,73 @@ export default async function handler(req, res) {
           success: false,
           message: "Cannot book an appointment in the past. Please select a future date and time."
         });
+      }
+
+      // Validation: Check if the time slot is blocked by a "Block" status appointment
+      // If any appointment with status "Block" exists for the same doctor/room at overlapping time, reject
+      const blockScopeConditions = [];
+      if (doctorId) blockScopeConditions.push({ doctorId });
+      if (roomId) blockScopeConditions.push({ roomId });
+
+      if (blockScopeConditions.length > 0) {
+        const blockedAppointment = await Appointment.findOne({
+          clinicId,
+          status: "Block",
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+          $and: [{ $or: blockScopeConditions }],
+          $or: [
+            // Exact time match
+            { fromTime, toTime },
+            // Blocked appointment starts during new appointment time
+            { fromTime: { $gte: fromTime, $lt: toTime } },
+            // Blocked appointment ends during new appointment time
+            { toTime: { $gt: fromTime, $lte: toTime } },
+            // Blocked appointment completely encompasses new appointment time
+            { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+          ],
+        });
+
+        if (blockedAppointment) {
+          return res.status(400).json({
+            success: false,
+            message: "This time slot is blocked. Cannot book an appointment during a blocked time slot.",
+          });
+        }
+      }
+
+      // Validation: Check if the time slot is blocked via the BlockedSlot collection
+      // (new decoupled model: separate from Appointment.status enum)
+      if (blockScopeConditions.length > 0) {
+        const timeOverlapConditions = [
+          // Exact time match
+          { fromTime, toTime },
+          // Blocked range starts during new appointment time
+          { fromTime: { $gte: fromTime, $lt: toTime } },
+          // Blocked range ends during new appointment time
+          { toTime: { $gt: fromTime, $lte: toTime } },
+          // Blocked range completely encompasses new appointment time
+          { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+        ];
+
+        const blockedSlotEntry = await BlockedSlot.findOne({
+          clinicId,
+          isActive: true,
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+          $and: [
+            { $or: blockScopeConditions },
+            { $or: timeOverlapConditions },
+          ],
+        });
+
+        if (blockedSlotEntry) {
+          return res.status(400).json({
+            success: false,
+            message:
+              blockedSlotEntry.reason
+                ? `This time slot is blocked (${blockedSlotEntry.reason}). Cannot book an appointment during a blocked time slot.`
+                : "This time slot is blocked. Cannot book an appointment during a blocked time slot.",
+          });
+        }
       }
 
       // Create appointment

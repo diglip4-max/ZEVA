@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 import AddPatientAdvancePaymentModal from "@/components/patient/AddPatientAdvancePaymentModal";
 import AddPatientPastAdvancePaymentModal from "@/components/patient/AddPatientPastAdvancePaymentModal";
 import ExportButtons from "@/components/reports/ExportButtons";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -77,6 +79,7 @@ const ToastContainer = ({ toasts, removeToast }) => (
 
 // Package Usage Modal Component
 const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading, selectedPackage = null }) => {
+  const { currency } = useCurrency();
   const [expandedPackages, setExpandedPackages] = useState({});
 
   useEffect(() => {
@@ -305,18 +308,18 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
                                 {(pkg.billingHistory || [])
                                   .filter((b) => !b.isAdvanceOnly && b.treatment !== "Advance Payment" && b.treatment !== "Historical Advance Balance")
                                   .map((billing, bIndex) => (
-                                  <tr key={bIndex} className="border-b border-gray-100 last:border-0 hover:bg-white/50">
-                                    <td className="py-1.5 px-1.5 font-medium text-gray-900">{billing.invoiceNumber}</td>
-                                    <td className="py-1.5 px-1.5 text-gray-600">{new Date(billing.date).toLocaleDateString()}</td>
-                                    <td className="py-1.5 px-1.5 text-center">
-                                      <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal-100 text-teal-700 font-medium text-[9px]">
-                                        {billing.sessions || 0}
-                                      </span>
-                                    </td>
-                                    <td className="py-1.5 px-1.5 text-right font-medium text-gray-900">د.إ{billing.amount?.toLocaleString() || 0}</td>
-                                    <td className="py-1.5 px-1.5 text-right text-green-600 font-medium">د.إ{billing.paid?.toLocaleString() || 0}</td>
-                                  </tr>
-                                ))}
+                                    <tr key={bIndex} className="border-b border-gray-100 last:border-0 hover:bg-white/50">
+                                      <td className="py-1.5 px-1.5 font-medium text-gray-900">{billing.invoiceNumber}</td>
+                                      <td className="py-1.5 px-1.5 text-gray-600">{new Date(billing.date).toLocaleDateString()}</td>
+                                      <td className="py-1.5 px-1.5 text-center">
+                                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal-100 text-teal-700 font-medium text-[9px]">
+                                          {billing.sessions || 0}
+                                        </span>
+                                      </td>
+                                      <td className="py-1.5 px-1.5 text-right font-medium text-gray-900">{getCurrencySymbol(currency)}{billing.amount?.toLocaleString() || 0}</td>
+                                      <td className="py-1.5 px-1.5 text-right text-green-600 font-medium">{getCurrencySymbol(currency)}{billing.paid?.toLocaleString() || 0}</td>
+                                    </tr>
+                                  ))}
                               </tbody>
                             </table>
                           </div>
@@ -345,6 +348,7 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
 };
 
 const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {}, isDoctorStaff = false }) => {
+  const { currency } = useCurrency();
   const [balance, setBalance] = useState({
     pendingBalance: 0,
     advanceBalance: 0,
@@ -361,7 +365,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
 
   const formatAEDLocal = (v) => {
     if (typeof v !== "number" || Number.isNaN(v) || v === null) return "—";
-    try { return `د.إ${v.toLocaleString()}`; } catch { return `د.إ${v}`; }
+    try { return `${getCurrencySymbol(currency)}${v.toLocaleString()}`; } catch { return `${getCurrencySymbol(currency)}${v}`; }
   };
 
   const fetchPatientBalance = async (patientId) => {
@@ -513,27 +517,27 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
-                  <DollarSign className="w-3 h-3" />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">{getCurrencySymbol(currency)}</span>
                   {balanceLoading && balance.pendingBalance === null ? "Pending: ..." : `Pending: ${formatAEDLocal(balance.pendingBalance)}`}
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
-                  <DollarSign className="w-3 h-3" />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">{getCurrencySymbol(currency)}</span>
                   {balanceLoading && balance.advanceBalance === null ? "Advance: ..." : `Advance: ${formatAEDLocal(balance.advanceBalance)}`}
                 </span>
                 {/* <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[11px] font-semibold">
-                  <DollarSign className="w-3 h-3" />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">{getCurrencySymbol(currency)}</span>
                   {balanceLoading && balance.pastAdvanceBalance === null ? "Past Advance: ..." : `Past Advance: ${formatAEDLocal(balance.pastAdvanceBalance)}`}
                 </span> */}
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-100 text-amber-700 text-[11px] font-semibold">
-                  <DollarSign className="w-3 h-3" />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">{getCurrencySymbol(currency)}</span>
                   {balanceLoading && balance.pastAdvance50PercentBalance === null ? "Past Advance 50%: ..." : `Past Advance 50%: ${formatAEDLocal(balance.pastAdvance50PercentBalance)}`}
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-100 text-blue-700 text-[11px] font-semibold">
-                  <DollarSign className="w-3 h-3" />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">{getCurrencySymbol(currency)}</span>
                   {balanceLoading && balance.pastAdvance54PercentBalance === null ? "Past Advance 54%: ..." : `Past Advance 54%: ${formatAEDLocal(balance.pastAdvance54PercentBalance)}`}
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-100 text-purple-700 text-[11px] font-semibold">
-                  <DollarSign className="w-3 h-3" />
+                  <span className="w-3.5 h-3.5 flex items-center justify-center font-bold text-[10px]">{getCurrencySymbol(currency)}</span>
                   {balanceLoading && balance.pastAdvance159FlatBalance === null ? "Past Advance 159 Flat: ..." : `Past Advance 159 Flat: ${formatAEDLocal(balance.pastAdvance159FlatBalance)}`}
                 </span>
 
@@ -600,10 +604,10 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                   {patient.insurance === 'Yes' && patient.insuranceType === 'Advance' && (
                     <div className="space-y-2 pt-2 border-t border-gray-200 mt-2">
                       <div className="grid grid-cols-2 gap-2.5">
-                        <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Advance</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
+                        <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Advance</span> <span className="font-medium text-gray-900 text-sm">{getCurrencySymbol(currency)}{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
                         <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Co-Pay %</span> <span className="font-medium text-gray-900 text-sm">{patient.coPayPercent || 0}%</span></div>
                       </div>
-                      <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Due</span> <span className="font-medium text-gray-900 text-sm">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
+                      <div className="flex flex-col"><span className="text-[11px] font-semibold text-gray-600 mb-0.5">Due</span> <span className="font-medium text-gray-900 text-sm">{getCurrencySymbol(currency)}{patient.needToPay?.toLocaleString() || 0}</span></div>
                     </div>
                   )}
                   {patient.insurance === 'Yes' && patient.advanceClaimStatus && (
@@ -705,7 +709,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                   {plan?.price !== undefined && (
                                     <div>
                                       <span className="text-[10px] text-gray-600 block mb-0.5">Price</span>
-                                      <span className="font-bold text-gray-900 text-sm">د.إ{plan.price?.toLocaleString()}</span>
+                                      <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{plan.price?.toLocaleString()}</span>
                                     </div>
                                   )}
                                   {plan?.durationMonths && (
@@ -719,7 +723,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                 {(() => {
                                   const key = `${m.membershipId}|${m.startDate}|${m.endDate}`;
                                   const usage = membershipUsageMap[key];
-                                  
+
                                   return (
                                     <div className="space-y-3">
                                       {/* Membership Benefits Section */}
@@ -753,7 +757,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                                 {usage && !usage.isExpired && usage.totalFreeConsultations > 0 && (
                                                   <>
                                                     <div className="w-full h-2 bg-blue-200 rounded-full overflow-hidden mb-1">
-                                                      <div 
+                                                      <div
                                                         className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500"
                                                         style={{ width: `${Math.min(100, ((usage.usedFreeConsultations || 0) / usage.totalFreeConsultations) * 100)}%` }}
                                                       />
@@ -770,7 +774,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                                 )}
                                               </div>
                                             )}
-                                            
+
                                             {/* Discount Percentage */}
                                             {plan.benefits.discountPercentage > 0 && (
                                               <div className="bg-purple-50 border border-purple-200 rounded-lg p-2.5">
@@ -782,7 +786,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                                 </div>
                                               </div>
                                             )}
-                                            
+
                                             {/* Priority Booking */}
                                             {plan.benefits.priorityBooking && (
                                               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
@@ -795,7 +799,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                           </div>
                                         </div>
                                       )}
-                                      
+
                                       {/* Transfer Information */}
                                       {usage?.isTransferred && (
                                         <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3">
@@ -823,7 +827,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                           </div>
                                         </div>
                                       )}
-                                      
+
                                       {/* Usage History Details */}
                                       {usage?.freeConsultationDetails && usage.freeConsultationDetails.length > 0 && (
                                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -962,11 +966,11 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                 <div className="grid grid-cols-2 gap-2.5">
                                   <div>
                                     <span className="text-[10px] text-gray-600 block mb-0.5">Package Price</span>
-                                    <span className="font-bold text-gray-900 text-sm">د.إ{pkg.price?.toLocaleString()}</span>
+                                    <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{pkg.price?.toLocaleString()}</span>
                                   </div>
                                   <div>
                                     <span className="text-[10px] text-gray-600 block mb-0.5">Total Price</span>
-                                    <span className="font-bold text-gray-900 text-sm">د.إ{(pkg.totalPrice || pkg.price)?.toLocaleString()}</span>
+                                    <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{(pkg.totalPrice || pkg.price)?.toLocaleString()}</span>
                                   </div>
                                   <div>
                                     <span className="text-[10px] text-gray-600 block mb-0.5">Total Sessions</span>
@@ -974,10 +978,10 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                   </div>
                                   <div>
                                     <span className="text-[10px] text-gray-600 block mb-0.5">Per Session</span>
-                                    <span className="font-bold text-gray-900 text-sm">د.إ{pkg.sessionPrice?.toLocaleString()}</span>
+                                    <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{pkg.sessionPrice?.toLocaleString()}</span>
                                   </div>
                                 </div>
-                                
+
                                 {/* Treatment Breakdown */}
                                 {pkg.treatments && pkg.treatments.length > 0 && (
                                   <div className="bg-white rounded-lg border border-gray-200 p-2.5">
@@ -998,7 +1002,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                     </div>
                                   </div>
                                 )}
-                                
+
                                 {/* Transfer Information for Package */}
                                 {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).length > 0 && (
                                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-2.5">
@@ -1048,11 +1052,11 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                         <span className="text-xs text-gray-700">{new Date(p.updatedAt).toLocaleString()}</span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Amount</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.amount?.toLocaleString()}</span></div>
-                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paid</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.paid?.toLocaleString()}</span></div>
-                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Advance</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.advance?.toLocaleString()}</span></div>
-                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Pending</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.pending?.toLocaleString()}</span></div>
-                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paying</span> <span className="font-bold text-gray-900 text-sm">د.إ{p.paying?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Amount</span> <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{p.amount?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paid</span> <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{p.paid?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Advance</span> <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{p.advance?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Pending</span> <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{p.pending?.toLocaleString()}</span></div>
+                        <div className="flex flex-col"><span className="text-[10px] text-gray-600">Paying</span> <span className="font-bold text-gray-900 text-sm">{getCurrencySymbol(currency)}{p.paying?.toLocaleString()}</span></div>
                         <div className="flex flex-col"><span className="text-[10px] text-gray-600">Method</span> <span className="font-medium text-gray-900 text-sm">{p.paymentMethod}</span></div>
                       </div>
                     </div>
@@ -1168,6 +1172,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true, isDoc
 
 function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true }, routeContext = "clinic" }) {
   const router = useRouter();
+  const { currency } = useCurrency();
   const isDoctorStaff = useMemo(() => getUserRole() === 'doctorStaff', []);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPreviousMemberships, setFilterPreviousMemberships] = useState("all");
@@ -1183,6 +1188,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [deleteSuccessModal, setDeleteSuccessModal] = useState({ isOpen: false, patientName: "" });
   const [packageUsageModal, setPackageUsageModal] = useState({ isOpen: false, patient: null, data: null, loading: false });
   const [membershipUsageMap, setMembershipUsageMap] = useState({});
+  const [activePatientsCount, setActivePatientsCount] = useState(0);
   const [exportPermissions, setExportPermissions] = useState({ canExport: true });
   const [exportPermissionsLoaded, setExportPermissionsLoaded] = useState(false);
   const [isClinicContext, setIsClinicContext] = useState(false);
@@ -1229,16 +1235,16 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           const normalized = p.module.startsWith("clinic_")
             ? p.module.slice(7)
             : p.module.startsWith("admin_")
-            ? p.module.slice(6)
-            : p.module;
+              ? p.module.slice(6)
+              : p.module;
           return normalized === "patient_information" || normalized === "patient_management" || normalized === "patient_registration" || normalized === "patient";
         });
 
         if (modulePermission) {
           const actions = modulePermission.actions || {};
-          const moduleAll = actions.all === true || 
-                           actions.all === "true" || 
-                           String(actions.all).toLowerCase() === "true";
+          const moduleAll = actions.all === true ||
+            actions.all === "true" ||
+            String(actions.all).toLowerCase() === "true";
 
           // Find patient related submodule
           const patientSubModule = modulePermission.subModules?.find(
@@ -1251,9 +1257,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 
           if (patientSubModule) {
             const subModuleActions = patientSubModule.actions || {};
-            const subModuleAll = subModuleActions.all === true || 
-                                subModuleActions.all === "true" || 
-                                String(subModuleActions.all).toLowerCase() === "true";
+            const subModuleAll = subModuleActions.all === true ||
+              subModuleActions.all === "true" ||
+              String(subModuleActions.all).toLowerCase() === "true";
 
             const checkExportPermission = () => {
               // Priority 1: Submodule explicit export permission
@@ -1266,10 +1272,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   return false;
                 }
               }
-              
+
               // Priority 2: Submodule all
               if (subModuleAll) return true;
-              
+
               // Priority 3: Module explicit export
               if (actions && actions.hasOwnProperty("export")) {
                 const moduleActionValue = actions["export"];
@@ -1280,10 +1286,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   return false;
                 }
               }
-              
+
               // Priority 4: Module all
               if (moduleAll) return true;
-              
+
               // Default
               return false;
             };
@@ -1292,7 +1298,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           } else {
             const checkExportPermission = () => {
               if (moduleAll) return true;
-              
+
               const moduleActionValue = actions["export"];
               if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
                 return true;
@@ -1300,7 +1306,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
                 return false;
               }
-              
+
               return false;
             };
 
@@ -1344,13 +1350,13 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       const data = res.data;
       if (data.success && data.permissions?.actions) {
         const actions = data.permissions.actions;
-        const moduleAll = actions.all === true || 
-                         actions.all === "true" || 
-                         String(actions.all).toLowerCase() === "true";
+        const moduleAll = actions.all === true ||
+          actions.all === "true" ||
+          String(actions.all).toLowerCase() === "true";
 
         const checkExportPermission = () => {
           if (moduleAll) return true;
-          
+
           const actionValue = actions["export"];
           if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
             return true;
@@ -1358,7 +1364,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
             return false;
           }
-          
+
           return false;
         };
 
@@ -1367,20 +1373,20 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         // Fallback: try with other possible module keys
         const fallbackKeys = ["patient_management", "patient_registration", "patient"];
         let foundPermission = false;
-        
+
         for (const key of fallbackKeys) {
           try {
             const fallbackRes = await axios.get("/api/agent/get-module-permissions", {
               params: { moduleKey: key },
               headers: { Authorization: `Bearer ${token}` },
             });
-            
+
             const fallbackData = fallbackRes.data;
             if (fallbackData.success && fallbackData.permissions?.actions) {
               const fallbackActions = fallbackData.permissions.actions;
-              const fallbackAll = fallbackActions.all === true || 
-                                 fallbackActions.all === "true" || 
-                                 String(fallbackActions.all).toLowerCase() === "true";
+              const fallbackAll = fallbackActions.all === true ||
+                fallbackActions.all === "true" ||
+                String(fallbackActions.all).toLowerCase() === "true";
 
               if (fallbackAll || fallbackActions.export === true || fallbackActions.export === "true" || String(fallbackActions.export).toLowerCase() === "true") {
                 setExportPermissions({ canExport: true });
@@ -1510,6 +1516,23 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       const { data } = await axios.get(apiEndpoint, { headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
+
+      // Fetch appointments to calculate active patients
+      try {
+        const { data: aptData } = await axios.get("/api/clinic/all-appointments?limit=100000", { headers });
+        if (aptData.success && aptData.appointments) {
+          const uniquePatients = new Set(
+            aptData.appointments.map(apt => apt.patientId).filter(Boolean)
+          );
+          setActivePatientsCount(uniquePatients.size);
+        } else {
+          setActivePatientsCount(0);
+        }
+      } catch (aptErr) {
+        console.error("Error fetching appointments for stats:", aptErr);
+        setActivePatientsCount(0);
+      }
+
       if (showSuccessToast) {
         addToast("Data loaded successfully", "success");
       }
@@ -1962,7 +1985,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-1">Active Patients</p>
-                  <p className="text-xl font-bold text-green-600">{activePatients}</p>
+                  <p className="text-xl font-bold text-green-600">{activePatientsCount}</p>
                 </div>
                 <div className="bg-green-100 p-2.5 rounded-md">
                   <TrendingUp className="h-5 w-5 text-green-600" />

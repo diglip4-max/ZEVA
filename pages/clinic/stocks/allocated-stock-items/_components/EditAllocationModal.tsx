@@ -312,7 +312,7 @@ const EditAllocationModal: React.FC<EditAllocationModalProps> = ({
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-blue-700">
+                  <p className="text-xs text-blue-700 dark:text-white">
                     Changes to allocated stock will be reflected immediately.
                     Make sure to verify quantity and status before updating.
                   </p>

@@ -85,6 +85,7 @@ export default async function handler(req, res) {
     // Fetch all rooms for this clinic
     const rooms = await Room.find({
       clinicId: clinicId,
+      isDeleted: { $ne: true },
     })
       .select("_id name")
       .sort({ name: 1 })

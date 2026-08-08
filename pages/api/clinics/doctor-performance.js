@@ -123,7 +123,7 @@ export default async function handler(req, res) {
         queryEndDate = dayjs(endDate).endOf('day').toDate();
       }
 
-    console.log('📅 Date Range:', { filter, queryStartDate, queryEndDate });
+    // console.log('📅 Date Range:', { filter, queryStartDate, queryEndDate });
 
       // Fetch all appointments with doctor details
       const apptQuery = { clinicId, status: { $nin: ['Cancelled', 'Rejected'] } };

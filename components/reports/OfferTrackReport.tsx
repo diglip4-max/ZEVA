@@ -378,21 +378,21 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Invoice</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Patient</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Treatment</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Offer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Discount</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Agent Disc.</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Cashback</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Free Sessions</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Free Sessions Used</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Applied By</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Original</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Final</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Invoice</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Treatment</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Offer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Discount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Agent Disc.</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Cashback</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Free Sessions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Free Sessions Used</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Applied By</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Original</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Final</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase dark:text-gray-800">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -405,13 +405,13 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
               ) : (
                 filteredData.map((item) => (
                   <tr key={item._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-sm">{formatDate(item.invoicedDate)}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{item.invoiceNumber}</td>
-                    <td className="px-4 py-2 text-sm">{item.patientName || "-"}</td>
-                    <td className="px-4 py-2 text-sm">{item.treatment || "-"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{item.offerName || "-"}</td>
-                    <td className="px-4 py-2">{getOfferTypeBadge(item.offerType)}</td>
-                    <td className="px-4 py-2 text-sm">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{formatDate(item.invoicedDate)}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{item.invoiceNumber}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{item.patientName || "-"}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{item.treatment || "-"}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{item.offerName || "-"}</td>
+                    <td className="px-4 py-2 text-gray-900 dark:text-gray-900">{getOfferTypeBadge(item.offerType)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                       {item.offerDiscountAmount > 0 && (
                         <div>
                           {item.offerDiscountPercent > 0 && `${item.offerDiscountPercent}%`}
@@ -419,14 +419,14 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                       {item.agentDiscount && item.agentDiscount.amount > 0 && (
                         <span className="text-blue-600">
                           {item.agentDiscount.type === "percent" ? `${item.agentDiscount.amount}%` : formatCurrency(item.agentDiscount.amount)}
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-amber-600">
+                    <td className="px-4 py-2 text-sm text-amber-600 text-gray-900 dark:text-gray-900">
                       {item.cashbackEarned > 0 && (
                         <div>
                           <span className="font-medium">+{formatCurrency(item.cashbackEarned)}</span>
@@ -444,18 +444,18 @@ export default function OfferTrackReport({ startDate, endDate, headers, canUpdat
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-sm text-purple-600">
+                    <td className="px-4 py-2 text-sm text-purple-600 text-gray-900 dark:text-gray-900">
                       {item.freeSessionNames || (item.bundleSessionsAdded > 0 ? `${item.bundleSessionsAdded} sessions` : "-")}
                     </td>
-                    <td className="px-4 py-2 text-sm text-purple-600">
+                    <td className="px-4 py-2 text-sm text-purple-600 text-gray-900 dark:text-gray-900">
                       {item.usedFreeSessionNames || (item.usedFreeSessionCount && item.usedFreeSessionCount > 0 ? `${item.usedFreeSessionCount} sessions` : "-")}
                     </td>
-                    <td className="px-4 py-2 text-sm">
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                       <span className="font-medium text-teal-600">{item.offerAppliedBy || "-"}</span>
                     </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">{formatCurrency(item.originalAmount)}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(item.finalAmount)}</td>
-                    <td className="px-4 py-2 text-sm">
+                    <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-700">{formatCurrency(item.originalAmount)}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(item.finalAmount)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">
                       {canUpdate ? (
                         item.isOfferRefunded ? (
                           <span className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded font-medium">

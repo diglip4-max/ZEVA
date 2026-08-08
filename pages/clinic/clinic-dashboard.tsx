@@ -7045,45 +7045,57 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 "No Show",
                                 "Rejected",
                                 "Cancelled",
+                                "Block",
+                                "Unblock",
                               ].includes(item.name),
                             )
                             : [
-                                {
-                                  name: "Consultation",
-                                  value: dailyStats.consultation,
-                                  fill: "#eab308",
-                                },
-                                {
-                                  name: "Waiting",
-                                  value: dailyStats.waiting,
-                                  fill: "#f97316",
-                                },
-                                {
-                                  name: "Rescheduled",
-                                  value: dailyStats.rescheduled,
-                                  fill: "#a855f7",
-                                },
-                                {
-                                  name: "Discharge",
-                                  value: dailyStats.discharge,
-                                  fill: "#ec4899",
-                                },
-                                {
-                                  name: "No Show",
-                                  value: dailyStats.noshow || 0,
-                                  fill: "#6b7280",
-                                },
-                                {
-                                  name: "Rejected",
-                                  value: dailyStats.rejected,
-                                  fill: "#64748b",
-                                },
-                                {
-                                  name: "Cancelled",
-                                  value: dailyStats.cancelled,
-                                  fill: "#ef4444",
-                                },
-                              ];
+                              {
+                                name: "Consultation",
+                                value: dailyStats.consultation,
+                                fill: "#eab308",
+                              },
+                              {
+                                name: "Waiting",
+                                value: dailyStats.waiting,
+                                fill: "#f97316",
+                              },
+                              {
+                                name: "Rescheduled",
+                                value: dailyStats.rescheduled,
+                                fill: "#a855f7",
+                              },
+                              {
+                                name: "Discharge",
+                                value: dailyStats.discharge,
+                                fill: "#ec4899",
+                              },
+                              {
+                                name: "No Show",
+                                value: dailyStats.noshow || 0,
+                                fill: "#6b7280",
+                              },
+                              {
+                                name: "Rejected",
+                                value: dailyStats.rejected,
+                                fill: "#64748b",
+                              },
+                              {
+                                name: "Cancelled",
+                                value: dailyStats.cancelled,
+                                fill: "#ef4444",
+                              },
+                              {
+                                name: "Block",
+                                value: dailyStats.block || 0,
+                                fill: "#7f1d1d",
+                              },
+                              {
+                                name: "Unblock",
+                                value: dailyStats.unblock || 0,
+                                fill: "#166534",
+                              },
+                            ];
 
                         // Prepare data for line chart (remaining statuses: Booked, Enquiry, Approved, Arrived, Invoiced, Completed)
                         const lineChartData =
@@ -7099,6 +7111,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     "No Show",
                                     "Rejected",
                                     "Cancelled",
+                                    "Block",
+                                    "Unblock",
                                   ].includes(item.name),
                               )
                               .map((item) => ({
@@ -7106,52 +7120,52 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 target: Math.max(item.value * 1.2, 100), // Target is 20% higher or minimum 100
                               }))
                             : [
-                               {
-                                 name: "Booked",
-                                 value: dailyStats.booked,
-                                 target: Math.max(
-                                   dailyStats.booked * 1.2,
-                                   100,
-                                 ),
-                               },
-                               {
-                                 name: "Enquiry",
-                                 value: dailyStats.enquiry,
-                                 target: Math.max(
-                                   dailyStats.enquiry * 1.2,
-                                   100,
-                                 ),
-                               },
-                               {
-                                 name: "Approved",
-                                 value: dailyStats.approved,
-                                 target: Math.max(
-                                   dailyStats.approved * 1.2,
-                                   100,
-                                 ),
-                               },
-                               {
-                                 name: "Arrived",
-                                 value: dailyStats.arrived,
-                                 target: Math.max(
-                                   dailyStats.arrived * 1.2,
-                                   100,
-                                 ),
-                               },
-                               {
-                                 name: "Invoiced",
-                                 value: dailyStats.invoiced || 0,
-                                 target: 100,
-                               },
-                               {
-                                 name: "Completed",
-                                 value: dailyStats.completed,
-                                 target: Math.max(
-                                   dailyStats.completed * 1.2,
-                                   100,
-                                 ),
-                               },
-                             ];
+                              {
+                                name: "Booked",
+                                value: dailyStats.booked,
+                                target: Math.max(
+                                  dailyStats.booked * 1.2,
+                                  100,
+                                ),
+                              },
+                              {
+                                name: "Enquiry",
+                                value: dailyStats.enquiry,
+                                target: Math.max(
+                                  dailyStats.enquiry * 1.2,
+                                  100,
+                                ),
+                              },
+                              {
+                                name: "Approved",
+                                value: dailyStats.approved,
+                                target: Math.max(
+                                  dailyStats.approved * 1.2,
+                                  100,
+                                ),
+                              },
+                              {
+                                name: "Arrived",
+                                value: dailyStats.arrived,
+                                target: Math.max(
+                                  dailyStats.arrived * 1.2,
+                                  100,
+                                ),
+                              },
+                              {
+                                name: "Invoiced",
+                                value: dailyStats.invoiced || 0,
+                                target: 100,
+                              },
+                              {
+                                name: "Completed",
+                                value: dailyStats.completed,
+                                target: Math.max(
+                                  dailyStats.completed * 1.2,
+                                  100,
+                                ),
+                              },
+                            ];
 
                         // Calculate totals (commented out as unused)
                         // const totalBarChart = barChartData.reduce((sum, item) => sum + item.value, 0);
@@ -7384,11 +7398,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               {(patientDemographics.totalNewPatients !== undefined || patientDemographics.totalOldPatients !== undefined) && (
                                 <div className="grid grid-cols-2 gap-4 mb-6">
                                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                    <p className="text-sm font-medium text-blue-900 mb-1">New Patients</p>
+                                    <p className="text-sm font-medium text-white dark:text-teal-100 mb-1">New Patients</p>
                                     <p className="text-3xl font-bold text-blue-600">{patientDemographics.totalNewPatients || 0}</p>
                                   </div>
                                   <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                                    <p className="text-sm font-medium text-green-900 mb-1">Old Patients</p>
+                                    <p className="text-sm font-medium text-green-900 dark:text-teal-100 mb-1">Old Patients</p>
                                     <p className="text-3xl font-bold text-green-600">{patientDemographics.totalOldPatients || 0}</p>
                                   </div>
                                 </div>
@@ -9652,11 +9666,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     <div className="p-2 bg-green-500 rounded-lg">
                                       <CheckCircle2 className="w-5 h-5 text-white" />
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-700">
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-black">
                                       Active Modules
                                     </span>
                                   </div>
-                                  <span className="text-2xl font-bold text-green-700">
+                                  <span className="text-2xl font-bold text-green-700 dark:text-black">
                                     {navigationItems.length}
                                   </span>
                                 </div>
@@ -9668,7 +9682,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     }}
                                   ></div>
                                 </div>
-                                <div className="mt-2 text-xs text-gray-600">
+                                <div className="mt-2 text-xs text-gray-600 dark:text-black">
                                   {subscriptionSummary.subscriptionPercentage >
                                     0 ? (
                                     <span className="text-green-600 font-medium">
@@ -9687,11 +9701,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     <div className="p-2 bg-teal-500 rounded-lg">
                                       <Crown className="w-5 h-5 text-white" />
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-700">
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-black">
                                       Subscription
                                     </span>
                                   </div>
-                                  <span className="text-2xl font-bold text-teal-700">
+                                  <span className="text-2xl font-bold text-teal-700 dark:text-black">
                                     {subscriptionSummary.subscriptionPercentage}
                                     %
                                   </span>
@@ -9717,11 +9731,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     <div className="p-2 bg-gray-400 rounded-lg">
                                       <Lock className="w-5 h-5 text-white" />
                                     </div>
-                                    <span className="text-sm font-semibold text-gray-700">
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-black">
                                       Locked Modules
                                     </span>
                                   </div>
-                                  <span className="text-2xl font-bold text-gray-600">
+                                  <span className="text-2xl font-bold text-gray-600 dark:text-black">
                                     {subscriptionSummary.restrictedCount}
                                   </span>
                                 </div>
@@ -9733,7 +9747,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     }}
                                   ></div>
                                 </div>
-                                <div className="mt-2 text-xs text-gray-600">
+                                <div className="mt-2 text-xs text-gray-600 dark:text-black">
                                   {subscriptionSummary.restrictedCount > 0 ? (
                                     <span className="text-gray-600 font-medium">
                                       Requires upgrade
