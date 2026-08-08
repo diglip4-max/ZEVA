@@ -196,6 +196,7 @@ export default async function handler(req, res) {
       const detailItem = {
         packageName: pkg.packageName || "Unknown",
         patientName: patientName || "Unknown Patient",
+        patientId: pkg.patientId || null,
         amount: pkg.totalPrice || 0,
         paidAmount: pkg.paidAmount || 0,
         expirationDate: endDate ? endDate.toISOString() : null,

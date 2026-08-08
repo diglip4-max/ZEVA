@@ -416,12 +416,43 @@ const ManageAgentsPage = () => {
   const canUpdate = userRole === 'admin' ? true : permissions.canUpdate;
   const canDelete = userRole === 'admin' ? true : permissions.canDelete;
 
+  function computeCompletion(agent, profile) {
+    let total = 7;
+    let score = 0;
+    if (profile?.emergencyPhone) score += 1;
+    if (agent?.phone) score += 1;
+    if (profile?.idNumber && profile?.idDocumentFrontUrl && profile?.idDocumentBackUrl) score += 1;
+    if (profile?.passportNumber && profile?.passportDocumentFrontUrl && profile?.passportDocumentBackUrl) score += 1;
+    if (profile?.contractFrontUrl && profile?.contractBackUrl) score += 1;
+    if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
+    if (profile?.commissionType) score += 1;
+    return Math.round((score / total) * 100);
+  }
+
+  const updateCompletionsAndProfiles = (usersList, profilesList) => {
+    if (!usersList || !profilesList) return;
+    const updates = {};
+    const profiles = {};
+    usersList.forEach((u) => {
+      const profile = profilesList.find(p => p.userId === u._id || p.userId?.toString() === u._id.toString());
+      updates[u._id] = computeCompletion(u, profile || {});
+      profiles[u._id] = profile || {};
+    });
+    setCompletionMap((prev) => ({ ...prev, ...updates }));
+    setAgentProfiles((prev) => ({ ...prev, ...profiles }));
+  };
+
   async function loadAgents() {
     try {
       const { data } = await axios.get('/api/lead-ms/get-agents?role=agent', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (data.success) setAgents(data.agents || []);
+      if (data.success) {
+        setAgents(data.agents || []);
+        if (data.profiles) {
+          updateCompletionsAndProfiles(data.agents, data.profiles);
+        }
+      }
     } catch (err) {
       console.error(err);
       // Don't show error toast if read permission is false (access denied scenario)
@@ -441,7 +472,12 @@ const ManageAgentsPage = () => {
       const { data } = await axios.get('/api/lead-ms/get-agents?role=doctorStaff', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (data.success) setDoctorStaff(data.agents || []);
+      if (data.success) {
+        setDoctorStaff(data.agents || []);
+        if (data.profiles) {
+          updateCompletionsAndProfiles(data.agents, data.profiles);
+        }
+      }
     } catch (err) {
       console.error(err);
       // Don't show error toast if read permission is false (access denied scenario)
@@ -486,41 +522,6 @@ const ManageAgentsPage = () => {
     }
     return null;
   }
-
-  function computeCompletion(agent, profile) {
-    let total = 7;
-    let score = 0;
-    if (profile?.emergencyPhone) score += 1;
-    if (agent?.phone) score += 1;
-    if (profile?.idNumber && profile?.idDocumentFrontUrl && profile?.idDocumentBackUrl) score += 1;
-    if (profile?.passportNumber && profile?.passportDocumentFrontUrl && profile?.passportDocumentBackUrl) score += 1;
-    if (profile?.contractFrontUrl && profile?.contractBackUrl) score += 1;
-    if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
-    if (profile?.commissionType) score += 1;
-    return Math.round((score / total) * 100);
-  }
-
-  useEffect(() => {
-    async function loadCompletions() {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-      const list = activeView === "agents" ? agents : doctorStaff;
-      const updates = {};
-      const profiles = {};
-      await Promise.all(
-        list.map(async (u) => {
-          const profile = await fetchAgentProfile(u._id);
-          updates[u._id] = computeCompletion(u, profile || {});
-          profiles[u._id] = profile || {};
-        })
-      );
-      setCompletionMap((prev) => ({ ...prev, ...updates }));
-      setAgentProfiles((prev) => ({ ...prev, ...profiles }));
-    }
-    if (canRead === true && (agents.length > 0 || doctorStaff.length > 0)) {
-      loadCompletions();
-    }
-  }, [agents, doctorStaff, activeView, canRead]);
 
   async function openProfile(agent) {
     const authHeaders = getAuthHeaders();

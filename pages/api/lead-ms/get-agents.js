@@ -242,19 +242,10 @@ export default async function handler(req, res) {
       // console.log('Current User:', { role: me.role, _id: me._id.toString() });
 
       const users = await User.find(query).select('_id name email phone photo isApproved declined clinicId createdBy role');
+      const userIds = users.map(u => u._id);
+      const profiles = await AgentProfile.find({ userId: { $in: userIds } });
 
-      // Debug: Log results
-      // console.log('Found users:', users.length);
-      if (users.length > 0) {
-        // console.log('Sample user:', {
-        //   name: users[0].name,
-        //   role: users[0].role,
-        //   clinicId: users[0].clinicId?.toString(),
-        //   createdBy: users[0].createdBy?.toString()
-        // });
-      }
-
-      return res.status(200).json({ success: true, agents: users });
+      return res.status(200).json({ success: true, agents: users, profiles: profiles });
     } catch (err) {
       // console.error('Error fetching users:', err);
       return res.status(500).json({ success: false, message: 'Failed to fetch users', error: err.message });

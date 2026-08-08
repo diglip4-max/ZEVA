@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import {
   BarChart,
   Bar,
@@ -52,6 +53,7 @@ interface Props {
 }
 
 export default function PackageReport({ startDate, endDate, headers }: Props) {
+  const router = useRouter();
   const [rows, setRows] = useState<PackageRow[]>([]);
   const [topPackagesSummary, setTopPackagesSummary] = useState<any>(null);
   const [topPackagesPreviousSummary, setTopPackagesPreviousSummary] = useState<any>(null);
@@ -428,6 +430,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           data = validPackages.map((p: any) => ({
             packageName: p.packageName,
             patientName: p.patientName,
+            patientId: p.patientId,
             amount: p.totalValue || 0,
             paidAmount: p.totalPaid || 0,
             pending: p.totalPending || 0,
@@ -442,6 +445,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           data = validPackages.map((p: any) => ({
             packageName: p.packageName,
             patientName: p.patientName,
+            patientId: p.patientId,
             amount: p.totalValue || 0,
             paidAmount: p.totalPaid || 0,
             paymentStatus: p.paymentStatus || 'Unknown',
@@ -458,6 +462,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
+              patientId: p.patientId,
               amount: p.totalValue || 0,
               paidAmount: p.totalPaid || 0,
               date: p.firstPurchaseDate
@@ -472,6 +477,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
+              patientId: p.patientId,
               amount: p.totalValue || 0,
               paidAmount: p.totalPaid || 0,
               pending: p.totalPending || 0,
@@ -487,6 +493,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
+              patientId: p.patientId,
               amount: p.totalValue || 0,
               date: p.firstPurchaseDate
             }));
@@ -500,6 +507,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
+              patientId: p.patientId,
               amount: p.totalValue || 0,
               paidAmount: p.totalPaid || 0,
               pending: p.totalPending || 0,
@@ -515,6 +523,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
+              patientId: p.patientId,
               amount: p.totalValue || 0,
               date: p.firstPurchaseDate
             }));
@@ -2647,8 +2656,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Package Name</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Package Name</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Amount</th>
                         {kpiModal.data[0]?.paidAmount !== undefined && (
                           <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Paid</th>
@@ -2659,14 +2668,29 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                         {kpiModal.data[0]?.expirationDate && (
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Expiry Date</th>
                         )}
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-800">Purchase Date</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {kpiModal.data.map((item: any, idx: number) => (
                         <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">
+                            {item.patientId ? (
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/clinic/patient-profile-view?id=${item.patientId}`
+                                  )
+                                }
+                                className="text-blue-600 hover:text-blue-800 font-medium underline text-left"
+                              >
+                                {item.patientName || "Unknown"}
+                              </button>
+                            ) : (
+                              item.patientName || "N/A"
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-900">{item.packageName || 'N/A'}</td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-700">{item.patientName || 'N/A'}</td>
                           <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-gray-900">{formatCurrency(item.amount || 0)}</td>
                           {item.paidAmount !== undefined && (
                             <td className="px-4 py-3 text-sm text-right text-emerald-600 text-gray-900 dark:text-gray-900">{formatCurrency(item.paidAmount || 0)}</td>
