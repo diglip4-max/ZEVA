@@ -782,11 +782,11 @@ function PassClaimsPage() {
                         {/* Insurance Info */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Provider</p>
+                            <p className="text-[10px] text-blue-600 dark:text-teal-100 font-bold uppercase tracking-tighter">Provider</p>
                             <p className="text-xs font-semibold text-gray-900 truncate">{claim.insuranceProvider}</p>
                           </div>
                           <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Policy #</p>
+                            <p className="text-[10px] text-blue-600 font-bold dark:text-teal-100  uppercase tracking-tighter">Policy #</p>
                             <p className="text-xs font-semibold text-gray-900 truncate">{claim.policyNumber}</p>
                           </div>
                         </div>
@@ -794,11 +794,11 @@ function PassClaimsPage() {
                         {/* Claim Details */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Amount</p>
+                            <p className="text-[10px] text-emerald-600  dark:text-teal-100  font-bold uppercase tracking-tighter">Amount</p>
                             <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                           </div>
                           <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Department</p>
+                            <p className="text-[10px] text-emerald-600 dark:text-teal-100  font-bold uppercase tracking-tighter">Department</p>
                             <p className="text-xs font-semibold text-gray-900 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
                         </div>

@@ -5545,8 +5545,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               >
                                 <CheckCircle
                                   className={`w-5 h-5 ${pkgPaymentType === 'Full'
-                                      ? 'text-purple-600 dark:text-teal-100'
-                                      : 'text-gray-300 dark:text-gray-500'
+                                    ? 'text-purple-600 dark:text-teal-100'
+                                    : 'text-gray-300 dark:text-gray-500'
                                     }`}
                                 />
                                 <span className="font-bold text-[11px] dark:text-teal-100 ">Full Payment</span>
@@ -7968,8 +7968,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                           {/* Total Billed */}
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                            <div className="text-[10px] sm:text-xs text-blue-600 mb-1">Total Billed</div>
-                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800">
+                            <div className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-100 mb-1">Total Billed</div>
+                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-blue-800 dark:text-blue-100">
                               {formatAED((billingHistory || []).filter((b: any) =>
                                 (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                                 b.treatment === "Pending Balance Payment"
@@ -7978,8 +7978,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                           </div>
                           {/* Total Paid */}
                           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                            <div className="text-[10px] sm:text-xs text-green-600 mb-1">Total Paid</div>
-                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800">
+                            <div className="text-[10px] sm:text-xs text-green-600 dark:text-green-100 mb-1">Total Paid</div>
+                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-green-800 dark:text-green-100">
                               {formatAED((billingHistory || []).filter((b: any) =>
                                 (!b.isAdvanceOnly && b.treatment !== "Historical Advance Balance") ||
                                 b.treatment === "Pending Balance Payment"
@@ -7988,15 +7988,15 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                           </div>
                           {/* Outstanding */}
                           <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                            <div className="text-[10px] sm:text-xs text-red-600 mb-1">Outstanding</div>
-                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800">
+                            <div className="text-[10px] sm:text-xs text-red-600 dark:text-red-100 mb-1">Outstanding</div>
+                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-800 dark:text-red-100">
                               {formatAED(balance.pendingBalance)}
                             </div>
                           </div>
                           {/* Advance Balance */}
                           <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-center">
-                            <div className="text-[10px] sm:text-xs text-teal-600 mb-1">Advance Balance</div>
-                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-teal-800">
+                            <div className="text-[10px] sm:text-xs text-teal-600 dark:text-teal-100 mb-1">Advance Balance</div>
+                            <div className="text-lg sm:text-xl md:text-2xl font-bold text-teal-800 dark:text-teal-100">
                               {formatAED(balance.advanceBalance)}
                             </div>
                           </div>
@@ -10414,7 +10414,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               <div className="space-y-4">
                 {/* Progress Notes */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                  <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                         <TrendingUp className="w-4 h-4 text-blue-600" />
@@ -10465,7 +10465,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
                 {/* Prescriptions */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                  <div className="px-4 py-3 border-b border-gray-100 ">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
                         <Pill className="w-4 h-4 text-purple-600" />
@@ -10564,7 +10564,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               <div className="space-y-4">
                 {/* Consent Form Status */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                  <div className="px-4 py-3 border-b border-gray-100 ">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                         <ClipboardCheck className="w-4 h-4 text-green-600" />
@@ -10639,7 +10639,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
                 {/* Created Packages */}
                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+                  <div className="px-4 py-3 border-b border-gray-100 ">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
                         <Package className="w-4 h-4 text-teal-600" />

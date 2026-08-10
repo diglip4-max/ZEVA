@@ -23,10 +23,10 @@ const Conversation: React.FC<IProps> = ({
   return (
     <div
       key={conversation._id}
-      className={`p-4 border-b border-gray-100 cursor-pointer transition-all duration-200 ${
+      className={`p-4 border-b border-gray-100 dark:border-slate-700 cursor-pointer transition-all duration-200 ${
         selectedConversation?._id === conversation?._id
-          ? "bg-gray-100 border-l-4 border-l-gray-700"
-          : "hover:bg-gray-50"
+          ? "bg-gray-100 dark:bg-slate-700 border-l-4 border-l-gray-700 dark:border-l-slate-300"
+          : "hover:bg-gray-50 dark:hover:bg-slate-700/60"
       }`}
       onClick={() => setSelectedConversation(conversation)}
     >
@@ -39,13 +39,13 @@ const Conversation: React.FC<IProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start">
             <div className="flex items-center space-x-2">
-              <span className="font-semibold text-gray-800 truncate">
+              <span className="font-semibold text-gray-800 dark:text-slate-100 truncate">
                 {conversation?.leadId?.name?.length > 0
                   ? truncateText(conversation?.leadId?.name, 12)
                   : conversation?.leadId?.name}
               </span>
             </div>
-            <span className="text-xs text-gray-500 font-medium mt-1">
+            <span className="text-xs text-gray-500 dark:text-slate-400 font-medium mt-1">
               {getFormatedTime(conversation?.recentMessage?.createdAt)}
             </span>
           </div>
@@ -55,8 +55,8 @@ const Conversation: React.FC<IProps> = ({
               <p
                 className={`text-sm truncate mt-1 ${
                   conversation?.unreadMessages?.length > 0
-                    ? "text-gray-800 font-medium"
-                    : "text-gray-500"
+                    ? "text-gray-800 dark:text-slate-100 font-medium"
+                    : "text-gray-500 dark:text-slate-400"
                 }`}
               >
                 {(() => {

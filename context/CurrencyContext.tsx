@@ -99,10 +99,6 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
 
   // Also re-fetch when the pathname changes (client-side navigation after login)
   useEffect(() => {
-    const handleRouteChange = () => {
-      fetchCurrency();
-    };
-
     // Use popstate for back/forward and a MutationObserver-free approach:
     // Next.js triggers routeChangeComplete which we can't listen to here,
     // but we can poll the pathname change via a lightweight interval that
