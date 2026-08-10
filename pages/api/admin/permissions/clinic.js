@@ -434,10 +434,12 @@ export default async function handler(req, res) {
           ...p,
           subModules: p.subModules.map((subModule) => {
             const findSubModule = findModule?.subModules?.find(
-              (item) => item.path === subModule.path,
+              (item) =>
+                item.path === subModule.path || item.name === subModule.name,
             );
             return {
               ...subModule,
+              icon: findSubModule?.icon || "",
               moduleKey: findSubModule?.moduleKey || "",
             };
           }),

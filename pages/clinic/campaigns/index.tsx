@@ -716,10 +716,16 @@ const CampaignsPage: NextPageWithLayout = () => {
           </div>
 
           {/* Campaigns Grid/List */}
+          {/* Campaigns Grid/List */}
+          {/* Campaigns Grid/List */}
           {viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {campaigns.map((campaign) => {
                 const progress = calculateProgress(campaign);
+                const isEmail = campaign.type === "email";
+                const isSms = campaign.type === "sms";
+                const isWhatsApp = campaign.type === "whatsapp";
+
                 return (
                   <div
                     key={campaign._id}
@@ -737,8 +743,8 @@ const CampaignsPage: NextPageWithLayout = () => {
                               <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[180px]">
                                 {campaign.name}
                               </h3>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {campaign.recipients.length} recipients
+                              <p className="text-xs text-gray-500">
+                                {campaign.recipients?.length || 0} recipients
                               </p>
                             </div>
                           </div>
@@ -777,9 +783,9 @@ const CampaignsPage: NextPageWithLayout = () => {
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {campaign.sentMessages} of{" "}
-                              {campaign.totalMessages} sent
+                            <div className="text-xs text-gray-500 mt-1">
+                              {campaign.sentMessages || 0} of{" "}
+                              {campaign.totalMessages || 0} sent
                             </div>
                           </div>
                         )}
@@ -791,8 +797,21 @@ const CampaignsPage: NextPageWithLayout = () => {
                             <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3 uppercase tracking-wide">
                               Campaign Analytics
                             </h4>
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="bg-blue-50 rounded-lg p-3 text-center">
+
+                            {/* All Stats Grid - Common for all types */}
+                            <div className="grid grid-cols-3 gap-2">
+                              {/* Total Messages */}
+                              <div className="bg-gray-50 rounded-lg p-2 text-center">
+                                <div className="text-xs text-gray-600 mb-1">
+                                  Total
+                                </div>
+                                <div className="text-lg font-bold text-gray-700">
+                                  {formatNumber(campaign.totalMessages || 0)}
+                                </div>
+                              </div>
+
+                              {/* Sent */}
+                              <div className="bg-blue-50 rounded-lg p-2 text-center">
                                 <div className="text-xs text-blue-600 mb-1">
                                   Sent
                                 </div>
@@ -800,7 +819,9 @@ const CampaignsPage: NextPageWithLayout = () => {
                                   {formatNumber(campaign.sentMessages || 0)}
                                 </div>
                               </div>
-                              <div className="bg-green-50 rounded-lg p-3 text-center">
+
+                              {/* Delivered */}
+                              <div className="bg-green-50 rounded-lg p-2 text-center">
                                 <div className="text-xs text-green-600 mb-1">
                                   Delivered
                                 </div>
@@ -810,8 +831,10 @@ const CampaignsPage: NextPageWithLayout = () => {
                                   )}
                                 </div>
                               </div>
-                              {campaign.type !== "email" && (
-                                <div className="bg-purple-50 rounded-lg p-3 text-center">
+
+                              {/* Read - Common for SMS & WhatsApp, optional for Email */}
+                              {(isSms || isWhatsApp || isEmail) && (
+                                <div className="bg-purple-50 rounded-lg p-2 text-center">
                                   <div className="text-xs text-purple-600 mb-1">
                                     Read
                                   </div>
@@ -820,7 +843,35 @@ const CampaignsPage: NextPageWithLayout = () => {
                                   </div>
                                 </div>
                               )}
-                              <div className="bg-red-50 rounded-lg p-3 text-center">
+
+                              {/* Opened - Email Only */}
+                              {isEmail && (
+                                <div className="bg-orange-50 rounded-lg p-2 text-center">
+                                  <div className="text-xs text-orange-600 mb-1">
+                                    Opened
+                                  </div>
+                                  <div className="text-lg font-bold text-orange-700">
+                                    {formatNumber(campaign.openedMessages || 0)}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Clicked - Email Only */}
+                              {isEmail && (
+                                <div className="bg-teal-50 rounded-lg p-2 text-center">
+                                  <div className="text-xs text-teal-600 mb-1">
+                                    Clicked
+                                  </div>
+                                  <div className="text-lg font-bold text-teal-700">
+                                    {formatNumber(
+                                      campaign.clickedMessages || 0,
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Failed - Common */}
+                              <div className="bg-red-50 rounded-lg p-2 text-center">
                                 <div className="text-xs text-red-600 mb-1">
                                   Failed
                                 </div>
@@ -829,54 +880,97 @@ const CampaignsPage: NextPageWithLayout = () => {
                                 </div>
                               </div>
 
-                              {/* Additional metrics for email */}
-                              {campaign.type === "email" && (
-                                <>
-                                  <div className="bg-orange-50 rounded-lg p-3 text-center">
-                                    <div className="text-xs text-orange-600 mb-1">
-                                      Opened
-                                    </div>
-                                    <div className="text-lg font-bold text-orange-700">
-                                      {formatNumber(
-                                        campaign.openedMessages || 0,
-                                      )}
-                                    </div>
+                              {/* Bounced - Common for Email & SMS */}
+                              {(isEmail || isSms) && (
+                                <div className="bg-yellow-50 rounded-lg p-2 text-center">
+                                  <div className="text-xs text-yellow-600 mb-1">
+                                    Bounced
                                   </div>
-                                  <div className="bg-teal-50 rounded-lg p-3 text-center">
-                                    <div className="text-xs text-teal-600 mb-1">
-                                      Clicked
-                                    </div>
-                                    <div className="text-lg font-bold text-teal-700">
-                                      {formatNumber(
-                                        campaign.clickedMessages || 0,
-                                      )}
-                                    </div>
+                                  <div className="text-lg font-bold text-yellow-700">
+                                    {formatNumber(
+                                      campaign.bouncedMessages || 0,
+                                    )}
                                   </div>
-                                </>
+                                </div>
+                              )}
+
+                              {/* Unsubscribed - Common for Email & SMS */}
+                              {(isEmail || isSms) && (
+                                <div className="bg-pink-50 rounded-lg p-2 text-center">
+                                  <div className="text-xs text-pink-600 mb-1">
+                                    Unsubscribed
+                                  </div>
+                                  <div className="text-lg font-bold text-pink-700">
+                                    {formatNumber(
+                                      campaign.unsubscribedMessages || 0,
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Complained - Email Only */}
+                              {isEmail && (
+                                <div className="bg-red-100 rounded-lg p-2 text-center">
+                                  <div className="text-xs text-red-700 mb-1">
+                                    Complained
+                                  </div>
+                                  <div className="text-lg font-bold text-red-800">
+                                    {formatNumber(
+                                      campaign.complainedMessages || 0,
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </div>
 
                             {/* Success Rate */}
                             {campaign.totalMessages > 0 && (
-                              <div className="mt-3 pt-3 border-t border-gray-100">
-                                <div className="flex justify-between text-xs text-gray-600 mb-1">
-                                  <span>Delivery Rate</span>
-                                  <span className="font-semibold">
-                                    {Math.round(
-                                      (campaign.deliveredMessages /
-                                        campaign.totalMessages) *
-                                        100,
-                                    )}
-                                    %
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                                    style={{
-                                      width: `${Math.round((campaign.deliveredMessages / campaign.totalMessages) * 100)}%`,
-                                    }}
-                                  />
+                              <div className="mt-4 pt-3 border-t border-gray-100">
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                      <span>Delivery Rate</span>
+                                      <span className="font-semibold">
+                                        {Math.round(
+                                          (campaign.deliveredMessages /
+                                            campaign.totalMessages) *
+                                            100,
+                                        )}
+                                        %
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                      <div
+                                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                                        style={{
+                                          width: `${Math.round((campaign.deliveredMessages / campaign.totalMessages) * 100)}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  {(isSms || isWhatsApp || isEmail) && (
+                                    <div>
+                                      <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                        <span>Read Rate</span>
+                                        <span className="font-semibold">
+                                          {Math.round(
+                                            (campaign.readMessages /
+                                              campaign.totalMessages) *
+                                              100,
+                                          )}
+                                          %
+                                        </span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                          className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                                          style={{
+                                            width: `${Math.round((campaign.readMessages / campaign.totalMessages) * 100)}%`,
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -895,6 +989,7 @@ const CampaignsPage: NextPageWithLayout = () => {
                             : `Created ${formatDate(campaign.createdAt)}`}
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Action buttons */}
                           {campaign.status === "completed" && (
                             <button
                               onClick={() =>
@@ -919,7 +1014,6 @@ const CampaignsPage: NextPageWithLayout = () => {
                                 <Edit2 className="h-4 w-4" />
                               </button>
                             )}
-
                           <button
                             onClick={() =>
                               handleCampaignAction("preview", campaign._id)
@@ -941,22 +1035,17 @@ const CampaignsPage: NextPageWithLayout = () => {
                               <Download className="h-4 w-4" />
                             </button>
                           )}
-                          {campaign.status === "completed" &&
-                            campaign.type === "email" && (
-                              <button
-                                onClick={() =>
-                                  handleCampaignAction(
-                                    "analytics",
-                                    campaign._id,
-                                  )
-                                }
-                                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                                title="View Analytics"
-                              >
-                                <ChartArea className="h-4 w-4" />
-                              </button>
-                            )}
-
+                          {campaign.status === "completed" && isEmail && (
+                            <button
+                              onClick={() =>
+                                handleCampaignAction("analytics", campaign._id)
+                              }
+                              className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                              title="View Analytics"
+                            >
+                              <ChartArea className="h-4 w-4" />
+                            </button>
+                          )}
                           {["processing", "paused"].includes(
                             campaign.status,
                           ) && (
@@ -984,7 +1073,6 @@ const CampaignsPage: NextPageWithLayout = () => {
                               )}
                             </button>
                           )}
-
                           {[
                             "draft",
                             "scheduled",
@@ -1015,7 +1103,7 @@ const CampaignsPage: NextPageWithLayout = () => {
             /* List View */
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1200px]">
+                <table className="w-full min-w-[1400px]">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1031,6 +1119,9 @@ const CampaignsPage: NextPageWithLayout = () => {
                         Recipients
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Stats
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Progress
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1044,6 +1135,10 @@ const CampaignsPage: NextPageWithLayout = () => {
                   <tbody className="divide-y divide-gray-200">
                     {campaigns.map((campaign) => {
                       const progress = calculateProgress(campaign);
+                      const isEmail = campaign.type === "email";
+                      const isSms = campaign.type === "sms";
+                      const isWhatsApp = campaign.type === "whatsapp";
+
                       return (
                         <tr key={campaign._id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 min-w-[250px]">
@@ -1071,8 +1166,117 @@ const CampaignsPage: NextPageWithLayout = () => {
                           </td>
                           <td className="px-6 py-4">
                             <div className="text-sm text-gray-900 font-medium">
-                              {formatNumber(campaign.recipients.length)}
+                              {formatNumber(campaign.recipients?.length || 0)}
                             </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {(campaign.status === "completed" ||
+                              campaign.sentMessages > 0) && (
+                              <div className="grid grid-cols-3 gap-2 min-w-[300px]">
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    Sent
+                                  </div>
+                                  <div className="text-sm font-semibold text-blue-600">
+                                    {formatNumber(campaign.sentMessages || 0)}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    Delivered
+                                  </div>
+                                  <div className="text-sm font-semibold text-green-600">
+                                    {formatNumber(
+                                      campaign.deliveredMessages || 0,
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Read - Common for all types */}
+                                {(isSms || isWhatsApp || isEmail) && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">
+                                      Read
+                                    </div>
+                                    <div className="text-sm font-semibold text-purple-600">
+                                      {formatNumber(campaign.readMessages || 0)}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Opened - Email Only */}
+                                {isEmail && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">
+                                      Opened
+                                    </div>
+                                    <div className="text-sm font-semibold text-orange-600">
+                                      {formatNumber(
+                                        campaign.openedMessages || 0,
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Clicked - Email Only */}
+                                {isEmail && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">
+                                      Clicked
+                                    </div>
+                                    <div className="text-sm font-semibold text-teal-600">
+                                      {formatNumber(
+                                        campaign.clickedMessages || 0,
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="text-center">
+                                  <div className="text-xs text-gray-500">
+                                    Failed
+                                  </div>
+                                  <div className="text-sm font-semibold text-red-600">
+                                    {formatNumber(campaign.failedMessages || 0)}
+                                  </div>
+                                </div>
+                                {/* Bounced - Email & SMS */}
+                                {(isEmail || isSms) && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">
+                                      Bounced
+                                    </div>
+                                    <div className="text-sm font-semibold text-yellow-600">
+                                      {formatNumber(
+                                        campaign.bouncedMessages || 0,
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Unsubscribed - Email & SMS */}
+                                {(isEmail || isSms) && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">
+                                      Unsubscribed
+                                    </div>
+                                    <div className="text-sm font-semibold text-pink-600">
+                                      {formatNumber(
+                                        campaign.unsubscribedMessages || 0,
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {/* Complained - Email Only */}
+                                {isEmail && (
+                                  <div className="text-center">
+                                    <div className="text-xs text-gray-500">
+                                      Complained
+                                    </div>
+                                    <div className="text-sm font-semibold text-red-700">
+                                      {formatNumber(
+                                        campaign.complainedMessages || 0,
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             {campaign.status === "processing" ? (
@@ -1080,8 +1284,8 @@ const CampaignsPage: NextPageWithLayout = () => {
                                 <div className="flex justify-between text-xs text-gray-600 mb-1">
                                   <span>{progress}%</span>
                                   <span>
-                                    {campaign.sentMessages}/
-                                    {campaign.totalMessages}
+                                    {campaign.sentMessages || 0}/
+                                    {campaign.totalMessages || 0}
                                   </span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-1.5">
@@ -1093,8 +1297,8 @@ const CampaignsPage: NextPageWithLayout = () => {
                               </div>
                             ) : campaign.status === "completed" ||
                               campaign.sentMessages > 0 ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-4 text-xs">
+                              <div className="space-y-2 min-w-[200px]">
+                                <div className="flex items-center gap-4 text-xs flex-wrap">
                                   <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                     <span className="text-gray-600">Sent:</span>
@@ -1108,14 +1312,16 @@ const CampaignsPage: NextPageWithLayout = () => {
                                       Delivered:
                                     </span>
                                     <span className="font-semibold text-gray-900">
-                                      {formatNumber(campaign.sentMessages || 0)}
+                                      {formatNumber(
+                                        campaign.deliveredMessages || 0,
+                                      )}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-purple-500"></div>
                                     <span className="text-gray-600">Read:</span>
                                     <span className="font-semibold text-gray-900">
-                                      {formatNumber(campaign.sentMessages || 0)}
+                                      {formatNumber(campaign.readMessages || 0)}
                                     </span>
                                   </div>
                                   <div className="flex items-center gap-1">
@@ -1163,7 +1369,6 @@ const CampaignsPage: NextPageWithLayout = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
-
                               {campaign.status === "completed" && (
                                 <button
                                   onClick={() =>
@@ -1179,7 +1384,6 @@ const CampaignsPage: NextPageWithLayout = () => {
                                   <Copy className="h-4 w-4" />
                                 </button>
                               )}
-
                               {campaign.status === "draft" &&
                                 permissions.canUpdate && (
                                   <button
@@ -1192,7 +1396,6 @@ const CampaignsPage: NextPageWithLayout = () => {
                                     <Edit2 className="h-4 w-4" />
                                   </button>
                                 )}
-
                               {campaign.status === "completed" && (
                                 <button
                                   onClick={() =>
@@ -1205,23 +1408,20 @@ const CampaignsPage: NextPageWithLayout = () => {
                                   <Download className="h-4 w-4" />
                                 </button>
                               )}
-
-                              {campaign.status === "completed" &&
-                                campaign.type === "email" && (
-                                  <button
-                                    onClick={() =>
-                                      handleCampaignAction(
-                                        "analytics",
-                                        campaign._id,
-                                      )
-                                    }
-                                    className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
-                                    title="View Analytics"
-                                  >
-                                    <ChartArea className="h-4 w-4" />
-                                  </button>
-                                )}
-
+                              {campaign.status === "completed" && isEmail && (
+                                <button
+                                  onClick={() =>
+                                    handleCampaignAction(
+                                      "analytics",
+                                      campaign._id,
+                                    )
+                                  }
+                                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded"
+                                  title="View Analytics"
+                                >
+                                  <ChartArea className="h-4 w-4" />
+                                </button>
+                              )}
                               {[
                                 "draft",
                                 "scheduled",
