@@ -92,6 +92,7 @@ import {
   Receipt as Billing,
   BookOpen as Guide,
 } from "lucide-react";
+import useZevaConnect from "@/hooks/useZevaConnect";
 
 interface NavItemChild {
   label: string;
@@ -100,6 +101,7 @@ interface NavItemChild {
   description?: string;
   badge?: number;
   order?: number;
+  onClick?: () => void;
 }
 
 interface NavItem extends NavItemChild {
@@ -363,6 +365,10 @@ const iconMap: { [key: string]: React.ReactNode } = {
   campaigns: <Megaphone className="w-4 h-4 text-[#6B7280]" />,
   marketing: <Target className="w-4 h-4 text-[#6B7280]" />,
   workflowGuide: <Guide className="w-4 h-4 text-[#6B7280]" />,
+
+  // Zeva Connect
+  "connect-icon": <MessageSquare className="w-4 h-4 text-[#6B7280]" />,
+  "chat-icon": <MessageCircle className="w-4 h-4 text-[#6B7280]" />,
 
   // Default fallback for any unmapped icons
 };
@@ -712,6 +718,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   >(null);
   const isDraggingRef = useRef<boolean>(false);
 
+  // handle zeva connect and redirect to team chat
+  const { handleZevaConnect } = useZevaConnect();
+
   // Handle escape key to close mobile menu
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -982,6 +991,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Workflow Guide": "workflow_guide",
     Membership: "membership",
     Invoices: "clinic_invoices",
+
+    // Zeva Connect
+    "Zeva Connect": "clinic_zeva_connect",
+    "Team Chat": "clinic_team_chat",
   };
 
   // Check if item should be shown
@@ -1434,6 +1447,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 order: item.order,
               };
 
+              console.log({ item });
               // Convert subModules to children
               if (item.subModules && item.subModules.length > 0) {
                 navItem.children = item.subModules.map(
@@ -1442,12 +1456,20 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     path?: string;
                     icon: string;
                     order: number;
+                    moduleKey?: string;
                   }): NavItemChild => ({
                     label: subModule.name,
                     path: subModule.path,
                     icon: subModule.icon,
                     description: subModule.name,
                     order: subModule.order,
+                    ...(item.moduleKey === "clinic_zeva_connect" && {
+                      // if path is clinic_team_chat, then add onClick event
+                      onClick:
+                        subModule?.moduleKey === "clinic_team_chat"
+                          ? handleZevaConnect
+                          : undefined,
+                    }),
                   }),
                 );
               }
@@ -1737,11 +1759,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   "/clinic/all-appointment",
                   "calendar",
                 ),
-                createItem(
-                  "Invoices",
-                  "/clinic/invoices",
-                  "📋",
-                ),
+                createItem("Invoices", "/clinic/invoices", "📋"),
                 createItem(
                   "Patient Registration",
                   "/clinic/patient-registration",
@@ -1769,7 +1787,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               ),
               order: 180,
             },
-
+            {
+              label: "Zeva Connect",
+              icon: "connect-icon",
+              order: 181,
+              children: nonNull(createItem("Team Chat", "", "chat-icon")),
+            },
             {
               label: "Workflow Guide",
               path: "/clinic/workflow-guide",
@@ -1933,6 +1956,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       dragItemRef.current = null;
     }, 0);
   };
+
+  console.log({ items });
 
   return (
     <>
@@ -2432,7 +2457,50 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                               const childActive = selectedItem
                                 ? selectedItem === child.label
                                 : router.pathname === child.path;
-                              return (
+                              return child?.onClick ? (
+                                <div key={child.path} onClick={child.onClick}>
+                                  <div
+                                    draggable
+                                    onDragStart={onDragStartChild(
+                                      parentIdx,
+                                      childIdx,
+                                    )}
+                                    onDragOver={onDragOver}
+                                    onDrop={onDropChild(parentIdx, childIdx)}
+                                    onDragEnd={onDragEnd}
+                                    className={clsx(
+                                      "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-start gap-2.5 inter-font min-w-0",
+                                      {
+                                        "bg-[#2D9AA5] text-white": childActive,
+                                        "text-[#374151] hover:bg-gray-100":
+                                          !childActive,
+                                      },
+                                    )}
+                                    onClick={safeClick(() =>
+                                      setSelectedItem(child.label),
+                                    )}
+                                  >
+                                    <span
+                                      className={clsx(
+                                        "flex-shrink-0 mt-0.5",
+                                        childActive
+                                          ? "text-white"
+                                          : "text-[#6B7280] group-hover:text-[#374151]",
+                                      )}
+                                    >
+                                      {renderIcon(child.icon, childActive)}
+                                    </span>
+                                    <span
+                                      className={clsx(
+                                        "inter-font font-medium text-sm leading-tight",
+                                        { "text-white": childActive },
+                                      )}
+                                    >
+                                      {child.label}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : (
                                 <Link key={child.path} href={child.path!}>
                                   <div
                                     draggable

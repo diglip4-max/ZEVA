@@ -14,9 +14,9 @@ import {
   Mail,
   Tag,
   ShoppingCart,
-  Percent,
+
   Hash,
-  Gift,
+
   Printer,
 } from "lucide-react";
 

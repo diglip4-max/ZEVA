@@ -3,6 +3,7 @@ import dbConnect from "../../../lib/database";
 import ClinicPermission from "../../../models/ClinicPermission";
 import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
+import { getActionValue } from "../../../lib/hasPermission";
 
 /**
  * Get clinic ID from user (clinic or agent)
@@ -248,6 +249,11 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
         if (Boolean(modulePermission.actions?.[action])) {
           return { hasPermission: true, error: null };
         }
+        // Check module-level custom action as fallback
+        const modCustomVal = getActionValue(modulePermission, action);
+        if (modCustomVal === true) {
+          return { hasPermission: true, error: null };
+        }
         return { hasPermission: false, error: `Submodule ${subModuleName} not found in permissions` };
       }
 
@@ -265,6 +271,15 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
         }
       }
 
+      // ✅ PRIORITY 3b: Check submodule-level custom action (e.g. "advance")
+      // customActions is at the submodule level now, pass full sub object
+      const subCustomVal = getActionValue(subModule, action);
+      if (subCustomVal !== undefined) {
+        return subCustomVal
+          ? { hasPermission: true, error: null }
+          : { hasPermission: false, error: `Permission denied: custom action '${action}' is disabled for submodule ${subModuleName}` };
+      }
+
       // ✅ PRIORITY 4: Check submodule-level "all"
       if (Boolean(subModule.actions?.all)) {
         return { hasPermission: true, error: null };
@@ -273,6 +288,12 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
       // ✅ PRIORITY 5: Check module-level specific action as fallback
       // Only if submodule doesn't explicitly set the permission
       if (Boolean(modulePermission.actions?.[action])) {
+        return { hasPermission: true, error: null };
+      }
+
+      // ✅ PRIORITY 5b: Check module-level custom action as fallback
+      const modCustomVal = getActionValue(modulePermission, action);
+      if (modCustomVal === true) {
         return { hasPermission: true, error: null };
       }
 
@@ -299,6 +320,12 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
       return { hasPermission: true, error: null };
     }
 
+    // Check module-level custom action (e.g. "advance")
+    const moduleCustomVal = getActionValue(modulePermission, action);
+    if (moduleCustomVal === true) {
+      return { hasPermission: true, error: null };
+    }
+
     // If module-level permission is false, check if ANY submodule has the required permission
     // This allows access if user has permission for any submodule within the module
     if (modulePermission.subModules && modulePermission.subModules.length > 0) {
@@ -315,7 +342,11 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
         const subModuleAction = subModule.actions[action] === true || 
                                subModule.actions[action] === "true" ||
                                String(subModule.actions[action]).toLowerCase() === "true";
-        return subModuleAction;
+        if (subModuleAction) return true;
+        
+        // Check submodule custom action (e.g. "advance")
+        const subCustomAction = getActionValue(subModule, action);
+        return subCustomAction === true;
       });
       
       if (hasSubModulePermission) {

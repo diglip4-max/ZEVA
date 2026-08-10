@@ -94,6 +94,56 @@ const maskMobileNumber = (mobile) => {
 };
 
 const ITEMS_PER_PAGE = 12;
+const isRequestStatus = (status) => status === "Ready" || status === "Completed";
+const isRequestClaim = (claim) => isRequestStatus(claim?.status);
+
+const getClaimStatusDate = (claim) => {
+  const displayStatus = claim?.status === "Under Review" && claim?.rejectedFromReleaseRequested ? "Rejected" : claim?.status;
+  if (displayStatus === "Ready") return claim?.readyAt;
+  if (displayStatus === "Completed") return claim?.completedAt;
+  if (displayStatus === "Rejected") return claim?.rejectedFromReleaseRequestedAt;
+  if (displayStatus === "Released") return claim?.releasedAt;
+  return claim?.updatedAt || claim?.createdAt;
+};
+
+const getClaimStatusActor = (claim) => {
+  const displayStatus = claim?.status === "Under Review" && claim?.rejectedFromReleaseRequested ? "Rejected" : claim?.status;
+  if (displayStatus === "Ready") {
+    return {
+      label: "Ready By",
+      name: claim?.readyByName || claim?.doctorName,
+      role: claim?.readyByRole || "Clinic",
+    };
+  }
+  if (displayStatus === "Completed") {
+    return {
+      label: "Completed By",
+      name: claim?.completedByName || claim?.doctorName,
+      role: claim?.completedByRole || "Staff",
+    };
+  }
+  if (displayStatus === "Rejected") {
+    return {
+      label: "Rejected By",
+      name: claim?.rejectedFromReleaseRequestedByName || claim?.doctorName,
+      role: claim?.rejectedFromReleaseRequestedByRole || "Clinic",
+    };
+  }
+  return {
+    label: "Released By",
+    name: claim?.releasedByName || claim?.doctorName,
+    role: claim?.releasedByRole || "Clinic",
+  };
+};
+
+const getClaimModalTitle = (claim) => {
+  const displayStatus = claim?.status === "Under Review" && claim?.rejectedFromReleaseRequested ? "Rejected" : claim?.status;
+  if (displayStatus === "Ready") return "Ready Claim";
+  if (displayStatus === "Completed") return "Completed Claim";
+  if (displayStatus === "Released") return "Released Claim";
+  if (displayStatus === "Rejected") return "Rejected Claim";
+  return "Claim";
+};
 
 function ReleaseRequestedClaimsPage() {
   const [permissions, setPermissions] = useState({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
@@ -273,15 +323,15 @@ function ReleaseRequestedClaimsPage() {
       const res = await axios.get("/api/clinic/insurance-claims", { headers });
       if (res.data.success) {
         const allClaims = res.data.data || [];
-        // Show Completed, Released, and claims rejected from release-requested-claims
+        // Show claims pending release, released claims, and claims rejected from release-requested-claims
         const relevantClaims = allClaims.filter(
-          (c) => c.status === "Completed" || c.status === "Released" || (c.status === "Under Review" && c.rejectedFromReleaseRequested === true)
+          (c) => isRequestStatus(c.status) || c.status === "Released" || (c.status === "Under Review" && c.rejectedFromReleaseRequested === true)
         );
         setClaims(relevantClaims);
 
-        // Find claims in Request slider (status "Completed") for notifications
+        // Find claims in Request slider for notifications
         const requestClaims = allClaims
-          .filter((c) => c.status === "Completed")
+          .filter((c) => isRequestClaim(c))
           // Deduplicate by _id
           .filter((claim, index, self) => index === self.findIndex((c) => c._id === claim._id));
         setRequestNotifications(requestClaims);
@@ -296,7 +346,7 @@ function ReleaseRequestedClaimsPage() {
   const filteredClaims = useMemo(() => {
     return claims
       .filter((c) => {
-        if (activeTab === "Request") return c.status === "Completed";
+        if (activeTab === "Request") return isRequestClaim(c);
         if (activeTab === "Rejected") return c.status === "Under Review" && c.rejectedFromReleaseRequested === true;
         if (activeTab === "Released") return c.status === "Released";
         return false;
@@ -475,6 +525,7 @@ function ReleaseRequestedClaimsPage() {
   const getStatusBadge = (status, rejectedFromReleaseRequested) => {
     const displayStatus = (status === "Under Review" && rejectedFromReleaseRequested) ? "Rejected" : status;
     const styles = {
+      Ready: "bg-indigo-100 text-indigo-800 border-indigo-300",
       Completed: "bg-purple-100 text-purple-800 border-purple-300",
       Released: "bg-blue-100 text-blue-800 border-blue-300",
       Rejected: "bg-red-100 text-red-800 border-red-300",
@@ -489,7 +540,7 @@ function ReleaseRequestedClaimsPage() {
 
   const tabs = ["Request", "Rejected", "Released"];
   const tabCounts = {
-    Request: claims.filter((c) => c.status === "Completed").length,
+    Request: claims.filter((c) => isRequestClaim(c)).length,
     Rejected: claims.filter((c) => c.status === "Under Review" && c.rejectedFromReleaseRequested === true).length,
     Released: claims.filter((c) => c.status === "Released").length,
   };
@@ -535,7 +586,7 @@ function ReleaseRequestedClaimsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Release Requested Claims</h1>
-              <p className="text-gray-500 text-xs mt-0.5">Review and release completed insurance claims</p>
+              <p className="text-gray-500 text-xs mt-0.5">Review and release ready insurance claims</p>
             </div>
             <div className="flex items-center gap-2 bg-teal-50 px-3 py-1.5 rounded-lg">
               <Shield className="w-4 h-4 text-teal-600" />
@@ -593,7 +644,7 @@ function ReleaseRequestedClaimsPage() {
                                   {claim.patientFirstName} {claim.patientLastName}
                                 </p>
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-blue-600 bg-blue-50">
-                                  Request
+                                  {getDisplayStatus(claim)}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-500 truncate">
@@ -670,6 +721,7 @@ function ReleaseRequestedClaimsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {paginatedClaims.map((claim) => {
                 const displayStatus = getDisplayStatus(claim);
+                const statusActor = getClaimStatusActor(claim);
                 return (
                   <div key={claim._id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col">
                     {/* Card Header */}
@@ -677,7 +729,7 @@ function ReleaseRequestedClaimsPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider">{displayStatus}</span>
                         <span className="text-[10px] font-medium opacity-80">
-                          {displayStatus === "Completed" ? formatDate(claim.completedAt) : displayStatus === "Rejected" ? formatDate(claim.rejectedFromReleaseRequestedAt) : formatDate(claim.releasedAt)}
+                          {formatDate(getClaimStatusDate(claim))}
                         </span>
                       </div>
                     </div>
@@ -697,13 +749,13 @@ function ReleaseRequestedClaimsPage() {
                       <div className="space-y-3">
                         <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">
-                            {displayStatus === "Released" ? "Released By" : displayStatus === "Rejected" ? "Rejected By" : "Completed By"}
+                            {statusActor.label}
                           </p>
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {displayStatus === "Completed" ? claim.completedByName || claim.doctorName : displayStatus === "Rejected" ? claim.rejectedFromReleaseRequestedByName || claim.doctorName : claim.releasedByName || claim.doctorName}
+                            {statusActor.name}
                           </p>
                           <p className="text-[10px] text-teal-600 font-medium capitalize">
-                            {displayStatus === "Completed" ? (claim.completedByRole || "Staff") : displayStatus === "Rejected" ? (claim.rejectedFromReleaseRequestedByRole || "Clinic") : (claim.releasedByRole || "Clinic")}
+                            {statusActor.role}
                           </p>
                         </div>
 
@@ -760,7 +812,7 @@ function ReleaseRequestedClaimsPage() {
                         <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
                           <Eye className="w-4 h-4" />
                         </button>
-                        {claim.status === "Completed" && (
+                        {isRequestClaim(claim) && (
                           <>
                             {permissions.canUpdate && (
                               <button onClick={() => fetchVerificationData(claim)} disabled={actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-[11px] font-bold rounded-lg hover:bg-teal-700 transition-all shadow-sm disabled:opacity-50 uppercase tracking-tight">
@@ -990,7 +1042,7 @@ function ReleaseRequestedClaimsPage() {
             <div className={`px-4 sm:px-6 py-3 sm:py-4 border-b sticky top-0 bg-white z-10 flex items-center justify-between ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
               <div className="flex items-center gap-2 sm:gap-3">
                 <h2 className="text-base sm:text-lg font-bold text-black">
-                  {viewModal.status === "Completed" ? "Completed Claim" : viewModal.status === "Released" ? "Released Claim" : "Rejected Claim"}
+                  {getClaimModalTitle(viewModal)}
                 </h2>
                 <button
                   onClick={() => setShowTracking(!showTracking)}
@@ -1248,12 +1300,19 @@ function ReleaseRequestedClaimsPage() {
                   </div>
 
                   {/* Review Tracking */}
-                  {(viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
+                  {(viewModal.readyByName || viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <Clock className="w-4 h-4 text-teal-500" /> Review Tracking
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {viewModal.readyByName && (
+                          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                            <p className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Ready By</p>
+                            <p className="text-sm font-bold text-gray-900">{viewModal.readyByName}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.readyAt)}</p>
+                          </div>
+                        )}
                         {viewModal.completedByName && (
                           <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
                             <p className="text-[10px] font-bold text-purple-600 uppercase mb-1">Completed By</p>

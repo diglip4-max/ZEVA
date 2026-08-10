@@ -104,6 +104,20 @@ export default async function handler(req, res) {
       return Boolean(value);
     };
 
+    // Normalize customActions (Mongoose Map → plain object)
+    // customActions is at the MODULE level (same level as actions), not inside actions
+    const rawCustomActions = permissions.customActions || {};
+    const customActions = {};
+    if (rawCustomActions instanceof Map) {
+      rawCustomActions.forEach((value, key) => {
+        customActions[key] = toBool(value);
+      });
+    } else if (typeof rawCustomActions === "object") {
+      Object.entries(rawCustomActions).forEach(([key, value]) => {
+        customActions[key] = toBool(value);
+      });
+    }
+
     const normalizedActions = {
       all: toBool(actions.all),
       create: toBool(actions.create),
@@ -122,7 +136,25 @@ export default async function handler(req, res) {
       permissions: {
         module: permissions.module,
         actions: normalizedActions,
-        subModules: permissions.subModules || []
+        customActions,
+        subModules: (permissions.subModules || []).map((sub) => {
+          // Normalize submodule customActions
+          const subRawCustom = sub.customActions || {};
+          const subCustomActions = {};
+          if (subRawCustom instanceof Map) {
+            subRawCustom.forEach((value, key) => {
+              subCustomActions[key] = toBool(value);
+            });
+          } else if (typeof subRawCustom === "object") {
+            Object.entries(subRawCustom).forEach(([key, value]) => {
+              subCustomActions[key] = toBool(value);
+            });
+          }
+          return {
+            ...sub,
+            customActions: subCustomActions,
+          };
+        }),
       },
       error: null,
       agentId: me._id.toString(),

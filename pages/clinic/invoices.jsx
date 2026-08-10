@@ -410,6 +410,8 @@ function InvoicesPage() {
     { value: "Completed", label: "Completed" },
     { value: "Invoiced", label: "Invoiced" },
     { value: "No Show", label: "No Show" },
+    { value: "Block", label: "Block" },
+    { value: "Unblock", label: "Unblock" },
 
   ];
 

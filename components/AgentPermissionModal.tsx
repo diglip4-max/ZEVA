@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { getCustomActionsForModule } from '../config/actionRegistry';
 
 interface SubModule {
   name: string;
@@ -19,6 +20,7 @@ interface SubModule {
     print?: boolean;
     approve?: boolean;
   };
+  customActions?: Record<string, boolean>;
 }
 
 interface ModulePermission {
@@ -35,6 +37,7 @@ interface ModulePermission {
     approve?: boolean;
     import?: boolean;
   };
+  customActions?: Record<string, boolean>;
 }
 
 interface NavigationItem {
@@ -114,6 +117,13 @@ const ACTION_STYLES: Record<
     inactive: 'bg-slate-200 text-slate-600',
     accent: 'bg-teal-200',
   },
+};
+
+// Default style used for custom action keys (e.g. "advance") not in ACTION_STYLES
+const DEFAULT_CUSTOM_ACTION_STYLE = {
+  active: 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-pink-200',
+  inactive: 'bg-slate-200 text-slate-600',
+  accent: 'bg-pink-200',
 };
 
 const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
@@ -304,14 +314,16 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
         return {
           ...subMod,
           moduleKey: subMod.moduleKey,
-          actions: sanitizedSubActions
+          actions: sanitizedSubActions,
+          customActions: subMod.customActions ? { ...subMod.customActions } : {},
         };
       });
 
       return {
         ...perm,
         actions: sanitizedActions,
-        subModules: sanitizedSubModules
+        subModules: sanitizedSubModules,
+        customActions: perm.customActions ? { ...perm.customActions } : {},
       };
     });
   };
@@ -424,14 +436,15 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
     }
 
     // Build permission map
-    const permissionMap: Record<string, { moduleActions: any; subModules: Record<string, any> }> = {};
+    const permissionMap: Record<string, { moduleActions: any; customActions: any; subModules: Record<string, any> }> = {};
     clinicPermissions.forEach(perm => {
       const modKey = perm.module;
       const modKeyWithoutPrefix = modKey.replace(/^(admin|clinic|doctor)_/, '');
       const modKeyWithPrefix = `clinic_${modKeyWithoutPrefix}`;
 
-      const permissionData: { moduleActions: any; subModules: Record<string, any> } = {
+      const permissionData: { moduleActions: any; customActions: any; subModules: Record<string, any> } = {
         moduleActions: perm.actions,
+        customActions: perm.customActions || {},
         subModules: {}
       };
 
@@ -442,7 +455,10 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
       if (perm.subModules && perm.subModules.length > 0) {
         perm.subModules.forEach(subModule => {
           if (subModule && subModule.name) {
-            permissionData.subModules[subModule.name] = subModule.actions;
+            permissionData.subModules[subModule.name] = {
+              ...(subModule.actions || {}),
+              customActions: subModule.customActions || {},
+            };
           }
         });
       }
@@ -463,10 +479,20 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
       if (!subModulePerm) {
         return false; // Submodule not found
       }
+      // For custom action keys (not standard actions), check customActions map
+      const isCustomAction = !['all', 'create', 'read', 'update', 'delete', 'import', 'export', 'print', 'approve'].includes(action);
+      if (isCustomAction) {
+        return subModulePerm.customActions?.[action] === true;
+      }
       // Check if clinic has this action for the submodule
       return subModulePerm.all === true || subModulePerm[action] === true;
     }
 
+    // For custom action keys, check module-level customActions map
+    const isCustomAction = !['all', 'create', 'read', 'update', 'delete', 'import', 'export', 'print', 'approve'].includes(action);
+    if (isCustomAction) {
+      return modulePerm.customActions?.[action] === true;
+    }
     // Check module-level action
     return modulePerm.moduleActions.all === true || modulePerm.moduleActions[action] === true;
   };
@@ -488,7 +514,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
       try {
         // Sanitize and ensure module-level actions are included
         const sanitizedPermissions = sanitizePermissions(permissionsToSave);
-        
+
         // Ensure every module has actions object with all required fields
         const finalPermissions = sanitizedPermissions.map(perm => {
           // Ensure actions object exists and has all required fields
@@ -499,7 +525,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             update: false,
             delete: false
           };
-          
+
           // Ensure all action fields are present (even if false)
           const completeActions = {
             all: Boolean(actions.all),
@@ -510,11 +536,15 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
             import: Boolean((actions as any).import || false),
             export: Boolean((actions as any).export || false)
           };
-          
+
           return {
             module: perm.module,
             actions: completeActions,
-            subModules: perm.subModules || []
+            customActions: perm.customActions || {},
+            subModules: (perm.subModules || []).map(sub => ({
+              ...sub,
+              customActions: sub.customActions || {},
+            })),
           };
         });
 
@@ -752,6 +782,68 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
     autoSavePermissions(newPermissions);
   };
 
+  // Handle custom action toggle (e.g. "advance") at module or submodule level
+  const handleCustomActionChange = (
+    moduleKey: string,
+    actionKey: string,
+    value: boolean,
+    subModuleName?: string
+  ) => {
+    const newPermissions = [...permissions];
+    let modulePermission = newPermissions.find(p => p.module === moduleKey);
+
+    if (!modulePermission) {
+      const navItem = navigationItems.find(item => item.moduleKey === moduleKey);
+      modulePermission = {
+        module: moduleKey,
+        subModules: navItem?.subModules?.map(subModule => ({
+          name: subModule.name,
+          path: subModule.path || '',
+          icon: subModule.icon,
+          order: subModule.order,
+          moduleKey: subModule.moduleKey,
+          actions: { all: false, create: false, read: false, update: false, delete: false, import: false, export: false },
+          customActions: {},
+        })) || [],
+        actions: { all: false, create: false, read: false, update: false, delete: false, import: false, export: false },
+        customActions: {},
+      };
+      newPermissions.push(modulePermission);
+    }
+
+    if (subModuleName) {
+      // Submodule-level custom action
+      let subModule = modulePermission.subModules.find(sm => sm.name === subModuleName);
+      if (!subModule) {
+        const navItem = navigationItems.find(item => item.moduleKey === moduleKey);
+        const navSub = navItem?.subModules?.find(sm => sm.name === subModuleName);
+        subModule = {
+          name: subModuleName,
+          path: navSub?.path || '',
+          icon: navSub?.icon || '📄',
+          order: navSub?.order || 0,
+          moduleKey: navSub?.moduleKey,
+          actions: { all: false, create: false, read: false, update: false, delete: false, import: false, export: false },
+          customActions: {},
+        };
+        modulePermission.subModules.push(subModule);
+      }
+      subModule.customActions = {
+        ...(subModule.customActions || {}),
+        [actionKey]: value,
+      };
+    } else {
+      // Module-level custom action
+      modulePermission.customActions = {
+        ...(modulePermission.customActions || {}),
+        [actionKey]: value,
+      };
+    }
+
+    setPermissions(newPermissions);
+    autoSavePermissions(newPermissions);
+  };
+
   const toggleModuleExpansion = (moduleKey: string) => {
     const newExpanded = new Set(expandedModules);
     if (newExpanded.has(moduleKey)) {
@@ -777,7 +869,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
     const hasClinicPermission = !moduleKey || clinicHasAction(moduleKey, actionKey, subModuleName);
     const isDisabled = disabled || (userRole === 'clinic' && !hasClinicPermission);
 
-    const style = ACTION_STYLES[actionKey];
+    const style = ACTION_STYLES[actionKey] || DEFAULT_CUSTOM_ACTION_STYLE;
     const trackClasses = current
       ? `${style.accent} bg-opacity-70`
       : 'bg-slate-200';
@@ -948,6 +1040,29 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                             </div>
                           </div>
 
+                          {/* Custom Actions */}
+                          {getCustomActionsForModule(item.moduleKey).length > 0 && (
+                            <div className="space-y-1.5">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-zinc-400">
+                                Custom actions
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {getCustomActionsForModule(item.moduleKey).map(({ key, label }) => {
+                                  const currentValue = modulePermission.customActions?.[key] ?? false;
+                                  return renderActionToggle(
+                                    `custom-module-${slugify(item.moduleKey)}-${key}`,
+                                    key as ActionKey,
+                                    label,
+                                    currentValue,
+                                    (checked) => handleCustomActionChange(item.moduleKey, key, checked),
+                                    saving,
+                                    item.moduleKey
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
                           {hasSubModules && (
                             <div className="space-y-3">
                               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-zinc-400">
@@ -999,6 +1114,27 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                                           )
                                         )}
                                       </div>
+
+                                      {/* Submodule Custom Actions */}
+                                      {getCustomActionsForModule(item.moduleKey).length > 0 && (
+                                        <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-zinc-700">
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {getCustomActionsForModule(item.moduleKey).map(({ key, label }) => {
+                                              const currentValue = subModulePermission.customActions?.[key] ?? false;
+                                              return renderActionToggle(
+                                                `custom-sub-${slugify(item.moduleKey)}-${slugify(subModule.name)}-${key}`,
+                                                key as ActionKey,
+                                                label,
+                                                currentValue,
+                                                (checked) => handleCustomActionChange(item.moduleKey, key, checked, subModule.name),
+                                                saving,
+                                                item.moduleKey,
+                                                subModule.name
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   );
                                 })}

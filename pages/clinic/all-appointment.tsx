@@ -899,6 +899,8 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           Completed: { bg: "bg-teal-50", text: "text-teal-700 dark:text-teal-100", border: "border-teal-200", icon: "text-teal-500" },
                           invoice: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200", icon: "text-cyan-500" },
                           "No Show": { bg: "bg-gray-50", text: "text-gray-700 dark:text-teal-100", border: "border-gray-200", icon: "text-gray-500 dark:text-teal-100" },
+                          Block: { bg: "bg-red-50", text: "text-red-700", border: "border-red-200", icon: "text-red-500" },
+                          Unblock: { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", icon: "text-green-500" },
                         };
 
                         const colors = statusColors[status] || { bg: "bg-gray-50", text: "text-gray-700 dark:text-teal-100", border: "border-gray-200", icon: "text-gray-500 dark:text-teal-100" };

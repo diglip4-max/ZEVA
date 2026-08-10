@@ -13,9 +13,9 @@ import {
   Mail,
   Tag,
   ShoppingCart,
-  Percent,
+
   Hash,
-  Gift,
+
   Printer,
 } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";

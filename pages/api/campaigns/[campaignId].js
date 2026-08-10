@@ -265,20 +265,13 @@ async function updateCampaign(req, res, campaignId) {
           let lead;
           if (leadsData[i].phone) {
             lead = await Lead.findOne({
-              phone: leadsData[i].phone,
               clinicId: campaign.clinicId,
+              phone: leadsData[i].phone,
             });
           } else if (leadsData[i].email) {
             lead = await Lead.findOne({
-              email: leadsData[i].email,
               clinicId: campaign.clinicId,
-            });
-          }
-
-          if (!lead) {
-            lead = await Lead.findOne({
               email: leadsData[i].email,
-              clinicId: campaign.clinicId,
             });
           }
           if (!lead) {

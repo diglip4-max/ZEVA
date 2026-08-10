@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MODULE_CUSTOM_ACTIONS } from '../config/actionRegistry';
 
 interface SubModule {
   name: string;
@@ -7,12 +8,14 @@ interface SubModule {
   order: number;
   moduleKey?: string;
   actions: Record<ActionKey, boolean>;
+  customActions?: Record<string, boolean>;
 }
 
 interface ModulePermission {
   module: string;
   subModules: SubModule[];
   actions: Record<ActionKey, boolean>;
+  customActions?: Record<string, boolean>;
 }
 
 interface ClinicNavigationItem {
@@ -108,6 +111,8 @@ const sanitizeModulePermission = (permission: ModulePermission): ModulePermissio
     acc[key] = Boolean(permission.actions?.[key]);
     return acc;
   }, {} as Record<ActionKey, boolean>),
+  // Preserve customActions (plain object from JSON / Map serialized by Mongoose)
+  customActions: permission.customActions ? { ...permission.customActions } : {},
   subModules: (permission.subModules || []).map((sub) => ({
     ...sub,
     moduleKey: sub.moduleKey,
@@ -115,6 +120,7 @@ const sanitizeModulePermission = (permission: ModulePermission): ModulePermissio
       acc[key] = Boolean(sub.actions?.[key]);
       return acc;
     }, {} as Record<ActionKey, boolean>),
+    customActions: sub.customActions ? { ...sub.customActions } : {},
   })),
 });
 
@@ -165,8 +171,10 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
           order: subModule.order,
           moduleKey: (subModule as any).moduleKey,
           actions: createBlankActions(),
+          customActions: {},
         })) || [],
       actions: createBlankActions(),
+      customActions: {},
     }));
 
     const next = [...filtered, ...filler].map(sanitizeModulePermission);
@@ -206,6 +214,7 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
       target = {
         module: moduleKey,
         actions: createBlankActions(),
+        customActions: {},
         subModules:
           navItem?.subModules?.map((sub) => ({
             name: sub.name,
@@ -214,6 +223,7 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
             order: sub.order,
             moduleKey: (sub as any).moduleKey,
             actions: createBlankActions(),
+            customActions: {},
           })) || [],
       };
       next.push(target);
@@ -256,6 +266,124 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
     }
 
     propagatePermissions(next);
+  };
+
+  // Toggle a custom (registry-defined) action at the module level
+  const syncModuleCustomAction = (moduleKey: string, actionKey: string, value: boolean) => {
+    const existingIndex = localPermissions.findIndex((module) => module.module === moduleKey);
+
+    if (existingIndex === -1) {
+      // Module not found — create a new entry
+      const navItem = navigationItems.find((item) => item.moduleKey === moduleKey);
+      const newModule: ModulePermission = {
+        module: moduleKey,
+        actions: createBlankActions(),
+        customActions: { [actionKey]: value },
+        subModules:
+          navItem?.subModules?.map((sub) => ({
+            name: sub.name,
+            path: sub.path || '',
+            icon: sub.icon,
+            order: sub.order,
+            moduleKey: (sub as any).moduleKey,
+            actions: createBlankActions(),
+            customActions: {},
+          })) || [],
+      };
+      propagatePermissions([...localPermissions, newModule]);
+    } else {
+      // Module exists — immutable update
+      const next = localPermissions.map((module, idx) => {
+        if (idx !== existingIndex) return module;
+        return {
+          ...module,
+          customActions: {
+            ...(module.customActions || {}),
+            [actionKey]: value,
+          },
+        };
+      });
+      propagatePermissions(next);
+    }
+  };
+
+  // Toggle a custom (registry-defined) action at the submodule level
+  const syncSubModuleCustomAction = (
+    moduleKey: string,
+    subModuleName: string,
+    actionKey: string,
+    value: boolean
+  ) => {
+    const moduleIndex = localPermissions.findIndex((item) => item.module === moduleKey);
+
+    if (moduleIndex === -1) {
+      // Module not found — create module + submodule
+      const navItem = navigationItems.find((item) => item.moduleKey === moduleKey);
+      const newModule: ModulePermission = {
+        module: moduleKey,
+        actions: createBlankActions(),
+        customActions: {},
+        subModules: [
+          ...(navItem?.subModules?.map((sub) => ({
+            name: sub.name,
+            path: sub.path || '',
+            icon: sub.icon,
+            order: sub.order,
+            moduleKey: (sub as any).moduleKey,
+            actions: createBlankActions(),
+            customActions: sub.name === subModuleName ? { [actionKey]: value } : {},
+          })) || []),
+        ],
+      };
+      propagatePermissions([...localPermissions, newModule]);
+      return;
+    }
+
+    const existingModule = localPermissions[moduleIndex];
+    const subIndex = existingModule.subModules?.findIndex((sub) => sub.name === subModuleName) ?? -1;
+
+    if (subIndex === -1) {
+      // Submodule not found — create it
+      const navSub = navigationItems
+        .find((item) => item.moduleKey === moduleKey)
+        ?.subModules?.find((sub) => sub.name === subModuleName);
+
+      const newSub = {
+        name: subModuleName,
+        path: navSub?.path || '',
+        icon: navSub?.icon || '',
+        order: navSub?.order || 0,
+        moduleKey: (navSub as any)?.moduleKey,
+        actions: createBlankActions(),
+        customActions: { [actionKey]: value },
+      };
+
+      const next = localPermissions.map((module, idx) => {
+        if (idx !== moduleIndex) return module;
+        return {
+          ...module,
+          subModules: [...(module.subModules || []), newSub],
+        };
+      });
+      propagatePermissions(next);
+    } else {
+      // Submodule exists — immutable update
+      const next = localPermissions.map((module, idx) => {
+        if (idx !== moduleIndex) return module;
+        const updatedSubModules = (module.subModules || []).map((sub, sIdx) => {
+          if (sIdx !== subIndex) return sub;
+          return {
+            ...sub,
+            customActions: {
+              ...(sub.customActions || {}),
+              [actionKey]: value,
+            },
+          };
+        });
+        return { ...module, subModules: updatedSubModules };
+      });
+      propagatePermissions(next);
+    }
   };
 
   const syncSubModuleAction = (
@@ -356,6 +484,44 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
     );
   };
 
+  // Render a custom (registry-defined) action toggle with a generic style
+  const renderCustomActionToggle = (
+    contextKey: string,
+    actionKey: string,
+    label: string,
+    current: boolean,
+    onSelect: (value: boolean) => void
+  ) => {
+    const trackClasses = current
+      ? 'bg-cyan-200 bg-opacity-70'
+      : 'bg-slate-200';
+    return (
+      <button
+        key={`${contextKey}-${actionKey}`}
+        type="button"
+        role="switch"
+        aria-checked={current}
+        onClick={() => !disabled && onSelect(!current)}
+        className={`group inline-flex items-center gap-2.5 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+          current
+            ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-cyan-200'
+            : 'bg-slate-200 text-slate-600'
+        } ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:brightness-105'}`}
+      >
+        <span>{label}</span>
+        <span
+          className={`relative inline-flex h-4 w-8 items-center rounded-full transition ${trackClasses} ${
+            current ? 'justify-end pr-[2px]' : 'justify-start pl-[2px]'
+          }`}
+        >
+          <span
+            className="h-3.5 w-3.5 rounded-full bg-white shadow transition-transform"
+          />
+        </span>
+      </button>
+    );
+  };
+
   const slugify = (value: string) =>
     value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
@@ -413,6 +579,16 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
                     (checked) => syncModuleAction(item.moduleKey, key, checked),
                   )
                 )}
+                {/* Custom (registry-defined) action toggles */}
+                {MODULE_CUSTOM_ACTIONS[item.moduleKey]?.map(({ key, label }) =>
+                  renderCustomActionToggle(
+                    `module-custom-${slugify(item.moduleKey)}`,
+                    key,
+                    label,
+                    modulePermission?.customActions?.[key] ?? false,
+                    (checked) => syncModuleCustomAction(item.moduleKey, key, checked),
+                  )
+                )}
               </div>
             </div>
 
@@ -430,6 +606,7 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
                         icon: subModule.icon,
                         order: subModule.order,
                         actions: createBlankActions(),
+                        customActions: {},
                       };
 
                     return (
@@ -455,6 +632,17 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
                               subPermission.actions[key] ?? false,
                               (checked) =>
                                 syncSubModuleAction(item.moduleKey, subModule.name, key, checked),
+                            )
+                          )}
+                          {/* Custom (registry-defined) action toggles for submodule */}
+                          {MODULE_CUSTOM_ACTIONS[item.moduleKey]?.map(({ key, label }) =>
+                            renderCustomActionToggle(
+                              `sub-custom-${slugify(item.moduleKey)}-${slugify(subModule.name)}`,
+                              key,
+                              label,
+                              subPermission.customActions?.[key] ?? false,
+                              (checked) =>
+                                syncSubModuleCustomAction(item.moduleKey, subModule.name, key, checked),
                             )
                           )}
                         </div>

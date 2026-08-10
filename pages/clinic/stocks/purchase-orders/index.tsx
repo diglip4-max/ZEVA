@@ -1096,7 +1096,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-border-default">
-                  {displayData.map((order: any, index: number) => (
+                  {displayData.map((order: any) => (
                     <React.Fragment key={order._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">

@@ -256,9 +256,43 @@ export default async function handler(req, res) {
 
         // console.log('Clinic permissions found:', JSON.stringify(permissions, null, 2));
 
+        // Normalize customActions (Mongoose Map → plain object) for JSON serialization
+        const normalizedPerms = (permissions.permissions || []).map((perm) => {
+          const moduleCustomActions = {};
+          const rawModuleCustom = perm.customActions || {};
+          if (rawModuleCustom instanceof Map) {
+            rawModuleCustom.forEach((value, key) => { moduleCustomActions[key] = Boolean(value); });
+          } else if (typeof rawModuleCustom === 'object') {
+            Object.entries(rawModuleCustom).forEach(([key, value]) => { moduleCustomActions[key] = Boolean(value); });
+          }
+
+          const normalizedSubModules = (perm.subModules || []).map((sub) => {
+            const subCustomActions = {};
+            const rawSubCustom = sub.customActions || {};
+            if (rawSubCustom instanceof Map) {
+              rawSubCustom.forEach((value, key) => { subCustomActions[key] = Boolean(value); });
+            } else if (typeof rawSubCustom === 'object') {
+              Object.entries(rawSubCustom).forEach(([key, value]) => { subCustomActions[key] = Boolean(value); });
+            }
+            return {
+              ...(sub.toObject ? sub.toObject() : sub),
+              customActions: subCustomActions,
+            };
+          });
+
+          return {
+            ...(perm.toObject ? perm.toObject() : perm),
+            customActions: moduleCustomActions,
+            subModules: normalizedSubModules,
+          };
+        });
+
+        const responseData = permissions.toObject ? permissions.toObject() : { ...permissions };
+        responseData.permissions = normalizedPerms;
+
         return res.status(200).json({ 
           success: true, 
-          data: permissions 
+          data: responseData 
         });
       } catch (error) {
         console.error('Error fetching clinic permissions:', error);

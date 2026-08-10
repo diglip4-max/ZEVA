@@ -757,7 +757,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     return [
       'all', 'booked', 'upcoming', 'enquiry', 'Arrived', 'Waiting',
       'Consultation', 'Approved', 'Rescheduled', 'Completed',
-      'Discharge', 'invoice', 'Cancelled', 'Rejected', 'No Show'
+      'Discharge', 'invoice', 'Cancelled', 'Rejected', 'No Show',
+      'Block', 'Unblock'
     ];
   });
 
@@ -778,6 +779,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     { key: 'Cancelled', label: 'Cancelled' },
     { key: 'Rejected', label: 'Rejected' },
     { key: 'No Show', label: 'No Show' },
+    { key: 'Block', label: 'Block' },
+    { key: 'Unblock', label: 'Unblock' },
   ];
   const [packages, setPackages] = useState<any[]>([]);
   const [userPackages, setUserPackages] = useState<any[]>([]);
@@ -4284,6 +4287,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       'rejected': { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejected' },
       'no show': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'No-Show' },
       'no-show': { bg: 'bg-orange-100', text: 'text-orange-700', label: 'No-Show' },
+      'block': { bg: 'bg-red-200', text: 'text-red-800', label: 'Block' },
+      'unblock': { bg: 'bg-green-200', text: 'text-green-800', label: 'Unblock' },
     };
     const key = (status || '').toLowerCase();
     const config = statusConfig[key] || { bg: 'bg-gray-100', text: 'text-gray-600', label: status || 'Unknown' };
@@ -10796,14 +10801,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - only show when advance permission is granted */}
+            {permissions.canAdvance && (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-teal-600" />
                 Add Payment
               </h3>
               <div className="flex flex-wrap gap-3">
-                {permissions.canCreate && (
                   <button
                     onClick={() => setShowAddAdvancePaymentModal(true)}
                     className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all duration-200 hover:bg-green-700 hover:shadow-lg active:scale-95"
@@ -10811,9 +10816,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <Plus className="w-4 h-4" />
                     Add Advance Balance
                   </button>
-                )}
               </div>
             </div>
+            )}
 
             {/* Modals */}
           </div>
@@ -12495,6 +12500,7 @@ function PatientProfileView({
     canCreate: false,
     canUpdate: false,
     canDelete: false,
+    canAdvance: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
@@ -12553,6 +12559,7 @@ function PatientProfileView({
     canCreate: false,
     canUpdate: false,
     canDelete: false,
+    canAdvance: false,
     canAll: false,
   };
   const agentPermissionsLoading = agentPermissionsHook?.loading || false;
@@ -12566,6 +12573,7 @@ function PatientProfileView({
       canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
       canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
       canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+      canAdvance: Boolean(agentPermissions.canAll || agentPermissions.canAdvance),
     };
 
     setPermissions(newPermissions);
@@ -12613,6 +12621,7 @@ function PatientProfileView({
         canCreate: true,
         canUpdate: true,
         canDelete: true,
+        canAdvance: true,
       });
       setPermissionsLoaded(true);
       return;
@@ -12628,6 +12637,7 @@ function PatientProfileView({
               canCreate: false,
               canUpdate: false,
               canDelete: false,
+              canAdvance: false,
             });
             setPermissionsLoaded(true);
             return;
@@ -12650,6 +12660,7 @@ function PatientProfileView({
                 canCreate: true,
                 canUpdate: true,
                 canDelete: true,
+                canAdvance: true,
               });
             } else {
               const modulePermission = res.data.permissions.find((p: any) => {
@@ -12683,11 +12694,22 @@ function PatientProfileView({
                   actions.delete === "true" ||
                   String(actions.delete).toLowerCase() === "true";
 
+                // Extract customActions.advance (at module level, not inside actions)
+                // If advance is explicitly set in customActions, it overrides "all"
+                const customActions = modulePermission.customActions || {};
+                const hasExplicitAdvance = 'advance' in customActions;
+                const moduleAdvance = hasExplicitAdvance
+                  ? (customActions.advance === true ||
+                    customActions.advance === "true" ||
+                    String(customActions.advance).toLowerCase() === "true")
+                  : moduleAll;
+
                 setPermissions({
                   canRead: moduleAll || moduleRead,
                   canCreate: moduleAll || moduleCreate,
                   canUpdate: moduleAll || moduleUpdate,
                   canDelete: moduleAll || moduleDelete,
+                  canAdvance: moduleAdvance,
                 });
               } else {
                 setPermissions({
@@ -12695,6 +12717,7 @@ function PatientProfileView({
                   canCreate: false,
                   canUpdate: false,
                   canDelete: false,
+                  canAdvance: false,
                 });
               }
             }
@@ -12704,6 +12727,7 @@ function PatientProfileView({
               canUpdate: true,
               canDelete: true,
               canCreate: true,
+              canAdvance: true,
             });
           }
         } catch (err: any) {
@@ -12714,6 +12738,7 @@ function PatientProfileView({
               canCreate: true,
               canUpdate: true,
               canDelete: true,
+              canAdvance: true,
             });
           }
         } finally {
@@ -12734,6 +12759,7 @@ function PatientProfileView({
         canCreate: false,
         canUpdate: false,
         canDelete: false,
+        canAdvance: false,
       });
       setPermissionsLoaded(true);
       return;
@@ -12767,6 +12793,7 @@ function PatientProfileView({
               canCreate: true,
               canUpdate: true,
               canDelete: true,
+              canAdvance: true,
             });
             setPermissionsLoaded(true);
             return;
@@ -12780,12 +12807,20 @@ function PatientProfileView({
             String(val || "").toLowerCase() === "true";
 
           const canAll = isTrue(actions.all);
+          // customActions is at the module level, not inside actions
+          // If advance is explicitly set in customActions, it overrides "all"
+          const customActions = data?.permissions?.customActions || {};
+          const hasExplicitAdvance = 'advance' in customActions;
+          const canAdvanceFinal = hasExplicitAdvance
+            ? isTrue(customActions.advance)
+            : canAll;
 
           const newPerms = {
             canRead: canAll || isTrue(actions.read),
             canCreate: canAll || isTrue(actions.create),
             canUpdate: canAll || isTrue(actions.update),
             canDelete: canAll || isTrue(actions.delete),
+            canAdvance: canAdvanceFinal,
           };
           setPermissions(newPerms);
         } catch (err) {
@@ -12795,6 +12830,7 @@ function PatientProfileView({
             canUpdate: false,
             canDelete: false,
             canRead: false,
+            canAdvance: false,
           });
         } finally {
           setPermissionsLoaded(true);
@@ -12810,6 +12846,7 @@ function PatientProfileView({
       canUpdate: false,
       canDelete: false,
       canCreate: false,
+      canAdvance: false,
     });
     setPermissionsLoaded(true);
   }, [isAgentRoute, routeContext]);

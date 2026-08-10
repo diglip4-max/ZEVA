@@ -585,8 +585,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -650,8 +648,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       </td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.amount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -662,12 +658,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedRevenueStaff.revenue)}</td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {formatCurrency(selectedRevenueStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
-                    </td>
                   </tr>
                 </tfoot>
               </table>
