@@ -1434,53 +1434,53 @@ async def lifespan(app: FastAPI):
     )
     await checkpointer_pool.open()
     checkpointer = AsyncPostgresSaver(checkpointer_pool)
-    await checkpointer.setup()
-    app.state.workflow = build_workflow(checkpointer)
-    app.state.db_pool = checkpointer_pool
-
-    # NEW: separate plain pool for chat-history rows (kept apart from the
-    # checkpointer pool so a history insert can never contend with or be
-    # coupled to LangGraph's own checkpoint writes).
-    history_pool = AsyncConnectionPool(
-        conninfo=os.getenv("DATABASE_URL"),
-        min_size=2,
-        max_size=10,
-        kwargs={"autocommit": True, "prepare_threshold": None},
-        open=False,
-    )
-    await history_pool.open()
-    app.state.history_db_pool = history_pool
-
-    yield
-    await http_client.aclose()
-    await checkpointer_pool.close()
-    await history_pool.close()
-
-
-app = FastAPI(lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        f"{AGENT_URL}",
-        "https://zeva360.com",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-def _sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
-
-
-async def log_receptionist_turn(
-    app: FastAPI,
-    thread_id: str,
-    agent_id: str,
-    user_content: str,
-    assistant_content: str,
-    export: Optional[dict],
+    await checkpointer.setup()                                                                                      
+    app.state.workflow = build_workflow(checkpointer)                                                                                       
+    app.state.db_pool = checkpointer_pool                                                                                       
+                                                                                        
+    # NEW: separate plain pool for chat-history rows (kept apart from the                                                                                       
+    # checkpointer pool so a history insert can never contend with or be                                                                                        
+    # coupled to LangGraph's own checkpoint writes).                                                                                        
+    history_pool = AsyncConnectionPool(                                                                                     
+        conninfo=os.getenv("DATABASE_URL"),                                                                                     
+        min_size=2,                                                                                     
+        max_size=10,                                                                                        
+        kwargs={"autocommit": True, "prepare_threshold": None},                                                                                     
+        open=False,                                                                                     
+    )                                                                                       
+    await history_pool.open()                                                                                       
+    app.state.history_db_pool = history_pool                                                                                        
+                                                                                        
+    yield                                                                                       
+    await http_client.aclose()                                                                                      
+    await checkpointer_pool.close()                                                                                     
+    await history_pool.close()                                                                                      
+                                                                                        
+                                                                                        
+app = FastAPI(lifespan=lifespan)                                                                                        
+app.add_middleware(                                                                                     
+    CORSMiddleware,                                                                                     
+    allow_origins=[                                                                                     
+        f"{AGENT_URL}",                                                                                     
+        "https://zeva360.com",                                                                                      
+    ],                                                                                      
+    allow_credentials=True,                                                                                     
+    allow_methods=["*"],                                                                                        
+    allow_headers=["*"],                                                                                        
+)                                                                                       
+                                                                                        
+                                                                                        
+def _sse(event: str, data: dict) -> str:                                                                                        
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"                                                                                      
+                                                                                        
+                                                                                        
+async def log_receptionist_turn(                                                                                        
+    app: FastAPI,                                                                                       
+    thread_id: str,                                                                                     
+    agent_id: str,                                                                                      
+    user_content: str,                                                                                      
+    assistant_content: str,                                                                                     
+    export: Optional[dict],                                                                                     
     list_block: Optional[dict],
 ) -> None:
     """Persists one full turn (user message + assistant reply) into

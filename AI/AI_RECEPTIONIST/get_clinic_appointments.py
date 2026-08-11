@@ -13,17 +13,17 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 AGENT_URL = os.getenv("NEXT_PUBLIC_BASE_URL")
-
-# ─── Display-mode thresholds ────────────────────────────────────────────────
-WEEK_THRESHOLD = 100
-PATIENT_THRESHOLD = 50
-MONTH_YEAR_SPAN_DAYS = 27
-
-
-# ─── Doctor name resolution ────────────────────────────────────────────────
-
-
-async def resolve_doctor_id(doctor_name: str, clinicToken: str) -> dict:
+            
+# ─── Display-mode thresholds ────────────────────────────────────────────────          
+WEEK_THRESHOLD = 100            
+PATIENT_THRESHOLD = 50          
+MONTH_YEAR_SPAN_DAYS = 27           
+            
+            
+# ─── Doctor name resolution ────────────────────────────────────────────────           
+            
+            
+async def resolve_doctor_id(doctor_name: str, clinicToken: str) -> dict:            
     """
     Resolves a doctor's natural-language name to a doctorId using the
     existing get_all_doctors helper (already cached, already scoped to
@@ -54,12 +54,12 @@ async def resolve_doctor_id(doctor_name: str, clinicToken: str) -> dict:
             "Message": f"No doctor found matching '{doctor_name}'.",
             "available_doctors": [d["name"] for d in doctors],
         }
-
-
-# ─── Date resolution ────────────────────────────────────────────────────────
-
-
-def resolve_date_range(
+            
+            
+# ─── Date resolution ────────────────────────────────────────────────────────          
+            
+            
+def resolve_date_range(         
     date_from: Optional[str],
     date_to: Optional[str],
     default_to_today: bool = True,
@@ -90,9 +90,9 @@ def resolve_date_range(
             f"Unparseable dates '{date_from}'/'{date_to}', defaulting to today."
         )
         return today.isoformat(), today.isoformat()
-
-
-def _span_days(date_from_iso: Optional[str], date_to_iso: Optional[str]) -> int:
+            
+            
+def _span_days(date_from_iso: Optional[str], date_to_iso: Optional[str]) -> int:            
     """Inclusive day span between two ISO (YYYY-MM-DD) date strings, or
     -1 if either is missing/unparseable (caller treats -1 as 'no bound',
     i.e. an all-time named-patient search)."""
@@ -104,23 +104,43 @@ def _span_days(date_from_iso: Optional[str], date_to_iso: Optional[str]) -> int:
     except ValueError:
         return -1
     return abs((d2 - d1).days) + 1
-
-
-# ─── Name matching helpers ──────────────────────────────────────────────────
-
-
-def _normalize_name_for_match(raw: str) -> str:
-    """Lowercase, collapse whitespace, for tolerant name comparison."""
-    return " ".join((raw or "").strip().lower().split())
-
-
-def _name_matches(candidate_name: str, query_name: str) -> bool:
+            
+            
+# ─── Phone matching helpers ─────────────────────────────────────────────────          
+            
+            
+def _normalize_phone_for_match(raw: Optional[str]) -> str:          
     """
-    True if `candidate_name` (an appointment's actual patientName) is a
-    plausible match for `query_name` (what the caller/LLM was told to
-    search for).
-
-    Tolerant of:
+    Digits-only, with a leading '91' country code stripped when present,
+    so a stored number like '917788994455' (12 digits) compares equal to
+    a caller-supplied '7788994455' (10 digits). Mirrors the normalization
+    already applied to booking/registration phone numbers elsewhere in
+    this codebase (see _normalize_patient_phone in main.py) — this keeps
+    appointment-lookup comparisons consistent with that behavior instead
+    of doing a naive exact digit-string match that breaks whenever one
+    side happens to include the prefix and the other doesn't.
+    """
+    digits = "".join(c for c in (raw or "") if c.isdigit())
+    if len(digits) == 12 and digits.startswith("91"):
+        digits = digits[2:]
+    return digits
+            
+            
+# ─── Name matching helpers ──────────────────────────────────────────────────          
+            
+            
+def _normalize_name_for_match(raw: str) -> str:         
+    """Lowercase, collapse whitespace, for tolerant name comparison."""         
+    return " ".join((raw or "").strip().lower().split())            
+            
+            
+def _name_matches(candidate_name: str, query_name: str) -> bool:            
+    """         
+    True if `candidate_name` (an appointment's actual patientName) is a         
+    plausible match for `query_name` (what the caller/LLM was told to           
+    search for).            
+            
+    Tolerant of:            
     - extra/missing middle tokens ("Aditya Soran" vs "Aditya Soran KKk")
     - word order / partial tokens
     but still requires every token in the *shorter* of the two names to
@@ -332,18 +352,23 @@ async def fetch_appointments_tool(
         doctor_id = resolved["doctorId"]
         resolved_doctor_name = resolved["doctorName"]
 
-    # Send the FULL name upstream (not just the first token) so the API's
-    # own $or has the best chance of a precise firstName/lastName match.
-    # This is a best-effort upstream filter only — it is NOT relied on
-    # for correctness. The authoritative name filter happens client-side
-    # below (_filter_appointments_by_name), because:
-    #   1. the upstream `search` field is ANDed with `patientNumber` in a
-    #      way that doesn't guarantee name+phone jointly identify one
-    #      patient when several patient records share a phone number, and
-    #   2. when only patient_phone is supplied (no `search` at all, e.g.
-    #      some call sites), the upstream query has no name constraint
-    #      whatsoever and will return every patient sharing that phone.
-    search_term = patient_name.strip() if patient_name else None
+    # Upstream `search` param is unreliable for multi-word names: it's
+    # regex-matched independently against firstName and lastName, so a
+    # combined "First Last" string can fail to match either field alone.
+    # Worse, when patient_phone is ALSO supplied, `search` and
+    # `patientNumber` become separate top-level keys on the same Mongo
+    # query object — i.e. they're ANDed — so a failed name regex zeroes
+    # out an otherwise-correct phone match entirely.
+    #
+    # Phone alone is a reliable, unambiguous upstream filter, and the
+    # client-side _filter_appointments_by_name() below is the actual
+    # correctness guarantee for name matching. So: only send `search`
+    # upstream when we do NOT already have a phone number to filter by;
+    # whenever a phone is present, rely on phone upstream + name filter
+    # client-side instead.
+    search_term = None
+    if patient_name and not patient_phone:
+        search_term = patient_name.strip()
 
     # Rescheduling stages always filter to booked only.
     effective_status = status
@@ -425,12 +450,11 @@ async def fetch_appointments_tool(
             a for a in appointments if (a.get("status") or "") in ACTIVE_STATUSES
         ]
         if patient_phone:
-            target_phone = "".join(c for c in patient_phone if c.isdigit())
+            target_phone = _normalize_phone_for_match(patient_phone)
             appointments = [
                 a
                 for a in appointments
-                if "".join(c for c in (a.get("patientNumber") or "") if c.isdigit())
-                == target_phone
+                if _normalize_phone_for_match(a.get("patientNumber")) == target_phone
             ]
 
     total = (
@@ -501,7 +525,7 @@ async def fetch_appointments_tool(
             "summaryColumns": ["Patient", "Doctor", "Status", "Date", "Time"],
             "items": [extract_appointment_item(a) for a in appointments],
         }
-
+       
         candidates = _build_reschedule_candidates(
             appointments, patient_name or "", patient_phone
         )
@@ -516,7 +540,7 @@ async def fetch_appointments_tool(
             "appointments": candidates,  # NEW — model-visible, positioned
             "_list_block": list_block,
         }
-
+    
     if is_named_patient_lookup:
         list_block = {
             "kind": "appointments",
@@ -539,9 +563,7 @@ async def fetch_appointments_tool(
             "total": total if patient_name else data.get("total", 0),
             "page": data.get("page", page),
             "total_pages": data.get("totalPages", 0),
-            "status_counts": (
-                status_counts if patient_name else data.get("statusCounts", {})
-            ),
+            "status_counts": status_counts if patient_name else data.get("statusCounts", {}),
             "filters_applied": filters_applied,
             "display_mode": "summary_only",
         }
@@ -553,9 +575,7 @@ async def fetch_appointments_tool(
             "total": total if patient_name else data.get("total", 0),
             "page": data.get("page", page),
             "total_pages": data.get("totalPages", 0),
-            "status_counts": (
-                status_counts if patient_name else data.get("statusCounts", {})
-            ),
+            "status_counts": status_counts if patient_name else data.get("statusCounts", {}),
             "filters_applied": filters_applied,
             "display_mode": "summary_only",
         }
@@ -571,9 +591,7 @@ async def fetch_appointments_tool(
         "total": total if patient_name else data.get("total", 0),
         "page": data.get("page", page),
         "total_pages": data.get("totalPages", 0),
-        "status_counts": (
-            status_counts if patient_name else data.get("statusCounts", {})
-        ),
+        "status_counts": status_counts if patient_name else data.get("statusCounts", {}),
         "filters_applied": filters_applied,
         "display_mode": "accordion",
         "_list_block": list_block,
