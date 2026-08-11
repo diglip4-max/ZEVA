@@ -1,6 +1,8 @@
 // pages/api/pettycash/getTotalAmount.js
-import dbConnect from "../../../lib/database"; // adjust path if needed
+import dbConnect from "../../../lib/database";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashAllocation from "../../../models/PettyCashAllocation";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 import mongoose from "mongoose";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
@@ -12,13 +14,13 @@ export default async function handler(req, res) {
     const user = await getAuthorizedStaffUser(req, {
       allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
     });
-    
+
     if (!user || !user._id) {
       return res.status(401).json({ success: false, message: "Invalid user" });
     }
-    
+
     const staffId = user._id.toString ? user._id.toString() : String(user._id);
-    
+
     if (!staffId || !mongoose.Types.ObjectId.isValid(staffId)) {
       return res.status(401).json({ success: false, message: "Invalid user ID format" });
     }
@@ -33,277 +35,171 @@ export default async function handler(req, res) {
     const end = new Date(start);
     end.setDate(start.getDate() + 1);
 
-    // Get cumulative balance up to the end of the current day (all previous days + current day)
     const cumulativeEnd = new Date(end);
+    const staffObjectId = new mongoose.Types.ObjectId(staffId);
 
-    // Get cumulative balance up to the current day
-    let staffObjectId;
-    try {
-      staffObjectId = new mongoose.Types.ObjectId(staffId);
-    } catch (idError) {
-      // console.error("Invalid staffId format:", staffId, idError);
-      return res.status(400).json({ success: false, message: "Invalid staff ID format" });
-    }
-
-    const cumulativePipeline = [
-      {
-        $match: { staffId: staffObjectId },
-      },
-      {
-        $project: {
-          // filter allocatedAmounts up to current day
-          allocatedUpToCurrentDay: {
-            $filter: {
-              input: "$allocatedAmounts",
-              as: "alloc",
-              cond: {
-                $lt: ["$$alloc.date", cumulativeEnd],
-              },
-            },
-          },
-          // filter expenses up to current day
-          expensesUpToCurrentDay: {
-            $filter: {
-              input: "$expenses",
-              as: "exp",
-              cond: {
-                $lt: ["$$exp.date", cumulativeEnd],
-              },
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          allocatedUpToCurrentDaySum: {
-            $cond: [
-              { $gt: [{ $size: "$allocatedUpToCurrentDay" }, 0] },
-              { $sum: "$allocatedUpToCurrentDay.amount" },
-              0,
-            ],
-          },
-          expensesUpToCurrentDaySum: {
-            $cond: [
-              { $gt: [{ $size: "$expensesUpToCurrentDay" }, 0] },
-              { $sum: "$expensesUpToCurrentDay.spentAmount" },
-              0,
-            ],
-          },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          cumulativeAllocated: { $sum: "$allocatedUpToCurrentDaySum" },
-          cumulativeSpent: { $sum: "$expensesUpToCurrentDaySum" },
-        },
-      },
-    ];
-
-    const cumulativeResult = await PettyCash.aggregate(cumulativePipeline);
-    const cumulativeBalance = cumulativeResult[0] 
-      ? Math.max(0, cumulativeResult[0].cumulativeAllocated - cumulativeResult[0].cumulativeSpent)
-      : 0;
-
-    // Aggregation: filter allocatedAmounts & expenses to only those entries within [start, end)
-    const pipeline = [
-      // Only include petty cash documents for this staff user
-      {
-        $match: { staffId: staffObjectId },
-      },
-      {
-        $project: {
-          patientName: 1,
-          patientEmail: 1,
-          // filter allocatedAmounts for the date
-          allocatedForDate: {
-            $filter: {
-              input: "$allocatedAmounts",
-              as: "alloc",
-              cond: {
-                $and: [
-                  { $gte: ["$$alloc.date", start] },
-                  { $lt: ["$$alloc.date", end] },
-                ],
-              },
-            },
-          },
-          // filter expenses for the date
-          expensesForDate: {
-            $filter: {
-              input: "$expenses",
-              as: "exp",
-              cond: {
-                $and: [
-                  { $gte: ["$$exp.date", start] },
-                  { $lt: ["$$exp.date", end] },
-                ],
-              },
-            },
-          },
-        },
-      },
-      // compute per-document sums for that date
-      {
-        $addFields: {
-          allocatedForDateSum: {
-            $cond: [
-              { $gt: [{ $size: "$allocatedForDate" }, 0] },
-              { $sum: "$allocatedForDate.amount" },
-              0,
-            ],
-          },
-          expensesForDateSum: {
-            $cond: [
-              { $gt: [{ $size: "$expensesForDate" }, 0] },
-              { $sum: "$expensesForDate.spentAmount" },
-              0,
-            ],
-          },
-        },
-      },
-      // Keep only documents where either allocated or expense exists for the date, optional
-      // If you want to include everyone (with zeros), remove the match below
+    // 1. Calculate cumulative balance for this specific staff member
+    const staffAllocationsAgg = await PettyCashAllocation.aggregate([
       {
         $match: {
-          $or: [
-            { allocatedForDateSum: { $gt: 0 } },
-            { expensesForDateSum: { $gt: 0 } },
-          ],
-        },
-      },
-      // Now group to compute global sums, and push patient breakdown
-      {
-        $group: {
-          _id: null,
-          globalAllocated: { $sum: "$allocatedForDateSum" },
-          globalSpent: { $sum: "$expensesForDateSum" },
-          patients: {
-            $push: {
-              _id: "$_id",
-              patientName: "$patientName",
-              patientEmail: "$patientEmail",
-              allocatedForDate: "$allocatedForDate",
-              expensesForDate: "$expensesForDate",
-              allocatedForDateSum: "$allocatedForDateSum",
-              expensesForDateSum: "$expensesForDateSum",
-              remainingForDate: {
-                $subtract: ["$allocatedForDateSum", "$expensesForDateSum"],
-              },
-            },
-          },
-        },
-      },
-      // Project nice shape (without cumulative balance - we'll add it later)
-      {
-        $project: {
-          _id: 0,
-          globalAllocated: 1,
-          globalSpent: 1,
-          patients: 1,
-        },
-      },
-    ];
-
-    const agg = await PettyCash.aggregate(pipeline);
-
-    // Get global cumulative amounts (all staff combined) up to current day
-    const globalCumulativePipeline = [
-      {
-        $project: {
-          // filter allocatedAmounts up to current day
-          allocatedUpToCurrentDay: {
-            $filter: {
-              input: "$allocatedAmounts",
-              as: "alloc",
-              cond: {
-                $lt: ["$$alloc.date", cumulativeEnd],
-              },
-            },
-          },
-          // filter expenses up to current day
-          expensesUpToCurrentDay: {
-            $filter: {
-              input: "$expenses",
-              as: "exp",
-              cond: {
-                $lt: ["$$exp.date", cumulativeEnd],
-              },
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          allocatedUpToCurrentDaySum: {
-            $cond: [
-              { $gt: [{ $size: "$allocatedUpToCurrentDay" }, 0] },
-              { $sum: "$allocatedUpToCurrentDay.amount" },
-              0,
-            ],
-          },
-          expensesUpToCurrentDaySum: {
-            $cond: [
-              { $gt: [{ $size: "$expensesUpToCurrentDay" }, 0] },
-              { $sum: "$expensesUpToCurrentDay.spentAmount" },
-              0,
-            ],
-          },
-        },
+          staffId: staffObjectId,
+          date: { $lt: cumulativeEnd },
+          isVoided: false
+        }
       },
       {
         $group: {
           _id: null,
-          globalAllocated: { $sum: "$allocatedUpToCurrentDaySum" },
-          globalSpent: { $sum: "$expensesUpToCurrentDaySum" },
-        },
+          total: { $sum: { $toDouble: "$amount" } }
+        }
+      }
+    ]);
+
+    const staffExpensesAgg = await PettyCashExpense.aggregate([
+      {
+        $match: {
+          staffId: staffObjectId,
+          date: { $lt: cumulativeEnd },
+          isVoided: false
+        }
       },
       {
-        $project: {
-          _id: 0,
-          globalAllocated: 1,
-          globalSpent: 1,
-          globalRemaining: { $subtract: ["$globalAllocated", "$globalSpent"] },
-        },
-      },
-    ];
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$spentAmount" } }
+        }
+      }
+    ]);
 
-    const globalAgg = await PettyCash.aggregate(globalCumulativePipeline);
-    const globalResult = (globalAgg && globalAgg[0]) ? globalAgg[0] : { globalAllocated: 0, globalSpent: 0, globalRemaining: 0 };
+    const cumulativeAllocated = staffAllocationsAgg[0]?.total || 0;
+    const cumulativeSpent = staffExpensesAgg[0]?.total || 0;
+    const cumulativeBalance = Math.max(0, cumulativeAllocated - cumulativeSpent);
 
-    // if no entries for that date, return zeros and empty patient list
-    if (!agg || !Array.isArray(agg) || agg.length === 0) {
-      return res.status(200).json({
-        success: true,
-        date: start.toISOString(),
-        globalAllocated: 0, // Day-wise allocated (0 for this day)
-        globalSpent: 0, // Day-wise spent (0 for this day)
-        globalRemaining: globalResult.globalRemaining || 0, // Cumulative remaining balance
-        patients: [],
+    // 2. Fetch day-wise allocations and expenses for this staff member in range [start, end)
+    const dayAllocations = await PettyCashAllocation.find({
+      staffId: staffObjectId,
+      date: { $gte: start, $lt: end },
+      isVoided: false
+    }).lean();
+
+    const dayExpenses = await PettyCashExpense.find({
+      staffId: staffObjectId,
+      date: { $gte: start, $lt: end },
+      isVoided: false
+    }).lean();
+
+    // Group by pettyCashId
+    const patientGroups = {};
+
+    // Helper to get group
+    const getGroup = async (pcId) => {
+      if (patientGroups[pcId]) return patientGroups[pcId];
+      const pc = await PettyCash.findById(pcId).lean();
+      patientGroups[pcId] = {
+        _id: pcId,
+        patientName: pc?.patientName || "Manual Entries",
+        patientEmail: pc?.patientEmail || "",
+        allocatedForDate: [],
+        expensesForDate: [],
+        allocatedForDateSum: 0,
+        expensesForDateSum: 0,
+        remainingForDate: 0,
+      };
+      return patientGroups[pcId];
+    };
+
+    // Populate allocations
+    let dayWiseAllocated = 0;
+    for (const alloc of dayAllocations) {
+      const pcId = alloc.pettyCashId.toString();
+      const group = await getGroup(pcId);
+      const amt = alloc.amount || 0;
+      group.allocatedForDate.push({
+        _id: alloc._id,
+        amount: amt,
+        receipts: alloc.receipts,
+        date: alloc.date
       });
+      group.allocatedForDateSum += amt;
+      dayWiseAllocated += amt;
     }
 
-    const result = agg[0];
-    // Use the cumulative balance calculated earlier
-    const finalRemaining = cumulativeBalance;
-    
+    // Populate expenses
+    let dayWiseSpent = 0;
+    for (const exp of dayExpenses) {
+      const pcId = exp.pettyCashId.toString();
+      const group = await getGroup(pcId);
+      const amt = exp.spentAmount || 0;
+      group.expensesForDate.push({
+        _id: exp._id,
+        description: exp.description,
+        spentAmount: amt,
+        vendor: exp.vendor,
+        vendorName: exp.vendorName,
+        items: exp.items,
+        receipts: exp.receipts,
+        usedFromPettyCash: exp.usedFromPettyCash,
+        date: exp.date
+      });
+      group.expensesForDateSum += amt;
+      dayWiseSpent += amt;
+    }
+
+    // Compute remaining for each group
+    const patientList = Object.values(patientGroups).map(group => {
+      group.remainingForDate = group.allocatedForDateSum - group.expensesForDateSum;
+      return group;
+    });
+
+    // 3. Get global cumulative amounts (all staff combined) up to current day
+    const globalAllocationsAgg = await PettyCashAllocation.aggregate([
+      {
+        $match: {
+          date: { $lt: cumulativeEnd },
+          isVoided: false
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } }
+        }
+      }
+    ]);
+
+    const globalExpensesAgg = await PettyCashExpense.aggregate([
+      {
+        $match: {
+          date: { $lt: cumulativeEnd },
+          isVoided: false
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$spentAmount" } }
+        }
+      }
+    ]);
+
+    const globalAllocated = globalAllocationsAgg[0]?.total || 0;
+    const globalSpent = globalExpensesAgg[0]?.total || 0;
+    const globalRemaining = Math.max(0, globalAllocated - globalSpent);
+
     return res.status(200).json({
       success: true,
       date: start.toISOString(),
-      globalAllocated: result.globalAllocated || 0, // Day-wise allocated
-      globalSpent: result.globalSpent || 0, // Day-wise spent
-      globalRemaining: finalRemaining, // Cumulative remaining balance
-      patients: result.patients || [],
+      globalAllocated: dayWiseAllocated,
+      globalSpent: dayWiseSpent,
+      globalRemaining: globalRemaining,
+      patients: patientList,
     });
   } catch (err) {
-    // .error("global-total error:", err);
-    // coconsolensole.error("Error stack:", err.stack);
-    // Handle errors from getAuthorizedStaffUser which have a status property
     if (err.status) {
       return res.status(err.status).json({ success: false, message: err.message || "Authentication error" });
     }
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: err.message || "Server error",
       error: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });

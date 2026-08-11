@@ -1,27 +1,5 @@
-// models/PettyCash.js
+
 import mongoose from "mongoose";
-
-// Allocation schema (flat array)
-const AllocSchema = new mongoose.Schema({
-  amount: { type: Number, required: true },
-  receipts: [{ type: String }], // array of Cloudinary URLs
-  date: { type: Date, default: Date.now },
-});
-
-// Expense schema
-const ExpenseSchema = new mongoose.Schema({
-  description: { type: String, required: true },
-  spentAmount: { type: Number, required: true },
-  vendor: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null },
-  vendorName: { type: String, default: null },
-  items: [{
-    itemName: { type: String },
-    amount: { type: Number }
-  }],
-  receipts: [{ type: String }], // array of Cloudinary URLs
-  usedFromPettyCash: { type: Boolean, default: true },
-  date: { type: Date, default: Date.now },
-});
 
 const PettyCashSchema = new mongoose.Schema(
   {
@@ -29,202 +7,217 @@ const PettyCashSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Clinic",
       required: false, // For backward compatibility or global records
-      index: true,
     },
     staffId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false, // Allow null for global tracking record
+      required: false, // null = the special global tracking record for a clinic
     },
+
     // Patient fields - optional for manual petty cash entries
     patientName: { type: String, trim: true },
     patientEmail: { type: String, trim: true },
     patientPhone: { type: String },
     note: { type: String, default: "" },
 
-    // Flat allocated amounts array
-    allocatedAmounts: [AllocSchema],
+    // ---- ROLLUP TOTALS ONLY (no more embedded arrays here) ----
+    // These are the per-staff totals. They are now maintained via
+    // atomic $inc calls from the Allocation/Expense models' hooks,
+    // NOT recalculated by summing embedded arrays on every save.
+    totalAllocated: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    totalSpent: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
 
-    // Expenses array
-    expenses: [ExpenseSchema],
+    // Global amount tracking (only meaningful on the staffId: null record)
+    globalTotalAmount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+    globalSpentAmount: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
 
-    // Totals (auto-calculated)
-    totalAllocated: { type: Number, default: 0 },
-    totalSpent: { type: Number, default: 0 },
-    totalAmount: { type: Number, default: 0 }, // remaining
-    
-    // Global amount tracking
-    globalTotalAmount: { type: Number, default: 0 }, // global total amount (all staff combined)
-    globalSpentAmount: { type: Number, default: 0 }, // global spent amount (all staff combined)
+    // Audit fields
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { getters: true },   // so Decimal128 fields serialize as normal numbers
+    toObject: { getters: true },
+  }
 );
 
-// Pre-save hook to calculate totals automatically
-PettyCashSchema.pre("save", function (next) {
-  // Sum allocated amounts
-  const totalAllocated = (this.allocatedAmounts || []).reduce(
-    (acc, alloc) => acc + (alloc.amount || 0),
-    0
-  );
+// ---- INDEXES matched to real query patterns ----
+// "Give me this staff member's petty cash record at this clinic"
+PettyCashSchema.index({ clinicId: 1, staffId: 1 }, { unique: true, sparse: true });
+// "Give me recently created/updated records for this clinic" (dashboards, listings)
+PettyCashSchema.index({ clinicId: 1, createdAt: -1 });
 
-  // Sum spent amounts
-  const totalSpent = (this.expenses || []).reduce(
-    (acc, exp) => acc + (exp.spentAmount || 0),
-    0
-  );
+// NOTE: There is intentionally NO pre("save") hook recalculating totals from
+// arrays anymore, because there are no arrays on this document anymore.
+// Totals are updated atomically (see statics below) at the exact moment
+// money is allocated or spent, called from API routes inside a transaction.
 
-  this.totalAllocated = totalAllocated;
-  this.totalSpent = totalSpent;
-  this.totalAmount = totalAllocated - totalSpent;
+// ---------------------------------------------------------------------------
+// STATIC METHODS
+// ---------------------------------------------------------------------------
 
-  next();
-});
-
-// Helper to get total global amounts across all staff for a specific clinic
-PettyCashSchema.statics.getGlobalAmounts = async function(clinicId) {
-  if (!clinicId) return { globalTotalAmount: 0, globalSpentAmount: 0, globalRemainingAmount: 0 };
-  
-  try {
-    // Get the global tracking record for this clinic
-    const globalRecord = await this.findOne({ staffId: null, clinicId });
-    return {
-      globalTotalAmount: globalRecord ? globalRecord.globalTotalAmount : 0,
-      globalSpentAmount: globalRecord ? globalRecord.globalSpentAmount : 0,
-      globalRemainingAmount: globalRecord ? (globalRecord.globalTotalAmount - globalRecord.globalSpentAmount) : 0
-    };
-  } catch (error) {
-    console.error("Error getting global amounts:", error);
+/**
+ * Read-only helper: get a clinic's global totals.
+ * Safe to call without a session - it's a read, not a write.
+ */
+PettyCashSchema.statics.getGlobalAmounts = async function (clinicId) {
+  if (!clinicId) {
     return { globalTotalAmount: 0, globalSpentAmount: 0, globalRemainingAmount: 0 };
   }
+  const globalRecord = await this.findOne({ staffId: null, clinicId }).lean();
+  const parseAmt = (val) => {
+    if (!val) return 0;
+    if (typeof val === "number") return val;
+    return parseFloat(val.toString()) || 0;
+  };
+  const total = globalRecord && globalRecord.globalTotalAmount ? parseAmt(globalRecord.globalTotalAmount) : 0;
+  const spent = globalRecord && globalRecord.globalSpentAmount ? parseAmt(globalRecord.globalSpentAmount) : 0;
+  return {
+    globalTotalAmount: total,
+    globalSpentAmount: spent,
+    globalRemainingAmount: total - spent,
+  };
 };
 
-// Static method to update global totals for a specific clinic
-PettyCashSchema.statics.updateGlobalSpentAmount = async function(clinicId, amount, operation = 'add') {
-  if (!clinicId) return;
-  
-  try {
-    let globalRecord = await this.findOne({ staffId: null, clinicId });
-    
-    if (!globalRecord) {
-      // Create a new global tracking record for this clinic
-      globalRecord = await this.create({
-        staffId: null, // Global record
-        clinicId,
-        note: "Global petty cash tracking",
-        allocatedAmounts: [],
-        expenses: [],
-        globalTotalAmount: 0,
-        globalSpentAmount: 0
-      });
-    }
+/**
+ * Atomically adjust a clinic's global SPENT total.
+ * Uses $inc (database-side addition) instead of read-modify-write,
+ * so concurrent calls never lose an update.
+ * Pass `session` when calling inside a transaction.
+ */
+PettyCashSchema.statics.updateGlobalSpentAmount = async function (
+  clinicId,
+  amount,
+  operation = "add",
+  session = null
+) {
+  if (!clinicId) return null;
+  const delta = operation === "add" ? amount : -amount;
 
-    const currentGlobalSpent = globalRecord.globalSpentAmount || 0;
-    const newGlobalSpent = operation === 'add' 
-      ? currentGlobalSpent + amount 
-      : operation === 'subtract'
-      ? Math.max(0, currentGlobalSpent - amount)
-      : currentGlobalSpent;
+  return this.findOneAndUpdate(
+    { staffId: null, clinicId },
+    {
+      $inc: { globalSpentAmount: delta },
+      $setOnInsert: { note: "Global petty cash tracking", globalTotalAmount: 0 },
+    },
+    { upsert: true, new: true, session, setDefaultsOnInsert: true }
+  );
+};
 
-    globalRecord.globalSpentAmount = newGlobalSpent;
-    await globalRecord.save();
-    return globalRecord;
-  } catch (error) { 
-    console.error("Error updating global spent amount:", error);
+/**
+ * Atomically adjust a clinic's global TOTAL (allocated) amount.
+ * Same atomic pattern as updateGlobalSpentAmount.
+ */
+PettyCashSchema.statics.updateGlobalTotalAmount = async function (
+  clinicId,
+  amount,
+  operation = "add",
+  session = null
+) {
+  if (!clinicId) return null;
+  const delta = operation === "add" ? amount : -amount;
+
+  return this.findOneAndUpdate(
+    { staffId: null, clinicId },
+    {
+      $inc: { globalTotalAmount: delta },
+      $setOnInsert: { note: "Global petty cash tracking", globalSpentAmount: 0 },
+    },
+    { upsert: true, new: true, session, setDefaultsOnInsert: true }
+  );
+};
+
+/**
+ * Adjust ONE staff member's rollup totals atomically.
+ * Called whenever an allocation is created for them.
+ */
+PettyCashSchema.statics.applyAllocation = async function (pettyCashId, amount, session = null) {
+  return this.findByIdAndUpdate(
+    pettyCashId,
+    { $inc: { totalAllocated: amount, totalAmount: amount } },
+    { new: true, session }
+  );
+};
+
+/**
+ * Adjust ONE staff member's rollup totals atomically.
+ * Called whenever an expense is created for them.
+ * Pass a negative `amount` to reverse (void) a previously applied expense.
+ */
+PettyCashSchema.statics.applyExpense = async function (pettyCashId, amount, session = null) {
+  return this.findByIdAndUpdate(
+    pettyCashId,
+    { $inc: { totalSpent: amount, totalAmount: -amount } },
+    { new: true, session }
+  );
+};
+
+/**
+ * Recalculate a SPECIFIC clinic's global totals from source-of-truth
+ * staff records. Scoped by clinicId (not the whole system) so it stays
+ * fast as the number of clinics grows. Use as a periodic reconciliation
+ * job, not on every request.
+ */
+PettyCashSchema.statics.recalculateGlobalAmounts = async function (clinicId) {
+  if (!clinicId) {
+    throw new Error("clinicId is required to recalculate global amounts");
   }
-};
-
-// Update global total amount when new petty cash is added (optional)
-PettyCashSchema.statics.updateGlobalTotalAmount = async function(clinicId, amount, operation = 'add') {
-  if (!clinicId) return;
-  
   try {
-    let globalRecord = await this.findOne({ staffId: null, clinicId });
-    
-    if (!globalRecord) {
-      globalRecord = await this.create({
-        staffId: null,
-        clinicId,
-        note: "Global petty cash tracking",
-        allocatedAmounts: [],
-        expenses: [],
-        globalTotalAmount: 0,
-        globalSpentAmount: 0
-      });
-    }
-
-    const currentGlobalTotal = globalRecord.globalTotalAmount || 0;
-    const newGlobalTotal = operation === 'add' 
-      ? currentGlobalTotal + amount 
-      : operation === 'subtract'
-      ? Math.max(0, currentGlobalTotal - amount)
-      : currentGlobalTotal;
-
-    globalRecord.globalTotalAmount = newGlobalTotal;
-    await globalRecord.save();
-    return globalRecord;
-  } catch (error) {
-    console.error("Error updating global total amount:", error);
-  }
-};
-
-// Static method to recalculate global amounts from all records
-PettyCashSchema.statics.recalculateGlobalAmounts = async function() {
-  try {
-    // Get all staff records (excluding global record) and calculate totals
     const pipeline = [
-      {
-        $match: { staffId: { $ne: null } }
-      },
+      { $match: { clinicId: new mongoose.Types.ObjectId(clinicId), staffId: { $ne: null } } },
       {
         $group: {
           _id: null,
-          totalAllocated: { $sum: "$totalAllocated" },
-          totalSpent: { $sum: "$totalSpent" }
-        }
-      }
+          totalAllocated: { $sum: { $toDouble: "$totalAllocated" } },
+          totalSpent: { $sum: { $toDouble: "$totalSpent" } },
+        },
+      },
     ];
-    
+
     const result = await this.aggregate(pipeline);
     const totals = result[0] || { totalAllocated: 0, totalSpent: 0 };
-    
-    // Find or create global tracking record
-    let globalRecord = await this.findOne({ staffId: null });
-    
-    if (!globalRecord) {
-      globalRecord = await this.create({
-        staffId: null,
-        note: "Global petty cash tracking",
-        allocatedAmounts: [],
-        expenses: [],
+
+    const globalRecord = await this.findOneAndUpdate(
+      { staffId: null, clinicId },
+      {
         globalTotalAmount: totals.totalAllocated,
-        globalSpentAmount: totals.totalSpent
-      });
-    } else {
-      globalRecord.globalTotalAmount = totals.totalAllocated;
-      globalRecord.globalSpentAmount = totals.totalSpent;
-      await globalRecord.save();
-    }
-    
+        globalSpentAmount: totals.totalSpent,
+        $setOnInsert: { note: "Global petty cash tracking" },
+      },
+      { upsert: true, new: true }
+    );
+
     return {
-      globalTotalAmount: totals.totalAllocated,
-      globalSpentAmount: totals.totalSpent,
-      globalRemainingAmount: totals.totalAllocated - totals.totalSpent
+      globalTotalAmount: globalRecord.globalTotalAmount,
+      globalSpentAmount: globalRecord.globalSpentAmount,
+      globalRemainingAmount: globalRecord.globalTotalAmount - globalRecord.globalSpentAmount,
     };
   } catch (error) {
     console.error("Error recalculating global amounts:", error);
-    return {
-      globalTotalAmount: 0,
-      globalSpentAmount: 0,
-      globalRemainingAmount: 0
-    };
+    throw error; // enterprise code should surface errors, not swallow them silently
   }
 };
 
-// Note: Global amounts are updated manually in APIs to avoid double counting
-// Post-save hooks removed to prevent automatic recalculation
-
-// Avoid recompilation errors in Next.js
-delete mongoose.models.PettyCash;
-export default mongoose.models.PettyCash ||
-  mongoose.model("PettyCash", PettyCashSchema);
+export default mongoose.models.PettyCash || mongoose.model("PettyCash", PettyCashSchema);

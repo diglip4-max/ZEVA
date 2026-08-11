@@ -2,6 +2,8 @@ import dbConnect from "../../../lib/database";
 import jwt from "jsonwebtoken";
 import User from "../../../models/Users";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashAllocation from "../../../models/PettyCashAllocation";
+import mongoose from "mongoose";
 import multer from "multer";
 import FormData from "form-data";
 import fetch from "node-fetch";
@@ -71,6 +73,20 @@ export default async function handler(req, res) {
       });
     }
 
+    // Get clinicId for the user
+    let clinicId;
+    try {
+      const { getClinicIdFromUser } = await import("../lead-ms/permissions-helper");
+      const { clinicId: cid } = await getClinicIdFromUser(user);
+      clinicId = cid;
+    } catch (err) {
+      // console.error("Error getting clinicId:", err);
+    }
+
+    if (!clinicId) {
+      return res.status(400).json({ success: false, message: "Clinic ID is required and could not be determined" });
+    }
+
     // Upload receipts to Cloudinary
     const receiptFiles = req.files || [];
     const receiptUrls = [];
@@ -95,33 +111,58 @@ export default async function handler(req, res) {
       if (data.secure_url) receiptUrls.push(data.secure_url);
     }
 
-    // Create a new PettyCash record for each manual addition
-    const pettyCashRecord = await PettyCash.create({
-      staffId: user._id,
-      note: note || "Manual petty cash addition",
-      allocatedAmounts: [
-        {
-          amount: parseFloat(amount),
-          receipts: receiptUrls,
-          date: new Date(),
-        },
-      ],
-      expenses: [],
-    });
+    let pettyCashRecord;
+    let savedAllocation;
 
-    // Update global total amount
-    await PettyCash.updateGlobalTotalAmount(parseFloat(amount), 'add');
+    // Wrap in a transaction
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      pettyCashRecord = await PettyCash.findOne({ staffId: user._id, clinicId }).session(session);
+
+      if (!pettyCashRecord) {
+        pettyCashRecord = new PettyCash({
+          staffId: user._id,
+          clinicId,
+          note: note || "Manual petty cash addition",
+        });
+        await pettyCashRecord.save({ session });
+      }
+
+      const pettyCashId = pettyCashRecord._id;
+
+      // Create new PettyCashAllocation record
+      [savedAllocation] = await PettyCashAllocation.create(
+        [
+          {
+            pettyCashId,
+            clinicId,
+            staffId: user._id,
+            amount: parseFloat(amount),
+            receipts: receiptUrls,
+            date: new Date(),
+            createdBy: user._id,
+          },
+        ],
+        { session }
+      );
+
+      // Apply rollup and global totals
+      await PettyCash.applyAllocation(pettyCashId, parseFloat(amount), session);
+      await PettyCash.updateGlobalTotalAmount(clinicId, parseFloat(amount), "add", session);
+    });
+    session.endSession();
 
     return res.status(201).json({
       success: true,
       message: "Manual petty cash added successfully",
       data: pettyCashRecord,
+      allocation: savedAllocation,
     });
   } catch (error) {
-    // console.error("Error adding manual petty cash:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
     });
   }
 }

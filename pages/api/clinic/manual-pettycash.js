@@ -6,6 +6,7 @@ import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import mongoose from "mongoose";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 
 // Inline schema for manual clinic petty cash (stored in a simple collection)
 const ManualPettyCashSchema = new mongoose.Schema(
@@ -59,20 +60,27 @@ export default async function handler(req, res) {
       const listFilter = { ...baseFilter };
       const dateFilter = {};
       if (startDate || endDate) {
-        if (startDate) { 
-          const s = new Date(startDate); 
-          s.setUTCHours(0, 0, 0, 0); 
-          dateFilter.$gte = s; 
+        if (startDate) {
+          const s = new Date(startDate);
+          s.setUTCHours(0, 0, 0, 0);
+          dateFilter.$gte = s;
         }
-        if (endDate) { 
-          const e = new Date(endDate); 
-          e.setUTCHours(23, 59, 59, 999); 
-          dateFilter.$lte = e; 
+        if (endDate) {
+          const e = new Date(endDate);
+          e.setUTCHours(23, 59, 59, 999);
+          dateFilter.$lte = e;
         }
         listFilter.createdAt = dateFilter;
       }
 
-      const [entries, total, pettyCashGlobal, manualSummary, pettyCashRecords] = await Promise.all([
+      // Fetch expenses matching dateFilter from the new collection
+      const expensesFilter = {
+        clinicId: new mongoose.Types.ObjectId(String(clinicId)),
+        isVoided: false,
+        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {})
+      };
+
+      const [entries, total, pettyCashGlobal, manualSummary, pettyCashExpenses] = await Promise.all([
         ManualPettyCash.find(listFilter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
         ManualPettyCash.countDocuments(listFilter),
         PettyCash.getGlobalAmounts(clinicId),
@@ -80,11 +88,7 @@ export default async function handler(req, res) {
           { $match: listFilter }, // Use listFilter (with date restriction) for the sum
           { $group: { _id: null, total: { $sum: "$amount" } } }
         ]),
-        PettyCash.find({ 
-          clinicId: new mongoose.Types.ObjectId(String(clinicId)),
-          // Filter expenses by date if provided
-          ...(Object.keys(dateFilter).length > 0 ? { "expenses.date": dateFilter } : {})
-        }).select("expenses").lean()
+        PettyCashExpense.find(expensesFilter).lean({ getters: true })
       ]);
 
       // Total sum across filtered records
@@ -98,41 +102,31 @@ export default async function handler(req, res) {
       ]);
       const grandManualTotal = grandManualAgg.length > 0 ? grandManualAgg[0].total : 0;
 
+      const parseAmt = (val) => {
+        if (!val) return 0;
+        if (typeof val === "number") return val;
+        return parseFloat(val.toString()) || 0;
+      };
+
       // Grand expense total: read from global PettyCash record's globalSpentAmount
-      // (updated by add-expense.js via updateGlobalSpentAmount static method)
       const globalPettyCash = await PettyCash.findOne({ clinicId: new mongoose.Types.ObjectId(String(clinicId)), staffId: null }).select("globalSpentAmount").lean();
-      const grandExpenseTotal = globalPettyCash?.globalSpentAmount || 0;
+      const grandExpenseTotal = globalPettyCash && globalPettyCash.globalSpentAmount ? parseAmt(globalPettyCash.globalSpentAmount) : 0;
 
       // FILTERED expense total (date-filtered, for the dashboard cards)
       let calculatedExpenseTotal = 0;
       const expensesRaw = [];
 
-      pettyCashRecords.forEach(record => {
-        if (record.expenses) {
-          record.expenses.forEach(exp => {
-            const expDate = new Date(exp.date || exp.createdAt);
-
-            if (startDate) {
-              const s = new Date(startDate);
-              s.setUTCHours(0, 0, 0, 0);
-              if (expDate < s) return;
-            }
-            if (endDate) {
-              const e = new Date(endDate);
-              e.setUTCHours(23, 59, 59, 999);
-              if (expDate > e) return;
-            }
-
-            expensesRaw.push({
-              ...exp,
-              _id: exp._id ? exp._id.toString() : null,
-              isExpense: true
-            });
-            calculatedExpenseTotal += (exp.spentAmount || 0);
-          });
-        }
+      pettyCashExpenses.forEach(exp => {
+        const amt = parseAmt(exp.spentAmount);
+        expensesRaw.push({
+          ...exp,
+          _id: exp._id ? exp._id.toString() : null,
+          isExpense: true,
+          spentAmount: amt
+        });
+        calculatedExpenseTotal += amt;
       });
-      
+
       return res.status(200).json({
         success: true,
         data: entries.map((e) => ({
@@ -167,22 +161,22 @@ export default async function handler(req, res) {
   // ── POST: add entry ───────────────────────────────────────────────────────
   if (req.method === "POST") {
     try {
-      const { 
-        name, 
-        amount, 
-        note, 
-        isExpense = false, 
-        vendorId, 
-        vendorName, 
-        items = [], 
-        images = [], 
-        usedFromPettyCash = true 
+      const {
+        name,
+        amount,
+        note,
+        isExpense = false,
+        vendorId,
+        vendorName,
+        items = [],
+        images = [],
+        usedFromPettyCash = true
       } = req.body;
 
       if (!name || !name.trim()) {
         return res.status(400).json({ success: false, message: "Name is required" });
       }
-      
+
       const amt = parseFloat(amount);
       if (isNaN(amt)) {
         return res.status(400).json({ success: false, message: "Valid amount is required" });
