@@ -106,6 +106,74 @@ def _span_days(date_from_iso: Optional[str], date_to_iso: Optional[str]) -> int:
     return abs((d2 - d1).days) + 1
 
 
+# ─── Name matching helpers ──────────────────────────────────────────────────
+
+
+def _normalize_name_for_match(raw: str) -> str:
+    """Lowercase, collapse whitespace, for tolerant name comparison."""
+    return " ".join((raw or "").strip().lower().split())
+
+
+def _name_matches(candidate_name: str, query_name: str) -> bool:
+    """
+    True if `candidate_name` (an appointment's actual patientName) is a
+    plausible match for `query_name` (what the caller/LLM was told to
+    search for).
+
+    Tolerant of:
+    - extra/missing middle tokens ("Aditya Soran" vs "Aditya Soran KKk")
+    - word order / partial tokens
+    but still requires every token in the *shorter* of the two names to
+    appear as a token (or token-prefix) in the other — so "Aditya" alone
+    will NOT match "Manu Singh", but WILL match "Aditya Soran KKk".
+    """
+    cand = _normalize_name_for_match(candidate_name)
+    query = _normalize_name_for_match(query_name)
+    if not cand or not query:
+        return False
+
+    cand_tokens = cand.split()
+    query_tokens = query.split()
+
+    shorter, longer = (
+        (query_tokens, cand_tokens)
+        if len(query_tokens) <= len(cand_tokens)
+        else (cand_tokens, query_tokens)
+    )
+
+    # Every token on the shorter side must appear (as a whole token or a
+    # prefix of one) somewhere in the longer side. This tolerates a
+    # trailing garbled token ("KKk") on whichever side has it, since
+    # that token simply isn't required to find a match on the other.
+    for tok in shorter:
+        if not any(t == tok or t.startswith(tok) or tok.startswith(t) for t in longer):
+            return False
+    return True
+
+
+def _filter_appointments_by_name(
+    appointments: list[dict], patient_name: Optional[str]
+) -> list[dict]:
+    """
+    Client-side safety net: keep only appointments whose patientName is a
+    plausible match for the requested patient_name. This protects against
+    the upstream API's phone-based match pulling in OTHER patients who
+    happen to share the same stored phone number (a real data condition
+    seen in this clinic's records — multiple distinct patient
+    registrations under one phone number).
+
+    No-op (returns appointments unchanged) if patient_name wasn't given,
+    since then there's nothing to disambiguate against.
+    """
+    if not patient_name or not patient_name.strip():
+        return appointments
+    return [
+        a
+        for a in appointments
+        if _name_matches(a.get("patientName") or "", patient_name)
+    ]
+
+
 # ─── Structured summary + detail extraction ────────────────────────────────
 
 
@@ -264,9 +332,18 @@ async def fetch_appointments_tool(
         doctor_id = resolved["doctorId"]
         resolved_doctor_name = resolved["doctorName"]
 
-    search_term = None
-    if patient_name:
-        search_term = patient_name.strip().split()[0]
+    # Send the FULL name upstream (not just the first token) so the API's
+    # own $or has the best chance of a precise firstName/lastName match.
+    # This is a best-effort upstream filter only — it is NOT relied on
+    # for correctness. The authoritative name filter happens client-side
+    # below (_filter_appointments_by_name), because:
+    #   1. the upstream `search` field is ANDed with `patientNumber` in a
+    #      way that doesn't guarantee name+phone jointly identify one
+    #      patient when several patient records share a phone number, and
+    #   2. when only patient_phone is supplied (no `search` at all, e.g.
+    #      some call sites), the upstream query has no name constraint
+    #      whatsoever and will return every patient sharing that phone.
+    search_term = patient_name.strip() if patient_name else None
 
     # Rescheduling stages always filter to booked only.
     effective_status = status
@@ -330,6 +407,14 @@ async def fetch_appointments_tool(
 
     appointments = data.get("appointments", [])
 
+    # Authoritative client-side name filter. Applied whenever a
+    # patient_name was given, regardless of workflow_stage, so that a
+    # shared/duplicate phone number in the clinic's records can never
+    # surface a different patient's appointments under this patient's
+    # name.
+    if patient_name:
+        appointments = _filter_appointments_by_name(appointments, patient_name)
+
     if is_named_patient_lookup:
         appointments = [
             a for a in appointments if (a.get("status") or "") in ACTIVE_STATUSES
@@ -348,10 +433,14 @@ async def fetch_appointments_tool(
                 == target_phone
             ]
 
-    total = len(appointments) if is_named_patient_lookup else data.get("total", 0)
+    total = (
+        len(appointments)
+        if (is_named_patient_lookup or patient_name)
+        else data.get("total", 0)
+    )
     status_counts = (
         _build_status_counts(appointments)
-        if is_named_patient_lookup
+        if (is_named_patient_lookup or patient_name)
         else data.get("statusCounts", {})
     )
     filters_applied = {
@@ -393,7 +482,6 @@ async def fetch_appointments_tool(
             "appointments": candidates,
         }
 
-   
     if workflow_stage == "reschedule_stage1" and has_patient_identifier and span == -1:
         if total >= PATIENT_THRESHOLD:
             return {
@@ -413,7 +501,7 @@ async def fetch_appointments_tool(
             "summaryColumns": ["Patient", "Doctor", "Status", "Date", "Time"],
             "items": [extract_appointment_item(a) for a in appointments],
         }
-       
+
         candidates = _build_reschedule_candidates(
             appointments, patient_name or "", patient_phone
         )
@@ -428,7 +516,7 @@ async def fetch_appointments_tool(
             "appointments": candidates,  # NEW — model-visible, positioned
             "_list_block": list_block,
         }
-    
+
     if is_named_patient_lookup:
         list_block = {
             "kind": "appointments",
@@ -448,22 +536,26 @@ async def fetch_appointments_tool(
     if span == -1 or span >= MONTH_YEAR_SPAN_DAYS:
         return {
             "Status": "Success",
-            "total": data.get("total", 0),
+            "total": total if patient_name else data.get("total", 0),
             "page": data.get("page", page),
             "total_pages": data.get("totalPages", 0),
-            "status_counts": data.get("statusCounts", {}),
+            "status_counts": (
+                status_counts if patient_name else data.get("statusCounts", {})
+            ),
             "filters_applied": filters_applied,
             "display_mode": "summary_only",
         }
 
     # Week/range or single-date lookup
-    if data.get("total", 0) >= WEEK_THRESHOLD:
+    if total >= WEEK_THRESHOLD:
         return {
             "Status": "Success",
-            "total": data.get("total", 0),
+            "total": total if patient_name else data.get("total", 0),
             "page": data.get("page", page),
             "total_pages": data.get("totalPages", 0),
-            "status_counts": data.get("statusCounts", {}),
+            "status_counts": (
+                status_counts if patient_name else data.get("statusCounts", {})
+            ),
             "filters_applied": filters_applied,
             "display_mode": "summary_only",
         }
@@ -476,10 +568,12 @@ async def fetch_appointments_tool(
 
     return {
         "Status": "Success",
-        "total": data.get("total", 0),
+        "total": total if patient_name else data.get("total", 0),
         "page": data.get("page", page),
         "total_pages": data.get("totalPages", 0),
-        "status_counts": data.get("statusCounts", {}),
+        "status_counts": (
+            status_counts if patient_name else data.get("statusCounts", {})
+        ),
         "filters_applied": filters_applied,
         "display_mode": "accordion",
         "_list_block": list_block,
