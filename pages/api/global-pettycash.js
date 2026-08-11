@@ -2,6 +2,7 @@ import dbConnect from "../../lib/database";
 import jwt from "jsonwebtoken";
 import User from "../../models/Users";
 import PettyCash from "../../models/PettyCash";
+import mongoose from "mongoose";
 
 // Helper: verify JWT and get user
 async function getUserFromToken(req) {
@@ -33,17 +34,40 @@ export default async function handler(req, res) {
       });
     }
 
+    // Determine clinicId
+    let clinicId;
+    try {
+      const { getClinicIdFromUser } = await import("./clinic/lead-ms/permissions-helper");
+      const { clinicId: cid } = await getClinicIdFromUser(user);
+      clinicId = cid;
+    } catch (err) {
+      // console.error("Error getting clinicId:", err);
+    }
+
     if (req.method === "GET") {
+      const { clinicId: queryClinicId } = req.query;
+      const targetClinicId = queryClinicId || clinicId;
+
+      if (!targetClinicId) {
+        return res.status(400).json({ success: false, message: "clinicId is required" });
+      }
+
       // Get current global amounts
-      const globalAmounts = await PettyCash.getGlobalAmounts();
+      const globalAmounts = await PettyCash.getGlobalAmounts(targetClinicId);
       
-      // Get summary statistics
+      // Get summary statistics scoped to the clinic
       const pipeline = [
+        {
+          $match: {
+            clinicId: new mongoose.Types.ObjectId(String(targetClinicId)),
+            staffId: { $ne: null }
+          }
+        },
         {
           $group: {
             _id: null,
-            totalAllocated: { $sum: "$totalAllocated" },
-            totalSpent: { $sum: "$totalSpent" },
+            totalAllocated: { $sum: { $toDouble: "$totalAllocated" } },
+            totalSpent: { $sum: { $toDouble: "$totalSpent" } },
             totalRecords: { $sum: 1 },
             totalStaff: { $addToSet: "$staffId" }
           }
@@ -82,17 +106,18 @@ export default async function handler(req, res) {
         });
       }
 
-      const { action, amount } = req.body;
+      const { action, amount, clinicId: bodyClinicId } = req.body;
+      const targetClinicId = bodyClinicId || clinicId;
       
-      if (!action || !amount || amount <= 0) {
+      if (!targetClinicId) {
         return res.status(400).json({ 
           success: false, 
-          message: "Valid action and amount required" 
+          message: "clinicId is required to recalculate global amounts" 
         });
       }
 
-      // Recalculate global amounts from all records
-      const globalAmounts = await PettyCash.recalculateGlobalAmounts();
+      // Recalculate global amounts from all records for this clinic
+      const globalAmounts = await PettyCash.recalculateGlobalAmounts(targetClinicId);
       
       return res.status(200).json({
         success: true,

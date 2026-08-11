@@ -213,7 +213,10 @@
 .dark .from-amber-50,
 .dark .from-red-50,
 .dark .from-teal-50,
-.dark .from-cyan-50 {
+.dark .from-cyan-50,
+.dark .from-green-50,
+.dark .from-purple-50,
+.dark .from-slate-50 {
   --tw-gradient-from: var(--bg-surface) var(--tw-gradient-from-position) !important;
   --tw-gradient-to: var(--bg-surface) var(--tw-gradient-to-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
@@ -223,12 +226,15 @@
 .dark .to-rose-50,
 .dark .to-teal-50,
 .dark .to-orange-50,
-.dark .to-cyan-50 {
+.dark .to-cyan-50,
+.dark .to-white {
   --tw-gradient-to: var(--bg-surface) var(--tw-gradient-to-position) !important;
 }
 
 /* Extra card elements in Stats.tsx */
-.dark .bg-white\/60 {
+.dark .bg-white\/60,
+.dark .bg-white\/80,
+.dark .bg-white\/90 {
   background-color: rgba(15, 23, 42, 0.4) !important;
 }
 .dark .border-pink-100,

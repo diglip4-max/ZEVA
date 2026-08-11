@@ -1046,8 +1046,8 @@ function AllClaimsPage() {
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${activeTab === tab
-                  ? "bg-teal-600 text-white shadow-md"
-                  : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
+                ? "bg-teal-600 text-white shadow-md"
+                : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
                 }`}
             >
               {tab}
@@ -1173,7 +1173,7 @@ function AllClaimsPage() {
 
                   {claim.status === "Released" && claim.releasedByName && (
                     <div className="bg-blue-50 rounded-md p-2 border border-blue-200">
-                      <p className="text-xs text-blue-600 uppercase font-semibold mb-1 flex items-center gap-1">
+                      <p className="text-xs text-blue-600 dark:text-blue-200  uppercase font-semibold mb-1 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" />
                         Released By
                       </p>
@@ -1188,8 +1188,8 @@ function AllClaimsPage() {
                   )}
 
                   {claim.status === "Ready" && claim.readyByName && (
-                    <div className="bg-indigo-50 rounded-md p-2 border border-indigo-200">
-                      <p className="text-xs text-indigo-600 uppercase font-semibold mb-1 flex items-center gap-1">
+                    <div className=" rounded-md p-2 border border-indigo-200">
+                      <p className="text-xs text-indigo-600 dark:text-indigo-200 uppercase font-semibold mb-1 flex items-center gap-1">
                         <CheckSquare className="w-3 h-3" />
                         Ready By
                       </p>
@@ -1205,7 +1205,7 @@ function AllClaimsPage() {
 
                   {claim.status === "Completed" && claim.completedByName && (
                     <div className="bg-purple-50 rounded-md p-2 border border-purple-200">
-                      <p className="text-xs text-purple-600 uppercase font-semibold mb-1 flex items-center gap-1">
+                      <p className="text-xs text-purple-600 dark:text-purple-200 uppercase font-semibold mb-1 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" />
                         Completed By
                       </p>
@@ -1425,8 +1425,8 @@ function AllClaimsPage() {
                   <button
                     onClick={() => setShowTracking(!showTracking)}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${showTracking
-                        ? "bg-gray-900 text-white shadow-lg"
-                        : "bg-white/50 text-gray-700 hover:bg-white/80 border border-gray-200"
+                      ? "bg-gray-900 text-white shadow-lg"
+                      : "bg-white/50 text-gray-700 hover:bg-white/80 border border-gray-200"
                       }`}
                   >
                     <Activity className="w-3 h-3" />
@@ -1544,8 +1544,8 @@ function AllClaimsPage() {
                           {viewModal.approvedByName && (
                             <div className="bg-white rounded-lg p-3 border border-green-200">
                               <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-green-600" />
-                                <span className="text-xs font-semibold text-green-800 uppercase">Approved</span>
+                                <CheckCircle className="w-4 h-4 dark:text-green-200 text-green-600" />
+                                <span className="text-xs font-semibold text-green-800 dark:text-green-200 uppercase">Approved</span>
                               </div>
                               <p className="text-sm font-medium text-gray-900">{viewModal.approvedByName}</p>
                               <p className="text-xs text-gray-600 capitalize">{viewModal.approvedByRole}</p>
@@ -1557,8 +1557,8 @@ function AllClaimsPage() {
                           {viewModal.rejectedByName && (
                             <div className="bg-white rounded-lg p-3 border border-red-200">
                               <div className="flex items-center gap-2 mb-2">
-                                <XCircle className="w-4 h-4 text-red-600" />
-                                <span className="text-xs font-semibold text-red-800 uppercase">Rejected</span>
+                                <XCircle className="w-4 h-4 dark:text-red-200 text-red-600" />
+                                <span className="text-xs font-semibold text-red-800 dark:text-red-200 uppercase">Rejected</span>
                               </div>
                               <p className="text-sm font-medium text-gray-900">{viewModal.rejectedByName}</p>
                               <p className="text-xs text-gray-600 capitalize">{viewModal.rejectedByRole}</p>
@@ -1570,8 +1570,8 @@ function AllClaimsPage() {
                           {viewModal.releasedByName && (
                             <div className="bg-white rounded-lg p-3 border border-blue-200">
                               <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-blue-600" />
-                                <span className="text-xs font-semibold text-blue-800 uppercase">Released</span>
+                                <CheckCircle className="w-4 h-4 dark:text-blue-200  text-blue-600" />
+                                <span className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase">Released</span>
                               </div>
                               <p className="text-sm font-medium text-gray-900">{viewModal.releasedByName}</p>
                               <p className="text-xs text-gray-600 capitalize">{viewModal.releasedByRole}</p>
@@ -1583,8 +1583,8 @@ function AllClaimsPage() {
                           {viewModal.readyByName && (
                             <div className="bg-white rounded-lg p-3 border border-indigo-200">
                               <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-indigo-600" />
-                                <span className="text-xs font-semibold text-indigo-800 uppercase">Ready</span>
+                                <CheckCircle className="w-4 h-4 dark:text-indigo-200 text-indigo-600" />
+                                <span className="text-xs font-semibold text-indigo-800 dark:text-indigo-200 uppercase">Ready</span>
                               </div>
                               <p className="text-sm font-medium text-gray-900">{viewModal.readyByName}</p>
                               <p className="text-xs text-gray-600 capitalize">{viewModal.readyByRole}</p>
@@ -1596,8 +1596,8 @@ function AllClaimsPage() {
                           {viewModal.completedByName && (
                             <div className="bg-white rounded-lg p-3 border border-purple-200">
                               <div className="flex items-center gap-2 mb-2">
-                                <CheckCircle className="w-4 h-4 text-purple-600" />
-                                <span className="text-xs font-semibold text-purple-800 uppercase">Completed</span>
+                                <CheckCircle className="w-4 h-4 dark:text-purple-200 text-purple-600" />
+                                <span className="text-xs font-semibold text-purple-800 dark:text-purple-200 uppercase">Completed</span>
                               </div>
                               <p className="text-sm font-medium text-gray-900">{viewModal.completedByName}</p>
                               <p className="text-xs text-gray-600 capitalize">{viewModal.completedByRole}</p>
@@ -1654,7 +1654,7 @@ function AllClaimsPage() {
                           {viewModal.insuranceCardFile && (
                             <button
                               onClick={() => setPreviewFile({ url: viewModal.insuranceCardFile, name: "Insurance Card", field: "insuranceCardFile" })}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 dark:text-blue-200 hover:bg-blue-100 transition-colors"
                             >
                               <FileText className="w-3.5 h-3.5" /> Insurance Card
                             </button>
@@ -1662,7 +1662,7 @@ function AllClaimsPage() {
                           {viewModal.tableOfBenefitsFile && (
                             <button
                               onClick={() => setPreviewFile({ url: viewModal.tableOfBenefitsFile, name: "Table of Benefits", field: "tableOfBenefitsFile" })}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg text-xs font-medium text-blue-700 dark:text-blue-200 hover:bg-blue-100 transition-colors"
                             >
                               <FileText className="w-3.5 h-3.5" /> Table of Benefits
                             </button>
@@ -1762,7 +1762,7 @@ function AllClaimsPage() {
                             <button
                               key={idx}
                               onClick={() => setPreviewFile({ url: file, name: `Document ${idx + 1}`, field: "documentFiles" })}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 dark:text-purple-200 bg-purple-50 border border-purple-200 rounded-lg text-xs font-medium text-purple-700 hover:bg-purple-100 transition-colors"
                             >
                               <FileText className="w-3.5 h-3.5" /> Document {idx + 1}
                             </button>
@@ -1883,8 +1883,8 @@ function AllClaimsPage() {
                   {["Book Appointment", "Check Progress", "Consent Form", "Final Approval"].map((step, idx) => (
                     <div key={idx} className="flex items-center flex-1">
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${approvalStep > idx + 1 ? "bg-green-600 text-white" :
-                          approvalStep === idx + 1 ? "bg-blue-600 text-white" :
-                            "bg-gray-300 text-gray-600"
+                        approvalStep === idx + 1 ? "bg-blue-600 text-white" :
+                          "bg-gray-300 text-gray-600"
                         }`}>
                         {approvalStep > idx + 1 ? "✓" : idx + 1}
                       </div>
@@ -1929,8 +1929,8 @@ function AllClaimsPage() {
                                   <div>
                                     <p className="text-gray-500 text-[10px]">Status</p>
                                     <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${apt.status === 'booked' ? 'bg-green-100 text-green-800' :
-                                        apt.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                          'bg-yellow-100 text-yellow-800'
+                                      apt.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-yellow-100 text-yellow-800'
                                       }`}>
                                       {apt.status}
                                     </span>
@@ -2131,8 +2131,8 @@ function AllClaimsPage() {
                       <div className="space-y-2">
                         {/* Overall Status */}
                         <div className={`p-3 rounded-lg border ${consentStatus.allSigned ? "bg-green-50 border-green-200" :
-                            consentStatus.allHaveConsent ? "bg-yellow-50 border-yellow-200" :
-                              "bg-red-50 border-red-200"
+                          consentStatus.allHaveConsent ? "bg-yellow-50 border-yellow-200" :
+                            "bg-red-50 border-red-200"
                           }`}>
                           <div className="flex items-center gap-2">
                             {consentStatus.allSigned ? (
@@ -2165,8 +2165,8 @@ function AllClaimsPage() {
                           <div className="space-y-1.5 max-h-40 overflow-y-auto">
                             {consentStatus.consentByAppointment.map((aptConsent, idx) => (
                               <div key={aptConsent.appointmentId || idx} className={`rounded-lg p-2 border ${aptConsent.isSigned ? "bg-green-50 border-green-200" :
-                                  aptConsent.hasConsent ? "bg-yellow-50 border-yellow-200" :
-                                    "bg-red-50 border-red-200"
+                                aptConsent.hasConsent ? "bg-yellow-50 border-yellow-200" :
+                                  "bg-red-50 border-red-200"
                                 }`}>
                                 <div className="flex items-center justify-between">
                                   <p className="text-[11px] font-semibold text-gray-700">

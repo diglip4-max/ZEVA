@@ -27,6 +27,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   } | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const [receptionistOpen, setReceptionistOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [commissionCount, setCommissionCount] = useState<number>(0);
   const [totalCommission, setTotalCommission] = useState<number>(0);
   const [commissionItems, setCommissionItems] = useState<
@@ -470,7 +471,14 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-3">
-              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <div
+                className="w-5 h-5 sm:w-8 sm:h-8 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer"
+                onClick={() => {
+                  if (tokenUser?.photo) {
+                    setPreviewImage(normalizeImagePath(tokenUser.photo));
+                  }
+                }}
+              >
                 {tokenUser?.photo ? (
                   <img
                     src={normalizeImagePath(tokenUser.photo)}
@@ -518,6 +526,28 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             anchorRef={receptionistBtnRef}
           />,
           document.body,
+        )}
+      {previewImage && typeof window !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all duration-300"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div className="relative max-w-[90vw] max-h-[90vh] bg-zinc-900 rounded-xl p-2 border border-white/10 shadow-2xl flex flex-col items-center">
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute -top-10 right-0 text-white hover:text-red-400 bg-black/40 hover:bg-black/60 p-2 rounded-full transition-colors font-bold text-sm flex items-center justify-center gap-1.5"
+              >
+                Close ✕
+              </button>
+              <img
+                src={previewImage}
+                alt="Profile Preview"
+                className="max-w-[35vw] max-h-[35vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>,
+          document.body
         )}
     </header>
   );

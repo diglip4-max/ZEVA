@@ -830,10 +830,11 @@ export default async function handler(req, res) {
             month: { $month: "$invoicedDate" },
             year: { $year: "$invoicedDate" }
           },
-          // Sum all paid-related fields (paid, pendingUsed, pendingClaimUsed)
+          // Note: pendingUsed is NOT added because `paid` already includes
+          // any pending cleared on this billing. Adding pendingUsed would double-count.
           // For mixed billings (Package + Treatment), only count package portion
           totalPaid: { $sum: { $subtract: [
-            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
+            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
             { $cond: [
               { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
               { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
@@ -952,7 +953,7 @@ export default async function handler(req, res) {
             as: "__billingRecords"
           }
         },
-        // Calculate actual paid amount from Billing records (including pendingUsed and pendingClaimUsed)
+        // Calculate actual paid amount from Billing records (excluding pendingUsed to avoid double-counting)
         // For mixed billings, subtract treatment amount
         {
           $addFields: {
@@ -964,7 +965,6 @@ export default async function handler(req, res) {
                   $add: [
                     "$$value", 
                     { $ifNull: ["$$this.paid", 0] },
-                    { $ifNull: ["$$this.pendingUsed", 0] },
                     { $ifNull: ["$$this.pendingClaimUsed", 0] },
                     { $subtract: [0, { $ifNull: ["$$this.treatmentAmount", 0] }] }
                   ] 
@@ -1072,6 +1072,43 @@ export default async function handler(req, res) {
 
     const salesStaffBillingPipeline = [
       { $match: { $or: [ { ...salesStaffBillingMatch, service: "Package" }, { ...salesStaffBillingMatch, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } } ] } }, // Include both Package billings and Treatment billings that clear pending packages
+      // Exclude cross-invoice clearance billings to avoid double-counting
+      {
+        $match: {
+          $and: [
+            {
+              $or: [
+                { pendingClearedBreakdown: { $exists: false } },
+                { pendingClearedBreakdown: null },
+                { $expr: { $eq: [{ $size: "$pendingClearedBreakdown" }, 0] } },
+                {
+                  $expr: {
+                    $eq: [
+                      { $size: { $filter: { input: "$pendingClearedBreakdown", as: "b", cond: { $ne: ["$$b.invoiceNumber", "$invoiceNumber"] } } } },
+                      0
+                    ]
+                  }
+                },
+              ],
+            },
+            {
+              $or: [
+                { unpaidPackagesPaid: { $exists: false } },
+                { unpaidPackagesPaid: null },
+                { $expr: { $eq: [{ $size: "$unpaidPackagesPaid" }, 0] } },
+                {
+                  $expr: {
+                    $eq: [
+                      { $size: { $filter: { input: "$unpaidPackagesPaid", as: "u", cond: { $ne: ["$$u.invoiceNumber", "$invoiceNumber"] } } } },
+                      0
+                    ]
+                  }
+                },
+              ],
+            },
+          ],
+        },
+      },
       {
         $addFields: {
           __packageName: { 
@@ -1093,8 +1130,10 @@ export default async function handler(req, res) {
             patientId: "$__patientId",
             packageName: "$__packageName"
           },
+          // Note: pendingUsed is NOT added because `paid` already includes
+          // any pending cleared on this billing. Adding pendingUsed would double-count.
           totalPaidForPackage: { $sum: { $subtract: [
-            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] },
+            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] },
             { $cond: [
               { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
               { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },

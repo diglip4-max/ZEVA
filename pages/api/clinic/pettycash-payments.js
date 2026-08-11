@@ -1,5 +1,5 @@
 // pages/api/clinic/pettycash-payments.js
-// Returns all billing records where payment method is Cash (or multiplePayments includes Cash)
+// Returns all billing records where payment method is Cash (or multiplePayments includes Cash) and actual cash received is > 0
 import dbConnect from "../../../lib/database";
 import Billing from "../../../models/Billing";
 import Appointment from "../../../models/Appointment";
@@ -40,9 +40,6 @@ export default async function handler(req, res) {
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
     const skip = (pageNum - 1) * limitNum;
 
-    // No role-based scoping - all clinic data is visible to any authorized user (clinic, doctor, agent, doctorStaff)
-    let userScopeFilter = {};
-
     // Build clinic filter
     const clinicFilter = clinicId
       ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) }
@@ -76,7 +73,6 @@ export default async function handler(req, res) {
 
     const baseFilter = {
       ...clinicFilter,
-      ...userScopeFilter,
       ...dateMatch,
       ...cashFilter,
     };
@@ -84,6 +80,37 @@ export default async function handler(req, res) {
     // Aggregation pipeline: join PatientRegistration for patient details
     const pipeline = [
       { $match: baseFilter },
+      {
+        $addFields: {
+          cashAmount: {
+            $cond: [
+              { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+              {
+                $reduce: {
+                  input: {
+                    $filter: {
+                      input: "$multiplePayments",
+                      as: "mp",
+                      cond: { $eq: ["$$mp.paymentMethod", "Cash"] },
+                    },
+                  },
+                  initialValue: 0,
+                  in: { $add: ["$$value", "$$this.amount"] },
+                },
+              },
+              {
+                $cond: [
+                  { $eq: ["$paymentMethod", "Cash"] },
+                  "$paid",
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      // Filter out transactions with zero cash received
+      { $match: { cashAmount: { $gt: 0 } } },
       { $sort: { invoicedDate: -1 } },
       {
         $lookup: {
@@ -142,16 +169,6 @@ export default async function handler(req, res) {
     // Enrich records
     const enriched = records.map((r) => {
       const patient = r.patient || {};
-
-      let cashAmount = 0;
-      if (r.multiplePayments && r.multiplePayments.length > 0) {
-        cashAmount = r.multiplePayments
-          .filter((mp) => mp.paymentMethod === "Cash")
-          .reduce((sum, mp) => sum + (mp.amount || 0), 0);
-      } else if (r.paymentMethod === "Cash") {
-        cashAmount = r.paid || 0;
-      }
-
       const membershipId = patient.membershipId
         ? patient.membershipId.toString()
         : null;
@@ -176,7 +193,7 @@ export default async function handler(req, res) {
         selectedPackageTreatments: r.selectedPackageTreatments || [],
         amount: r.amount,
         paid: r.paid,
-        cashAmount,
+        cashAmount: r.cashAmount,
         paymentMethod: r.paymentMethod,
         multiplePayments: r.multiplePayments || [],
         isFreeConsultation: r.isFreeConsultation || false,
@@ -191,6 +208,36 @@ export default async function handler(req, res) {
     // Overall cash total across all matched records (not just current page)
     const totalCashAgg = await Billing.aggregate([
       { $match: baseFilter },
+      {
+        $addFields: {
+          cashAmount: {
+            $cond: [
+              { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+              {
+                $reduce: {
+                  input: {
+                    $filter: {
+                      input: "$multiplePayments",
+                      as: "mp",
+                      cond: { $eq: ["$$mp.paymentMethod", "Cash"] },
+                    },
+                  },
+                  initialValue: 0,
+                  in: { $add: ["$$value", "$$this.amount"] },
+                },
+              },
+              {
+                $cond: [
+                  { $eq: ["$paymentMethod", "Cash"] },
+                  "$paid",
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      { $match: { cashAmount: { $gt: 0 } } },
       ...(search.trim()
         ? [
             {
@@ -226,33 +273,7 @@ export default async function handler(req, res) {
       {
         $group: {
           _id: null,
-          totalCash: {
-            $sum: {
-              $cond: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                {
-                  $reduce: {
-                    input: {
-                      $filter: {
-                        input: "$multiplePayments",
-                        as: "mp",
-                        cond: { $eq: ["$$mp.paymentMethod", "Cash"] },
-                      },
-                    },
-                    initialValue: 0,
-                    in: { $add: ["$$value", "$$this.amount"] },
-                  },
-                },
-                {
-                  $cond: [
-                    { $eq: ["$paymentMethod", "Cash"] },
-                    "$paid",
-                    0,
-                  ],
-                },
-              ],
-            },
-          },
+          totalCash: { $sum: "$cashAmount" },
         },
       },
     ]);

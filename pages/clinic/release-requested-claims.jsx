@@ -761,23 +761,23 @@ function ReleaseRequestedClaimsPage() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Provider</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.insuranceProvider}</p>
+                            <p className="text-[10px] text-blue-600 dark:text-blue-200 font-bold uppercase tracking-tighter">Provider</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.insuranceProvider}</p>
                           </div>
                           <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Policy #</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.policyNumber}</p>
+                            <p className="text-[10px] text-blue-600 dark:text-blue-200 font-bold uppercase tracking-tighter">Policy #</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.policyNumber}</p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Amount</p>
-                            <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Amount</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                           </div>
                           <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Department</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.departmentName || "N/A"}</p>
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Department</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
                         </div>
 

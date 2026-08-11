@@ -1,8 +1,10 @@
 import jwt from "jsonwebtoken";
 import dbConnect from "../../../lib/database";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 import User from "../../../models/Users";
 import Supplier from "../../../models/stocks/Supplier";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -57,10 +59,6 @@ export default async function handler(req, res) {
             message: clinicError || "Unable to determine clinic access" 
           });
         }
-
-        // Optional: Check specific permission if needed
-        // const { hasPermission } = await checkClinicPermission(clinicId, "clinic_staff_management", "create", "Add Expense");
-        // if (!hasPermission) return res.status(403).json({ message: "No permission to add expense" });
       } catch (permErr) {
         // console.error("Permission check error:", permErr);
       }
@@ -68,11 +66,6 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Get or Create a global record for expenses if not specified, 
-    // or just create a new record for this specific expense.
-    // The requirement says "store all fields into model/pettycash in ExpenseSchema".
-    // Usually expenses are added to a PettyCash record.
-    
     // Get clinicId for global tracking
     let clinicId;
     try {
@@ -83,48 +76,72 @@ export default async function handler(req, res) {
       // console.error("Error getting clinicId:", err);
     }
 
-    // Find an existing PettyCash record for this staff or create a new one
-    let pettyCash = await PettyCash.findOne({ staffId }).sort({ createdAt: -1 });
-    
-    if (!pettyCash) {
-      pettyCash = await PettyCash.create({
-        staffId,
-        clinicId,
-        note: "Petty Cash Record",
-        allocatedAmounts: [],
-        expenses: [],
-      });
-    } else if (!pettyCash.clinicId && clinicId) {
-      // Update existing record with clinicId if missing
-      pettyCash.clinicId = clinicId;
+    if (!clinicId) {
+      return res.status(400).json({ message: "Clinic ID is required and could not be determined" });
     }
 
-    // Add to expenses array
-    pettyCash.expenses.push({
-      description,
-      spentAmount: Number(spentAmount),
-      vendor: vendor || null,
-      vendorName: vendorName || null,
-      items: items || [],
-      receipts: receipts || [],
-      usedFromPettyCash: usedFromPettyCash !== undefined ? usedFromPettyCash : true,
-      date: new Date(),
+    let pettyCash;
+    let savedExpense;
+
+    // Wrap in a transaction
+    const session = await mongoose.startSession();
+    await session.withTransaction(async () => {
+      pettyCash = await PettyCash.findOne({ staffId, clinicId }).session(session);
+
+      if (!pettyCash) {
+        const [createdPC] = await PettyCash.create(
+          [
+            {
+              staffId,
+              clinicId,
+              note: "Petty Cash Record",
+            },
+          ],
+          { session }
+        );
+        pettyCash = createdPC;
+      }
+
+      const pettyCashId = pettyCash._id;
+
+      // Create new PettyCashExpense record
+      [savedExpense] = await PettyCashExpense.create(
+        [
+          {
+            pettyCashId,
+            clinicId,
+            staffId,
+            description,
+            spentAmount: Number(spentAmount),
+            vendor: vendor || null,
+            vendorName: vendorName || null,
+            items: items || [],
+            receipts: receipts || [],
+            usedFromPettyCash: usedFromPettyCash !== undefined ? usedFromPettyCash : true,
+            date: new Date(),
+            createdBy: staffId,
+          },
+        ],
+        { session }
+      );
+
+      // Apply rollup totals atomically to parent PettyCash
+      await PettyCash.applyExpense(pettyCashId, Number(spentAmount), session);
+
+      // Update global spent amount if usedFromPettyCash is true
+      if (usedFromPettyCash !== false && clinicId) {
+        await PettyCash.updateGlobalSpentAmount(clinicId, Number(spentAmount), 'add', session);
+      }
     });
-
-    await pettyCash.save();
-
-    // If usedFromPettyCash is true, deduct from global spent amount
-    if (usedFromPettyCash !== false && clinicId) {
-      await PettyCash.updateGlobalSpentAmount(clinicId, Number(spentAmount), 'add');
-    }
+    session.endSession();
 
     res.status(201).json({
       success: true,
       message: "Expense added successfully",
       data: pettyCash,
+      expense: savedExpense,
     });
   } catch (error) {
-    // console.error("Error adding expense:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 }
