@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   X,
@@ -74,20 +74,20 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
   };
 
   const statusConfig: Record<string, { color: string; bg: string; icon: any }> =
-    {
-      Allocated: { color: "text-blue-700", bg: "bg-blue-50", icon: Clock },
-      Issued: { color: "text-yellow-700", bg: "bg-yellow-50", icon: Package },
-      In_Use: { color: "text-yellow-700", bg: "bg-yellow-50", icon: Package },
-      Used: { color: "text-green-700", bg: "bg-green-50", icon: CheckCircle2 },
-      Partially_Used: {
-        color: "text-purple-700",
-        bg: "bg-purple-50",
-        icon: Package,
-      },
-      Returned: { color: "text-gray-700", bg: "bg-gray-50", icon: Package },
-      Expired: { color: "text-red-700", bg: "bg-red-50", icon: AlertCircle },
-      Cancelled: { color: "text-gray-500", bg: "bg-gray-100", icon: X },
-    };
+  {
+    Allocated: { color: "text-blue-700", bg: "bg-blue-50", icon: Clock },
+    Issued: { color: "text-yellow-700", bg: "bg-yellow-50", icon: Package },
+    In_Use: { color: "text-yellow-700", bg: "bg-yellow-50", icon: Package },
+    Used: { color: "text-green-700", bg: "bg-green-50", icon: CheckCircle2 },
+    Partially_Used: {
+      color: "text-purple-700",
+      bg: "bg-purple-50",
+      icon: Package,
+    },
+    Returned: { color: "text-gray-700", bg: "bg-gray-50", icon: Package },
+    Expired: { color: "text-red-700", bg: "bg-red-50", icon: AlertCircle },
+    Cancelled: { color: "text-gray-500", bg: "bg-gray-100", icon: X },
+  };
 
   const config = data?.status
     ? statusConfig[data.status] || statusConfig.Allocated
@@ -160,14 +160,14 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 No Data Available
               </h3>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-text-muted">
                 This allocation record could not be found.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Item Header Card */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-5 border border-gray-200">
+              <div className="bg-bg-page/50 rounded-xl p-5 border border-gray-200">
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
                     {(stock?.name || "?").charAt(0).toUpperCase()}
@@ -213,7 +213,7 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
                             {data.quantitiesByUom.map((q: any, idx: number) => (
                               <span
                                 key={`${q?.uom || "UOM"}-${idx}`}
-                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+                                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:text-white border border-blue-200"
                               >
                                 {q?.uom || "-"}: {q?.quantity ?? 0}
                               </span>
@@ -291,13 +291,13 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
                       <p className="text-lg font-bold text-gray-900">
                         {data?.createdAt
                           ? new Date(data.createdAt).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )
                           : "-"}
                       </p>
                       {data?.createdAt && (
@@ -325,13 +325,13 @@ const ViewAllocationModal: React.FC<ViewAllocationModalProps> = ({
                       >
                         {data?.expiryDate
                           ? new Date(data.expiryDate).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            },
+                          )
                           : "No expiry"}
                       </p>
                       {data?.expiryDate && (

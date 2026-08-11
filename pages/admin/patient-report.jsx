@@ -2,14 +2,14 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { createPortal } from "react-dom";
-import { Search, FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Users, ClipboardList, DollarSign, Calendar, CheckCircle, XCircle, Clock, CreditCard, TrendingUp } from "lucide-react";
+import { Search, FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Users, ClipboardList, CircleDollarSign, Calendar, CheckCircle, XCircle, Clock, CreditCard, TrendingUp } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import withAdminAuth from "../../components/withAdminAuth";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 
 const AdminPatientClaims = () => {
   const router = useRouter();
-  
+
   const [patients, setPatients] = useState([]);
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [summary, setSummary] = useState({});
@@ -19,25 +19,25 @@ const AdminPatientClaims = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const patientsPerPage = 20;
-  
+
   // Check if user is an admin or agent - use state to ensure reactivity
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAgent, setIsAgent] = useState(false);
-  
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const adminToken = !!localStorage.getItem('adminToken');
       const agentToken = !!localStorage.getItem('agentToken');
       const isAgentRoute = router.pathname?.startsWith('/agent/') || window.location.pathname?.startsWith('/agent/');
-      
-      console.log('Patient Report - Initial Token Check:', { 
-        adminToken, 
-        agentToken, 
+
+      console.log('Patient Report - Initial Token Check:', {
+        adminToken,
+        agentToken,
         isAgentRoute,
         pathname: router.pathname,
         locationPath: window.location.pathname
       });
-      
+
       // CRITICAL: If on agent route, prioritize agentToken over adminToken
       if (isAgentRoute && agentToken) {
         setIsAdmin(false);
@@ -54,7 +54,7 @@ const AdminPatientClaims = () => {
       }
     }
   }, [router.pathname]);
-  
+
   // Always call the hook (React rules), but only use it if isAgent is true
   // This page is under Staff Management -> Patient Report submodule
   const agentPermissionsData = useAgentPermissions(isAgent ? "admin_staff_management" : null, isAgent ? "Patient Report" : null);
@@ -64,12 +64,12 @@ const AdminPatientClaims = () => {
   const fetchPatients = async (status = "") => {
     try {
       setLoading(true);
-      
+
       // Get token - check for adminToken first, then agentToken (for agents accessing via /agent route)
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
       const token = adminToken || agentToken;
-      
+
       const url = `/api/admin/getPatientClaims${status ? `?statusFilter=${status}` : ""}`;
 
       const res = await fetch(url, {
@@ -162,13 +162,13 @@ const AdminPatientClaims = () => {
     const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
     const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
     const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-    
+
     // Check permissions only for agents - admins bypass all checks
     if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists && agentPermissions && agentPermissions.canExport !== true && agentPermissions.canAll !== true) {
       alert("You do not have permission to export patient reports");
       return;
     }
-    
+
     if (filteredPatients.length === 0) {
       alert("No data to download");
       return;
@@ -230,13 +230,13 @@ const AdminPatientClaims = () => {
     const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
     const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
     const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-    
+
     // Check permissions only for agents - admins bypass all checks
     if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists && agentPermissions && agentPermissions.canPrint !== true && agentPermissions.canAll !== true) {
       alert("You do not have permission to print patient reports");
       return;
     }
-    
+
     if (filteredPatients.length === 0) {
       alert("No data to download");
       return;
@@ -416,7 +416,7 @@ const AdminPatientClaims = () => {
                   const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
                   const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
                   const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-                  
+
                   // Admin always sees button - but ONLY if NOT on agent route
                   if (!isAgentRoute && adminTokenExists && isAdmin) {
                     return (
@@ -440,16 +440,16 @@ const AdminPatientClaims = () => {
                       </>
                     );
                   }
-                  
+
                   // For agents: Only show if permissions are loaded AND export/print permission is explicitly true
                   if ((isAgentRoute || isAgent) && agentTokenExists) {
                     if (permissionsLoading || !agentPermissions) {
                       return null;
                     }
-                    
+
                     const hasExportPermission = agentPermissions.canExport === true || agentPermissions.canAll === true;
                     const hasPrintPermission = agentPermissions.canPrint === true || agentPermissions.canAll === true;
-                    
+
                     return (
                       <>
                         {hasExportPermission && (
@@ -475,7 +475,7 @@ const AdminPatientClaims = () => {
                       </>
                     );
                   }
-                  
+
                   return null;
                 })()}
               </div>
@@ -490,7 +490,7 @@ const AdminPatientClaims = () => {
             { label: "Released", value: summary.released || 0, icon: CheckCircle },
             { label: "Cancelled", value: summary.cancelled || 0, icon: XCircle },
             { label: "Co-pay", value: summary.copay || 0, icon: CreditCard },
-            { label: "Advance", value: summary.advance || 0, icon: DollarSign },
+            { label: "Advance", value: summary.advance || 0, icon: CircleDollarSign },
             { label: "Total", value: summary.total || 0, icon: TrendingUp },
           ].map((item, idx) => {
             const Icon = item.icon;
@@ -634,8 +634,8 @@ const AdminPatientClaims = () => {
                           key={i}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-2.5 py-1 text-sm rounded-lg transition-all shadow-sm ${currentPage === pageNum
-                              ? 'bg-blue-600 text-white'
-                              : 'border border-gray-300 hover:bg-gray-50'
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
                             }`}
                         >
                           {pageNum}
@@ -725,8 +725,8 @@ const AdminPatientClaims = () => {
                 <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Claim Status</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="text-sm"><span className="text-gray-600">Claim Status:</span> <span className={`font-medium ml-2 ${selectedPatient.advanceClaimStatus === 'Pending' ? 'text-gray-600' :
-                      selectedPatient.advanceClaimStatus === 'Released' ? 'text-green-600' :
-                        'text-red-600'
+                    selectedPatient.advanceClaimStatus === 'Released' ? 'text-green-600' :
+                      'text-red-600'
                     }`}>{selectedPatient.advanceClaimStatus || '-'}</span></div>
                   <div className="text-sm"><span className="text-gray-600">Patient Status:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.status || '-'}</span></div>
                   <div className="text-sm"><span className="text-gray-600">Invoiced By:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.invoicedBy || '-'}</span></div>

@@ -113,7 +113,7 @@ function AddRoomPage({ contextOverride = null }) {
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
     type: "room",
   });
   const hasLoadedInitialData = useRef(false);
@@ -178,7 +178,7 @@ function AddRoomPage({ contextOverride = null }) {
       return;
     }
     let cancelled = false;
-    
+
     const fetchPermissions = async () => {
       try {
         const authHeaders = getAuthHeaders();
@@ -194,15 +194,15 @@ function AddRoomPage({ contextOverride = null }) {
         }
 
         const userRole = getUserRole();
-        
+
         if (userRole === 'clinic' || userRole === 'doctor') {
           try {
             const res = await axios.get('/api/clinic/sidebar-permissions', {
               headers: authHeaders,
             });
-            
+
             if (cancelled) return;
-            
+
             if (res.data.success) {
               if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
                 setPermissions({
@@ -224,7 +224,7 @@ function AddRoomPage({ contextOverride = null }) {
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-                  
+
                   const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
                   const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
                   const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
@@ -694,7 +694,8 @@ function AddRoomPage({ contextOverride = null }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         [data-hot-toast][data-type="error"] button[aria-label="Close"] {
           color: #fff !important;
           opacity: 0.9;
@@ -705,509 +706,506 @@ function AddRoomPage({ contextOverride = null }) {
         }
       `}} />
       <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#1f2937",
-            color: "#f9fafb",
-            fontSize: "12px",
-            padding: "8px 12px",
-            borderRadius: "6px",
-          },
-          success: {
-            iconTheme: {
-              primary: "#10b981",
-              secondary: "#fff",
-            },
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
             style: {
-              background: "#10b981",
-              color: "#fff",
+              background: "#1f2937",
+              color: "#f9fafb",
+              fontSize: "12px",
+              padding: "8px 12px",
+              borderRadius: "6px",
             },
-          },
-          error: {
-            iconTheme: {
-              primary: "#fff",
-              secondary: "#ef4444",
+            success: {
+              iconTheme: {
+                primary: "#10b981",
+                secondary: "#fff",
+              },
+              style: {
+                background: "#10b981",
+                color: "#fff",
+              },
             },
-            style: {
-              background: "#ef4444",
-              color: "#fff",
+            error: {
+              iconTheme: {
+                primary: "#fff",
+                secondary: "#ef4444",
+              },
+              style: {
+                background: "#ef4444",
+                color: "#fff",
+              },
             },
-          },
-          warning: {
-            iconTheme: {
-              primary: "#f59e0b",
-              secondary: "#fff",
+            warning: {
+              iconTheme: {
+                primary: "#f59e0b",
+                secondary: "#fff",
+              },
+              style: {
+                background: "#f59e0b",
+                color: "#fff",
+              },
             },
-            style: {
-              background: "#f59e0b",
-              color: "#fff",
+            info: {
+              iconTheme: {
+                primary: "#3b82f6",
+                secondary: "#fff",
+              },
+              style: {
+                background: "#3b82f6",
+                color: "#fff",
+              },
             },
-          },
-          info: {
-            iconTheme: {
-              primary: "#3b82f6",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#3b82f6",
-              color: "#fff",
-            },
-          },
-        }}
-      />
-      {!permissionsLoaded ? (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-teal-700">
-          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
-          <p className="text-xs sm:text-sm">Checking your permissions...</p>
-        </div>
-      ) : !permissions.canRead && !permissions.canCreate ? (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Building2 className="w-8 h-8 text-red-600" />
-            </div>
-            <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
-            <p className="text-sm text-teal-700 mb-4">
-              You do not have permission to view or create rooms and departments.
-            </p>
-            <p className="text-xs text-teal-600">
-              Please contact your administrator to request access to the Add Room module.
-            </p>
+          }}
+        />
+        {!permissionsLoaded ? (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-teal-700">
+            <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+            <p className="text-xs sm:text-sm">Checking your permissions...</p>
           </div>
-        </div>
-      ) : (
-        <>
-          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-teal-700" />
-                    <h1 className="text-xl sm:text-2xl font-bold text-teal-900">
-                      Room & Department
-                    </h1>
-                  </div>
-                </div>
-                <p className="text-xs sm:text-sm text-teal-600">
-                  Create and manage rooms, departments for your clinic
-                </p>
+        ) : !permissions.canRead && !permissions.canCreate ? (
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Building2 className="w-8 h-8 text-red-600" />
               </div>
-              <div className="flex flex-wrap items-center gap-2 bg-teal-200 rounded-lg p-1 border border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode("room");
-                    setMessage({ type: "info", text: "" });
-                  }}
-                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
-                    viewMode === "room"
-                      ? "bg-white text-teal-900 shadow-sm"
-                      : "text-teal-600 hover:text-teal-900"
-                  }`}
-                >
-                  <DoorOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="whitespace-nowrap">Rooms</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode("department");
-                    setMessage({ type: "info", text: "" });
-                  }}
-                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
-                    viewMode === "department"
-                      ? "bg-white text-teal-900 shadow-sm"
-                      : "text-teal-600 hover:text-teal-900"
-                  }`}
-                >
-                  <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="whitespace-nowrap">Departments</span>
-                </button>
-              </div>
+              <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+              <p className="text-sm text-teal-700 mb-4">
+                You do not have permission to view or create rooms and departments.
+              </p>
+              <p className="text-xs text-teal-600">
+                Please contact your administrator to request access to the Add Room module.
+              </p>
             </div>
-          </div>
-
-          {permissions.canCreate && (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <div className="flex items-center gap-2 mb-3">
-              <Plus className="w-4 h-4 text-teal-700" />
-              <h2 className="text-base sm:text-lg font-semibold text-teal-900">
-                {viewMode === "room" ? "Create New Room" : "Create New Department"}
-              </h2>
-            </div>
-
-            {message.text && (
-              <div className={`mb-4 px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${
-                message.type === "error" ? "bg-red-50 text-red-700 border border-red-200" :
-                message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" :
-                "bg-blue-50 text-blue-700 border border-blue-200"
-              }`}>
-                {message.type === "error" ? <AlertCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                {message.text}
-              </div>
-            )}
-
-            {viewMode === "room" && permissions.canCreate && (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-teal-700 mb-2">
-                    Room Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    placeholder="e.g., Consultation Room 1, Operation Theater A"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={roomCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {submitting ? "Creating..." : "Create Room"}
-                </button>
-              </form>
-            )}
-
-            {viewMode === "department" && permissions.canCreate && (
-              <form onSubmit={handleDepartmentSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-teal-700 mb-2">
-                    Department Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={departmentName}
-                    onChange={(e) => setDepartmentName(e.target.value)}
-                    placeholder="e.g., Cardiology, Pediatrics, Emergency"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    required
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={deptCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  {submittingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {submittingDept ? "Creating..." : "Create Department"}
-                </button>
-              </form>
-            )}
-          </div>
-          )}
-
-          {permissions.canRead && (
-            <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <DoorOpen className="w-4 h-4 text-teal-700" />
-                <span className="text-xs font-semibold text-teal-700">Total Rooms</span>
-              </div>
-              <p className="text-2xl font-bold text-teal-900 mb-1">{rooms.length}</p>
-              <p className="text-xs text-teal-600">Active rooms in your clinic</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-4 h-4 text-teal-700" />
-                <span className="text-xs font-semibold text-teal-700">Total Departments</span>
-              </div>
-              <p className="text-2xl font-bold text-teal-900 mb-1">{departments.length}</p>
-              <p className="text-xs text-teal-600">Active departments in your clinic</p>
-            </div>
-          </div>
-
-          {viewMode === "room" && (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <DoorOpen className="w-5 h-5 text-teal-700" />
-                <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Rooms</h2>
-                <span className="ml-auto px-2.5 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-semibold">
-                  {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
-                </span>
-              </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12 text-teal-600">
-            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            <span className="text-sm">Loading rooms...</span>
-          </div>
-        ) : rooms.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
-              <DoorOpen className="w-8 h-8 text-teal-400" />
-            </div>
-            <p className="text-sm font-medium text-teal-900 mb-1">No rooms created yet</p>
-            <p className="text-xs text-teal-600">Use the form above to create your first room</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {rooms.map((room) => (
-              <div
-                key={room._id}
-                className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
-              >
-                <div className="flex-1 min-w-0">
-                  {editingRoomId === room._id ? (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+          <>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-teal-700 dark:text-teal-100" />
+                      <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">
+                        Room & Department
+                      </h1>
+                    </div>
+                  </div>
+                  <p className="text-xs sm:text-sm text-teal-600">
+                    Create and manage rooms, departments for your clinic
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 bg-teal-200 rounded-lg p-1 border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode("room");
+                      setMessage({ type: "info", text: "" });
+                    }}
+                    className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${viewMode === "room"
+                      ? "bg-white text-teal-900 dark:text-teal-100 shadow-sm"
+                      : "text-teal-600 hover:text-teal-900"
+                      }`}
+                  >
+                    <DoorOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="whitespace-nowrap">Rooms</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode("department");
+                      setMessage({ type: "info", text: "" });
+                    }}
+                    className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${viewMode === "department"
+                      ? "bg-white text-teal-900 dark:text-teal-100  shadow-sm"
+                      : "text-teal-600 hover:text-teal-900"
+                      }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="whitespace-nowrap">Departments</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {permissions.canCreate && (
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Plus className="w-4 h-4 text-teal-700 dark:text-teal-100" />
+                  <h2 className="text-base sm:text-lg font-semibold text-teal-900 dark:text-teal-100">
+                    {viewMode === "room" ? "Create New Room" : "Create New Department"}
+                  </h2>
+                </div>
+
+                {message.text && (
+                  <div className={`mb-4 px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${message.type === "error" ? "bg-red-50 text-red-700 border border-red-200" :
+                    message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" :
+                      "bg-blue-50 text-blue-700 border border-blue-200"
+                    }`}>
+                    {message.type === "error" ? <AlertCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                    {message.text}
+                  </div>
+                )}
+
+                {viewMode === "room" && permissions.canCreate && (
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-teal-700 mb-2">
+                        Room Name <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        value={editingRoomName}
-                        onChange={(e) => setEditingRoomName(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        autoFocus
+                        value={roomName}
+                        onChange={(e) => setRoomName(e.target.value)}
+                        placeholder="e.g., Consultation Room 1, Operation Theater A"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        required
                       />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleRoomUpdate}
-                          disabled={roomUpdateLoading}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors flex items-center justify-center"
-                        >
-                          {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingRoomId(null);
-                            setEditingRoomName("");
-                          }}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                        <DoorOpen className="w-5 h-5 text-teal-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-teal-900">{room.name}</h3>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Calendar className="w-3 h-3 text-teal-400" />
-                          <span className="text-xs text-teal-500">
-                            Created {new Date(room.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
+                    <button
+                      type="submit"
+                      disabled={roomCreateDisabled}
+                      className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                    >
+                      {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      {submitting ? "Creating..." : "Create Room"}
+                    </button>
+                  </form>
+                )}
+
+                {viewMode === "department" && permissions.canCreate && (
+                  <form onSubmit={handleDepartmentSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-teal-700 mb-2">
+                        Department Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={departmentName}
+                        onChange={(e) => setDepartmentName(e.target.value)}
+                        placeholder="e.g., Cardiology, Pediatrics, Emergency"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        required
+                      />
                     </div>
-                  )}
+                    <button
+                      type="submit"
+                      disabled={deptCreateDisabled}
+                      className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                    >
+                      {submittingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      {submittingDept ? "Creating..." : "Create Department"}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {permissions.canRead && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DoorOpen className="w-4 h-4 text-teal-700 dark:text-teal-100" />
+                      <span className="text-xs font-semibold text-teal-700 dark:text-teal-100">Total Rooms</span>
+                    </div>
+                    <p className="text-2xl font-bold text-teal-900  dark:text-teal-100 mb-1">{rooms.length}</p>
+                    <p className="text-xs text-teal-600 dark:text-teal-100">Active rooms in your clinic</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="w-4 h-4 text-teal-700 dark:text-teal-100" />
+                      <span className="text-xs font-semibold text-teal-700 dark:text-teal-100">Total Departments</span>
+                    </div>
+                    <p className="text-2xl font-bold text-teal-900 dark:text-teal-100 mb-1">{departments.length}</p>
+                    <p className="text-xs text-teal-600 dark:text-teal-100">Active departments in your clinic</p>
+                  </div>
                 </div>
-                {editingRoomId !== room._id && (
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {permissions.canUpdate && (
-                      <button
-                        onClick={() => {
-                          setEditingRoomId(room._id);
-                          setEditingRoomName(room.name);
-                        }}
-                        className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
-                        title="Edit room"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    )}
-                    {permissions.canDelete && (
-                      <button
-                        onClick={() => handleDelete(room._id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete room"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                {viewMode === "room" && (
+                  <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <DoorOpen className="w-5 h-5 text-teal-700 dark:text-teal-100" />
+                      <h2 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">All Rooms</h2>
+                      <span className="ml-auto px-2.5 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-semibold">
+                        {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
+                      </span>
+                    </div>
+
+                    {loading ? (
+                      <div className="flex items-center justify-center py-12 text-teal-600">
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        <span className="text-sm">Loading rooms...</span>
+                      </div>
+                    ) : rooms.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                          <DoorOpen className="w-8 h-8 text-teal-400" />
+                        </div>
+                        <p className="text-sm font-medium text-teal-900 mb-1">No rooms created yet</p>
+                        <p className="text-xs text-teal-600">Use the form above to create your first room</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {rooms.map((room) => (
+                          <div
+                            key={room._id}
+                            className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
+                          >
+                            <div className="flex-1 min-w-0">
+                              {editingRoomId === room._id ? (
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+                                  <input
+                                    type="text"
+                                    value={editingRoomName}
+                                    onChange={(e) => setEditingRoomName(e.target.value)}
+                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={handleRoomUpdate}
+                                      disabled={roomUpdateLoading}
+                                      className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors flex items-center justify-center"
+                                    >
+                                      {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingRoomId(null);
+                                        setEditingRoomName("");
+                                      }}
+                                      className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                                    <DoorOpen className="w-5 h-5 text-teal-600" />
+                                  </div>
+                                  <div>
+                                    <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">{room.name}</h3>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <Calendar className="w-3 h-3 text-teal-400" />
+                                      <span className="text-xs text-teal-500">
+                                        Created {new Date(room.createdAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            {editingRoomId !== room._id && (
+                              <div className="flex items-center gap-2 self-end sm:self-auto">
+                                {permissions.canUpdate && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingRoomId(room._id);
+                                      setEditingRoomName(room.name);
+                                    }}
+                                    className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
+                                    title="Edit room"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {permissions.canDelete && (
+                                  <button
+                                    onClick={() => handleDelete(room._id)}
+                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete room"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
-        )}
-          </div>
-          )}
-            </>
-          )}
+              </>
+            )}
 
-          {viewMode === "department" && permissions.canRead && (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-teal-700" />
-                <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Departments</h2>
-                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
-                  {departments.length} {departments.length === 1 ? 'Department' : 'Departments'}
-                </span>
-              </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-12 text-teal-600">
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                <span className="text-sm">Loading departments...</span>
-              </div>
-            ) : departments.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
-                  <Building2 className="w-8 h-8 text-teal-400" />
+            {viewMode === "department" && permissions.canRead && (
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Building2 className="w-5 h-5 text-teal-700" />
+                  <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Departments</h2>
+                  <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+                    {departments.length} {departments.length === 1 ? 'Department' : 'Departments'}
+                  </span>
                 </div>
-                <p className="text-sm font-medium text-teal-900 mb-1">No departments created yet</p>
-                <p className="text-xs text-teal-600">Use the form above to create your first department</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {departments.map((dept) => (
-                  <div
-                    key={dept._id}
-                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      {editingDeptId === dept._id ? (
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                          <input
-                            type="text"
-                            value={editingDeptName}
-                            onChange={(e) => setEditingDeptName(e.target.value)}
-                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            autoFocus
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handleDepartmentUpdate}
-                              disabled={deptUpdateLoading}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors"
-                            >
-                              {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingDeptId(null);
-                                setEditingDeptName("");
-                              }}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-                            <Building2 className="w-5 h-5 text-teal-600" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-semibold text-teal-900">{dept.name}</h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <Calendar className="w-3 h-3 text-teal-400" />
-                              <span className="text-xs text-teal-500">
-                                Created {new Date(dept.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+
+                {loading ? (
+                  <div className="flex items-center justify-center py-12 text-teal-600">
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <span className="text-sm">Loading departments...</span>
+                  </div>
+                ) : departments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                      <Building2 className="w-8 h-8 text-teal-400" />
                     </div>
-                    {editingDeptId !== dept._id && (
-                      <div className="flex items-center gap-2 self-end sm:self-auto">
-                        {permissions.canUpdate && (
-                          <button
-                            onClick={() => {
-                              setEditingDeptId(dept._id);
-                              setEditingDeptName(dept.name);
-                            }}
-                            className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
-                            title="Edit department"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        )}
-                        {permissions.canDelete && (
-                          <button
-                            onClick={() => handleDeleteDepartment(dept._id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete department"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                    <p className="text-sm font-medium text-teal-900 mb-1">No departments created yet</p>
+                    <p className="text-xs text-teal-600">Use the form above to create your first department</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {departments.map((dept) => (
+                      <div
+                        key={dept._id}
+                        className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          {editingDeptId === dept._id ? (
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <input
+                                type="text"
+                                value={editingDeptName}
+                                onChange={(e) => setEditingDeptName(e.target.value)}
+                                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleDepartmentUpdate}
+                                  disabled={deptUpdateLoading}
+                                  className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors"
+                                >
+                                  {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingDeptId(null);
+                                    setEditingDeptName("");
+                                  }}
+                                  className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-teal-600" />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">{dept.name}</h3>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Calendar className="w-3 h-3 text-teal-400" />
+                                  <span className="text-xs text-teal-500 dark:text-teal-100">
+                                    Created {new Date(dept.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {editingDeptId !== dept._id && (
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
+                            {permissions.canUpdate && (
+                              <button
+                                onClick={() => {
+                                  setEditingDeptId(dept._id);
+                                  setEditingDeptName(dept.name);
+                                }}
+                                className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
+                                title="Edit department"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {permissions.canDelete && (
+                              <button
+                                onClick={() => handleDeleteDepartment(dept._id)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete department"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
-          </div>
-          )}
-        </>
-      )}
-      {confirmModal.isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setConfirmModal({ ...confirmModal, isOpen: false });
-              toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-modal-title"
-        >
+          </>
+        )}
+        {confirmModal.isOpen && (
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto flex flex-col transform transition-all duration-200 scale-100 opacity-100 mx-4"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setConfirmModal({ ...confirmModal, isOpen: false });
+                toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
           >
-            <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-red-600" />
+            <div
+              className="bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto flex flex-col transform transition-all duration-200 scale-100 opacity-100 mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <h2 id="confirm-modal-title" className="text-base sm:text-lg font-semibold text-teal-900">
+                    {confirmModal.title}
+                  </h2>
                 </div>
-                <h2 id="confirm-modal-title" className="text-base sm:text-lg font-semibold text-teal-900">
-                  {confirmModal.title}
-                </h2>
+                <button
+                  onClick={() => {
+                    setConfirmModal({ ...confirmModal, isOpen: false });
+                    toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                  }}
+                  className="p-1.5 hover:bg-red-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                  aria-label="Close modal"
+                >
+                  <X className="w-5 h-5 text-teal-700" />
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setConfirmModal({ ...confirmModal, isOpen: false });
-                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
-                }}
-                className="p-1.5 hover:bg-red-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5 text-teal-700" />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6">
-              <p className="text-sm sm:text-base text-teal-700 leading-relaxed">
-                {confirmModal.message}
-              </p>
-            </div>
-            <div className="flex gap-2 sm:gap-3 px-4 sm:px-6 pb-4 sm:pb-6">
-              <button
-                onClick={() => {
-                  setConfirmModal({ ...confirmModal, isOpen: false });
-                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
-                }}
-                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-900 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  confirmModal.onConfirm();
-                }}
-                className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
-              >
-                Delete
-              </button>
+              <div className="p-4 sm:p-6">
+                <p className="text-sm sm:text-base text-teal-700 leading-relaxed">
+                  {confirmModal.message}
+                </p>
+              </div>
+              <div className="flex gap-2 sm:gap-3 px-4 sm:px-6 pb-4 sm:pb-6">
+                <button
+                  onClick={() => {
+                    setConfirmModal({ ...confirmModal, isOpen: false });
+                    toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                  }}
+                  className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-900 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    confirmModal.onConfirm();
+                  }}
+                  className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );

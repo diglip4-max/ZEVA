@@ -1,6 +1,15 @@
 // models/AgentPermission.js
 import mongoose from 'mongoose';
 
+// customActionsField – enterprise-scalable extension point for
+// per-module and per-submodule custom actions (e.g. "advance", "approve").
+// Placed at the SAME level as `actions` to match the frontend data structure.
+const customActionsField = {
+  type: Map,
+  of: Boolean,
+  default: {}
+};
+
 const ModulePermissionSchema = new mongoose.Schema({
   module: {
     type: String,
@@ -20,7 +29,8 @@ const ModulePermissionSchema = new mongoose.Schema({
       delete: { type: Boolean, default: false },
       import: { type: Boolean, default: false },
       export: { type: Boolean, default: false }
-    }
+    },
+    customActions: customActionsField
   }],
   actions: {
     all: { type: Boolean, default: false },
@@ -30,7 +40,8 @@ const ModulePermissionSchema = new mongoose.Schema({
     delete: { type: Boolean, default: false },
     import: { type: Boolean, default: false },
     export: { type: Boolean, default: false }
-  }
+  },
+  customActions: customActionsField
 });
 
 const AgentPermissionSchema = new mongoose.Schema({

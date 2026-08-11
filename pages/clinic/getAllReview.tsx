@@ -6,18 +6,18 @@ import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../../pages/_app';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import Loader from '../../components/Loader';
-import { 
-  AreaChart, 
-  Area, 
-  PieChart, 
-  Pie, 
-  Cell, 
-  ResponsiveContainer, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend 
+import {
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
 } from 'recharts';
 import { getTokenByPath } from '@/lib/helper';
 
@@ -104,11 +104,11 @@ function ClinicReviews() {
         "staffToken",
         "userToken",
       ];
-      
+
       for (const key of TOKEN_PRIORITY) {
         const tokenVal =
           localStorage.getItem(key) || sessionStorage.getItem(key);
-        
+
         if (tokenVal) {
           try {
             const base64Url = tokenVal.split(".")[1];
@@ -122,7 +122,7 @@ function ClinicReviews() {
                 .join(""),
             );
             const decoded = JSON.parse(jsonPayload);
-            
+
             return {
               role: decoded.role || decoded.userRole || null,
               id: decoded.userId || decoded.id || null,
@@ -162,7 +162,7 @@ function ClinicReviews() {
     // console.log("[DEBUG] Main permissions useEffect triggered");
     // console.log("[DEBUG] isAgentRoute:", isAgentRoute);
     // console.log("[DEBUG] isMounted:", isMounted);
-    
+
     if (isAgentRoute) {
       // console.log("[DEBUG] isAgentRoute is true, exiting");
       return;
@@ -177,27 +177,27 @@ function ClinicReviews() {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     // console.log("[DEBUG] Token checks:", {
@@ -393,7 +393,7 @@ function ClinicReviews() {
 
           const actions =
             data?.permissions?.actions || data?.data?.moduleActions || {};
-          
+
           const isTrue = (val: any) => {
             return val === true ||
               val === "true" ||
@@ -548,16 +548,16 @@ function ClinicReviews() {
   // Calculate monthly trend data
   const monthlyTrendData = useMemo(() => {
     const monthlyData: Record<string, { month: string; monthKey: string; avgRating: number; reviewCount: number; totalRating: number }> = {};
-    
+
     reviews.forEach((review) => {
       const date = new Date(review.createdAt);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { month: monthLabel, monthKey, avgRating: 0, reviewCount: 0, totalRating: 0 };
       }
-      
+
       monthlyData[monthKey].reviewCount += 1;
       monthlyData[monthKey].totalRating += review.rating;
     });
@@ -591,23 +591,23 @@ function ClinicReviews() {
     }
 
     return [
-      { 
-        name: 'Positive (4-5★)', 
-        value: positive, 
+      {
+        name: 'Positive (4-5★)',
+        value: positive,
         percentage: Math.round((positive / total) * 100),
-        color: '#10b981' 
+        color: '#10b981'
       },
-      { 
-        name: 'Neutral (3★)', 
-        value: neutral, 
+      {
+        name: 'Neutral (3★)',
+        value: neutral,
         percentage: Math.round((neutral / total) * 100),
-        color: '#f59e0b' 
+        color: '#f59e0b'
       },
-      { 
-        name: 'Negative (1-2★)', 
-        value: negative, 
+      {
+        name: 'Negative (1-2★)',
+        value: negative,
         percentage: Math.round((negative / total) * 100),
-        color: '#ef4444' 
+        color: '#ef4444'
       }
     ];
   }, [reviews]);
@@ -680,7 +680,7 @@ function ClinicReviews() {
               <MessageSquare className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-teal-900">Patient Reviews</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">Patient Reviews</h1>
               <p className="text-[10px] sm:text-xs text-teal-500 mt-0.5">Monitor and manage feedback</p>
             </div>
           </div>
@@ -702,7 +702,7 @@ function ClinicReviews() {
               <MessageSquare className="w-3.5 h-3.5 text-teal-800" />
               <p className="text-[10px] sm:text-xs text-teal-600 font-medium">Total</p>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-teal-900">{reviews.length}</p>
+            <p className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">{reviews.length}</p>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-teal-200">
             <div className="flex items-center gap-1.5 mb-1">
@@ -710,8 +710,8 @@ function ClinicReviews() {
               <p className="text-[10px] sm:text-xs text-teal-600 font-medium">Average</p>
             </div>
             <div className="flex items-center gap-1">
-              <p className="text-lg sm:text-xl font-bold text-teal-900">{getAverageRating()}</p>
-              <div className="flex gap-0.5">
+              <p className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100 ">{getAverageRating()}</p>
+              <div className="flex gap-0.5 ">
                 {renderStars(Math.round(parseFloat(getAverageRating())))}
               </div>
             </div>
@@ -721,14 +721,14 @@ function ClinicReviews() {
               <TrendingUp className="w-3.5 h-3.5 text-teal-800" />
               <p className="text-[10px] sm:text-xs text-teal-600 font-medium">5★</p>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-teal-900">{stats[5] || 0}</p>
+            <p className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">{stats[5] || 0}</p>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-teal-200">
             <div className="flex items-center gap-1.5 mb-1">
               <Calendar className="w-3.5 h-3.5 text-teal-800" />
               <p className="text-[10px] sm:text-xs text-teal-600 font-medium">This Month</p>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-teal-900">
+            <p className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">
               {reviews.filter((r) => {
                 const d = new Date(r.createdAt);
                 const now = new Date();
@@ -779,136 +779,135 @@ function ClinicReviews() {
         </div>
       ) : (
         <>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3">
-          {paginatedReviews.map((r) => (
-            <div
-              key={r._id}
-              className="bg-white rounded-lg shadow-sm border border-teal-200 p-2.5 sm:p-3 hover:shadow-md transition-all duration-200 hover:border-teal-800 hover:-translate-y-0.5 flex flex-col justify-between group"
-            >
-              {/* User name and rating */}
-              <div className="flex items-start justify-between mb-1.5">
-                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <div className="w-6 h-6 bg-teal-800 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <User className="w-3 h-3 text-white" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3">
+            {paginatedReviews.map((r) => (
+              <div
+                key={r._id}
+                className="bg-white rounded-lg shadow-sm border border-teal-200 p-2.5 sm:p-3 hover:shadow-md transition-all duration-200 hover:border-teal-800 hover:-translate-y-0.5 flex flex-col justify-between group"
+              >
+                {/* User name and rating */}
+                <div className="flex items-start justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <div className="w-6 h-6 bg-teal-800 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <User className="w-3 h-3 text-white" />
+                    </div>
+                    <p className="font-semibold text-teal-800 truncate text-[10px] sm:text-xs">
+                      {r.userId?.name || "Anonymous"}
+                    </p>
                   </div>
-                  <p className="font-semibold text-teal-800 truncate text-[10px] sm:text-xs">
-                    {r.userId?.name || "Anonymous"}
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <div className="flex gap-0.5">
+                      {renderStars(r.rating)}
+                    </div>
+                    <span className="ml-0.5 text-[10px] sm:text-xs font-bold text-teal-800">
+                      {r.rating}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div className="flex items-center gap-1 mb-2">
+                  <Calendar className="w-2.5 h-2.5 text-teal-400" />
+                  <p className="text-[10px] sm:text-xs text-teal-500">
+                    {formatDate(r.createdAt)}
                   </p>
                 </div>
-                <div className="flex items-center gap-0.5 flex-shrink-0">
-                  <div className="flex gap-0.5">
-                    {renderStars(r.rating)}
-                  </div>
-                  <span className="ml-0.5 text-[10px] sm:text-xs font-bold text-teal-800">
-                    {r.rating}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Date */}
-              <div className="flex items-center gap-1 mb-2">
-                <Calendar className="w-2.5 h-2.5 text-teal-400" />
-                <p className="text-[10px] sm:text-xs text-teal-500">
-                  {formatDate(r.createdAt)}
-                </p>
-              </div>
 
-              {/* Read Comment button */}
-              <div className="mt-auto">
-                {r.comment ? (
-                  <button
-                    className="w-full bg-teal-800 text-white text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md hover:bg-teal-900 transition-all duration-200 shadow-sm hover:shadow"
-                    onClick={() => {
-                      setModalComment(r.comment || "");
-                      setShowModal(true);
-                    }}
-                  >
-                    View Comment
-                  </button>
-                ) : (
-                  <div className="w-full bg-teal-50 text-teal-400 text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md text-center border border-teal-200">
-                    No comment
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {/* Compact Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-1.5 mt-3">
-            <button
-              className="px-2.5 py-1.5 rounded-md border border-teal-200 bg-white text-teal-700 disabled:opacity-50 hover:bg-teal-800 hover:text-white hover:border-teal-800 transition-all duration-200 text-xs sm:text-sm font-medium"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Prev
-            </button>
-            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 7) {
-                pageNum = i + 1;
-              } else if (currentPage <= 4) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 3) {
-                pageNum = totalPages - 6 + i;
-              } else {
-                pageNum = currentPage - 3 + i;
-              }
-              return (
-                <button
-                  key={i}
-                  className={`px-2.5 py-1.5 rounded-md border text-xs sm:text-sm font-medium transition-all duration-200 ${
-                    currentPage === pageNum 
-                      ? 'bg-teal-800 text-white border-teal-800 shadow-sm' 
-                      : 'bg-white text-teal-700 border-teal-200 hover:bg-teal-800 hover:text-white hover:border-teal-800'
-                  }`}
-                  onClick={() => handlePageChange(pageNum)}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            <button
-              className="px-2.5 py-1.5 rounded-md border border-teal-200 bg-white text-teal-700 disabled:opacity-50 hover:bg-teal-800 hover:text-white hover:border-teal-800 transition-all duration-200 text-xs sm:text-sm font-medium"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </button>
-          </div>
-        )}
-        
-        {/* Compact Modal */}
-        {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 p-3 sm:p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full border border-teal-200">
-              <div className="p-3 sm:p-4 border-b border-teal-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-teal-800 rounded-lg flex items-center justify-center shadow-sm">
-                      <MessageSquare className="w-3.5 h-3.5 text-white" />
+                {/* Read Comment button */}
+                <div className="mt-auto">
+                  {r.comment ? (
+                    <button
+                      className="w-full bg-teal-800 text-white text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md hover:bg-teal-900 transition-all duration-200 shadow-sm hover:shadow"
+                      onClick={() => {
+                        setModalComment(r.comment || "");
+                        setShowModal(true);
+                      }}
+                    >
+                      View Comment
+                    </button>
+                  ) : (
+                    <div className="w-full bg-teal-50 text-teal-400 text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md text-center border border-teal-200">
+                      No comment
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold text-teal-900">Patient Comment</h3>
-                  </div>
-                  <button
-                    className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-teal-100 text-teal-500 hover:text-teal-700 transition-colors text-sm"
-                    onClick={() => setShowModal(false)}
-                    aria-label="Close"
-                  >
-                    ✕
-                  </button>
+                  )}
                 </div>
               </div>
-              <div className="p-3 sm:p-4">
-                <div className="text-teal-700 break-words whitespace-pre-line max-h-96 overflow-y-auto leading-relaxed bg-teal-50 rounded-md p-2.5 sm:p-3 border border-teal-200 text-xs sm:text-sm">
-                  {modalComment}
+            ))}
+          </div>
+
+          {/* Compact Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-1.5 mt-3">
+              <button
+                className="px-2.5 py-1.5 rounded-md border border-teal-200 bg-white text-teal-700 disabled:opacity-50 hover:bg-teal-800 hover:text-white hover:border-teal-800 transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Prev
+              </button>
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 7) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 4) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 3) {
+                  pageNum = totalPages - 6 + i;
+                } else {
+                  pageNum = currentPage - 3 + i;
+                }
+                return (
+                  <button
+                    key={i}
+                    className={`px-2.5 py-1.5 rounded-md border text-xs sm:text-sm font-medium transition-all duration-200 ${currentPage === pageNum
+                      ? 'bg-teal-800 text-white border-teal-800 shadow-sm'
+                      : 'bg-white text-teal-700 border-teal-200 hover:bg-teal-800 hover:text-white hover:border-teal-800'
+                      }`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                className="px-2.5 py-1.5 rounded-md border border-teal-200 bg-white text-teal-700 disabled:opacity-50 hover:bg-teal-800 hover:text-white hover:border-teal-800 transition-all duration-200 text-xs sm:text-sm font-medium"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </button>
+            </div>
+          )}
+
+          {/* Compact Modal */}
+          {showModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 p-3 sm:p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full border border-teal-200">
+                <div className="p-3 sm:p-4 border-b border-teal-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 bg-teal-800 rounded-lg flex items-center justify-center shadow-sm">
+                        <MessageSquare className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-bold text-teal-900">Patient Comment</h3>
+                    </div>
+                    <button
+                      className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-teal-100 text-teal-500 hover:text-teal-700 transition-colors text-sm"
+                      onClick={() => setShowModal(false)}
+                      aria-label="Close"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 sm:p-4">
+                  <div className="text-teal-700 break-words whitespace-pre-line max-h-96 overflow-y-auto leading-relaxed bg-teal-50 rounded-md p-2.5 sm:p-3 border border-teal-200 text-xs sm:text-sm">
+                    {modalComment}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         </>
       )}
 
@@ -925,42 +924,42 @@ function ClinicReviews() {
               <AreaChart data={monthlyTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
                 <defs>
                   <linearGradient id="colorRating" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1f2937" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#1f2937" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#1f2937" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#1f2937" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6b7280" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6b7280" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6b7280" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6b7280" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#6b7280" 
+                <XAxis
+                  dataKey="month"
+                  stroke="#6b7280"
                   fontSize={10}
                   tick={{ fill: '#6b7280' }}
                   angle={-45}
                   textAnchor="end"
                   height={50}
                 />
-                <YAxis 
+                <YAxis
                   yAxisId="left"
-                  stroke="#6b7280" 
+                  stroke="#6b7280"
                   fontSize={10}
                   tick={{ fill: '#6b7280' }}
                   label={{ value: 'Rating', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: '10px' } }}
                 />
-                <YAxis 
+                <YAxis
                   yAxisId="right"
                   orientation="right"
-                  stroke="#6b7280" 
+                  stroke="#6b7280"
                   fontSize={10}
                   tick={{ fill: '#6b7280' }}
                   label={{ value: 'Count', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: '10px' } }}
                 />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
                     border: '1px solid #e5e7eb',
                     borderRadius: '6px',
                     fontSize: '11px',
@@ -968,22 +967,22 @@ function ClinicReviews() {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
-                <Area 
+                <Area
                   yAxisId="left"
-                  type="monotone" 
-                  dataKey="avgRating" 
-                  stroke="#1f2937" 
-                  fillOpacity={1} 
+                  type="monotone"
+                  dataKey="avgRating"
+                  stroke="#1f2937"
+                  fillOpacity={1}
                   fill="url(#colorRating)"
                   name="Avg Rating"
                   strokeWidth={2}
                 />
-                <Area 
+                <Area
                   yAxisId="right"
-                  type="monotone" 
-                  dataKey="reviewCount" 
-                  stroke="#6b7280" 
-                  fillOpacity={1} 
+                  type="monotone"
+                  dataKey="reviewCount"
+                  stroke="#6b7280"
+                  fillOpacity={1}
                   fill="url(#colorCount)"
                   name="Reviews"
                   strokeWidth={2}
@@ -1015,9 +1014,9 @@ function ClinicReviews() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
                     border: '1px solid #e5e7eb',
                     borderRadius: '6px',
                     fontSize: '11px'

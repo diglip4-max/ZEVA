@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import {
   PlusCircle,
   X,
@@ -683,7 +683,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
               </div>
 
               {/* Item Form - Simplified for Purchase Request */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div className="border border-border-default rounded-lg p-4 bg-gray-50">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                   {/* Item Name */}
                   <div className="sm:col-span-3 space-y-1">
@@ -801,9 +801,9 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
               </div>
 
               {/* Items Table - Simplified for Purchase Request */}
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-border-default rounded-lg overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-border-default">
                     <thead className="bg-gray-800">
                       <tr>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
@@ -826,7 +826,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-border-default">
                       {items.length === 0 ? (
                         <tr>
                           <td
@@ -868,7 +868,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                       )}
                     </tbody>
                     {items.length > 0 && (
-                      <tfoot className="bg-gray-50">
+                      <tfoot className="bg-bg-surface dark:bg-opacity-50">
                         <tr>
                           <td
                             colSpan={3}

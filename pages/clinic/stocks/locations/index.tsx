@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
@@ -684,7 +684,7 @@ const StockLocationPage: NextPageWithLayout = ({
   // If permissions are not loaded yet, show loading spinner
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
@@ -696,7 +696,7 @@ const StockLocationPage: NextPageWithLayout = ({
   // If canRead is false, show access denied
   if (!permissions.canRead && !permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Building2 className="w-8 h-8 text-red-600" />
@@ -716,13 +716,13 @@ const StockLocationPage: NextPageWithLayout = ({
   // If canRead is false but canCreate is true, show only add button
   if (!permissions.canRead && permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+      <div className="min-h-screen bg-bg-page p-4 md:p-6">
         {/* Header Section */}
         <div className="mb-8">
           <div className="max-w-9xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
                   Stock Locations
                 </h1>
                 <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
@@ -751,13 +751,13 @@ const StockLocationPage: NextPageWithLayout = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
         <div className="max-w-9xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary mb-2">
                 Stock Locations
               </h1>
               <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
@@ -974,7 +974,7 @@ const StockLocationPage: NextPageWithLayout = ({
                   ></path>
                 </svg>
               </div>
-              <p className="text-gray-600">Loading stock locations...</p>
+              <p className="text-text-muted">Loading stock locations...</p>
             </div>
           ) : locations.length === 0 ? (
             /* Empty State */
@@ -1013,8 +1013,8 @@ const StockLocationPage: NextPageWithLayout = ({
           ) : (
             /* Data Table */
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Location
@@ -1030,7 +1030,7 @@ const StockLocationPage: NextPageWithLayout = ({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {locations.map((location) => (
                     <tr
                       key={location._id}
@@ -1047,7 +1047,7 @@ const StockLocationPage: NextPageWithLayout = ({
                             <div className="text-sm font-medium text-gray-900">
                               {location.location}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-text-muted">
                               ID: {location._id}
                             </div>
                           </div>

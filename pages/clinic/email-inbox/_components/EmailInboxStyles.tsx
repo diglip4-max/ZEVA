@@ -1588,6 +1588,367 @@ export default function EmailInboxStyles() {
         box-shadow: none;
       }
 
+      /* ---------- Dark Mode ---------- */
+      .dark .pi-root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --panel-2: #263244;
+        --panel-3: #334155;
+        --border: #334155;
+        --border-soft: #2d3f55;
+        --text: #f1f5f9;
+        --text-dim: #cbd5e1;
+        --text-faint: #94a3b8;
+        --primary: #818cf8;
+        --primary-bright: #a5b4fc;
+        --primary-soft: rgba(129, 140, 248, 0.15);
+        --primary-line: rgba(129, 140, 248, 0.3);
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      /* Dark mode: conversation list panel */
+      .dark .pi-listcol {
+        background: var(--panel);
+        border-color: var(--border);
+      }
+      .dark .pi-listcol-header {
+        background: var(--panel);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .dark .pi-list-search-wrap {
+        background: var(--panel-2);
+        border-color: var(--border);
+      }
+      .dark .pi-list-search {
+        background: transparent;
+        color: var(--text);
+      }
+      .dark .pi-list-search::placeholder {
+        color: var(--text-faint);
+      }
+
+      /* Dark mode: email list items */
+      .dark .pi-list-item {
+        border-color: var(--border-soft);
+        color: var(--text);
+      }
+      .dark .pi-list-item:hover {
+        background: var(--panel-2);
+      }
+      .dark .pi-list-item.active {
+        background: var(--primary-soft);
+        border-color: var(--primary-line);
+      }
+      .dark .pi-list-from {
+        color: var(--text);
+      }
+      .dark .pi-list-subject {
+        color: var(--text-dim);
+      }
+      .dark .pi-list-snippet,
+      .dark .pi-list-date {
+        color: var(--text-faint);
+      }
+      .dark .pi-list-unread .pi-list-from,
+      .dark .pi-list-unread .pi-list-subject {
+        color: var(--text);
+      }
+
+      /* Dark mode: reading pane */
+      .dark .pi-reading {
+        background: var(--panel);
+        border-color: var(--border);
+      }
+      .dark .pi-reading-header {
+        background: var(--panel);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .dark .pi-reading-subject {
+        color: var(--text);
+      }
+      .dark .pi-reading-from,
+      .dark .pi-reading-to {
+        color: var(--text-dim);
+      }
+      .dark .pi-reading-date {
+        color: var(--text-faint);
+      }
+      .dark .pi-reading-body {
+        /* Force a light background and dark text for HTML emails in dark mode
+           to prevent invisible text when emails have hardcoded white backgrounds */
+        color: #1e293b !important;
+        background: #ffffff !important;
+        padding: 24px;
+        border-radius: 12px;
+        overflow-x: auto;
+      }
+      .dark .pi-reading-body a {
+        color: #4f46e5 !important;
+      }
+      .dark .pi-reading-actions {
+        background: var(--panel);
+        border-color: var(--border);
+      }
+      .dark .pi-reading-action-btn {
+        color: var(--text-faint);
+        border-color: var(--border);
+        background: var(--panel-2);
+      }
+      .dark .pi-reading-action-btn:hover {
+        background: var(--panel-3);
+        color: var(--text);
+      }
+
+      /* Dark mode: thread messages */
+      .dark .pi-thread-message {
+        background: var(--panel-2);
+        border-color: var(--border-soft);
+      }
+      .dark .pi-thread-message-header {
+        border-color: var(--border-soft);
+        color: var(--text);
+      }
+      .dark .pi-thread-message-body {
+        color: var(--text-dim);
+      }
+      .dark .pi-thread-message-date {
+        color: var(--text-faint);
+      }
+
+      /* Dark mode: toolbar/action buttons */
+      .dark .pi-toolbar-btn {
+        color: var(--text-faint);
+        background: var(--panel-2);
+        border-color: var(--border);
+      }
+      .dark .pi-toolbar-btn:hover {
+        background: var(--panel-3);
+        color: var(--text);
+      }
+      .dark .pi-toolbar-btn.danger:hover {
+        background: rgba(239,68,68,0.15);
+        color: #f87171;
+      }
+
+      /* Dark mode: compose window */
+      .dark .pi-compose {
+        background: var(--panel);
+        border-color: var(--border);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+      }
+      .dark .pi-compose-header {
+        background: var(--panel-2);
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .dark .pi-compose-field {
+        border-color: var(--border-soft);
+        color: var(--text);
+        background: var(--panel);
+      }
+      .dark .pi-compose-field label {
+        color: var(--text-faint);
+      }
+      .dark .pi-compose-field input,
+      .dark .pi-compose-field textarea {
+        color: var(--text);
+        background: var(--panel);
+      }
+      .dark .pi-compose-field input::placeholder,
+      .dark .pi-compose-field textarea::placeholder {
+        color: var(--text-faint);
+      }
+      .dark .pi-compose-body {
+        border-color: var(--border-soft);
+        background: var(--panel);
+        color: var(--text);
+      }
+      .dark .pi-compose-footer {
+        background: var(--panel-2);
+        border-color: var(--border);
+      }
+      .dark .pi-compose-btn-ghost {
+        color: var(--text-faint);
+        border-color: var(--border);
+        background: var(--panel-2);
+      }
+      .dark .pi-compose-btn-ghost:hover {
+        background: var(--panel-3);
+        color: var(--text);
+      }
+
+      /* Dark mode: modals */
+      .dark .pi-modal-backdrop {
+        background: rgba(0, 0, 0, 0.6);
+      }
+      .dark .pi-modal {
+        background: var(--panel);
+        border-color: var(--border);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+      }
+      .dark .pi-modal-header {
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .dark .pi-modal-title {
+        color: var(--text);
+      }
+      .dark .pi-modal-body {
+        color: var(--text-dim);
+      }
+      .dark .pi-modal-footer {
+        border-color: var(--border);
+        background: var(--panel-2);
+      }
+      .dark .pi-modal-secondary-btn {
+        color: var(--text-faint);
+        border-color: var(--border);
+        background: var(--panel-2);
+      }
+      .dark .pi-modal-secondary-btn:hover {
+        background: var(--panel-3);
+        color: var(--text);
+      }
+
+      /* Dark mode: filter modal */
+      .dark .pi-filter-modal {
+        background: var(--panel);
+        border-color: var(--border);
+      }
+      .dark .pi-filter-modal-header {
+        border-color: var(--border);
+        color: var(--text);
+      }
+      .dark .pi-filter-section-title {
+        color: var(--text-faint);
+      }
+      .dark .pi-filter-option {
+        border-color: var(--border-soft);
+        color: var(--text-dim);
+      }
+      .dark .pi-filter-option:hover {
+        background: var(--panel-2);
+      }
+      .dark .pi-filter-option.selected {
+        background: var(--primary-soft);
+        border-color: var(--primary-line);
+        color: var(--primary-bright);
+      }
+      .dark .pi-filter-modal-footer {
+        border-color: var(--border);
+        background: var(--panel-2);
+      }
+      .dark .pi-filter-modal-secondary-btn {
+        color: var(--text-faint);
+        border-color: var(--border);
+        background: var(--panel-2);
+      }
+      .dark .pi-filter-modal-secondary-btn:hover {
+        background: var(--panel-3);
+        color: var(--text);
+      }
+
+      /* Dark mode: sidebar */
+      .dark .pi-sidebar {
+        background: var(--panel);
+        border-color: var(--border);
+      }
+      .dark .pi-logo-text {
+        color: var(--text);
+      }
+      .dark .pi-nav-item {
+        color: var(--text-dim);
+      }
+      .dark .pi-nav-item:hover {
+        background: var(--panel-2);
+        color: var(--text);
+      }
+      .dark .pi-nav-item.active {
+        background: var(--primary-soft);
+        color: var(--primary-bright);
+      }
+      .dark .pi-nav-count {
+        background: var(--panel-2);
+        color: var(--text-faint);
+      }
+      .dark .pi-nav-item.active .pi-nav-count {
+        background: var(--primary-soft);
+        color: var(--primary-bright);
+      }
+      .dark .pi-sidebar-toggle {
+        background: var(--panel);
+        border-color: var(--border);
+        color: var(--text-dim);
+      }
+      .dark .pi-sidebar-toggle:hover {
+        background: var(--panel-2);
+        color: var(--text);
+      }
+
+      /* Dark mode: tags */
+      .dark .pi-tag {
+        background: var(--panel-2);
+        border-color: var(--border);
+        color: var(--text-dim);
+      }
+      .dark .pi-tag-remove {
+        color: var(--text-faint);
+      }
+      .dark .pi-tag-remove:hover {
+        color: #f87171;
+      }
+
+      /* Dark mode: skeleton loaders */
+      .dark .pi-skeleton {
+        background: linear-gradient(90deg, var(--panel-2) 25%, var(--panel-3) 50%, var(--panel-2) 75%);
+        background-size: 200% 100%;
+      }
+
+      /* Dark mode: scrollbars */
+      .dark .pi-root *::-webkit-scrollbar-track {
+        background: var(--panel);
+      }
+      .dark .pi-root *::-webkit-scrollbar-thumb {
+        background: var(--panel-3);
+      }
+      .dark .pi-root *::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+
+      /* Dark mode: dividers and misc */
+      .dark .pi-divider {
+        border-color: var(--border-soft);
+      }
+      .dark .pi-empty-state {
+        color: var(--text-faint);
+      }
+      .dark .pi-empty-state-icon {
+        color: var(--text-faint);
+        background: var(--panel-2);
+      }
+      .dark .pi-badge {
+        background: var(--primary);
+        color: white;
+      }
+      .dark .pi-badge-unread {
+        background: #f87171;
+        color: white;
+      }
+      .dark .pi-thread-info-card {
+        background: var(--panel);
+        border-color: var(--border);
+        box-shadow: 0 8px 24px -8px rgba(0,0,0,0.4);
+      }
+      .dark .pi-thread-info-row span:first-child {
+        color: var(--text-faint);
+      }
+      .dark .pi-thread-info-row span:last-child {
+        color: var(--text-dim);
+      }
+
       /* ---------- Responsive ---------- */
       @media (max-width: 1024px) {
         .pi-sidebar { width: var(--sidebar-collapsed-width); padding: 20px 8px; }

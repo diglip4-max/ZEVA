@@ -293,15 +293,15 @@ export default async function handler(req, res) {
 
         const normalizedSubs = Array.isArray(subTreatments)
           ? subTreatments
-              .filter((sub) => sub?.name?.trim())
-              .map((sub) => ({
-                name: sub.name.trim(),
-                slug: slugifyValue(sub.name),
-                price:
-                  sub.price && !Number.isNaN(Number(sub.price))
-                    ? Number(sub.price)
-                    : 0,
-              }))
+            .filter((sub) => sub?.name?.trim())
+            .map((sub) => ({
+              name: sub.name.trim(),
+              slug: slugifyValue(sub.name),
+              price:
+                sub.price && !Number.isNaN(Number(sub.price))
+                  ? Number(sub.price)
+                  : 0,
+            }))
           : [];
 
         const treatmentDoc = await Treatment.create({
@@ -350,7 +350,7 @@ export default async function handler(req, res) {
         subcategoryIds: Array.isArray(subcategoryIds)
           ? subcategoryIds.filter(Boolean)
           : treatmentExists.subcategories?.map((sub) => sub.slug || sub.name) ||
-            [],
+          [],
       };
 
       if (price !== undefined && price !== null && price !== "") {

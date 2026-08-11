@@ -8,7 +8,7 @@ import {
   FileText,
   Clock,
   ArrowRight,
-  DollarSign,
+  CircleDollarSign,
   Lock,
   AlertCircle,
 } from 'lucide-react';
@@ -27,7 +27,7 @@ const Insurance: React.FC = () => {
 
   const benefits = [
     {
-      icon: <DollarSign className="w-6 h-6" />,
+      icon: <CircleDollarSign className="w-6 h-6" />,
       title: 'Cost Savings',
       desc: 'Reduce out-of-pocket expenses with insurance coverage',
     },
@@ -118,7 +118,7 @@ const Insurance: React.FC = () => {
                   Insurance Accepted
                 </h1>
                 <p className="text-lg md:text-xl opacity-90 mb-8 max-w-2xl mx-auto lg:mx-0" style={{ fontFamily: "'Playfair Display', serif" }}>
-                  Access quality healthcare with your insurance. We work with major insurance providers 
+                  Access quality healthcare with your insurance. We work with major insurance providers
                   to make healthcare affordable and accessible for everyone.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -320,8 +320,8 @@ const Insurance: React.FC = () => {
                 Insurance Module Coming Soon
               </h2>
               <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-                We're working on an integrated insurance management system that will allow you to 
-                verify coverage, submit claims, and track insurance benefits directly through ZEVA. 
+                We're working on an integrated insurance management system that will allow you to
+                verify coverage, submit claims, and track insurance benefits directly through ZEVA.
                 In the meantime, you can contact clinics directly to confirm insurance acceptance.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -4,6 +4,11 @@ import axios from "axios";
 import NotificationBell from "./NotificationBell";
 import ReceptionistChat from "./ReceptionistChat";
 import { Bot, Sparkles } from "lucide-react";
+import { useClinicTheme } from "../context/ClinicThemeContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { normalizeImagePath } from "@/lib/utils";
+
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
   isMobileOpen: boolean;
@@ -13,12 +18,16 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   handleToggleMobile,
   isMobileOpen,
 }) => {
+  const { theme, toggleTheme } = useClinicTheme();
+  const { currency } = useCurrency();
   const [tokenUser, setTokenUser] = useState<{
     name?: string;
     email?: string;
+    photo?: string;
   } | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
   const [receptionistOpen, setReceptionistOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [commissionCount, setCommissionCount] = useState<number>(0);
   const [totalCommission, setTotalCommission] = useState<number>(0);
   const [commissionItems, setCommissionItems] = useState<
@@ -54,7 +63,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           keepalive: true,
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } finally {
       localStorage.removeItem("agentToken");
@@ -64,42 +73,66 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     }
   };
 
-  useEffect(() => {
-    // Get user info from localStorage (stored during login)
-    const getUserInfo = () => {
-      if (typeof window !== "undefined") {
-        // First try to get from agentUser
-        const agentUserRaw = localStorage.getItem("agentUser");
-        if (agentUserRaw) {
-          try {
-            const user = JSON.parse(agentUserRaw);
-            setTokenUser({ name: user.name, email: user.email });
-            return;
-          } catch (error) {
-            console.error("Error parsing agentUser:", error);
-          }
-        }
-
-        // Fallback: decode token if agentUser is not available
-        const token =
-          localStorage.getItem("agentToken") ||
-          localStorage.getItem("userToken");
-        if (token) {
-          try {
-            const parts = token.split(".");
-            if (parts.length === 3) {
-              const payload = JSON.parse(atob(parts[1]));
-              setTokenUser({ name: payload.name, email: payload.email });
-            }
-          } catch (error) {
-            console.error("Error decoding token in header:", error);
-          }
+  const getUserInfo = useCallback(() => {
+    if (typeof window !== "undefined") {
+      // First try to get from agentUser
+      const agentUserRaw =
+        localStorage.getItem("agentUser") ||
+        sessionStorage.getItem("agentUser");
+      if (agentUserRaw) {
+        try {
+          const user = JSON.parse(agentUserRaw);
+          setTokenUser({ name: user.name, email: user.email, photo: user.photo });
+          return;
+        } catch (error) {
+          console.error("Error parsing agentUser:", error);
         }
       }
-    };
 
-    getUserInfo();
+      // Check doctorUser fallback
+      const doctorUserRaw =
+        localStorage.getItem("doctorUser") ||
+        sessionStorage.getItem("doctorUser");
+      if (doctorUserRaw) {
+        try {
+          const user = JSON.parse(doctorUserRaw);
+          setTokenUser({ name: user.name, email: user.email, photo: user.photo });
+          return;
+        } catch (error) {
+          console.error("Error parsing doctorUser:", error);
+        }
+      }
+
+      // Fallback: decode token if user object is not available
+      const token =
+        localStorage.getItem("agentToken") ||
+        localStorage.getItem("userToken") ||
+        sessionStorage.getItem("agentToken") ||
+        sessionStorage.getItem("userToken");
+      if (token) {
+        try {
+          const parts = token.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            setTokenUser({ name: payload.name, email: payload.email, photo: payload.photo });
+          }
+        } catch (error) {
+          console.error("Error decoding token in header:", error);
+        }
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    getUserInfo();
+    const handleStorageChange = () => getUserInfo();
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("userProfileUpdated", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("userProfileUpdated", handleStorageChange);
+    };
+  }, [getUserInfo]);
 
   const getAuthHeaders = useCallback(() => {
     if (typeof window === "undefined") return null;
@@ -126,6 +159,26 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   useEffect(() => {
     loadCommissions();
   }, [loadCommissions]);
+
+  const [clinicName, setClinicName] = useState<string>("");
+
+  const loadClinicInfo = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.get("/api/clinics/myallClinic", { headers });
+      if (res.data && res.data.success && res.data.clinic?.name) {
+        setClinicName(res.data.clinic.name);
+      }
+    } catch (err) {
+      // Silent fail
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadCommissions();
+    loadClinicInfo();
+  }, [loadCommissions, loadClinicInfo]);
 
   const computeDropdownPos = () => {
     if (typeof window === "undefined") return;
@@ -165,7 +218,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   //   };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
+    <header className="w-full bg-white dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800 shadow-sm flex-shrink-0">
       <div className="px-2 sm:px-4 py-1.5 sm:py-2">
         <div className="flex items-center justify-between gap-2">
           {/* Left: Mobile Hamburger + Brand */}
@@ -173,11 +226,11 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             {/* Mobile Hamburger - Only visible on mobile, positioned on left */}
             <button
               onClick={handleToggleMobile}
-              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0 lg:hidden"
+              className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors duration-200 flex-shrink-0 lg:hidden"
               aria-label="Toggle sidebar"
             >
               <svg
-                className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${isMobileOpen ? "rotate-90" : ""}`}
+                className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400 transition-transform duration-300"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -207,13 +260,13 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                     <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full"></div>
                   </div>
                 </div>
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-[#2D9AA5] rounded-full border-2 border-white"></div>
+                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-[#2D9AA5] rounded-full border-2 border-white dark:border-zinc-900"></div>
               </div>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate">
-                  ZEVA
+                <h1 className="text-lg sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-zinc-300 bg-clip-text text-transparent truncate">
+                  {clinicName || "ZEVA"}
                 </h1>
-                <p className="text-[10px] sm:text-xs text-[#2D9AA5] font-medium -mt-0.5 truncate">
+                <p className="text-[10px] sm:text-xs text-[#2D9AA5] dark:text-teal-100 font-medium -mt-0.5 truncate">
                   Healthcare Excellence
                 </p>
               </div>
@@ -299,7 +352,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                             Your Commissions
                           </div>
                           <div className="text-xs text-teal-700 font-semibold">
-                            Total ₹ {Number(totalCommission || 0).toFixed(2)}
+                            Total {getCurrencySymbol(currency)} {Number(totalCommission || 0).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -322,16 +375,16 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                 </div>
                                 <div className="mt-0.5 flex items-center justify-between">
                                   <div className="text-[10px] text-gray-700">
-                                    Paid ₹{" "}
+                                    Paid {getCurrencySymbol(currency)}{" "}
                                     {Number(it.paidAmount || 0).toFixed(2)} •{" "}
                                     {Number(it.commissionPercent || 0)}%
                                   </div>
                                   <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
-                                    Commission ₹{" "}
+                                    Commission {getCurrencySymbol(currency)}{" "}
                                     {Number(
                                       (it.finalCommissionAmount ??
                                         it.commissionAmount) ||
-                                        0,
+                                      0,
                                     ).toFixed(2)}
                                   </div>
                                 </div>
@@ -343,8 +396,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                                 <div className="mt-0.5 text-[10px] text-gray-500">
                                   {it.invoicedDate
                                     ? new Date(
-                                        it.invoicedDate,
-                                      ).toLocaleDateString()
+                                      it.invoicedDate,
+                                    ).toLocaleDateString()
                                     : ""}
                                 </div>
                               </li>
@@ -357,6 +410,53 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                   document.body,
                 )}
             </div>
+
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 sm:p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:text-[#2D9AA5] hover:bg-[#2D9AA5]/10 dark:hover:bg-[#2D9AA5]/10 transition-colors duration-200 focus:outline-none flex-shrink-0 flex items-center gap-1.5"
+              aria-label={`Toggle theme (current: ${theme})`}
+              title={`Theme: ${theme.charAt(0).toUpperCase() + theme.slice(1)}`}
+            >
+              {theme === "dark" ||
+                (theme === "system" &&
+                  typeof window !== "undefined" &&
+                  window.matchMedia("(prefers-color-scheme: dark)").matches) ? (
+                <>
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="12" r="4" strokeWidth={2} />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 3v1m0 16v1m8.66-12.34l-.71.71M5.05 18.95l-.71.71M21 12h-1M4 12H3m15.66 6.34l-.71-.71M5.05 5.05l-.71-.71"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium whitespace-nowrap">Dark Mode</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline text-xs font-medium whitespace-nowrap">Light Mode</span>
+                </>
+              )}
+            </button>
             <div className="relative"></div>
             <div className="hidden sm:block">
               <NotificationBell />
@@ -371,15 +471,30 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-3">
-              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-medium text-[10px] sm:text-sm">
-                  {tokenUser?.name?.charAt(0)?.toUpperCase() || "D"}
-                </span>
+              <div
+                className="w-5 h-5 sm:w-8 sm:h-8 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer"
+                onClick={() => {
+                  if (tokenUser?.photo) {
+                    setPreviewImage(normalizeImagePath(tokenUser.photo));
+                  }
+                }}
+              >
+                {tokenUser?.photo ? (
+                  <img
+                    src={normalizeImagePath(tokenUser.photo)}
+                    alt={tokenUser?.name || "User"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-white font-medium text-[10px] sm:text-sm">
+                    {tokenUser?.name?.charAt(0)?.toUpperCase() || "D"}
+                  </span>
+                )}
               </div>
 
               <button
                 onClick={handleLogout}
-                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
+                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600  rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
                 aria-label="Logout"
               >
                 <div className="flex items-center gap-1 sm:gap-2">
@@ -411,6 +526,28 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             anchorRef={receptionistBtnRef}
           />,
           document.body,
+        )}
+      {previewImage && typeof window !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm transition-all duration-300"
+            onClick={() => setPreviewImage(null)}
+          >
+            <div className="relative max-w-[90vw] max-h-[90vh] bg-zinc-900 rounded-xl p-2 border border-white/10 shadow-2xl flex flex-col items-center">
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute -top-10 right-0 text-white hover:text-red-400 bg-black/40 hover:bg-black/60 p-2 rounded-full transition-colors font-bold text-sm flex items-center justify-center gap-1.5"
+              >
+                Close ✕
+              </button>
+              <img
+                src={previewImage}
+                alt="Profile Preview"
+                className="max-w-[35vw] max-h-[35vh] object-contain rounded-lg"
+              />
+            </div>
+          </div>,
+          document.body
         )}
     </header>
   );

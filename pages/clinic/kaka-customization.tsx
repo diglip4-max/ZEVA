@@ -362,11 +362,10 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
   if (!token) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center px-4"
-        style={{ background: "#dceef0" }}
+        className="min-h-screen flex items-center justify-center px-4 bg-[#dceef0] dark:bg-bg-page"
       >
-        <div className="bg-white rounded-xl border border-[#aed4d9] p-8 max-w-md text-center shadow-sm">
-          <p className="text-[#10262a] text-sm">
+        <div className="bg-white rounded-xl border border-[#aed4d9] dark:border-border-default p-8 max-w-md text-center shadow-sm">
+          <p className="text-[#10262a] dark:text-text-primary text-sm">
             Sign in to your clinic account to manage KAKA's responses.
           </p>
         </div>
@@ -375,7 +374,7 @@ const KakaCustomizationPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen inter-font" style={{ background: "#dceef0" }}>
+    <div className="min-h-screen inter-font bg-[#dceef0] dark:bg-bg-page">
       {/* ── HERO (full width background, content aligned to shared container) ── */}
       <div
         className="relative overflow-hidden"

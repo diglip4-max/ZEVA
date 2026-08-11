@@ -249,27 +249,27 @@ const InboxPage: NextPageWithLayout = () => {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -634,20 +634,20 @@ const InboxPage: NextPageWithLayout = () => {
 
   if (!permissionsLoaded) {
     return (
-      <div className="flex h-[92vh] items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
+      <div className="flex h-[92vh] items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-600 dark:text-slate-400" />
       </div>
     );
   }
 
   if (!permissions.canRead) {
     return (
-      <div className="flex h-[92vh] items-center justify-center bg-gray-50">
+      <div className="flex h-[92vh] items-center justify-center bg-gray-50 dark:bg-slate-900">
         <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+          <h2 className="text-2xl font-semibold text-gray-800 dark:text-slate-100 mb-2">
             Access Denied
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-slate-400">
             You don't have permission to view this page.
           </p>
         </div>
@@ -656,27 +656,26 @@ const InboxPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="flex h-[92vh] bg-gray-50 text-gray-800">
+    <div className="flex h-[92vh] bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-slate-100">
       {/* Left Sidebar - Conversations List */}
       <div
-        className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 flex flex-col bg-white shadow-sm ${
-          (isMobileView && selectedConversation) || isProfileView
-            ? "hidden"
-            : ""
-        }`}
+        className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-sm ${(isMobileView && selectedConversation) || isProfileView
+          ? "hidden"
+          : ""
+          }`}
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 className="text-xl font-semibold text-gray-800">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">
                 All customer chats
               </h2>
-              <div className="text-gray-600 py-1 text-sm font-medium flex items-center gap-2">
+              <div className="text-gray-600 dark:text-slate-400 py-1 text-sm font-medium flex items-center gap-2">
                 <span>{totalConversations} chats</span>
                 <button
                   onClick={handleRefreshConversations}
-                  className="bg-white text-gray-600 border border-gray-300 hover:bg-gray-100 cursor-pointer px-2 py-1 rounded-lg text-sm font-medium shadow-sm inline-flex items-center gap-2"
+                  className="bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer px-2 py-1 rounded-lg text-sm font-medium shadow-sm inline-flex items-center gap-2"
                 >
                   <RefreshCcw className="h-3 w-3" />
                 </button>
@@ -699,18 +698,17 @@ const InboxPage: NextPageWithLayout = () => {
               <input
                 type="text"
                 placeholder="Search conversations..."
-                className="w-full text-sm pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent transition-all"
+                className="w-full text-sm pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 border border-gray-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-800 dark:focus:ring-slate-400 focus:border-transparent transition-all"
                 value={searchConvInput}
                 onChange={(e) => setSearchConvInput(e.target.value)}
               />
             </div>
             <button
               onClick={() => setIsFilterModalOpen(true)}
-              className={`relative p-2.5 border ${
-                filters?.agentId
-                  ? "bg-blue-100 text-blue-500 border-blue-500"
-                  : "bg-white text-gray-600 border-gray-300"
-              } rounded-lg hover:bg-gray-100 cursor-pointer transition-colors shadow-sm`}
+              className={`relative p-2.5 border ${filters?.agentId
+                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-500 border-blue-500"
+                : "bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-300 dark:border-slate-600"
+                } rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer transition-colors shadow-sm`}
             >
               <Filter className="h-5 w-5" />
 
@@ -732,11 +730,10 @@ const InboxPage: NextPageWithLayout = () => {
                     onClick={() =>
                       setFilters((prev) => ({ ...prev, status: option.value }))
                     }
-                    className={`px-3 py-1.5 mr-2 mb-2 flex items-center gap-1 rounded-full text-sm font-medium transition-all ${
-                      filters.status === option.value
-                        ? "bg-gray-800 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                    className={`px-3 py-1.5 mr-2 mb-2 flex items-center gap-1 rounded-full text-sm font-medium transition-all ${filters.status === option.value
+                      ? "bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900"
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                      }`}
                   >
                     <span>{option.label}</span>
                     <span className="">({option.count})</span>
@@ -749,11 +746,10 @@ const InboxPage: NextPageWithLayout = () => {
                   ref={statusBtnRef}
                   onClick={() => setShowStatusDropdown((s) => !s)}
                   aria-expanded={showStatusDropdown}
-                  className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${
-                    showStatusDropdown
-                      ? "bg-gray-800 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
+                  className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${showStatusDropdown
+                    ? "bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900"
+                    : "bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                    }`}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
@@ -763,7 +759,7 @@ const InboxPage: NextPageWithLayout = () => {
                     <div
                       ref={statusDropdownRef}
                       role="menu"
-                      className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+                      className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md shadow-lg z-50 py-1"
                     >
                       {conversationStatusOptions.slice(3).map((opt) => (
                         <button
@@ -818,7 +814,7 @@ const InboxPage: NextPageWithLayout = () => {
                             setShowStatusDropdown(false);
                           }}
                           role="menuitem"
-                          className={`w-full flex items-center gap-1 text-left px-3 py-2 text-sm transition-colors hover:bg-gray-50 text-gray-700`}
+                          className={`w-full flex items-center gap-1 text-left px-3 py-2 text-sm transition-colors hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300`}
                         >
                           <span>{opt.label}</span>
                           <span className="">({opt.count})</span>
@@ -869,18 +865,17 @@ const InboxPage: NextPageWithLayout = () => {
 
       {/* Main Chat Area */}
       <div
-        className={`${
-          (!selectedConversation && isMobileView) || isProfileView
-            ? "hidden"
-            : "flex-1 flex"
-        } flex-col bg-white relative`}
+        className={`${(!selectedConversation && isMobileView) || isProfileView
+          ? "hidden"
+          : "flex-1 flex"
+          } flex-col bg-white dark:bg-slate-800 relative`}
       >
         {!selectedConversation ? (
           <NoSelectedConversation canCreate={permissions.canCreate} />
         ) : (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-sm">
+            <div className="p-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-800 shadow-sm">
               <div className="flex items-center space-x-3">
                 {isMobileView && (
                   <button
@@ -895,10 +890,10 @@ const InboxPage: NextPageWithLayout = () => {
                   size="md"
                 />
                 <div>
-                  <h3 className="font-semibold text-gray-800 text-base sm:text-lg">
+                  <h3 className="font-semibold text-gray-800 dark:text-slate-100 text-base sm:text-lg">
                     {selectedConversation?.leadId?.name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-sm sm:text-sm text-gray-500">
+                  <div className="flex items-center space-x-2 text-sm sm:text-sm text-gray-500 dark:text-slate-400">
                     <span>
                       Last seen{" "}
                       {getFormatedTime(
@@ -948,7 +943,7 @@ const InboxPage: NextPageWithLayout = () => {
             <div
               ref={scrollMsgsRef}
               onScroll={handleScrollMessages}
-              className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-gradient-to-b from-gray-50 to-gray-100"
+              className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-slate-900 dark:to-slate-800"
             >
               {fetchMsgsLoading && (
                 <>
@@ -960,9 +955,9 @@ const InboxPage: NextPageWithLayout = () => {
                 return (
                   <div key={parentIndex?.toString()}>
                     <div className="flex items-center my-5">
-                      <div className="flex-grow border-t border-slate-200"></div>
-                      <p className="mx-3 text-sm text-gray-600">{item?.date}</p>
-                      <div className="flex-grow border-t border-slate-200"></div>
+                      <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+                      <p className="mx-3 text-sm text-gray-600 dark:text-slate-400">{item?.date}</p>
+                      <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
                     </div>
                     {item?.messages?.map((msg, childIndex: number) => {
                       return parentIndex === messages?.length - 1 &&
@@ -1001,22 +996,22 @@ const InboxPage: NextPageWithLayout = () => {
 
             {/* Message Input */}
             {permissions.canCreate && (
-              <div className="border-t border-gray-200 bg-white shadow-lg">
+              <div className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
                 {selectedMessage && (
                   <div
-                    className={`m-2.5 p-3 bg-gray-50 border-l-4 ${selectedMessage?.channel === "whatsapp" ? "border-l-green-500" : selectedMessage?.channel === "email" ? "border-l-gray-500" : ""} rounded-lg flex justify-between items-start space-x-4`}
+                    className={`m-2.5 p-3 bg-gray-50 dark:bg-slate-700 border-l-4 ${selectedMessage?.channel === "whatsapp" ? "border-l-green-500" : selectedMessage?.channel === "email" ? "border-l-gray-500" : ""} rounded-lg flex justify-between items-start space-x-4`}
                   >
                     <div className="flex-1">
-                      <div className="text-sm text-gray-600 mb-1">
+                      <div className="text-sm text-gray-600 dark:text-slate-400 mb-1">
                         Replying to{" "}
                         {selectedMessage?.direction === "incoming"
                           ? selectedMessage?.recipientId?.name
                           : selectedMessage?.senderId?.name ||
-                            "Customer Support"}
+                          "Customer Support"}
                       </div>
-                      <div className="text-sm text-gray-800">
+                      <div className="text-sm text-gray-800 dark:text-slate-200">
                         {selectedMessage?.content &&
-                        selectedMessage?.content?.length > 90
+                          selectedMessage?.content?.length > 90
                           ? selectedMessage?.content?.substring(0, 90) + "..."
                           : selectedMessage?.content || "Media message"}
                       </div>
@@ -1052,7 +1047,7 @@ const InboxPage: NextPageWithLayout = () => {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="flex items-center justify-between bg-gray-50 p-2.5 mt-2 text-sm">
+                <div className="flex items-center justify-between bg-gray-50 dark:bg-slate-700/50 p-2.5 mt-2 text-sm">
                   <div className="flex items-center gap-2">
                     <CustomDropdown
                       position="top-left"
@@ -1070,12 +1065,12 @@ const InboxPage: NextPageWithLayout = () => {
                                 {selectedProvider?.type?.includes("sms") ? (
                                   <Phone className="h-5 w-5 text-blue-500" />
                                 ) : selectedProvider?.type?.includes(
-                                    "whatsapp",
-                                  ) ? (
+                                  "whatsapp",
+                                ) ? (
                                   <FaWhatsapp className="h-5 w-5 text-green-600" />
                                 ) : selectedProvider?.type?.includes(
-                                    "email",
-                                  ) ? (
+                                  "email",
+                                ) ? (
                                   <Mail className="h-5 w-5 text-red-500" />
                                 ) : (
                                   <User className="h-5 w-5" />
@@ -1201,11 +1196,10 @@ const InboxPage: NextPageWithLayout = () => {
                                     e.key === "Enter" &&
                                     setSelectedProvider(provider)
                                   }
-                                  className={`mx-2 my-1 px-3 py-3 cursor-pointer rounded-xl transition-all duration-200 ${
-                                    isSelected
-                                      ? "bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-200 shadow-sm"
-                                      : "hover:bg-gray-50 active:bg-gray-100 border border-transparent hover:border-gray-200"
-                                  }`}
+                                  className={`mx-2 my-1 px-3 py-3 cursor-pointer rounded-xl transition-all duration-200 ${isSelected
+                                    ? "bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-200 shadow-sm"
+                                    : "hover:bg-gray-50 active:bg-gray-100 border border-transparent hover:border-gray-200"
+                                    }`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -1254,11 +1248,10 @@ const InboxPage: NextPageWithLayout = () => {
                                     {/* Selection indicator */}
                                     <div className="flex items-center">
                                       <div
-                                        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                                          isSelected
-                                            ? "border-blue-500 bg-blue-500"
-                                            : "border-gray-300"
-                                        }`}
+                                        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
+                                          ? "border-blue-500 bg-blue-500"
+                                          : "border-gray-300"
+                                          }`}
                                       >
                                         {isSelected && (
                                           <svg
@@ -1411,8 +1404,8 @@ const InboxPage: NextPageWithLayout = () => {
 
       {/* Right Sidebar - Conversation Info */}
       {selectedConversation && (!isMobileView || isProfileView) && (
-        <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 bg-white flex flex-col">
-          <div className="p-4 flex items-center space-x-3 border-b border-gray-200">
+        <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col">
+          <div className="p-4 flex items-center space-x-3 border-b border-gray-200 dark:border-slate-700">
             {isMobileView && (
               <button
                 onClick={() => setIsProfileView(false)}
@@ -1422,10 +1415,10 @@ const InboxPage: NextPageWithLayout = () => {
               </button>
             )}
             <div>
-              <h3 className="text-base sm:text-lg font-semibold">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-slate-100">
                 Conversation Info
               </h3>
-              <p className="text-sm sm:text-sm text-gray-500">
+              <p className="text-sm sm:text-sm text-gray-500 dark:text-slate-400">
                 Details about the selected conversation
               </p>
             </div>
@@ -1463,7 +1456,7 @@ const InboxPage: NextPageWithLayout = () => {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 group">
-                      <div className="font-semibold text-gray-800">
+                      <div className="font-semibold text-gray-800 dark:text-slate-100">
                         {selectedConversation?.leadId?.name}
                       </div>
                       <button
@@ -1489,22 +1482,22 @@ const InboxPage: NextPageWithLayout = () => {
                     onCopy={(e) => e.preventDefault()}
                     onDragStart={(e) => e.preventDefault()}
                     onContextMenu={(e) => e.preventDefault()}
-                    className="text-sm text-gray-500 select-none"
+                    className="text-sm text-gray-500 dark:text-slate-400 select-none"
                   >
                     {user?.role === "agent"
                       ? maskSensitiveInfo(
-                          selectedConversation?.leadId?.phone ||
-                            selectedConversation?.leadId?.email ||
-                            "",
-                        )
+                        selectedConversation?.leadId?.phone ||
+                        selectedConversation?.leadId?.email ||
+                        "",
+                      )
                       : selectedConversation?.leadId?.phone ||
-                        selectedConversation?.leadId?.email}
+                      selectedConversation?.leadId?.email}
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
-                <div className="flex flex-col text-sm text-gray-500">
+                <div className="flex flex-col text-sm text-gray-500 dark:text-slate-400">
                   <div className="flex items-center gap-2 group">
                     <div className="flex items-center gap-2">Phone</div>
                     {editingField !== "phone" && (
@@ -1555,7 +1548,7 @@ const InboxPage: NextPageWithLayout = () => {
                       onCopy={(e) => e.preventDefault()}
                       onDragStart={(e) => e.preventDefault()}
                       onContextMenu={(e) => e.preventDefault()}
-                      className="font-medium text-gray-800 select-none"
+                      className="font-medium text-gray-800 dark:text-slate-100 select-none"
                     >
                       {user?.role === "agent"
                         ? maskPhoneNumber(selectedConversation?.leadId?.phone)
@@ -1564,7 +1557,7 @@ const InboxPage: NextPageWithLayout = () => {
                   )}
                 </div>
 
-                <div className="flex flex-col text-sm text-gray-500">
+                <div className="flex flex-col text-sm text-gray-500 dark:text-slate-400">
                   <div className="flex items-center gap-2 group">
                     <div className="flex items-center gap-2">Email</div>
                     {editingField !== "email" && (
@@ -1615,13 +1608,13 @@ const InboxPage: NextPageWithLayout = () => {
                       onCopy={(e) => e.preventDefault()}
                       onDragStart={(e) => e.preventDefault()}
                       onContextMenu={(e) => e.preventDefault()}
-                      className="font-medium text-gray-800 select-none"
+                      className="font-medium text-gray-800 dark:text-slate-100 select-none"
                     >
                       {user?.role === "agent"
                         ? maskEmail(
-                            selectedConversation?.leadId?.email ||
-                              "bajuddinkhan0786@gmail.com",
-                          )
+                          selectedConversation?.leadId?.email ||
+                          "bajuddinkhan0786@gmail.com",
+                        )
                         : selectedConversation?.leadId?.email || "—"}
                     </div>
                   )}
@@ -1727,7 +1720,7 @@ const InboxPage: NextPageWithLayout = () => {
                     )
                   }
                   disabled={selectedConversation?.status === "open"}
-                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 dark:text-white text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <MessageCircle className="h-4 w-4" />
                   Open
@@ -1740,7 +1733,7 @@ const InboxPage: NextPageWithLayout = () => {
                     )
                   }
                   disabled={selectedConversation?.status === "archived"}
-                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:text-blackppppppppppppppppppppppppppppppppppppppppp text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <Archive className="h-4 w-4" />
                   Archive
@@ -1753,7 +1746,7 @@ const InboxPage: NextPageWithLayout = () => {
                     )
                   }
                   disabled={selectedConversation?.status === "closed"}
-                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 dark:text-white text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <XCircle className="h-4 w-4" />
                   Close
@@ -1851,7 +1844,7 @@ const InboxPage: NextPageWithLayout = () => {
       <AppointmentBookingModal
         isOpen={isOpenBookAppointmentModal}
         onClose={() => setIsOpenBookAppointmentModal(false)}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
         doctorId={""}
         doctorName={""}
         defaultRoomId={""}

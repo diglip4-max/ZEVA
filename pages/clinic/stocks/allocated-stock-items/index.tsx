@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useEffect, useMemo, useState } from "react";
@@ -439,7 +439,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-bg-page">
       {/* Header Section */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="px-6 py-4">
@@ -509,7 +509,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
+                    <p className="text-sm text-text-muted">{stat.label}</p>
                     <p className="text-2xl font-semibold text-gray-800 mt-1">
                       {stat.value}
                     </p>
@@ -612,7 +612,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-1">
               Failed to load allocated items
             </h3>
-            <p className="text-sm text-gray-500">{error}</p>
+            <p className="text-sm text-text-muted">{error}</p>
           </div>
         ) : items.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -620,7 +620,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-1">
               No allocated items found
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-text-muted">
               Try adjusting your search or filter to find what you are looking
               for.
             </p>
@@ -653,7 +653,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                   <div className="space-y-2 mt-4">
                     <div className="flex items-center text-sm">
                       <UserIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         {item.user?.name || "-"}
                       </span>
                       <span className="text-xs text-gray-400 ml-2">
@@ -680,13 +680,13 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                           d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                         />
                       </svg>
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         {item?.location?.location || "-"}
                       </span>
                     </div>
                     <div className="flex items-center text-sm">
                       <BeakerIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         Qty:{" "}
                         {item?.quantitiesByUom
                           ?.map((uom) => `${uom.quantity} ${uom.uom}`)
@@ -695,19 +695,19 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                     </div>
                     <div className="flex items-center text-sm">
                       <UserIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         Allocated By: {item?.allocatedBy?.name || "-"}
                       </span>
                     </div>
                     <div className="flex items-center text-sm">
                       <CalendarIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         Allocated At: {formatDate(item?.createdAt)}
                       </span>
                     </div>
                     <div className="flex items-center text-sm">
                       <ClockIcon className="w-4 h-4 text-gray-400 mr-2" />
-                      <span className="text-gray-600">
+                      <span className="text-text-muted">
                         Expires:{" "}
                         {item?.expiryDate ? formatDate(item?.expiryDate) : "-"}
                       </span>
@@ -808,8 +808,8 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
           // List View
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Item
@@ -837,7 +837,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {items.map((item) => (
                     <tr
                       key={item._id}
@@ -859,7 +859,7 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-text-primary">
                           {item.user?.name || "-"}
                         </div>
                         <div className="text-xs text-gray-500">

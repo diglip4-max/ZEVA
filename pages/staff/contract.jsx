@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Search, Filter, Calendar, DollarSign, FileText, Eye, X } from "lucide-react";
+import { Search, Filter, Calendar, FileText, Eye, X } from "lucide-react";
 import ClinicLayout from "../../components/staffLayout";
 import withClinicAuth from "../../components/withStaffAuth";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -34,6 +36,7 @@ const getAuthHeaders = () => {
 };
 
 function StaffContracts() {
+  const { currency } = useCurrency();
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -305,15 +308,14 @@ function StaffContracts() {
                       {contract.contractTitle}
                     </h3>
                     <span
-                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${
-                        contract.status === "Active"
+                      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold ${contract.status === "Active"
                           ? "bg-green-50 text-green-700 border border-green-200"
                           : contract.status === "Expired"
-                          ? "bg-red-50 text-red-700 border border-red-200"
-                          : contract.status === "Expiring Soon"
-                          ? "bg-amber-50 text-amber-700 border border-amber-200"
-                          : "bg-gray-50 text-gray-700 border border-gray-200"
-                      }`}
+                            ? "bg-red-50 text-red-700 border border-red-200"
+                            : contract.status === "Expiring Soon"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-gray-50 text-gray-700 border border-gray-200"
+                        }`}
                     >
                       {contract.status}
                     </span>
@@ -323,16 +325,15 @@ function StaffContracts() {
 
                 {/* Card Body */}
                 <div className="p-6 space-y-4">
-                  {/* Contract Value - Highlighted */}
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
                     <div className="flex items-center gap-2 mb-1">
-                      <DollarSign className="w-4 h-4 text-gray-600" />
+                      <span className="w-4 h-4 flex items-center justify-center font-bold text-xs text-gray-600">{getCurrencySymbol(currency)}</span>
                       <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                         Contract Value
                       </span>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">
-                      د.إ{contract.contractValue?.toLocaleString()}
+                      {getCurrencySymbol(currency)}{contract.contractValue?.toLocaleString()}
                     </p>
                   </div>
 

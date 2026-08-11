@@ -220,7 +220,7 @@ const DoctorPerformance: React.FC<DoctorPerformanceProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+                <tr className=" border-b-2 border-gray-200">
                   <th className="text-center py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Rank</th>
                   <th className="text-left py-4 px-6 text-xs font-semibold text-gray-700 uppercase tracking-wider">Doctor</th>
                   {/* Performance Score column temporarily hidden */}

@@ -107,6 +107,16 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     [data.revenueByPatient]
   );
 
+  const highestPendingRows = useMemo(
+    () => (data.highestPending || []).filter((r: any) => Number(r.pending || 0) > 0),
+    [data.highestPending]
+  );
+
+  const highestAdvanceRows = useMemo(
+    () => (data.highestAdvance || []).filter((r: any) => Number(r.advance || 0) > 0),
+    [data.highestAdvance]
+  );
+
   const patientExportSections = useMemo(() => [
     {
       title: "Patient Summary",
@@ -154,7 +164,7 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     {
       title: "Highest Pending Amount",
       headers: ["Patient Name", `Pending Amount (${currency})`],
-      data: (data.highestPending || []).map((r: any) => ({
+      data: highestPendingRows.map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
         [`Pending Amount (${currency})`]: Math.round(r.pending || 0),
       })),
@@ -162,12 +172,12 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
     {
       title: "Highest Advance Amount",
       headers: ["Patient Name", `Advance Amount (${currency})`],
-      data: (data.highestAdvance || []).map((r: any) => ({
+      data: highestAdvanceRows.map((r: any) => ({
         "Patient Name": r.patientName || "Unknown",
         [`Advance Amount (${currency})`]: Math.round(r.advance || 0),
       })),
     },
-  ], [data, currency]);
+  ], [data, highestPendingRows, highestAdvanceRows, currency]);
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1", "#a4de6c", "#d0ed57"];
 
@@ -269,20 +279,20 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Pending</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {(data.highestPending || []).slice(0, 10).map((r: any) => (
+                {highestPendingRows.slice(0, 10).map((r: any) => (
                   <tr key={String(r.patientId)}>
-                    <td className="px-4 py-2 text-sm">{r.patientName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.pending || 0)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.patientName || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.pending || 0)}</td>
                   </tr>
                 ))}
-                {!data.highestPending?.length && (
+                {!highestPendingRows.length && (
                   <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>
+                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={2}>
                       No data
                     </td>
                   </tr>
@@ -297,20 +307,20 @@ export default function PatientReport({ startDate, endDate, headers }: Props) {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Patient Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Advance</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Patient Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {(data.highestAdvance || []).slice(0, 10).map((r: any) => (
+                {highestAdvanceRows.slice(0, 10).map((r: any) => (
                   <tr key={String(r.patientId)}>
-                    <td className="px-4 py-2 text-sm">{r.patientName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(r.advance || 0)}</td>
+                    <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-900">{r.patientName || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(r.advance || 0)}</td>
                   </tr>
                 ))}
-                {!data.highestAdvance?.length && (
+                {!highestAdvanceRows.length && (
                   <tr>
-                    <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>
+                    <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-700" colSpan={2}>
                       No data
                     </td>
                   </tr>

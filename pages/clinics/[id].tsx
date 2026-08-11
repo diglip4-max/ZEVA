@@ -75,63 +75,65 @@ const renderTimings = (timings: string | any[] | undefined): React.ReactNode => 
 };
 const normalizePhotoUrl = (url: string | undefined): string => {
   if (!url) return '';
-  
+
+  const isWindowsDrivePath = (str: string) => /(?:^|[^A-Za-z])[A-Za-z]:[\\/]/.test(str);
+
   // Handle malformed URLs that have localhost concatenated with file path
   // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
-  if (url.includes('localhost') && /[A-Za-z]:/.test(url)) {
+  if (url.includes('localhost') && isWindowsDrivePath(url)) {
     // Find the drive letter (C:, D:, etc.) and extract from there
-    const driveMatch = url.match(/([A-Za-z]:.*)/);
+    const driveMatch = url.match(/(?:^|[^A-Za-z])([A-Za-z]:.*)/);
     if (driveMatch) {
       url = driveMatch[1];
     }
   }
-  
+
   // Normalize Windows backslashes to forward slashes
   url = url.replace(/\\/g, '/');
-  
+
   // If already a valid absolute URL (http:// or https://), return as is
   if (url.startsWith('http://') || url.startsWith('https://')) {
     // Make sure it's a proper URL, not concatenated with file path
-    if (!/[A-Za-z]:/.test(url)) {
-    return url;
+    if (!isWindowsDrivePath(url)) {
+      return url;
     }
     // If it has a drive letter, it's malformed, extract the path part
-    const driveMatch = url.match(/([A-Za-z]:.*)/);
+    const driveMatch = url.match(/(?:^|[^A-Za-z])([A-Za-z]:.*)/);
     if (driveMatch) {
       url = driveMatch[1];
     }
   }
-  
+
   // If it's a file system path (contains drive letter), extract the uploads part
-  if (url.includes('uploads/') && /[A-Za-z]:/.test(url)) {
+  if (url.includes('uploads/') && isWindowsDrivePath(url)) {
     const uploadsIndex = url.indexOf('uploads/');
     const relativePath = '/' + url.substring(uploadsIndex);
     return relativePath;
   }
-  
+
   // If it's a file system path without uploads, try to find the public path
   if (url.includes('public/')) {
     const publicIndex = url.indexOf('public/');
     const relativePath = '/' + url.substring(publicIndex + 7); // +7 to skip "public/"
     return relativePath;
   }
-  
+
   // If it starts with /, return as is (relative URL)
   if (url.startsWith('/')) {
     return url;
   }
-  
+
   // If it contains uploads but no drive letter, make it relative
   if (url.includes('uploads/')) {
     const uploadsIndex = url.indexOf('uploads/');
     return '/' + url.substring(uploadsIndex);
   }
-  
+
   // Otherwise, prepend /uploads/clinic/ if it looks like a filename
   if (url.includes('clinicPhoto') || url.match(/\.(jpg|jpeg|png|gif|avif|webp)$/i)) {
     return '/uploads/clinic/' + url;
   }
-  
+
   // Otherwise, prepend / to make it a relative URL
   return '/' + url;
 };
@@ -163,22 +165,22 @@ export default function ClinicDetail() {
 
   useEffect(() => {
     if (!router.isReady || !slug) return;
-    
+
     const fetchClinic = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Check if slug is an ObjectId (for backward compatibility)
         const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
-        
+
         let res;
         if (isObjectId) {
           // Old ObjectId-based URL - fetch by ObjectId first
           try {
             res = await axios.get(`/api/clinics/${slug}`);
             const clinic = res.data?.clinic || res.data?.data || res.data;
-            
+
             // If clinic has a slug, redirect to slug-based URL
             if (clinic?.slug && clinic?.slugLocked) {
               router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
@@ -205,7 +207,7 @@ export default function ClinicDetail() {
               try {
                 res = await axios.get(`/api/clinics/${clinicId}`);
                 const clinic = res.data?.clinic || res.data?.data || res.data;
-                
+
                 // If clinic has a slug, redirect to slug-based URL
                 if (clinic?.slug && clinic?.slugLocked) {
                   router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
@@ -221,7 +223,7 @@ export default function ClinicDetail() {
             }
           }
         }
-        
+
         setClinic(res.data?.clinic || res.data?.data || res.data);
       } catch (err: any) {
         console.error("Error fetching clinic:", err);
@@ -230,7 +232,7 @@ export default function ClinicDetail() {
         setLoading(false);
       }
     };
-    
+
     fetchClinic();
   }, [slug, router.isReady, router]);
 
@@ -266,7 +268,7 @@ export default function ClinicDetail() {
     if (isAuthenticated && shouldNavigateAfterLogin.current && pendingClinicData.current) {
       shouldNavigateAfterLogin.current = false;
       const clinic = pendingClinicData.current.clinic;
-      
+
       if (navigateToReview.current) {
         // Navigate to review form
         const params = new URLSearchParams({
@@ -382,8 +384,8 @@ export default function ClinicDetail() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 mt-8">
         {/* Back Button */}
         <div className="flex justify-end">
-          <button 
-            onClick={() => router.back()} 
+          <button
+            onClick={() => router.back()}
             className="flex items-center gap-2 text-gray-600 hover:text-[#2D9AA5] transition-colors mb-6 group"
           >
             <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
@@ -445,11 +447,10 @@ export default function ClinicDetail() {
                             {photosArray.map((_, idx) => (
                               <div
                                 key={idx}
-                                className={`w-1.5 h-1.5 rounded-full shadow-sm transition-all ${
-                                  idx === safeIndex
+                                className={`w-1.5 h-1.5 rounded-full shadow-sm transition-all ${idx === safeIndex
                                     ? "bg-white scale-125"
                                     : "bg-white/50"
-                                }`}
+                                  }`}
                               />
                             ))}
                           </div>
@@ -474,27 +475,27 @@ export default function ClinicDetail() {
 
                 {/* Rating */}
                 {clinic.listingVisibility?.showReviews !== false && (
-                <div className="flex items-center gap-3 mb-6">
-                  {hasRating ? (
-                    <>
-                      <div className="flex items-center gap-1 bg-[#2D9AA5]/10 rounded-full px-4 py-2">
-                        <div className="flex">
-                          {renderStars(clinicReviews[clinic._id].averageRating)}
+                  <div className="flex items-center gap-3 mb-6">
+                    {hasRating ? (
+                      <>
+                        <div className="flex items-center gap-1 bg-[#2D9AA5]/10 rounded-full px-4 py-2">
+                          <div className="flex">
+                            {renderStars(clinicReviews[clinic._id].averageRating)}
+                          </div>
+                          <span className="text-sm font-semibold ml-1 text-[#2D9AA5]">
+                            {clinicReviews[clinic._id].averageRating.toFixed(1)}
+                          </span>
                         </div>
-                        <span className="text-sm font-semibold ml-1 text-[#2D9AA5]">
-                          {clinicReviews[clinic._id].averageRating.toFixed(1)}
+                        <span className="text-sm text-gray-500">
+                          ({clinicReviews[clinic._id].totalReviews} reviews)
                         </span>
-                      </div>
-                      <span className="text-sm text-gray-500">
-                        ({clinicReviews[clinic._id].totalReviews} reviews)
+                      </>
+                    ) : reviewsLoaded ? (
+                      <span className="text-sm text-gray-500 bg-gray-100 rounded-full px-4 py-2">
+                        No reviews yet
                       </span>
-                    </>
-                  ) : reviewsLoaded ? (
-                    <span className="text-sm text-gray-500 bg-gray-100 rounded-full px-4 py-2">
-                      No reviews yet
-                    </span>
-                  ) : null}
-                </div>
+                    ) : null}
+                  </div>
                 )}
               </div>
             </div>
@@ -504,13 +505,13 @@ export default function ClinicDetail() {
           <div className="sticky top-0 z-20 bg-white border-b border-gray-100 p-4 sm:p-6">
             <div className="flex flex-wrap justify-center lg:justify-start gap-3">
               {clinic.listingVisibility?.enableOnlineBooking !== false ? (
-              <button
-                onClick={() => handleEnquiryClick(clinic)}
-                className="px-6 py-3 bg-gradient-to-r from-[#2D9AA5] to-[#2D9AA5]/90 text-white rounded-xl hover:from-[#2D9AA5]/90 hover:to-[#2D9AA5] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Send Enquiry
-              </button>
+                <button
+                  onClick={() => handleEnquiryClick(clinic)}
+                  className="px-6 py-3 bg-gradient-to-r from-[#2D9AA5] to-[#2D9AA5]/90 text-white rounded-xl hover:from-[#2D9AA5]/90 hover:to-[#2D9AA5] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Send Enquiry
+                </button>
               ) : null}
 
               <button
@@ -526,9 +527,9 @@ export default function ClinicDetail() {
                 const mapsHref = clinic.address
                   ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
                   : clinic.location?.coordinates?.length === 2
-                  ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
-                  : null;
-                
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
+                    : null;
+
                 return mapsHref ? (
                   <a
                     href={mapsHref}
@@ -685,12 +686,12 @@ export default function ClinicDetail() {
                       {/* If no sub-treatments (or all hidden), show description */}
                       {(!treatment.subTreatments ||
                         treatment.subTreatments.filter((s) => s.enabled !== false).length === 0) && (
-                        <div className="ml-6">
-                          <p className="text-sm text-gray-600">
-                            Professional treatment with experienced specialists
-                          </p>
-                        </div>
-                      )}
+                          <div className="ml-6">
+                            <p className="text-sm text-gray-600">
+                              Professional treatment with experienced specialists
+                            </p>
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>
@@ -756,9 +757,9 @@ export default function ClinicDetail() {
                 const mapsHref = clinic.address
                   ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
                   : clinic.location?.coordinates?.length === 2
-                  ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
-                  : null;
-                
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
+                    : null;
+
                 return mapsHref ? (
                   <a
                     href={mapsHref}
@@ -819,7 +820,7 @@ export default function ClinicDetail() {
                 <p className="text-sm text-gray-600">Fully licensed healthcare facility with certified medical professionals and verified credentials.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200 hover:shadow-lg transition-all">
               <div className="p-3 bg-green-600 rounded-lg flex-shrink-0">
                 <Heart className="w-6 h-6 text-white" />
@@ -829,7 +830,7 @@ export default function ClinicDetail() {
                 <p className="text-sm text-gray-600">Personalized treatment plans tailored to each patient's unique healthcare needs and preferences.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200 hover:shadow-lg transition-all">
               <div className="p-3 bg-purple-600 rounded-lg flex-shrink-0">
                 <Stethoscope className="w-6 h-6 text-white" />
@@ -839,7 +840,7 @@ export default function ClinicDetail() {
                 <p className="text-sm text-gray-600">Experienced healthcare professionals dedicated to providing the highest quality medical care.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 hover:shadow-lg transition-all">
               <div className="p-3 bg-amber-600 rounded-lg flex-shrink-0">
                 <Clock className="w-6 h-6 text-white" />
@@ -849,7 +850,7 @@ export default function ClinicDetail() {
                 <p className="text-sm text-gray-600">Flexible appointment scheduling to accommodate your busy lifestyle and urgent care needs.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200 hover:shadow-lg transition-all">
               <div className="p-3 bg-teal-600 rounded-lg flex-shrink-0">
                 <Award className="w-6 h-6 text-white" />
@@ -859,7 +860,7 @@ export default function ClinicDetail() {
                 <p className="text-sm text-gray-600">Clear and upfront consultation fees with no hidden charges or surprise costs.</p>
               </div>
             </div>
-            
+
             <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-200 hover:shadow-lg transition-all">
               <div className="p-3 bg-indigo-600 rounded-lg flex-shrink-0">
                 <CheckCircle className="w-6 h-6 text-white" />

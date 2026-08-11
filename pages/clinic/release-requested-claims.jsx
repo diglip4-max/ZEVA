@@ -5,6 +5,7 @@ import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import Loader from "../../components/Loader";
 import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Calendar, Send } from "lucide-react";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const CLAIM_MODULE_KEY = "release_requested";
@@ -93,6 +94,56 @@ const maskMobileNumber = (mobile) => {
 };
 
 const ITEMS_PER_PAGE = 12;
+const isRequestStatus = (status) => status === "Ready" || status === "Completed";
+const isRequestClaim = (claim) => isRequestStatus(claim?.status);
+
+const getClaimStatusDate = (claim) => {
+  const displayStatus = claim?.status === "Under Review" && claim?.rejectedFromReleaseRequested ? "Rejected" : claim?.status;
+  if (displayStatus === "Ready") return claim?.readyAt;
+  if (displayStatus === "Completed") return claim?.completedAt;
+  if (displayStatus === "Rejected") return claim?.rejectedFromReleaseRequestedAt;
+  if (displayStatus === "Released") return claim?.releasedAt;
+  return claim?.updatedAt || claim?.createdAt;
+};
+
+const getClaimStatusActor = (claim) => {
+  const displayStatus = claim?.status === "Under Review" && claim?.rejectedFromReleaseRequested ? "Rejected" : claim?.status;
+  if (displayStatus === "Ready") {
+    return {
+      label: "Ready By",
+      name: claim?.readyByName || claim?.doctorName,
+      role: claim?.readyByRole || "Clinic",
+    };
+  }
+  if (displayStatus === "Completed") {
+    return {
+      label: "Completed By",
+      name: claim?.completedByName || claim?.doctorName,
+      role: claim?.completedByRole || "Staff",
+    };
+  }
+  if (displayStatus === "Rejected") {
+    return {
+      label: "Rejected By",
+      name: claim?.rejectedFromReleaseRequestedByName || claim?.doctorName,
+      role: claim?.rejectedFromReleaseRequestedByRole || "Clinic",
+    };
+  }
+  return {
+    label: "Released By",
+    name: claim?.releasedByName || claim?.doctorName,
+    role: claim?.releasedByRole || "Clinic",
+  };
+};
+
+const getClaimModalTitle = (claim) => {
+  const displayStatus = claim?.status === "Under Review" && claim?.rejectedFromReleaseRequested ? "Rejected" : claim?.status;
+  if (displayStatus === "Ready") return "Ready Claim";
+  if (displayStatus === "Completed") return "Completed Claim";
+  if (displayStatus === "Released") return "Released Claim";
+  if (displayStatus === "Rejected") return "Rejected Claim";
+  return "Claim";
+};
 
 function ReleaseRequestedClaimsPage() {
   const [permissions, setPermissions] = useState({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
@@ -120,11 +171,28 @@ function ReleaseRequestedClaimsPage() {
   const [consentStatus, setConsentStatus] = useState(null);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [currency, setCurrency] = useState("INR");
 
   // Set user role on mount
   useEffect(() => {
     const role = getUserRole();
     setUserRole(role);
+  }, []);
+
+  useEffect(() => {
+    const fetchClinicCurrency = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
+        const res = await axios.get('/api/clinics/myallClinic', { headers: authHeaders });
+        if (res.data.success && res.data.clinic?.currency) {
+          setCurrency(res.data.clinic.currency);
+        }
+      } catch (e) {
+        console.error('Error fetching clinic currency:', e);
+      }
+    };
+    fetchClinicCurrency();
   }, []);
 
   // Permission loading
@@ -255,15 +323,15 @@ function ReleaseRequestedClaimsPage() {
       const res = await axios.get("/api/clinic/insurance-claims", { headers });
       if (res.data.success) {
         const allClaims = res.data.data || [];
-        // Show Completed, Released, and claims rejected from release-requested-claims
+        // Show claims pending release, released claims, and claims rejected from release-requested-claims
         const relevantClaims = allClaims.filter(
-          (c) => c.status === "Completed" || c.status === "Released" || (c.status === "Under Review" && c.rejectedFromReleaseRequested === true)
+          (c) => isRequestStatus(c.status) || c.status === "Released" || (c.status === "Under Review" && c.rejectedFromReleaseRequested === true)
         );
         setClaims(relevantClaims);
 
-        // Find claims in Request slider (status "Completed") for notifications
+        // Find claims in Request slider for notifications
         const requestClaims = allClaims
-          .filter((c) => c.status === "Completed")
+          .filter((c) => isRequestClaim(c))
           // Deduplicate by _id
           .filter((claim, index, self) => index === self.findIndex((c) => c._id === claim._id));
         setRequestNotifications(requestClaims);
@@ -278,7 +346,7 @@ function ReleaseRequestedClaimsPage() {
   const filteredClaims = useMemo(() => {
     return claims
       .filter((c) => {
-        if (activeTab === "Request") return c.status === "Completed";
+        if (activeTab === "Request") return isRequestClaim(c);
         if (activeTab === "Rejected") return c.status === "Under Review" && c.rejectedFromReleaseRequested === true;
         if (activeTab === "Released") return c.status === "Released";
         return false;
@@ -457,6 +525,7 @@ function ReleaseRequestedClaimsPage() {
   const getStatusBadge = (status, rejectedFromReleaseRequested) => {
     const displayStatus = (status === "Under Review" && rejectedFromReleaseRequested) ? "Rejected" : status;
     const styles = {
+      Ready: "bg-indigo-100 text-indigo-800 border-indigo-300",
       Completed: "bg-purple-100 text-purple-800 border-purple-300",
       Released: "bg-blue-100 text-blue-800 border-blue-300",
       Rejected: "bg-red-100 text-red-800 border-red-300",
@@ -471,7 +540,7 @@ function ReleaseRequestedClaimsPage() {
 
   const tabs = ["Request", "Rejected", "Released"];
   const tabCounts = {
-    Request: claims.filter((c) => c.status === "Completed").length,
+    Request: claims.filter((c) => isRequestClaim(c)).length,
     Rejected: claims.filter((c) => c.status === "Under Review" && c.rejectedFromReleaseRequested === true).length,
     Released: claims.filter((c) => c.status === "Released").length,
   };
@@ -517,7 +586,7 @@ function ReleaseRequestedClaimsPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Release Requested Claims</h1>
-              <p className="text-gray-500 text-xs mt-0.5">Review and release completed insurance claims</p>
+              <p className="text-gray-500 text-xs mt-0.5">Review and release ready insurance claims</p>
             </div>
             <div className="flex items-center gap-2 bg-teal-50 px-3 py-1.5 rounded-lg">
               <Shield className="w-4 h-4 text-teal-600" />
@@ -575,11 +644,11 @@ function ReleaseRequestedClaimsPage() {
                                   {claim.patientFirstName} {claim.patientLastName}
                                 </p>
                                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-blue-600 bg-blue-50">
-                                  Request
+                                  {getDisplayStatus(claim)}
                                 </span>
                               </div>
                               <p className="text-xs text-gray-500 truncate">
-                                {claim.insuranceProvider} - ₹{claim.claimAmount?.toFixed(2)}
+                                {claim.insuranceProvider} - {getCurrencySymbol(currency)}{claim.claimAmount?.toFixed(2)}
                               </p>
                               {claim.reviewNotes && (
                                 <p className="text-xs text-blue-600 mt-1 line-clamp-2">
@@ -616,9 +685,8 @@ function ReleaseRequestedClaimsPage() {
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      activeTab === tab ? "border-teal-600 text-teal-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    }`}
+                    className={`px-3 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === tab ? "border-teal-600 text-teal-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      }`}
                   >
                     {tab}
                     <span className="ml-1.5 px-1.5 py-0.5 text-[10px] sm:text-xs rounded-full bg-gray-100">{tabCounts[tab]}</span>
@@ -653,6 +721,7 @@ function ReleaseRequestedClaimsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {paginatedClaims.map((claim) => {
                 const displayStatus = getDisplayStatus(claim);
+                const statusActor = getClaimStatusActor(claim);
                 return (
                   <div key={claim._id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col">
                     {/* Card Header */}
@@ -660,7 +729,7 @@ function ReleaseRequestedClaimsPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider">{displayStatus}</span>
                         <span className="text-[10px] font-medium opacity-80">
-                          {displayStatus === "Completed" ? formatDate(claim.completedAt) : displayStatus === "Rejected" ? formatDate(claim.rejectedFromReleaseRequestedAt) : formatDate(claim.releasedAt)}
+                          {formatDate(getClaimStatusDate(claim))}
                         </span>
                       </div>
                     </div>
@@ -680,35 +749,35 @@ function ReleaseRequestedClaimsPage() {
                       <div className="space-y-3">
                         <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">
-                            {displayStatus === "Released" ? "Released By" : displayStatus === "Rejected" ? "Rejected By" : "Completed By"}
+                            {statusActor.label}
                           </p>
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {displayStatus === "Completed" ? claim.completedByName || claim.doctorName : displayStatus === "Rejected" ? claim.rejectedFromReleaseRequestedByName || claim.doctorName : claim.releasedByName || claim.doctorName}
+                            {statusActor.name}
                           </p>
                           <p className="text-[10px] text-teal-600 font-medium capitalize">
-                            {displayStatus === "Completed" ? (claim.completedByRole || "Staff") : displayStatus === "Rejected" ? (claim.rejectedFromReleaseRequestedByRole || "Clinic") : (claim.releasedByRole || "Clinic")}
+                            {statusActor.role}
                           </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-blue-50/50 rounded-lg p-2 border border-blue-100/50">
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Provider</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.insuranceProvider}</p>
+                          <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
+                            <p className="text-[10px] text-blue-600 dark:text-blue-200 font-bold uppercase tracking-tighter">Provider</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.insuranceProvider}</p>
                           </div>
-                          <div className="bg-blue-50/50 rounded-lg p-2 border border-blue-100/50">
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter">Policy #</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.policyNumber}</p>
+                          <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
+                            <p className="text-[10px] text-blue-600 dark:text-blue-200 font-bold uppercase tracking-tighter">Policy #</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.policyNumber}</p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
-                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Amount</p>
-                            <p className="text-sm font-bold text-gray-900">₹{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Amount</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                           </div>
-                          <div className="bg-emerald-50/50 rounded-lg p-2 border border-emerald-100/50">
-                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter">Department</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.departmentName || "N/A"}</p>
+                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Department</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
                         </div>
 
@@ -738,12 +807,12 @@ function ReleaseRequestedClaimsPage() {
 
                     {/* Card Footer */}
                     <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50/80 rounded-b-xl flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">#{claim._id?.slice(-6)}</span>
+                      <span className="text-[10px] font-bold text-gray-400 dark:text-white uppercase tracking-widest">#{claim._id?.slice(-6)}</span>
                       <div className="flex items-center gap-1.5">
-                        <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
+                        <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
                           <Eye className="w-4 h-4" />
                         </button>
-                        {claim.status === "Completed" && (
+                        {isRequestClaim(claim) && (
                           <>
                             {permissions.canUpdate && (
                               <button onClick={() => fetchVerificationData(claim)} disabled={actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-[11px] font-bold rounded-lg hover:bg-teal-700 transition-all shadow-sm disabled:opacity-50 uppercase tracking-tight">
@@ -784,7 +853,7 @@ function ReleaseRequestedClaimsPage() {
       {rejectModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-3 sm:p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
-            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-red-100 bg-red-50/50 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-red-100 bg-red-50 flex items-center justify-between">
               <h2 className="text-base sm:text-lg font-bold text-red-900 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" /> Reject Claim
               </h2>
@@ -855,7 +924,7 @@ function ReleaseRequestedClaimsPage() {
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase">Amount</p>
-                        <p className="text-sm font-bold text-teal-600">₹{releaseModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                        <p className="text-sm font-bold text-teal-600">{getCurrencySymbol(currency)}{releaseModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-gray-400 uppercase">Insurance</p>
@@ -972,8 +1041,8 @@ function ReleaseRequestedClaimsPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto border border-gray-200">
             <div className={`px-4 sm:px-6 py-3 sm:py-4 border-b sticky top-0 bg-white z-10 flex items-center justify-between ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
               <div className="flex items-center gap-2 sm:gap-3">
-                <h2 className="text-base sm:text-lg font-bold">
-                  {viewModal.status === "Completed" ? "Completed Claim" : viewModal.status === "Released" ? "Released Claim" : "Rejected Claim"}
+                <h2 className="text-base sm:text-lg font-bold text-black">
+                  {getClaimModalTitle(viewModal)}
                 </h2>
                 <button
                   onClick={() => setShowTracking(!showTracking)}
@@ -1062,7 +1131,7 @@ function ReleaseRequestedClaimsPage() {
                                     </div>
                                   </div>
                                   {step.reason && (
-                                    <div className="mt-4 p-3 bg-red-50/50 border border-red-100 rounded-lg">
+                                    <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
                                       <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Reason</p>
                                       <p className="text-xs text-red-800 leading-relaxed italic">"{step.reason}"</p>
                                     </div>
@@ -1096,8 +1165,8 @@ function ReleaseRequestedClaimsPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Mobile:</span>
                           <span className="font-medium text-gray-900">
-                            {userRole === "doctorStaff" 
-                              ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-") 
+                            {userRole === "doctorStaff"
+                              ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-")
                               : (viewModal.patientMobileNumber || "-")}
                           </span>
                         </div>
@@ -1177,7 +1246,7 @@ function ReleaseRequestedClaimsPage() {
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">Claim Amount</p>
-                        <p className="text-sm font-semibold text-teal-600 font-bold">₹{viewModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                        <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">Doctor</p>
@@ -1211,14 +1280,14 @@ function ReleaseRequestedClaimsPage() {
                           </div>
                           <div className="bg-gray-50 rounded-lg p-3">
                             <p className="text-xs text-gray-500">Paid Amount</p>
-                            <p className="text-sm font-semibold text-gray-900">₹{viewModal.advanceAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                            <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.advanceAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                           </div>
                         </>
                       )}
                       {viewModal.pendingClaim > 0 && (
                         <div className="bg-gray-50 rounded-lg p-3">
                           <p className="text-xs text-gray-500">Pending Claim</p>
-                          <p className="text-sm font-semibold text-orange-600 font-bold">₹{viewModal.pendingClaim?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-semibold text-orange-600 font-bold">{getCurrencySymbol(currency)}{viewModal.pendingClaim?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                         </div>
                       )}
                       <div className="bg-gray-50 rounded-lg p-3">
@@ -1231,12 +1300,19 @@ function ReleaseRequestedClaimsPage() {
                   </div>
 
                   {/* Review Tracking */}
-                  {(viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
+                  {(viewModal.readyByName || viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <Clock className="w-4 h-4 text-teal-500" /> Review Tracking
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {viewModal.readyByName && (
+                          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                            <p className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Ready By</p>
+                            <p className="text-sm font-bold text-gray-900">{viewModal.readyByName}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.readyAt)}</p>
+                          </div>
+                        )}
                         {viewModal.completedByName && (
                           <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
                             <p className="text-[10px] font-bold text-purple-600 uppercase mb-1">Completed By</p>

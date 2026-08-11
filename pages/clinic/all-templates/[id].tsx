@@ -433,11 +433,9 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
         type={type}
         onClick={onClick}
         disabled={disabled || loading}
-        className={`${baseStyles} ${sizeStyles[size]} ${
-          variantStyles[variant]
-        } ${
-          disabled || loading ? "cursor-not-allowed" : "cursor-pointer"
-        } ${className}`}
+        className={`${baseStyles} ${sizeStyles[size]} ${variantStyles[variant]
+          } ${disabled || loading ? "cursor-not-allowed" : "cursor-pointer"
+          } ${className}`}
       >
         {loading ? (
           <>
@@ -492,9 +490,8 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
       <div className="relative">
         <div
           ref={dropdownRef}
-          className={`absolute z-50 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg ${
-            align === "right" ? "right-0" : "left-0"
-          } ${className}`}
+          className={`absolute z-50 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg ${align === "right" ? "right-0" : "left-0"
+            } ${className}`}
         >
           {children}
         </div>
@@ -529,11 +526,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div
-            className={`${
-              values?.templateType === "email"
-                ? "lg:col-span-3"
-                : "lg:col-span-2"
-            } space-y-6`}
+            className={`${values?.templateType === "email"
+              ? "lg:col-span-3"
+              : "lg:col-span-2"
+              } space-y-6`}
           >
             {/* Main Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -554,14 +550,13 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                             templateType: option.value,
                           }))
                         }
-                        className={`p-4 rounded-lg border transition-all ${
-                          values?.templateType === option.value
-                            ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                        }`}
+                        className={`p-4 rounded-lg border transition-all ${values?.templateType === option.value
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                          : "border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          }`}
                       >
                         <div className="font-medium">{option.label}</div>
-                        <div className="text-xs text-gray-500 mt-1">
+                        <div className={`text-xs mt-1 ${values?.templateType === option.value ? "text-blue-600/80 dark:text-blue-300" : "text-gray-500 dark:text-gray-400"}`}>
                           Create {option.label.toLowerCase()} templates
                         </div>
                       </button>
@@ -571,7 +566,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
 
                 {/* Template Details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-gray-900 ">
                     Template Details
                   </h3>
 
@@ -641,11 +636,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                   emailTemplateType: option.value,
                                 }))
                               }
-                              className={`px-4 py-2 rounded-lg border transition-all ${
-                                values?.emailTemplateType === option.value
-                                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                              }`}
+                              className={`px-4 py-2 rounded-lg border transition-all ${values?.emailTemplateType === option.value
+                                ? "border-blue-500 bg-blue-50 text-blue-700"
+                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                                }`}
                             >
                               {option.label}
                             </button>
@@ -692,11 +686,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                           <button
                             type="button"
                             onClick={() => setEditorType("rich-text-editor")}
-                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
-                              editorType === "rich-text-editor"
-                                ? "border-blue-500 bg-blue-50 text-blue-700"
-                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
-                            }`}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${editorType === "rich-text-editor"
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
+                              }`}
                           >
                             <Edit3 size={18} />
                             <span className="font-medium">Rich Text</span>
@@ -704,11 +697,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                           <button
                             type="button"
                             onClick={handleOpenBlockEditor}
-                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
-                              editorType === "block-editor"
-                                ? "border-blue-500 bg-blue-50 text-blue-700"
-                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
-                            }`}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${editorType === "block-editor"
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
+                              }`}
                           >
                             <Layout size={18} />
                             <span className="font-medium">Block Editor</span>
@@ -716,11 +708,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                           <button
                             type="button"
                             onClick={handleOpenHtmlEditor}
-                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${
-                              editorType === "html-editor"
-                                ? "border-blue-500 bg-blue-50 text-blue-700"
-                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
-                            }`}
+                            className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition-all ${editorType === "html-editor"
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-gray-300 hover:border-gray-400 hover:bg-gray-50 text-gray-600"
+                              }`}
                           >
                             <Code size={18} />
                             <span className="font-medium">HTML Editor</span>
@@ -842,11 +833,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                   headerType: option.value,
                                 }))
                               }
-                              className={`px-4 py-2 rounded-lg border transition-all ${
-                                values?.headerType === option.value
-                                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                              }`}
+                              className={`px-4 py-2 rounded-lg border transition-all ${values?.headerType === option.value
+                                ? "border-blue-500 bg-blue-50 text-blue-700"
+                                : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                                }`}
                             >
                               {option.label}
                             </button>
@@ -1126,11 +1116,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                         handleAddButton(option);
                                         setIsAddBtnOpen(false);
                                       }}
-                                      className={`w-full px-3 py-2 text-sm text-left ${
-                                        disabled
-                                          ? "text-gray-400 cursor-not-allowed"
-                                          : "hover:bg-gray-100 text-gray-700"
-                                      }`}
+                                      className={`w-full px-3 py-2 text-sm text-left ${disabled
+                                        ? "text-gray-400 cursor-not-allowed"
+                                        : "hover:bg-gray-100 text-gray-700"
+                                        }`}
                                     >
                                       <div className="font-medium">
                                         {option.label}
@@ -1358,11 +1347,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
 
           {/* Sidebar */}
           <div
-            className={`space-y-5 ${
-              values?.templateType === "email"
-                ? "lg:col-span-3"
-                : "lg:col-span-1"
-            }`}
+            className={`space-y-5 ${values?.templateType === "email"
+              ? "lg:col-span-3"
+              : "lg:col-span-1"
+              }`}
           >
             <div>
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -1410,13 +1398,12 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                   </h2>
                   <div className="flex items-center gap-2">
                     <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                        values?.templateType === "whatsapp"
-                          ? "bg-green-100 text-green-800"
-                          : values?.templateType === "sms"
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-purple-100 text-purple-800"
-                      }`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${values?.templateType === "whatsapp"
+                        ? "bg-green-100 text-green-800"
+                        : values?.templateType === "sms"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-purple-100 text-purple-800"
+                        }`}
                     >
                       {values?.templateType === "whatsapp" && "WhatsApp"}
                       {values?.templateType === "sms" && "SMS"}
@@ -1604,11 +1591,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                 .map((button, index) => (
                                   <div
                                     key={index}
-                                    className={`flex items-center gap-3 px-4 py-3 ${
-                                      index > 0
-                                        ? "border-t border-gray-100"
-                                        : ""
-                                    } hover:bg-gray-50 transition-colors`}
+                                    className={`flex items-center gap-3 px-4 py-3 ${index > 0
+                                      ? "border-t border-gray-100"
+                                      : ""
+                                      } hover:bg-gray-50 transition-colors`}
                                   >
                                     {button?.type === "QUICK_REPLY" && (
                                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
