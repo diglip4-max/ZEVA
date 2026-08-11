@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
-
 from langgraph.prebuilt import ToolNode
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from datetime import datetime
 import os
@@ -40,7 +38,6 @@ from shared.faq import (
 from shared.apt_reschedule import find_latest_appointment, reschedule_apt
 from shared.appointment import buildGraph, get_header
 from fastapi.responses import JSONResponse
-from psycopg import AsyncConnection
 from contextvars import ContextVar
 from shared.prompts import prompt, LANGUAGE_RULE
 from shared.scenario_keys import SCENARIO_KEYS
@@ -125,10 +122,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# ────────────────────────── State & Request Models ───────────────────────────
-
 
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
@@ -1090,7 +1083,7 @@ async def chat(req: ChatRequest):
                 "suppress_send": True,
             }
     clinic_name = await fetch_clinic_name(req.clinicToken)
-    clinic_name_var.set(clinic_name)
+    clinic_name_var.set(clinic_name) 
     config = {
         "configurable": {
             "thread_id": req.threadId,
@@ -1391,7 +1384,7 @@ async def analytics_summary(
             await cur.execute(
                 f"""                                         
             SELECT                                          
-              COUNT(*)                                                           AS ai_interactions,
+              COUNT(*)                                                      AS ai_interactions,
               COUNT(DISTINCT thread_id)                                         
             FILTER (WHERE scenario_key NOT IN ('greeting','off_topic'))     AS patients_addressed,                                          
           COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings_completed,                                          
@@ -1538,7 +1531,7 @@ async def analytics_peak_hours(
 async def analytics_weekly(
     clinicToken: str = Depends(get_clinic_token), range: str = "30d"
 ):
-    """
+    """ 
     Returns weekly aggregates for the bookings/reschedules bar chart.
     """
     clinic_id = await resolve_clinic_id_or_401(clinicToken)
@@ -1551,7 +1544,7 @@ async def analytics_weekly(
             SELECT                                          
               DATE_TRUNC('week', created_at AT TIME ZONE 'Asia/Kolkata')        AS week_start,                                          
               COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings,                                        
-          COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules                                          
+          COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')           AS reschedules                                          
         FROM kaka_events                                        
         WHERE clinic_id = %s                                        
           AND created_at >= {since_sql}                                            
@@ -1613,13 +1606,13 @@ async def analytics_day_detail(date: str, clinicToken: str = Depends(get_clinic_
                 f"""
                 WITH bounds AS (SELECT {day_bounds_sql})
                 SELECT
-                  COUNT(*)                                                           AS ai_interactions,
-                  COUNT(DISTINCT thread_id)                                          AS total_conversations,
+                  COUNT(*)                                                          AS ai_interactions,
+                  COUNT(DISTINCT thread_id)                                         AS total_conversations,
                   COUNT(*) FILTER (WHERE scenario_key = 'booking_success')          AS bookings_completed,
                   COUNT(*) FILTER (WHERE scenario_key = 'reschedule_success')       AS reschedules_completed,
                   COUNT(*) FILTER (WHERE scenario_key = 'escalation')               AS escalations_to_staff,
                   COUNT(*) FILTER (WHERE channel = 'web')                           AS channel_web,
-              COUNT(*) FILTER (WHERE channel = 'whatsapp')                      AS channel_whatsapp
+              COUNT(*) FILTER (WHERE channel = 'whatsapp')                          AS channel_whatsapp
             FROM kaka_events, bounds
             WHERE clinic_id = %(clinic_id)s
               AND created_at >= bounds.day_start

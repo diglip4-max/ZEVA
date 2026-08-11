@@ -28,15 +28,6 @@ TOOL_PERMISSION_MAP: dict[str, tuple[str, str]] = {
 }
 
 
-# ─── Tool → other tools it HARD-depends on to safely complete its action ───
-# A tool listed here cannot be attempted unless every one of its dependencies
-# is also present in the allowed-tool set for this turn. This is orthogonal
-# to TOOL_PERMISSION_MAP: a tool can be individually permitted (its own
-# module/action granted) yet still be functionally unusable because a tool
-# it must call first is not granted. Without this map, an agent that has
-# reschedule_appointment_tool but not get_appointments_tool has no legal way
-# to identify which appointment to reschedule, and (absent explicit
-# guidance) may substitute an unrelated bound tool or loop indefinitely.
 TOOL_DEPENDENCY_MAP: dict[str, set[str]] = {
     "reschedule_appointment_tool": {"get_appointments_tool"},
     "book_appointment_tool": {

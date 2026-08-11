@@ -88,6 +88,9 @@ async def check_service_enabled(clinic_token: str) -> bool:
         return True
     async with app.state.db_pool.connection() as conn:
         return await is_kaka_enabled(conn, clinic_id)
+
+
+    
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     export: Optional[dict]
@@ -1199,6 +1202,7 @@ def build_workflow(checkpointer):
         configurable["_allowed_tool_names"] = allowed_tool_names
 
         permitted_tools = filter_tools_by_permission(tools, allowed_tool_names)
+        print(f"[receptionist] permitted_tools: {[t.name for t in permitted_tools]}")
 
         dynamic_prompt = build_receptionist_prompt(allowed_tool_names)
         system_message = SystemMessage(content=date_context + dynamic_prompt)
@@ -1256,7 +1260,7 @@ def build_workflow(checkpointer):
         configurable = config.setdefault("configurable", {})
         configurable["_allowed_tool_names"] = allowed_tool_names
         permitted_tools = filter_tools_by_permission(tools, allowed_tool_names or set())
-
+        print(f"[receptionist] permitted_tools: {[t.name for t in permitted_tools]}")
         last_message = state["messages"][-1]
         requested_calls = (
             last_message.tool_calls

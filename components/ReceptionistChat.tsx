@@ -55,7 +55,7 @@ const BotFace: React.FC<{ size?: number; color?: string }> = ({
 );
 type ListBlock = AppointmentListBlock | BillingListBlock;
 const AGENT_URL =
-  process.env.NEXT_PUBLIC_AGENT_URL?.replace(/\/$/, "") ||
+  process.env.NEXT_PUBLIC_RECEPTIONIST_URL?.replace(/\/$/, "") ||
   "http://localhost:8000";
 
 // ─── Export payload the backend attaches to a turn when a tool produced
