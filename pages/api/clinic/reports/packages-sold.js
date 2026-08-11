@@ -193,6 +193,48 @@ export default async function handler(req, res) {
 
     const pipeline = [
       { $match: { $or: [match, { ...match, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+      // Exclude cross-invoice clearance billings to avoid double-counting
+      // Keep billings where:
+      // 1. pendingClearedBreakdown doesn't exist OR all entries match this invoice (self-referencing), AND
+      // 2. unpaidPackagesPaid doesn't exist OR all entries' packageInvoiceNumber match this invoice
+      {
+        $match: {
+          $and: [
+            {
+              $or: [
+                { pendingClearedBreakdown: { $exists: false } },
+                { pendingClearedBreakdown: null },
+                { $expr: { $eq: [{ $size: "$pendingClearedBreakdown" }, 0] } },
+                // Self-referencing: all breakdown entries match this invoice
+                {
+                  $expr: {
+                    $eq: [
+                      { $size: { $filter: { input: "$pendingClearedBreakdown", as: "b", cond: { $ne: ["$$b.invoiceNumber", "$invoiceNumber"] } } } },
+                      0
+                    ]
+                  }
+                },
+              ],
+            },
+            {
+              $or: [
+                { unpaidPackagesPaid: { $exists: false } },
+                { unpaidPackagesPaid: null },
+                { $expr: { $eq: [{ $size: "$unpaidPackagesPaid" }, 0] } },
+                // Self-referencing: all unpaidPackagesPaid entries match this invoice
+                {
+                  $expr: {
+                    $eq: [
+                      { $size: { $filter: { input: "$unpaidPackagesPaid", as: "u", cond: { $ne: ["$$u.invoiceNumber", "$invoiceNumber"] } } } },
+                      0
+                    ]
+                  }
+                },
+              ],
+            },
+          ],
+        },
+      },
       {
         $addFields: {
           __packageName: {
@@ -213,8 +255,11 @@ export default async function handler(req, res) {
             packageName: "$__packageName"
           },
           // For mixed billings (Package + Treatment), only count package portion
+          // Note: pendingUsed is NOT added here because `paid` already includes
+          // any pending cleared on this billing. Adding pendingUsed would double-count
+          // when another billing clears this billing's pending.
           totalPaidForPackage: { $sum: { $subtract: [
-            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] },
+            { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] }, { $ifNull: ["$advanceUsed", 0] } ] },
             { $cond: [
               { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
               { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },
@@ -667,11 +712,7 @@ export default async function handler(req, res) {
     }
 
     // Debug logging
-    console.log('DEBUG packages-sold rows:', {
-      salesStaffId,
-      rowsCount: filteredRows?.length || 0,
-      firstRow: filteredRows?.[0] ? { packageName: filteredRows[0].packageName, soldBy: filteredRows[0].soldBy } : null
-    });
+    // (debug logs removed after fixing pendingUsed double-counting)
 
     // ---------------------------------------------------------------------
     // Optional: include unpaid / partially paid packages from PatientRegistration
@@ -813,12 +854,12 @@ export default async function handler(req, res) {
                   },
                 ],
               },
-              sessionsUsed: 0,
-              totalSessions: 0,
-              remainingSessions: 0,
-              doctorNames: [],
-              doctorName: "Unknown",
-              expirationDate: null,
+              sessionsUsed: { $literal: 0 },
+              totalSessions: { $literal: 0 },
+              remainingSessions: { $literal: 0 },
+              doctorNames: { $literal: [] },
+              doctorName: { $literal: "Unknown" },
+              expirationDate: { $literal: null },
             },
           }
         );
@@ -943,9 +984,6 @@ export default async function handler(req, res) {
     const countAgg = await Billing.aggregate(countPipeline);
     const total = countAgg?.[0]?.count || 0;
 
-    // Debug logging for count
-    console.log('DEBUG packages-sold count:', { salesStaffId, total, countAggLength: countAgg?.length });
-
     // When includeUnpaid=true we are fetching ALL rows (getAll or large limit)
     // for the KPI modal. Append the unpaid rows from PatientRegistration so
     // the modal and the dashboard cards reflect the same set of packages.
@@ -998,6 +1036,48 @@ export default async function handler(req, res) {
       
       return [
         { $match: { $or: [matchObj, { ...matchObj, service: "Treatment", "unpaidPackagesPaid.0": { $exists: true } }] } },
+        // Exclude cross-invoice clearance billings to avoid double-counting
+        // Keep billings where:
+        // 1. pendingClearedBreakdown doesn't exist OR all entries match this invoice (self-referencing), AND
+        // 2. unpaidPackagesPaid doesn't exist OR all entries' packageInvoiceNumber match this invoice
+        {
+          $match: {
+            $and: [
+              {
+                $or: [
+                  { pendingClearedBreakdown: { $exists: false } },
+                  { pendingClearedBreakdown: null },
+                  { $expr: { $eq: [{ $size: "$pendingClearedBreakdown" }, 0] } },
+                  // Self-referencing: all breakdown entries match this invoice
+                  {
+                    $expr: {
+                      $eq: [
+                        { $size: { $filter: { input: "$pendingClearedBreakdown", as: "b", cond: { $ne: ["$$b.invoiceNumber", "$invoiceNumber"] } } } },
+                        0
+                      ]
+                    }
+                  },
+                ],
+              },
+              {
+                $or: [
+                  { unpaidPackagesPaid: { $exists: false } },
+                  { unpaidPackagesPaid: null },
+                  { $expr: { $eq: [{ $size: "$unpaidPackagesPaid" }, 0] } },
+                  // Self-referencing: all unpaidPackagesPaid entries match this invoice
+                  {
+                    $expr: {
+                      $eq: [
+                        { $size: { $filter: { input: "$unpaidPackagesPaid", as: "u", cond: { $ne: ["$$u.invoiceNumber", "$invoiceNumber"] } } } },
+                        0
+                      ]
+                    }
+                  },
+                ],
+              },
+            ],
+          },
+        },
         {
           $lookup: {
             from: "appointments",
@@ -1053,8 +1133,10 @@ export default async function handler(req, res) {
             // Use paid amount directly. When pending is cleared via treatment pay,
             // Treatment billing's paid field contains the cash collected for the package.
             // For mixed billings (Package + Treatment), only count package portion
+            // Note: pendingUsed is NOT added here because `paid` already includes
+            // any pending cleared on this billing. Adding pendingUsed would double-count.
             totalPaid: { $sum: { $subtract: [
-              { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingUsed", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
+              { $add: [ { $ifNull: ["$paid", 0] }, { $ifNull: ["$pendingClaimUsed", 0] } ] },
               { $cond: [
                 { $and: [{ $eq: ["$service", "Package"] }, { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] }] },
                 { $sum: { $map: { input: "$selectedTreatments", as: "st", in: { $multiply: [{ $ifNull: ["$$st.price", 0] }, { $ifNull: ["$$st.quantity", 1] }] } } } },

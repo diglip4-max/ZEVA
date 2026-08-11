@@ -6,6 +6,7 @@ import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import mongoose from "mongoose";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 
 // Inline schema for manual clinic petty cash (stored in a simple collection)
 const ManualPettyCashSchema = new mongoose.Schema(
@@ -72,7 +73,14 @@ export default async function handler(req, res) {
         listFilter.createdAt = dateFilter;
       }
 
-      const [entries, total, pettyCashGlobal, manualSummary, pettyCashRecords] = await Promise.all([
+      // Fetch expenses matching dateFilter from the new collection
+      const expensesFilter = {
+        clinicId: new mongoose.Types.ObjectId(String(clinicId)),
+        isVoided: false,
+        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {})
+      };
+
+      const [entries, total, pettyCashGlobal, manualSummary, pettyCashExpenses] = await Promise.all([
         ManualPettyCash.find(listFilter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
         ManualPettyCash.countDocuments(listFilter),
         PettyCash.getGlobalAmounts(clinicId),
@@ -80,11 +88,7 @@ export default async function handler(req, res) {
           { $match: listFilter }, // Use listFilter (with date restriction) for the sum
           { $group: { _id: null, total: { $sum: "$amount" } } }
         ]),
-        PettyCash.find({ 
-          clinicId: new mongoose.Types.ObjectId(String(clinicId)),
-          // Filter expenses by date if provided
-          ...(Object.keys(dateFilter).length > 0 ? { "expenses.date": dateFilter } : {})
-        }).select("expenses").lean()
+        PettyCashExpense.find(expensesFilter).lean({ getters: true })
       ]);
 
       // Total sum across filtered records
@@ -99,38 +103,21 @@ export default async function handler(req, res) {
       const grandManualTotal = grandManualAgg.length > 0 ? grandManualAgg[0].total : 0;
 
       // Grand expense total: read from global PettyCash record's globalSpentAmount
-      // (updated by add-expense.js via updateGlobalSpentAmount static method)
       const globalPettyCash = await PettyCash.findOne({ clinicId: new mongoose.Types.ObjectId(String(clinicId)), staffId: null }).select("globalSpentAmount").lean();
-      const grandExpenseTotal = globalPettyCash?.globalSpentAmount || 0;
+      const grandExpenseTotal = globalPettyCash && globalPettyCash.globalSpentAmount ? parseFloat(globalPettyCash.globalSpentAmount.toString()) : 0;
 
       // FILTERED expense total (date-filtered, for the dashboard cards)
       let calculatedExpenseTotal = 0;
       const expensesRaw = [];
 
-      pettyCashRecords.forEach(record => {
-        if (record.expenses) {
-          record.expenses.forEach(exp => {
-            const expDate = new Date(exp.date || exp.createdAt);
-
-            if (startDate) {
-              const s = new Date(startDate);
-              s.setUTCHours(0, 0, 0, 0);
-              if (expDate < s) return;
-            }
-            if (endDate) {
-              const e = new Date(endDate);
-              e.setUTCHours(23, 59, 59, 999);
-              if (expDate > e) return;
-            }
-
-            expensesRaw.push({
-              ...exp,
-              _id: exp._id ? exp._id.toString() : null,
-              isExpense: true
-            });
-            calculatedExpenseTotal += (exp.spentAmount || 0);
-          });
-        }
+      pettyCashExpenses.forEach(exp => {
+        expensesRaw.push({
+          ...exp,
+          _id: exp._id ? exp._id.toString() : null,
+          isExpense: true,
+          spentAmount: parseFloat(exp.spentAmount.toString())
+        });
+        calculatedExpenseTotal += parseFloat(exp.spentAmount.toString());
       });
       
       return res.status(200).json({

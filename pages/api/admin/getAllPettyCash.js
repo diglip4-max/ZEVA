@@ -2,8 +2,11 @@ import jwt from "jsonwebtoken";
 import dbConnect from "../../../lib/database";
 import User from "../../../models/Users";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashAllocation from "../../../models/PettyCashAllocation";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkAgentPermission } from "../agent/permissions-helper";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -46,79 +49,101 @@ export default async function handler(req, res) {
 
     // Build date range filter
     let start, end;
-if (startDate && !endDate) {
-  // only startDate provided → same day filter
-  start = new Date(startDate);
-  start.setHours(0, 0, 0, 0);
-  end = new Date(startDate);
-  end.setHours(23, 59, 59, 999);
-} else if (!startDate && endDate) {
-  // only endDate provided → same day filter
-  start = new Date(endDate);
-  start.setHours(0, 0, 0, 0);
-  end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
-} else {
-  // both provided or both empty
-  start = startDate ? new Date(startDate) : new Date();
-  start.setHours(0, 0, 0, 0);
-  end = endDate ? new Date(endDate) : new Date();
-  end.setHours(23, 59, 59, 999);
-}
+    if (startDate && !endDate) {
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(startDate);
+      end.setHours(23, 59, 59, 999);
+    } else if (!startDate && endDate) {
+      start = new Date(endDate);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      start = startDate ? new Date(startDate) : new Date();
+      start.setHours(0, 0, 0, 0);
+      end = endDate ? new Date(endDate) : new Date();
+      end.setHours(23, 59, 59, 999);
+    }
 
+    const dateQuery = { $gte: start, $lte: end };
 
-    // Query PettyCash: fetch only records having allocatedAmounts OR expenses in the date range
-    const query = {
-      ...(staffIdFilter && { staffId: staffIdFilter }),
-      $or: [
-        { "allocatedAmounts.date": { $gte: start, $lte: end } },
-        { "expenses.date": { $gte: start, $lte: end } },
-      ],
-    };
+    // Query matched allocations and expenses in the date range
+    const matchedAllocations = await PettyCashAllocation.find({
+      date: dateQuery,
+      isVoided: false,
+      ...(staffIdFilter && { staffId: staffIdFilter })
+    }).lean({ getters: true });
 
-    const records = await PettyCash.find(query)
+    const matchedExpenses = await PettyCashExpense.find({
+      date: dateQuery,
+      isVoided: false,
+      ...(staffIdFilter && { staffId: staffIdFilter })
+    }).lean({ getters: true });
+
+    // Extract all unique pettyCashIds
+    const pettyCashIds = [
+      ...new Set([
+        ...matchedAllocations.map(a => a.pettyCashId.toString()),
+        ...matchedExpenses.map(e => e.pettyCashId.toString())
+      ])
+    ];
+
+    const records = await PettyCash.find({ _id: { $in: pettyCashIds } })
       .populate("staffId", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean({ getters: true });
 
     // Get cumulative balance up to the end of the current day (all previous days + current day)
     const cumulativeEnd = new Date(end);
 
-    // Calculate cumulative balance up to current day
-    const cumulativeQuery = {
-      ...(staffIdFilter && { staffId: staffIdFilter }),
-      $or: [
-        { "allocatedAmounts.date": { $lt: cumulativeEnd } },
-        { "expenses.date": { $lt: cumulativeEnd } },
-      ],
-    };
+    // Calculate global cumulative balance up to current day
+    const cumAllocAgg = await PettyCashAllocation.aggregate([
+      {
+        $match: {
+          date: { $lt: cumulativeEnd },
+          isVoided: false,
+          ...(staffIdFilter && { staffId: staffIdFilter })
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } }
+        }
+      }
+    ]);
 
-    const cumulativeRecords = await PettyCash.find(cumulativeQuery);
-    let cumulativeAllocated = 0;
-    let cumulativeSpent = 0;
+    const cumExpAgg = await PettyCashExpense.aggregate([
+      {
+        $match: {
+          date: { $lt: cumulativeEnd },
+          isVoided: false,
+          ...(staffIdFilter && { staffId: staffIdFilter })
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$spentAmount" } }
+        }
+      }
+    ]);
 
-    cumulativeRecords.forEach((record) => {
-      const cumulativeAllocatedFiltered = record.allocatedAmounts.filter(
-        (a) => new Date(a.date) < cumulativeEnd
-      );
-      const cumulativeExpensesFiltered = record.expenses.filter(
-        (e) => new Date(e.date) < cumulativeEnd
-      );
-
-      cumulativeAllocated += cumulativeAllocatedFiltered.reduce((sum, a) => sum + a.amount, 0);
-      cumulativeSpent += cumulativeExpensesFiltered.reduce((sum, e) => sum + e.spentAmount, 0);
-    });
-
+    const cumulativeAllocated = cumAllocAgg[0]?.total || 0;
+    const cumulativeSpent = cumExpAgg[0]?.total || 0;
     const cumulativeBalance = Math.max(0, cumulativeAllocated - cumulativeSpent);
 
     // Group by staff
     const groupedData = {};
     records.forEach((record) => {
-      // Filter allocated and expenses by date
-      const allocatedFiltered = record.allocatedAmounts.filter(
-        (a) => new Date(a.date) >= start && new Date(a.date) <= end
+      const recordId = record._id.toString();
+      
+      const allocatedFiltered = matchedAllocations.filter(
+        (a) => a.pettyCashId.toString() === recordId
       );
-      const expensesFiltered = record.expenses.filter(
-        (e) => new Date(e.date) >= start && new Date(e.date) <= end
+      const expensesFiltered = matchedExpenses.filter(
+        (e) => e.pettyCashId.toString() === recordId
       );
 
       if (allocatedFiltered.length === 0 && expensesFiltered.length === 0) return;
@@ -148,39 +173,53 @@ if (startDate && !endDate) {
 
       // Update day-wise totals for display
       groupedData[staffId].totalAllocated += allocatedFiltered.reduce(
-        (sum, a) => sum + a.amount,
+        (sum, a) => sum + parseFloat(a.amount.toString()),
         0
       );
       groupedData[staffId].totalSpent += expensesFiltered.reduce(
-        (sum, e) => sum + e.spentAmount,
+        (sum, e) => sum + parseFloat(e.spentAmount.toString()),
         0
       );
     });
 
     // Calculate cumulative balance for each staff member and update totals
-    Object.keys(groupedData).forEach(staffId => {
-      const staffCumulativeRecords = cumulativeRecords.filter(record => 
-        record.staffId && record.staffId.toString() === staffId.toString()
-      );
-      let staffCumulativeAllocated = 0;
-      let staffCumulativeSpent = 0;
-      
-      staffCumulativeRecords.forEach((record) => {
-        const cumulativeAllocatedFiltered = record.allocatedAmounts.filter(
-          (a) => new Date(a.date) < cumulativeEnd
-        );
-        const cumulativeExpensesFiltered = record.expenses.filter(
-          (e) => new Date(e.date) < cumulativeEnd
-        );
+    for (const staffId of Object.keys(groupedData)) {
+      const staffAllocations = await PettyCashAllocation.aggregate([
+        {
+          $match: {
+            staffId: new mongoose.Types.ObjectId(staffId),
+            date: { $lt: cumulativeEnd },
+            isVoided: false
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $toDouble: "$amount" } }
+          }
+        }
+      ]);
 
-        staffCumulativeAllocated += cumulativeAllocatedFiltered.reduce((sum, a) => sum + a.amount, 0);
-        staffCumulativeSpent += cumulativeExpensesFiltered.reduce((sum, e) => sum + e.spentAmount, 0);
-      });
-      
-      const staffCumulativeBalance = Math.max(0, staffCumulativeAllocated - staffCumulativeSpent);
-      
-      groupedData[staffId].totalAmount = staffCumulativeBalance;
-    });
+      const staffExpenses = await PettyCashExpense.aggregate([
+        {
+          $match: {
+            staffId: new mongoose.Types.ObjectId(staffId),
+            date: { $lt: cumulativeEnd },
+            isVoided: false
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $toDouble: "$spentAmount" } }
+          }
+        }
+      ]);
+
+      const staffCumulativeAllocated = staffAllocations[0]?.total || 0;
+      const staffCumulativeSpent = staffExpenses[0]?.total || 0;
+      groupedData[staffId].totalAmount = Math.max(0, staffCumulativeAllocated - staffCumulativeSpent);
+    }
 
     const finalData = Object.values(groupedData);
 
@@ -188,17 +227,16 @@ if (startDate && !endDate) {
     let dayWiseAllocated = 0;
     let dayWiseSpent = 0;
     finalData.forEach((item) => {
-      // Calculate day-wise amounts for each staff member
       const staffDayWiseAllocated = item.patients.reduce((sum, patient) => {
         return sum + patient.allocatedAmounts.reduce((patientSum, alloc) => {
           const allocDate = new Date(alloc.date);
-          return (allocDate >= start && allocDate <= end) ? patientSum + alloc.amount : patientSum;
+          return (allocDate >= start && allocDate <= end) ? patientSum + parseFloat(alloc.amount.toString()) : patientSum;
         }, 0);
       }, 0);
       
       const staffDayWiseSpent = item.expenses.reduce((sum, expense) => {
         const expenseDate = new Date(expense.date);
-        return (expenseDate >= start && expenseDate <= end) ? sum + expense.spentAmount : sum;
+        return (expenseDate >= start && expenseDate <= end) ? sum + parseFloat(expense.spentAmount.toString()) : sum;
       }, 0);
       
       dayWiseAllocated += staffDayWiseAllocated;
@@ -219,7 +257,6 @@ if (startDate && !endDate) {
       globalAmounts: globalAmounts,
     });
   } catch (error) {
-    // console.error("Error fetching petty cash:", error);
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });

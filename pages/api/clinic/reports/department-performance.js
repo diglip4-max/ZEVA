@@ -76,7 +76,15 @@ export default async function handler(req, res) {
       : null;
 
     const match = {
-      service: { $in: ["Treatment", "Service"] },
+      $or: [
+        { service: { $in: ["Treatment", "Service"] } },
+        // EDGE-CASE FIX: Include Package billings with selectedTreatments (mixed billings)
+        // This ensures Revenue by Department shows treatment revenue for mixed billings
+        {
+          service: "Package",
+          selectedTreatments: { $exists: true, $ne: null, $ne: [] },
+        },
+      ],
     };
     if (user.role !== "admin") {
       match.clinicId = new mongoose.Types.ObjectId(String(clinicId));
@@ -197,6 +205,28 @@ export default async function handler(req, res) {
               0,
             ],
           },
+          // EDGE-CASE FIX: For Treatment/Service billings with unpaidPackagesPaid,
+          // subtract pendingUsed from paid because the payment was for the package,
+          // not the treatment. This prevents the treatment from showing revenue
+          // when only the package pending was cleared.
+          effectivePaid: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$service", ["Treatment", "Service"]] },
+                  { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                ],
+              },
+              // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed
+              { $subtract: [
+                { $ifNull: ["$paid", 0] },
+                { $ifNull: ["$pendingUsed", 0] }
+              ] },
+              // All other billings: use paid as-is
+              { $ifNull: ["$paid", 0] }
+            ]
+          },
           invoiceTotalForAllocation: {
             $cond: [
               { $gt: [{ $ifNull: ["$originalAmount", 0] }, 0] },
@@ -253,7 +283,10 @@ export default async function handler(req, res) {
                   { $gt: ["$invoiceTotalForAllocation", 0] },
                   {
                     $multiply: [
-                      { $ifNull: ["$paid", 0] },
+                      // EDGE-CASE FIX: Use effectivePaid (with pendingUsed subtracted)
+                      // instead of paid to prevent treatment from showing revenue
+                      // when only the package pending was cleared.
+                      { $ifNull: ["$effectivePaid", 0] },
                       {
                         $divide: [
                           { $ifNull: ["$selectedTreatmentLineValue", 0] },
@@ -265,7 +298,7 @@ export default async function handler(req, res) {
                   0,
                 ],
               },
-              { $ifNull: ["$paid", 0] },
+              { $ifNull: ["$effectivePaid", 0] },
             ],
           },
           effectiveLinePrice: {
