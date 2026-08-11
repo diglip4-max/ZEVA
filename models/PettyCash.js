@@ -1,11 +1,3 @@
-// models/PettyCash.js
-//
-// ENTERPRISE-OPTIMIZED VERSION
-// This file now holds ONLY the "parent" record per staff member (or the
-// special global tracking record where staffId = null).
-// The actual allocation/expense entries live in their own collections:
-//   - PettyCashAllocation.js
-//   - PettyCashExpense.js
 
 import mongoose from "mongoose";
 
@@ -33,31 +25,31 @@ const PettyCashSchema = new mongoose.Schema(
     // atomic $inc calls from the Allocation/Expense models' hooks,
     // NOT recalculated by summing embedded arrays on every save.
     totalAllocated: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
+      required: true,
       default: 0,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
     },
     totalSpent: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
+      required: true,
       default: 0,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
     },
     totalAmount: {
-      type: mongoose.Schema.Types.Decimal128, // remaining balance
+      type: Number,
+      required: true,
       default: 0,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
     },
 
     // Global amount tracking (only meaningful on the staffId: null record)
     globalTotalAmount: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
+      required: true,
       default: 0,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
     },
     globalSpentAmount: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
+      required: true,
       default: 0,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
     },
 
     // Audit fields
@@ -95,8 +87,13 @@ PettyCashSchema.statics.getGlobalAmounts = async function (clinicId) {
     return { globalTotalAmount: 0, globalSpentAmount: 0, globalRemainingAmount: 0 };
   }
   const globalRecord = await this.findOne({ staffId: null, clinicId }).lean();
-  const total = globalRecord && globalRecord.globalTotalAmount ? parseFloat(globalRecord.globalTotalAmount.toString()) : 0;
-  const spent = globalRecord && globalRecord.globalSpentAmount ? parseFloat(globalRecord.globalSpentAmount.toString()) : 0;
+  const parseAmt = (val) => {
+    if (!val) return 0;
+    if (typeof val === "number") return val;
+    return parseFloat(val.toString()) || 0;
+  };
+  const total = globalRecord && globalRecord.globalTotalAmount ? parseAmt(globalRecord.globalTotalAmount) : 0;
+  const spent = globalRecord && globalRecord.globalSpentAmount ? parseAmt(globalRecord.globalSpentAmount) : 0;
   return {
     globalTotalAmount: total,
     globalSpentAmount: spent,

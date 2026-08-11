@@ -23,8 +23,8 @@ export default async function handler(req, res) {
       try {
         const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
         if (clinicError || !clinicId) {
-          return res.status(403).json({ 
-            message: clinicError || "Unable to determine clinic access" 
+          return res.status(403).json({
+            message: clinicError || "Unable to determine clinic access"
           });
         }
 
@@ -52,11 +52,11 @@ export default async function handler(req, res) {
       staffId,
       ...(search
         ? {
-            $or: [
-              { patientName: { $regex: search, $options: "i" } },
-              { patientEmail: { $regex: search, $options: "i" } },
-            ],
-          }
+          $or: [
+            { patientName: { $regex: search, $options: "i" } },
+            { patientEmail: { $regex: search, $options: "i" } },
+          ],
+        }
         : {}),
     };
 

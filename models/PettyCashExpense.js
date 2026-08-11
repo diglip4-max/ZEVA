@@ -11,9 +11,9 @@ const ExpenseItemSchema = new mongoose.Schema(
   {
     itemName: { type: String, required: true },
     amount: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
       required: true,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
+      default: 0,
     },
   },
   { _id: false }
@@ -39,9 +39,9 @@ const PettyCashExpenseSchema = new mongoose.Schema(
 
     description: { type: String, required: true, trim: true },
     spentAmount: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
       required: true,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
+      default: 0,
     },
 
     vendor: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null },

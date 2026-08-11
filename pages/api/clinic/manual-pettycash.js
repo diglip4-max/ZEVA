@@ -94,6 +94,12 @@ export default async function handler(req, res) {
       const grandManualTotal =
         grandManualAgg.length > 0 ? grandManualAgg[0].total : 0;
 
+      const parseAmt = (val) => {
+        if (!val) return 0;
+        if (typeof val === "number") return val;
+        return parseFloat(val.toString()) || 0;
+      };
+
       // Grand expense total: read from global PettyCash record's globalSpentAmount
       const globalPettyCash = await PettyCash.findOne({
         clinicId: new mongoose.Types.ObjectId(String(clinicId)),
@@ -103,7 +109,7 @@ export default async function handler(req, res) {
         .lean();
       const grandExpenseTotal =
         globalPettyCash && globalPettyCash.globalSpentAmount
-          ? parseFloat(globalPettyCash.globalSpentAmount.toString())
+          ? parseAmt(globalPettyCash.globalSpentAmount)
           : 0;
 
       // FILTERED expense total (date-filtered, for the dashboard cards)
@@ -111,13 +117,14 @@ export default async function handler(req, res) {
       const expensesRaw = [];
 
       pettyCashExpenses.forEach((exp) => {
+        const amt = parseAmt(exp.spentAmount);
         expensesRaw.push({
           ...exp,
           _id: exp._id ? exp._id.toString() : null,
           isExpense: true,
-          spentAmount: parseFloat(exp.spentAmount.toString()),
+          spentAmount: amt,
         });
-        calculatedExpenseTotal += parseFloat(exp.spentAmount.toString());
+        calculatedExpenseTotal += amt;
       });
 
       return res.status(200).json({

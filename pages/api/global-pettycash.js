@@ -25,12 +25,12 @@ export default async function handler(req, res) {
 
   try {
     const user = await getUserFromToken(req);
-    
+
     // Check if user has permission to access global petty cash
     if (!["staff", "admin", "clinic", "super admin"].includes(user.role.toLowerCase())) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Access denied" 
+      return res.status(403).json({
+        success: false,
+        message: "Access denied"
       });
     }
 
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
 
       // Get current global amounts
       const globalAmounts = await PettyCash.getGlobalAmounts(targetClinicId);
-      
+
       // Get summary statistics scoped to the clinic
       const pipeline = [
         {
@@ -73,11 +73,11 @@ export default async function handler(req, res) {
           }
         }
       ];
-      
+
       const result = await PettyCash.aggregate(pipeline);
-      const stats = result[0] || { 
-        totalAllocated: 0, 
-        totalSpent: 0, 
+      const stats = result[0] || {
+        totalAllocated: 0,
+        totalSpent: 0,
         totalRecords: 0,
         totalStaff: []
       };
@@ -100,25 +100,25 @@ export default async function handler(req, res) {
     if (req.method === "POST") {
       // Update global amounts (admin only)
       if (!["admin", "super admin"].includes(user.role.toLowerCase())) {
-        return res.status(403).json({ 
-          success: false, 
-          message: "Admin privileges required" 
+        return res.status(403).json({
+          success: false,
+          message: "Admin privileges required"
         });
       }
 
       const { action, amount, clinicId: bodyClinicId } = req.body;
       const targetClinicId = bodyClinicId || clinicId;
-      
+
       if (!targetClinicId) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "clinicId is required to recalculate global amounts" 
+        return res.status(400).json({
+          success: false,
+          message: "clinicId is required to recalculate global amounts"
         });
       }
 
       // Recalculate global amounts from all records for this clinic
       const globalAmounts = await PettyCash.recalculateGlobalAmounts(targetClinicId);
-      
+
       return res.status(200).json({
         success: true,
         message: "Global amounts updated successfully",
@@ -132,16 +132,16 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(405).json({ 
-      success: false, 
-      message: "Method not allowed" 
+    return res.status(405).json({
+      success: false,
+      message: "Method not allowed"
     });
 
   } catch (error) {
     console.error("Error in global petty cash API:", error);
-    return res.status(500).json({ 
-      success: false, 
-      message: "Internal server error" 
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
     });
   }
 }
