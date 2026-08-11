@@ -5,6 +5,32 @@ import PettyCashExpense from "../../../models/PettyCashExpense";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
+// Helper function to safely parse Decimal128 or Number values
+const parseNumber = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return parseFloat(value);
+  if (value.$numberDecimal) return parseFloat(value.$numberDecimal);
+  if (value._bsontype === "Decimal128") return parseFloat(value.toString());
+  return 0;
+};
+
+// Helper to transform allocation data
+const transformAllocation = (alloc) => ({
+  ...alloc,
+  amount: parseNumber(alloc.amount),
+});
+
+// Helper to transform expense data
+const transformExpense = (exp) => ({
+  ...exp,
+  spentAmount: parseNumber(exp.spentAmount),
+  items: (exp.items || []).map((item) => ({
+    ...item,
+    amount: parseNumber(item.amount),
+  })),
+});
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method Not Allowed" });
@@ -87,7 +113,7 @@ export default async function handler(req, res) {
 
     const staffId = user._id.toString();
 
-    // Get view type from query: 'allocations', 'expenses', or 'all' (default)
+    // Get view type from query
     const viewType = req.query.viewType || "all";
     const search = req.query.search ? req.query.search.trim() : "";
     const startDate = req.query.startDate;
@@ -115,20 +141,7 @@ export default async function handler(req, res) {
       }),
     };
 
-    // Allocation filter
-    const allocationFilter = {
-      ...baseFilter,
-      ...(search
-        ? {
-            $or: [
-              // Search in related PettyCash record
-              // We'll handle this by populating and filtering in JS
-            ],
-          }
-        : {}),
-    };
-
-    // Expense filter
+    // Expense filter with search
     const expenseFilter = {
       ...baseFilter,
       ...(search
@@ -145,6 +158,11 @@ export default async function handler(req, res) {
       }),
     };
 
+    // Allocation filter
+    const allocationFilter = {
+      ...baseFilter,
+    };
+
     // ============================================================
     // FETCH DATA BASED ON VIEW TYPE
     // ============================================================
@@ -158,7 +176,7 @@ export default async function handler(req, res) {
 
     if (viewType === "allocations" || viewType === "all") {
       // Fetch allocations
-      allocations = await PettyCashAllocation.find(allocationFilter)
+      let allocationQuery = PettyCashAllocation.find(allocationFilter)
         .populate("staffId", "name email role")
         .populate("createdBy", "name email role")
         .populate("voidedBy", "name email")
@@ -166,13 +184,35 @@ export default async function handler(req, res) {
           path: "pettyCashId",
           select: "patient.name patient.email patient.phone note",
         })
-        .sort({ date: -1 })
-        .skip(viewType === "allocations" ? skip : 0)
-        .limit(viewType === "allocations" ? limit : 100)
-        .lean();
+        .sort({ date: -1 });
 
-      totalAllocations =
-        await PettyCashAllocation.countDocuments(allocationFilter);
+      if (viewType === "allocations") {
+        allocationQuery = allocationQuery.skip(skip).limit(limit);
+      } else {
+        allocationQuery = allocationQuery.limit(100);
+      }
+
+      allocations = await allocationQuery.lean();
+      allocations = allocations.map(transformAllocation);
+
+      // Filter allocations by search (if needed)
+      if (search && viewType === "allocations") {
+        const searchLower = search.toLowerCase();
+        allocations = allocations.filter((alloc) => {
+          const pettyCash = alloc.pettyCashId || {};
+          const patient = pettyCash.patient || {};
+          return (
+            (patient.name?.toLowerCase() || "").includes(searchLower) ||
+            (patient.email?.toLowerCase() || "").includes(searchLower) ||
+            (patient.phone?.toLowerCase() || "").includes(searchLower) ||
+            (pettyCash.note?.toLowerCase() || "").includes(searchLower)
+          );
+        });
+        totalAllocations = allocations.length;
+      } else {
+        totalAllocations =
+          await PettyCashAllocation.countDocuments(allocationFilter);
+      }
 
       // Allocation summary
       const allocSummary = await PettyCashAllocation.aggregate([
@@ -204,7 +244,14 @@ export default async function handler(req, res) {
 
       allocationSummary =
         allocSummary.length > 0
-          ? allocSummary[0]
+          ? {
+              totalAllocated: parseNumber(allocSummary[0].totalAllocated),
+              totalAllocations: allocSummary[0].totalAllocations || 0,
+              totalVoided: allocSummary[0].totalVoided || 0,
+              averageAmount: parseNumber(allocSummary[0].averageAmount),
+              minAmount: parseNumber(allocSummary[0].minAmount),
+              maxAmount: parseNumber(allocSummary[0].maxAmount),
+            }
           : {
               totalAllocated: 0,
               totalAllocations: 0,
@@ -217,7 +264,7 @@ export default async function handler(req, res) {
 
     if (viewType === "expenses" || viewType === "all") {
       // Fetch expenses
-      expenses = await PettyCashExpense.find(expenseFilter)
+      let expenseQuery = PettyCashExpense.find(expenseFilter)
         .populate("vendor", "name email phone")
         .populate("createdBy", "name email role")
         .populate("voidedBy", "name email")
@@ -225,40 +272,44 @@ export default async function handler(req, res) {
           path: "pettyCashId",
           select: "patient.name patient.email patient.phone note",
         })
-        .sort({ date: -1 })
-        .skip(viewType === "expenses" ? skip : 0)
-        .limit(viewType === "expenses" ? limit : 100)
-        .lean();
+        .sort({ date: -1 });
+
+      if (viewType === "expenses") {
+        expenseQuery = expenseQuery.skip(skip).limit(limit);
+      } else {
+        expenseQuery = expenseQuery.limit(100);
+      }
+
+      expenses = await expenseQuery.lean();
+      expenses = expenses.map(transformExpense);
 
       totalExpenses = await PettyCashExpense.countDocuments(expenseFilter);
 
-      // Expense summary
+      // ============================================================
+      // EXPENSE SUMMARY - ONLY COUNT usedFromPettyCash: true
+      // ============================================================
       const expSummary = await PettyCashExpense.aggregate([
         { $match: expenseFilter },
         {
           $group: {
             _id: null,
+            // ONLY count expenses where usedFromPettyCash is true
             totalSpent: {
               $sum: {
-                $cond: [{ $eq: ["$isVoided", true] }, 0, "$spentAmount"],
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$usedFromPettyCash", true] },
+                      { $eq: ["$isVoided", false] },
+                    ],
+                  },
+                  "$spentAmount",
+                  0,
+                ],
               },
             },
-            totalExpenses: {
-              $sum: {
-                $cond: [{ $eq: ["$isVoided", true] }, 0, 1],
-              },
-            },
-            totalVoided: {
-              $sum: {
-                $cond: [{ $eq: ["$isVoided", true] }, 1, 0],
-              },
-            },
-            averageSpent: { $avg: "$spentAmount" },
-            minSpent: { $min: "$spentAmount" },
-            maxSpent: { $max: "$spentAmount" },
-            vendors: { $addToSet: "$vendor" },
-            vendorNames: { $addToSet: "$vendorName" },
-            usedFromPettyCashCount: {
+            // Count of expenses used from petty cash
+            pettyCashExpenseCount: {
               $sum: {
                 $cond: [
                   {
@@ -272,7 +323,8 @@ export default async function handler(req, res) {
                 ],
               },
             },
-            notUsedFromPettyCashCount: {
+            // Count of informational expenses (not from petty cash)
+            infoExpenseCount: {
               $sum: {
                 $cond: [
                   {
@@ -286,39 +338,118 @@ export default async function handler(req, res) {
                 ],
               },
             },
+            totalExpenses: {
+              $sum: {
+                $cond: [{ $eq: ["$isVoided", true] }, 0, 1],
+              },
+            },
+            totalVoided: {
+              $sum: {
+                $cond: [{ $eq: ["$isVoided", true] }, 1, 0],
+              },
+            },
+            averageSpent: {
+              $avg: {
+                $cond: [
+                  { $eq: ["$usedFromPettyCash", true] },
+                  "$spentAmount",
+                  null,
+                ],
+              },
+            },
+            minSpent: {
+              $min: {
+                $cond: [
+                  { $eq: ["$usedFromPettyCash", true] },
+                  "$spentAmount",
+                  null,
+                ],
+              },
+            },
+            maxSpent: {
+              $max: {
+                $cond: [
+                  { $eq: ["$usedFromPettyCash", true] },
+                  "$spentAmount",
+                  null,
+                ],
+              },
+            },
+            vendors: {
+              $addToSet: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$usedFromPettyCash", true] },
+                      { $ne: ["$vendor", null] },
+                    ],
+                  },
+                  "$vendor",
+                  null,
+                ],
+              },
+            },
+            vendorNames: {
+              $addToSet: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$usedFromPettyCash", true] },
+                      { $ne: ["$vendorName", null] },
+                    ],
+                  },
+                  "$vendorName",
+                  null,
+                ],
+              },
+            },
           },
         },
       ]);
 
       expenseSummary =
         expSummary.length > 0
-          ? expSummary[0]
+          ? {
+              totalSpent: parseNumber(expSummary[0].totalSpent),
+              totalExpenses: expSummary[0].totalExpenses || 0,
+              pettyCashExpenseCount: expSummary[0].pettyCashExpenseCount || 0,
+              infoExpenseCount: expSummary[0].infoExpenseCount || 0,
+              totalVoided: expSummary[0].totalVoided || 0,
+              averageSpent: parseNumber(expSummary[0].averageSpent),
+              minSpent: parseNumber(expSummary[0].minSpent),
+              maxSpent: parseNumber(expSummary[0].maxSpent),
+              uniqueVendors:
+                expSummary[0].vendors?.filter((v) => v !== null).length || 0,
+              vendorNames:
+                expSummary[0].vendorNames?.filter((v) => v !== null) || [],
+            }
           : {
               totalSpent: 0,
               totalExpenses: 0,
+              pettyCashExpenseCount: 0,
+              infoExpenseCount: 0,
               totalVoided: 0,
               averageSpent: 0,
               minSpent: 0,
               maxSpent: 0,
-              vendors: [],
+              uniqueVendors: 0,
               vendorNames: [],
-              usedFromPettyCashCount: 0,
-              notUsedFromPettyCashCount: 0,
             };
     }
 
     // Combined summary (for 'all' view)
     if (viewType === "all") {
-      // Get daily breakdown for last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+      // Daily breakdown - ONLY from petty cash expenses
       const dailyBreakdown = await PettyCashExpense.aggregate([
         {
           $match: {
             ...expenseFilter,
             date: { $gte: thirtyDaysAgo },
             isVoided: { $ne: true },
+            usedFromPettyCash: true, // Only include petty cash expenses
           },
         },
         {
@@ -335,13 +466,14 @@ export default async function handler(req, res) {
         { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
       ]);
 
-      // Get vendor breakdown
+      // Vendor breakdown - ONLY from petty cash expenses
       const vendorBreakdown = await PettyCashExpense.aggregate([
         {
           $match: {
             ...expenseFilter,
             isVoided: { $ne: true },
             vendor: { $ne: null },
+            usedFromPettyCash: true, // Only include petty cash expenses
           },
         },
         {
@@ -360,20 +492,20 @@ export default async function handler(req, res) {
       combinedSummary = {
         dailyBreakdown: dailyBreakdown.map((day) => ({
           date: `${day._id.year}-${String(day._id.month).padStart(2, "0")}-${String(day._id.day).padStart(2, "0")}`,
-          totalSpent: parseFloat(day.totalSpent.toString()),
+          totalSpent: parseNumber(day.totalSpent),
           count: day.count,
         })),
         topVendors: vendorBreakdown.map((vendor) => ({
           vendorId: vendor._id,
           vendorName: vendor.vendorName || "Unknown Vendor",
-          totalSpent: parseFloat(vendor.totalSpent.toString()),
+          totalSpent: parseNumber(vendor.totalSpent),
           expenseCount: vendor.expenseCount,
-          averageAmount: parseFloat(vendor.averageAmount.toString()),
+          averageAmount: parseNumber(vendor.averageAmount),
         })),
       };
     }
 
-    // Calculate total pages based on view type
+    // Calculate total pages
     const totalRecords =
       viewType === "allocations"
         ? totalAllocations
@@ -387,56 +519,20 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       viewType,
-      // Data
-      allocations:
-        viewType === "allocations" || viewType === "all" ? allocations : [],
-      expenses: viewType === "expenses" || viewType === "all" ? expenses : [],
-
-      // Summaries
-      allocationSummary:
-        viewType === "allocations" || viewType === "all"
-          ? {
-              totalAllocated: parseFloat(
-                allocationSummary.totalAllocated?.toString() || 0,
-              ),
-              totalAllocations: allocationSummary.totalAllocations || 0,
-              totalVoided: allocationSummary.totalVoided || 0,
-              averageAmount: parseFloat(
-                allocationSummary.averageAmount?.toString() || 0,
-              ),
-              minAmount: parseFloat(
-                allocationSummary.minAmount?.toString() || 0,
-              ),
-              maxAmount: parseFloat(
-                allocationSummary.maxAmount?.toString() || 0,
-              ),
-            }
-          : null,
-
-      expenseSummary:
-        viewType === "expenses" || viewType === "all"
-          ? {
-              totalSpent: parseFloat(
-                expenseSummary.totalSpent?.toString() || 0,
-              ),
-              totalExpenses: expenseSummary.totalExpenses || 0,
-              totalVoided: expenseSummary.totalVoided || 0,
-              averageSpent: parseFloat(
-                expenseSummary.averageSpent?.toString() || 0,
-              ),
-              minSpent: parseFloat(expenseSummary.minSpent?.toString() || 0),
-              maxSpent: parseFloat(expenseSummary.maxSpent?.toString() || 0),
-              uniqueVendors:
-                expenseSummary.vendors?.filter((v) => v !== null).length || 0,
-              usedFromPettyCashCount:
-                expenseSummary.usedFromPettyCashCount || 0,
-              notUsedFromPettyCashCount:
-                expenseSummary.notUsedFromPettyCashCount || 0,
-            }
-          : null,
-
-      combinedSummary: viewType === "all" ? combinedSummary : null,
-
+      data: {
+        allocations:
+          viewType === "allocations" || viewType === "all" ? allocations : [],
+        expenses: viewType === "expenses" || viewType === "all" ? expenses : [],
+      },
+      summaries: {
+        allocation:
+          viewType === "allocations" || viewType === "all"
+            ? allocationSummary
+            : null,
+        expense:
+          viewType === "expenses" || viewType === "all" ? expenseSummary : null,
+        combined: viewType === "all" ? combinedSummary : null,
+      },
       pagination: {
         totalResults: totalRecords,
         totalPages,

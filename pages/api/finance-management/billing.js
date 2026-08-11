@@ -108,7 +108,7 @@ export default async function handler(req, res) {
     // Build filter
     const filter = {
       clinicId,
-      paymentMethod: { $ne: "Cash" },
+      // paymentMethod: { $ne: "Cash" },
       service: { $ne: "Product" },
       ...(me.role === "clinic" ? {} : { invoicedById: staffId }),
     };

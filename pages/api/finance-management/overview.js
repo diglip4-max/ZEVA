@@ -2,10 +2,21 @@
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import Billing from "../../../models/Billing";
-import PettyCash from "../../../models/PettyCash";
+import PettyCashAllocation from "../../../models/PettyCashAllocation";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 import ManualPettyCash from "../../../models/ManualPettyCash";
 import ProductSale from "../../../models/stocks/ProductSale";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+
+// Helper function to safely parse numbers
+const parseNumber = (value) => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") return parseFloat(value);
+  if (value?.$numberDecimal) return parseFloat(value.$numberDecimal);
+  if (value?._bsontype === "Decimal128") return parseFloat(value.toString());
+  return 0;
+};
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -88,7 +99,6 @@ export default async function handler(req, res) {
 
     const baseFilter = {
       clinicId,
-      ...(me.role === "clinic" ? {} : {}),
     };
 
     // ============================================================
@@ -101,8 +111,6 @@ export default async function handler(req, res) {
       ...(me.role === "clinic" ? {} : { invoicedById: staffId }),
       ...(Object.keys(dateFilter).length ? { invoicedDate: dateFilter } : {}),
     };
-
-    console.log({ billingFilter, dateFilter });
 
     const billingSummary = await Billing.aggregate([
       { $match: billingFilter },
@@ -174,41 +182,64 @@ export default async function handler(req, res) {
     ]);
 
     // ============================================================
-    // 5. PETTY CASH SUMMARY
+    // 5. PETTY CASH ALLOCATIONS SUMMARY
     // ============================================================
-    const pettyCashFilter = {
+    const allocationFilter = {
       ...baseFilter,
-      ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
       ...(me.role === "clinic" ? {} : { staffId }),
+      ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}),
+      isVoided: { $ne: true }, // Exclude voided allocations
     };
 
-    console.log({ pettyCashFilter, dateFilter });
-
-    const pettyCashSummary = await PettyCash.aggregate([
-      { $match: pettyCashFilter },
+    const allocationSummary = await PettyCashAllocation.aggregate([
+      { $match: allocationFilter },
       {
         $group: {
           _id: null,
-          totalAllocated: { $sum: "$totalAllocated" },
-          totalSpent: { $sum: "$totalSpent" },
-          totalBalance: { $sum: "$totalAmount" },
-          totalRecords: { $sum: 1 },
+          totalAllocated: { $sum: "$amount" },
+          totalAllocations: { $sum: 1 },
+          averageAllocation: { $avg: "$amount" },
+          minAllocation: { $min: "$amount" },
+          maxAllocation: { $max: "$amount" },
         },
       },
     ]);
 
-    const globalPettyCash = await PettyCash.getGlobalAmounts(clinicId);
+    // ============================================================
+    // 6. PETTY CASH EXPENSES SUMMARY (ONLY usedFromPettyCash: true)
+    // ============================================================
+    const expenseFilter = {
+      ...baseFilter,
+      ...(me.role === "clinic" ? {} : { staffId }),
+      ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}),
+      usedFromPettyCash: true, // ONLY count expenses from petty cash
+      isVoided: { $ne: true }, // Exclude voided expenses
+    };
+
+    const expenseSummary = await PettyCashExpense.aggregate([
+      { $match: expenseFilter },
+      {
+        $group: {
+          _id: null,
+          totalSpent: { $sum: "$spentAmount" },
+          totalExpenses: { $sum: 1 },
+          averageExpense: { $avg: "$spentAmount" },
+          minExpense: { $min: "$spentAmount" },
+          maxExpense: { $max: "$spentAmount" },
+          vendors: { $addToSet: "$vendor" },
+          vendorNames: { $addToSet: "$vendorName" },
+        },
+      },
+    ]);
 
     // ============================================================
-    // 6. MANUAL PETTY CASH SUMMARY
+    // 7. MANUAL PETTY CASH SUMMARY (KEPT - NOT REMOVED)
     // ============================================================
     const manualPettyCashFilter = {
       ...baseFilter,
       ...(me.role === "clinic" ? {} : { addedBy: staffId }),
       ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
     };
-
-    console.log({ manualPettyCashFilter, dateFilter });
 
     const manualPettyCashSummary = await ManualPettyCash.aggregate([
       { $match: manualPettyCashFilter },
@@ -247,7 +278,7 @@ export default async function handler(req, res) {
     ]);
 
     // ============================================================
-    // 7. MONTHLY MANUAL PETTY CASH TREND
+    // 8. MONTHLY MANUAL PETTY CASH TREND (KEPT)
     // ============================================================
     const monthlyManualPettyCash = await ManualPettyCash.aggregate([
       { $match: manualPettyCashFilter },
@@ -274,12 +305,97 @@ export default async function handler(req, res) {
     ]);
 
     // ============================================================
-    // 8. PRODUCT SALES SUMMARY
+    // 9. PETTY CASH RECENT ACTIVITY (last 10 combined)
+    // ============================================================
+    const recentAllocations = await PettyCashAllocation.find(allocationFilter)
+      .populate("staffId", "name email")
+      .populate("createdBy", "name email")
+      .sort({ date: -1 })
+      .limit(5)
+      .lean();
+
+    const recentExpenses = await PettyCashExpense.find(expenseFilter)
+      .populate("vendor", "name email")
+      .populate("createdBy", "name email")
+      .sort({ date: -1 })
+      .limit(5)
+      .lean();
+
+    // Transform recent activity
+    const recentActivity = [
+      ...recentAllocations.map((a) => ({
+        ...a,
+        type: "allocation",
+        amount: parseNumber(a.amount),
+        date: a.date,
+        description: `Allocation of ${parseNumber(a.amount)}`,
+      })),
+      ...recentExpenses.map((e) => ({
+        ...e,
+        type: "expense",
+        amount: parseNumber(e.spentAmount),
+        date: e.date,
+        description: e.description,
+      })),
+    ]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+
+    // ============================================================
+    // 10. MONTHLY PETTY CASH TREND (Allocations + Expenses)
+    // ============================================================
+    const monthlyPettyCash = await PettyCashAllocation.aggregate([
+      { $match: allocationFilter },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+          },
+          totalAllocated: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    const monthlyExpenses = await PettyCashExpense.aggregate([
+      { $match: expenseFilter },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+          },
+          totalSpent: { $sum: "$spentAmount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    // Combine monthly data
+    const monthlyPettyCashData = monthlyPettyCash.map((item) => {
+      const month = `${item._id.month}/${item._id.year}`;
+      const expense = monthlyExpenses.find(
+        (e) => e._id.year === item._id.year && e._id.month === item._id.month,
+      );
+      return {
+        month,
+        totalAllocated: parseNumber(item.totalAllocated),
+        totalSpent: expense ? parseNumber(expense.totalSpent) : 0,
+        allocationCount: item.count,
+        expenseCount: expense ? expense.count : 0,
+      };
+    });
+
+    // ============================================================
+    // 11. PRODUCT SALES SUMMARY
     // ============================================================
     const productSaleFilter = {
       ...baseFilter,
       ...(me.role === "clinic" ? {} : { soldBy: staffId }),
-      ...(dateFilter.invoiceDate ? { invoiceDate: dateFilter } : {}),
+      ...(Object.keys(dateFilter).length ? { invoiceDate: dateFilter } : {}),
     };
 
     const productSaleSummary = await ProductSale.aggregate([
@@ -316,7 +432,7 @@ export default async function handler(req, res) {
     ]);
 
     // ============================================================
-    // 9. MONTHLY PRODUCT SALES TREND
+    // 12. MONTHLY PRODUCT SALES TREND
     // ============================================================
     const monthlyProductSales = await ProductSale.aggregate([
       { $match: productSaleFilter },
@@ -335,7 +451,7 @@ export default async function handler(req, res) {
     ]);
 
     // ============================================================
-    // 10. RECENT BILLINGS (last 10)
+    // 13. RECENT BILLINGS (last 10)
     // ============================================================
     const recentBillings = await Billing.find(billingFilter)
       .populate("patientId", "firstName lastName email mobileNumber emrNumber")
@@ -346,7 +462,7 @@ export default async function handler(req, res) {
       .lean();
 
     // ============================================================
-    // 11. PAYMENT METHOD BREAKDOWN
+    // 14. PAYMENT METHOD BREAKDOWN
     // ============================================================
     const paymentMethodBreakdown = await Billing.aggregate([
       { $match: billingFilter },
@@ -361,7 +477,7 @@ export default async function handler(req, res) {
     ]);
 
     // ============================================================
-    // 12. STATUS BREAKDOWN
+    // 15. STATUS BREAKDOWN
     // ============================================================
     const statusBreakdown = await Billing.aggregate([
       { $match: billingFilter },
@@ -388,14 +504,28 @@ export default async function handler(req, res) {
             count: 0,
           };
 
-    const pettyCashData =
-      pettyCashSummary.length > 0
-        ? pettyCashSummary[0]
+    const allocationData =
+      allocationSummary.length > 0
+        ? allocationSummary[0]
         : {
             totalAllocated: 0,
+            totalAllocations: 0,
+            averageAllocation: 0,
+            minAllocation: 0,
+            maxAllocation: 0,
+          };
+
+    const expenseData =
+      expenseSummary.length > 0
+        ? expenseSummary[0]
+        : {
             totalSpent: 0,
-            totalBalance: 0,
-            totalRecords: 0,
+            totalExpenses: 0,
+            averageExpense: 0,
+            minExpense: 0,
+            maxExpense: 0,
+            vendors: [],
+            vendorNames: [],
           };
 
     const manualPettyCashData =
@@ -425,12 +555,19 @@ export default async function handler(req, res) {
             pendingPaymentCount: 0,
           };
 
+    const totalAllocated = parseNumber(allocationData.totalAllocated);
+    const totalSpent = parseNumber(expenseData.totalSpent);
+    const totalBalance = totalAllocated - totalSpent;
+
+    // Calculate total revenue including manual petty cash income
     const totalRevenue =
       billingData.totalPaid +
       productSaleData.totalPaid +
       manualPettyCashData.totalIncome;
-    const totalExpenses =
-      pettyCashData.totalSpent + manualPettyCashData.totalExpenses;
+
+    // Total expenses = Petty Cash Expenses + Manual Petty Cash Expenses
+    const totalExpenses = totalSpent + manualPettyCashData.totalExpenses;
+
     const netBalance = totalRevenue - totalExpenses;
     const pendingDues =
       billingData.totalPending +
@@ -455,13 +592,26 @@ export default async function handler(req, res) {
           count: billingData.count,
         },
         pettyCash: {
-          totalAllocated: pettyCashData.totalAllocated,
-          totalSpent: pettyCashData.totalSpent,
-          totalBalance: pettyCashData.totalBalance,
-          totalRecords: pettyCashData.totalRecords,
-          globalTotalAmount: globalPettyCash.globalTotalAmount || 0,
-          globalSpentAmount: globalPettyCash.globalSpentAmount || 0,
-          globalRemainingAmount: globalPettyCash.globalRemainingAmount || 0,
+          // From PettyCashAllocation
+          totalAllocated: totalAllocated,
+          totalAllocations: allocationData.totalAllocations || 0,
+          averageAllocation: parseNumber(allocationData.averageAllocation),
+          minAllocation: parseNumber(allocationData.minAllocation),
+          maxAllocation: parseNumber(allocationData.maxAllocation),
+
+          // From PettyCashExpense (only usedFromPettyCash: true)
+          totalSpent: totalSpent,
+          totalExpenses: expenseData.totalExpenses || 0,
+          averageExpense: parseNumber(expenseData.averageExpense),
+          minExpense: parseNumber(expenseData.minExpense),
+          maxExpense: parseNumber(expenseData.maxExpense),
+
+          // Balance
+          totalBalance: totalBalance,
+
+          // Vendors
+          uniqueVendors:
+            expenseData.vendors?.filter((v) => v !== null).length || 0,
         },
         manualPettyCash: {
           totalAmount: manualPettyCashData.totalAmount,
@@ -495,6 +645,7 @@ export default async function handler(req, res) {
           ),
           weeklyBillingTrend: weeklyBillingTrend,
           billingByService: billingByService,
+          monthlyPettyCash: monthlyPettyCashData,
           monthlyManualPettyCash: formatMonthlyData(
             monthlyManualPettyCash,
             "manual",
@@ -507,6 +658,7 @@ export default async function handler(req, res) {
           statusBreakdown: statusBreakdown,
         },
         recentBillings: recentBillings || [],
+        recentPettyCashActivity: recentActivity,
       },
     });
   } catch (error) {

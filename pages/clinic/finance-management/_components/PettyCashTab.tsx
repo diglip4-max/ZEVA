@@ -19,8 +19,6 @@ import {
   Receipt,
 } from "lucide-react";
 import usePettyCash, {
-  PettyCashItem,
-  StaffRef,
   AllocationData,
   ExpenseData,
 } from "../_hooks/usePettyCash";
@@ -202,7 +200,7 @@ function AllocationRow({
 }
 
 // ============================================================
-// EXPENSE ROW COMPONENT
+// EXPENSE ROW COMPONENT - Updated with conditional signs
 // ============================================================
 function ExpenseRow({
   expense,
@@ -213,6 +211,7 @@ function ExpenseRow({
 }) {
   const [expanded, setExpanded] = React.useState(false);
   const pettyCash = expense.pettyCashId as any;
+  const isPettyCashExpense = expense.usedFromPettyCash === true;
 
   return (
     <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
@@ -221,8 +220,18 @@ function ExpenseRow({
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button className="w-6 h-6 rounded-full bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
-            <ArrowDownRight className="w-3.5 h-3.5" />
+          <button
+            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+              isPettyCashExpense
+                ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400"
+                : "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500"
+            }`}
+          >
+            {isPettyCashExpense ? (
+              <ArrowDownRight className="w-3.5 h-3.5" />
+            ) : (
+              <span className="text-xs font-bold">ℹ</span>
+            )}
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -232,6 +241,11 @@ function ExpenseRow({
               {expense.vendorName && (
                 <span className="text-xs text-stone-400 dark:text-stone-500">
                   {expense.vendorName}
+                </span>
+              )}
+              {!isPettyCashExpense && (
+                <span className="text-xs font-semibold text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                  Info Only
                 </span>
               )}
             </div>
@@ -244,25 +258,29 @@ function ExpenseRow({
                   (Voided)
                 </span>
               )}
-              {!expense.usedFromPettyCash && (
-                <span className="text-amber-500 dark:text-amber-400 font-semibold">
-                  (External)
-                </span>
-              )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <ReceiptLinks receipts={expense.receipts || []} />
-          <span
-            className={`font-mono font-semibold text-sm ${
-              expense.isVoided
-                ? "text-stone-400 dark:text-stone-500 line-through"
-                : "text-rose-500 dark:text-rose-400"
-            }`}
-          >
-            -{formatMoney(expense.spentAmount, currency)}
-          </span>
+
+          {/* Conditional amount display */}
+          {isPettyCashExpense ? (
+            <span
+              className={`font-mono font-semibold text-sm ${
+                expense.isVoided
+                  ? "text-stone-400 dark:text-stone-500 line-through"
+                  : "text-rose-500 dark:text-rose-400"
+              }`}
+            >
+              -{formatMoney(expense.spentAmount, currency)}
+            </span>
+          ) : (
+            <span className="font-mono text-sm text-stone-400 dark:text-stone-500">
+              {formatMoney(expense.spentAmount, currency)}
+            </span>
+          )}
+
           <ChevronRight
             className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
           />
@@ -271,6 +289,27 @@ function ExpenseRow({
       {expanded && (
         <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
           <div className="space-y-2 text-sm">
+            {/* Source badge */}
+            <div className="flex items-center gap-2">
+              <span className="text-stone-400 dark:text-stone-500">
+                Source:
+              </span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  isPettyCashExpense
+                    ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
+                    : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400"
+                }`}
+              >
+                {isPettyCashExpense ? "Petty Cash" : "Informational"}
+              </span>
+              {!isPettyCashExpense && (
+                <span className="text-xs text-stone-400 dark:text-stone-500">
+                  (Does not affect balance)
+                </span>
+              )}
+            </div>
+
             {expense.items && expense.items.length > 0 && (
               <div>
                 <span className="text-stone-400 dark:text-stone-500">
@@ -282,7 +321,8 @@ function ExpenseRow({
                       key={i}
                       className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
                     >
-                      {item.itemName} - {formatMoney(item.amount, currency)}
+                      {item.itemName} -{" "}
+                      {formatMoney(item.amount || 0, currency)}
                     </span>
                   ))}
                 </div>
@@ -411,17 +451,27 @@ const StatsSection: React.FC<StatsSectionProps> = ({
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          label="Total Spent"
+          label="Total Spent (Petty Cash)"
           value={formatMoney(expenseSummary?.totalSpent || 0, currency)}
           icon={<TrendingDown />}
           fromColor="#dc2626"
           toColor="#ef4444"
           iconColor="text-white"
-          trend={`${expenseSummary?.totalExpenses || 0} expenses`}
+          trend={`${expenseSummary?.pettyCashExpenseCount || 0} petty cash expenses`}
           trendPositive={false}
         />
         <StatCard
-          label="Average Expense"
+          label="Informational Entries"
+          value={expenseSummary?.infoExpenseCount || 0}
+          icon={<Receipt />}
+          fromColor="#6b7280"
+          toColor="#9ca3af"
+          iconColor="text-white"
+          trend="Does not affect balance"
+          trendPositive={true}
+        />
+        <StatCard
+          label="Average Petty Cash Expense"
           value={formatMoney(expenseSummary?.averageSpent || 0, currency)}
           icon={<Wallet />}
           fromColor="#7c3aed"
@@ -439,16 +489,6 @@ const StatsSection: React.FC<StatsSectionProps> = ({
           iconColor="text-white"
           trend="Different suppliers"
           trendPositive={true}
-        />
-        <StatCard
-          label="Voided Expenses"
-          value={expenseSummary?.totalVoided || 0}
-          icon={<Receipt />}
-          fromColor="#dc2626"
-          toColor="#ef4444"
-          iconColor="text-white"
-          trend="Canceled transactions"
-          trendPositive={false}
         />
       </div>
     );
@@ -494,7 +534,8 @@ const StatsSection: React.FC<StatsSectionProps> = ({
       <StatCard
         label="Voided"
         value={
-          allocationSummary?.totalVoided + expenseSummary?.totalVoided || 0
+          (allocationSummary?.totalVoided || 0) +
+          (expenseSummary?.totalVoided || 0)
         }
         icon={<CreditCard />}
         fromColor="#7c3aed"
@@ -528,8 +569,6 @@ const PettyCashTab: React.FC = () => {
     pagination,
     nextPage,
     prevPage,
-    goToPage,
-    changeLimit,
   } = usePettyCash();
 
   const [startDate, setStartDate] = React.useState<string>("");
@@ -538,6 +577,27 @@ const PettyCashTab: React.FC = () => {
 
   const from = pagination.totalResults === 0 ? 0 : (page - 1) * limit + 1;
   const to = Math.min(page * limit, pagination.totalResults);
+
+  // Filter data based on date and voided status (client-side filtering for now)
+  const filteredAllocations = React.useMemo(() => {
+    return allocations.filter((alloc) => {
+      if (showVoided && !alloc.isVoided) return false;
+      if (!showVoided && alloc.isVoided) return false;
+      if (startDate && new Date(alloc.date) < new Date(startDate)) return false;
+      if (endDate && new Date(alloc.date) > new Date(endDate)) return false;
+      return true;
+    });
+  }, [allocations, showVoided, startDate, endDate]);
+
+  const filteredExpenses = React.useMemo(() => {
+    return expenses.filter((exp) => {
+      if (showVoided && !exp.isVoided) return false;
+      if (!showVoided && exp.isVoided) return false;
+      if (startDate && new Date(exp.date) < new Date(startDate)) return false;
+      if (endDate && new Date(exp.date) > new Date(endDate)) return false;
+      return true;
+    });
+  }, [expenses, showVoided, startDate, endDate]);
 
   return (
     <div className="space-y-7">
@@ -628,13 +688,13 @@ const PettyCashTab: React.FC = () => {
             <>
               {viewType === "allocations" && (
                 <div className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {allocations.length === 0 ? (
+                  {filteredAllocations.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">No allocations found.</span>
                     </div>
                   ) : (
-                    allocations.map((alloc) => (
+                    filteredAllocations.map((alloc) => (
                       <AllocationRow
                         key={alloc._id}
                         allocation={alloc}
@@ -647,13 +707,13 @@ const PettyCashTab: React.FC = () => {
 
               {viewType === "expenses" && (
                 <div className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {expenses.length === 0 ? (
+                  {filteredExpenses.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">No expenses found.</span>
                     </div>
                   ) : (
-                    expenses.map((exp) => (
+                    filteredExpenses.map((exp) => (
                       <ExpenseRow
                         key={exp._id}
                         expense={exp}
@@ -666,8 +726,8 @@ const PettyCashTab: React.FC = () => {
 
               {viewType === "all" && (
                 <div className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {/* Show combined activity */}
-                  {allocations.length === 0 && expenses.length === 0 ? (
+                  {filteredAllocations.length === 0 &&
+                  filteredExpenses.length === 0 ? (
                     <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                       <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
                       <span className="text-sm">No activity found.</span>
@@ -675,7 +735,7 @@ const PettyCashTab: React.FC = () => {
                   ) : (
                     <>
                       {/* Expenses first (recent) */}
-                      {expenses.slice(0, 10).map((exp) => (
+                      {filteredExpenses.slice(0, 10).map((exp) => (
                         <ExpenseRow
                           key={exp._id}
                           expense={exp}
@@ -683,30 +743,30 @@ const PettyCashTab: React.FC = () => {
                         />
                       ))}
                       {/* Then allocations */}
-                      {allocations.slice(0, 5).map((alloc) => (
+                      {filteredAllocations.slice(0, 5).map((alloc) => (
                         <AllocationRow
                           key={alloc._id}
                           allocation={alloc}
                           currency={currency}
                         />
                       ))}
-                      {allocations.length > 5 && (
+                      {filteredAllocations.length > 5 && (
                         <div className="px-5 py-3 text-center">
                           <button
                             onClick={() => setViewType("allocations")}
                             className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
                           >
-                            View all {allocations.length} allocations →
+                            View all {filteredAllocations.length} allocations →
                           </button>
                         </div>
                       )}
-                      {expenses.length > 10 && (
+                      {filteredExpenses.length > 10 && (
                         <div className="px-5 py-3 text-center border-t border-stone-100 dark:border-stone-800">
                           <button
                             onClick={() => setViewType("expenses")}
                             className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
                           >
-                            View all {expenses.length} expenses →
+                            View all {filteredExpenses.length} expenses →
                           </button>
                         </div>
                       )}
