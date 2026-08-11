@@ -20,13 +20,13 @@ export default async function handler(req, res) {
     if (!me) {
       return res.status(401).json({ message: "Unauthorized: Missing or invalid token" });
     }
-    
+
     // Check permissions for agents - admins bypass all checks
     if (me.role === 'agent' || me.role === 'doctorStaff') {
       const { hasPermission } = await checkAgentPermission(me._id, "admin_staff_management", "read", "Track Expenses");
       if (!hasPermission) {
-        return res.status(403).json({ 
-          message: "Permission denied: You do not have read permission for Track Expenses submodule" 
+        return res.status(403).json({
+          message: "Permission denied: You do not have read permission for Track Expenses submodule"
         });
       }
     } else if (me.role !== 'admin') {
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
     const groupedData = {};
     records.forEach((record) => {
       const recordId = record._id.toString();
-      
+
       const allocatedFiltered = matchedAllocations.filter(
         (a) => a.pettyCashId.toString() === recordId
       );
@@ -173,11 +173,11 @@ export default async function handler(req, res) {
 
       // Update day-wise totals for display
       groupedData[staffId].totalAllocated += allocatedFiltered.reduce(
-        (sum, a) => sum + parseFloat(a.amount.toString()),
+        (sum, a) => sum + (a.amount || 0),
         0
       );
       groupedData[staffId].totalSpent += expensesFiltered.reduce(
-        (sum, e) => sum + parseFloat(e.spentAmount.toString()),
+        (sum, e) => sum + (e.spentAmount || 0),
         0
       );
     });
@@ -230,15 +230,15 @@ export default async function handler(req, res) {
       const staffDayWiseAllocated = item.patients.reduce((sum, patient) => {
         return sum + patient.allocatedAmounts.reduce((patientSum, alloc) => {
           const allocDate = new Date(alloc.date);
-          return (allocDate >= start && allocDate <= end) ? patientSum + parseFloat(alloc.amount.toString()) : patientSum;
+          return (allocDate >= start && allocDate <= end) ? patientSum + (alloc.amount || 0) : patientSum;
         }, 0);
       }, 0);
-      
+
       const staffDayWiseSpent = item.expenses.reduce((sum, expense) => {
         const expenseDate = new Date(expense.date);
-        return (expenseDate >= start && expenseDate <= end) ? sum + parseFloat(expense.spentAmount.toString()) : sum;
+        return (expenseDate >= start && expenseDate <= end) ? sum + (expense.spentAmount || 0) : sum;
       }, 0);
-      
+
       dayWiseAllocated += staffDayWiseAllocated;
       dayWiseSpent += staffDayWiseSpent;
     });

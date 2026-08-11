@@ -26,9 +26,9 @@ const PettyCashAllocationSchema = new mongoose.Schema(
       required: true,
     },
     amount: {
-      type: mongoose.Schema.Types.Decimal128,
+      type: Number,
       required: true,
-      get: (v) => (v ? parseFloat(v.toString()) : 0),
+      default: 0,
     },
     receipts: [{ type: String }], // Cloudinary URLs
     date: { type: Date, default: Date.now },

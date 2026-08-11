@@ -14,13 +14,13 @@ export default async function handler(req, res) {
     const user = await getAuthorizedStaffUser(req, {
       allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
     });
-    
+
     if (!user || !user._id) {
       return res.status(401).json({ success: false, message: "Invalid user" });
     }
-    
+
     const staffId = user._id.toString ? user._id.toString() : String(user._id);
-    
+
     if (!staffId || !mongoose.Types.ObjectId.isValid(staffId)) {
       return res.status(401).json({ success: false, message: "Invalid user ID format" });
     }
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     for (const alloc of dayAllocations) {
       const pcId = alloc.pettyCashId.toString();
       const group = await getGroup(pcId);
-      const amt = alloc.amount ? parseFloat(alloc.amount.toString()) : 0;
+      const amt = alloc.amount || 0;
       group.allocatedForDate.push({
         _id: alloc._id,
         amount: amt,
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
     for (const exp of dayExpenses) {
       const pcId = exp.pettyCashId.toString();
       const group = await getGroup(pcId);
-      const amt = exp.spentAmount ? parseFloat(exp.spentAmount.toString()) : 0;
+      const amt = exp.spentAmount || 0;
       group.expensesForDate.push({
         _id: exp._id,
         description: exp.description,
@@ -198,8 +198,8 @@ export default async function handler(req, res) {
     if (err.status) {
       return res.status(err.status).json({ success: false, message: err.message || "Authentication error" });
     }
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: err.message || "Server error",
       error: process.env.NODE_ENV === 'development' ? err.stack : undefined
     });

@@ -60,15 +60,15 @@ export default async function handler(req, res) {
       const listFilter = { ...baseFilter };
       const dateFilter = {};
       if (startDate || endDate) {
-        if (startDate) { 
-          const s = new Date(startDate); 
-          s.setUTCHours(0, 0, 0, 0); 
-          dateFilter.$gte = s; 
+        if (startDate) {
+          const s = new Date(startDate);
+          s.setUTCHours(0, 0, 0, 0);
+          dateFilter.$gte = s;
         }
-        if (endDate) { 
-          const e = new Date(endDate); 
-          e.setUTCHours(23, 59, 59, 999); 
-          dateFilter.$lte = e; 
+        if (endDate) {
+          const e = new Date(endDate);
+          e.setUTCHours(23, 59, 59, 999);
+          dateFilter.$lte = e;
         }
         listFilter.createdAt = dateFilter;
       }
@@ -102,24 +102,31 @@ export default async function handler(req, res) {
       ]);
       const grandManualTotal = grandManualAgg.length > 0 ? grandManualAgg[0].total : 0;
 
+      const parseAmt = (val) => {
+        if (!val) return 0;
+        if (typeof val === "number") return val;
+        return parseFloat(val.toString()) || 0;
+      };
+
       // Grand expense total: read from global PettyCash record's globalSpentAmount
       const globalPettyCash = await PettyCash.findOne({ clinicId: new mongoose.Types.ObjectId(String(clinicId)), staffId: null }).select("globalSpentAmount").lean();
-      const grandExpenseTotal = globalPettyCash && globalPettyCash.globalSpentAmount ? parseFloat(globalPettyCash.globalSpentAmount.toString()) : 0;
+      const grandExpenseTotal = globalPettyCash && globalPettyCash.globalSpentAmount ? parseAmt(globalPettyCash.globalSpentAmount) : 0;
 
       // FILTERED expense total (date-filtered, for the dashboard cards)
       let calculatedExpenseTotal = 0;
       const expensesRaw = [];
 
       pettyCashExpenses.forEach(exp => {
+        const amt = parseAmt(exp.spentAmount);
         expensesRaw.push({
           ...exp,
           _id: exp._id ? exp._id.toString() : null,
           isExpense: true,
-          spentAmount: parseFloat(exp.spentAmount.toString())
+          spentAmount: amt
         });
-        calculatedExpenseTotal += parseFloat(exp.spentAmount.toString());
+        calculatedExpenseTotal += amt;
       });
-      
+
       return res.status(200).json({
         success: true,
         data: entries.map((e) => ({
@@ -154,22 +161,22 @@ export default async function handler(req, res) {
   // ── POST: add entry ───────────────────────────────────────────────────────
   if (req.method === "POST") {
     try {
-      const { 
-        name, 
-        amount, 
-        note, 
-        isExpense = false, 
-        vendorId, 
-        vendorName, 
-        items = [], 
-        images = [], 
-        usedFromPettyCash = true 
+      const {
+        name,
+        amount,
+        note,
+        isExpense = false,
+        vendorId,
+        vendorName,
+        items = [],
+        images = [],
+        usedFromPettyCash = true
       } = req.body;
 
       if (!name || !name.trim()) {
         return res.status(400).json({ success: false, message: "Name is required" });
       }
-      
+
       const amt = parseFloat(amount);
       if (isNaN(amt)) {
         return res.status(400).json({ success: false, message: "Valid amount is required" });

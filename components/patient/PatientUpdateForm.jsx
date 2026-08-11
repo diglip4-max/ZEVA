@@ -2137,7 +2137,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                               <td className="px-3 py-2 text-gray-900 whitespace-nowrap">₹{billing.advance?.toFixed(2) || "0.00"}</td>
                               <td className="px-3 py-2 text-gray-900 whitespace-nowrap">{billing.quantity || "-"}</td>
                               <td className="px-3 py-2 text-gray-900 whitespace-nowrap">{billing.sessions || "-"}</td>
-                              <td className="px-3 py-2 text-gray-900 whitespace-nowrap">{billing.paymentMethod || "-"}</td>
+                              <td className="px-3 py-2 text-gray-900 whitespace-nowrap">{billing.paymentMethod || (billing.multiplePayments?.length > 0 ? billing.multiplePayments.map(mp => mp.paymentMethod).join(" + ") : "-")}</td>
                               <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                                 {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : "-"}
                               </td>

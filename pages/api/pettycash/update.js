@@ -122,7 +122,7 @@ export default async function handler(req, res) {
         await PettyCash.applyAllocation(id, newAmount, session);
         await PettyCash.updateGlobalTotalAmount(actualClinicId, newAmount, 'add', session);
 
-      // ---------- EXPENSE ----------
+        // ---------- EXPENSE ----------
       } else if (type === "expense") {
         const { expenseId, description, spentAmount, receipts } = data;
 
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
           }
 
           // Calculate difference for global and parent rollup update
-          const oldSpent = parseFloat(expense.spentAmount.toString());
+          const oldSpent = expense.spentAmount;
           const amountDifference = spentAmount - oldSpent;
 
           await PettyCashExpense.findByIdAndUpdate(

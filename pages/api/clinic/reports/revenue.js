@@ -52,7 +52,11 @@ export default async function handler(req, res) {
     pendingType,
     pendingPage,
     pendingPageSize,
+    paymentMethod: rawPaymentMethod,
   } = req.query;
+  // Default to empty string so the value is always a string (never null/undefined)
+  // when used in BSON aggregation expressions.
+  const paymentMethod = rawPaymentMethod || "";
 
   const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const end = endDate ? new Date(endDate) : new Date();
@@ -63,10 +67,21 @@ export default async function handler(req, res) {
 
   const clinicMatch = clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {};
   const dateMatch = { invoicedDate: { $gte: startAt, $lte: endAt } };
-  
+  // Build payment method filter separately to support both single paymentMethod
+  // and multiplePayments array (split payments).
+  const paymentMethodFilter = paymentMethod
+    ? {
+        $or: [
+          { paymentMethod: paymentMethod },
+          { "multiplePayments.paymentMethod": paymentMethod },
+        ],
+      }
+    : null;
+
   // DEBUG: Log the match criteria
   console.log("DEBUG Revenue API - clinicMatch:", clinicMatch);
   console.log("DEBUG Revenue API - dateMatch:", dateMatch);
+  console.log("DEBUG Revenue API - paymentMethodFilter:", paymentMethodFilter);
   
   const pageNum = Math.max(1, parseInt(paymentsPage || "1", 10));
   const pageSizeNum = Math.max(1, parseInt(paymentsPageSize || "10", 10));
@@ -188,7 +203,7 @@ export default async function handler(req, res) {
     // to Treatment/Service revenue (see treatmentRevenueAgg), so we subtract
     // it here to prevent double-counting.
     const packageRevenueAgg = await Billing.aggregate([
-      { $match: { ...clinicMatch, ...dateMatch, service: "Package" } },
+      { $match: { ...clinicMatch, ...dateMatch, service: "Package", ...(paymentMethodFilter || {}) } },
       // Exclude Package clearance billings that clear pending from a different
       // invoice (prevents double-counting with the original package billing)
       {
@@ -212,6 +227,30 @@ export default async function handler(req, res) {
           }
         }
       },
+      // Multi-payment method support: when a payment method filter is active,
+      // only count the portion paid by that method (from multiplePayments).
+      // Otherwise use the full paid amount.
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
+      },
       {
         $group: {
           _id: null,
@@ -220,7 +259,7 @@ export default async function handler(req, res) {
               $subtract: [
                 {
                   $add: [
-                    { $ifNull: ["$paid", 0] },
+                    { $ifNull: ["$__effectivePaid", 0] },
                     { $ifNull: ["$advanceUsed", 0] },
                     { $ifNull: ["$claimAmountUsed", 0] },
                     { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -296,8 +335,30 @@ export default async function handler(req, res) {
 
     // revenue component: advance-only payments
     const advanceRevenueAgg = await Billing.aggregate([
-      { $match: { ...clinicMatch, ...dateMatch, isAdvanceOnly: true } },
-      { $group: { _id: null, total: { $sum: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] }] } } } },
+      { $match: { ...clinicMatch, ...dateMatch, isAdvanceOnly: true, ...(paymentMethodFilter || {}) } },
+      // Multi-payment method support
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
+      },
+      { $group: { _id: null, total: { $sum: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] }] } } } },
     ]);
     const advanceRevenue = Math.round(Number(advanceRevenueAgg[0]?.total || 0));
 
@@ -350,7 +411,7 @@ export default async function handler(req, res) {
     // amount from being double-counted in both Treatment/Service and Package
     // revenue.
     const treatmentRevenueAgg = await Billing.aggregate([
-      { $match: { ...clinicMatch, ...dateMatch } },
+      { $match: { ...clinicMatch, ...dateMatch, ...(paymentMethodFilter || {}) } },
       {
         $lookup: {
           from: "appointments",
@@ -367,6 +428,28 @@ export default async function handler(req, res) {
           path: "$pendingClearedBreakdown",
           preserveNullAndEmptyArrays: true,
         },
+      },
+      // Multi-payment method support
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
       },
       // Derive effective amount per row:
       //   - Cleared item with Treatment/Service breakdown: amountCleared
@@ -405,7 +488,7 @@ export default async function handler(req, res) {
                   },
                   {
                     $add: [
-                      { $ifNull: ["$paid", 0] },
+                      { $ifNull: ["$__effectivePaid", 0] },
                       { $ifNull: ["$advanceUsed", 0] },
                       { $ifNull: ["$claimAmountUsed", 0] },
                       { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -462,6 +545,30 @@ export default async function handler(req, res) {
 
     const byDoctorAgg = await Billing.aggregate([
       ...basePipeline,
+      // Multi-payment method filter
+      ...(paymentMethodFilter ? [{ $match: paymentMethodFilter }] : []),
+      // Multi-payment method support
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
+      },
       // Lookup patient to extract packageSoldBy info for Package billings
       {
         $lookup: {
@@ -678,11 +785,11 @@ export default async function handler(req, res) {
           },
           // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
           { $subtract: [
-            { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+            { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
             { $ifNull: ["$pendingUsed", 0] }
           ] },
           // All other billings: use normal calculation
-          { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
+          { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
         ]
       } } },
       // DEBUG: Log billingPaid calculation
@@ -1211,11 +1318,11 @@ export default async function handler(req, res) {
                 },
                 // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
                 { $subtract: [
-                  { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+                  { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
                   { $ifNull: ["$pendingUsed", 0] }
                 ] },
                 // All other billings: use normal calculation
-                { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
+                { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
               ]
             } } },
             {
@@ -1473,7 +1580,7 @@ export default async function handler(req, res) {
                         $subtract: [
                           {
                             $add: [
-                              { $ifNull: ["$paid", 0] },
+                              { $ifNull: ["$__effectivePaid", 0] },
                               { $ifNull: ["$advanceUsed", 0] },
                               { $ifNull: ["$claimAmountUsed", 0] },
                               { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -1636,11 +1743,11 @@ export default async function handler(req, res) {
                       },
                       // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
                       { $subtract: [
-                        { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+                        { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
                         { $ifNull: ["$pendingUsed", 0] }
                       ] },
                       // All other billings: use normal calculation
-                      { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
+                      { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
                     ]
                   } } },
                   // Group by invoiceNumber to calculate total treatment amount for appointment-based treatments
@@ -2115,7 +2222,7 @@ export default async function handler(req, res) {
       // Calculate treatment portion amount and package portion amount
       {
         $addFields: {
-          billingPaid: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+          billingPaid: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
           treatmentAmount: {
             $sum: {
               $map: {
@@ -2777,6 +2884,7 @@ export default async function handler(req, res) {
         $match: {
           ...clinicMatch,
           ...dateMatch,
+          ...(paymentMethodFilter || {}),
         },
       },
       // 2. Lookup patient registration
@@ -2816,6 +2924,28 @@ export default async function handler(req, res) {
           preserveNullAndEmptyArrays: true,
         },
       },
+      // 4b. Multi-payment method support
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
+      },
       // 5. Derive effective service/treatment/amount for each row:
       //    - Non-cleared rows: use the billing's own service/treatment and the
       //      paid+advanceUsed+claimAmountUsed+cashbackWalletUsed total.
@@ -2852,7 +2982,7 @@ export default async function handler(req, res) {
                 $subtract: [
                   {
                     $add: [
-                      { $ifNull: ["$paid", 0] },
+                      { $ifNull: ["$__effectivePaid", 0] },
                       { $ifNull: ["$advanceUsed", 0] },
                       { $ifNull: ["$claimAmountUsed", 0] },
                       { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3004,7 +3134,7 @@ export default async function handler(req, res) {
               // Package billing with selectedTreatments: use proportional scaling
               {
                 $multiply: [
-                  { $ifNull: ["$paid", 0] },
+                  { $ifNull: ["$__effectivePaid", 0] },
                   {
                     $divide: [
                       {
@@ -3117,7 +3247,7 @@ export default async function handler(req, res) {
                         ],
                       },
                       "$effectiveAmountForService",
-                      "$paid",
+                      "$__effectivePaid",
                     ],
                   },
                 ],
@@ -3159,7 +3289,7 @@ export default async function handler(req, res) {
       // 1. Match clinic + date range (do not pre-filter by service type – we
       //    need Treatment/Service billings too because their breakdown may
       //    contain Package items that belong in this report).
-      { $match: { ...clinicMatch, ...dateMatch } },
+      { $match: { ...clinicMatch, ...dateMatch, ...(paymentMethodFilter || {}) } },
       // 2. Lookup patient registration
       {
         $lookup: {
@@ -3260,6 +3390,28 @@ export default async function handler(req, res) {
           },
         },
       },
+      // 2c. Multi-payment method support
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
+      },
       // 3. Unwind pendingClearedBreakdown (preserveNullAndEmptyArrays so
       //    billings without a breakdown keep flowing through the pipeline).
       {
@@ -3329,7 +3481,7 @@ export default async function handler(req, res) {
                         $subtract: [
                           {
                             $add: [
-                              { $ifNull: ["$paid", 0] },
+                              { $ifNull: ["$__effectivePaid", 0] },
                               { $ifNull: ["$advanceUsed", 0] },
                               { $ifNull: ["$claimAmountUsed", 0] },
                               { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3341,7 +3493,7 @@ export default async function handler(req, res) {
                             $multiply: [
                               {
                                 $add: [
-                                  { $ifNull: ["$paid", 0] },
+                                  { $ifNull: ["$__effectivePaid", 0] },
                                   { $ifNull: ["$advanceUsed", 0] },
                                   { $ifNull: ["$claimAmountUsed", 0] },
                                   { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3372,7 +3524,7 @@ export default async function handler(req, res) {
                       },
                       {
                         $add: [
-                          { $ifNull: ["$paid", 0] },
+                          { $ifNull: ["$__effectivePaid", 0] },
                           { $ifNull: ["$advanceUsed", 0] },
                           { $ifNull: ["$claimAmountUsed", 0] },
                           { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3398,7 +3550,7 @@ export default async function handler(req, res) {
                         $subtract: [
                           {
                             $add: [
-                              { $ifNull: ["$paid", 0] },
+                              { $ifNull: ["$__effectivePaid", 0] },
                               { $ifNull: ["$advanceUsed", 0] },
                               { $ifNull: ["$claimAmountUsed", 0] },
                               { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3421,7 +3573,7 @@ export default async function handler(req, res) {
                     $subtract: [
                       {
                         $add: [
-                          { $ifNull: ["$paid", 0] },
+                          { $ifNull: ["$__effectivePaid", 0] },
                           { $ifNull: ["$advanceUsed", 0] },
                           { $ifNull: ["$claimAmountUsed", 0] },
                           { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3453,7 +3605,7 @@ export default async function handler(req, res) {
                             $multiply: [
                               {
                                 $add: [
-                                  { $ifNull: ["$paid", 0] },
+                                  { $ifNull: ["$__effectivePaid", 0] },
                                   { $ifNull: ["$advanceUsed", 0] },
                                   { $ifNull: ["$claimAmountUsed", 0] },
                                   { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3788,7 +3940,30 @@ export default async function handler(req, res) {
         $match: {
           ...clinicMatch,
           ...dateMatch,
+          ...(paymentMethodFilter || {}),
         },
+      },
+      // 1b. Multi-payment method support
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: { $and: [
+                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
+                { $ne: [paymentMethod, ""] },
+                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+              ] },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
       },
       // 2. Lookup appointment (preserveNullAndEmptyArrays so billings without
       //    appointment are still resolved via the name lookup below)
@@ -3871,7 +4046,7 @@ export default async function handler(req, res) {
                 $subtract: [
                   {
                     $add: [
-                      { $ifNull: ["$paid", 0] },
+                      { $ifNull: ["$__effectivePaid", 0] },
                       { $ifNull: ["$advanceUsed", 0] },
                       { $ifNull: ["$claimAmountUsed", 0] },
                       { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -3965,7 +4140,7 @@ export default async function handler(req, res) {
       },
       // 6.5. Store billing-level paid amount before $unwind (for capping treatment amounts on partial payments)
       // Include advanceUsed to capture full revenue (paid + advanceUsed)
-      { $addFields: { billingPaid: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] } } },
+      { $addFields: { billingPaid: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] } } },
       // 6.6. Unwind selectedTreatments for Package billings to process each treatment independently
       {
         $unwind: {
@@ -4987,11 +5162,11 @@ export default async function handler(req, res) {
                   { $gt: [{ $ifNull: ["$pending", 0] }, 0] },
                   {
                     $add: [
-                      { $ifNull: ["$paid", 0] },
+                      { $ifNull: ["$__effectivePaid", 0] },
                       { $ifNull: [{ $arrayElemAt: ["$clearanceInfo.totalCleared", 0] }, 0] },
                     ],
                   },
-                  { $ifNull: ["$paid", 0] },
+                  { $ifNull: ["$__effectivePaid", 0] },
                 ],
               },
             ],
@@ -5274,7 +5449,7 @@ export default async function handler(req, res) {
           },
           fullPaid: {
             $add: [
-              { $ifNull: ["$paid", 0] },
+              { $ifNull: ["$__effectivePaid", 0] },
               { $ifNull: ["$advanceUsed", 0] },
               { $ifNull: ["$claimAmountUsed", 0] },
               { $ifNull: ["$cashbackWalletUsed", 0] },
@@ -5587,7 +5762,7 @@ export default async function handler(req, res) {
           },
           // Store billing-level paid amount before $unwind (for capping treatment amounts on partial payments)
           // Include advanceUsed to capture full revenue (paid + advanceUsed)
-          billingPaid: { $add: [{ $ifNull: ["$paid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+          billingPaid: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
         },
       },
       // For clearance-only billings, lookup original billing to determine if it was direct or appointment-based

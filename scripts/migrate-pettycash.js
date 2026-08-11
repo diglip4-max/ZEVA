@@ -17,10 +17,10 @@ const mongoose = require("mongoose");
 // Load environment variables
 try {
   require("dotenv").config({ path: path.resolve(process.cwd(), ".env.local") });
-} catch (_) {}
+} catch (_) { }
 try {
   require("dotenv").config();
-} catch (_) {}
+} catch (_) { }
 
 const argv = process.argv.slice(2);
 const isDryRun = argv.includes("--dry-run");
@@ -150,7 +150,7 @@ async function run() {
   if (!isDryRun) {
     console.log("Recalculating global totals for clinics...");
     const clinics = await pettyCashCollection.distinct("clinicId", { clinicId: { $ne: null } });
-    
+
     for (const clinicId of clinics) {
       // Find all records for this clinic
       const clinicRecords = await pettyCashCollection.find({ clinicId, staffId: { $ne: null } }).toArray();
