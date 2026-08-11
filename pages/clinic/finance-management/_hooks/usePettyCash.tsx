@@ -2,117 +2,119 @@ import React from "react";
 import { getTokenByPath } from "@/lib/helper";
 import axios from "axios";
 
-export interface Allocation {
-  _id?: string;
+export interface AllocationData {
+  _id: string;
+  pettyCashId: {
+    _id: string;
+    patient?: { name?: string; email?: string; phone?: string };
+    note?: string;
+  };
+  clinicId: string;
+  staffId: {
+    _id: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  };
   amount: number;
   receipts: string[];
   date: string;
-}
-
-export interface ExpenseLineItem {
-  itemName?: string;
-  amount?: number;
-}
-
-export interface Expense {
-  _id?: string;
-  description: string;
-  spentAmount: number;
-  vendor?: string | null;
-  vendorName?: string | null;
-  items?: ExpenseLineItem[];
-  receipts: string[];
-  usedFromPettyCash?: boolean;
-  date: string;
-}
-
-export interface StaffRef {
-  _id: string;
-  name?: string;
-  email?: string;
-}
-
-export interface PettyCashItem {
-  _id: string;
-  clinicId?: string;
-  staffId?: StaffRef | string | null;
-  patientName?: string;
-  patientEmail?: string;
-  patientPhone?: string;
-  note?: string;
-  allocatedAmounts: Allocation[];
-  expenses: Expense[];
-  totalAllocated: number;
-  totalSpent: number;
-  totalAmount: number;
-  globalTotalAmount?: number;
-  globalSpentAmount?: number;
+  createdBy: { _id: string; name?: string; email?: string; role?: string };
+  isVoided: boolean;
+  voidedBy?: { _id: string; name?: string; email?: string };
+  voidReason?: string;
+  voidedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface PettyCashSummary {
-  totalAllocated: number;
-  totalSpent: number;
-  totalBalance: number;
-  totalRecords: number;
-  availableCount: number;
-  overspentCount: number;
-  globalTotalAmount: number;
-  globalSpentAmount: number;
-  globalRemainingAmount: number;
+export interface ExpenseData {
+  _id: string;
+  pettyCashId: {
+    _id: string;
+    patient?: { name?: string; email?: string; phone?: string };
+    note?: string;
+  };
+  clinicId: string;
+  staffId: { _id: string; name?: string; email?: string; role?: string };
+  description: string;
+  spentAmount: number;
+  vendor?: { _id: string; name?: string; email?: string; phone?: string };
+  vendorName?: string;
+  items?: { itemName?: string; amount?: number }[];
+  receipts: string[];
+  usedFromPettyCash: boolean;
+  date: string;
+  createdBy: { _id: string; name?: string; email?: string; role?: string };
+  isVoided: boolean;
+  voidedBy?: { _id: string; name?: string; email?: string };
+  voidReason?: string;
+  voidedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface Pagination {
-  totalResults: number;
-  totalPages: number;
-  currentPage: number;
-  limit: number;
-  hasMore: boolean;
-}
-
-interface PettyCashListResponse {
+export interface PettyCashResponse {
   success: boolean;
-  message?: string;
-  data: PettyCashItem[];
-  summary: PettyCashSummary;
-  pagination: Pagination;
+  viewType: "all" | "allocations" | "expenses";
+  allocations: AllocationData[];
+  expenses: ExpenseData[];
+  allocationSummary: {
+    totalAllocated: number;
+    totalAllocations: number;
+    totalVoided: number;
+    averageAmount: number;
+    minAmount: number;
+    maxAmount: number;
+  } | null;
+  expenseSummary: {
+    totalSpent: number;
+    totalExpenses: number;
+    totalVoided: number;
+    averageSpent: number;
+    minSpent: number;
+    maxSpent: number;
+    uniqueVendors: number;
+    usedFromPettyCashCount: number;
+    notUsedFromPettyCashCount: number;
+  } | null;
+  combinedSummary: {
+    dailyBreakdown: { date: string; totalSpent: number; count: number }[];
+    topVendors: { vendorId: string; vendorName: string; totalSpent: number; expenseCount: number; averageAmount: number }[];
+  } | null;
+  pagination: {
+    totalResults: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+    hasMore: boolean;
+    filters: {
+      search: string | null;
+      startDate: string | null;
+      endDate: string | null;
+      vendorId: string | null;
+      showVoided: boolean;
+      viewType: string;
+    };
+  };
 }
-
-const DEFAULT_PAGINATION: Pagination = {
-  totalResults: 0,
-  totalPages: 1,
-  currentPage: 1,
-  limit: 20,
-  hasMore: false,
-};
-
-const DEFAULT_SUMMARY: PettyCashSummary = {
-  totalAllocated: 0,
-  totalSpent: 0,
-  totalBalance: 0,
-  totalRecords: 0,
-  availableCount: 0,
-  overspentCount: 0,
-  globalTotalAmount: 0,
-  globalSpentAmount: 0,
-  globalRemainingAmount: 0,
-};
 
 export interface UsePettyCashReturn {
   loading: boolean;
   error: string | null;
-  pettyCash: PettyCashItem[];
-  setPettyCash: React.Dispatch<React.SetStateAction<PettyCashItem[]>>;
-  summary: PettyCashSummary;
+  allocations: AllocationData[];
+  expenses: ExpenseData[];
+  allocationSummary: PettyCashResponse['allocationSummary'];
+  expenseSummary: PettyCashResponse['expenseSummary'];
+  combinedSummary: PettyCashResponse['combinedSummary'];
+  viewType: "all" | "allocations" | "expenses";
+  setViewType: (type: "all" | "allocations" | "expenses") => void;
   fetchPettyCash: () => Promise<void>;
-
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
-
   page: number;
   limit: number;
-  pagination: Pagination;
+  pagination: PettyCashResponse['pagination'];
   goToPage: (page: number) => void;
   nextPage: () => void;
   prevPage: () => void;
@@ -122,65 +124,82 @@ export interface UsePettyCashReturn {
 const usePettyCash = (): UsePettyCashReturn => {
   const token = getTokenByPath();
 
-  const [pettyCash, setPettyCash] = React.useState<PettyCashItem[]>([]);
+  const [allocations, setAllocations] = React.useState<AllocationData[]>([]);
+  const [expenses, setExpenses] = React.useState<ExpenseData[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [summary, setSummary] =
-    React.useState<PettyCashSummary>(DEFAULT_SUMMARY);
+  const [viewType, setViewType] = React.useState<"all" | "allocations" | "expenses">("all");
+  const [allocationSummary, setAllocationSummary] = React.useState<PettyCashResponse['allocationSummary']>(null);
+  const [expenseSummary, setExpenseSummary] = React.useState<PettyCashResponse['expenseSummary']>(null);
+  const [combinedSummary, setCombinedSummary] = React.useState<PettyCashResponse['combinedSummary']>(null);
 
-  // ---- Filters ----
+  // Filters
   const [search, setSearch] = React.useState<string>("");
   const [debouncedSearch, setDebouncedSearch] = React.useState<string>("");
 
-  // ---- Pagination ----
+  // Pagination
   const [page, setPage] = React.useState<number>(1);
   const [limit, setLimit] = React.useState<number>(20);
-  const [pagination, setPagination] =
-    React.useState<Pagination>(DEFAULT_PAGINATION);
+  const [pagination, setPagination] = React.useState<PettyCashResponse['pagination']>({
+    totalResults: 0,
+    totalPages: 1,
+    currentPage: 1,
+    limit: 20,
+    hasMore: false,
+    filters: {
+      search: null,
+      startDate: null,
+      endDate: null,
+      vendorId: null,
+      showVoided: false,
+      viewType: "all"
+    }
+  });
 
-  // Debounce search input (400ms) so we don't hit the API on every keystroke
+  // Debounce search
   React.useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 400);
     return () => clearTimeout(t);
   }, [search]);
 
-  // Reset to page 1 whenever the effective search term changes
   React.useEffect(() => {
     setPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, viewType]);
 
   const fetchPettyCash = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get<PettyCashListResponse>(
+      const res = await axios.get<PettyCashResponse>(
         "/api/finance-management/pettycash",
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
           params: {
+            viewType,
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
             page,
             limit,
           },
-        },
+        }
       );
-      const data = res.data;
-      if (data.success) {
-        setPettyCash(data.data || []);
-        setSummary(data.summary || DEFAULT_SUMMARY);
-        setPagination(data.pagination || DEFAULT_PAGINATION);
+
+      if (res.data.success) {
+        setAllocations(res.data.allocations || []);
+        setExpenses(res.data.expenses || []);
+        setAllocationSummary(res.data.allocationSummary);
+        setExpenseSummary(res.data.expenseSummary);
+        setCombinedSummary(res.data.combinedSummary);
+        setPagination(res.data.pagination);
       } else {
-        setError(data.message || "Failed to fetch petty cash");
+        setError("Failed to fetch data");
       }
     } catch (err: any) {
       console.error("Error fetching petty cash:", err);
-      setError(err?.response?.data?.message || "Failed to fetch petty cash");
+      setError(err?.response?.data?.message || "Failed to fetch data");
     } finally {
       setLoading(false);
     }
-  }, [token, debouncedSearch, page, limit]);
+  }, [token, debouncedSearch, page, limit, viewType]);
 
   React.useEffect(() => {
     fetchPettyCash();
@@ -191,7 +210,7 @@ const usePettyCash = (): UsePettyCashReturn => {
       const target = Math.min(Math.max(1, p), pagination.totalPages || 1);
       setPage(target);
     },
-    [pagination.totalPages],
+    [pagination.totalPages]
   );
 
   const nextPage = React.useCallback(() => {
@@ -210,14 +229,16 @@ const usePettyCash = (): UsePettyCashReturn => {
   return {
     loading,
     error,
-    pettyCash,
-    setPettyCash,
-    summary,
+    allocations,
+    expenses,
+    allocationSummary,
+    expenseSummary,
+    combinedSummary,
+    viewType,
+    setViewType,
     fetchPettyCash,
-
     search,
     setSearch,
-
     page,
     limit,
     pagination,

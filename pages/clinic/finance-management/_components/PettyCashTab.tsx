@@ -14,8 +14,16 @@ import {
   TrendingDown,
   Wallet,
   PieChart,
+  Plus,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
-import usePettyCash, { PettyCashItem, StaffRef } from "../_hooks/usePettyCash";
+import usePettyCash, {
+  PettyCashItem,
+  StaffRef,
+  AllocationData,
+  ExpenseData,
+} from "../_hooks/usePettyCash";
 import StatCard from "./StatCard";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
@@ -29,51 +37,46 @@ const formatDate = (d?: string): string =>
       })
     : "—";
 
-const getAssignedLabel = (item: PettyCashItem): string => {
-  if (!item.staffId) return "Global Pool";
-  if (typeof item.staffId === "string")
-    return `Staff #${item.staffId.slice(-6)}`;
-  const staff = item.staffId as StaffRef;
-  return staff.name || staff.email || `Staff #${staff._id.slice(-6)}`;
+const formatDateTime = (d?: string): string =>
+  d
+    ? new Date(d).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "—";
+
+const getStaffName = (staff: any): string => {
+  if (!staff) return "Global Pool";
+  if (typeof staff === "string") return `Staff #${staff.slice(-6)}`;
+  return staff.name || staff.email || `Staff #${staff._id?.slice(-6)}`;
 };
 
-type StatusValue = "Available" | "Overspent";
+type TabType = "all" | "allocations" | "expenses";
 
-const getStatus = (item: PettyCashItem): StatusValue =>
-  item.totalAmount >= 0 ? "Available" : "Overspent";
-
-type StatusFilterValue = "all" | StatusValue;
-
-const STATUS_FILTERS: { value: StatusFilterValue; label: string }[] = [
-  { value: "all", label: "All Status" },
-  { value: "Available", label: "Available" },
-  { value: "Overspent", label: "Overspent" },
+const TABS: { value: TabType; label: string; icon: React.ReactNode }[] = [
+  {
+    value: "all",
+    label: "All Activity",
+    icon: <PieChart className="w-4 h-4" />,
+  },
+  {
+    value: "allocations",
+    label: "Allocations",
+    icon: <ArrowUpRight className="w-4 h-4" />,
+  },
+  {
+    value: "expenses",
+    label: "Expenses",
+    icon: <ArrowDownRight className="w-4 h-4" />,
+  },
 ];
 
-function StatusPill({ status }: { status: StatusValue }) {
-  const map: Record<StatusValue, { dot: string; text: string; bg: string }> = {
-    Available: {
-      dot: "bg-teal-500",
-      text: "text-teal-700 dark:text-teal-400",
-      bg: "bg-teal-50 dark:bg-teal-950/50",
-    },
-    Overspent: {
-      dot: "bg-rose-500",
-      text: "text-rose-700 dark:text-rose-400",
-      bg: "bg-rose-50 dark:bg-rose-950/50",
-    },
-  };
-  const s = map[status];
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${s.bg} ${s.text}`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {status}
-    </span>
-  );
-}
-
+// ============================================================
+// RECEIPT LINKS COMPONENT
+// ============================================================
 function ReceiptLinks({ receipts }: { receipts: string[] }) {
   if (!receipts || receipts.length === 0) {
     return (
@@ -101,27 +104,244 @@ function ReceiptLinks({ receipts }: { receipts: string[] }) {
 }
 
 // ============================================================
+// ALLOCATION ROW COMPONENT
+// ============================================================
+function AllocationRow({
+  allocation,
+  currency,
+}: {
+  allocation: AllocationData;
+  currency: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const pettyCash = allocation.pettyCashId as any;
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <div
+        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button className="w-6 h-6 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
+                {getStaffName(allocation.staffId)}
+              </span>
+              {pettyCash && (
+                <span className="text-xs text-stone-400 dark:text-stone-500">
+                  {pettyCash.patient?.name || pettyCash.note || ""}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
+              <span>{formatDate(allocation.date)}</span>
+              <span>•</span>
+              <span>By: {allocation.createdBy?.name || "Unknown"}</span>
+              {allocation.isVoided && (
+                <span className="text-rose-500 dark:text-rose-400 font-semibold">
+                  (Voided)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <ReceiptLinks receipts={allocation.receipts || []} />
+          <span
+            className={`font-mono font-semibold text-sm ${
+              allocation.isVoided
+                ? "text-stone-400 dark:text-stone-500 line-through"
+                : "text-teal-600 dark:text-teal-400"
+            }`}
+          >
+            +{formatMoney(allocation.amount, currency)}
+          </span>
+          <ChevronRight
+            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+          />
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">
+                Petty Cash ID:
+              </span>
+              <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
+                {allocation.pettyCashId?._id || "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">
+                Created:
+              </span>
+              <span className="ml-2 text-stone-600 dark:text-stone-300">
+                {formatDateTime(allocation.createdAt)}
+              </span>
+            </div>
+            {allocation.voidReason && (
+              <div className="col-span-2">
+                <span className="text-rose-500 dark:text-rose-400">
+                  Void Reason:
+                </span>
+                <span className="ml-2 text-stone-600 dark:text-stone-300">
+                  {allocation.voidReason}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// EXPENSE ROW COMPONENT
+// ============================================================
+function ExpenseRow({
+  expense,
+  currency,
+}: {
+  expense: ExpenseData;
+  currency: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  const pettyCash = expense.pettyCashId as any;
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <div
+        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button className="w-6 h-6 rounded-full bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
+            <ArrowDownRight className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
+                {expense.description}
+              </span>
+              {expense.vendorName && (
+                <span className="text-xs text-stone-400 dark:text-stone-500">
+                  {expense.vendorName}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
+              <span>{formatDate(expense.date)}</span>
+              <span>•</span>
+              <span>By: {expense.createdBy?.name || "Unknown"}</span>
+              {expense.isVoided && (
+                <span className="text-rose-500 dark:text-rose-400 font-semibold">
+                  (Voided)
+                </span>
+              )}
+              {!expense.usedFromPettyCash && (
+                <span className="text-amber-500 dark:text-amber-400 font-semibold">
+                  (External)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <ReceiptLinks receipts={expense.receipts || []} />
+          <span
+            className={`font-mono font-semibold text-sm ${
+              expense.isVoided
+                ? "text-stone-400 dark:text-stone-500 line-through"
+                : "text-rose-500 dark:text-rose-400"
+            }`}
+          >
+            -{formatMoney(expense.spentAmount, currency)}
+          </span>
+          <ChevronRight
+            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+          />
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
+          <div className="space-y-2 text-sm">
+            {expense.items && expense.items.length > 0 && (
+              <div>
+                <span className="text-stone-400 dark:text-stone-500">
+                  Items:
+                </span>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {expense.items.map((item, i) => (
+                    <span
+                      key={i}
+                      className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
+                    >
+                      {item.itemName} - {formatMoney(item.amount, currency)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-stone-400 dark:text-stone-500">
+                  Petty Cash ID:
+                </span>
+                <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
+                  {expense.pettyCashId?._id || "N/A"}
+                </span>
+              </div>
+              <div>
+                <span className="text-stone-400 dark:text-stone-500">
+                  Created:
+                </span>
+                <span className="ml-2 text-stone-600 dark:text-stone-300">
+                  {formatDateTime(expense.createdAt)}
+                </span>
+              </div>
+              {expense.voidReason && (
+                <div className="col-span-2">
+                  <span className="text-rose-500 dark:text-rose-400">
+                    Void Reason:
+                  </span>
+                  <span className="ml-2 text-stone-600 dark:text-stone-300">
+                    {expense.voidReason}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // STATS CARDS SECTION
 // ============================================================
-
 interface StatsSectionProps {
-  summary: {
-    totalAllocated: number;
-    totalSpent: number;
-    totalBalance: number;
-    totalRecords: number;
-    availableCount: number;
-    overspentCount: number;
-    globalTotalAmount: number;
-    globalSpentAmount: number;
-    globalRemainingAmount: number;
-  };
+  viewType: TabType;
+  allocationSummary: any;
+  expenseSummary: any;
   loading: boolean;
 }
 
-const StatsSection: React.FC<StatsSectionProps> = ({ summary, loading }) => {
+const StatsSection: React.FC<StatsSectionProps> = ({
+  viewType,
+  allocationSummary,
+  expenseSummary,
+  loading,
+}) => {
   const { currency } = useCurrency();
-  if (loading || summary.totalRecords === 0) {
+
+  if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
@@ -140,47 +360,148 @@ const StatsSection: React.FC<StatsSectionProps> = ({ summary, loading }) => {
     );
   }
 
+  if (viewType === "allocations") {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Allocated"
+          value={formatMoney(allocationSummary?.totalAllocated || 0, currency)}
+          icon={<DollarSign />}
+          fromColor="#0d9488"
+          toColor="#14b8a6"
+          iconColor="text-white"
+          trend={`${allocationSummary?.totalAllocations || 0} allocations`}
+          trendPositive={true}
+        />
+        <StatCard
+          label="Average Allocation"
+          value={formatMoney(allocationSummary?.averageAmount || 0, currency)}
+          icon={<Wallet />}
+          fromColor="#7c3aed"
+          toColor="#8b5cf6"
+          iconColor="text-white"
+          trend="Per allocation"
+          trendPositive={true}
+        />
+        <StatCard
+          label="Min Allocation"
+          value={formatMoney(allocationSummary?.minAmount || 0, currency)}
+          icon={<ArrowUpRight />}
+          fromColor="#059669"
+          toColor="#10b981"
+          iconColor="text-white"
+          trend="Smallest amount"
+          trendPositive={true}
+        />
+        <StatCard
+          label="Max Allocation"
+          value={formatMoney(allocationSummary?.maxAmount || 0, currency)}
+          icon={<ArrowUpRight />}
+          fromColor="#dc2626"
+          toColor="#ef4444"
+          iconColor="text-white"
+          trend="Largest amount"
+          trendPositive={true}
+        />
+      </div>
+    );
+  }
+
+  if (viewType === "expenses") {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Spent"
+          value={formatMoney(expenseSummary?.totalSpent || 0, currency)}
+          icon={<TrendingDown />}
+          fromColor="#dc2626"
+          toColor="#ef4444"
+          iconColor="text-white"
+          trend={`${expenseSummary?.totalExpenses || 0} expenses`}
+          trendPositive={false}
+        />
+        <StatCard
+          label="Average Expense"
+          value={formatMoney(expenseSummary?.averageSpent || 0, currency)}
+          icon={<Wallet />}
+          fromColor="#7c3aed"
+          toColor="#8b5cf6"
+          iconColor="text-white"
+          trend="Per expense"
+          trendPositive={false}
+        />
+        <StatCard
+          label="Unique Vendors"
+          value={expenseSummary?.uniqueVendors || 0}
+          icon={<Users />}
+          fromColor="#059669"
+          toColor="#10b981"
+          iconColor="text-white"
+          trend="Different suppliers"
+          trendPositive={true}
+        />
+        <StatCard
+          label="Voided Expenses"
+          value={expenseSummary?.totalVoided || 0}
+          icon={<Receipt />}
+          fromColor="#dc2626"
+          toColor="#ef4444"
+          iconColor="text-white"
+          trend="Canceled transactions"
+          trendPositive={false}
+        />
+      </div>
+    );
+  }
+
+  // Combined view
+  const totalAllocated = allocationSummary?.totalAllocated || 0;
+  const totalSpent = expenseSummary?.totalSpent || 0;
+  const balance = totalAllocated - totalSpent;
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <StatCard
         label="Total Allocated"
-        value={formatMoney(summary.totalAllocated, currency)}
+        value={formatMoney(totalAllocated, currency)}
         icon={<DollarSign />}
         fromColor="#0d9488"
         toColor="#14b8a6"
         iconColor="text-white"
-        trend={`${summary.totalRecords} records`}
+        trend={`${allocationSummary?.totalAllocations || 0} allocations`}
         trendPositive={true}
       />
       <StatCard
         label="Total Spent"
-        value={formatMoney(summary.totalSpent, currency)}
+        value={formatMoney(totalSpent, currency)}
         icon={<TrendingDown />}
         fromColor="#dc2626"
         toColor="#ef4444"
         iconColor="text-white"
-        trend="From all allocations"
+        trend={`${expenseSummary?.totalExpenses || 0} expenses`}
         trendPositive={false}
       />
       <StatCard
-        label="Remaining Balance"
-        value={formatMoney(summary.totalBalance, currency)}
+        label="Balance"
+        value={formatMoney(balance, currency)}
         icon={<Wallet />}
+        fromColor={balance >= 0 ? "#059669" : "#dc2626"}
+        toColor={balance >= 0 ? "#10b981" : "#ef4444"}
+        iconColor="text-white"
+        trend={balance >= 0 ? "Available" : "Overspent"}
+        trendPositive={balance >= 0}
+      />
+      <StatCard
+        label="Voided"
+        value={
+          allocationSummary?.totalVoided + expenseSummary?.totalVoided || 0
+        }
+        icon={<CreditCard />}
         fromColor="#7c3aed"
         toColor="#8b5cf6"
         iconColor="text-white"
-        trend={`${summary.availableCount} available, ${summary.overspentCount} overspent`}
-        trendPositive={summary.totalBalance >= 0}
-      />
-      <StatCard
-        label="Global Pool"
-        value={formatMoney(summary.globalRemainingAmount, currency)}
-        icon={<PieChart />}
-        fromColor="#059669"
-        toColor="#10b981"
-        iconColor="text-white"
-        trend={`${formatMoney(summary.globalTotalAmount, currency)}  total`}
-        trendPositive={true}
+        trend="Total voided transactions"
+        trendPositive={false}
       />
     </div>
   );
@@ -189,14 +510,17 @@ const StatsSection: React.FC<StatsSectionProps> = ({ summary, loading }) => {
 // ============================================================
 // MAIN PETTY CASH TAB
 // ============================================================
-
 const PettyCashTab: React.FC = () => {
   const { currency } = useCurrency();
   const {
     loading,
     error,
-    pettyCash,
-    summary,
+    allocations,
+    expenses,
+    allocationSummary,
+    expenseSummary,
+    viewType,
+    setViewType,
     search,
     setSearch,
     page,
@@ -204,25 +528,13 @@ const PettyCashTab: React.FC = () => {
     pagination,
     nextPage,
     prevPage,
+    goToPage,
+    changeLimit,
   } = usePettyCash();
 
-  const [statusFilter, setStatusFilter] =
-    React.useState<StatusFilterValue>("all");
-  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
-
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const filteredRows = React.useMemo<PettyCashItem[]>(() => {
-    if (statusFilter === "all") return pettyCash;
-    return pettyCash.filter((item) => getStatus(item) === statusFilter);
-  }, [pettyCash, statusFilter]);
+  const [startDate, setStartDate] = React.useState<string>("");
+  const [endDate, setEndDate] = React.useState<string>("");
+  const [showVoided, setShowVoided] = React.useState<boolean>(false);
 
   const from = pagination.totalResults === 0 ? 0 : (page - 1) * limit + 1;
   const to = Math.min(page * limit, pagination.totalResults);
@@ -230,8 +542,37 @@ const PettyCashTab: React.FC = () => {
   return (
     <div className="space-y-7">
       {/* Stats Cards Section */}
-      <StatsSection summary={summary} loading={loading} />
+      <StatsSection
+        viewType={viewType}
+        allocationSummary={allocationSummary}
+        expenseSummary={expenseSummary}
+        loading={loading}
+      />
+
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm dark:shadow-stone-900/20 overflow-hidden transition-colors duration-300">
+        {/* Tabs */}
+        <div className="border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
+          <div className="flex items-center gap-1 p-1">
+            {TABS.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setViewType(tab.value)}
+                className={`
+                  flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+                  ${
+                    viewType === tab.value
+                      ? "bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-stone-900/20"
+                      : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-stone-800/50"
+                  }
+                `}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Filter bar */}
         <div className="p-5 border-b border-stone-200 dark:border-stone-700 flex flex-wrap items-center gap-2.5 bg-white dark:bg-stone-900">
           <div className="relative flex-1 min-w-[200px]">
@@ -239,272 +580,142 @@ const PettyCashTab: React.FC = () => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by patient name, email or phone…"
+              placeholder="Search…"
               className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-stone-900/20"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as StatusFilterValue)
-            }
+
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
-          >
-            {STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
+          />
+
+          <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+            <input
+              type="checkbox"
+              checked={showVoided}
+              onChange={(e) => setShowVoided(e.target.checked)}
+              className="rounded border-stone-300 dark:border-stone-600 text-teal-600 focus:ring-teal-500"
+            />
+            Show voided
+          </label>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto bg-white dark:bg-stone-900">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] text-stone-500 dark:text-stone-400 uppercase tracking-widest font-bold border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
-                <th className="px-5 py-3.5 font-bold w-10"></th>
-                <th className="px-5 py-3.5 font-bold">Assigned To</th>
-                <th className="px-5 py-3.5 font-bold text-right">Allocated</th>
-                <th className="px-5 py-3.5 font-bold text-right">Spent</th>
-                <th className="px-5 py-3.5 font-bold text-right">Balance</th>
-                <th className="px-5 py-3.5 font-bold">Status</th>
-                <th className="px-5 py-3.5 font-bold">Updated</th>
-                <th className="px-5 py-3.5 font-bold"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-16 text-center text-stone-400 dark:text-stone-500"
-                  >
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" />
-                    <span className="text-sm">Loading petty cash entries…</span>
-                  </td>
-                </tr>
+        {/* Content */}
+        <div className="bg-white dark:bg-stone-900">
+          {loading && (
+            <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+              <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" />
+              <span className="text-sm">Loading…</span>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="px-5 py-16 text-center text-rose-500 dark:text-rose-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && (
+            <>
+              {viewType === "allocations" && (
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {allocations.length === 0 ? (
+                    <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+                      <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+                      <span className="text-sm">No allocations found.</span>
+                    </div>
+                  ) : (
+                    allocations.map((alloc) => (
+                      <AllocationRow
+                        key={alloc._id}
+                        allocation={alloc}
+                        currency={currency}
+                      />
+                    ))
+                  )}
+                </div>
               )}
 
-              {!loading && error && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-16 text-center text-rose-500 dark:text-rose-400 text-sm"
-                  >
-                    {error}
-                  </td>
-                </tr>
+              {viewType === "expenses" && (
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {expenses.length === 0 ? (
+                    <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+                      <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+                      <span className="text-sm">No expenses found.</span>
+                    </div>
+                  ) : (
+                    expenses.map((exp) => (
+                      <ExpenseRow
+                        key={exp._id}
+                        expense={exp}
+                        currency={currency}
+                      />
+                    ))
+                  )}
+                </div>
               )}
 
-              {!loading && !error && filteredRows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="px-5 py-16 text-center text-stone-400 dark:text-stone-500"
-                  >
-                    <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
-                    <span className="text-sm">
-                      No petty cash entries found.
-                    </span>
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                !error &&
-                filteredRows.map((item, idx) => {
-                  const status = getStatus(item);
-                  const expanded = expandedIds.has(item._id);
-                  const secondaryLabel = item.patientName || item.note || null;
-                  const allocations = item.allocatedAmounts || [];
-                  const expenses = item.expenses || [];
-
-                  return (
-                    <React.Fragment key={item._id || idx}>
-                      <tr
-                        className={`${
-                          idx % 2 === 1
-                            ? "bg-stone-50/50 dark:bg-stone-800/30"
-                            : "bg-white dark:bg-stone-900"
-                        } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
-                      >
-                        <td className="px-5 py-3.5">
+              {viewType === "all" && (
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {/* Show combined activity */}
+                  {allocations.length === 0 && expenses.length === 0 ? (
+                    <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+                      <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+                      <span className="text-sm">No activity found.</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Expenses first (recent) */}
+                      {expenses.slice(0, 10).map((exp) => (
+                        <ExpenseRow
+                          key={exp._id}
+                          expense={exp}
+                          currency={currency}
+                        />
+                      ))}
+                      {/* Then allocations */}
+                      {allocations.slice(0, 5).map((alloc) => (
+                        <AllocationRow
+                          key={alloc._id}
+                          allocation={alloc}
+                          currency={currency}
+                        />
+                      ))}
+                      {allocations.length > 5 && (
+                        <div className="px-5 py-3 text-center">
                           <button
-                            onClick={() => toggleExpand(item._id)}
-                            className="w-8 h-8 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors shadow-sm dark:shadow-stone-900/20"
-                            aria-label={expanded ? "Collapse" : "Expand"}
+                            onClick={() => setViewType("allocations")}
+                            className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
                           >
-                            {expanded ? (
-                              <ChevronDown className="w-4 h-4" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4" />
-                            )}
+                            View all {allocations.length} allocations →
                           </button>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2 text-stone-800 dark:text-stone-100 font-medium">
-                            <Users className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500" />
-                            {getAssignedLabel(item)}
-                          </div>
-                          {secondaryLabel && (
-                            <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                              {secondaryLabel}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-teal-600 dark:text-teal-400">
-                          +{formatMoney(item.totalAllocated, currency)}
-                        </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold text-rose-500 dark:text-rose-400">
-                          −{formatMoney(item.totalSpent, currency)}
-                        </td>
-                        <td
-                          className={`px-5 py-3.5 text-right font-mono font-semibold ${
-                            status === "Available"
-                              ? "text-stone-800 dark:text-stone-100"
-                              : "text-rose-500 dark:text-rose-400"
-                          }`}
-                        >
-                          {formatMoney(item.totalAmount, currency)}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <StatusPill status={status} />
-                        </td>
-                        <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 font-mono text-xs whitespace-nowrap">
-                          {formatDate(item.updatedAt)}
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <button
-                            onClick={() => toggleExpand(item._id)}
-                            className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 whitespace-nowrap hover:underline"
-                          >
-                            {expanded ? "Hide" : "Details"}
-                          </button>
-                        </td>
-                      </tr>
-
-                      {expanded && (
-                        <tr className="bg-stone-50/70 dark:bg-stone-800/40">
-                          <td
-                            colSpan={8}
-                            className="px-5 py-5 border-t border-stone-200 dark:border-stone-700"
-                          >
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {/* Allocations */}
-                              <div>
-                                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">
-                                  <ArrowUpRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                                  Allocations ({allocations.length})
-                                </div>
-                                {allocations.length === 0 ? (
-                                  <div className="text-xs text-stone-400 dark:text-stone-500">
-                                    No allocations recorded yet.
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {allocations.map((alloc, i) => (
-                                      <div
-                                        key={alloc._id || i}
-                                        className="flex items-center justify-between bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2.5 shadow-sm dark:shadow-stone-900/20"
-                                      >
-                                        <div className="flex items-center gap-3">
-                                          <div className="w-7 h-7 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center shrink-0">
-                                            <ArrowUpRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                                          </div>
-                                          <div>
-                                            <div className="text-xs font-mono text-stone-400 dark:text-stone-500">
-                                              {formatDate(alloc.date)}
-                                            </div>
-                                            <ReceiptLinks
-                                              receipts={alloc.receipts}
-                                            />
-                                          </div>
-                                        </div>
-                                        <span className="font-mono font-semibold text-sm text-teal-600 dark:text-teal-400">
-                                          +{formatMoney(alloc.amount, currency)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Expenses */}
-                              <div>
-                                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">
-                                  <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-                                  Expenses ({expenses.length})
-                                </div>
-                                {expenses.length === 0 ? (
-                                  <div className="text-xs text-stone-400 dark:text-stone-500">
-                                    No expenses recorded yet.
-                                  </div>
-                                ) : (
-                                  <div className="space-y-2">
-                                    {expenses.map((exp, i) => (
-                                      <div
-                                        key={exp._id || i}
-                                        className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2.5 shadow-sm dark:shadow-stone-900/20"
-                                      >
-                                        <div className="flex items-start justify-between gap-3">
-                                          <div className="flex items-start gap-3">
-                                            <div className="w-7 h-7 rounded-full bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center shrink-0 mt-0.5">
-                                              <ArrowDownRight className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-                                            </div>
-                                            <div>
-                                              <div className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                                                {exp.description}
-                                              </div>
-                                              <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                                                {exp.vendorName || "No vendor"}{" "}
-                                                · {formatDate(exp.date)}
-                                              </div>
-                                              {exp.items &&
-                                                exp.items.length > 0 && (
-                                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                                    {exp.items.map((it, ii) => (
-                                                      <span
-                                                        key={ii}
-                                                        className="text-[10px] font-medium bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 rounded-full px-2 py-0.5"
-                                                      >
-                                                        {it.itemName}{" "}
-                                                        {it.amount
-                                                          ? `· ${formatMoney(it.amount, currency)}`
-                                                          : ""}
-                                                      </span>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              <div className="mt-1.5">
-                                                <ReceiptLinks
-                                                  receipts={exp.receipts}
-                                                />
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <span className="font-mono font-semibold text-sm text-rose-500 dark:text-rose-400 whitespace-nowrap">
-                                            −
-                                            {formatMoney(
-                                              exp.spentAmount,
-                                              currency,
-                                            )}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
+                        </div>
                       )}
-                    </React.Fragment>
-                  );
-                })}
-            </tbody>
-          </table>
+                      {expenses.length > 10 && (
+                        <div className="px-5 py-3 text-center border-t border-stone-100 dark:border-stone-800">
+                          <button
+                            onClick={() => setViewType("expenses")}
+                            className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
+                          >
+                            View all {expenses.length} expenses →
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Pagination footer */}
