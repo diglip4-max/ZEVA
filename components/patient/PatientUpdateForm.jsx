@@ -1663,7 +1663,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                                           setShowAddPackage(false);
                                           setSelectedPackageId("");
                                         }}
-                                        className="px-3 py-1.5 bg-gray-300 text-gray-700 text-[10px] font-medium rounded-lg hover:bg-gray-400 transition-colors"
+                                        className="px-3 py-1.5  text-black dark:text-black text-[10px] font-medium rounded-lg hover:bg-gray-400 transition-colors"
                                       >
                                         Cancel
                                       </button>
