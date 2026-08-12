@@ -54,6 +54,25 @@ export interface ExpenseData {
   updatedAt: string;
 }
 
+export interface CashIncomeData {
+  _id: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  patientName: string;
+  firstName: string;
+  lastName: string;
+  mobileNumber: string;
+  emrNumber: string;
+  service: string;
+  amount: number;
+  paid: number;
+  cashAmount: number;
+  paymentMethod: string;
+  multiplePayments: any[];
+  status: string;
+  invoicedBy: string;
+}
+
 export interface PettyCashResponse {
   success: boolean;
   viewType: "all" | "allocations" | "expenses";
@@ -73,13 +92,14 @@ export interface PettyCashResponse {
     expense: {
       totalSpent: number;
       totalExpenses: number;
+      pettyCashExpenseCount: number;
+      infoExpenseCount: number;
       totalVoided: number;
       averageSpent: number;
       minSpent: number;
       maxSpent: number;
       uniqueVendors: number;
-      usedFromPettyCashCount: number;
-      notUsedFromPettyCashCount: number;
+      vendorNames: string[];
     } | null;
     combined: {
       dailyBreakdown: { date: string; totalSpent: number; count: number }[];
@@ -109,22 +129,48 @@ export interface PettyCashResponse {
   };
 }
 
+export interface IncomeResponse {
+  success: boolean;
+  data: CashIncomeData[];
+  summary: {
+    totalCashIn: number;
+    totalTransactions: number;
+  };
+  pagination: {
+    totalResults: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+    hasMore: boolean;
+    filters: {
+      search: string | null;
+      startDate: string | null;
+      endDate: string | null;
+    };
+  };
+}
+
+export type ViewType = "all" | "allocations" | "expenses" | "income";
+
 export interface UsePettyCashReturn {
   loading: boolean;
   error: string | null;
   allocations: AllocationData[];
   expenses: ExpenseData[];
+  incomeData: CashIncomeData[];
   allocationSummary: PettyCashResponse["summaries"]["allocation"];
   expenseSummary: PettyCashResponse["summaries"]["expense"];
   combinedSummary: PettyCashResponse["summaries"]["combined"];
-  viewType: "all" | "allocations" | "expenses";
-  setViewType: (type: "all" | "allocations" | "expenses") => void;
+  incomeSummary: IncomeResponse["summary"] | null;
+  viewType: ViewType;
+  setViewType: (type: ViewType) => void;
   fetchPettyCash: () => Promise<void>;
+  fetchIncome: () => Promise<void>;
   search: string;
   setSearch: React.Dispatch<React.SetStateAction<string>>;
   page: number;
   limit: number;
-  pagination: PettyCashResponse["pagination"];
+  pagination: PettyCashResponse["pagination"] | IncomeResponse["pagination"] | null;
   goToPage: (page: number) => void;
   nextPage: () => void;
   prevPage: () => void;
@@ -146,17 +192,18 @@ const usePettyCash = (): UsePettyCashReturn => {
 
   const [allocations, setAllocations] = React.useState<AllocationData[]>([]);
   const [expenses, setExpenses] = React.useState<ExpenseData[]>([]);
+  const [incomeData, setIncomeData] = React.useState<CashIncomeData[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [viewType, setViewType] = React.useState<
-    "all" | "allocations" | "expenses"
-  >("all");
+  const [viewType, setViewType] = React.useState<ViewType>("all");
   const [allocationSummary, setAllocationSummary] =
     React.useState<PettyCashResponse["summaries"]["allocation"]>(null);
   const [expenseSummary, setExpenseSummary] =
     React.useState<PettyCashResponse["summaries"]["expense"]>(null);
   const [combinedSummary, setCombinedSummary] =
     React.useState<PettyCashResponse["summaries"]["combined"]>(null);
+  const [incomeSummary, setIncomeSummary] =
+    React.useState<IncomeResponse["summary"] | null>(null);
 
   // Filters
   const [search, setSearch] = React.useState<string>("");
@@ -166,22 +213,8 @@ const usePettyCash = (): UsePettyCashReturn => {
   const [page, setPage] = React.useState<number>(1);
   const [limit, setLimit] = React.useState<number>(20);
   const [pagination, setPagination] = React.useState<
-    PettyCashResponse["pagination"]
-  >({
-    totalResults: 0,
-    totalPages: 1,
-    currentPage: 1,
-    limit: 20,
-    hasMore: false,
-    filters: {
-      search: null,
-      startDate: null,
-      endDate: null,
-      vendorId: null,
-      showVoided: false,
-      viewType: "all",
-    },
-  });
+    PettyCashResponse["pagination"] | IncomeResponse["pagination"] | null
+  >(null);
 
   // Debounce search
   React.useEffect(() => {
@@ -202,24 +235,24 @@ const usePettyCash = (): UsePettyCashReturn => {
         {
           headers: { Authorization: `Bearer ${token}` },
           params: {
-            viewType,
+            viewType: viewType === "income" ? "all" : viewType,
             ...(debouncedSearch ? { search: debouncedSearch } : {}),
             page,
             limit,
           },
-        },
+        }
       );
 
       if (res.data.success) {
-        // Transform allocations to ensure numbers are properly parsed
+        // Transform allocations
         const transformedAllocations = (res.data.data?.allocations || []).map(
           (alloc) => ({
             ...alloc,
             amount: parseNumber(alloc.amount),
-          }),
+          })
         );
 
-        // Transform expenses to ensure numbers are properly parsed
+        // Transform expenses
         const transformedExpenses = (res.data.data?.expenses || []).map(
           (exp) => ({
             ...exp,
@@ -228,7 +261,7 @@ const usePettyCash = (): UsePettyCashReturn => {
               ...item,
               amount: parseNumber(item.amount),
             })),
-          }),
+          })
         );
 
         setAllocations(transformedAllocations);
@@ -238,13 +271,12 @@ const usePettyCash = (): UsePettyCashReturn => {
         if (res.data.summaries?.allocation) {
           setAllocationSummary({
             totalAllocated: parseNumber(
-              res.data.summaries.allocation.totalAllocated,
+              res.data.summaries.allocation.totalAllocated
             ),
-            totalAllocations:
-              res.data.summaries.allocation.totalAllocations || 0,
+            totalAllocations: res.data.summaries.allocation.totalAllocations || 0,
             totalVoided: res.data.summaries.allocation.totalVoided || 0,
             averageAmount: parseNumber(
-              res.data.summaries.allocation.averageAmount,
+              res.data.summaries.allocation.averageAmount
             ),
             minAmount: parseNumber(res.data.summaries.allocation.minAmount),
             maxAmount: parseNumber(res.data.summaries.allocation.maxAmount),
@@ -257,15 +289,14 @@ const usePettyCash = (): UsePettyCashReturn => {
           setExpenseSummary({
             totalSpent: parseNumber(res.data.summaries.expense.totalSpent),
             totalExpenses: res.data.summaries.expense.totalExpenses || 0,
+            pettyCashExpenseCount: res.data.summaries.expense.pettyCashExpenseCount || 0,
+            infoExpenseCount: res.data.summaries.expense.infoExpenseCount || 0,
             totalVoided: res.data.summaries.expense.totalVoided || 0,
             averageSpent: parseNumber(res.data.summaries.expense.averageSpent),
             minSpent: parseNumber(res.data.summaries.expense.minSpent),
             maxSpent: parseNumber(res.data.summaries.expense.maxSpent),
             uniqueVendors: res.data.summaries.expense.uniqueVendors || 0,
-            usedFromPettyCashCount:
-              res.data.summaries.expense.usedFromPettyCashCount || 0,
-            notUsedFromPettyCashCount:
-              res.data.summaries.expense.notUsedFromPettyCashCount || 0,
+            vendorNames: res.data.summaries.expense.vendorNames || [],
           });
         } else {
           setExpenseSummary(null);
@@ -273,18 +304,18 @@ const usePettyCash = (): UsePettyCashReturn => {
 
         if (res.data.summaries?.combined) {
           setCombinedSummary({
-            dailyBreakdown: (
-              res.data.summaries.combined.dailyBreakdown || []
-            ).map((day) => ({
-              ...day,
-              totalSpent: parseNumber(day.totalSpent),
-            })),
+            dailyBreakdown: (res.data.summaries.combined.dailyBreakdown || []).map(
+              (day) => ({
+                ...day,
+                totalSpent: parseNumber(day.totalSpent),
+              })
+            ),
             topVendors: (res.data.summaries.combined.topVendors || []).map(
               (vendor) => ({
                 ...vendor,
                 totalSpent: parseNumber(vendor.totalSpent),
                 averageAmount: parseNumber(vendor.averageAmount),
-              }),
+              })
             ),
           });
         } else {
@@ -303,21 +334,57 @@ const usePettyCash = (): UsePettyCashReturn => {
     }
   }, [token, debouncedSearch, page, limit, viewType]);
 
+  const fetchIncome = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.get<IncomeResponse>(
+        "/api/finance-management/pettycash-income",
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            ...(debouncedSearch ? { search: debouncedSearch } : {}),
+            page,
+            limit,
+          },
+        }
+      );
+
+      if (res.data.success) {
+        setIncomeData(res.data.data || []);
+        setIncomeSummary(res.data.summary || null);
+        setPagination(res.data.pagination);
+      } else {
+        setError("Failed to fetch income data");
+      }
+    } catch (err: any) {
+      console.error("Error fetching income:", err);
+      setError(err?.response?.data?.message || "Failed to fetch income");
+    } finally {
+      setLoading(false);
+    }
+  }, [token, debouncedSearch, page, limit]);
+
+  // Fetch based on view type
   React.useEffect(() => {
-    fetchPettyCash();
-  }, [fetchPettyCash]);
+    if (viewType === "income") {
+      fetchIncome();
+    } else {
+      fetchPettyCash();
+    }
+  }, [fetchPettyCash, fetchIncome, viewType]);
 
   const goToPage = React.useCallback(
     (p: number) => {
-      const target = Math.min(Math.max(1, p), pagination.totalPages || 1);
+      const target = Math.min(Math.max(1, p), pagination?.totalPages || 1);
       setPage(target);
     },
-    [pagination.totalPages],
+    [pagination?.totalPages]
   );
 
   const nextPage = React.useCallback(() => {
-    if (pagination.hasMore) setPage((p) => p + 1);
-  }, [pagination.hasMore]);
+    if (pagination?.hasMore) setPage((p) => p + 1);
+  }, [pagination?.hasMore]);
 
   const prevPage = React.useCallback(() => {
     setPage((p) => Math.max(1, p - 1));
@@ -333,12 +400,15 @@ const usePettyCash = (): UsePettyCashReturn => {
     error,
     allocations,
     expenses,
+    incomeData,
     allocationSummary,
     expenseSummary,
     combinedSummary,
+    incomeSummary,
     viewType,
     setViewType,
     fetchPettyCash,
+    fetchIncome,
     search,
     setSearch,
     page,
