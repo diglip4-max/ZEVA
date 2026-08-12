@@ -553,7 +553,9 @@ const CampaignsPage: NextPageWithLayout = () => {
               onClick={refreshCampaigns}
               disabled={isRefreshing}
               className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${
-                !isRefreshing ? "bg-white dark:bg-gray-800" : "bg-gray-200 dark:bg-gray-700"
+                !isRefreshing
+                  ? "bg-white dark:bg-gray-800"
+                  : "bg-gray-200 dark:bg-gray-700"
               } border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
             >
               <RefreshCcw
@@ -582,7 +584,9 @@ const CampaignsPage: NextPageWithLayout = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Campaigns</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Total Campaigns
+                  </p>
                   <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {formatNumber(totalCampaigns)}
                   </p>
@@ -595,7 +599,9 @@ const CampaignsPage: NextPageWithLayout = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">WhatsApp Campaigns</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    WhatsApp Campaigns
+                  </p>
                   <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {campaigns.filter((c) => c.type === "whatsapp").length}
                   </p>
@@ -609,7 +615,9 @@ const CampaignsPage: NextPageWithLayout = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Email Campaigns</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Email Campaigns
+                  </p>
                   <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {campaigns.filter((c) => c.type === "email").length}
                   </p>
@@ -623,7 +631,9 @@ const CampaignsPage: NextPageWithLayout = () => {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">SMS Campaigns</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    SMS Campaigns
+                  </p>
                   <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">
                     {campaigns.filter((c) => c.type === "sms").length}
                   </p>
@@ -743,8 +753,8 @@ const CampaignsPage: NextPageWithLayout = () => {
                               <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate max-w-[180px]">
                                 {campaign.name}
                               </h3>
-                              <p className="text-xs text-gray-500">
-                                {campaign.recipients?.length || 0} recipients
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {campaign.recipients.length} recipients
                               </p>
                             </div>
                           </div>
@@ -783,9 +793,9 @@ const CampaignsPage: NextPageWithLayout = () => {
                                 style={{ width: `${progress}%` }}
                               />
                             </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              {campaign.sentMessages || 0} of{" "}
-                              {campaign.totalMessages || 0} sent
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {campaign.sentMessages} of{" "}
+                              {campaign.totalMessages} sent
                             </div>
                           </div>
                         )}

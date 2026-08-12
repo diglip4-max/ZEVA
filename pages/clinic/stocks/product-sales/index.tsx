@@ -42,7 +42,6 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import AddProductSaleModal from "./_components/AddProductSaleModal";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { useCurrency } from "@/context/CurrencyContext";
 
@@ -401,27 +400,27 @@ const ProductSalesPage: NextPageWithLayout = () => {
   const clinicToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("clinicToken") ||
-      window.sessionStorage.getItem("clinicToken")
+        window.sessionStorage.getItem("clinicToken")
       : null;
   const doctorToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("doctorToken") ||
-      window.sessionStorage.getItem("doctorToken")
+        window.sessionStorage.getItem("doctorToken")
       : null;
   const agentToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("agentToken") ||
-      window.sessionStorage.getItem("agentToken")
+        window.sessionStorage.getItem("agentToken")
       : null;
   const staffToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("staffToken") ||
-      window.sessionStorage.getItem("staffToken")
+        window.sessionStorage.getItem("staffToken")
       : null;
   const userToken =
     typeof window !== "undefined"
       ? window.localStorage.getItem("userToken") ||
-      window.sessionStorage.getItem("userToken")
+        window.sessionStorage.getItem("userToken")
       : null;
 
   useEffect(() => {
@@ -449,7 +448,8 @@ const ProductSalesPage: NextPageWithLayout = () => {
     if (userRole === "clinic" || userRole === "doctor") {
       const fetchClinicPermissions = async () => {
         try {
-          const authToken = clinicToken || doctorToken || agentToken || staffToken || userToken;
+          const authToken =
+            clinicToken || doctorToken || agentToken || staffToken || userToken;
           if (!authToken) {
             if (!isMounted) return;
             setPermissions(noPerms);
@@ -461,14 +461,23 @@ const ProductSalesPage: NextPageWithLayout = () => {
           });
           if (!isMounted) return;
           if (res.data.success) {
-            if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+            if (
+              res.data.permissions === null ||
+              !Array.isArray(res.data.permissions) ||
+              res.data.permissions.length === 0
+            ) {
               setPermissions(allPerms);
             } else {
               let parentActions = {};
               const parentStockModule = res.data.permissions.find((p: any) => {
                 const mod = (p.module || "").toLowerCase();
                 const modKey = (p.moduleKey || "").toLowerCase();
-                return mod === "clinic_stock" || mod === "stock" || modKey === "clinic_stock" || modKey === "stock";
+                return (
+                  mod === "clinic_stock" ||
+                  mod === "stock" ||
+                  modKey === "clinic_stock" ||
+                  modKey === "stock"
+                );
               });
               if (parentStockModule && parentStockModule.actions) {
                 parentActions = parentStockModule.actions;
@@ -492,27 +501,34 @@ const ProductSalesPage: NextPageWithLayout = () => {
               if (!modulePermission) {
                 for (const parentModule of res.data.permissions) {
                   if (Array.isArray(parentModule.subModules)) {
-                    const foundInSubModule = parentModule.subModules.find((sm: any) => {
-                      const key = (sm.moduleKey || "").toLowerCase();
-                      const name = (sm.name || "").toLowerCase();
-                      return (
-                        key === "clinic_stock_product_sales" ||
-                        key === "product_sales" ||
-                        key === "sale_products" ||
-                        key === "sale-products" ||
-                        name === "clinic_stock_product_sales" ||
-                        name === "product sales" ||
-                        name === "product_sales" ||
-                        name === "product sale" ||
-                        name === "product_sale" ||
-                        name === "sale products" ||
-                        name === "sale_products" ||
-                        name === "sale product" ||
-                        name === "sale_product"
-                      );
-                    });
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        const key = (sm.moduleKey || "").toLowerCase();
+                        const name = (sm.name || "").toLowerCase();
+                        return (
+                          key === "clinic_stock_product_sales" ||
+                          key === "product_sales" ||
+                          key === "sale_products" ||
+                          key === "sale-products" ||
+                          name === "clinic_stock_product_sales" ||
+                          name === "product sales" ||
+                          name === "product_sales" ||
+                          name === "product sale" ||
+                          name === "product_sale" ||
+                          name === "sale products" ||
+                          name === "sale_products" ||
+                          name === "sale product" ||
+                          name === "sale_product"
+                        );
+                      },
+                    );
                     if (foundInSubModule) {
-                      modulePermission = { actions: { ...parentActions, ...foundInSubModule.actions } };
+                      modulePermission = {
+                        actions: {
+                          ...parentActions,
+                          ...foundInSubModule.actions,
+                        },
+                      };
                       break;
                     }
                   }
@@ -524,11 +540,26 @@ const ProductSalesPage: NextPageWithLayout = () => {
               }
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
-                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
-                const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
-                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
-                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
-                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
                 setPermissions({
                   canRead: moduleAll || moduleRead,
                   canCreate: moduleAll || moduleCreate,
@@ -536,7 +567,12 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   canDelete: moduleAll || moduleDelete,
                 });
               } else {
-                setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+                setPermissions({
+                  canRead: true,
+                  canCreate: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
               }
             }
           } else {
@@ -570,12 +606,19 @@ const ProductSalesPage: NextPageWithLayout = () => {
           const data = res.data;
           console.log("DEBUG product-sales agent permissions:", data);
           if (!isMounted) return;
-          if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
+          if (
+            !data?.permissions &&
+            data?.error?.includes("not found in agent permissions")
+          ) {
             setPermissions(allPerms);
             return;
           }
-          const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+          const actions =
+            data?.permissions?.actions || data?.data?.moduleActions || {};
+          const isTrue = (val: any) =>
+            val === true ||
+            val === "true" ||
+            String(val || "").toLowerCase() === "true";
           const canAll = isTrue(actions.all);
           setPermissions({
             canRead: canAll || isTrue(actions.read),
@@ -736,15 +779,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 New Sale
               </button>
             )}
-            {permissions.canCreate && (
-              <button
-                onClick={() => setIsAddSaleModalOpen(true)}
-                className="px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-lg text-sm font-medium hover:from-gray-900 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center sm:justify-start"
-              >
-                <PlusIcon className="w-4 h-4 mr-2" />
-                New Sale Modal
-              </button>
-            )}
+
             <button
               onClick={handleExport}
               disabled={exportLoading}
@@ -817,11 +852,15 @@ const ProductSalesPage: NextPageWithLayout = () => {
                     {stat.value}
                   </p>
                 </div>
-                <div className={`p-3 bg-${stat.color}-50 rounded-lg flex items-center justify-center w-12 h-12`}>
+                <div
+                  className={`p-3 bg-${stat.color}-50 rounded-lg flex items-center justify-center w-12 h-12`}
+                >
                   {stat.icon ? (
                     <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
                   ) : (
-                    <span className={`text-lg font-bold text-${stat.color}-600`}>
+                    <span
+                      className={`text-lg font-bold text-${stat.color}-600`}
+                    >
                       {getCurrencySymbol(currency)}
                     </span>
                   )}
@@ -903,14 +942,14 @@ const ProductSalesPage: NextPageWithLayout = () => {
               selectedStatus ||
               selectedPaymentStatus ||
               selectedPaymentMethodId) && (
-                <button
-                  onClick={resetFilters}
-                  className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-                >
-                  <X className="w-4 h-4" />
-                  Reset
-                </button>
-              )}
+              <button
+                onClick={resetFilters}
+                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-4 h-4" />
+                Reset
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1028,7 +1067,10 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
                   formatter={(value) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`, "Commission"];
+                    return [
+                      `${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`,
+                      "Commission",
+                    ];
                   }}
                 />
                 <Bar
@@ -1099,7 +1141,10 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
                   formatter={(value) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`, "Revenue"];
+                    return [
+                      `${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`,
+                      "Revenue",
+                    ];
                   }}
                 />
               </PieChart>
@@ -1168,7 +1213,10 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
                   formatter={(value, name) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`, name];
+                    return [
+                      `${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`,
+                      name,
+                    ];
                   }}
                   labelFormatter={(label) => label}
                 />
@@ -1383,22 +1431,25 @@ const ProductSalesPage: NextPageWithLayout = () => {
                           {/* Total */}
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <p className="text-sm font-bold text-gray-900 tabular-nums">
-                              {getCurrencySymbol(currency)} {sale.totalPrice.toFixed(2)}
+                              {getCurrencySymbol(currency)}{" "}
+                              {sale.totalPrice.toFixed(2)}
                             </p>
                           </td>
                           {/* Total Paid */}
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <p className="text-sm font-bold text-gray-900 tabular-nums">
-                              {getCurrencySymbol(currency)} {sale?.totalPaidAmount?.toFixed(2)}
+                              {getCurrencySymbol(currency)}{" "}
+                              {sale?.totalPaidAmount?.toFixed(2)}
                             </p>
                           </td>
 
                           {/* Commission */}
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             {sale.totalCommission &&
-                              sale.totalCommission > 0 ? (
+                            sale.totalCommission > 0 ? (
                               <p className="text-sm font-bold text-purple-600 tabular-nums">
-                                {getCurrencySymbol(currency)} {sale.totalCommission.toFixed(2)}
+                                {getCurrencySymbol(currency)}{" "}
+                                {sale.totalCommission.toFixed(2)}
                               </p>
                             ) : (
                               <p className="text-sm text-gray-400">-</p>
@@ -1423,10 +1474,11 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                   e.stopPropagation();
                                   toggleRowExpansion(sale._id);
                                 }}
-                                className={`p-2 rounded-lg transition-all ${expandedRows[sale._id]
+                                className={`p-2 rounded-lg transition-all ${
+                                  expandedRows[sale._id]
                                     ? "text-blue-600 bg-blue-50"
                                     : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                                  }`}
+                                }`}
                                 title="View Details"
                               >
                                 {expandedRows[sale._id] ? (
@@ -1495,14 +1547,16 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                               {item.quantity}
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-600">
-                                              {getCurrencySymbol(currency)} {item.unitPrice.toFixed(2)}
+                                              {getCurrencySymbol(currency)}{" "}
+                                              {item.unitPrice.toFixed(2)}
                                             </td>
                                             <td className="px-4 py-3 text-right font-bold text-gray-900">
-                                              {getCurrencySymbol(currency)} {item.totalPrice.toFixed(2)}
+                                              {getCurrencySymbol(currency)}{" "}
+                                              {item.totalPrice.toFixed(2)}
                                             </td>
                                             <td className="px-4 py-3 text-right text-purple-600 font-semibold">
                                               {item.commission &&
-                                                item.commission > 0
+                                              item.commission > 0
                                                 ? `${getCurrencySymbol(currency)} ${item.commission.toFixed(2)}`
                                                 : "-"}
                                             </td>
@@ -1519,7 +1573,8 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                           Sale Total
                                         </td>
                                         <td className="px-4 py-3 text-right text-sm font-bold text-teal-700">
-                                          {getCurrencySymbol(currency)} {sale.totalPrice.toFixed(2)}
+                                          {getCurrencySymbol(currency)}{" "}
+                                          {sale.totalPrice.toFixed(2)}
                                         </td>
                                       </tr>
                                     </tfoot>
@@ -1582,13 +1637,6 @@ const ProductSalesPage: NextPageWithLayout = () => {
           )}
         </div>
       </div>
-
-      {/* Add sale modal */}
-      <AddProductSaleModal
-        isOpen={isOpenAddSaleModalOpen}
-        onClose={() => setIsAddSaleModalOpen(false)}
-        onSuccess={handleSaleSuccess}
-      />
     </div>
   );
 };
