@@ -40,7 +40,8 @@ async function getNextAvailableProductSaleInvoiceNo(clinicId) {
 const ProductSaleSchema = new mongoose.Schema(
   {
     clinicId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Clinic",
       required: true,
     },
     invoiceNo: {

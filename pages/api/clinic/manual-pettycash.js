@@ -7,37 +7,14 @@ import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 import mongoose from "mongoose";
 import PettyCash from "../../../models/PettyCash";
 import PettyCashExpense from "../../../models/PettyCashExpense";
-
-// Inline schema for manual clinic petty cash (stored in a simple collection)
-const ManualPettyCashSchema = new mongoose.Schema(
-  {
-    clinicId: { type: mongoose.Schema.Types.ObjectId, ref: "Clinic", required: true, index: true },
-    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    name: { type: String, required: true, trim: true },
-    amount: { type: Number, required: true },
-    note: { type: String, default: "" },
-    isExpense: { type: Boolean, default: false },
-    vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier" },
-    vendorName: { type: String },
-    items: [{
-      itemName: { type: String },
-      amount: { type: Number }
-    }],
-    images: [{ type: String }],
-    usedFromPettyCash: { type: Boolean, default: true }
-  },
-  { timestamps: true }
-);
-
-const ManualPettyCash =
-  mongoose.models.ManualPettyCash ||
-  mongoose.model("ManualPettyCash", ManualPettyCashSchema);
+import ManualPettyCash from "../../../models/ManualPettyCash";
 
 export default async function handler(req, res) {
   await dbConnect();
 
   const me = await getUserFromReq(req);
-  if (!me) return res.status(401).json({ success: false, message: "Unauthorized" });
+  if (!me)
+    return res.status(401).json({ success: false, message: "Unauthorized" });
 
   const { clinicId, error: clinicError } = await getClinicIdFromUser(me);
   if (clinicError && me.role !== "admin") {
@@ -54,7 +31,10 @@ export default async function handler(req, res) {
 
       // No role-based restrictions - all clinic entries are visible
       const baseFilter = clinicId
-        ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)), isExpense: false }
+        ? {
+            clinicId: new mongoose.Types.ObjectId(String(clinicId)),
+            isExpense: false,
+          }
         : { isExpense: false };
 
       const listFilter = { ...baseFilter };
@@ -77,30 +57,42 @@ export default async function handler(req, res) {
       const expensesFilter = {
         clinicId: new mongoose.Types.ObjectId(String(clinicId)),
         isVoided: false,
-        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {})
+        ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
       };
 
-      const [entries, total, pettyCashGlobal, manualSummary, pettyCashExpenses] = await Promise.all([
-        ManualPettyCash.find(listFilter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+      const [
+        entries,
+        total,
+        pettyCashGlobal,
+        manualSummary,
+        pettyCashExpenses,
+      ] = await Promise.all([
+        ManualPettyCash.find(listFilter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limitNum)
+          .lean(),
         ManualPettyCash.countDocuments(listFilter),
         PettyCash.getGlobalAmounts(clinicId),
         ManualPettyCash.aggregate([
           { $match: listFilter }, // Use listFilter (with date restriction) for the sum
-          { $group: { _id: null, total: { $sum: "$amount" } } }
+          { $group: { _id: null, total: { $sum: "$amount" } } },
         ]),
-        PettyCashExpense.find(expensesFilter).lean({ getters: true })
+        PettyCashExpense.find(expensesFilter).lean({ getters: true }),
       ]);
 
       // Total sum across filtered records
-      const manualTotalSum = manualSummary.length > 0 ? manualSummary[0].total : 0;
+      const manualTotalSum =
+        manualSummary.length > 0 ? manualSummary[0].total : 0;
 
       // GRAND totals (unfiltered by date — for Total Cash In card)
       // Grand manual total: sum of ALL manual entries (no date filter)
       const grandManualAgg = await ManualPettyCash.aggregate([
         { $match: { ...baseFilter } },
-        { $group: { _id: null, total: { $sum: "$amount" } } }
+        { $group: { _id: null, total: { $sum: "$amount" } } },
       ]);
-      const grandManualTotal = grandManualAgg.length > 0 ? grandManualAgg[0].total : 0;
+      const grandManualTotal =
+        grandManualAgg.length > 0 ? grandManualAgg[0].total : 0;
 
       const parseAmt = (val) => {
         if (!val) return 0;
@@ -109,20 +101,28 @@ export default async function handler(req, res) {
       };
 
       // Grand expense total: read from global PettyCash record's globalSpentAmount
-      const globalPettyCash = await PettyCash.findOne({ clinicId: new mongoose.Types.ObjectId(String(clinicId)), staffId: null }).select("globalSpentAmount").lean();
-      const grandExpenseTotal = globalPettyCash && globalPettyCash.globalSpentAmount ? parseAmt(globalPettyCash.globalSpentAmount) : 0;
+      const globalPettyCash = await PettyCash.findOne({
+        clinicId: new mongoose.Types.ObjectId(String(clinicId)),
+        staffId: null,
+      })
+        .select("globalSpentAmount")
+        .lean();
+      const grandExpenseTotal =
+        globalPettyCash && globalPettyCash.globalSpentAmount
+          ? parseAmt(globalPettyCash.globalSpentAmount)
+          : 0;
 
       // FILTERED expense total (date-filtered, for the dashboard cards)
       let calculatedExpenseTotal = 0;
       const expensesRaw = [];
 
-      pettyCashExpenses.forEach(exp => {
+      pettyCashExpenses.forEach((exp) => {
         const amt = parseAmt(exp.spentAmount);
         expensesRaw.push({
           ...exp,
           _id: exp._id ? exp._id.toString() : null,
           isExpense: true,
-          spentAmount: amt
+          spentAmount: amt,
         });
         calculatedExpenseTotal += amt;
       });
@@ -149,7 +149,10 @@ export default async function handler(req, res) {
         pettyCashGlobal: {
           ...pettyCashGlobal,
           globalSpentAmount: calculatedExpenseTotal, // Override with filtered total for the dashboard
-          expenses: expensesRaw.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt))
+          expenses: expensesRaw.sort(
+            (a, b) =>
+              new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt),
+          ),
         },
       });
     } catch (err) {
@@ -170,20 +173,24 @@ export default async function handler(req, res) {
         vendorName,
         items = [],
         images = [],
-        usedFromPettyCash = true
+        usedFromPettyCash = true,
       } = req.body;
 
       if (!name || !name.trim()) {
-        return res.status(400).json({ success: false, message: "Name is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Name is required" });
       }
 
       const amt = parseFloat(amount);
       if (isNaN(amt)) {
-        return res.status(400).json({ success: false, message: "Valid amount is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Valid amount is required" });
       }
 
       // If it's an expense and used from petty cash, we store it as a negative amount to deduct from total
-      const finalAmount = (isExpense && usedFromPettyCash) ? -Math.abs(amt) : amt;
+      const finalAmount = isExpense && usedFromPettyCash ? -Math.abs(amt) : amt;
 
       const entry = await ManualPettyCash.create({
         clinicId: new mongoose.Types.ObjectId(String(clinicId)),
@@ -192,11 +199,13 @@ export default async function handler(req, res) {
         amount: finalAmount,
         note: note || "",
         isExpense,
-        vendorId: vendorId ? new mongoose.Types.ObjectId(String(vendorId)) : undefined,
+        vendorId: vendorId
+          ? new mongoose.Types.ObjectId(String(vendorId))
+          : undefined,
         vendorName,
         items,
         images,
-        usedFromPettyCash
+        usedFromPettyCash,
       });
 
       return res.status(201).json({
@@ -212,7 +221,7 @@ export default async function handler(req, res) {
           vendorName: entry.vendorName,
           items: entry.items,
           images: entry.images,
-          usedFromPettyCash: entry.usedFromPettyCash
+          usedFromPettyCash: entry.usedFromPettyCash,
         },
       });
     } catch (err) {
@@ -221,5 +230,7 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(405).json({ success: false, message: "Method Not Allowed" });
+  return res
+    .status(405)
+    .json({ success: false, message: "Method Not Allowed" });
 }

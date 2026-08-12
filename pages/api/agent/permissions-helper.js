@@ -229,7 +229,10 @@ export async function checkAgentPermission(
         return { hasPermission: true, error: null };
       }
 
-      return { hasPermission: false, error: `Permission denied: ${action} action not allowed for submodule ${subModuleName}` };
+      return {
+        hasPermission: false,
+        error: `Permission denied: ${action} action not allowed for submodule ${subModuleName}`,
+      };
     }
 
     // Check module-level permission
@@ -259,7 +262,10 @@ export async function checkAgentPermission(
       return { hasPermission: true, error: null };
     }
 
-    return { hasPermission: false, error: `Permission denied: ${action} action not allowed for module ${moduleKey}` };
+    return {
+      hasPermission: false,
+      error: `Permission denied: ${action} action not allowed for module ${moduleKey}`,
+    };
   } catch (error) {
     // console.error("Error checking agent permission:", error);
     return { hasPermission: false, error: "Error checking permissions" };
