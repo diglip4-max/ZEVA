@@ -264,10 +264,21 @@ async function updateCampaign(req, res, campaignId) {
           // find lead by phone number
           let lead;
           if (leadsData[i].phone) {
+            const withPlusNumber = leadsData[i].phone.startsWith("+")
+              ? leadsData[i].phone
+              : `+${leadsData[i].phone}`;
+            const withoutPlusNumber = withPlusNumber.replace("+", "");
+            console.log({ withPlusNumber, withoutPlusNumber });
             lead = await Lead.findOne({
               clinicId: campaign.clinicId,
-              phone: leadsData[i].phone,
+              phone: withoutPlusNumber,
             });
+            if (withPlusNumber && !lead) {
+              lead = await Lead.findOne({
+                clinicId: campaign.clinicId,
+                phone: withPlusNumber,
+              });
+            }
           } else if (leadsData[i].email) {
             lead = await Lead.findOne({
               clinicId: campaign.clinicId,
@@ -282,12 +293,19 @@ async function updateCampaign(req, res, campaignId) {
           } else {
             newSegment.leads.push(lead?._id);
           }
+
+          // remove duplicate leads from segment
+          newSegment.leads = [
+            ...new Set(newSegment.leads.map((id) => id.toString())),
+          ];
+
           await newSegment.save();
         }
 
         campaign.segmentId = newSegment._id;
         campaign.recipients = newSegment.leads;
         await campaign.save();
+        console.log({ recCampaign: campaign.recipients });
       }
 
       // if campaign type is whatsapp then schedule it
