@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { FC, useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import axios from "axios";
+import useZevaConnect from "@/hooks/useZevaConnect";
 
 interface NavItemChild {
   label: string;
@@ -22,7 +23,7 @@ interface NavItem extends NavItemChild {
   moduleKey?: string;
   permissions?: Record<string, boolean> | null;
 }
- 
+
 interface NavigationItemFromAPI {
   _id: string;
   label: string;
@@ -59,6 +60,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
   handleItemClick,
 }) => {
   const router = useRouter();
+  const { handleZevaConnect } = useZevaConnect();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
@@ -80,11 +82,13 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       try {
         const agentToken =
           typeof window !== "undefined"
-            ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+            ? localStorage.getItem("agentToken") ||
+              sessionStorage.getItem("agentToken")
             : null;
         const userToken =
           typeof window !== "undefined"
-            ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+            ? localStorage.getItem("userToken") ||
+              sessionStorage.getItem("userToken")
             : null;
         const token = agentToken || userToken;
 
@@ -100,7 +104,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
         if (res.data.success) {
           // Convert API navigation items to NavItem format
-          const convertedItems: NavItem[] = (res.data.navigationItems || []).map((item: NavigationItemFromAPI): NavItem => {
+          const convertedItems: NavItem[] = (
+            res.data.navigationItems || []
+          ).map((item: NavigationItemFromAPI): NavItem => {
             const navItem: NavItem = {
               label: item.label,
               path: item.path,
@@ -112,14 +118,31 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
             // Convert subModules to children
             if (item.subModules && item.subModules.length > 0) {
-              navItem.children = item.subModules.map((subModule: { name: string; path?: string; icon: string; order: number; permissions?: Record<string, boolean> | null }): NavItemChild => ({
-                label: subModule.name,
-                path: subModule.path,
-                icon: subModule.icon,
-                description: subModule.name,
-                order: subModule.order,
-                permissions: subModule.permissions || null,
-              }));
+              navItem.children = item.subModules.map(
+                (subModule: {
+                  name: string;
+                  path?: string;
+                  icon: string;
+                  order: number;
+                  permissions?: Record<string, boolean> | null;
+                }): NavItemChild => ({
+                  label: subModule.name,
+                  path: subModule.path,
+                  icon: subModule.icon,
+                  description: subModule.name,
+                  order: subModule.order,
+                  permissions: subModule.permissions || null,
+                  ...(item.moduleKey === "clinic_zeva_connect" && {
+                    // if path is clinic_team_chat, then add onClick event
+                    onClick:
+                      // @ts-ignore
+                      subModule?.moduleKey === "clinic_team_chat" ||
+                      subModule?.name === "Team Chat"
+                        ? handleZevaConnect
+                        : undefined,
+                  }),
+                }),
+              );
             }
 
             // Add module-level permissions
@@ -132,7 +155,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
           // Sort by order
           convertedItems.sort((a, b) => (a.order || 0) - (b.order || 0));
-          convertedItems.forEach(item => {
+          convertedItems.forEach((item) => {
             if (item.children) {
               item.children.sort((a, b) => (a.order || 0) - (b.order || 0));
             }
@@ -158,70 +181,81 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       fetchNavigationAndPermissions();
     };
 
-    router.events.on('routeChangeComplete', handleRouteChange);
-    
+    router.events.on("routeChangeComplete", handleRouteChange);
+
     return () => {
-      router.events.off('routeChangeComplete', handleRouteChange);
+      router.events.off("routeChangeComplete", handleRouteChange);
     };
   }, [router]);
 
   // Helper function to check if any permissions are enabled
-  const hasAnyPermission = (permissions: Record<string, boolean> | null | undefined): boolean => {
+  const hasAnyPermission = (
+    permissions: Record<string, boolean> | null | undefined,
+  ): boolean => {
     if (!permissions) return false;
-    return Object.values(permissions).some(val => val === true);
+    return Object.values(permissions).some((val) => val === true);
   };
 
   const filteredItems = useMemo(() => {
     // Add Dashboard item at the beginning
     const dashboardItem: NavItem = {
-      label: 'Dashboard',
-      path: '/staff/dashboard',
-      icon: '📊',
-      description: 'Staff Dashboard',
+      label: "Dashboard",
+      path: "/staff/dashboard",
+      icon: "📊",
+      description: "Staff Dashboard",
       order: 0,
     };
 
     // Filter navigation items based on permissions
-    const apiItems = navigationItems.map(item => {
-      // Filter out sub-modules with no permissions
-      const filteredChildren = item.children?.filter(child => {
-        // Keep child if it has any permission enabled
-        return hasAnyPermission(child.permissions);
+    const apiItems = navigationItems
+      .map((item) => {
+        // Filter out sub-modules with no permissions
+        const filteredChildren = item.children?.filter((child) => {
+          // Keep child if it has any permission enabled
+          return hasAnyPermission(child.permissions);
+        });
+
+        return {
+          ...item,
+          children:
+            filteredChildren && filteredChildren.length > 0
+              ? filteredChildren
+              : undefined,
+        };
+      })
+      .filter((item) => {
+        // Remove items with no path and no children (empty modules)
+        if (!item.path && (!item.children || item.children.length === 0)) {
+          return false;
+        }
+
+        // For parent modules with children, check if any child has permissions
+        if (item.children && item.children.length > 0) {
+          // Check if module-level permissions exist
+          const hasModulePerms = hasAnyPermission(item.permissions);
+
+          // Check if any child has permissions
+          const hasChildPerms = item.children.some((child) =>
+            hasAnyPermission(child.permissions),
+          );
+
+          // Only show if module has permissions OR any child has permissions
+          return hasModulePerms || hasChildPerms;
+        }
+
+        // For single modules (no children), check if module has permissions
+        if (item.permissions) {
+          return hasAnyPermission(item.permissions);
+        }
+
+        return true;
       });
-
-      return {
-        ...item,
-        children: filteredChildren && filteredChildren.length > 0 ? filteredChildren : undefined,
-      };
-    }).filter(item => {
-      // Remove items with no path and no children (empty modules)
-      if (!item.path && (!item.children || item.children.length === 0)) {
-        return false;
-      }
-
-      // For parent modules with children, check if any child has permissions
-      if (item.children && item.children.length > 0) {
-        // Check if module-level permissions exist
-        const hasModulePerms = hasAnyPermission(item.permissions);
-        
-        // Check if any child has permissions
-        const hasChildPerms = item.children.some(child => hasAnyPermission(child.permissions));
-        
-        // Only show if module has permissions OR any child has permissions
-        return hasModulePerms || hasChildPerms;
-      }
-
-      // For single modules (no children), check if module has permissions
-      if (item.permissions) {
-        return hasAnyPermission(item.permissions);
-      }
-
-      return true;
-    });
 
     // Prepend Dashboard item at the beginning
     return [dashboardItem, ...apiItems];
   }, [navigationItems]);
+
+  console.log({ filteredItems });
 
   return (
     <>
@@ -233,12 +267,22 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           {
             "lg:block": isDesktopHidden,
             "lg:hidden": !isDesktopHidden,
-          }
+          },
         )}
         aria-label="Toggle desktop sidebar"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        <svg
+          className="w-5 h-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4 6h16M4 12h16M4 18h16"
+          />
         </svg>
       </button>
 
@@ -258,9 +302,15 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
           },
-          className
+          className,
         )}
-        style={{ height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 30 }}
+        style={{
+          height: "100vh",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          zIndex: 30,
+        }}
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-200 flex-shrink-0 relative">
@@ -269,8 +319,12 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                 <span className="font-semibold text-sm">AG</span>
               </div>
               <div>
-                <span className="font-semibold text-sm text-slate-900 block">Agent Portal</span>
-                <span className="text-xs text-sky-600 font-medium">Lead management</span>
+                <span className="font-semibold text-sm text-slate-900 block">
+                  Agent Portal
+                </span>
+                <span className="text-xs text-sky-600 font-medium">
+                  Lead management
+                </span>
               </div>
             </div>
 
@@ -279,8 +333,18 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               className="absolute right-4 top-4 bg-slate-100 text-slate-500 p-2 rounded-lg hover:bg-slate-200 transition-all duration-300"
               aria-label="Close sidebar"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -298,7 +362,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                   const isDropdownOpen = openDropdown === item.label;
                   // Use exact path matching - only match if pathname exactly equals item.path
                   // Clear selectedItem when route changes to ensure pathname-based matching
-                  const isActive = item.path ? router.pathname === item.path : false;
+                  const isActive = item.path
+                    ? router.pathname === item.path
+                    : false;
                   const isHovered = hoveredItem === item.path;
 
                   if (item.children && item.children.length > 0) {
@@ -309,8 +375,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2",
                             {
                               "bg-sky-600 text-white shadow-sm": isDropdownOpen,
-                              "hover:bg-slate-50 text-slate-700 hover:text-slate-900": !isDropdownOpen,
-                            }
+                              "hover:bg-slate-50 text-slate-700 hover:text-slate-900":
+                                !isDropdownOpen,
+                            },
                           )}
                           onClick={() => {
                             setOpenDropdown(isDropdownOpen ? null : item.label);
@@ -321,20 +388,28 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               {item.icon}
                             </div>
                             <div className="flex-1">
-                              <div className="font-medium text-xs">{item.label}</div>
+                              <div className="font-medium text-xs">
+                                {item.label}
+                              </div>
                               {item.description && (
-                                <div className="text-[10px] text-slate-500">{item.description}</div>
+                                <div className="text-[10px] text-slate-500">
+                                  {item.description}
+                                </div>
                               )}
                             </div>
                             <svg
                               className={clsx(
                                 "w-3.5 h-3.5 transition-transform duration-200",
-                                isDropdownOpen && "rotate-90"
+                                isDropdownOpen && "rotate-90",
                               )}
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
-                              <path fillRule="evenodd" d="M6 6L14 10L6 14V6Z" clipRule="evenodd" />
+                              <path
+                                fillRule="evenodd"
+                                d="M6 6L14 10L6 14V6Z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           </div>
                         </div>
@@ -342,7 +417,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                           <div className="pl-5 mt-1 space-y-1">
                             {item.children.map((child) => {
                               // Use exact path matching for child items too
-                              const childActive = child.path ? router.pathname === child.path : false;
+                              const childActive = child.path
+                                ? router.pathname === child.path
+                                : false;
                               return (
                                 <Link key={child.path} href={child.path!}>
                                   <div
@@ -350,13 +427,22 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       "group relative block rounded-lg transition-all duration-200 cursor-pointer",
                                       child.description ? "p-2.5" : "p-1.5",
                                       {
-                                        "bg-sky-600 text-white shadow-sm": childActive,
-                                        "hover:bg-slate-50 text-slate-700 hover:text-slate-900": !childActive,
-                                      }
+                                        "bg-sky-600 text-white shadow-sm":
+                                          childActive,
+                                        "hover:bg-slate-50 text-slate-700 hover:text-slate-900":
+                                          !childActive,
+                                      },
                                     )}
-                                    onMouseEnter={() => setHoveredItem(child.path!)}
+                                    onMouseEnter={() =>
+                                      setHoveredItem(child.path!)
+                                    }
                                     onMouseLeave={() => setHoveredItem(null)}
                                     onClick={() => {
+                                      // @ts-ignore
+                                      if (child?.onClick) {
+                                        // @ts-ignore
+                                        child.onClick();
+                                      }
                                       // Don't set selectedItem - let pathname matching handle active state
                                     }}
                                   >
@@ -365,9 +451,11 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                         className={clsx(
                                           "text-sm p-1.5 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                           {
-                                            "bg-white/20 text-white": childActive,
-                                            "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50": !childActive,
-                                          }
+                                            "bg-white/20 text-white":
+                                              childActive,
+                                            "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50":
+                                              !childActive,
+                                          },
                                         )}
                                       >
                                         {child.icon}
@@ -378,8 +466,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                             "font-medium text-xs transition-colors duration-200",
                                             {
                                               "text-white": childActive,
-                                              "text-slate-900 group-hover:text-slate-900": !childActive,
-                                            }
+                                              "text-slate-900 group-hover:text-slate-900":
+                                                !childActive,
+                                            },
                                           )}
                                         >
                                           {child.label}
@@ -390,8 +479,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                               "text-[10px] mt-0.5 transition-all duration-200",
                                               {
                                                 "text-white/80": childActive,
-                                                "text-slate-500 group-hover:text-slate-600": !childActive,
-                                              }
+                                                "text-slate-500 group-hover:text-slate-600":
+                                                  !childActive,
+                                              },
                                             )}
                                           >
                                             {child.description}
@@ -417,8 +507,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2",
                             {
                               "bg-sky-600 text-white shadow-sm": isActive,
-                              "hover:bg-slate-50 text-slate-700 hover:text-slate-900": !isActive,
-                            }
+                              "hover:bg-slate-50 text-slate-700 hover:text-slate-900":
+                                !isActive,
+                            },
                           )}
                           onMouseEnter={() => setHoveredItem(item.path!)}
                           onMouseLeave={() => setHoveredItem(null)}
@@ -436,8 +527,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 "text-base p-1.5 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                 {
                                   "bg-white/20 text-white": isActive,
-                                  "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50": !isActive,
-                                }
+                                  "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50":
+                                    !isActive,
+                                },
                               )}
                             >
                               {item.icon}
@@ -446,7 +538,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               <div
                                 className={clsx("font-medium text-xs", {
                                   "text-white": isActive,
-                                  "text-slate-900 group-hover:text-slate-900": !isActive,
+                                  "text-slate-900 group-hover:text-slate-900":
+                                    !isActive,
                                 })}
                               >
                                 {item.label}
@@ -455,7 +548,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 <div
                                   className={clsx("text-[10px] mt-0.5", {
                                     "text-white/80": isActive,
-                                    "text-slate-500 group-hover:text-slate-600": !isActive,
+                                    "text-slate-500 group-hover:text-slate-600":
+                                      !isActive,
                                   })}
                                 >
                                   {item.description}
@@ -463,12 +557,21 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               )}
                             </div>
                             <div
-                              className={clsx("transition-all duration-200 flex-shrink-0", {
-                                "opacity-100 transform translate-x-0": isActive || isHovered,
-                                "opacity-0 transform -translate-x-1": !isActive && !isHovered,
-                              })}
+                              className={clsx(
+                                "transition-all duration-200 flex-shrink-0",
+                                {
+                                  "opacity-100 transform translate-x-0":
+                                    isActive || isHovered,
+                                  "opacity-0 transform -translate-x-1":
+                                    !isActive && !isHovered,
+                                },
+                              )}
                             >
-                              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                              <svg
+                                className="w-3.5 h-3.5"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
                                 <path
                                   fillRule="evenodd"
                                   d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
@@ -483,7 +586,10 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                   }
 
                   return (
-                    <div key={item.label} className="px-3 py-2 font-semibold text-slate-700 flex items-center space-x-3">
+                    <div
+                      key={item.label}
+                      className="px-3 py-2 font-semibold text-slate-700 flex items-center space-x-3"
+                    >
                       <div className="text-base p-1.5 rounded-lg bg-slate-100 text-slate-600">
                         {item.icon}
                       </div>
@@ -503,7 +609,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
-          }
+          },
         )}
       >
         <aside className="w-full max-w-xs h-full bg-white shadow-xl border-r border-slate-200 flex flex-col pointer-events-auto">
@@ -514,8 +620,18 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                 className="absolute right-4 top-4 bg-slate-100 text-slate-600 p-2.5 rounded-lg hover:bg-slate-200 transition-all duration-200 z-10"
                 aria-label="Close sidebar"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
 
@@ -525,8 +641,12 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                     <span className="font-semibold text-sm">AG</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-sm text-slate-900 block">Staff Portal</span>
-                    <span className="text-xs text-sky-600 font-medium">Staff management</span>
+                    <span className="font-semibold text-sm text-slate-900 block">
+                      Staff Portal
+                    </span>
+                    <span className="text-xs text-sky-600 font-medium">
+                      Staff management
+                    </span>
                   </div>
                 </div>
               </div>
@@ -543,7 +663,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                 <div className="space-y-1">
                   {filteredItems.map((item) => {
                     // Use exact path matching for mobile too
-                    const isActive = item.path ? router.pathname === item.path : false;
+                    const isActive = item.path
+                      ? router.pathname === item.path
+                      : false;
                     const isDropdownOpen = openDropdown === item.label;
 
                     if (item.children && item.children.length > 0) {
@@ -553,12 +675,16 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             className={clsx(
                               "group relative block rounded-lg transition-all duration-200 cursor-pointer p-3 touch-manipulation active:scale-98",
                               {
-                                "bg-sky-600 text-white shadow-sm": isDropdownOpen,
-                                "hover:bg-slate-50 text-slate-700 active:bg-slate-100": !isDropdownOpen,
-                              }
+                                "bg-sky-600 text-white shadow-sm":
+                                  isDropdownOpen,
+                                "hover:bg-slate-50 text-slate-700 active:bg-slate-100":
+                                  !isDropdownOpen,
+                              },
                             )}
                             onClick={() => {
-                              setOpenDropdown(isDropdownOpen ? null : item.label);
+                              setOpenDropdown(
+                                isDropdownOpen ? null : item.label,
+                              );
                               // Don't set selectedItem - let pathname matching handle active state
                             }}
                           >
@@ -568,8 +694,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                   "text-lg p-2 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                   {
                                     "bg-white/20 text-white": isDropdownOpen,
-                                    "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50": !isDropdownOpen,
-                                  }
+                                    "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50":
+                                      !isDropdownOpen,
+                                  },
                                 )}
                               >
                                 {item.icon}
@@ -581,7 +708,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                     {
                                       "text-white": isDropdownOpen,
                                       "text-slate-900": !isDropdownOpen,
-                                    }
+                                    },
                                   )}
                                 >
                                   {item.label}
@@ -593,7 +720,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       {
                                         "text-white/80": isDropdownOpen,
                                         "text-slate-500": !isDropdownOpen,
-                                      }
+                                      },
                                     )}
                                   >
                                     {item.description}
@@ -603,12 +730,16 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               <svg
                                 className={clsx(
                                   "w-4 h-4 transition-transform duration-200 flex-shrink-0",
-                                  isDropdownOpen && "rotate-90"
+                                  isDropdownOpen && "rotate-90",
                                 )}
                                 fill="currentColor"
                                 viewBox="0 0 20 20"
                               >
-                                <path fillRule="evenodd" d="M6 6L14 10L6 14V6Z" clipRule="evenodd" />
+                                <path
+                                  fillRule="evenodd"
+                                  d="M6 6L14 10L6 14V6Z"
+                                  clipRule="evenodd"
+                                />
                               </svg>
                             </div>
                           </div>
@@ -617,7 +748,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             <div className="pl-6 mt-1 space-y-1">
                               {item.children.map((child) => {
                                 // Use exact path matching for child items too
-                                const childActive = child.path ? router.pathname === child.path : false;
+                                const childActive = child.path
+                                  ? router.pathname === child.path
+                                  : false;
 
                                 return (
                                   <Link key={child.path} href={child.path!}>
@@ -626,13 +759,20 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                         "group relative block rounded-lg transition-all duration-200 cursor-pointer touch-manipulation active:scale-98",
                                         child.description ? "p-3" : "p-1.5",
                                         {
-                                          "bg-sky-600 text-white shadow-sm": childActive,
-                                          "hover:bg-slate-50 text-slate-700 active:bg-slate-100": !childActive,
-                                        }
+                                          "bg-sky-600 text-white shadow-sm":
+                                            childActive,
+                                          "hover:bg-slate-50 text-slate-700 active:bg-slate-100":
+                                            !childActive,
+                                        },
                                       )}
                                       onClick={() => {
                                         handleItemClick();
                                         // Don't set selectedItem - let pathname matching handle active state
+                                        // @ts-ignore
+                                        if (child?.onClick) {
+                                          // @ts-ignore
+                                          child.onClick();
+                                        }
                                       }}
                                     >
                                       <div className="flex items-center space-x-2">
@@ -640,9 +780,11 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                           className={clsx(
                                             "text-base p-1.5 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                             {
-                                              "bg-white/20 text-white": childActive,
-                                              "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50": !childActive,
-                                            }
+                                              "bg-white/20 text-white":
+                                                childActive,
+                                              "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50":
+                                                !childActive,
+                                            },
                                           )}
                                         >
                                           {child.icon}
@@ -654,7 +796,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                               {
                                                 "text-white": childActive,
                                                 "text-slate-900": !childActive,
-                                              }
+                                              },
                                             )}
                                           >
                                             {child.label}
@@ -665,8 +807,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                                 "text-xs mt-0.5 transition-all duration-200",
                                                 {
                                                   "text-white/80": childActive,
-                                                  "text-slate-500": !childActive,
-                                                }
+                                                  "text-slate-500":
+                                                    !childActive,
+                                                },
                                               )}
                                             >
                                               {child.description}
@@ -692,8 +835,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               "group relative block rounded-lg transition-all duration-200 cursor-pointer p-3 touch-manipulation active:scale-98",
                               {
                                 "bg-sky-600 text-white shadow-sm": isActive,
-                                "hover:bg-slate-50 text-slate-700 active:bg-slate-100": !isActive,
-                              }
+                                "hover:bg-slate-50 text-slate-700 active:bg-slate-100":
+                                  !isActive,
+                              },
                             )}
                             onClick={() => {
                               // Don't set selectedItem - let pathname matching handle active state
@@ -710,8 +854,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                   "text-lg p-2 rounded-lg transition-all duration-200 relative flex-shrink-0",
                                   {
                                     "bg-white/20 text-white": isActive,
-                                    "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50": !isActive,
-                                  }
+                                    "text-slate-500 group-hover:text-sky-600 group-hover:bg-sky-50":
+                                      !isActive,
+                                  },
                                 )}
                               >
                                 {item.icon}
@@ -724,7 +869,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                     {
                                       "text-white": isActive,
                                       "text-slate-900": !isActive,
-                                    }
+                                    },
                                   )}
                                 >
                                   {item.label}
@@ -737,7 +882,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       {
                                         "text-white/80": isActive,
                                         "text-slate-500": !isActive,
-                                      }
+                                      },
                                     )}
                                   >
                                     {item.description}
@@ -746,7 +891,11 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               </div>
 
                               <div className="flex-shrink-0 opacity-60">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
                                   <path
                                     fillRule="evenodd"
                                     d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
@@ -761,8 +910,13 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                     }
 
                     return (
-                      <div key={item.label} className="px-3 py-2 font-semibold text-slate-700 flex items-center space-x-3 touch-manipulation">
-                        <div className="text-lg p-2 rounded-lg bg-slate-100 text-slate-600">{item.icon}</div>
+                      <div
+                        key={item.label}
+                        className="px-3 py-2 font-semibold text-slate-700 flex items-center space-x-3 touch-manipulation"
+                      >
+                        <div className="text-lg p-2 rounded-lg bg-slate-100 text-slate-600">
+                          {item.icon}
+                        </div>
                         <span>{item.label}</span>
                       </div>
                     );
