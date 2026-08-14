@@ -8,7 +8,6 @@ import PettyCashAllocation from "../../../models/PettyCashAllocation";
 import PettyCashExpense from "../../../models/PettyCashExpense";
 import ManualPettyCash from "../../../models/ManualPettyCash";
 import ProductSale from "../../../models/stocks/ProductSale";
-import Supplier from "../../../models/stocks/Supplier";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 // Helper function to safely parse numbers
@@ -500,63 +499,63 @@ export default async function handler(req, res) {
       billingSummary.length > 0
         ? billingSummary[0]
         : {
-            totalAmount: 0,
-            totalPaid: 0,
-            totalPending: 0,
-            totalAdvance: 0,
-            count: 0,
-          };
+          totalAmount: 0,
+          totalPaid: 0,
+          totalPending: 0,
+          totalAdvance: 0,
+          count: 0,
+        };
 
     const allocationData =
       allocationSummary.length > 0
         ? allocationSummary[0]
         : {
-            totalAllocated: 0,
-            totalAllocations: 0,
-            averageAllocation: 0,
-            minAllocation: 0,
-            maxAllocation: 0,
-          };
+          totalAllocated: 0,
+          totalAllocations: 0,
+          averageAllocation: 0,
+          minAllocation: 0,
+          maxAllocation: 0,
+        };
 
     const expenseData =
       expenseSummary.length > 0
         ? expenseSummary[0]
         : {
-            totalSpent: 0,
-            totalExpenses: 0,
-            averageExpense: 0,
-            minExpense: 0,
-            maxExpense: 0,
-            vendors: [],
-            vendorNames: [],
-          };
+          totalSpent: 0,
+          totalExpenses: 0,
+          averageExpense: 0,
+          minExpense: 0,
+          maxExpense: 0,
+          vendors: [],
+          vendorNames: [],
+        };
 
     const manualPettyCashData =
       manualPettyCashSummary.length > 0
         ? manualPettyCashSummary[0]
         : {
-            totalAmount: 0,
-            totalExpenses: 0,
-            totalIncome: 0,
-            totalRecords: 0,
-            expenseCount: 0,
-            incomeCount: 0,
-            totalItems: 0,
-          };
+          totalAmount: 0,
+          totalExpenses: 0,
+          totalIncome: 0,
+          totalRecords: 0,
+          expenseCount: 0,
+          incomeCount: 0,
+          totalItems: 0,
+        };
 
     const productSaleData =
       productSaleSummary.length > 0
         ? productSaleSummary[0]
         : {
-            totalSales: 0,
-            totalPaid: 0,
-            totalCommission: 0,
-            totalRecords: 0,
-            completedCount: 0,
-            pendingCount: 0,
-            paidCount: 0,
-            pendingPaymentCount: 0,
-          };
+          totalSales: 0,
+          totalPaid: 0,
+          totalCommission: 0,
+          totalRecords: 0,
+          completedCount: 0,
+          pendingCount: 0,
+          paidCount: 0,
+          pendingPaymentCount: 0,
+        };
 
     const totalAllocated = parseNumber(allocationData.totalAllocated);
     const totalSpent = parseNumber(expenseData.totalSpent);

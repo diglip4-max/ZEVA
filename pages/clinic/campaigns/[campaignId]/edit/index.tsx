@@ -118,19 +118,37 @@ const CampaignEditPage: NextPageWithLayout = () => {
   ).find((p) => p._id === selectedProviderId);
 
   const handleRemoveDuplicates = () => {
-    const numbers = manualNumbers
+    const entries = manualNumbers
       .split("\n")
-      .map((num) => num.trim())
-      .filter((num) => num !== "");
+      .map((item) => item.trim())
+      .filter((item) => item !== "");
 
-    const uniqueNumbers = [...new Set(numbers)];
-    setManualNumbers(uniqueNumbers.join("\n"));
+    const seen = new Set();
+    const uniqueEntries: string[] = [];
 
-    const duplicates = numbers.filter(
-      (num, index) => numbers.indexOf(num) !== index,
-    );
-    if (duplicates.length > 0) {
-      toast.info(`Removed ${duplicates.length} duplicate number(s)`);
+    entries.forEach((entry) => {
+      let normalized;
+
+      // Check if it's a phone number (starts with + or digits)
+      if (/^[\+\d\s\-\(\)]+$/.test(entry) && /\d/.test(entry)) {
+        normalized = entry.replace(/^\+/, ""); // Remove + for phone
+      } else {
+        normalized = entry; // Keep email as-is
+      }
+
+      if (!seen.has(normalized)) {
+        seen.add(normalized);
+        uniqueEntries.push(normalized); // Push normalized version
+      }
+    });
+
+    setManualNumbers(uniqueEntries.join("\n"));
+
+    const duplicatesRemoved = entries.length - uniqueEntries.length;
+    if (duplicatesRemoved > 0) {
+      toast.info(
+        `Removed ${duplicatesRemoved} duplicate ${duplicatesRemoved === 1 ? "entry" : "entries"}`,
+      );
     }
   };
 

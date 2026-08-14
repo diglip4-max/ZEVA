@@ -17,6 +17,7 @@ import {
 } from "../../../bullmq/workflow";
 import Campaign from "../../../models/Campaign";
 import { scheduleAIReply } from "../whatsapp/aiAutoReply";
+import PatientRegistration from "../../../models/PatientRegistration";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
 const getWithoutPlusNumber = (num) => {
@@ -24,6 +25,12 @@ const getWithoutPlusNumber = (num) => {
   const s = String(num).trim();
   // remove leading '+' then strip any non-digit characters
   return s.replace(/^\+/, "").replace(/\D/g, "");
+};
+const getWithPlusNumber = (num) => {
+  if (num === undefined || num === null) return "";
+  const s = String(num).trim();
+  // remove leading '+' then strip any non-digit characters
+  return "+" + s.replace(/^\+/, "").replace(/\D/g, "");
 };
 
 export const config = {
@@ -185,10 +192,17 @@ const processWhatsAppWebhook = async (req) => {
         if (message.from && !message.status) {
           const from = message.from;
           const withoutPlusFromNumber = getWithoutPlusNumber(from);
+          const withPlusFromNumber = getWithPlusNumber(from);
           let findLead = await Lead.findOne({
             clinicId,
-            phone: { $in: [withoutPlusFromNumber, from] },
+            phone: withoutPlusFromNumber,
           });
+          if (withPlusFromNumber && !findLead) {
+            findLead = await Lead.findOne({
+              clinicId,
+              phone: withPlusFromNumber,
+            });
+          }
 
           if (message.type === "reaction") {
             // Find the message that was reacted to
@@ -249,6 +263,30 @@ const processWhatsAppWebhook = async (req) => {
               source: "WhatsApp",
             });
             await findLead.save();
+          }
+
+          // Check if name is missing OR if it looks like a phone number
+          const isNameMissingOrPhone =
+            !findLead?.name || /^[\+\d\s\-\(\)]{10,}$/.test(findLead.name);
+          if (isNameMissingOrPhone && findLead?.phone) {
+            const patient = await PatientRegistration.findOne({
+              clinicId: clinicId,
+              mobileNumber: withoutPlusFromNumber,
+            });
+            if (withPlusFromNumber && !patient) {
+              patient = await PatientRegistration.findOne({
+                clinicId: clinicId,
+                mobileNumber: withPlusFromNumber,
+              });
+            }
+
+            const name =
+              `${patient?.firstName || ""} ${patient?.lastName || ""}`?.trim();
+            if (name) {
+              findLead.name = name;
+              findLead.email = findLead.email || patient.email;
+              await findLead.save();
+            }
           }
 
           let conversation = await Conversation.findOne({
