@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Search,
   Plus,
@@ -10,57 +10,35 @@ import {
   Inbox,
   Paperclip,
   Receipt,
-  Clock,
   CalendarClock,
   TrendingUp,
   CheckCircle2,
   AlertTriangle,
-  Ban,
+  RotateCcw,
   FileText,
   DollarSign,
   File,
   Image as ImageIcon,
+  Banknote,
+  Landmark,
+  FileCheck2,
+  CreditCard,
+  Globe,
+  Wallet,
 } from "lucide-react";
-import useBillsPayable, {
-  BillData,
-  BillStatus,
-  BillStatusFilter,
-} from "../_hooks/useBillsPayable";
+import useFinancePayments, {
+  PaymentData,
+  PaymentMethod,
+  MethodFilter,
+  PAYMENT_METHODS,
+} from "../_hooks/useFinancePayments";
 import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
 import useClinic from "@/hooks/useClinic";
-import useSuppliers from "@/hooks/useSuppliers";
-import { handleUpload, formatFileSize } from "@/lib/helper";
-
-type SupplierStatus = "Active" | "Inactive";
-
-export type Supplier = {
-  _id: string;
-  code: string;
-  clinicId: string;
-  branch: any;
-  name: string;
-  vatRegNo: string;
-  telephone: string;
-  mobile: string;
-  email: string;
-  url: string;
-  creditDays: number;
-  address: string;
-  notes: string;
-  status: SupplierStatus;
-  openingBalance: number;
-  openingBalanceType: "Debit" | "Credit";
-  invoiceTotal: number;
-  totalPaid: number;
-  totalBalance: number;
-  invoiceCount: number;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-};
+// import useBankAccounts from "@/hooks/useBankAccounts";
+import { handleUpload, formatFileSize, getTokenByPath } from "@/lib/helper";
 
 const formatDate = (d?: string): string =>
   d
@@ -71,98 +49,106 @@ const formatDate = (d?: string): string =>
       })
     : "—";
 
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
 // ============================================================
-// STATUS PILL — bill-specific (draft/pending/upcoming/partial/paid/overdue/cancelled)
-// Kept local to this file — doesn't touch the 3-state StatusPill in FinanceManager.tsx
+// METHOD META — badge colours + icons per payment method
 // ============================================================
-const STATUS_META: Record<
-  BillStatus,
-  { label: string; dot: string; text: string; bg: string }
+const METHOD_META: Record<
+  PaymentMethod,
+  { label: string; icon: React.ElementType; text: string; bg: string }
 > = {
-  draft: {
-    label: "Draft",
-    dot: "bg-stone-400",
-    text: "text-stone-600 dark:text-stone-300",
-    bg: "bg-stone-100 dark:bg-stone-800",
+  cash: {
+    label: "Cash",
+    icon: Banknote,
+    text: "text-emerald-700 dark:text-emerald-300",
+    bg: "bg-emerald-50 dark:bg-emerald-950",
   },
-  pending: {
-    label: "Pending",
-    dot: "bg-amber-500",
-    text: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-50 dark:bg-amber-950",
-  },
-  upcoming: {
-    label: "Upcoming",
-    dot: "bg-sky-500",
+  bank_transfer: {
+    label: "Bank Transfer",
+    icon: Landmark,
     text: "text-sky-700 dark:text-sky-300",
     bg: "bg-sky-50 dark:bg-sky-950",
   },
-  partial: {
-    label: "Partial",
-    dot: "bg-violet-500",
+  cheque: {
+    label: "Cheque",
+    icon: FileCheck2,
     text: "text-violet-700 dark:text-violet-300",
     bg: "bg-violet-50 dark:bg-violet-950",
   },
-  paid: {
-    label: "Paid",
-    dot: "bg-teal-500",
+  card: {
+    label: "Card",
+    icon: CreditCard,
+    text: "text-indigo-700 dark:text-indigo-300",
+    bg: "bg-indigo-50 dark:bg-indigo-950",
+  },
+  online: {
+    label: "Online",
+    icon: Globe,
     text: "text-teal-700 dark:text-teal-300",
     bg: "bg-teal-50 dark:bg-teal-950",
   },
-  overdue: {
-    label: "Overdue",
-    dot: "bg-rose-500",
-    text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
-  },
-  cancelled: {
-    label: "Cancelled",
-    dot: "bg-stone-300",
-    text: "text-stone-400 dark:text-stone-500",
-    bg: "bg-stone-100 dark:bg-stone-800",
+  petty_cash: {
+    label: "Petty Cash",
+    icon: Wallet,
+    text: "text-amber-700 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-950",
   },
 };
 
-function BillStatusPill({ status }: { status: BillStatus }) {
-  const s = STATUS_META[status];
+function MethodPill({ method }: { method: PaymentMethod }) {
+  const m = METHOD_META[method];
+  const Icon = m.icon;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${s.bg} ${s.text}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${m.bg} ${m.text}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {s.label}
+      <Icon className="w-3 h-3" />
+      {m.label}
     </span>
   );
 }
 
 // ============================================================
-// STATUS FILTER PILLS
+// METHOD FILTER PILLS
 // ============================================================
-const STATUS_TABS: { value: BillStatusFilter; label: string }[] = [
+const METHOD_TABS: { value: MethodFilter; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "upcoming", label: "Upcoming" },
-  { value: "partial", label: "Partial" },
-  { value: "overdue", label: "Overdue" },
-  { value: "paid", label: "Paid" },
-  { value: "cancelled", label: "Cancelled" },
+  ...PAYMENT_METHODS.map((m) => ({
+    value: m.value as MethodFilter,
+    label: m.label,
+  })),
 ];
 
 // ============================================================
-// BILL ROW — expandable, mirrors AllocationRow/ExpenseRow pattern
+// PAYMENT ROW — expandable, mirrors BillRow pattern
 // ============================================================
-function BillRow({
-  bill,
+function PaymentRow({
+  payment,
   currency,
-  onCancel,
+  onReverse,
 }: {
-  bill: BillData;
+  payment: PaymentData;
   currency: string;
-  onCancel: (bill: BillData) => void;
+  onReverse: (payment: PaymentData) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const supplierName =
-    typeof bill.supplierId === "string" ? "—" : bill.supplierId?.name || "—";
+    typeof payment.supplierId === "string"
+      ? "—"
+      : payment.supplierId?.name || "—";
+  const invoiceNumber =
+    typeof payment.transactionId === "string"
+      ? payment.transactionId
+      : payment.transactionId?.invoiceNumber || "—";
+  const bankName =
+    typeof payment.bankAccountId === "string" || !payment.bankAccountId
+      ? null
+      : payment.bankAccountId?.bankName;
+  const chequeNumber =
+    typeof payment.chequeId === "string" || !payment.chequeId
+      ? null
+      : payment.chequeId?.chequeNumber;
 
   return (
     <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
@@ -172,7 +158,7 @@ function BillRow({
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-500 dark:text-stone-400 shrink-0">
-            <Receipt className="w-3.5 h-3.5" />
+            <DollarSign className="w-3.5 h-3.5" />
           </button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -180,27 +166,31 @@ function BillRow({
                 {supplierName}
               </span>
               <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                {bill.invoiceNumber}
+                {payment.paymentNumber}
               </span>
+              {payment.reversed && (
+                <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+                  Reversed
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{bill.category}</span>
+              <span className="zfm-mono">{invoiceNumber}</span>
               <span>•</span>
-              <span>Due {formatDate(bill.dueDate)}</span>
+              <span>{formatDate(payment.date)}</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <BillStatusPill status={bill.status} />
-          <div className="text-right">
-            <div className="font-mono font-semibold text-sm text-stone-800 dark:text-stone-100">
-              {formatMoney(bill.amount, currency)}
-            </div>
-            {bill.balance > 0 && (
-              <div className="text-[11px] text-rose-500 dark:text-rose-400 zfm-mono">
-                {formatMoney(bill.balance, currency)} due
-              </div>
-            )}
+          <MethodPill method={payment.method} />
+          <div
+            className={`font-mono font-semibold text-sm ${
+              payment.reversed
+                ? "text-stone-400 dark:text-stone-500 line-through"
+                : "text-teal-600 dark:text-teal-400"
+            }`}
+          >
+            {formatMoney(payment.amount, currency)}
           </div>
           <ChevronRight
             className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
@@ -212,74 +202,72 @@ function BillRow({
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-stone-400 dark:text-stone-500">
-                Supplier invoice #:
+                Against bill:
               </span>
               <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                {bill.supplierInvoiceNumber || "—"}
+                {invoiceNumber}
               </span>
             </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Invoice date:
-              </span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {formatDate(bill.invoiceDate)}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Paid so far:
-              </span>
-              <span className="ml-2 font-mono text-teal-600 dark:text-teal-400">
-                {formatMoney(bill.paidAmount, currency)}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Attachments:
-              </span>
-              {bill.attachments && bill.attachments.length > 0 ? (
-                <span className="ml-2 inline-flex items-center gap-1">
-                  <Paperclip className="w-3 h-3 text-stone-400 dark:text-stone-500" />
-                  {bill.attachments.map((url, i) => (
-                    <a
-                      key={i}
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-                    >
-                      #{i + 1}
-                    </a>
-                  ))}
+            {bankName && (
+              <div>
+                <span className="text-stone-400 dark:text-stone-500">
+                  Bank:
                 </span>
+                <span className="ml-2 text-stone-600 dark:text-stone-300">
+                  {bankName}
+                </span>
+              </div>
+            )}
+            {chequeNumber && (
+              <div>
+                <span className="text-stone-400 dark:text-stone-500">
+                  Cheque #:
+                </span>
+                <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
+                  {chequeNumber}
+                </span>
+              </div>
+            )}
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">
+                Attachment:
+              </span>
+              {payment.attachment ? (
+                <a
+                  href={payment.attachment}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                >
+                  <Paperclip className="w-3 h-3" /> View
+                </a>
               ) : (
                 <span className="ml-2 text-[11px] text-stone-300 dark:text-stone-600">
                   None
                 </span>
               )}
             </div>
-            {bill.notes && (
+            {payment.notes && (
               <div className="col-span-2">
                 <span className="text-stone-400 dark:text-stone-500">
                   Notes:
                 </span>
                 <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {bill.notes}
+                  {payment.notes}
                 </span>
               </div>
             )}
           </div>
-          {bill.status !== "paid" && bill.status !== "cancelled" && (
+          {!payment.reversed && (
             <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onCancel(bill);
+                  onReverse(payment);
                 }}
-                className="text-xs font-semibold text-rose-500 dark:text-rose-400 hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-500 dark:text-rose-400 hover:underline"
               >
-                Cancel bill
+                <RotateCcw className="w-3 h-3" /> Reverse payment
               </button>
             </div>
           )}
@@ -290,139 +278,159 @@ function BillRow({
 }
 
 // ============================================================
-// NEW BILL MODAL — premium, wide, searchable-select driven
+// NEW PAYMENT MODAL — premium, wide, searchable-select driven
 // ============================================================
-const todayStr = () => new Date().toISOString().slice(0, 10);
+interface OpenBillOption {
+  _id: string;
+  invoiceNumber: string;
+  category: string;
+  supplierId: { _id: string; name: string } | string;
+  amount: number;
+  paidAmount: number;
+  balance: number;
+}
 
-function NewBillModal({
+function NewPaymentModal({
   onClose,
   onSave,
-  categories,
   saving,
 }: {
   onClose: () => void;
   onSave: (input: any) => Promise<{ ok: boolean; warning?: string }>;
-  categories: string[];
   saving: boolean;
 }) {
-  const { clinic } = useClinic();
-  const [supplierSearch, setSupplierSearch] = useState("");
-  const { suppliers, loading: suppliersLoading } = useSuppliers({
-    branchId: clinic?._id || "",
-    search: supplierSearch,
-  }) as { suppliers: Supplier[]; loading: boolean };
+  const token = getTokenByPath();
+  const [billSearch, setBillSearch] = useState("");
+  const [bills, setBills] = useState<OpenBillOption[]>([]);
+  const [billsLoading, setBillsLoading] = useState(false);
+  const bankAccounts: any[] = [];
+  const banksLoading = false;
+  //   const { bankAccounts, loading: banksLoading } = useBankAccounts() as {
+  //     bankAccounts: { _id: string; bankName: string; accountNumber?: string }[];
+  //     loading: boolean;
+  //   };
+
+  useEffect(() => {
+    let active = true;
+    setBillsLoading(true);
+    const params = new URLSearchParams();
+    if (billSearch) params.set("search", billSearch);
+    params.set("limit", "20");
+    fetch(`/api/finance/bills?${params.toString()}`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((json) => {
+        if (!active) return;
+        const open = (json.data || []).filter(
+          (b: any) => b.status !== "paid" && b.status !== "cancelled",
+        );
+        setBills(open);
+      })
+      .finally(() => active && setBillsLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [billSearch]);
 
   const [form, setForm] = useState({
-    supplierId: "",
-    category: categories.find((c) => c !== "All") || "Rent",
-    supplierInvoiceNumber: "",
-    invoiceDate: todayStr(),
-    dueDate: "",
+    transactionId: "",
     amount: "",
+    method: "bank_transfer" as PaymentMethod,
+    bankAccountId: "",
+    chequeNumber: "",
+    payee: "",
+    chequeDate: todayStr(),
+    attachment: "",
     notes: "",
-    attachments: [] as string[],
   });
   const [warning, setWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadingFiles, setUploadingFiles] = useState<
-    Array<{ id: string; name: string; progress: number; size: number }>
-  >([]);
+  const [uploading, setUploading] = useState(false);
 
-  const supplierOptions = suppliers.map((s) => ({
-    value: s._id,
-    label: s.name,
-    sublabel: [
-      s.code,
-      s.mobile || s.telephone,
-      s.totalBalance
-        ? `Balance ₹${s.totalBalance.toLocaleString("en-IN")}`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(" · "),
+  const selectedBill = bills.find((b) => b._id === form.transactionId);
+
+  const billOptions = bills.map((b) => {
+    const supplierName =
+      typeof b.supplierId === "string" ? "" : b.supplierId?.name || "";
+    return {
+      value: b._id,
+      label: `${b.invoiceNumber} — ${supplierName}`,
+      sublabel: `${b.category} · Balance ${formatMoney(b.balance, "INR")}`,
+    };
+  });
+
+  const methodOptions = PAYMENT_METHODS.map((m) => ({
+    value: m.value,
+    label: m.label,
+  }));
+  const bankOptions = bankAccounts.map((a) => ({
+    value: a._id,
+    label: a.bankName,
+    sublabel: a.accountNumber,
   }));
 
-  const categoryOptions = categories
-    .filter((c) => c !== "All")
-    .map((c) => ({ value: c, label: c }));
+  const needsBank = form.method === "bank_transfer" || form.method === "cheque";
+  const needsCheque = form.method === "cheque";
 
   const amountNum = Number(form.amount);
-  const canSave = useMemo(() => {
-    return (
-      !!form.supplierId &&
-      !!form.category &&
-      !!form.invoiceDate &&
-      !!form.dueDate &&
-      amountNum > 0 &&
-      new Date(form.dueDate) >= new Date(form.invoiceDate) &&
-      !saving
-    );
-  }, [form, amountNum, saving]);
+  const canSave =
+    !!form.transactionId &&
+    amountNum > 0 &&
+    (!selectedBill || amountNum <= selectedBill.balance) &&
+    (!needsBank || !!form.bankAccountId) &&
+    (!needsCheque || (!!form.chequeNumber && !!form.chequeDate)) &&
+    !saving;
 
-  const handleAttachFiles = async (files: FileList | null) => {
+  const handleAttach = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const list = Array.from(files);
-    // Create temp trackers
-    const trackers = list.map((f) => ({
-      id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`,
-      name: f.name,
-      progress: 5,
-      size: f.size,
-    }));
-    setUploadingFiles((prev) => [...prev, ...trackers]);
-
-    const results: string[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const file = list[i];
-      const trackerId = trackers[i].id;
-      try {
-        const data = await handleUpload(file);
-        const url = data?.url || data?.data?.url || data?.data?.data?.url;
-        if (url) results.push(url);
-        setUploadingFiles((prev) =>
-          prev.map((t) => (t.id === trackerId ? { ...t, progress: 100 } : t)),
-        );
-      } catch (err) {
-        console.error("Upload failed", err);
-      } finally {
-        // remove tracker after small delay so user sees "100%"
-        setTimeout(() => {
-          setUploadingFiles((prev) => prev.filter((t) => t.id !== trackerId));
-        }, 400);
-      }
+    setUploading(true);
+    try {
+      const data = await handleUpload(files[0]);
+      const url = data?.url || data?.data?.url || data?.data?.data?.url;
+      if (url) setForm((f) => ({ ...f, attachment: url }));
+    } catch (err) {
+      console.error("Upload failed", err);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-
-    if (results.length > 0) {
-      setForm((f) => ({
-        ...f,
-        attachments: [...f.attachments, ...results],
-      }));
-    }
-
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const removeAttachment = (index: number) => {
-    setForm((f) => ({
-      ...f,
-      attachments: f.attachments.filter((_, i) => i !== index),
-    }));
   };
 
   const submit = async () => {
     setWarning(null);
     if (!canSave) {
       setWarning(
-        "Supplier, category, amount, invoice date and due date are required",
+        "Fill in the required fields — amount cannot exceed the bill's balance",
       );
       return;
     }
+    const supplierId =
+      selectedBill && typeof selectedBill.supplierId !== "string"
+        ? selectedBill.supplierId._id
+        : undefined;
+
     const result = await onSave({
-      ...form,
+      transactionId: form.transactionId,
+      supplierId,
       amount: amountNum,
+      method: form.method,
+      bankAccountId: needsBank ? form.bankAccountId : undefined,
+      chequeDetails: needsCheque
+        ? {
+            chequeNumber: form.chequeNumber,
+            payee: form.payee || undefined,
+            chequeDate: form.chequeDate,
+          }
+        : undefined,
+      attachment: form.attachment || undefined,
+      notes: form.notes || undefined,
     });
     if (!result.ok) {
-      setWarning(result.warning || "Could not save the bill");
+      setWarning(result.warning || "Could not record the payment");
       return;
     }
     onClose();
@@ -437,7 +445,7 @@ function NewBillModal({
       }}
     >
       <div className="relative bg-white dark:bg-stone-900 rounded-3xl w-full max-w-5xl shadow-[0_30px_90px_-20px_rgba(0,0,0,0.45)] border border-stone-100 dark:border-stone-800 max-h-[92vh] flex flex-col overflow-hidden">
-        {/* ============ STICKY HEADER ============ */}
+        {/* STICKY HEADER */}
         <div
           className="relative px-6 sm:px-8 py-6 shrink-0 overflow-hidden border-b border-stone-100/60 dark:border-stone-800/60"
           style={{
@@ -474,20 +482,19 @@ function NewBillModal({
                     backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
                   }}
                 >
-                  <Receipt className="w-6 h-6 text-white" />
+                  <DollarSign className="w-6 h-6 text-white" />
                 </div>
               </div>
               <div>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-100/80 dark:bg-teal-900/40 px-2.5 py-1 text-[10px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-[0.14em] mb-1.5">
-                  <DollarSign className="w-3 h-3" />
-                  New Payable
+                  <Receipt className="w-3 h-3" />
+                  Payment Center
                 </div>
                 <h3 className="zfm-display text-2xl sm:text-[28px] font-semibold text-stone-900 dark:text-stone-50 leading-[1.1]">
-                  Add a Bill
+                  Record a Payment
                 </h3>
                 <p className="text-xs text-stone-500 dark:text-stone-400 mt-1.5 max-w-md">
-                  Record a supplier invoice — the clinic will pay it on or
-                  before the due date.
+                  Pay down an open bill — partial or full, by any method.
                 </p>
               </div>
             </div>
@@ -501,7 +508,7 @@ function NewBillModal({
           </div>
         </div>
 
-        {/* ============ SCROLLABLE BODY ============ */}
+        {/* SCROLLABLE BODY */}
         <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 sm:py-7 bg-gradient-to-b from-stone-50/40 via-white to-white dark:from-stone-900 dark:via-stone-900 dark:to-stone-900">
           {warning && (
             <div className="mb-6 px-4 py-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-start gap-2.5 shadow-sm">
@@ -510,7 +517,7 @@ function NewBillModal({
             </div>
           )}
 
-          {/* CARD: Supplier & Amount — hero row */}
+          {/* CARD: Bill & Amount — hero row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
             <div className="md:col-span-2 p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm">
               <div className="flex items-center gap-1.5 mb-3">
@@ -518,22 +525,30 @@ function NewBillModal({
                   <TrendingUp className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
                 </div>
                 <h4 className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                  Who is it from?
+                  Which bill is this for?
                 </h4>
               </div>
               <SearchableSelect
-                label="Supplier"
+                label="Bill / Invoice"
                 required
                 icon={<Receipt className="w-3.5 h-3.5 text-stone-400" />}
-                options={supplierOptions}
-                value={form.supplierId}
-                onChange={(v) => setForm((f) => ({ ...f, supplierId: v }))}
-                onSearchChange={setSupplierSearch}
-                loading={suppliersLoading}
-                placeholder="Choose a supplier"
-                searchPlaceholder="Search suppliers by name, code, phone…"
-                emptyText="No suppliers found"
+                options={billOptions}
+                value={form.transactionId}
+                onChange={(v) => setForm((f) => ({ ...f, transactionId: v }))}
+                onSearchChange={setBillSearch}
+                loading={billsLoading}
+                placeholder="Choose an open bill"
+                searchPlaceholder="Search invoice number or supplier…"
+                emptyText="No open bills found"
               />
+              {selectedBill && (
+                <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2">
+                  Balance remaining:{" "}
+                  <span className="font-semibold text-rose-500 dark:text-rose-400">
+                    {formatMoney(selectedBill.balance, "INR")}
+                  </span>
+                </p>
+              )}
             </div>
 
             <div
@@ -556,11 +571,11 @@ function NewBillModal({
                   <DollarSign className="w-3.5 h-3.5 text-teal-700 dark:text-teal-300" />
                 </div>
                 <h4 className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                  Amount Due
+                  Paying Now
                 </h4>
               </div>
               <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                Total (₹) <span className="text-rose-500">*</span>
+                Amount (₹) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 zfm-mono font-semibold text-lg pointer-events-none">
@@ -577,226 +592,173 @@ function NewBillModal({
                 />
               </div>
               <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2">
-                Enter the total on the supplier invoice — including taxes.
+                Cannot exceed the bill's remaining balance.
               </p>
             </div>
           </div>
 
-          {/* CARD: Invoice Details */}
+          {/* CARD: Method & Bank */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm mb-5">
             <div className="flex items-center gap-1.5 mb-4">
               <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-900/40 flex items-center justify-center">
-                <CalendarClock className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                <CreditCard className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
               </div>
               <h4 className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                Invoice Details
+                How was it paid?
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-              <div>
+              <SearchableSelect
+                label="Payment method"
+                required
+                options={methodOptions}
+                value={form.method}
+                onChange={(v) =>
+                  setForm((f) => ({ ...f, method: v as PaymentMethod }))
+                }
+                placeholder="Choose a method"
+                searchPlaceholder="Search methods…"
+              />
+
+              {needsBank && (
                 <SearchableSelect
-                  label="Category"
+                  label="Bank account"
                   required
-                  options={categoryOptions}
-                  value={form.category}
-                  onChange={(v) => setForm((f) => ({ ...f, category: v }))}
-                  placeholder="Choose a category"
-                  searchPlaceholder="Search categories…"
+                  icon={<Landmark className="w-3.5 h-3.5 text-stone-400" />}
+                  options={bankOptions}
+                  value={form.bankAccountId}
+                  onChange={(v) => setForm((f) => ({ ...f, bankAccountId: v }))}
+                  loading={banksLoading}
+                  placeholder="Choose a bank account"
+                  searchPlaceholder="Search bank accounts…"
+                  emptyText="No bank accounts found"
                 />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                  Supplier invoice #
-                </label>
-                <div className="relative">
-                  <FileText className="w-4 h-4 text-stone-400 dark:text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    value={form.supplierInvoiceNumber}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        supplierInvoiceNumber: e.target.value,
-                      }))
-                    }
-                    placeholder="e.g. INV1025"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                  Invoice date <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <CalendarClock className="w-4 h-4 text-stone-400 dark:text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="date"
-                    required
-                    value={form.invoiceDate}
-                    max={todayStr()}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        invoiceDate: e.target.value,
-                        dueDate:
-                          f.dueDate && f.dueDate < e.target.value
-                            ? ""
-                            : f.dueDate,
-                      }))
-                    }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
-                  />
-                </div>
-                <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1">
-                  When the supplier raised it — today or earlier.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                  Due date <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Clock className="w-4 h-4 text-stone-400 dark:text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="date"
-                    required
-                    value={form.dueDate}
-                    min={form.invoiceDate || todayStr()}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, dueDate: e.target.value }))
-                    }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
-                  />
-                </div>
-                <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1">
-                  On or after the invoice date.
-                </p>
-              </div>
+              )}
             </div>
+
+            {needsCheque && (
+              <div className="mt-5 pt-5 border-t border-dashed border-stone-200 dark:border-stone-700">
+                <div className="flex items-center gap-1.5 mb-4">
+                  <FileCheck2 className="w-3.5 h-3.5 text-violet-500" />
+                  <span className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                    Cheque details
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+                      Cheque number <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      value={form.chequeNumber}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, chequeNumber: e.target.value }))
+                      }
+                      placeholder="e.g. 458921"
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+                      Payee
+                    </label>
+                    <input
+                      value={form.payee}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, payee: e.target.value }))
+                      }
+                      placeholder="Defaults to supplier"
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+                      Cheque date <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <CalendarClock className="w-4 h-4 text-stone-400 dark:text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="date"
+                        value={form.chequeDate}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, chequeDate: e.target.value }))
+                        }
+                        className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* CARD: Attachments */}
+          {/* CARD: Attachment */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm mb-5">
             <div className="flex items-center gap-1.5 mb-4">
               <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-900/40 flex items-center justify-center">
                 <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               </div>
               <h4 className="text-[11px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-                Attachments
+                Attachment
               </h4>
               <span className="text-[10px] text-stone-400 dark:text-stone-500 ml-auto">
-                Optional · Scanned bill, PO, signed challan…
+                Optional · Receipt, cheque copy, transfer slip…
               </span>
             </div>
 
             <input
               ref={fileInputRef}
               type="file"
-              multiple
-              onChange={(e) => handleAttachFiles(e.target.files)}
+              onChange={(e) => handleAttach(e.target.files)}
               className="hidden"
-              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full group relative p-5 rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800/30 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:border-teal-400/60 dark:hover:border-teal-500/50 transition-all flex flex-col items-center justify-center gap-2 text-stone-500 dark:text-stone-400 hover:text-teal-600 dark:hover:text-teal-400"
-            >
-              <div className="w-10 h-10 rounded-2xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 group-hover:border-teal-200 dark:group-hover:border-teal-800 flex items-center justify-center shadow-sm group-hover:scale-105 transition-all">
-                <Upload className="w-5 h-5" />
-              </div>
-              <div className="text-center">
-                <div className="text-sm font-semibold">
-                  Click to upload bill copy
-                </div>
-                <div className="text-[11px] mt-0.5 text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-400">
-                  Drop or select PDFs, images, docs — multiple files allowed
-                </div>
-              </div>
-            </button>
 
-            {/* Uploading progress rows */}
-            {uploadingFiles.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {uploadingFiles.map((t) => (
-                  <div
-                    key={t.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
-                      <Loader2 className="w-4 h-4 text-teal-600 dark:text-teal-400 animate-spin" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">
-                        {t.name}
-                      </div>
-                      <div className="mt-1 h-1 w-full rounded-full bg-stone-200 dark:bg-stone-700 overflow-hidden">
-                        <div
-                          className="h-full bg-teal-500 transition-all"
-                          style={{ width: `${t.progress}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-stone-400 dark:text-stone-500 shrink-0">
-                      {formatFileSize(t.size)}
-                    </div>
+            {!form.attachment ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full group relative p-5 rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800/30 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:border-teal-400/60 dark:hover:border-teal-500/50 transition-all flex flex-col items-center justify-center gap-2 text-stone-500 dark:text-stone-400 hover:text-teal-600 dark:hover:text-teal-400 disabled:opacity-60"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 group-hover:border-teal-200 dark:group-hover:border-teal-800 flex items-center justify-center shadow-sm group-hover:scale-105 transition-all">
+                  {uploading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Upload className="w-5 h-5" />
+                  )}
+                </div>
+                <div className="text-center">
+                  <div className="text-sm font-semibold">
+                    {uploading
+                      ? "Uploading…"
+                      : "Click to upload proof of payment"}
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* Uploaded attachments */}
-            {form.attachments.length > 0 && (
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {form.attachments.map((url, idx) => {
-                  const name =
-                    decodeURIComponent(
-                      (url.split("/").pop() || `attachment-${idx + 1}`)
-                        .split("?")[0]
-                        .replace(/^[a-f0-9]+_?/i, ""),
-                    ) || `Attachment ${idx + 1}`;
-                  const isImage =
-                    /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|heif)$/i.test(name);
-                  return (
-                    <div
-                      key={`${url}-${idx}`}
-                      className="group flex items-center gap-3 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-teal-300 dark:hover:border-teal-700/60 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all"
-                    >
-                      <div
-                        className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                          isImage
-                            ? "bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                            : "bg-stone-100 dark:bg-stone-700/60 text-stone-500 dark:text-stone-400"
-                        }`}
-                      >
-                        {isImage ? (
-                          <ImageIcon className="w-4 h-4" />
-                        ) : (
-                          <File className="w-4 h-4" />
-                        )}
-                      </div>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex-1 min-w-0 text-xs font-medium text-stone-700 dark:text-stone-200 hover:text-teal-600 dark:hover:text-teal-400 hover:underline truncate"
-                      >
-                        {name.length > 38 ? name.slice(0, 36) + "…" : name}
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(idx)}
-                        className="w-7 h-7 rounded-lg opacity-70 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-stone-400 hover:text-rose-500 dark:text-stone-500 dark:hover:text-rose-400 flex items-center justify-center transition-all shrink-0"
-                        title="Remove attachment"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
+                  <div className="text-[11px] mt-0.5 text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-400">
+                    PDF, image, or document
+                  </div>
+                </div>
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800">
+                <div className="w-9 h-9 rounded-lg bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <File className="w-4 h-4" />
+                </div>
+                <a
+                  href={form.attachment}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 min-w-0 text-xs font-medium text-stone-700 dark:text-stone-200 hover:text-teal-600 dark:hover:text-teal-400 hover:underline truncate"
+                >
+                  Attached file
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, attachment: "" }))}
+                  className="w-7 h-7 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/50 text-stone-400 hover:text-rose-500 dark:text-stone-500 dark:hover:text-rose-400 flex items-center justify-center transition-all shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             )}
           </div>
@@ -819,29 +781,29 @@ function NewBillModal({
               onChange={(e) =>
                 setForm((f) => ({ ...f, notes: e.target.value }))
               }
-              placeholder="Any context the finance team should know — partial payment terms, PO reference, approval note, etc."
+              placeholder="Any context — approval reference, partial settlement note, etc."
               rows={3}
               className="w-full px-4 py-3 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all resize-none leading-relaxed"
             />
           </div>
         </div>
 
-        {/* ============ STICKY FOOTER ============ */}
+        {/* STICKY FOOTER */}
         <div className="shrink-0 px-6 sm:px-8 py-4 sm:py-5 border-t border-stone-100 dark:border-stone-800 bg-gradient-to-t from-stone-50 via-white to-white dark:from-stone-900 dark:via-stone-900 dark:to-stone-900">
           <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
             <div className="flex flex-col gap-1">
               <div className="hidden sm:flex items-center gap-2 text-[11px] text-stone-400 dark:text-stone-500">
                 <CheckCircle2 className="w-3.5 h-3.5 text-teal-500" />
-                Saved bills appear under{" "}
+                Payments made cannot be deleted — only{" "}
                 <span className="font-semibold text-stone-500 dark:text-stone-400">
-                  Pending
-                </span>{" "}
-                by default.
+                  reversed
+                </span>
+                .
               </div>
               {!canSave && !saving && (
                 <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Fill all required fields to save the bill.
+                  Fill all required fields to record the payment.
                 </div>
               )}
             </div>
@@ -854,7 +816,7 @@ function NewBillModal({
               </button>
               <button
                 onClick={submit}
-                disabled={!canSave || saving}
+                disabled={!canSave}
                 className="relative flex-1 sm:flex-none px-6 sm:px-8 py-3 rounded-full text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(20,184,166,0.6)] hover:shadow-[0_16px_36px_-12px_rgba(20,184,166,0.7)] hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:grayscale disabled:opacity-50 disabled:pointer-events-none disabled:hover:scale-100 disabled:shadow-none flex items-center justify-center gap-2"
                 style={{
                   backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
@@ -868,7 +830,7 @@ function NewBillModal({
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    Save bill
+                    Record payment
                   </>
                 )}
               </button>
@@ -889,10 +851,10 @@ function StatsSection({
   currency,
 }: {
   summary: {
-    totalOutstanding: number;
-    overdueCount: number;
-    paidThisMonth: number;
-    totalBills: number;
+    totalPaid: number;
+    totalPayments: number;
+    chequeCount: number;
+    avgPayment: number;
   };
   loading: boolean;
   currency: string;
@@ -919,43 +881,43 @@ function StatsSection({
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       <StatCard
-        label="Outstanding"
-        value={formatMoney(summary.totalOutstanding, currency)}
-        icon={<Clock />}
-        fromColor="#d97706"
-        toColor="#f59e0b"
-        iconColor="text-white"
-        trend="Payable now"
-        trendPositive={false}
-      />
-      <StatCard
-        label="Overdue Bills"
-        value={summary.overdueCount}
-        icon={<AlertTriangle />}
-        fromColor="#dc2626"
-        toColor="#ef4444"
-        iconColor="text-white"
-        trend="Needs attention"
-        trendPositive={false}
-      />
-      <StatCard
-        label="Paid This Month"
-        value={formatMoney(summary.paidThisMonth, currency)}
-        icon={<CheckCircle2 />}
+        label="Total Paid"
+        value={formatMoney(summary.totalPaid, currency)}
+        icon={<DollarSign />}
         fromColor="#0d9488"
         toColor="#14b8a6"
         iconColor="text-white"
-        trend="Settled"
+        trend="This selection"
         trendPositive={true}
       />
       <StatCard
-        label="Total Bills"
-        value={summary.totalBills}
-        icon={<FileText />}
+        label="Total Payments"
+        value={summary.totalPayments}
+        icon={<Receipt />}
         fromColor="#7c3aed"
         toColor="#8b5cf6"
         iconColor="text-white"
         trend="All time"
+        trendPositive={true}
+      />
+      <StatCard
+        label="Cheque Payments"
+        value={summary.chequeCount}
+        icon={<FileCheck2 />}
+        fromColor="#4f46e5"
+        toColor="#6366f1"
+        iconColor="text-white"
+        trend="Via cheque"
+        trendPositive={true}
+      />
+      <StatCard
+        label="Average Payment"
+        value={formatMoney(summary.avgPayment, currency)}
+        icon={<TrendingUp />}
+        fromColor="#059669"
+        toColor="#10b981"
+        iconColor="text-white"
+        trend="Per transaction"
         trendPositive={true}
       />
     </div>
@@ -965,19 +927,16 @@ function StatsSection({
 // ============================================================
 // MAIN TAB
 // ============================================================
-const BillsPayableTab: React.FC = () => {
+const FinancePaymentsTab: React.FC = () => {
   const { currency } = useCurrency();
   const {
-    bills,
+    payments,
     summary,
-    categories,
     loading,
     saving,
     error,
-    statusFilter,
-    setStatusFilter,
-    categoryFilter,
-    setCategoryFilter,
+    methodFilter,
+    setMethodFilter,
     search,
     setSearch,
     startDate,
@@ -988,22 +947,22 @@ const BillsPayableTab: React.FC = () => {
     pagination,
     nextPage,
     prevPage,
-    createBill,
-    cancelBill,
-  } = useBillsPayable();
+    createPayment,
+    reversePayment,
+  } = useFinancePayments();
 
   const [showAddModal, setShowAddModal] = useState(false);
-  const [cancelTarget, setCancelTarget] = useState<BillData | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
+  const [reverseTarget, setReverseTarget] = useState<PaymentData | null>(null);
+  const [reverseReason, setReverseReason] = useState("");
 
   const from = pagination?.totalResults === 0 ? 0 : (page - 1) * 15 + 1;
   const to = Math.min(page * 15, pagination?.totalResults || 0);
 
-  const handleCancel = async () => {
-    if (!cancelTarget || !cancelReason.trim()) return;
-    await cancelBill(cancelTarget._id, cancelReason.trim());
-    setCancelTarget(null);
-    setCancelReason("");
+  const handleReverse = async () => {
+    if (!reverseTarget || !reverseReason.trim()) return;
+    await reversePayment(reverseTarget._id, reverseReason.trim());
+    setReverseTarget(null);
+    setReverseReason("");
   };
 
   return (
@@ -1011,10 +970,10 @@ const BillsPayableTab: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
-            Bills & Payables
+            Payment Center
           </h2>
           <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
-            Every invoice the clinic owes — now or later
+            Every payment the clinic has made, by method
           </p>
         </div>
         <button
@@ -1025,22 +984,22 @@ const BillsPayableTab: React.FC = () => {
           }}
         >
           <Plus className="w-4 h-4" />
-          New Bill
+          Record Payment
         </button>
       </div>
 
       <StatsSection summary={summary} loading={loading} currency={currency} />
 
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm dark:shadow-stone-900/20 overflow-hidden transition-colors duration-300">
-        {/* Status pill tabs */}
+        {/* Method pill tabs */}
         <div className="border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
           <div className="flex items-center gap-1 p-1 overflow-x-auto">
-            {STATUS_TABS.map((t) => (
+            {METHOD_TABS.map((t) => (
               <button
                 key={t.value}
-                onClick={() => setStatusFilter(t.value)}
+                onClick={() => setMethodFilter(t.value)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                  statusFilter === t.value
+                  methodFilter === t.value
                     ? "bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-stone-900/20"
                     : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-stone-800/50"
                 }`}
@@ -1058,21 +1017,10 @@ const BillsPayableTab: React.FC = () => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search invoice or supplier invoice #…"
+              placeholder="Search payment number, invoice, or supplier…"
               className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-stone-900/20"
             />
           </div>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
-          >
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
           <input
             type="date"
             value={startDate}
@@ -1104,18 +1052,18 @@ const BillsPayableTab: React.FC = () => {
 
           {!loading && !error && (
             <div className="divide-y divide-stone-100 dark:divide-stone-800">
-              {bills.length === 0 ? (
+              {payments.length === 0 ? (
                 <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                   <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
-                  <span className="text-sm">No bills found.</span>
+                  <span className="text-sm">No payments found.</span>
                 </div>
               ) : (
-                bills.map((bill) => (
-                  <BillRow
-                    key={bill._id}
-                    bill={bill}
+                payments.map((payment) => (
+                  <PaymentRow
+                    key={payment._id}
+                    payment={payment}
                     currency={currency}
-                    onCancel={setCancelTarget}
+                    onReverse={setReverseTarget}
                   />
                 ))
               )}
@@ -1161,15 +1109,14 @@ const BillsPayableTab: React.FC = () => {
       </div>
 
       {showAddModal && (
-        <NewBillModal
+        <NewPaymentModal
           onClose={() => setShowAddModal(false)}
-          onSave={createBill}
-          categories={categories}
+          onSave={createPayment}
           saving={saving}
         />
       )}
 
-      {cancelTarget && (
+      {reverseTarget && (
         <div
           className="fixed inset-0 flex items-center justify-center p-4 z-50"
           style={{
@@ -1180,38 +1127,38 @@ const BillsPayableTab: React.FC = () => {
           <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-sm p-7 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950 flex items-center justify-center">
-                <Ban className="w-5 h-5 text-rose-500 dark:text-rose-400" />
+                <RotateCcw className="w-5 h-5 text-rose-500 dark:text-rose-400" />
               </div>
               <h3 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
-                Cancel bill
+                Reverse payment
               </h3>
             </div>
             <p className="text-sm text-stone-500 dark:text-stone-400 mb-4">
-              {cancelTarget.invoiceNumber} won't be deleted — it stays in
-              history as cancelled.
+              {reverseTarget.paymentNumber} won't be deleted — the bill's
+              balance is restored and this stays in history as reversed.
             </p>
             <input
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
+              value={reverseReason}
+              onChange={(e) => setReverseReason(e.target.value)}
               placeholder="Reason (required)"
               className="w-full px-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900 focus:border-rose-400 transition-all mb-5"
             />
             <div className="flex gap-2.5">
               <button
                 onClick={() => {
-                  setCancelTarget(null);
-                  setCancelReason("");
+                  setReverseTarget(null);
+                  setReverseReason("");
                 }}
                 className="flex-1 py-2.5 rounded-full text-sm font-semibold border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
               >
-                Keep bill
+                Keep payment
               </button>
               <button
-                onClick={handleCancel}
-                disabled={!cancelReason.trim()}
+                onClick={handleReverse}
+                disabled={!reverseReason.trim()}
                 className="flex-1 py-2.5 rounded-full text-sm font-semibold text-white bg-rose-500 hover:bg-rose-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
               >
-                Cancel bill
+                Reverse
               </button>
             </div>
           </div>
@@ -1221,4 +1168,4 @@ const BillsPayableTab: React.FC = () => {
   );
 };
 
-export default BillsPayableTab;
+export default FinancePaymentsTab;

@@ -179,16 +179,20 @@ export default function useBillsPayable() {
   );
 
   const cancelBill = useCallback(
-    async (id: string, _reason: string) => {
+    async (id: string, reason: string) => {
       setSaving(true);
       try {
         const token = getTokenByPath();
-        const { data } = await axios.patch(`/api/finance/bills/${id}/cancel`, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+        const { data } = await axios.patch(
+          `/api/finance/bills/${id}/cancel`,
+          { reason },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
         if (!data.success) {
           throw new Error(data.message || "Failed to cancel bill");
         }

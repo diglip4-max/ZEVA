@@ -122,6 +122,10 @@ export default async function handler(req, res) {
         FinanceTransaction.countDocuments(query),
       ]);
 
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
       const summary = await FinanceTransaction.aggregate([
         { $match: { clinicId: query.clinicId, entryType: "bill" } },
         {
@@ -139,6 +143,21 @@ export default async function handler(req, res) {
             overdueCount: {
               $sum: { $cond: [{ $eq: ["$status", "overdue"] }, 1, 0] },
             },
+            paidThisMonth: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $gte: ["$updatedAt", monthStart] },
+                      { $lt: ["$updatedAt", monthEnd] },
+                    ],
+                  },
+                  "$paidAmount",
+                  0,
+                ],
+              },
+            },
+            totalBills: { $sum: 1 },
           },
         },
       ]);
@@ -146,7 +165,12 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         data: bills,
-        summary: summary[0] || { totalOutstanding: 0, overdueCount: 0 },
+        summary: summary[0] || {
+          totalOutstanding: 0,
+          overdueCount: 0,
+          paidThisMonth: 0,
+          totalBills: 0,
+        },
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -174,10 +198,11 @@ export default async function handler(req, res) {
         createdBy = me._id,
       } = req.body;
 
-      if (!supplierId || !category || !amount) {
+      if (!supplierId || !category || !amount || !invoiceDate || !dueDate) {
         return res.status(400).json({
           success: false,
-          message: "SupplierId, category and amount are required",
+          message:
+            "Supplier, category, amount, invoice date and due date are required",
         });
       }
 
@@ -185,6 +210,13 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           message: "Amount must be greater than 0",
+        });
+      }
+
+      if (new Date(dueDate) < new Date(invoiceDate)) {
+        return res.status(400).json({
+          success: false,
+          message: "Due date cannot be before the invoice date",
         });
       }
 

@@ -17,6 +17,7 @@ import OverviewTab from "./OverviewTab";
 import { useClinicTheme } from "@/context/ClinicThemeContext";
 import useClinic from "@/hooks/useClinic";
 import BillsPayableTab from "./BillsPayableTab";
+import FinancePaymentsTab from "./FinancePaymentsTab";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -319,6 +320,8 @@ export default function FinanceManager() {
     | "manualPettyCash"
     | "productSales"
     | "billsPayable"
+    | "payments"
+    | "bankAccounts"
   >("overview");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
@@ -461,6 +464,8 @@ export default function FinanceManager() {
     { id: "manualPettyCash", label: "Manual Petty Cash" },
     { id: "productSales", label: "Product Sales" },
     { id: "billsPayable", label: "Bills & Payables" },
+    { id: "payments", label: "Payments" },
+    // { id: "bankAccounts", label: "Bank Accounts" },
   ];
 
   return (
@@ -814,6 +819,9 @@ export default function FinanceManager() {
 
           {/* Bills Payable Tab */}
           {activeTab === "billsPayable" && <BillsPayableTab />}
+
+          {/* Payments Tab */}
+          {activeTab === "payments" && <FinancePaymentsTab />}
         </div>
 
         {/* Add Transaction Modal */}
