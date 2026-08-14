@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 
 const PettyCashSchema = new mongoose.Schema(
@@ -58,14 +57,17 @@ const PettyCashSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    toJSON: { getters: true },   // so Decimal128 fields serialize as normal numbers
+    toJSON: { getters: true }, // so Decimal128 fields serialize as normal numbers
     toObject: { getters: true },
-  }
+  },
 );
 
 // ---- INDEXES matched to real query patterns ----
 // "Give me this staff member's petty cash record at this clinic"
-PettyCashSchema.index({ clinicId: 1, staffId: 1 }, { unique: true, sparse: true });
+PettyCashSchema.index(
+  { clinicId: 1, staffId: 1 },
+  { unique: true, sparse: true },
+);
 // "Give me recently created/updated records for this clinic" (dashboards, listings)
 PettyCashSchema.index({ clinicId: 1, createdAt: -1 });
 
@@ -84,7 +86,11 @@ PettyCashSchema.index({ clinicId: 1, createdAt: -1 });
  */
 PettyCashSchema.statics.getGlobalAmounts = async function (clinicId) {
   if (!clinicId) {
-    return { globalTotalAmount: 0, globalSpentAmount: 0, globalRemainingAmount: 0 };
+    return {
+      globalTotalAmount: 0,
+      globalSpentAmount: 0,
+      globalRemainingAmount: 0,
+    };
   }
   const globalRecord = await this.findOne({ staffId: null, clinicId }).lean();
   const parseAmt = (val) => {
@@ -92,8 +98,14 @@ PettyCashSchema.statics.getGlobalAmounts = async function (clinicId) {
     if (typeof val === "number") return val;
     return parseFloat(val.toString()) || 0;
   };
-  const total = globalRecord && globalRecord.globalTotalAmount ? parseAmt(globalRecord.globalTotalAmount) : 0;
-  const spent = globalRecord && globalRecord.globalSpentAmount ? parseAmt(globalRecord.globalSpentAmount) : 0;
+  const total =
+    globalRecord && globalRecord.globalTotalAmount
+      ? parseAmt(globalRecord.globalTotalAmount)
+      : 0;
+  const spent =
+    globalRecord && globalRecord.globalSpentAmount
+      ? parseAmt(globalRecord.globalSpentAmount)
+      : 0;
   return {
     globalTotalAmount: total,
     globalSpentAmount: spent,
@@ -111,7 +123,7 @@ PettyCashSchema.statics.updateGlobalSpentAmount = async function (
   clinicId,
   amount,
   operation = "add",
-  session = null
+  session = null,
 ) {
   if (!clinicId) return null;
   const delta = operation === "add" ? amount : -amount;
@@ -120,9 +132,12 @@ PettyCashSchema.statics.updateGlobalSpentAmount = async function (
     { staffId: null, clinicId },
     {
       $inc: { globalSpentAmount: delta },
-      $setOnInsert: { note: "Global petty cash tracking", globalTotalAmount: 0 },
+      $setOnInsert: {
+        note: "Global petty cash tracking",
+        globalTotalAmount: 0,
+      },
     },
-    { upsert: true, new: true, session, setDefaultsOnInsert: true }
+    { upsert: true, new: true, session, setDefaultsOnInsert: true },
   );
 };
 
@@ -134,7 +149,7 @@ PettyCashSchema.statics.updateGlobalTotalAmount = async function (
   clinicId,
   amount,
   operation = "add",
-  session = null
+  session = null,
 ) {
   if (!clinicId) return null;
   const delta = operation === "add" ? amount : -amount;
@@ -143,9 +158,12 @@ PettyCashSchema.statics.updateGlobalTotalAmount = async function (
     { staffId: null, clinicId },
     {
       $inc: { globalTotalAmount: delta },
-      $setOnInsert: { note: "Global petty cash tracking", globalSpentAmount: 0 },
+      $setOnInsert: {
+        note: "Global petty cash tracking",
+        globalSpentAmount: 0,
+      },
     },
-    { upsert: true, new: true, session, setDefaultsOnInsert: true }
+    { upsert: true, new: true, session, setDefaultsOnInsert: true },
   );
 };
 
@@ -153,11 +171,15 @@ PettyCashSchema.statics.updateGlobalTotalAmount = async function (
  * Adjust ONE staff member's rollup totals atomically.
  * Called whenever an allocation is created for them.
  */
-PettyCashSchema.statics.applyAllocation = async function (pettyCashId, amount, session = null) {
+PettyCashSchema.statics.applyAllocation = async function (
+  pettyCashId,
+  amount,
+  session = null,
+) {
   return this.findByIdAndUpdate(
     pettyCashId,
     { $inc: { totalAllocated: amount, totalAmount: amount } },
-    { new: true, session }
+    { new: true, session },
   );
 };
 
@@ -166,11 +188,15 @@ PettyCashSchema.statics.applyAllocation = async function (pettyCashId, amount, s
  * Called whenever an expense is created for them.
  * Pass a negative `amount` to reverse (void) a previously applied expense.
  */
-PettyCashSchema.statics.applyExpense = async function (pettyCashId, amount, session = null) {
+PettyCashSchema.statics.applyExpense = async function (
+  pettyCashId,
+  amount,
+  session = null,
+) {
   return this.findByIdAndUpdate(
     pettyCashId,
     { $inc: { totalSpent: amount, totalAmount: -amount } },
-    { new: true, session }
+    { new: true, session },
   );
 };
 
@@ -186,7 +212,12 @@ PettyCashSchema.statics.recalculateGlobalAmounts = async function (clinicId) {
   }
   try {
     const pipeline = [
-      { $match: { clinicId: new mongoose.Types.ObjectId(clinicId), staffId: { $ne: null } } },
+      {
+        $match: {
+          clinicId: new mongoose.Types.ObjectId(clinicId),
+          staffId: { $ne: null },
+        },
+      },
       {
         $group: {
           _id: null,
@@ -206,13 +237,14 @@ PettyCashSchema.statics.recalculateGlobalAmounts = async function (clinicId) {
         globalSpentAmount: totals.totalSpent,
         $setOnInsert: { note: "Global petty cash tracking" },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     return {
       globalTotalAmount: globalRecord.globalTotalAmount,
       globalSpentAmount: globalRecord.globalSpentAmount,
-      globalRemainingAmount: globalRecord.globalTotalAmount - globalRecord.globalSpentAmount,
+      globalRemainingAmount:
+        globalRecord.globalTotalAmount - globalRecord.globalSpentAmount,
     };
   } catch (error) {
     console.error("Error recalculating global amounts:", error);
@@ -220,4 +252,5 @@ PettyCashSchema.statics.recalculateGlobalAmounts = async function (clinicId) {
   }
 };
 
-export default mongoose.models.PettyCash || mongoose.model("PettyCash", PettyCashSchema);
+export default mongoose.models.PettyCash ||
+  mongoose.model("PettyCash", PettyCashSchema);

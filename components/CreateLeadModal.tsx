@@ -1,7 +1,170 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import CustomAsyncSelect, { OptionType } from "./shared/CustomAsyncSelect";
 import { loadSegmentOptions } from "@/lib/helper";
+
+const COUNTRY_CODES = [
+  { code: "+1", name: "United States", flag: "🇺🇸" },
+  { code: "+1", name: "Canada", flag: "🇨🇦" },
+  { code: "+7", name: "Russia", flag: "🇷🇺" },
+  { code: "+7", name: "Kazakhstan", flag: "🇰🇿" },
+  { code: "+20", name: "Egypt", flag: "🇪🇬" },
+  { code: "+27", name: "South Africa", flag: "🇿🇦" },
+  { code: "+30", name: "Greece", flag: "🇬🇷" },
+  { code: "+31", name: "Netherlands", flag: "🇳🇱" },
+  { code: "+32", name: "Belgium", flag: "🇧🇪" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+40", name: "Romania", flag: "🇷🇴" },
+  { code: "+41", name: "Switzerland", flag: "🇨🇭" },
+  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+45", name: "Denmark", flag: "🇩🇰" },
+  { code: "+46", name: "Sweden", flag: "🇸🇪" },
+  { code: "+47", name: "Norway", flag: "🇳🇴" },
+  { code: "+48", name: "Poland", flag: "🇵🇱" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+52", name: "Mexico", flag: "🇲🇽" },
+  { code: "+55", name: "Brazil", flag: "🇧🇷" },
+  { code: "+60", name: "Malaysia", flag: "🇲🇾" },
+  { code: "+61", name: "Australia", flag: "🇦🇺" },
+  { code: "+62", name: "Indonesia", flag: "🇮🇩" },
+  { code: "+63", name: "Philippines", flag: "🇵🇭" },
+  { code: "+64", name: "New Zealand", flag: "🇳🇿" },
+  { code: "+65", name: "Singapore", flag: "🇸🇬" },
+  { code: "+66", name: "Thailand", flag: "🇹🇭" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+  { code: "+82", name: "South Korea", flag: "🇰🇷" },
+  { code: "+84", name: "Vietnam", flag: "🇻🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+90", name: "Turkey", flag: "🇹🇷" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+92", name: "Pakistan", flag: "🇵🇰" },
+  { code: "+93", name: "Afghanistan", flag: "🇦🇫" },
+  { code: "+94", name: "Sri Lanka", flag: "🇱🇰" },
+  { code: "+95", name: "Myanmar", flag: "🇲🇲" },
+  { code: "+98", name: "Iran", flag: "🇮🇷" },
+  { code: "+971", name: "United Arab Emirates", flag: "🇦🇪" },
+  { code: "+972", name: "Israel", flag: "🇮🇱" },
+  { code: "+973", name: "Bahrain", flag: "🇧🇭" },
+  { code: "+974", name: "Qatar", flag: "🇶🇦" },
+  { code: "+975", name: "Bhutan", flag: "🇧🇹" },
+  { code: "+976", name: "Mongolia", flag: "🇲🇳" },
+  { code: "+977", name: "Nepal", flag: "🇳🇵" },
+  { code: "+880", name: "Bangladesh", flag: "🇧🇩" },
+  { code: "+994", name: "Azerbaijan", flag: "🇦🇿" },
+  { code: "+996", name: "Kyrgyzstan", flag: "🇰🇬" },
+];
+
+const CountryPhoneInput = ({
+  countryCode,
+  phone,
+  onCountryChange,
+  onPhoneChange,
+}: {
+  countryCode: string;
+  phone: string;
+  onCountryChange: (code: string) => void;
+  onPhoneChange: (val: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const options = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return COUNTRY_CODES;
+    return COUNTRY_CODES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) || c.code.replace("+", "").includes(q),
+    );
+  }, [query]);
+  const selected = useMemo(
+    () =>
+      COUNTRY_CODES.find((c) => c.code === countryCode) ||
+      COUNTRY_CODES.find((c) => c.code === "+91"),
+    [countryCode],
+  );
+
+  const localNumber = useMemo(() => {
+    if (!phone) return "";
+    if (phone.startsWith(countryCode)) {
+      return phone.slice(countryCode.length);
+    }
+    return phone.replace(/^\+\d+/, "");
+  }, [phone, countryCode]);
+
+  return (
+    <div className="relative w-full">
+      <div
+        className={`flex items-center border border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-gray-800/20 focus-within:border-gray-800 transition-all`}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 px-2 py-2 bg-gray-50 hover:bg-gray-100 focus:outline-none"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+        >
+          <span className="text-lg leading-none">{selected?.flag || "🏳️"}</span>
+          <span className="text-[10px] sm:text-xs text-gray-800">
+            {selected?.code || "+91"}
+          </span>
+          <svg
+            className="w-3 h-3 text-gray-600"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z" />
+          </svg>
+        </button>
+        <input
+          type="tel"
+          value={localNumber}
+          onChange={(e) => {
+            const sanitized = e.target.value.replace(/[^\d]/g, "");
+            onPhoneChange(sanitized);
+          }}
+          inputMode="numeric"
+          className="flex-1 px-2.5 py-2 text-xs sm:text-sm focus:outline-none"
+          placeholder="Enter phone number"
+        />
+      </div>
+      {open && (
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
+          <div className="p-2 border-b border-gray-100">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search country or code"
+              className="w-full px-2 py-1.5 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-800 focus:border-gray-800"
+            />
+          </div>
+          <ul role="listbox">
+            {options.map((c, idx) => (
+              <li
+                key={`${c.code}-${c.name}-${idx}`}
+                role="option"
+                onClick={() => {
+                  onCountryChange(c.code);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-gray-50 ${c.code === selected?.code ? "bg-gray-100" : ""}`}
+              >
+                <span className="text-lg leading-none">{c.flag}</span>
+                <span className="text-[10px] sm:text-xs text-gray-800 flex-1">
+                  {c.name}
+                </span>
+                <span className="text-[10px] sm:text-xs text-gray-600">
+                  {c.code}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface Props {
   isOpen: boolean;
@@ -21,6 +184,7 @@ export default function CreateLeadModal({
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    countryCode: "+91",
     email: "",
     gender: "Male",
     age: "",
@@ -43,9 +207,10 @@ export default function CreateLeadModal({
   const [customNote, setCustomNote] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [internalCanCreate, setInternalCanCreate] = useState(false);
-  const canCreate = propCanCreate !== undefined ? propCanCreate : internalCanCreate;
+  const canCreate =
+    propCanCreate !== undefined ? propCanCreate : internalCanCreate;
   const [selectedSegment, setSelectedSegment] = useState<OptionType | null>(
-    null
+    null,
   );
 
   useEffect(() => {
@@ -88,7 +253,7 @@ export default function CreateLeadModal({
               const moduleKey = p.module || "";
               const normalizedModule = moduleKey.replace(
                 /^(admin|clinic|doctor|agent)_/,
-                ""
+                "",
               );
               return (
                 normalizedModule === "lead" ||
@@ -98,7 +263,7 @@ export default function CreateLeadModal({
                 moduleKey === "create_lead" ||
                 moduleKey === "lead"
               );
-            }
+            },
           );
           if (modulePermission) {
             const actions = modulePermission.actions || {};
@@ -106,7 +271,7 @@ export default function CreateLeadModal({
             const createLeadSubModule = modulePermission.subModules?.find(
               (sm: any) =>
                 sm.name === "Create Lead" ||
-                sm.name?.toLowerCase() === "create lead"
+                sm.name?.toLowerCase() === "create lead",
             );
 
             // Module-level "all" grants all permissions including submodules
@@ -114,11 +279,11 @@ export default function CreateLeadModal({
             const moduleCreate = isTrue(actions.create);
             const createLeadAll = isTrue(createLeadSubModule?.actions?.all);
             const createLeadCreate = isTrue(
-              createLeadSubModule?.actions?.create
+              createLeadSubModule?.actions?.create,
             );
 
             setInternalCanCreate(
-              moduleAll || moduleCreate || createLeadAll || createLeadCreate
+              moduleAll || moduleCreate || createLeadAll || createLeadCreate,
             );
           } else {
             setInternalCanCreate(false);
@@ -130,7 +295,7 @@ export default function CreateLeadModal({
         setTreatments(
           Array.isArray(treatmentsRes.data?.treatments)
             ? treatmentsRes.data.treatments
-            : []
+            : [],
         );
         setAgents(agentsRes.data?.users || []);
         const list = Array.isArray(offersRes.data?.offers)
@@ -153,6 +318,7 @@ export default function CreateLeadModal({
         name: "",
         email: "",
         phone: "",
+        countryCode: "+91",
         gender: "Male",
         age: "",
         treatments: [],
@@ -174,14 +340,11 @@ export default function CreateLeadModal({
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    >,
   ) => {
     if (e.target.name === "phone") {
-      // Only allow digits and limit to 10 digits
       const value = e.target.value.replace(/\D/g, "");
-      if (value.length <= 10) {
-        setFormData({ ...formData, phone: value });
-      }
+      setFormData({ ...formData, phone: value });
     } else if (e.target.name === "email") {
       // Keep email as typed; validation will run on submit and inline
       setFormData({ ...formData, email: e.target.value });
@@ -201,13 +364,14 @@ export default function CreateLeadModal({
       const [mainName, subName] = value.split("::");
       setFormData((prev) => {
         const exists = prev.treatments.some(
-          (t) => t.treatment === mainName && t.subTreatment === subName
+          (t) => t.treatment === mainName && t.subTreatment === subName,
         );
         return {
           ...prev,
           treatments: exists
             ? prev.treatments.filter(
-                (t) => !(t.treatment === mainName && t.subTreatment === subName)
+                (t) =>
+                  !(t.treatment === mainName && t.subTreatment === subName),
               )
             : [
                 ...prev.treatments,
@@ -220,13 +384,13 @@ export default function CreateLeadModal({
     const mainName = value;
     setFormData((prev) => {
       const exists = prev.treatments.some(
-        (t) => t.treatment === mainName && !t.subTreatment
+        (t) => t.treatment === mainName && !t.subTreatment,
       );
       return {
         ...prev,
         treatments: exists
           ? prev.treatments.filter(
-              (t) => !(t.treatment === mainName && !t.subTreatment)
+              (t) => !(t.treatment === mainName && !t.subTreatment),
             )
           : [...prev.treatments, { treatment: mainName, subTreatment: null }],
       };
@@ -243,8 +407,9 @@ export default function CreateLeadModal({
     }
 
     // Validate phone number
-    if (!formData.phone || formData.phone.length !== 10) {
-      alert("Please enter a valid 10-digit phone number");
+    const digitsOnly = formData.phone.replace(/\D/g, "");
+    if (!digitsOnly || digitsOnly.length < 5) {
+      alert("Please enter a valid phone number");
       return;
     }
 
@@ -266,12 +431,13 @@ export default function CreateLeadModal({
         "/api/lead-ms/create-lead",
         {
           ...formData,
+          phone: `${formData.countryCode}${formData.phone.replace(/^0+/, "")}`,
           notes: notesToSend,
           followUps: followUpsToSend,
           mode: "manual",
           segmentId: selectedSegment?.value,
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
 
       alert("Lead added successfully!");
@@ -350,23 +516,32 @@ export default function CreateLeadModal({
                   <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
                     Phone <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    maxLength={10}
-                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
-                    placeholder="Enter 10-digit phone number"
-                    required
+                  <CountryPhoneInput
+                    countryCode={formData.countryCode}
+                    phone={formData.phone}
+                    onCountryChange={(code) => {
+                      setFormData((prev) => {
+                        let localNum = prev.phone;
+                        if (localNum.startsWith(prev.countryCode)) {
+                          localNum = localNum.slice(prev.countryCode.length);
+                        } else {
+                          localNum = localNum.replace(/^\+\d+/, "");
+                        }
+                        return { ...prev, countryCode: code, phone: localNum };
+                      });
+                    }}
+                    onPhoneChange={(val) => {
+                      const sanitized = val.replace(/[^\d]/g, "");
+                      setFormData((prev) => ({ ...prev, phone: sanitized }));
+                    }}
                   />
                   {formData.phone.length > 0 &&
-                    formData.phone.length !== 10 && (
-                      <p className="text-[10px] text-red-500 mt-1">
-                        Phone number must be exactly 10 digits
+                    formData.phone.replace(/\D/g, "").length < 5 && (
+                      <p className="text-[10px] text-amber-600 mt-1">
+                        Phone number seems too short
                       </p>
                     )}
-                  {formData.phone.length === 10 && (
+                  {formData.phone.replace(/\D/g, "").length >= 5 && (
                     <p className="text-[10px] text-green-600 mt-1">
                       Valid phone number
                     </p>
@@ -455,7 +630,7 @@ export default function CreateLeadModal({
                             checked={formData.treatments.some(
                               (tr) =>
                                 tr.treatment === t.mainTreatment &&
-                                !tr.subTreatment
+                                !tr.subTreatment,
                             )}
                             onChange={handleTreatmentChange}
                             className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
@@ -479,7 +654,7 @@ export default function CreateLeadModal({
                                     checked={formData.treatments.some(
                                       (tr) =>
                                         tr.treatment === t.mainTreatment &&
-                                        tr.subTreatment === sub.name
+                                        tr.subTreatment === sub.name,
                                     )}
                                     onChange={handleTreatmentChange}
                                     className="w-3 h-3 text-gray-800 rounded focus:ring-gray-800"

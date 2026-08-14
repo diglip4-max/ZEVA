@@ -451,9 +451,9 @@ export default function FinanceManager() {
 
   const tabs: { id: typeof activeTab; label: string }[] = [
     { id: "overview", label: "Overview" },
-    { id: "transactions", label: "Transactions" },
-    { id: "invoices", label: "Invoices" },
-    { id: "categories", label: "Expense Categories" },
+    // { id: "transactions", label: "Transactions" },
+    // { id: "invoices", label: "Invoices" },
+    // { id: "categories", label: "Expense Categories" },
     { id: "billing", label: "Billing" },
     { id: "pettyCash", label: "Petty Cash" },
     { id: "manualPettyCash", label: "Manual Petty Cash" },

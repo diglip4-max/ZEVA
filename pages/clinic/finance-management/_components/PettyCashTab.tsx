@@ -15,10 +15,12 @@ import {
   PieChart,
   CreditCard,
   Receipt,
+  Coins,
 } from "lucide-react";
 import usePettyCash, {
   AllocationData,
   ExpenseData,
+  CashIncomeData,
 } from "../_hooks/usePettyCash";
 import StatCard from "./StatCard";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -50,7 +52,7 @@ const getStaffName = (staff: any): string => {
   return staff.name || staff.email || `Staff #${staff._id?.slice(-6)}`;
 };
 
-type TabType = "all" | "allocations" | "expenses";
+type TabType = "all" | "allocations" | "expenses" | "income";
 
 const TABS: { value: TabType; label: string; icon: React.ReactNode }[] = [
   {
@@ -67,6 +69,11 @@ const TABS: { value: TabType; label: string; icon: React.ReactNode }[] = [
     value: "expenses",
     label: "Expenses",
     icon: <ArrowDownRight className="w-4 h-4" />,
+  },
+  {
+    value: "income",
+    label: "Cash Income",
+    icon: <Coins className="w-4 h-4" />,
   },
 ];
 
@@ -198,7 +205,7 @@ function AllocationRow({
 }
 
 // ============================================================
-// EXPENSE ROW COMPONENT - Updated with conditional signs
+// EXPENSE ROW COMPONENT
 // ============================================================
 function ExpenseRow({
   expense,
@@ -261,8 +268,6 @@ function ExpenseRow({
         </div>
         <div className="flex items-center gap-4">
           <ReceiptLinks receipts={expense.receipts || []} />
-
-          {/* Conditional amount display */}
           {isPettyCashExpense ? (
             <span
               className={`font-mono font-semibold text-sm ${
@@ -278,7 +283,6 @@ function ExpenseRow({
               {formatMoney(expense.spentAmount, currency)}
             </span>
           )}
-
           <ChevronRight
             className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
           />
@@ -287,7 +291,6 @@ function ExpenseRow({
       {expanded && (
         <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
           <div className="space-y-2 text-sm">
-            {/* Source badge */}
             <div className="flex items-center gap-2">
               <span className="text-stone-400 dark:text-stone-500">
                 Source:
@@ -362,12 +365,123 @@ function ExpenseRow({
 }
 
 // ============================================================
+// INCOME ROW COMPONENT
+// ============================================================
+function IncomeRow({
+  income,
+  currency,
+}: {
+  income: CashIncomeData;
+  currency: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <div
+        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500 dark:text-emerald-400 shrink-0">
+            <Coins className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
+                {income.patientName || "Unknown Patient"}
+              </span>
+              <span className="text-xs text-stone-400 dark:text-stone-500">
+                #{income.invoiceNumber}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
+              <span>{formatDate(income.invoicedDate)}</span>
+              <span>•</span>
+              <span>{income.service || "Service"}</span>
+              <span>•</span>
+              <span>Payment: {income.paymentMethod}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="font-mono font-semibold text-sm text-emerald-600 dark:text-emerald-400">
+            +{formatMoney(income.cashAmount, currency)}
+          </span>
+          <ChevronRight
+            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+          />
+        </div>
+      </div>
+      {expanded && (
+        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">Patient:</span>
+              <span className="ml-2 text-stone-600 dark:text-stone-300">
+                {income.patientName}
+              </span>
+            </div>
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">Mobile:</span>
+              <span className="ml-2 text-stone-600 dark:text-stone-300">
+                {income.mobileNumber || "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">EMR #:</span>
+              <span className="ml-2 text-stone-600 dark:text-stone-300">
+                {income.emrNumber || "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">Service:</span>
+              <span className="ml-2 text-stone-600 dark:text-stone-300">
+                {income.service || "N/A"}
+              </span>
+            </div>
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">Total Amount:</span>
+              <span className="ml-2 text-stone-600 dark:text-stone-300">
+                {formatMoney(income.amount, currency)}
+              </span>
+            </div>
+            <div>
+              <span className="text-stone-400 dark:text-stone-500">Cash Received:</span>
+              <span className="ml-2 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                {formatMoney(income.cashAmount, currency)}
+              </span>
+            </div>
+            {income.multiplePayments && income.multiplePayments.length > 0 && (
+              <div className="col-span-2">
+                <span className="text-stone-400 dark:text-stone-500">Payment Breakdown:</span>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {income.multiplePayments.map((payment, i) => (
+                    <span
+                      key={i}
+                      className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
+                    >
+                      {payment.paymentMethod}: {formatMoney(payment.amount, currency)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
 // STATS CARDS SECTION
 // ============================================================
 interface StatsSectionProps {
   viewType: TabType;
   allocationSummary: any;
   expenseSummary: any;
+  incomeSummary: any;
   loading: boolean;
 }
 
@@ -375,6 +489,7 @@ const StatsSection: React.FC<StatsSectionProps> = ({
   viewType,
   allocationSummary,
   expenseSummary,
+  incomeSummary,
   loading,
 }) => {
   const { currency } = useCurrency();
@@ -394,6 +509,56 @@ const StatsSection: React.FC<StatsSectionProps> = ({
             <div className="h-8 w-24 bg-stone-200 dark:bg-stone-700 rounded"></div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  if (viewType === "income") {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Cash Income"
+          value={formatMoney(incomeSummary?.totalCashIn || 0, currency)}
+          icon={<Coins />}
+          fromColor="#059669"
+          toColor="#10b981"
+          iconColor="text-white"
+          trend={`${incomeSummary?.totalTransactions || 0} transactions`}
+          trendPositive={true}
+        />
+        <StatCard
+          label="Average Transaction"
+          value={formatMoney(
+            (incomeSummary?.totalCashIn || 0) / (incomeSummary?.totalTransactions || 1),
+            currency
+          )}
+          icon={<Wallet />}
+          fromColor="#7c3aed"
+          toColor="#8b5cf6"
+          iconColor="text-white"
+          trend="Per cash payment"
+          trendPositive={true}
+        />
+        <StatCard
+          label="Total Transactions"
+          value={incomeSummary?.totalTransactions || 0}
+          icon={<Receipt />}
+          fromColor="#0d9488"
+          toColor="#14b8a6"
+          iconColor="text-white"
+          trend="Cash payments"
+          trendPositive={true}
+        />
+        <StatCard
+          label="Status"
+          value="Active"
+          icon={<DollarSign />}
+          fromColor="#059669"
+          toColor="#10b981"
+          iconColor="text-white"
+          trend="All cash transactions"
+          trendPositive={true}
+        />
       </div>
     );
   }
@@ -516,7 +681,7 @@ const StatsSection: React.FC<StatsSectionProps> = ({
         fromColor="#dc2626"
         toColor="#ef4444"
         iconColor="text-white"
-        trend={`${expenseSummary?.totalExpenses || 0} expenses`}
+        trend={`${expenseSummary?.pettyCashExpenseCount || 0} petty cash expenses`}
         trendPositive={false}
       />
       <StatCard
@@ -556,8 +721,10 @@ const PettyCashTab: React.FC = () => {
     error,
     allocations,
     expenses,
+    incomeData,
     allocationSummary,
     expenseSummary,
+    incomeSummary,
     viewType,
     setViewType,
     search,
@@ -573,8 +740,8 @@ const PettyCashTab: React.FC = () => {
   const [endDate, setEndDate] = React.useState<string>("");
   const [showVoided, setShowVoided] = React.useState<boolean>(false);
 
-  const from = pagination.totalResults === 0 ? 0 : (page - 1) * limit + 1;
-  const to = Math.min(page * limit, pagination.totalResults);
+  const from = pagination?.totalResults === 0 ? 0 : (page - 1) * limit + 1;
+  const to = Math.min(page * limit, pagination?.totalResults || 0);
 
   // Filter data based on date and voided status (client-side filtering for now)
   const filteredAllocations = React.useMemo(() => {
@@ -604,19 +771,20 @@ const PettyCashTab: React.FC = () => {
         viewType={viewType}
         allocationSummary={allocationSummary}
         expenseSummary={expenseSummary}
+        incomeSummary={incomeSummary}
         loading={loading}
       />
 
       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm dark:shadow-stone-900/20 overflow-hidden transition-colors duration-300">
         {/* Tabs */}
         <div className="border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
-          <div className="flex items-center gap-1 p-1">
+          <div className="flex items-center gap-1 p-1 overflow-x-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.value}
                 onClick={() => setViewType(tab.value)}
                 className={`
-                  flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all
+                  flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
                   ${
                     viewType === tab.value
                       ? "bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-stone-900/20"
@@ -638,7 +806,11 @@ const PettyCashTab: React.FC = () => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
+              placeholder={
+                viewType === "income" 
+                  ? "Search by patient name or invoice..." 
+                  : "Search…"
+              }
               className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-stone-900/20"
             />
           </div>
@@ -656,15 +828,17 @@ const PettyCashTab: React.FC = () => {
             className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
           />
 
-          <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
-            <input
-              type="checkbox"
-              checked={showVoided}
-              onChange={(e) => setShowVoided(e.target.checked)}
-              className="rounded border-stone-300 dark:border-stone-600 text-teal-600 focus:ring-teal-500"
-            />
-            Show voided
-          </label>
+          {viewType !== "income" && (
+            <label className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300">
+              <input
+                type="checkbox"
+                checked={showVoided}
+                onChange={(e) => setShowVoided(e.target.checked)}
+                className="rounded border-stone-300 dark:border-stone-600 text-teal-600 focus:ring-teal-500"
+              />
+              Show voided
+            </label>
+          )}
         </div>
 
         {/* Content */}
@@ -684,6 +858,25 @@ const PettyCashTab: React.FC = () => {
 
           {!loading && !error && (
             <>
+              {viewType === "income" && (
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {incomeData.length === 0 ? (
+                    <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+                      <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+                      <span className="text-sm">No cash income found.</span>
+                    </div>
+                  ) : (
+                    incomeData.map((income) => (
+                      <IncomeRow
+                        key={income._id}
+                        income={income}
+                        currency={currency}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+
               {viewType === "allocations" && (
                 <div className="divide-y divide-stone-100 dark:divide-stone-800">
                   {filteredAllocations.length === 0 ? (
@@ -777,7 +970,7 @@ const PettyCashTab: React.FC = () => {
         </div>
 
         {/* Pagination footer */}
-        {!loading && !error && pagination.totalResults > 0 && (
+        {!loading && !error && pagination && pagination.totalResults > 0 && (
           <div className="px-5 py-4 border-t border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-stone-400 dark:text-stone-500 font-medium">
               Showing{" "}
@@ -800,7 +993,7 @@ const PettyCashTab: React.FC = () => {
               </button>
 
               <span className="text-xs font-semibold text-stone-600 dark:text-stone-300 px-2">
-                Page {pagination.currentPage} of {pagination.totalPages}
+                Page {pagination.currentPage || 1} of {pagination.totalPages || 1}
               </span>
 
               <button
