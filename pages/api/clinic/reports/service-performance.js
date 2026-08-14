@@ -158,10 +158,12 @@ export default async function handler(req, res) {
                 ],
               },
               // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed
-              { $subtract: [
-                { $ifNull: ["$paid", 0] },
-                { $ifNull: ["$pendingUsed", 0] }
-              ] },
+              {
+                $subtract: [
+                  { $ifNull: ["$paid", 0] },
+                  { $ifNull: ["$pendingUsed", 0] }
+                ]
+              },
               // Nested $cond for Package billing with selectedTreatments
               {
                 $cond: [
@@ -200,15 +202,15 @@ export default async function handler(req, res) {
       // (by name for Treatment, or by departmentId for Service via appointment lookup)
       ...(hasDepartment
         ? [{
-            $match: {
-              $expr: {
-                $or: [
-                  { $in: ["$resolvedServiceName", serviceNames.length ? serviceNames : ["__none__"]] },
-                  { $eq: ["$apptDeptId", new mongoose.Types.ObjectId(departmentId)] },
-                ],
-              },
+          $match: {
+            $expr: {
+              $or: [
+                { $in: ["$resolvedServiceName", serviceNames.length ? serviceNames : ["__none__"]] },
+                { $eq: ["$apptDeptId", new mongoose.Types.ObjectId(departmentId)] },
+              ],
             },
-          }]
+          },
+        }]
         : []),
       {
         $group: {

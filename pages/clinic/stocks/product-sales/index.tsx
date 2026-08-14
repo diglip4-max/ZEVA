@@ -309,12 +309,12 @@ const ProductSalesPage: NextPageWithLayout = () => {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
 
   // Add sale modal states
-  const [isOpenAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
+  // const [_isOpenAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
 
-  const handleSaleSuccess = () => {
-    setIsAddSaleModalOpen(false);
-    fetchProductSales();
-  };
+  // const handleSaleSuccess = () => {
+  //   setIsAddSaleModalOpen(false);
+  //   fetchProductSales();
+  // };
 
   const fetchProductSales = useCallback(
     debounce(async (page: number = 1, search: string = "") => {

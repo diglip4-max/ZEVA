@@ -3,7 +3,6 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronDown,
   ChevronRight,
   ChevronLeft,
   Loader2,
@@ -14,7 +13,6 @@ import {
   TrendingDown,
   Wallet,
   PieChart,
-  Plus,
   CreditCard,
   Receipt,
 } from "lucide-react";
@@ -210,7 +208,7 @@ function ExpenseRow({
   currency: string;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const pettyCash = expense.pettyCashId as any;
+  // const pettyCash = expense.pettyCashId as any;
   const isPettyCashExpense = expense.usedFromPettyCash === true;
 
   return (

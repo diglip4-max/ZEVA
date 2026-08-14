@@ -6,6 +6,7 @@ import PettyCashAllocation from "../../../models/PettyCashAllocation";
 import PettyCashExpense from "../../../models/PettyCashExpense";
 import ManualPettyCash from "../../../models/ManualPettyCash";
 import ProductSale from "../../../models/stocks/ProductSale";
+import Supplier from "../../../models/stocks/Supplier";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 // Helper function to safely parse numbers

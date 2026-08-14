@@ -111,19 +111,19 @@ export default function MyClaims() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          
+
           <StatCard label="Total Patients" value={stats.totalPatients || 0} />
           <StatCard label="Released" value={stats.releasedClaims || 0} percent={releasedPercent} />
           <StatCard label="Pending" value={stats.pendingClaims || 0} percent={pendingPercent} />
           <StatCard label="Cancelled" value={stats.cancelledClaims || 0} percent={cancelledPercent} />
           <StatCard label="Total CoPayment" value={formatLargeNumber(stats.totalCoPayment)} />
           <StatCard label="CoPayment Count" value={stats.totalCoPaymentCount || 0} />
-          
+
         </div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          
+
           {/* Bar Chart - Status Breakdown */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-6">Status Breakdown</h2>
@@ -131,12 +131,12 @@ export default function MyClaims() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={statusData} margin={{ top: 20, right: 20, left: -10, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                  <XAxis 
-                    dataKey="name" 
+                  <XAxis
+                    dataKey="name"
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
@@ -144,9 +144,9 @@ export default function MyClaims() {
                     {statusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
-                    <LabelList 
-                      dataKey="value" 
-                      position="top" 
+                    <LabelList
+                      dataKey="value"
+                      position="top"
                       style={{ fontSize: 14, fontWeight: 600, fill: '#111827' }}
                     />
                   </Bar>
@@ -162,25 +162,25 @@ export default function MyClaims() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendData} margin={{ top: 20, right: 20, left: -10, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis 
-                    dataKey="name" 
+                  <XAxis
+                    dataKey="name"
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#3b82f6" 
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
                     strokeWidth={2}
                     dot={{ fill: '#3b82f6', r: 4 }}
                   >
-                    <LabelList 
-                      dataKey="value" 
-                      position="top" 
+                    <LabelList
+                      dataKey="value"
+                      position="top"
                       style={{ fontSize: 14, fontWeight: 600, fill: '#111827' }}
                       offset={10}
                     />
@@ -203,31 +203,31 @@ export default function MyClaims() {
                 <AreaChart data={comparisonData} margin={{ top: 20, right: 20, left: -10, bottom: 20 }}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                  <XAxis 
-                    dataKey="name" 
+                  <XAxis
+                    dataKey="name"
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#3b82f6" 
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
                     strokeWidth={2}
-                    fillOpacity={1} 
+                    fillOpacity={1}
                     fill="url(#colorValue)"
                   >
-                    <LabelList 
-                      dataKey="value" 
-                      position="top" 
+                    <LabelList
+                      dataKey="value"
+                      position="top"
                       style={{ fontSize: 14, fontWeight: 600, fill: '#111827' }}
                       offset={10}
                     />
@@ -244,21 +244,21 @@ export default function MyClaims() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={coPaymentData} layout="vertical" margin={{ top: 20, right: 30, left: 80, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-                  <XAxis 
+                  <XAxis
                     type="number"
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
-                  <YAxis 
+                  <YAxis
                     type="category"
-                    dataKey="name" 
+                    dataKey="name"
                     tick={{ fontSize: 13, fill: '#6b7280' }}
                     stroke="#e5e7eb"
                   />
                   <Bar dataKey="value" fill="#8b5cf6" radius={[0, 6, 6, 0]}>
-                    <LabelList 
-                      dataKey="value" 
-                      position="right" 
+                    <LabelList
+                      dataKey="value"
+                      position="right"
                       style={{ fontSize: 14, fontWeight: 600, fill: '#111827' }}
                       formatter={(value) => value >= 1000 ? formatLargeNumber(value * 1000) : value}
                     />

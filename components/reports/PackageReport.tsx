@@ -650,7 +650,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   // Only responds to date range filter, not doctor/sales staff/payment method filters
   async function fetchPackageExpiry() {
     try {
-      const params: any = { startDate, endDate };
+      const params: any = {};
       if (selectedClinic) params.clinicId = selectedClinic;
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(`/api/clinic/reports/package-expiry?${qs}`, { headers });
