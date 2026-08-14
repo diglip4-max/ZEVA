@@ -125,13 +125,12 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
           type="tel"
           value={localNumber}
           onChange={e => {
-            const sanitized = e.target.value.replace(/[^\d]/g, "").slice(0, 10);
+            const sanitized = e.target.value.replace(/[^\d]/g, "");
             onPhoneChange(sanitized);
           }}
-          maxLength={10}
           inputMode="numeric"
           className="flex-1 px-2 py-1 text-[10px] focus:outline-none"
-          placeholder="Enter 10-digit number"
+          placeholder="Enter phone number"
         />
       </div>
       {open && (
@@ -458,9 +457,9 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       } else {
         localNum = localNum.replace(/^\+\d+/, '');
       }
-      if (!/^\d{10}$/.test(localNum)) {
-        newErrors.mobileNumber = "Mobile number must be exactly 10 digits";
-      }
+      // if (!/^\d{10}$/.test(localNum)) {
+      //   newErrors.mobileNumber = "Mobile number must be exactly 10 digits";
+      // }
     }
 
     if (isSpecificClinic) {
@@ -516,13 +515,19 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
             ? "/api/clinic/patient-registration"
             : "/api/staff/patient-registration";
 
+          const updatedFormData = {
+            ...formData,
+            mobileNumber: `${formData.countryCode}${formData.mobileNumber.replace(/^0+/, '')}`,
+            userId: currentUser._id
+          }
+
           const res = await fetch(apiEndpoint, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               ...headers
             },
-            body: JSON.stringify({ ...formData, userId: currentUser._id })
+            body: JSON.stringify(updatedFormData)
           });
           const data = await res.json();
 
@@ -736,7 +741,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                           });
                         }}
                         onPhoneChange={(val) => {
-                          const sanitized = val.replace(/[^\d]/g, "").slice(0, 10);
+                          const sanitized = val.replace(/[^\d]/g, "");
 
                           setFormData(prev => ({
                             ...prev,
