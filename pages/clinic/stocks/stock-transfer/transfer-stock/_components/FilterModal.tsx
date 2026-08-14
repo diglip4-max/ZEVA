@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { X } from "lucide-react";
 import useClinicBranches from "@/hooks/useClinicBranches";
 
@@ -54,7 +54,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex justify-between items-center">
+        <div className="bg-bg-surface border-b border-border-default px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
               <svg

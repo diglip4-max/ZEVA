@@ -2,15 +2,15 @@
 import React, { useState, useEffect } from "react";
 import Head from "next/head";
 import axios from "axios";
-import { 
-  PhoneOff, 
-  UserCheck, 
-  AlertTriangle, 
-  Timer, 
-  Bell, 
-  Clock, 
-  CheckCircle, 
-  MessageCircle, 
+import {
+  PhoneOff,
+  UserCheck,
+  AlertTriangle,
+  Timer,
+  Bell,
+  Clock,
+  CheckCircle,
+  MessageCircle,
   ArrowRight,
   Star,
   TrendingUp,
@@ -65,9 +65,8 @@ function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-white/95 backdrop-blur-md"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-md shadow-sm" : "bg-white/95 backdrop-blur-md"
+        }`}
     >
       <div className="max-w-7xl mx-auto px-6 sm:px-10 flex items-center justify-between h-20">
         {/* Logo */}
@@ -82,19 +81,19 @@ function Navbar() {
 
         {/* Nav links */}
         <div className="hidden md:flex items-center gap-10">
-          <button 
+          <button
             onClick={() => scrollToSection('features')}
             className="text-gray-600 hover:text-[#0B5FFF] transition-colors font-medium text-base cursor-pointer"
           >
             Features
           </button>
-          <button 
+          <button
             onClick={() => scrollToSection('results')}
             className="text-gray-600 hover:text-[#0B5FFF] transition-colors font-medium text-base cursor-pointer"
           >
             Results
           </button>
-          <button 
+          <button
             onClick={() => scrollToSection('reviews')}
             className="text-gray-600 hover:text-[#0B5FFF] transition-colors font-medium text-base cursor-pointer"
           >
@@ -197,12 +196,12 @@ function HeroSection() {
           <div className="relative hidden md:block">
             {/* Main image area */}
             <div className="rounded-2xl shadow-2xl overflow-hidden border-8 border-white relative w-full h-auto">
-              <img 
+              <img
                 src="/la.jpg"
-                alt="ZEVA CRM Dashboard" 
+                alt="ZEVA CRM Dashboard"
                 className="w-full h-auto object-cover min-h-[400px]"
               />
-              
+
               {/* Notification card - top right */}
               <div className="absolute -top-4 -right-4 z-10 bg-white rounded-lg shadow-lg p-4 flex items-center gap-3 max-w-[240px]">
                 <div className="w-11 h-11 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
@@ -291,7 +290,7 @@ function RealityCheckSection() {
             <div
               key={i}
               className={`relative rounded-2xl p-8 text-left transition-all duration-300 bg-white border hover:border-[#0B5FFF] hover:shadow-2xl hover:-translate-y-1  "border-[#0B5FFF] shadow-md" : "border-gray-100"}`}
-              
+
             >
               <div className={`w-12 h-12 rounded-xl ${p.iconBg} ${p.iconColor} flex items-center justify-center mb-6`}>
                 {p.icon}
@@ -360,15 +359,14 @@ function SolutionSection() {
               key={i}
               onClick={() => setActiveFeature(i)}
               className={`relative rounded-2xl p-8 text-left cursor-pointer transition-all duration-300 bg-white border hover:border-[#0B5FFF] hover:shadow-xl hover:-translate-y-1  "border-[#0D47A1] shadow-md" : "border-gray-100"}`}
-              
+
             >
               <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center mb-6 text-white">
                 {f.icon}
               </div>
               <h3
-                className={`font-bold text-lg mb-3 ${
-                  activeFeature === i || f.highlighted ? "text-blue-600" : "text-gray-900"
-                }`}
+                className={`font-bold text-lg mb-3 ${activeFeature === i || f.highlighted ? "text-blue-600" : "text-gray-900"
+                  }`}
               >
                 {f.title}
               </h3>
@@ -383,9 +381,8 @@ function SolutionSection() {
             <button
               key={i}
               onClick={() => setActiveFeature(i)}
-              className={`h-2.5 rounded-full transition-all duration-200 ${
-                activeFeature === i ? "bg-blue-600 w-8" : "bg-gray-300 w-2.5"
-              }`}
+              className={`h-2.5 rounded-full transition-all duration-200 ${activeFeature === i ? "bg-blue-600 w-8" : "bg-gray-300 w-2.5"
+                }`}
             />
           ))}
         </div>
@@ -740,8 +737,8 @@ function HowItWorksSection() {
           <div className="absolute left-[44px] top-16 bottom-16 w-0.5 bg-gray-200 hidden sm:block" />
 
           {steps.map((step, i) => (
-            <div 
-              key={i} 
+            <div
+              key={i}
               className="group relative flex items-start gap-8 text-left pb-12 last:pb-0"
             >
               {/* Step icon */}
@@ -991,7 +988,7 @@ function AuditFormSection() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
       const { data } = await axios.post("/api/zeva-leads", {
         name: form.name,
@@ -1000,7 +997,7 @@ function AuditFormSection() {
         clinicName: form.clinic,
         source: "India Landing Page - Audit Form",
       });
-      
+
       if (data.success) {
         setSubmitted(true);
         setForm({ name: "", email: "", phone: "", clinic: "" });
@@ -1020,7 +1017,7 @@ function AuditFormSection() {
     <section className="py-16 md:py-24 bg-gradient-to-b from-white to-gray-50 relative overflow-hidden" id="audit">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-transparent to-purple-50/50 pointer-events-none" />
-      
+
       <div className="max-w-7xl mx-auto px-6 sm:px-10 relative z-10">
         <div className="max-w-2xl mx-auto text-center">
           <div className="inline-block px-5 py-2 rounded-full border border-blue-200 bg-blue-50 text-blue-600 text-sm font-semibold tracking-wide mb-6">
@@ -1149,7 +1146,7 @@ function AuditFormSection() {
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      Get My Free Audit 
+                      Get My Free Audit
                       <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                       </svg>

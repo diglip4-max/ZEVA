@@ -587,8 +587,8 @@ function LeadsPage() {
         <div className="mb-3 bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-teal-900">Leads Management</h1>
-              <p className="text-[10px] sm:text-xs text-teal-500">Filter, review, and assign leads to your team</p>
+              <h1 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-teal-100">Leads Management</h1>
+              <p className="text-[10px] sm:text-xs text-teal-500 dark:text-teal-600">Filter, review, and assign leads to your team</p>
             </div>
             <div className="flex items-center gap-2.5">
               {/* <button

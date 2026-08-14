@@ -38,7 +38,10 @@ export default async function handler(req, res) {
           message: permError || "You do not have permission to view memberships",
         });
       }
-      const memberships = await MembershipPlan.find({ clinicId }).sort({ createdAt: -1 }).lean();
+      const memberships = await MembershipPlan.find({
+        clinicId,
+        isDeleted: { $ne: true }
+      }).sort({ createdAt: -1 }).lean();
       const now = new Date();
       const enriched = memberships.map((m) => {
         const startDate = m.createdAt
@@ -94,7 +97,11 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Valid discountPercentage (0–100) is required" });
       }
 
-      const exists = await MembershipPlan.findOne({ clinicId, name: name.trim() });
+      const exists = await MembershipPlan.findOne({
+        clinicId,
+        name: name.trim(),
+        isDeleted: { $ne: true },
+      });
       if (exists) {
         return res.status(400).json({ success: false, message: "A membership with this name already exists" });
       }
@@ -168,6 +175,7 @@ export default async function handler(req, res) {
         clinicId,
         name: name.trim(),
         _id: { $ne: itemId },
+        isDeleted: { $ne: true },
       });
       if (duplicate) {
         return res.status(400).json({ success: false, message: "Another membership with this name exists" });
@@ -211,7 +219,16 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Not found" });
       }
 
-      await MembershipPlan.findByIdAndDelete(itemId);
+      // Soft delete: set isDeleted to true
+      await MembershipPlan.updateOne(
+        { _id: itemId },
+        {
+          $set: {
+            isDeleted: true,
+            name: `${membership.name}`
+          }
+        }
+      );
       return res.status(200).json({ success: true, message: "Membership deleted" });
     } catch {
       return res.status(500).json({ success: false, message: "Failed to delete membership" });

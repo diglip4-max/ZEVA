@@ -48,11 +48,11 @@ export default async function handler(req, res) {
     // Get clinicId for access control
     const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
 
-    // Only Completed claims can be released/rejected from release-requested-claims
-    if (claim.status !== "Completed") {
+    // Support both legacy Completed claims and current Ready claims in release-requested-claims.
+    if (!["Ready", "Completed"].includes(claim.status)) {
       return res.status(400).json({
         success: false,
-        message: `Cannot perform action on claim with status "${claim.status}". Only "Completed" claims can be processed.`,
+        message: `Cannot perform action on claim with status "${claim.status}". Only "Ready" or "Completed" claims can be processed.`,
       });
     }
 

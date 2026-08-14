@@ -548,26 +548,26 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Brand</th>
-                <th className="px-4 py-3">Dosage/Strength</th>
-                <th className="px-4 py-3">Qty In Hand</th>
-                <th className="px-4 py-3">Min/Max</th>
-                <th className="px-4 py-3">Cost Price</th>
-                <th className="px-4 py-3">Sale Price</th>
-                <th className="px-4 py-3">UOM</th>
-                <th className="px-4 py-3">VAT %</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 dark:text-gray-800">Name</th>
+                <th className="px-4 py-3 dark:text-gray-800">Code</th>
+                <th className="px-4 py-3 dark:text-gray-800">Type</th>
+                <th className="px-4 py-3 dark:text-gray-800">Brand</th>
+                <th className="px-4 py-3 dark:text-gray-800">Dosage/Strength</th>
+                <th className="px-4 py-3 dark:text-gray-800">Qty In Hand</th>
+                <th className="px-4 py-3 dark:text-gray-800">Min/Max</th>
+                <th className="px-4 py-3 dark:text-gray-800">Cost Price</th>
+                <th className="px-4 py-3 dark:text-gray-800">Sale Price</th>
+                <th className="px-4 py-3 dark:text-gray-800">UOM</th>
+                <th className="px-4 py-3 dark:text-gray-800">VAT %</th>
+                <th className="px-4 py-3 dark:text-gray-800">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredItems.map((item) => (
                 <tr key={item._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-800">{item.name}</td>
-                  <td className="px-4 py-3 text-gray-500">{item.code || "-"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-700">{item.name}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-700">{item.code || "-"}</td>
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       item.type === 'Stock' ? 'bg-blue-100 text-blue-700' :
                       item.type === 'Service' ? 'bg-purple-100 text-purple-700' :
@@ -576,25 +576,25 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                       {item.type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{item.brand || "-"}</td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-700">{item.brand || "-"}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-700">
                     {item.dosage} {item.strength}
                   </td>
                   <td className={`px-4 py-3 font-bold ${item.currentQuantity <= item.minQuantity ? 'text-red-600' : 'text-green-600'}`}>
                     {item.currentQuantity}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-700">
                     {item.minQuantity} / {item.maxQuantity}
                   </td>
-                  <td className="px-4 py-3 text-gray-800 font-medium">
+                  <td className="px-4 py-3 text-gray-800 font-medium dark:text-gray-700">
                     {item.level0.costPrice}
                   </td>
-                  <td className="px-4 py-3 text-gray-800 font-medium">
+                  <td className="px-4 py-3 text-gray-800 font-medium dark:text-gray-700">
                     {item.level0.salePrice}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{item.level0.uom}</td>
-                  <td className="px-4 py-3 text-gray-500">{item.vatPercentage}%</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-700">{item.level0.uom}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-700">{item.vatPercentage}%</td>
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-900">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       item.status === 'Active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
@@ -707,14 +707,14 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Count</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Status</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Count</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {grnStats.statusStats.map((stat, idx) => (
                       <tr key={idx}>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             stat.name === 'New' ? 'bg-blue-100 text-blue-700' :
                             stat.name === 'Paid' ? 'bg-green-100 text-green-700' :
@@ -723,7 +723,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                             {stat.name}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-gray-800 font-bold">{stat.count}</td>
+                        <td className="px-3 py-2 text-gray-800 font-bold dark:text-gray-700">{stat.count}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -764,19 +764,19 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2">GRN No</th>
-                      <th className="px-3 py-2">Supplier</th>
-                      <th className="px-3 py-2 text-right">Paid Amount</th>
-                      <th className="px-3 py-2 text-right">Remaining</th>
+                      <th className="px-3 py-2 dark:text-gray-800">GRN No</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Supplier</th>
+                      <th className="px-3 py-2 text-right dark:text-gray-800">Paid Amount</th>
+                      <th className="px-3 py-2 text-right dark:text-gray-800">Remaining</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {purchaseInvoiceStats.topPaidGRNs.map((pi: any, idx: number) => (
                       <tr key={idx}>
-                        <td className="px-3 py-2 font-medium text-blue-600">{pi.grn?.grnNo || "N/A"}</td>
-                        <td className="px-3 py-2 text-gray-600 truncate max-w-[100px]">{pi.supplier?.name || "Unknown"}</td>
-                        <td className="px-3 py-2 text-right font-bold text-green-600">{pi.paidAmount?.toLocaleString()}</td>
-                        <td className="px-3 py-2 text-right font-bold text-red-600">{pi.remainingAmount?.toLocaleString()}</td>
+                        <td className="px-3 py-2 font-medium text-blue-600 text-gray-900 dark:text-gray-900">{pi.grn?.grnNo || "N/A"}</td>
+                        <td className="px-3 py-2 text-gray-600 truncate max-w-[100px] dark:text-gray-700">{pi.supplier?.name || "Unknown"}</td>
+                        <td className="px-3 py-2 text-right font-bold text-green-600 text-gray-900 dark:text-gray-900">{pi.paidAmount?.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right font-bold text-red-600 text-gray-900 dark:text-gray-900">{pi.remainingAmount?.toLocaleString()}</td>
                       </tr>
                     ))}
                     {purchaseInvoiceStats.topPaidGRNs.length === 0 && (
@@ -827,15 +827,15 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2">Item Name</th>
-                      <th className="px-3 py-2 text-right">Qty Consumed</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Item Name</th>
+                      <th className="px-3 py-2 text-right dark:text-gray-800">Qty Consumed</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {consumptionStats.itemBreakdown.map((item: any, idx: number) => (
                       <tr key={idx}>
-                        <td className="px-3 py-2 font-medium text-gray-800">{item.name}</td>
-                        <td className="px-3 py-2 text-right font-bold text-indigo-600">{item.totalConsumed} {item.uom}</td>
+                        <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-700">{item.name}</td>
+                        <td className="px-3 py-2 text-right font-bold text-indigo-600 text-gray-900 dark:text-gray-900">{item.totalConsumed} {item.uom}</td>
                       </tr>
                     ))}
                     {consumptionStats.itemBreakdown.length === 0 && (
@@ -855,22 +855,22 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 <table className="w-full text-left text-xs border-collapse min-w-[600px]">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2 whitespace-nowrap">Record No</th>
-                      <th className="px-3 py-2 whitespace-nowrap">Date</th>
-                      <th className="px-3 py-2 whitespace-nowrap">Doctor</th>
-                      <th className="px-3 py-2 whitespace-nowrap">Room</th>
-                      <th className="px-3 py-2 whitespace-nowrap">Status</th>
-                      <th className="px-3 py-2 text-right whitespace-nowrap">Items</th>
+                      <th className="px-3 py-2 whitespace-nowrap dark:text-gray-800">Record No</th>
+                      <th className="px-3 py-2 whitespace-nowrap dark:text-gray-800">Date</th>
+                      <th className="px-3 py-2 whitespace-nowrap dark:text-gray-800">Doctor</th>
+                      <th className="px-3 py-2 whitespace-nowrap dark:text-gray-800">Room</th>
+                      <th className="px-3 py-2 whitespace-nowrap dark:text-gray-800">Status</th>
+                      <th className="px-3 py-2 text-right whitespace-nowrap dark:text-gray-800">Items</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {consumptionStats.records.map((record: any) => (
                       <tr key={record._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-3 py-2 font-bold text-indigo-600">{record.materialConsumptionNo}</td>
-                        <td className="px-3 py-2">{new Date(record.date).toLocaleDateString()}</td>
-                        <td className="px-3 py-2">{record.doctor?.name || "N/A"}</td>
-                        <td className="px-3 py-2">{record.room?.name || "N/A"}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 font-bold text-indigo-600 text-gray-900 dark:text-gray-900">{record.materialConsumptionNo}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{new Date(record.date).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{record.doctor?.name || "N/A"}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{record.room?.name || "N/A"}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${
                             record.status === 'Verified' ? 'bg-green-100 text-green-700' :
                             record.status === 'New' ? 'bg-blue-100 text-blue-700' :
@@ -879,7 +879,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                             {record.status}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right text-gray-900 dark:text-gray-900">
                           <div className="flex flex-col items-end">
                             <span className="font-bold">{record.items?.length || 0} items</span>
                             <span className="text-[10px] text-gray-400 truncate max-w-[150px]">
@@ -1006,24 +1006,24 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                 <table className="w-full text-left text-xs border-collapse min-w-[500px]">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-3 py-2">Transfer No</th>
-                      <th className="px-3 py-2">Date</th>
-                      <th className="px-3 py-2">From Branch</th>
-                      <th className="px-3 py-2">To Branch</th>
-                      <th className="px-3 py-2">Transferred By</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2 text-right">Items</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Transfer No</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Date</th>
+                      <th className="px-3 py-2 dark:text-gray-800">From Branch</th>
+                      <th className="px-3 py-2 dark:text-gray-800">To Branch</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Transferred By</th>
+                      <th className="px-3 py-2 dark:text-gray-800">Status</th>
+                      <th className="px-3 py-2 text-right dark:text-gray-800">Items</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {transferStats.records.map((record: any) => (
                       <tr key={record._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-3 py-2 font-bold text-teal-600">{record.directStockTransferNo}</td>
-                        <td className="px-3 py-2">{new Date(record.date).toLocaleDateString()}</td>
-                        <td className="px-3 py-2">{record.fromBranch?.name || "N/A"}</td>
-                        <td className="px-3 py-2">{record.toBranch?.name || "N/A"}</td>
-                        <td className="px-3 py-2">{record.createdBy?.name || "N/A"}</td>
-                        <td className="px-3 py-2">
+                        <td className="px-3 py-2 font-bold text-teal-600 text-gray-900 dark:text-gray-900">{record.directStockTransferNo}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{new Date(record.date).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{record.fromBranch?.name || "N/A"}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{record.toBranch?.name || "N/A"}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">{record.createdBy?.name || "N/A"}</td>
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-900">
                           <span className={`px-2 py-1 rounded-full text-[10px] font-medium ${
                             record.status === 'Completed' ? 'bg-green-100 text-green-700' :
                             record.status === 'Draft' ? 'bg-gray-100 text-gray-700' :
@@ -1032,7 +1032,7 @@ export default function StockReport({ startDate, endDate, headers }: Props) {
                             {record.status}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className="px-3 py-2 text-right text-gray-900 dark:text-gray-900">
                           <span className="font-bold">{record.items?.length || 0} items</span>
                         </td>
                       </tr>

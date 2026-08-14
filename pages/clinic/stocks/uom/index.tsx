@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useEffect, useCallback } from "react";
@@ -278,17 +278,17 @@ const UOMPage: NextPageWithLayout = () => {
 
   // Access Denied Component (defined AFTER all hooks as a regular function)
   const AccessDenied = () => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="bg-bg-surface rounded-2xl shadow-xl overflow-hidden">
           <div className="p-8 md:p-12 text-center">
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-red-50 flex items-center justify-center">
               <Lock className="w-12 h-12 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            <h2 className="text-2xl font-bold text-text-primary mb-3">
               Access Denied
             </h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+            <p className="text-text-muted mb-8 max-w-md mx-auto">
               You don't have permission to view this page. Please contact your
               clinic administrator for access.
             </p>
@@ -447,10 +447,10 @@ const UOMPage: NextPageWithLayout = () => {
   // ALL HOOKS MUST BE DECLARED BEFORE THIS LINE - Conditional early returns AFTER all hooks
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-bg-page flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-text-muted">Loading...</p>
         </div>
       </div>
     );
@@ -461,7 +461,7 @@ const UOMPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="mb-8">
         <div className="max-w-9xl mx-auto">
@@ -654,7 +654,7 @@ const UOMPage: NextPageWithLayout = () => {
                   ></path>
                 </svg>
               </div>
-              <p className="text-gray-600">Loading measurement units...</p>
+              <p className="text-text-muted">Loading measurement units...</p>
             </div>
           ) : uoms.length === 0 ? (
             /* Empty State */
@@ -693,8 +693,8 @@ const UOMPage: NextPageWithLayout = () => {
           ) : (
             /* Data Table */
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-border-default">
+                <thead className="bg-bg-surface dark:bg-opacity-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Name
@@ -713,7 +713,7 @@ const UOMPage: NextPageWithLayout = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-border-default">
                   {uoms.map((uom) => (
                     <tr
                       key={uom._id}
@@ -730,7 +730,7 @@ const UOMPage: NextPageWithLayout = () => {
                             <div className="text-sm font-medium text-gray-900">
                               {uom.name}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-text-muted">
                               ID: {uom._id.substring(0, 8)}...
                             </div>
                           </div>

@@ -51,24 +51,29 @@ export default async function handler(req, res) {
         }
 
         // Populate package names in packages array
-        if (patient.packages && Array.isArray(patient.packages) && patient.packages.length > 0) {
+        if (
+          patient.packages &&
+          Array.isArray(patient.packages) &&
+          patient.packages.length > 0
+        ) {
           const Package = (await import("../../../models/Package")).default;
-          const UserPackage = (await import("../../../models/UserPackage")).default;
-          
+          const UserPackage = (await import("../../../models/UserPackage"))
+            .default;
+
           for (let i = 0; i < patient.packages.length; i++) {
             const pkg = patient.packages[i];
             if (pkg.packageId) {
               // Try to find in Package model first
               let packageDoc = await Package.findById(pkg.packageId).lean();
-              
+
               // If not found, try UserPackage model
               if (!packageDoc) {
                 packageDoc = await UserPackage.findById(pkg.packageId).lean();
               }
-              
+
               // Add package name to the package object
               if (packageDoc) {
-                patient.packages[i].packageName = packageDoc.name || '';
+                patient.packages[i].packageName = packageDoc.name || "";
               }
             }
           }
@@ -541,17 +546,26 @@ export default async function handler(req, res) {
           ? packagesArray.map((p) => ({
               packageId: p.packageId,
               packageName: p.packageName,
-              packageSoldBy: p.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
+              packageSoldBy:
+                p.packageSoldBy ||
+                user.name ||
+                `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+                "Unknown",
               assignedDate: p.assignedDate
                 ? new Date(p.assignedDate)
                 : undefined,
             }))
           : pkgToggle === "Yes" && packageId
-            ? [{ 
-                packageId, 
-                assignedDate: new Date(),
-                packageSoldBy: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown'
-              }]
+            ? [
+                {
+                  packageId,
+                  assignedDate: new Date(),
+                  packageSoldBy:
+                    user.name ||
+                    `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+                    "Unknown",
+                },
+              ]
             : [],
       });
 

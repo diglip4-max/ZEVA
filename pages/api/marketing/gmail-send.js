@@ -30,9 +30,9 @@ export default async function handler(req, res) {
       try {
         const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
         if (clinicError || !clinicId) {
-          return res.status(403).json({ 
+          return res.status(403).json({
             success: false,
-            message: clinicError || "Unable to determine clinic access" 
+            message: clinicError || "Unable to determine clinic access"
           });
         }
 
@@ -67,7 +67,7 @@ export default async function handler(req, res) {
     // Clean subject line - remove excessive punctuation and caps (spam triggers)
     const cleanSubject = subject
       .replace(/[!]{2,}/g, '!') // Remove multiple exclamation marks
-      .replace(/[$]{2,}/g, '$') // Remove multiple dollar signs
+      .replace(/[$]{2,}/g, '$') // Remove multiple  signs
       .replace(/\b(FREE|FREE!!!|CLICK HERE|BUY NOW|URGENT|ACT NOW)\b/gi, '') // Remove common spam words
       .trim()
       .substring(0, 78); // Keep subject under 78 characters (email standard)
@@ -94,14 +94,14 @@ export default async function handler(req, res) {
 
     // Build professional HTML email with anti-spam best practices
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    
+
     // Clean and format body text
     const cleanBody = body.replace(/\n/g, "<br/>");
-    
+
     // Function to build HTML for each recipient (with their unsubscribe link)
     const buildHtmlContent = (recipientEmail) => {
       const unsubscribeUrl = `${baseUrl}/unsubscribe?email=${encodeURIComponent(recipientEmail)}`;
-      
+
       return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -153,12 +153,12 @@ export default async function handler(req, res) {
 
     // Send emails individually to each recipient (better deliverability)
     const results = [];
-    
+
     for (const recipientEmail of recipients) {
       try {
         const recipientHtmlContent = buildHtmlContent(recipientEmail);
         const recipientUnsubscribeUrl = `${baseUrl}/unsubscribe?email=${encodeURIComponent(recipientEmail)}`;
-        
+
         const response = await sendEmailViaSmtp({
           to: recipientEmail,
           subject: cleanSubject,
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
           replyTo: senderEmail,
           unsubscribeUrl: recipientUnsubscribeUrl,
         });
-        
+
         results.push({
           to: recipientEmail,
           status: response.accepted?.includes(recipientEmail) ? "success" : "failed",
@@ -185,9 +185,9 @@ export default async function handler(req, res) {
         });
       }
     }
-    
+
     const successCount = results.filter(r => r.status === "success").length;
-    
+
     return res.status(200).json({
       success: successCount > 0,
       message: `Emails sent: ${successCount}/${recipients.length} successful`,

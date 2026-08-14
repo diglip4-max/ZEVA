@@ -61,9 +61,9 @@ function DoctorJobPostingPage() {
         // Try to get role from token or localStorage
         let userRole: string | null = null;
         try {
-          userRole = localStorage.getItem('role') || sessionStorage.getItem('role') || 
-                     localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
-          
+          userRole = localStorage.getItem('role') || sessionStorage.getItem('role') ||
+            localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
+
           if (!userRole && token) {
             const tokenParts = token.split('.');
             if (tokenParts.length === 3) {
@@ -74,7 +74,7 @@ function DoctorJobPostingPage() {
         } catch (e) {
           console.error('Error getting user role:', e);
         }
-        
+
         if (["doctor", "admin"].includes(userRole || "")) {
           setPermissions({
             canCreate: true,
@@ -200,21 +200,19 @@ function DoctorJobPostingPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-1 mb-3 inline-flex">
           <button
             onClick={() => setActiveTab('jobs')}
-            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === 'jobs'
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${activeTab === 'jobs'
+              ? 'bg-gray-800 text-white'
+              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
           >
             My All Jobs
           </button>
           <button
             onClick={() => setActiveTab('applicants')}
-            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === 'applicants'
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
-            }`}
+            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${activeTab === 'applicants'
+              ? 'bg-gray-800 text-white'
+              : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+              }`}
           >
             Job Applicants
           </button>
@@ -239,8 +237,8 @@ function DoctorJobPostingPage() {
                 </p>
               </div>
             ) : (
-              <JobManagement 
-                role="doctor" 
+              <JobManagement
+                role="doctor"
                 config={{
                   title: 'My Job Postings',
                   subtitle: 'Manage and review all your job listings posted as a doctor',
@@ -271,7 +269,7 @@ function DoctorJobPostingPage() {
                 </p>
               </div>
             ) : (
-              <ApplicationsDashboard 
+              <ApplicationsDashboard
                 tokenKey={tokenKey}
                 permissions={permissions}
               />

@@ -1,8 +1,8 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { DollarSign,CheckCircle2, ArrowLeft} from 'lucide-react';
-
+import { CheckCircle2, ArrowLeft } from 'lucide-react';
+import { CiMoneyBill } from "react-icons/ci";
 const Refund: React.FC = () => {
   const refundPolicy = [
     {
@@ -67,7 +67,7 @@ const Refund: React.FC = () => {
             </Link>
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-teal-600" />
+                <CiMoneyBill className="w-6 h-6 text-teal-600" />
               </div>
               <div>
                 <h1 className="text-4xl font-bold text-gray-900">Refund Policy</h1>
@@ -79,7 +79,7 @@ const Refund: React.FC = () => {
           {/* Introduction */}
           <div className="bg-white rounded-lg shadow-md p-8 mb-8">
             <p className="text-gray-700 leading-relaxed">
-              At ZEVA, we strive to provide excellent service. This Refund Policy outlines the 
+              At ZEVA, we strive to provide excellent service. This Refund Policy outlines the
               circumstances under which refunds may be issued and the process for requesting a refund.
             </p>
           </div>

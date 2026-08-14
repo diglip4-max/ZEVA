@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     if (!clinic || !clinic.isApproved) {
       return res.status(403).json({ message: "Clinic not approved by admin." });
     }
-    console.log("clinic details", clinic);
+    // console.log("clinic details", clinic);
 
     // 🔍 Check 30-day trial period (only for new users with registeredAt field)
     // Legacy users (registeredAt is null) are exempt from trial restriction
@@ -63,14 +63,14 @@ export default async function handler(req, res) {
         Math.floor((trialEndDate - currentDate) / (1000 * 60)) % 60,
       );
 
-      console.log("Trial Status (NEW USER):", {
-        registeredAt: accountCreatedAt,
-        trialEndDate,
-        currentDate,
-        isTrialExpired,
-        hoursRemaining,
-        minutesRemaining,
-      });
+      // console.log("Trial Status (NEW USER):", {
+      //   registeredAt: accountCreatedAt,
+      //   trialEndDate,
+      //   currentDate,
+      //   isTrialExpired,
+      //   hoursRemaining,
+      //   minutesRemaining,
+      // });
     } else {
       // Legacy user - no trial restriction
       console.log("Legacy user - no trial restriction applied");
@@ -136,7 +136,7 @@ export default async function handler(req, res) {
       },
     };
     
-    console.log("clinic-login API returning:", JSON.stringify(responseData, null, 2));
+    // console.log("clinic-login API returning:", JSON.stringify(responseData, null, 2));
     
     return res.status(200).json(responseData);
   } catch (err) {

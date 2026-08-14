@@ -37,6 +37,42 @@ export default function Document() {
         </noscript>
         {/* End Google Tag Manager (noscript) */}
         
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('clinicTheme') || 'system';
+                  var root = document.documentElement;
+                  var path = window.location.pathname;
+                  var publicClinicRoutes = [
+                    '/clinic/findclinic',
+                    '/clinic/login-clinic',
+                    '/clinic/register-clinic',
+                    '/clinic/forgot-password',
+                    '/clinic/reset-password',
+                    '/clinic/review-form',
+                    '/clinic/enquiry-form',
+                    '/clinic/appointment-landing',
+                    '/clinic/appointment-booking',
+                    '/clinic/job-applicants'
+                  ];
+                  var isPublicClinicRoute = publicClinicRoutes.some(function(route) {
+                    return path === route || path.indexOf(route + '/') === 0;
+                  });
+                  var isDashboardRoute = (path.indexOf('/clinic') === 0 || path.indexOf('/staff') === 0) && !isPublicClinicRoute;
+                  if (isDashboardRoute && (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches))) {
+                    root.classList.add('dark');
+                    root.style.colorScheme = 'dark';
+                  } else {
+                    root.classList.remove('dark');
+                    root.style.colorScheme = 'light';
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
         <Main />
         <NextScript />
       </body>

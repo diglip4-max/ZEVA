@@ -19,9 +19,9 @@ export default async function handler(req, res) {
 
     // Check permissions - adjust roles as needed
     if (!requireRole(user, ["admin", "clinic", "doctor"])) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Forbidden: Insufficient permissions to create email campaigns" 
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Insufficient permissions to create email campaigns"
       });
     }
 
@@ -30,12 +30,12 @@ export default async function handler(req, res) {
     // Validate Brevo API key
     if (!process.env.BREVO_API_KEY) {
       // console.error('BREVO_API_KEY is not set in environment variables');
-      return res.status(500).json({ 
-        success: false, 
-        message: "Brevo API key not configured. Please set BREVO_API_KEY in environment variables." 
+      return res.status(500).json({
+        success: false,
+        message: "Brevo API key not configured. Please set BREVO_API_KEY in environment variables."
       });
     }
-    
+
     // Log API key status (first 10 chars only for security)
     // console.log('Brevo API Key loaded:', process.env.BREVO_API_KEY ? `${process.env.BREVO_API_KEY.substring(0, 10)}...` : 'NOT FOUND');
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import axios from "axios";
@@ -800,7 +800,7 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-border-default">
                   <thead className="bg-gray-800">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">

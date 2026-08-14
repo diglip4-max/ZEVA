@@ -11,6 +11,7 @@ const AgentProfileSchema = new mongoose.Schema(
     },
 
     agentCode: { type: String, unique: true },
+    photo: String,
     emergencyPhone: String,
     relativePhone: String,
 

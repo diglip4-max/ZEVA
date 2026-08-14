@@ -149,6 +149,17 @@ const billingSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Top-level reference to the master Package document this billing
+    // record was generated for. Optional — populated when the package-billing
+    // API is called with a packageId. Used by the ledger-level idempotency
+    // check in /api/clinic/package-billing to detect duplicate POSTs for
+    // the same (patientId, packageId) pair. This is additive and does not
+    // affect any existing logic.
+    packageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Package",
+      index: true,
+    },
     quantity: {
       type: Number,
       default: 1,

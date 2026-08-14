@@ -1,7 +1,9 @@
-// /pages/api/pettycash/delete.js
 import dbConnect from "../../../lib/database";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashAllocation from "../../../models/PettyCashAllocation";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -24,18 +26,20 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
+    // Get clinicId
+    let clinicId;
+    try {
+      const { getClinicIdFromUser } = await import("../lead-ms/permissions-helper");
+      const { clinicId: cid } = await getClinicIdFromUser(user);
+      clinicId = cid;
+    } catch (err) {
+      // console.error("Error getting clinicId:", err);
+    }
+
     // Check permissions for clinic/agent/doctor roles
     if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
       try {
-        const { getClinicIdFromUser, checkClinicPermission } = await import("../lead-ms/permissions-helper");
-        const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
-        if (clinicError || !clinicId) {
-          return res.status(403).json({ 
-            success: false,
-            message: clinicError || "Unable to determine clinic access" 
-          });
-        }
-
+        const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
         const { hasPermission, error: permError } = await checkClinicPermission(
           clinicId,
           "clinic_staff_management",
@@ -50,14 +54,13 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        // console.error("Permission check error:", permErr);
         return res.status(500).json({ success: false, message: "Error checking permissions" });
       }
     } else if (!["staff", "admin"].includes(user.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const { type, pettyCashId, expenseId } = req.body;
+    const { type, pettyCashId, expenseId, allocationId } = req.body;
 
     if (!type || !pettyCashId) {
       return res.status(400).json({
@@ -66,47 +69,129 @@ export default async function handler(req, res) {
       });
     }
 
-    if (type === "patient") {
-      // Delete full petty cash record
-      const deleted = await PettyCash.findByIdAndDelete(pettyCashId);
-      if (!deleted)
-        return res.status(404).json({ success: false, message: "Patient not found" });
+    const session = await mongoose.startSession();
+    let resultMessage = "";
 
-      return res.status(200).json({
-        success: true,
-        message: "Patient record deleted successfully",
-      });
-    }
+    await session.withTransaction(async () => {
+      const petty = await PettyCash.findById(pettyCashId).session(session);
+      if (!petty) {
+        throw new Error("Petty cash record not found");
+      }
+      const actualClinicId = petty.clinicId || clinicId;
 
-    if (type === "expense") {
-      if (!expenseId)
-        return res.status(400).json({
-          success: false,
-          message: "expenseId is required when deleting an expense",
-        });
+      if (type === "patient") {
+        // Void all active allocations and expenses associated with this parent record
+        const activeAllocations = await PettyCashAllocation.find({
+          pettyCashId,
+          isVoided: false,
+        }).session(session);
 
-      const petty = await PettyCash.findById(pettyCashId);
-      if (!petty)
-        return res.status(404).json({ success: false, message: "Petty cash record not found" });
+        const activeExpenses = await PettyCashExpense.find({
+          pettyCashId,
+          isVoided: false,
+        }).session(session);
 
-      petty.expenses = petty.expenses.filter(
-        (exp) => exp._id.toString() !== expenseId
-      );
+        // Void allocations
+        for (const alloc of activeAllocations) {
+          await PettyCashAllocation.findByIdAndUpdate(
+            alloc._id,
+            {
+              isVoided: true,
+              voidedBy: staffId,
+              voidReason: "Patient record deleted / voided",
+              voidedAt: new Date(),
+            },
+            { session }
+          );
+          await PettyCash.applyAllocation(pettyCashId, -alloc.amount, session);
+          await PettyCash.updateGlobalTotalAmount(actualClinicId, alloc.amount, "subtract", session);
+        }
 
-      await petty.save();
+        // Void expenses
+        for (const exp of activeExpenses) {
+          await PettyCashExpense.findByIdAndUpdate(
+            exp._id,
+            {
+              isVoided: true,
+              voidedBy: staffId,
+              voidReason: "Patient record deleted / voided",
+              voidedAt: new Date(),
+            },
+            { session }
+          );
+          await PettyCash.applyExpense(pettyCashId, -exp.spentAmount, session);
+          if (exp.usedFromPettyCash !== false) {
+            await PettyCash.updateGlobalSpentAmount(actualClinicId, exp.spentAmount, "subtract", session);
+          }
+        }
 
-      return res.status(200).json({
-        success: true,
-        message: "Expense deleted successfully",
-      });
-    }
+        resultMessage = "Patient record allocations and expenses voided successfully";
+      } else if (type === "expense") {
+        if (!expenseId) {
+          throw new Error("expenseId is required when deleting an expense");
+        }
 
-    return res.status(400).json({
-      success: false,
-      message: "Invalid type. Must be 'patient' or 'expense'.",
+        const expense = await PettyCashExpense.findOne({ _id: expenseId, isVoided: false }).session(session);
+        if (!expense) {
+          throw new Error("Active expense not found");
+        }
+
+        await PettyCashExpense.findByIdAndUpdate(
+          expenseId,
+          {
+            isVoided: true,
+            voidedBy: staffId,
+            voidReason: "Expense voided by user",
+            voidedAt: new Date(),
+          },
+          { session }
+        );
+
+        // Reverse totals
+        await PettyCash.applyExpense(pettyCashId, -expense.spentAmount, session);
+        if (expense.usedFromPettyCash !== false) {
+          await PettyCash.updateGlobalSpentAmount(actualClinicId, expense.spentAmount, "subtract", session);
+        }
+
+        resultMessage = "Expense voided successfully";
+      } else if (type === "allocation") {
+        if (!allocationId) {
+          throw new Error("allocationId is required when deleting an allocation");
+        }
+
+        const allocation = await PettyCashAllocation.findOne({ _id: allocationId, isVoided: false }).session(session);
+        if (!allocation) {
+          throw new Error("Active allocation not found");
+        }
+
+        await PettyCashAllocation.findByIdAndUpdate(
+          allocationId,
+          {
+            isVoided: true,
+            voidedBy: staffId,
+            voidReason: "Allocation voided by user",
+            voidedAt: new Date(),
+          },
+          { session }
+        );
+
+        // Reverse totals
+        await PettyCash.applyAllocation(pettyCashId, -allocation.amount, session);
+        await PettyCash.updateGlobalTotalAmount(actualClinicId, allocation.amount, "subtract", session);
+
+        resultMessage = "Allocation voided successfully";
+      } else {
+        throw new Error("Invalid type. Must be 'patient', 'expense', or 'allocation'.");
+      }
+    });
+
+    session.endSession();
+
+    return res.status(200).json({
+      success: true,
+      message: resultMessage,
     });
   } catch (err) {
-    // console.error("Delete API error:", err);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res.status(500).json({ success: false, message: err.message || "Internal Server Error" });
   }
 }

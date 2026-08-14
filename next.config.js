@@ -5,6 +5,7 @@ const nextConfig = {
       "localhost",             // for local development
       "zeva360.com",     // for production
       "images.unsplash.com",   // for Unsplash images
+      "res.cloudinary.com",    // for Cloudinary images
     ],
   },
   devIndicators: false,

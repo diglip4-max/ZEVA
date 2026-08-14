@@ -115,6 +115,8 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         success: true,
+        agentName: doctorStaff.role === 'agent' ? doctorStaff.name : null,
+        doctorName: doctorStaff.role === 'doctorStaff' ? doctorStaff.name : null,
         departments: departments.map((dept) => ({
           _id: dept._id.toString(),
           name: dept.name,

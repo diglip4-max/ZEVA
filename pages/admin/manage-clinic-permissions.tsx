@@ -54,6 +54,7 @@ interface SubModule {
     import: boolean;
     export: boolean;
   };
+  customActions?: Record<string, boolean>;
 }
 
 interface ModulePermission {
@@ -68,6 +69,7 @@ interface ModulePermission {
     import: boolean;
     export: boolean;
   };
+  customActions?: Record<string, boolean>;
 }
 
 interface ClinicPermission {
@@ -248,6 +250,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
           acc[key] = Boolean(module.actions?.[key]);
           return acc;
         }, {} as ModulePermission['actions']),
+        customActions: module.customActions ? { ...module.customActions } : {},
         subModules: module.subModules?.map((subModule) => ({
           ...subModule,
           moduleKey: subModule.moduleKey,
@@ -255,6 +258,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
             acc[key] = Boolean(subModule.actions?.[key]);
             return acc;
           }, {} as SubModule['actions']),
+          customActions: subModule.customActions ? { ...subModule.customActions } : {},
         })) || [],
       })),
     [],
@@ -406,8 +410,10 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
           order: subModule.order,
           moduleKey: (subModule as any).moduleKey,
           actions: createBlankActions(),
+          customActions: {},
         })),
         actions: createBlankActions(),
+        customActions: {},
       }));
     },
     [sanitizeModulePermissions],

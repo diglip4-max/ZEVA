@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
     if (appointmentCount === 0) {
       console.log('📊 Returning mock appointment stats for new clinic:', clinic._id);
-      
+
       return res.status(200).json({
         success: true,
         data: {
@@ -119,8 +119,8 @@ export default async function handler(req, res) {
     user.role !== "admin"
       ? new mongoose.Types.ObjectId(String(clinicId))
       : req.query.clinicId
-      ? new mongoose.Types.ObjectId(String(req.query.clinicId))
-      : null;
+        ? new mongoose.Types.ObjectId(String(req.query.clinicId))
+        : null;
 
   try {
     const matchApt = {};
@@ -144,9 +144,225 @@ export default async function handler(req, res) {
         },
       },
       { $unwind: { path: "$svc", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "services",
+          localField: "serviceIds",
+          foreignField: "_id",
+          as: "servicesFromIds",
+        },
+      },
+      {
+        $lookup: {
+          from: "services",
+          localField: "services.serviceId",
+          foreignField: "_id",
+          as: "servicesFromItems",
+        },
+      },
+      {
+        $lookup: {
+          from: "doctordepartments",
+          localField: "doctorId",
+          foreignField: "doctorId",
+          as: "doctorDepartments",
+        },
+      },
+      {
+        $lookup: {
+          from: "billings",
+          let: { appointmentId: "$_id", clinicId: "$clinicId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$appointmentId", "$$appointmentId"] },
+                    { $eq: ["$clinicId", "$$clinicId"] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                selectedTreatments: 1,
+                treatment: 1,
+              },
+            },
+          ],
+          as: "appointmentBillings",
+        },
+      },
+      {
+        $addFields: {
+          billingTreatmentServiceIds: {
+            $reduce: {
+              input: { $ifNull: ["$appointmentBillings", []] },
+              initialValue: [],
+              in: {
+                $concatArrays: [
+                  "$$value",
+                  {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: { $ifNull: ["$$this.selectedTreatments", []] },
+                          as: "selectedTreatment",
+                          cond: {
+                            $and: [
+                              { $ne: ["$$selectedTreatment.treatmentServiceId", null] },
+                              { $ne: ["$$selectedTreatment.treatmentServiceId", ""] },
+                            ],
+                          },
+                        },
+                      },
+                      as: "selectedTreatment",
+                      in: {
+                        $convert: {
+                          input: "$$selectedTreatment.treatmentServiceId",
+                          to: "objectId",
+                          onError: null,
+                          onNull: null,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          billingTreatmentNames: {
+            $reduce: {
+              input: { $ifNull: ["$appointmentBillings", []] },
+              initialValue: [],
+              in: {
+                $concatArrays: [
+                  "$$value",
+                  {
+                    $map: {
+                      input: {
+                        $filter: {
+                          input: { $ifNull: ["$$this.selectedTreatments", []] },
+                          as: "selectedTreatment",
+                          cond: {
+                            $and: [
+                              { $ne: ["$$selectedTreatment.treatmentName", null] },
+                              { $ne: ["$$selectedTreatment.treatmentName", ""] },
+                            ],
+                          },
+                        },
+                      },
+                      as: "selectedTreatment",
+                      in: "$$selectedTreatment.treatmentName",
+                    },
+                  },
+                  {
+                    $cond: [
+                      {
+                        $and: [
+                          { $ne: ["$$this.treatment", null] },
+                          { $ne: ["$$this.treatment", ""] },
+                        ],
+                      },
+                      {
+                        $map: {
+                          input: { $split: ["$$this.treatment", ","] },
+                          as: "billingTreatmentName",
+                          in: { $trim: { input: "$$billingTreatmentName" } },
+                        },
+                      },
+                      [],
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "services",
+          let: {
+            serviceIds: {
+              $filter: {
+                input: { $ifNull: ["$billingTreatmentServiceIds", []] },
+                as: "serviceId",
+                cond: { $ne: ["$$serviceId", null] },
+              },
+            },
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $in: ["$_id", "$$serviceIds"] },
+              },
+            },
+            {
+              $project: {
+                departmentId: 1,
+              },
+            },
+          ],
+          as: "servicesFromBillings",
+        },
+      },
+      {
+        $lookup: {
+          from: "services",
+          let: {
+            treatmentNames: {
+              $filter: {
+                input: { $ifNull: ["$billingTreatmentNames", []] },
+                as: "treatmentName",
+                cond: {
+                  $and: [
+                    { $ne: ["$$treatmentName", null] },
+                    { $ne: ["$$treatmentName", ""] },
+                  ],
+                },
+              },
+            },
+            clinicId: "$clinicId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$clinicId", "$$clinicId"] },
+                    { $in: ["$name", "$$treatmentNames"] },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                departmentId: 1,
+              },
+            },
+          ],
+          as: "servicesFromBillingNames",
+        },
+      },
+      {
+        $addFields: {
+          effectiveDepartmentId: {
+            $ifNull: [
+              "$svc.departmentId",
+              { $arrayElemAt: ["$servicesFromIds.departmentId", 0] },
+              { $arrayElemAt: ["$servicesFromItems.departmentId", 0] },
+              { $arrayElemAt: ["$servicesFromBillings.departmentId", 0] },
+              { $arrayElemAt: ["$servicesFromBillingNames.departmentId", 0] },
+              { $arrayElemAt: ["$doctorDepartments.clinicDepartmentId", 0] },
+              null,
+            ],
+          },
+        },
+      },
     ];
     if (departmentId) {
-      pipelineBase.push({ $match: { "svc.departmentId": departmentId } });
+      pipelineBase.push({ $match: { effectiveDepartmentId: departmentId } });
     }
 
     const statusCompleted = ["Completed", "invoice", "Consultation"];
@@ -208,7 +424,7 @@ export default async function handler(req, res) {
               $group: {
                 _id: null,
                 doctorIds: { $addToSet: "$doctorId" },
-                departmentIds: { $addToSet: "$svc.departmentId" },
+                departmentIds: { $addToSet: "$effectiveDepartmentId" },
               },
             },
             {
@@ -291,8 +507,13 @@ export default async function handler(req, res) {
           ],
           appointmentsByDept: [
             {
+              $match: {
+                effectiveDepartmentId: { $ne: null },
+              },
+            },
+            {
               $group: {
-                _id: "$svc.departmentId",
+                _id: "$effectiveDepartmentId",
                 count: { $sum: 1 },
               },
             },
@@ -308,40 +529,41 @@ export default async function handler(req, res) {
               $project: {
                 departmentId: "$_id",
                 count: 1,
-                departmentName: { $ifNull: [{ $arrayElemAt: ["$dept.name", 0] }, "Unassigned"] },
+                departmentName: { $arrayElemAt: ["$dept.name", 0] },
               },
             },
+            { $match: { departmentName: { $exists: true, $ne: null, $ne: "" } } },
             { $sort: { count: -1 } },
           ],
           cancelledAppointments: [
             { $match: { status: { $in: statusCancelled } } },
             { $lookup: { from: "patients", localField: "patientId", foreignField: "_id", as: "patient" } },
             { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
-            { 
-              $project: { 
-                patientName: { 
-                  $let: { 
-                    vars: { 
+            {
+              $project: {
+                patientName: {
+                  $let: {
+                    vars: {
                       joinedName: { $ifNull: ["$patient.name", { $concat: ["$patient.firstName", " ", "$patient.lastName"] }] },
                       denormalizedName: "$patientName"
                     },
-                    in: { 
-                      $ifNull: [ 
-                        "$$joinedName", 
-                        { 
-                          $cond: { 
-                            if: { $and: [ { $ne: ["$$denormalizedName", null] }, { $ne: ["$$denormalizedName", ""] } ] }, 
-                            then: "$$denormalizedName", 
-                            else: "Patient Name Missing" 
-                          } 
+                    in: {
+                      $ifNull: [
+                        "$$joinedName",
+                        {
+                          $cond: {
+                            if: { $and: [{ $ne: ["$$denormalizedName", null] }, { $ne: ["$$denormalizedName", ""] }] },
+                            then: "$$denormalizedName",
+                            else: "Patient Name Missing"
+                          }
                         }
                       ]
                     }
                   }
                 },
-                serviceName: "$svc.name", 
-                treatment: "$treatment", 
-                notes: "$notes" 
+                serviceName: "$svc.name",
+                treatment: "$treatment",
+                notes: "$notes"
               }
             }
           ],
@@ -349,31 +571,31 @@ export default async function handler(req, res) {
             { $match: { status: { $in: statusNoShow } } },
             { $lookup: { from: "patients", localField: "patientId", foreignField: "_id", as: "patient" } },
             { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
-            { 
-              $project: { 
-                patientName: { 
-                  $let: { 
-                    vars: { 
+            {
+              $project: {
+                patientName: {
+                  $let: {
+                    vars: {
                       joinedName: { $ifNull: ["$patient.name", { $concat: ["$patient.firstName", " ", "$patient.lastName"] }] },
                       denormalizedName: "$patientName"
                     },
-                    in: { 
-                      $ifNull: [ 
-                        "$$joinedName", 
-                        { 
-                          $cond: { 
-                            if: { $and: [ { $ne: ["$$denormalizedName", null] }, { $ne: ["$$denormalizedName", ""] } ] }, 
-                            then: "$$denormalizedName", 
-                            else: "Patient Name Missing" 
-                          } 
+                    in: {
+                      $ifNull: [
+                        "$$joinedName",
+                        {
+                          $cond: {
+                            if: { $and: [{ $ne: ["$$denormalizedName", null] }, { $ne: ["$$denormalizedName", ""] }] },
+                            then: "$$denormalizedName",
+                            else: "Patient Name Missing"
+                          }
                         }
                       ]
                     }
                   }
                 },
-                serviceName: "$svc.name", 
-                treatment: "$treatment", 
-                notes: "$notes" 
+                serviceName: "$svc.name",
+                treatment: "$treatment",
+                notes: "$notes"
               }
             }
           ]
@@ -390,26 +612,26 @@ export default async function handler(req, res) {
       const [docRows, depRows] = await Promise.all([
         f.doctorIds?.length
           ? mongoose.connection.collection("users").aggregate([
-              { $match: { _id: { $in: f.doctorIds } } },
-              {
-                $project: {
-                  _id: 1,
-                  name: {
-                    $cond: [
-                      { $ifNull: ["$name", false] },
-                      "$name",
-                      { $trim: { input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] } } },
-                    ],
-                  },
+            { $match: { _id: { $in: f.doctorIds } } },
+            {
+              $project: {
+                _id: 1,
+                name: {
+                  $cond: [
+                    { $ifNull: ["$name", false] },
+                    "$name",
+                    { $trim: { input: { $concat: [{ $ifNull: ["$firstName", ""] }, " ", { $ifNull: ["$lastName", ""] }] } } },
+                  ],
                 },
               },
-            ]).toArray()
+            },
+          ]).toArray()
           : [],
         f.departmentIds?.length
           ? mongoose.connection.collection("departments").aggregate([
-              { $match: { _id: { $in: f.departmentIds } } },
-              { $project: { _id: 1, name: 1 } },
-            ]).toArray()
+            { $match: { _id: { $in: f.departmentIds } } },
+            { $project: { _id: 1, name: 1 } },
+          ]).toArray()
           : [],
       ]);
       doctors = docRows.map((d) => ({ id: d._id, name: d.name }));
@@ -434,6 +656,9 @@ export default async function handler(req, res) {
     const rawStatusCounts = Array.isArray(out.statusCounts) ? out.statusCounts : [];
     const statusMap = new Map(rawStatusCounts.map((s) => [s.status, s.count]));
     const statusCountsAll = ALL_STATUSES.map((s) => ({ status: s, count: statusMap.get(s) || 0 }));
+    const appointmentsByDept = Array.isArray(out.appointmentsByDept)
+      ? out.appointmentsByDept.filter((row) => row?.departmentId && row?.departmentName)
+      : [];
 
     return res.status(200).json({
       success: true,
@@ -442,7 +667,7 @@ export default async function handler(req, res) {
         summary: (out.summary && out.summary[0]) || { totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 },
         doctorReport: out.doctorReport || [],
         statusCounts: statusCountsAll,
-        appointmentsByDept: out.appointmentsByDept || [],
+        appointmentsByDept,
         cancelledAppointments: out.cancelledAppointments || [],
         noShowAppointments: out.noShowAppointments || [],
         filters: { doctors, departments },

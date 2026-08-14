@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
-import { Calendar, User, DollarSign, FileText, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Calendar, User, FileText, X, CheckCircle, AlertCircle } from "lucide-react";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 import ClinicLayout from '../../../components/staffLayout';
 import withClinicAuth from '../../../components/withStaffAuth';
 
@@ -13,7 +15,7 @@ const Toast = ({ message, type, onClose }) => {
     return () => clearTimeout(timer);
   }, [onClose]);
 
-  const styles = {  
+  const styles = {
     success: "bg-green-50 border-green-200 text-green-800",
     error: "bg-red-50 border-red-200 text-red-800",
     warning: "bg-yellow-50 border-yellow-200 text-yellow-800"
@@ -68,7 +70,7 @@ const ClaimStatusModal = ({ isOpen, onClose, onConfirm, status, remark, onStatus
       <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full animate-scale-in">
         <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Update Claim Status</h3>
-        
+
         <div className="space-y-4 mb-6">
           <div>
             <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -81,7 +83,7 @@ const ClaimStatusModal = ({ isOpen, onClose, onConfirm, status, remark, onStatus
               <option value="Cancelled">Cancelled</option>
             </select>
           </div>
-          
+
           {status === "Cancelled" && (
             <div>
               <label className="block text-sm font-semibold text-gray-800 mb-2">
@@ -115,6 +117,7 @@ const InvoiceUpdateSystem = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
   const [toast, setToast] = useState(null);
+  const { currency } = useCurrency();
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, onConfirm: null });
   const [claimStatusModal, setClaimStatusModal] = useState({ isOpen: false, status: "", remark: "" });
 
@@ -213,8 +216,8 @@ const InvoiceUpdateSystem = () => {
 
     showConfirm(
       "Confirm Payment Update",
-      payingAmount > 0 
-        ? `Are you sure you want to add د.إ${payingAmount.toFixed(2)} to the existing payment of د.إ${parseFloat(formData.paid || 0).toFixed(2)}?`
+      payingAmount > 0
+        ? `Are you sure you want to add ${getCurrencySymbol(currency)}${payingAmount.toFixed(2)} to the existing payment of ${getCurrencySymbol(currency)}${parseFloat(formData.paid || 0).toFixed(2)}?`
         : `Are you sure you want to update the payment details without adding any new payment?`,
       async () => {
         try {
@@ -225,12 +228,12 @@ const InvoiceUpdateSystem = () => {
             paying: payingAmount,
             paymentMethod: formData.paymentMethod,
           };
-          
+
           console.log("Sending payment update request:", requestBody);
-          
+
           const res = await fetch(`/api/staff/get-patient-data/${invoiceId}`, {
             method: "PUT",
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${staffToken}`
             },
@@ -305,7 +308,7 @@ const InvoiceUpdateSystem = () => {
           const invoiceId = invoiceInfo?._id?.$oid || invoiceInfo?._id;
           const res = await fetch(`/api/staff/get-patient-data/${invoiceId}`, {
             method: "PUT",
-            headers: { 
+            headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${staffToken}`
             },
@@ -501,9 +504,9 @@ const InvoiceUpdateSystem = () => {
                 <InfoField label="First Name" value={formData.firstName} required />
                 <InfoField label="Last Name" value={formData.lastName} required />
                 <InfoField label="Email" value={formData.email} required />
-                <InfoField 
-                  label="Mobile Number" 
-                  value={canViewMobileNumber ? formData.mobileNumber : "Admin access required"} 
+                <InfoField
+                  label="Mobile Number"
+                  value={canViewMobileNumber ? formData.mobileNumber : "Admin access required"}
                   restricted={!canViewMobileNumber}
                 />
                 <InfoField label="Gender" value={formData.gender} required />
@@ -525,7 +528,7 @@ const InvoiceUpdateSystem = () => {
             {/* Payment Details */}
             <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm border border-gray-200 p-4 md:p-5 lg:p-6">
               <h2 className="text-base md:text-lg font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-indigo-600" />
+                <span className="w-5 h-5 flex items-center justify-center font-bold text-sm text-indigo-600">{getCurrencySymbol(currency)}</span>
                 Payment Details
               </h2>
 
@@ -599,7 +602,7 @@ const InvoiceUpdateSystem = () => {
                   <label className="block text-xs md:text-sm font-semibold text-gray-800 mb-2">Pending (Auto)</label>
                   <input
                     type="text"
-                    value={`د.إ ${formData.pending?.toFixed(2) || "0.00"}`}
+                    value={`${getCurrencySymbol(currency)} ${formData.pending?.toFixed(2) || "0.00"}`}
                     disabled
                     className="w-full px-3 py-2 text-sm md:text-base bg-gray-100 border border-gray-300 rounded-lg text-gray-900 font-bold cursor-not-allowed"
                   />
@@ -646,7 +649,7 @@ const InvoiceUpdateSystem = () => {
                     <option value="Rejected">Rejected</option>
                   </select>
                 </div>
-                
+
                 {formData.status === "Rejected" && (
                   <div className="col-span-full">
                     <label className="block text-xs md:text-sm font-semibold text-gray-800 mb-2">
@@ -661,7 +664,7 @@ const InvoiceUpdateSystem = () => {
                     />
                   </div>
                 )}
-                
+
                 {formData.status === "Released" && (
                   <div className="col-span-full">
                     <label className="block text-xs md:text-sm font-semibold text-gray-800 mb-2">Notes</label>
@@ -697,17 +700,16 @@ const InvoiceUpdateSystem = () => {
               <InfoCard icon={FileText} title="Insurance Details" bgColor="bg-gradient-to-br from-cyan-50 to-blue-50">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
                   <InfoField label="Insurance" value={formData.insurance} />
-                  <InfoField label="Advance Given Amount" value={formData.advanceGivenAmount != null ? `د.إ ${formData.advanceGivenAmount.toFixed(2)}` : null} />
+                  <InfoField label="Advance Given Amount" value={formData.advanceGivenAmount != null ? `${getCurrencySymbol(currency)} ${formData.advanceGivenAmount.toFixed(2)}` : null} />
                   <InfoField label="Co-Pay %" value={formData.coPayPercent != null ? `${formData.coPayPercent}%` : null} />
-                  <InfoField label="Need to Pay Amount (Auto)" value={`د.إ ${calculatedFields.needToPay.toFixed(2)}`} />
+                  <InfoField label="Need to Pay Amount (Auto)" value={`${getCurrencySymbol(currency)} ${calculatedFields.needToPay.toFixed(2)}`} />
                   <div>
                     <label className="block text-xs md:text-sm font-semibold text-gray-800 mb-1">Advance Claim Status</label>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-block px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm rounded-lg font-semibold ${
-                        formData.advanceClaimStatus === "Released" ? "bg-green-100 text-green-800" : 
+                      <span className={`inline-block px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm rounded-lg font-semibold ${formData.advanceClaimStatus === "Released" ? "bg-green-100 text-green-800" :
                         formData.advanceClaimStatus === "Approved by doctor" ? "bg-blue-100 text-blue-800" :
-                        formData.advanceClaimStatus === "Cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"
-                      }`}>
+                          formData.advanceClaimStatus === "Cancelled" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"
+                        }`}>
                         {formData.advanceClaimStatus || "-"}
                       </span>
                       {formData.advanceClaimStatus === "Pending" && (
@@ -748,24 +750,24 @@ const InvoiceUpdateSystem = () => {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 text-xs md:text-sm">
                         <div>
                           <span className="font-medium text-gray-600">Amount:</span>
-                          <p className="text-gray-800">د.إ{entry.amount?.toFixed(2) || "0.00"}</p>
+                          <p className="text-gray-800">{getCurrencySymbol(currency)}{entry.amount?.toFixed(2) || "0.00"}</p>
                         </div>
                         <div>
                           <span className="font-medium text-gray-600">Paid:</span>
-                          <p className="text-gray-800">د.إ{entry.paid?.toFixed(2) || "0.00"}</p>
+                          <p className="text-gray-800">{getCurrencySymbol(currency)}{entry.paid?.toFixed(2) || "0.00"}</p>
                         </div>
                         <div>
                           <span className="font-medium text-gray-600">Advance:</span>
-                          <p className="text-gray-800">د.إ{entry.advance?.toFixed(2) || "0.00"}</p>
+                          <p className="text-gray-800">{getCurrencySymbol(currency)}{entry.advance?.toFixed(2) || "0.00"}</p>
                         </div>
                         <div>
                           <span className="font-medium text-gray-600">Pending:</span>
-                          <p className="text-gray-800">د.إ{entry.pending?.toFixed(2) || "0.00"}</p>
+                          <p className="text-gray-800">{getCurrencySymbol(currency)}{entry.pending?.toFixed(2) || "0.00"}</p>
                         </div>
                         {entry.paying > 0 && (
                           <div className="col-span-2 sm:col-span-4">
                             <span className="font-medium text-gray-600">Paying Amount:</span>
-                            <p className="text-green-600 font-semibold">د.إ{entry.paying.toFixed(2)}</p>
+                            <p className="text-green-600 font-semibold">{getCurrencySymbol(currency)}{entry.paying.toFixed(2)}</p>
                           </div>
                         )}
                         <div className="col-span-2 sm:col-span-4">
@@ -775,13 +777,12 @@ const InvoiceUpdateSystem = () => {
                         {entry.status && (
                           <div className="col-span-2 sm:col-span-4">
                             <span className="font-medium text-gray-600">Status:</span>
-                            <span className={`ml-2 px-2 py-1 rounded text-xs font-semibold ${
-                              entry.status === "Active" ? "bg-green-100 text-green-800" : 
+                            <span className={`ml-2 px-2 py-1 rounded text-xs font-semibold ${entry.status === "Active" ? "bg-green-100 text-green-800" :
                               entry.status === "Completed" ? "bg-blue-100 text-blue-800" :
-                              entry.status === "Cancelled" ? "bg-red-100 text-red-800" :
-                              entry.status === "Rejected" ? "bg-red-100 text-red-800" :
-                              entry.status === "Released" ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-800"
-                            }`}>
+                                entry.status === "Cancelled" ? "bg-red-100 text-red-800" :
+                                  entry.status === "Rejected" ? "bg-red-100 text-red-800" :
+                                    entry.status === "Released" ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-800"
+                              }`}>
                               {entry.status}
                             </span>
                           </div>

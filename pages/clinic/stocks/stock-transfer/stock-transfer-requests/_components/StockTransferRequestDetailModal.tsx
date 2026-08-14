@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   FileText,
   X,
@@ -155,7 +155,7 @@ const StockTransferRequestDetailModal: React.FC<
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Summary Toggle Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
@@ -252,7 +252,7 @@ const StockTransferRequestDetailModal: React.FC<
             </div>
 
             {/* Basic Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
                   <FileText className="w-5 h-5 text-white" />
@@ -361,7 +361,7 @@ const StockTransferRequestDetailModal: React.FC<
             </div>
 
             {/* Branches Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
                   <Building className="w-5 h-5 text-white" />
@@ -457,7 +457,7 @@ const StockTransferRequestDetailModal: React.FC<
 
             {/* Notes Card */}
             {stockTransfer.notes && (
-              <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+              <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-gradient-to-br from-amber-500 to-amber-600 rounded-lg">
                     <FileText className="w-5 h-5 text-white" />
@@ -473,7 +473,7 @@ const StockTransferRequestDetailModal: React.FC<
             )}
 
             {/* Items Section */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default overflow-hidden shadow-sm">
               <div
                 onClick={toggleItemsExpand}
                 className="p-5 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
@@ -507,7 +507,7 @@ const StockTransferRequestDetailModal: React.FC<
               {expandedItems && (
                 <div className="border-t border-gray-100 overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-bg-surface dark:bg-opacity-50">
                       <tr>
                         <th className="px-6 py-3 text-left font-semibold text-gray-900">
                           <div className="flex items-center gap-2">
@@ -583,7 +583,7 @@ const StockTransferRequestDetailModal: React.FC<
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-gray-50">
+                    <tfoot className="bg-bg-surface dark:bg-opacity-50">
                       <tr>
                         <td
                           colSpan={3}
@@ -605,7 +605,7 @@ const StockTransferRequestDetailModal: React.FC<
             </div>
 
             {/* Metadata Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg">
                   <FileText className="w-5 h-5 text-white" />

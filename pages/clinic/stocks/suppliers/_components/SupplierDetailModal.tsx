@@ -1,5 +1,6 @@
-import React from "react";
+﻿import React from "react";
 import { Supplier } from "@/types/stocks";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
 import {
   Building,
   X,
@@ -12,7 +13,6 @@ import {
   User,
   FileText,
   Clock,
-  DollarSign,
   Wallet,
   Receipt,
 } from "lucide-react";
@@ -21,23 +21,21 @@ interface SupplierDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   supplier: Supplier | null;
+  currency?: string;
 }
 
 const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
   isOpen,
   onClose,
   supplier,
+  currency,
 }) => {
   if (!isOpen || !supplier) return null;
 
   const formatCurrency = (amount: number | undefined) => {
-    if (amount === undefined || amount === null) return "0.00";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "AED",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
+    const symbol = getCurrencySymbol(currency);
+    if (amount === undefined || amount === null) return `${symbol} 0.00`;
+    return `${symbol} ${amount.toFixed(2)}`;
   };
 
   const formatDate = (dateString: string | undefined) => {
@@ -104,7 +102,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Basic Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-blue-100 rounded-lg">
                   <Building className="w-4 h-4 text-blue-600" />
@@ -160,7 +158,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
 
             {/* Contact Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-purple-100 rounded-lg">
                   <Phone className="w-4 h-4 text-purple-600" />
@@ -257,7 +255,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
 
             {/* Financial Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-emerald-100 rounded-lg">
                   <Wallet className="w-4 h-4 text-emerald-600" />
@@ -271,7 +269,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
                 <div className="bg-white rounded-lg border border-gray-200 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 bg-blue-50 rounded">
-                      <DollarSign className="w-3 h-3 text-blue-600" />
+                      <span className="w-3 h-3 text-blue-600">{getCurrencySymbol(currency)}</span>
                     </div>
                     <p className="text-xs font-medium text-gray-500">
                       Opening Balance
@@ -320,7 +318,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
                 <div className="sm:col-span-3 bg-white rounded-lg border border-gray-200 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 bg-orange-50 rounded">
-                      <DollarSign className="w-3 h-3 text-orange-600" />
+                      <span className="w-3 h-3 text-orange-600">{getCurrencySymbol(currency)}</span>
                     </div>
                     <p className="text-xs font-medium text-gray-500">
                       Current Balance
@@ -343,7 +341,7 @@ const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
 
             {/* Additional Info Card */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-bg-surface rounded-xl border border-border-default p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-amber-100 rounded-lg">
                   <FileText className="w-4 h-4 text-amber-600" />
