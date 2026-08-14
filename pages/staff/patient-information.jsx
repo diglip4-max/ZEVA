@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import axios from "axios";
 import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useRouter } from "next/router";
@@ -1175,6 +1175,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const { currency } = useCurrency();
   const isDoctorStaff = useMemo(() => getUserRole() === 'doctorStaff', []);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filterPreviousMemberships, setFilterPreviousMemberships] = useState("all");
   const [filterPriority, setFilterPriority] = useState("all");
   const [patients, setPatients] = useState([]);
@@ -1182,6 +1183,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState({ totalCount: 0, totalPages: 1 });
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
   const [transferNameMap, setTransferNameMap] = useState({});
@@ -1193,6 +1195,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [exportPermissionsLoaded, setExportPermissionsLoaded] = useState(false);
   const [isClinicContext, setIsClinicContext] = useState(false);
   const pageSize = 12;
+  const skipPageEffectRef = useRef(false);
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -1420,22 +1423,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
   }, [isClinicContext, fetchClinicExportPermissions, fetchAgentExportPermissions]);
 
-  // Filter patients by search query and additional filters
+  // Filter patients by additional filters (search and pagination already handled by backend)
   const filteredPatients = useMemo(() => {
     let result = patients;
-
-    // Apply search query filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(patient =>
-        (patient.firstName && patient.firstName.toLowerCase().includes(query)) ||
-        (patient.lastName && patient.lastName.toLowerCase().includes(query)) ||
-        (patient.mobileNumber && patient.mobileNumber.includes(query)) ||
-        (patient.emrNumber && patient.emrNumber.toLowerCase().includes(query)) ||
-        (patient.invoiceNumber && patient.invoiceNumber.toLowerCase().includes(query)) ||
-        (patient.email && patient.email.toLowerCase().includes(query))
-      );
-    }
 
     // Apply previous memberships filter
     if (filterPreviousMemberships !== "all") {
@@ -1492,18 +1482,19 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
 
     return result;
-  }, [patients, searchQuery, filterPreviousMemberships, filterPriority, memberships]);
+  }, [patients, filterPreviousMemberships, filterPriority, memberships]);
 
-  const totalPages = Math.ceil(filteredPatients.length / pageSize);
-  const displayedPatients = filteredPatients.slice((page - 1) * pageSize, page * pageSize);
+  const backendTotalPages = paginationMeta.totalPages || 1;
+  const totalPages = backendTotalPages;
+  const displayedPatients = filteredPatients;
 
-  // Calculate stats
-  const totalPatients = patients.length;
+  // Calculate stats - use backend total for grand total
+  const totalPatients = paginationMeta.totalCount || 0;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
 
 
 
-  const fetchPatients = async (showSuccessToast = true) => {
+  const fetchPatients = async (showSuccessToast = true, overrideParams = {}) => {
     const headers = getAuthHeaders();
     if (!headers) {
       addToast("Authentication required. Please login again.", "error");
@@ -1511,11 +1502,32 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
     setLoading(true);
     try {
-      // Always use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
-      const apiEndpoint = "/api/clinic/patient-information";
+      // Build query params - search + pagination
+      const params = new URLSearchParams();
+      const effectiveSearch = overrideParams.searchQuery !== undefined ? overrideParams.searchQuery : debouncedSearchQuery;
+      const effectivePage = overrideParams.page !== undefined ? overrideParams.page : page;
+      if (effectiveSearch && effectiveSearch.trim()) params.set("name", effectiveSearch.trim());
+      params.set("page", String(effectivePage));
+      params.set("pageSize", String(pageSize));
+
+      const apiEndpoint = `/api/clinic/patient-information?${params.toString()}`;
       const { data } = await axios.get(apiEndpoint, { headers });
       setPatients(data.success ? data.data : []);
-      setPage(1);
+      if (data.pagination) {
+        setPaginationMeta({
+          totalCount: data.pagination.totalCount ?? (data.success ? data.data.length : 0),
+          totalPages: data.pagination.totalPages ?? 1,
+        });
+      } else {
+        // Backward compatibility fallback
+        setPaginationMeta({
+          totalCount: data.success ? data.count ?? data.data.length : 0,
+          totalPages: 1,
+        });
+      }
+      if (overrideParams.setPage !== false) {
+        setPage(effectivePage);
+      }
 
       // Fetch appointments to calculate active patients
       try {
@@ -1635,6 +1647,30 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   }, [detailsModal.isOpen, detailsModal.patient]);
 
   useEffect(() => { fetchPatients(); }, [routeContext]);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Re-fetch when debounced search changes (reset to page 1)
+  useEffect(() => {
+    skipPageEffectRef.current = true;
+    fetchPatients(true, { page: 1, setPage: true });
+  }, [debouncedSearchQuery]);
+
+  // Re-fetch when user navigates pages (skip if search just triggered page change)
+  useEffect(() => {
+    if (skipPageEffectRef.current) {
+      skipPageEffectRef.current = false;
+      return;
+    }
+    if (page === 1 && debouncedSearchQuery === "") return;
+    fetchPatients(true, { setPage: false });
+  }, [page]);
 
   useEffect(() => {
     const headers = getAuthHeaders();
@@ -1784,7 +1820,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       if (response.data.success) {
         // Show success popup
         setDeleteSuccessModal({ isOpen: true, patientName: patientName });
-        // Refresh the patient list without showing duplicate success toast from fetchPatients
+        // Refresh the patient list with current search + pagination
+        const refreshParams = new URLSearchParams();
+        if (debouncedSearchQuery && debouncedSearchQuery.trim()) refreshParams.set("name", debouncedSearchQuery.trim());
+        refreshParams.set("page", String(page));
+        refreshParams.set("pageSize", String(pageSize));
         const refreshHeaders = getAuthHeaders();
         if (!refreshHeaders) {
           addToast("Authentication required. Please login again.", "error");
@@ -1792,16 +1832,40 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         }
         setLoading(true);
         try {
-          // Always use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
-          const apiEndpoint = "/api/clinic/patient-information";
+          const apiEndpoint = `/api/clinic/patient-information?${refreshParams.toString()}`;
           const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
           setPatients(data.success ? data.data : []);
-          // Stay on current page after deletion; if page is now empty, go to previous page
-          const newTotalPages = Math.ceil((data.success ? data.data : []).length / pageSize);
-          if (newTotalPages > 0 && page > newTotalPages) {
-            setPage(newTotalPages);
+          if (data.pagination) {
+            setPaginationMeta({
+              totalCount: data.pagination.totalCount ?? (data.success ? data.data.length : 0),
+              totalPages: data.pagination.totalPages ?? 1,
+            });
+            // Stay on current page after deletion; if page is now empty, go to previous page
+            const newTotalPages = data.pagination.totalPages ?? 1;
+            if (newTotalPages > 0 && page > newTotalPages) {
+              setPage(newTotalPages);
+              // Refetch for the corrected page
+              const corrParams = new URLSearchParams();
+              if (debouncedSearchQuery && debouncedSearchQuery.trim()) corrParams.set("name", debouncedSearchQuery.trim());
+              corrParams.set("page", String(newTotalPages));
+              corrParams.set("pageSize", String(pageSize));
+              const corrRes = await axios.get(`/api/clinic/patient-information?${corrParams.toString()}`, { headers: refreshHeaders });
+              if (corrRes.data?.success) {
+                setPatients(corrRes.data.data);
+                if (corrRes.data.pagination) {
+                  setPaginationMeta({
+                    totalCount: corrRes.data.pagination.totalCount ?? 0,
+                    totalPages: corrRes.data.pagination.totalPages ?? 1,
+                  });
+                }
+              }
+            }
+          } else {
+            setPaginationMeta({
+              totalCount: data.success ? data.count ?? data.data.length : 0,
+              totalPages: 1,
+            });
           }
-          // Changed message to show patient deletion success
           addToast("Patient deleted successfully", "success");
         } catch (err) {
           console.error(err);
@@ -1913,7 +1977,6 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    setPage(1);
                   }}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
                 />
