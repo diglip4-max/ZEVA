@@ -5,20 +5,29 @@ import { AuroraBackground } from "@/components/ui/aurora-bento-grid";
 import { Typewriter } from "@/components/ui/typewriter-text";
 import axios from "axios";
 import { useRouter } from "next/router";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid
-} from "recharts";
-import { Calendar, TrendingUp, Layers, User as UserIcon } from "lucide-react";
+import { Calendar, TrendingUp, Layers, User as UserIcon, ChevronDown } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { useCurrency } from "@/context/CurrencyContext";
+
+// Import modular dashboard components
+import DashboardHeader from "../../components/staff-dashboard/DashboardHeader";
+import RevenueOpportunity from "../../components/staff-dashboard/RevenueOpportunity";
+import Priorities from "../../components/staff-dashboard/Priorities";
+import ZevaRecommends from "../../components/staff-dashboard/ZevaRecommends";
+import AppointmentTimeline from "../../components/staff-dashboard/AppointmentTimeline";
+import WaitingRoom from "../../components/staff-dashboard/WaitingRoom";
+import HotLeads from "../../components/staff-dashboard/HotLeads";
+import RevenueRescue from "../../components/staff-dashboard/RevenueRescue";
+import OpenSlots from "../../components/staff-dashboard/OpenSlots";
+import FollowUps from "../../components/staff-dashboard/FollowUps";
+import WinBack from "../../components/staff-dashboard/WinBack";
+import Renewals from "../../components/staff-dashboard/Renewals";
+import InboxOpportunities from "../../components/staff-dashboard/InboxOpportunities";
+import TodayPerformance from "../../components/staff-dashboard/TodayPerformance";
+import FrontDeskStatus from "../../components/staff-dashboard/FrontDeskStatus";
+import CommissionsSummary from "../../components/staff-dashboard/CommissionsSummary";
+import OperationsModules from "../../components/staff-dashboard/OperationsModules";
+
 
 const AgentDashboard = () => {
   const { currency } = useCurrency();
@@ -32,6 +41,474 @@ const AgentDashboard = () => {
   const [commissions, setCommissions] = useState([]);
   const [totalCommission, setTotalCommission] = useState(0);
   const [chartView, setChartView] = useState("month"); // "month" or "date"
+  const [timePeriod, setTimePeriod] = useState("morning"); // "morning" | "afternoon" | "evening"
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split("T")[0];
+  });
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  const variantStyles = {
+    red: {
+      bg: "bg-red-50 dark:bg-red-500/5",
+      border: "border-red-200 dark:border-red-500/30",
+      hoverBorder: "hover:border-red-300 dark:hover:border-red-500/50",
+    },
+    orange: {
+      bg: "bg-orange-50 dark:bg-orange-500/5",
+      border: "border-orange-200 dark:border-orange-500/30",
+      hoverBorder: "hover:border-orange-300 dark:hover:border-orange-500/50",
+    },
+    yellow: {
+      bg: "bg-amber-50 dark:bg-amber-500/5",
+      border: "border-amber-200 dark:border-amber-500/30",
+      hoverBorder: "hover:border-amber-300 dark:hover:border-amber-500/50",
+    },
+    green: {
+      bg: "bg-emerald-50 dark:bg-emerald-500/5",
+      border: "border-emerald-200 dark:border-emerald-500/30",
+      hoverBorder: "hover:border-emerald-300 dark:hover:border-emerald-500/50",
+    },
+  };
+
+  const zevaRecommendation = {
+    slot: {
+      title: "Fill the 4:30 PM opening before it becomes lost capacity.",
+      doctor: "Dr. Mehta",
+      department: "Dermatology",
+      time: "4:30 PM",
+    },
+    patients: [
+      {
+        rank: 1,
+        initials: "SA",
+        initialsBg: "bg-red-500",
+        name: "Sarah Ahmed",
+        detail: "Hot lead · 87% booking lik...",
+        percent: 87,
+        percentColor: "text-indigo-600 dark:text-indigo-400",
+        percentBg: "bg-indigo-100 dark:bg-indigo-500/15",
+      },
+      {
+        rank: 2,
+        initials: "AK",
+        initialsBg: "bg-red-500",
+        name: "Ahmed Khan",
+        detail: "Requested an earlier appointment",
+        percent: null,
+      },
+      {
+        rank: 3,
+        initials: "MJ",
+        initialsBg: "bg-red-500",
+        name: "Maria Joseph",
+        detail: "Follow-up due today",
+        percent: null,
+      },
+    ],
+    foundCount: 5,
+  };
+
+  const appointmentStats = {
+    total: 38,
+    confirmed: 26,
+    pending: 4,
+    cancelled: 2,
+    waiting: 4,
+  };
+
+  const appointmentTimeline = [
+    {
+      time: "09:30",
+      initials: "SA",
+      initialsBg: "bg-red-500",
+      name: "Sarah Ahmed",
+      department: "Dermatology",
+      doctor: "Dr. Mehta",
+      status: "Confirmed",
+      statusStyle: {
+        bg: "bg-emerald-100 dark:bg-emerald-500/15",
+        text: "text-emerald-700 dark:text-emerald-400",
+        dot: "bg-emerald-500",
+      },
+      highlight: true,
+    },
+    {
+      time: "10:15",
+      initials: "MA",
+      initialsBg: "bg-red-500",
+      name: "Mohammed Ali",
+      department: "Dental",
+      doctor: "Dr. Priya",
+      status: "Checked in",
+      statusStyle: {
+        bg: "bg-blue-100 dark:bg-blue-500/15",
+        text: "text-blue-700 dark:text-blue-400",
+        dot: "bg-blue-500",
+      },
+    },
+    {
+      time: "11:00",
+      initials: "AK",
+      initialsBg: "bg-red-500",
+      name: "Aisha Khan",
+      department: "Physiotherapy",
+      doctor: "Dr. Mehta",
+      status: "Pending",
+      statusStyle: {
+        bg: "bg-amber-100 dark:bg-amber-500/15",
+        text: "text-amber-700 dark:text-amber-400",
+        dot: "bg-amber-500",
+      },
+    },
+    {
+      time: "12:30",
+      initials: "JM",
+      initialsBg: "bg-purple-500",
+      name: "John Mathew",
+      department: "Dental",
+      doctor: "Dr. Priya",
+      status: "Confirmed",
+      statusStyle: {
+        bg: "bg-emerald-100 dark:bg-emerald-500/15",
+        text: "text-emerald-700 dark:text-emerald-400",
+        dot: "bg-emerald-500",
+      },
+    },
+    {
+      time: "13:45",
+      initials: "FM",
+      initialsBg: "bg-amber-500",
+      name: "Fatima Malik",
+      department: "Dermatology",
+      doctor: "Dr. Mehta",
+      status: "Confirmed",
+      statusStyle: {
+        bg: "bg-emerald-100 dark:bg-emerald-500/15",
+        text: "text-emerald-700 dark:text-emerald-400",
+        dot: "bg-emerald-500",
+      },
+    },
+    {
+      time: "14:30",
+      initials: "RS",
+      initialsBg: "bg-amber-500",
+      name: "Ravi Sharma",
+      department: "Dermatology",
+      doctor: "Dr. Priya",
+      status: "Pending",
+      statusStyle: {
+        bg: "bg-amber-100 dark:bg-amber-500/15",
+        text: "text-amber-700 dark:text-amber-400",
+        dot: "bg-amber-500",
+      },
+    },
+  ];
+
+  const waitingRoomPatients = [
+    {
+      id: 1,
+      initials: "SA",
+      initialsBg: "bg-red-500",
+      name: "Sarah Ahmed",
+      doctor: "Dr. Mehta",
+      waitTime: "8 min",
+      highlight: false,
+      showClockIcon: false,
+      timeColor: "text-gray-600 dark:text-gray-300",
+    },
+    {
+      id: 2,
+      initials: "HA",
+      initialsBg: "bg-indigo-600",
+      name: "Hassan Ali",
+      doctor: "Dr. Priya",
+      waitTime: "14 min",
+      highlight: true,
+      showClockIcon: true,
+      timeColor: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      id: 3,
+      initials: "AK",
+      initialsBg: "bg-red-500",
+      name: "Aisha Khan",
+      doctor: "Dr. Mehta",
+      waitTime: "4 min",
+      highlight: false,
+      showClockIcon: false,
+      timeColor: "text-gray-600 dark:text-gray-300",
+    },
+  ];
+
+  const hotLeads = [
+    {
+      id: 1,
+      initials: "SA",
+      initialsBg: "bg-red-500",
+      name: "Sarah Ahmed",
+      waitTime: "4 min wait",
+      waitTimeBg: "bg-amber-50 dark:bg-amber-500/10",
+      waitTimeColor: "text-amber-700 dark:text-amber-400",
+      details: "Dermatology · Asked about pricing",
+      progressPercent: 87,
+      progressBarColor: "bg-indigo-600",
+      progressTextColor: "text-indigo-600 dark:text-indigo-400",
+    },
+    {
+      id: 2,
+      initials: "AK",
+      initialsBg: "bg-red-500",
+      name: "Ahmed Khan",
+      waitTime: "18 min wait",
+      waitTimeBg: "bg-amber-50 dark:bg-amber-500/10",
+      waitTimeColor: "text-amber-700 dark:text-amber-400",
+      details: "Dental · Asked for availability",
+      progressPercent: 78,
+      progressBarColor: "bg-sky-500",
+      progressTextColor: "text-sky-600 dark:text-sky-400",
+    },
+    {
+      id: 3,
+      initials: "PR",
+      initialsBg: "bg-purple-500",
+      name: "Priya Raj",
+      waitTime: null,
+      details: "Physiotherapy · Returning patient",
+      progressPercent: 72,
+      progressBarColor: "bg-purple-500",
+      progressTextColor: "text-purple-600 dark:text-purple-400",
+    },
+  ];
+
+  const revenueRescueStats = [
+    {
+      id: 1,
+      title: "4 abandoned enquiries",
+      amount: "AED 3,200",
+      amountColor: "text-red-600 dark:text-red-400",
+      bg: "bg-red-50 dark:bg-red-500/10",
+    },
+    {
+      id: 2,
+      title: "3 cancelled appointments",
+      amount: "AED 1,800",
+      amountColor: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-500/10",
+    },
+    {
+      id: 3,
+      title: "5 package renewals",
+      amount: "AED 3,500",
+      amountColor: "text-purple-600 dark:text-purple-400",
+      bg: "bg-purple-50 dark:bg-purple-500/10",
+    },
+    {
+      id: 4,
+      title: "8 overdue follow-ups",
+      amount: "AED 2,600",
+      amountColor: "text-sky-600 dark:text-sky-400",
+      bg: "bg-sky-50 dark:bg-sky-500/10",
+    },
+  ];
+
+  const openSlotsDoctors = [
+    {
+      id: 1,
+      initials: "DM",
+      initialsBg: "bg-purple-500",
+      name: "Dr. Mehta",
+      department: "Dermatology",
+      slots: [
+        { time: "2:30 PM", patients: "5 suitable patients" },
+        { time: "4:30 PM", patients: "5 suitable patients" },
+      ],
+    },
+    {
+      id: 2,
+      initials: "DP",
+      initialsBg: "bg-purple-500",
+      name: "Dr. Priya",
+      department: "Dental",
+      slots: [
+        { time: "5:00 PM", patients: "3 suitable patients" },
+      ],
+    },
+  ];
+
+  const followUpsCategories = [
+    {
+      id: 1,
+      icon: "fire",
+      label: "High intent",
+      count: 3,
+    },
+    {
+      id: 2,
+      icon: "package",
+      label: "Package renewal",
+      count: 2,
+    },
+    {
+      id: 3,
+      icon: "revisit",
+      label: "Revisit due",
+      count: 2,
+    },
+    {
+      id: 4,
+      icon: "callback",
+      label: "Callback requested",
+      count: 1,
+    },
+  ];
+
+  const winBackStats = [
+    { count: 18, label: "High", color: "text-red-500 dark:text-red-400" },
+    { count: 42, label: "Medium", color: "text-amber-500 dark:text-amber-400" },
+    { count: 68, label: "Low", color: "text-gray-400 dark:text-gray-500" },
+    { count: 128, label: "Dormant", color: "text-gray-700 dark:text-gray-300" },
+  ];
+
+  const winBackPatients = [
+    {
+      id: 1,
+      initials: "SA",
+      initialsBg: "bg-red-500",
+      name: "Sarah Ahmed",
+      detail: "Last visit 84 days ago · typical 35d interval",
+      action: "Invite for follow-up",
+      actionColor: "text-purple-600 dark:text-purple-400",
+    },
+    {
+      id: 2,
+      initials: "KN",
+      initialsBg: "bg-emerald-500",
+      name: "Khalid Nasser",
+      detail: "Last visit 62 days ago · typical 28d interval",
+      action: "Offer package renewal",
+      actionColor: "text-purple-600 dark:text-purple-400",
+    },
+    {
+      id: 3,
+      initials: "RA",
+      initialsBg: "bg-amber-500",
+      name: "Reem Al Farsi",
+      detail: "Last visit 55 days ago · typical 21d interval",
+      action: "Confirm revisit",
+      actionColor: "text-purple-600 dark:text-purple-400",
+    },
+  ];
+
+  const renewalsData = [
+    {
+      id: 1,
+      initials: "HA",
+      initialsBg: "bg-indigo-500",
+      name: "Hassan Ali",
+      package: "Physiotherapy Package",
+      detail: "2 sessions left · AED 900 value",
+      expireBadge: "Expires in 6d",
+      expireBg: "bg-amber-50 dark:bg-amber-500/10",
+      expireColor: "text-amber-700 dark:text-amber-400",
+    },
+    {
+      id: 2,
+      initials: "FM",
+      initialsBg: "bg-amber-500",
+      name: "Fatima Malik",
+      package: "Dermatology Bundle",
+      detail: "1 sessions left · AED 1,400 value",
+      expireBadge: "Expires in 3d",
+      expireBg: "bg-red-50 dark:bg-red-500/10",
+      expireColor: "text-red-700 dark:text-red-400",
+    },
+  ];
+
+  const inboxOpportunities = [
+    {
+      id: 1,
+      initials: "SA",
+      initialsBg: "bg-red-500",
+      name: "Sarah Ahmed",
+      department: "Laser Treatment",
+      likelyPercent: 87,
+      patientMessage: "How much is the laser treatment?",
+      ourResponse: "AED 650 for a full session.",
+      suggestion: "Offer available appointment times.",
+    },
+    {
+      id: 2,
+      initials: "AK",
+      initialsBg: "bg-red-500",
+      name: "Ahmed Khan",
+      department: "Dental",
+      likelyPercent: 78,
+      patientMessage: "Is Dr. Priya available tomorrow morning?",
+      ourResponse: null,
+      suggestion: "Send available slots for tomorrow 9 AM–1 PM.",
+    },
+  ];
+
+  const todayPerformance = [
+    {
+      id: 1,
+      titleLines: ["BOOKINGS"],
+      value: "31 / 40",
+      subText: null,
+      progressPercent: 77.5,
+      progressColor: "bg-indigo-600",
+    },
+    {
+      id: 2,
+      titleLines: ["REVENUE", "BOOKED"],
+      value: "AED 18,420",
+      subText: "target AED 24,000",
+      progressPercent: 76.75,
+      progressColor: "bg-emerald-500",
+    },
+    {
+      id: 3,
+      titleLines: ["LEAD →", "BOOKING"],
+      value: "29%",
+      subText: "+4% vs yesterday",
+      progressPercent: 29,
+      progressColor: "bg-purple-500",
+    },
+    {
+      id: 4,
+      titleLines: ["AVG", "RESPONSE"],
+      value: "4m 12s",
+      subText: "target < 5 min",
+      progressPercent: 84,
+      progressColor: "bg-amber-500",
+    },
+    {
+      id: 5,
+      titleLines: ["RECOVERED"],
+      value: "3",
+      subText: "bookings rescued",
+      progressPercent: 30,
+      progressColor: "bg-sky-500",
+    },
+    {
+      id: 6,
+      titleLines: ["REVENUE", "RESCUED"],
+      value: "AED 3,200",
+      subText: "from 3 opportunities",
+      progressPercent: 32,
+      progressColor: "bg-red-500",
+    },
+  ];
+
+  const frontDeskStatus = [
+    { id: 1, label: "Appointments", dotColor: "bg-emerald-500", value: "On track", valueColor: "text-emerald-600 dark:text-emerald-400" },
+    { id: 2, label: "Patient waiting", dotColor: "bg-amber-500", value: "2 delayed", valueColor: "text-amber-600 dark:text-amber-400" },
+    { id: 3, label: "Lead response", dotColor: "bg-blue-500", value: "4 min average", valueColor: "text-blue-600 dark:text-blue-400" },
+    { id: 4, label: "Follow-ups", dotColor: "bg-amber-500", value: "3 remaining", valueColor: "text-amber-600 dark:text-amber-400" },
+    { id: 5, label: "Tomorrow confirm", dotColor: "bg-amber-500", value: "6 pending", valueColor: "text-amber-600 dark:text-amber-400" },
+    { id: 6, label: "Patient records", dotColor: "bg-emerald-500", value: "Complete", valueColor: "text-emerald-600 dark:text-emerald-400" },
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -261,294 +738,81 @@ const AgentDashboard = () => {
 
       <div className="relative z-10 p-2 md:p-3">
         <div className="max-w-7xl mt-1 mx-auto">
-          {/* User Info Section at the top */}
-          <div className="mb-4 pb-3 border-b border-gray-200 dark:border-white/10 flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-            <div className="flex-1">
-              <h1
-                className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight"
-                style={{
-                  fontFamily: "system-ui, -apple-system, sans-serif",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Hi, {userInfo.name || "Agent!"}
-              </h1>
-              <div
-                className="mt-1 text-sm md:text-base font-medium text-gray-600 dark:text-gray-300 leading-relaxed tracking-normal"
-                style={{
-                  fontFamily: "system-ui, -apple-system, sans-serif",
-                  letterSpacing: "0.01em",
-                }}
-              >
-                <Typewriter
-                  text={[
-                    "Welcome to your agent dashboard.",
-                    "Manage your leads efficiently.",
-                    "Track your performance.",
-                    "Stay organized and productive.",
-                  ]}
-                  speed={100}
-                  loop={true}
-                  className="text-sm md:text-base font-medium text-gray-600 dark:text-gray-300"
-                />
-              </div>
-            </div>
+          {/* Header Section */}
+          <DashboardHeader
+            userInfo={userInfo}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            showCalendar={showCalendar}
+            setShowCalendar={setShowCalendar}
+            timePeriod={timePeriod}
+            setTimePeriod={setTimePeriod}
+          />
+
+          {/* Today's Revenue Opportunity Card */}
+          <RevenueOpportunity selectedDate={selectedDate} />
+
+          {/* Your Priorities Section */}
+          <Priorities
+            selectedDate={selectedDate}
+            timePeriod={timePeriod}
+            setTimePeriod={setTimePeriod}
+          />
+
+          {/* ZEVA Recommends + Appointment Timeline Section */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+            <ZevaRecommends zevaRecommendation={zevaRecommendation} />
+            <AppointmentTimeline
+              appointmentStats={appointmentStats}
+              appointmentTimeline={appointmentTimeline}
+            />
+          </div>
+
+          {/* Waiting Room + Hot Leads Section */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+            <WaitingRoom waitingRoomPatients={waitingRoomPatients} />
+            <HotLeads hotLeads={hotLeads} />
+          </div>
+
+          {/* Revenue Rescue + Open Slots Section */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
+            <RevenueRescue revenueRescueStats={revenueRescueStats} />
+            <OpenSlots openSlotsDoctors={openSlotsDoctors} />
+          </div>
+
+          {/* Follow-ups + Win Back + Renewals Section */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+            <FollowUps followUpsCategories={followUpsCategories} />
+            <WinBack winBackStats={winBackStats} winBackPatients={winBackPatients} />
+            <Renewals renewalsData={renewalsData} />
+          </div>
+
+          {/* Inbox Opportunities + Today's Performance + Front Desk Status Section */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+            <InboxOpportunities inboxOpportunities={inboxOpportunities} />
+            <TodayPerformance todayPerformance={todayPerformance} />
+            <FrontDeskStatus frontDeskStatus={frontDeskStatus} />
           </div>
 
           {/* Commissions Overview Section */}
-          <div className="mb-6 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-4 shadow-sm backdrop-blur-md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <span className="w-5 h-5 flex items-center justify-center font-bold text-teal-600 dark:text-teal-400 text-lg">{getCurrencySymbol(currency)}</span>
-                Commissions Summary
-              </h2>
-              <div className="flex bg-gray-100 dark:bg-white/10 p-0.5 rounded-lg border border-gray-200 dark:border-white/15">
-                <button
-                  onClick={() => setChartView("month")}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${chartView === "month"
-                    ? "bg-teal-600 text-white shadow"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                >
-                  Month-wise
-                </button>
-                <button
-                  onClick={() => setChartView("date")}
-                  className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${chartView === "date"
-                    ? "bg-teal-600 text-white shadow"
-                    : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                >
-                  Date-wise
-                </button>
-              </div>
-            </div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-              <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg p-3.5 flex items-center gap-3.5 shadow-sm">
-                <div className="p-2.5 bg-teal-500/10 rounded-lg text-teal-600 dark:text-teal-400 font-bold text-lg w-11 h-11 flex items-center justify-center">
-                  {getCurrencySymbol(currency)}
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Commissions</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-white">
-                    {getCurrencySymbol(currency)} {Number(totalCommission || 0).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg p-3.5 flex items-center gap-3.5 shadow-sm">
-                <div className="p-2.5 bg-cyan-500/10 rounded-lg text-cyan-600 dark:text-cyan-400">
-                  <Calendar className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">This Month</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-white">
-                    {getCurrencySymbol(currency)} {Number(thisMonthCommission || 0).toFixed(2)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg p-3.5 flex items-center gap-3.5 shadow-sm">
-                <div className="p-2.5 bg-indigo-500/10 rounded-lg text-indigo-600 dark:text-indigo-400">
-                  <TrendingUp className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Milestones Reached</div>
-                  <div className="text-lg font-bold text-gray-900 dark:text-white">
-                    {commissions.length}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recharts Graph */}
-            <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg p-3 mb-5 shadow-inner">
-              {mounted ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  {chartView === "month" ? (
-                    <BarChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.15)" />
-                      <XAxis dataKey="name" stroke="#6b7280" fontSize={11} tickLine={false} />
-                      <YAxis stroke="#6b7280" fontSize={11} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "rgba(17, 24, 39, 0.95)",
-                          borderColor: "rgba(255, 255, 255, 0.1)",
-                          borderRadius: "8px",
-                          color: "#fff",
-                        }}
-                        formatter={(value) => [`${getCurrencySymbol(currency)} ${value}`, "Commission"]}
-                      />
-                      <Bar dataKey="amount" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  ) : (
-                    <AreaChart data={dateWiseData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#2D9AA5" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#2D9AA5" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(107, 114, 128, 0.15)" />
-                      <XAxis dataKey="name" stroke="#6b7280" fontSize={10} tickLine={false} />
-                      <YAxis stroke="#6b7280" fontSize={11} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "rgba(17, 24, 39, 0.95)",
-                          borderColor: "rgba(255, 255, 255, 0.1)",
-                          borderRadius: "8px",
-                          color: "#fff",
-                        }}
-                        formatter={(value) => [`${getCurrencySymbol(currency)} ${value}`, "Commission"]}
-                      />
-                      <Area type="monotone" dataKey="amount" stroke="#2D9AA5" fillOpacity={1} fill="url(#colorAmt)" strokeWidth={2} />
-                    </AreaChart>
-                  )}
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[260px] flex items-center justify-center text-gray-500 dark:text-gray-400">
-                  Loading Analytics Graph...
-                </div>
-              )}
-            </div>
-
-            {/* Individual Commissions Cards */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 uppercase tracking-wider">
-                Recent Commission Milestones
-              </h3>
-              {commissions.length === 0 ? (
-                <div className="text-center py-6 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg">
-                  No commissions approved yet.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {commissions.map((item) => (
-                    <div
-                      key={item.commissionId}
-                      className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg p-3 flex flex-col justify-between hover:border-teal-500/30 transition-all duration-200"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                            <UserIcon className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                            {item.patientName || "—"}
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Invoice: <span className="font-mono text-gray-700 dark:text-gray-300">{item.invoiceNumber || "—"}</span>
-                          </div>
-                        </div>
-                        <div className="bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded text-xs font-bold">
-                          {getCurrencySymbol(currency)} {Number(item.commissionAmount || 0).toFixed(2)}
-                        </div>
-                      </div>
-
-                      <div className="mt-2.5 pt-2 border-t border-gray-200 dark:border-white/5 flex flex-wrap items-center justify-between text-[11px] text-gray-600 dark:text-gray-400 gap-2">
-                        <div>
-                          Paid: <span className="font-semibold text-gray-800 dark:text-gray-200">{getCurrencySymbol(currency)} {Number(item.paidAmount || 0).toFixed(2)}</span> ({item.commissionPercent}%)
-                        </div>
-                        {item.doctorName && (
-                          <div>
-                            Doctor: <span className="text-gray-800 dark:text-gray-300 font-medium">{item.doctorName}</span>
-                          </div>
-                        )}
-                        {item.invoicedDate && (
-                          <div className="text-[10px] text-gray-400 dark:text-gray-500">
-                            {new Date(item.invoicedDate).toLocaleDateString()}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <CommissionsSummary
+            currency={currency}
+            chartView={chartView}
+            setChartView={setChartView}
+            totalCommission={totalCommission}
+            thisMonthCommission={thisMonthCommission}
+            commissions={commissions}
+            monthlyData={monthlyData}
+            dateWiseData={dateWiseData}
+            mounted={mounted}
+          />
 
           {/* Permission-based Dashboard Cards */}
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-3 mt-6">
-            <Layers className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-            Modules & Operations
-          </h2>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-gray-600 dark:text-gray-400">
-                Loading dashboard...
-              </div>
-            </div>
-          ) : navigationItems.length === 0 ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="text-gray-600 dark:text-gray-400 text-center">
-                <p className="text-lg font-semibold mb-2">
-                  No modules available
-                </p>
-                <p className="text-sm">
-                  You don't have permissions to view any dashboard modules yet.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 mt-2">
-              {navigationItems.map((item, index) => (
-                <div
-                  key={item.moduleKey || index}
-                  onClick={() => item.path && router.push(item.path)}
-                  className={`
-                    group relative rounded-lg bg-gradient-to-br from-cyan-600 to-cyan-400 
-                    hover:shadow-lg transition-all duration-200 cursor-pointer
-                    border border-transparent hover:border-white/20
-                    flex flex-col justify-between
-                    p-2.5 md:p-3 min-h-[120px] md:min-h-[130px]
-                    ${item.path
-                      ? "hover:scale-[1.02]"
-                      : "opacity-60 cursor-not-allowed"
-                    }
-                  `}
-                >
-                  {/* Icon */}
-                  <div className="flex items-start justify-between mb-1.5">
-                    <div className="p-1.5 bg-white/10 rounded-md backdrop-blur-sm">
-                      {renderIcon(item.icon)}
-                    </div>
-                    {item.subModules && item.subModules.length > 0 && (
-                      <span className="text-xs text-white/70 bg-white/10 px-1.5 py-0.5 rounded">
-                        {item.subModules.length}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 flex flex-col justify-end">
-                    <h3 className="text-base md:text-lg font-bold text-white leading-tight mb-0.5">
-                      {item.label}
-                    </h3>
-                    <p className="text-xs md:text-sm text-white/70 leading-relaxed line-clamp-2">
-                      {item.description}
-                    </p>
-                  </div>
-
-                  {/* Hover indicator */}
-                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <svg
-                      className="w-4 h-4 text-white/60"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <OperationsModules
+            isLoading={isLoading}
+            navigationItems={navigationItems}
+            router={router}
+          />
         </div>
       </div>
     </div>

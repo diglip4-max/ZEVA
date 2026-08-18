@@ -7085,16 +7085,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 value: dailyStats.cancelled,
                                 fill: "#ef4444",
                               },
-                              {
-                                name: "Block",
-                                value: dailyStats.block || 0,
-                                fill: "#7f1d1d",
-                              },
-                              {
-                                name: "Unblock",
-                                value: dailyStats.unblock || 0,
-                                fill: "#166534",
-                              },
+                             
                             ];
 
                         // Prepare data for line chart (remaining statuses: Booked, Enquiry, Approved, Arrived, Invoiced, Completed)

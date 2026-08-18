@@ -2201,7 +2201,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
         let batchMsgs = [];
         let msgData = [];
         let failedMessages = 0;
-        for (const recipient of recipients) {
+        for (let recipient of recipients) {
           try {
             let conversation = await Conversation.findOne({
               leadId: recipient._id,
@@ -2214,6 +2214,43 @@ const scheduleWhatsappCampaignWorker = new Worker(
                 ownerId: campaign.userId,
                 leadId: recipient._id,
               });
+            }
+
+            // if lead has not name then find in patient record then match with exact name
+            console.log({ recipientOfCampaign: recipient });
+            // Check if name is missing OR if it looks like a phone number
+            const isNameMissingOrPhone =
+              !recipient?.name || /^[\+\d\s\-\(\)]{10,}$/.test(recipient.name);
+            if (isNameMissingOrPhone && recipient.phone) {
+              console.log({ innerR: recipient });
+              const withPlusNumber = recipient.phone?.startsWith("+")
+                ? recipient.phone
+                : `+${recipient.phone}`;
+              const withoutPlusNumber = withPlusNumber.replace("+", "");
+              const patient = await PatientRegistration.findOne({
+                clinicId: campaign.clinicId,
+                mobileNumber: withoutPlusNumber,
+              });
+              if (withPlusNumber && !patient) {
+                patient = await PatientRegistration.findOne({
+                  clinicId: campaign.clinicId,
+                  mobileNumber: withPlusNumber,
+                });
+              }
+              console.log({
+                withPlusNumber,
+                withoutPlusNumber,
+                patient,
+              });
+              const name =
+                `${patient?.firstName || ""} ${patient?.lastName || ""}`?.trim();
+              if (name) {
+                const lead = await Lead.findById(recipient._id);
+                lead.name = name;
+                lead.email = lead.email || patient.email;
+                await lead.save();
+                recipient = lead;
+              }
             }
 
             // Generate a unique message ID

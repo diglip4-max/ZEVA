@@ -66,23 +66,33 @@ export default async function handler(req, res) {
   endAt.setHours(23, 59, 59, 999);
 
   const clinicMatch = clinicId ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : {};
-  const dateMatch = { invoicedDate: { $gte: startAt, $lte: endAt } };
+  // Use $expr with $ifNull to fall back to createdAt when invoicedDate is missing.
+  // This ensures older billing records (created before invoicedDate field existed)
+  // are still included in the date range filter.
+  const dateMatch = {
+    $expr: {
+      $and: [
+        { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
+        { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
+      ]
+    }
+  };
   // Build payment method filter separately to support both single paymentMethod
   // and multiplePayments array (split payments).
   const paymentMethodFilter = paymentMethod
     ? {
-        $or: [
-          { paymentMethod: paymentMethod },
-          { "multiplePayments.paymentMethod": paymentMethod },
-        ],
-      }
+      $or: [
+        { paymentMethod: paymentMethod },
+        { "multiplePayments.paymentMethod": paymentMethod },
+      ],
+    }
     : null;
 
   // DEBUG: Log the match criteria
   console.log("DEBUG Revenue API - clinicMatch:", clinicMatch);
   console.log("DEBUG Revenue API - dateMatch:", dateMatch);
   console.log("DEBUG Revenue API - paymentMethodFilter:", paymentMethodFilter);
-  
+
   const pageNum = Math.max(1, parseInt(paymentsPage || "1", 10));
   const pageSizeNum = Math.max(1, parseInt(paymentsPageSize || "10", 10));
   const skipNum = (pageNum - 1) * pageSizeNum;
@@ -234,11 +244,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -341,11 +353,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -434,11 +448,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -552,11 +568,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -774,24 +792,30 @@ export default async function handler(req, res) {
       // EDGE-CASE FIX: For Treatment/Service billings with unpaidPackagesPaid and pendingClearedBreakdown,
       // subtract pendingUsed from billingPaid because the payment was for the package, not the treatment.
       // This prevents the treatment from showing paid revenue when only the package pending was cleared.
-      { $addFields: { billingPaid: {
-        $cond: [
-          {
-            $and: [
-              { $in: ["$service", ["Treatment", "Service"]] },
-              { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
-              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
-            ],
-          },
-          // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
-          { $subtract: [
-            { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
-            { $ifNull: ["$pendingUsed", 0] }
-          ] },
-          // All other billings: use normal calculation
-          { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
-        ]
-      } } },
+      {
+        $addFields: {
+          billingPaid: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$service", ["Treatment", "Service"]] },
+                  { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                ],
+              },
+              // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
+              {
+                $subtract: [
+                  { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+                  { $ifNull: ["$pendingUsed", 0] }
+                ]
+              },
+              // All other billings: use normal calculation
+              { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
+            ]
+          }
+        }
+      },
       // DEBUG: Log billingPaid calculation
       {
         $addFields: {
@@ -832,9 +856,15 @@ export default async function handler(req, res) {
                 $multiply: [
                   { $ifNull: ["$billingPaid", 0] },
                   {
-                    $divide: [
-                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
+                      {
+                        $divide: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -850,9 +880,15 @@ export default async function handler(req, res) {
                 $multiply: [
                   { $ifNull: ["$billingPaid", 0] },
                   {
-                    $divide: [
-                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
+                      {
+                        $divide: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -1307,24 +1343,30 @@ export default async function handler(req, res) {
             // Include advanceUsed to capture full revenue (paid + advanceUsed)
             // EDGE-CASE FIX: For Treatment/Service billings with unpaidPackagesPaid and pendingClearedBreakdown,
             // subtract pendingUsed from billingPaid because the payment was for the package, not the treatment.
-            { $addFields: { billingPaid: {
-              $cond: [
-                {
-                  $and: [
-                    { $in: ["$service", ["Treatment", "Service"]] },
-                    { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
-                    { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
-                  ],
-                },
-                // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
-                { $subtract: [
-                  { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
-                  { $ifNull: ["$pendingUsed", 0] }
-                ] },
-                // All other billings: use normal calculation
-                { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
-              ]
-            } } },
+            {
+              $addFields: {
+                billingPaid: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $in: ["$service", ["Treatment", "Service"]] },
+                        { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+                        { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                      ],
+                    },
+                    // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
+                    {
+                      $subtract: [
+                        { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+                        { $ifNull: ["$pendingUsed", 0] }
+                      ]
+                    },
+                    // All other billings: use normal calculation
+                    { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
+                  ]
+                }
+              }
+            },
             {
               $addFields: {
                 isClearedItem: { $literal: false },
@@ -1409,9 +1451,15 @@ export default async function handler(req, res) {
                           $multiply: [
                             { $ifNull: ["$billingPaid", 0] },
                             {
-                              $divide: [
-                                { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                                { $ifNull: ["$originalAmount", "$amount", 1] }
+                              $cond: [
+                                { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                                0,
+                                {
+                                  $divide: [
+                                    { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                                    { $ifNull: ["$originalAmount", "$amount", 1] }
+                                  ]
+                                }
                               ]
                             }
                           ]
@@ -1732,24 +1780,30 @@ export default async function handler(req, res) {
                   // Store billing-level paid amount
                   // EDGE-CASE FIX: For Treatment/Service billings with unpaidPackagesPaid and pendingClearedBreakdown,
                   // subtract pendingUsed from billingPaid because the payment was for the package, not the treatment.
-                  { $addFields: { billingPaid: {
-                    $cond: [
-                      {
-                        $and: [
-                          { $in: ["$service", ["Treatment", "Service"]] },
-                          { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
-                          { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
-                        ],
-                      },
-                      // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
-                      { $subtract: [
-                        { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
-                        { $ifNull: ["$pendingUsed", 0] }
-                      ] },
-                      // All other billings: use normal calculation
-                      { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
-                    ]
-                  } } },
+                  {
+                    $addFields: {
+                      billingPaid: {
+                        $cond: [
+                          {
+                            $and: [
+                              { $in: ["$service", ["Treatment", "Service"]] },
+                              { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+                              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                            ],
+                          },
+                          // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed (package payment)
+                          {
+                            $subtract: [
+                              { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
+                              { $ifNull: ["$pendingUsed", 0] }
+                            ]
+                          },
+                          // All other billings: use normal calculation
+                          { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] }
+                        ]
+                      }
+                    }
+                  },
                   // Group by invoiceNumber to calculate total treatment amount for appointment-based treatments
                   {
                     $group: {
@@ -1774,9 +1828,15 @@ export default async function handler(req, res) {
                           $multiply: [
                             { $ifNull: ["$billingPaid", 0] },
                             {
-                              $divide: [
-                                { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                                { $ifNull: ["$originalAmount", "$amount", 1] }
+                              $cond: [
+                                { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                                0,
+                                {
+                                  $divide: [
+                                    { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                                    { $ifNull: ["$originalAmount", "$amount", 1] }
+                                  ]
+                                }
                               ]
                             }
                           ]
@@ -2246,10 +2306,16 @@ export default async function handler(req, res) {
             $multiply: [
               { $ifNull: ["$billingPaid", 0] },
               {
-                $divide: [
-                  { $subtract: [{ $ifNull: ["$originalAmount", "$amount", 1] }, "$treatmentAmount"] },
-                  { $ifNull: ["$originalAmount", "$amount", 1] },
-                ],
+                $cond: [
+                  { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                  0,
+                  {
+                    $divide: [
+                      { $subtract: [{ $ifNull: ["$originalAmount", "$amount", 1] }, "$treatmentAmount"] },
+                      { $ifNull: ["$originalAmount", "$amount", 1] },
+                    ],
+                  }
+                ]
               },
             ],
           },
@@ -2929,11 +2995,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -3136,25 +3204,31 @@ export default async function handler(req, res) {
                 $multiply: [
                   { $ifNull: ["$__effectivePaid", 0] },
                   {
-                    $divide: [
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
                       {
-                        $multiply: [
+                        $divide: [
                           {
-                            $ifNull: [
+                            $multiply: [
                               {
-                                $cond: [
-                                  { $eq: [{ $ifNull: [{ $arrayElemAt: ["$selectedTreatments.price", 0] }, 0] }, 0] },
-                                  "$amount",
-                                  { $arrayElemAt: ["$selectedTreatments.price", 0] }
+                                $ifNull: [
+                                  {
+                                    $cond: [
+                                      { $eq: [{ $ifNull: [{ $arrayElemAt: ["$selectedTreatments.price", 0] }, 0] }, 0] },
+                                      "$amount",
+                                      { $arrayElemAt: ["$selectedTreatments.price", 0] }
+                                    ]
+                                  },
+                                  0
                                 ]
                               },
-                              0
+                              { $ifNull: [{ $arrayElemAt: ["$selectedTreatments.quantity", 0] }, 1] }
                             ]
                           },
-                          { $ifNull: [{ $arrayElemAt: ["$selectedTreatments.quantity", 0] }, 1] }
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
                         ]
-                      },
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                      }
                     ]
                   }
                 ]
@@ -3395,11 +3469,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -3500,22 +3576,28 @@ export default async function handler(req, res) {
                                 ],
                               },
                               {
-                                $divide: [
+                                $cond: [
+                                  { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                                  0,
                                   {
-                                    $sum: {
-                                      $map: {
-                                        input: "$selectedTreatments",
-                                        as: "st",
-                                        in: {
-                                          $multiply: [
-                                            { $ifNull: ["$$st.price", 0] },
-                                            { $ifNull: ["$$st.quantity", 1] },
-                                          ],
+                                    $divide: [
+                                      {
+                                        $sum: {
+                                          $map: {
+                                            input: "$selectedTreatments",
+                                            as: "st",
+                                            in: {
+                                              $multiply: [
+                                                { $ifNull: ["$$st.price", 0] },
+                                                { $ifNull: ["$$st.quantity", 1] },
+                                              ],
+                                            },
+                                          },
                                         },
                                       },
-                                    },
-                                  },
-                                  { $ifNull: ["$originalAmount", "$amount", 1] }
+                                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                                    ]
+                                  }
                                 ]
                               }
                             ]
@@ -3612,22 +3694,28 @@ export default async function handler(req, res) {
                                 ],
                               },
                               {
-                                $divide: [
+                                $cond: [
+                                  { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                                  0,
                                   {
-                                    $sum: {
-                                      $map: {
-                                        input: "$selectedTreatments",
-                                        as: "st",
-                                        in: {
-                                          $multiply: [
-                                            { $ifNull: ["$$st.price", 0] },
-                                            { $ifNull: ["$$st.quantity", 1] },
-                                          ],
+                                    $divide: [
+                                      {
+                                        $sum: {
+                                          $map: {
+                                            input: "$selectedTreatments",
+                                            as: "st",
+                                            in: {
+                                              $multiply: [
+                                                { $ifNull: ["$$st.price", 0] },
+                                                { $ifNull: ["$$st.quantity", 1] },
+                                              ],
+                                            },
+                                          },
                                         },
                                       },
-                                    },
-                                  },
-                                  { $ifNull: ["$originalAmount", "$amount", 1] }
+                                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                                    ]
+                                  }
                                 ]
                               }
                             ]
@@ -3948,11 +4036,13 @@ export default async function handler(req, res) {
         $addFields: {
           __effectivePaid: {
             $cond: {
-              if: { $and: [
-                { $gt: [{ $size: { $ifNull: ["$multiplePayments", []] } }, 0] },
-                { $ne: [paymentMethod, ""] },
-                { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
-              ] },
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
               then: {
                 $reduce: {
                   input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
@@ -4210,23 +4300,31 @@ export default async function handler(req, res) {
                 $multiply: [
                   { $ifNull: ["$billingPaid", 0] },
                   {
-                    $divide: [
-                      { $multiply: [
-                        {
-                          $ifNull: [
-                            {
-                              $cond: [
-                                { $eq: [{ $ifNull: ["$selectedTreatments.price", 0] }, 0] },
-                                "$amount",
-                                "$selectedTreatments.price"
-                              ]
-                            },
-                            0
-                          ]
-                        },
-                        { $ifNull: ["$selectedTreatments.quantity", 1] }
-                      ]},
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
+                      {
+                        $divide: [
+                          {
+                            $multiply: [
+                              {
+                                $ifNull: [
+                                  {
+                                    $cond: [
+                                      { $eq: [{ $ifNull: ["$selectedTreatments.price", 0] }, 0] },
+                                      "$amount",
+                                      "$selectedTreatments.price"
+                                    ]
+                                  },
+                                  0
+                                ]
+                              },
+                              { $ifNull: ["$selectedTreatments.quantity", 1] }
+                            ]
+                          },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -4367,7 +4465,7 @@ export default async function handler(req, res) {
 
     // DEBUG: Log the aggregation results to see what's happening
     console.log("DEBUG byDepartmentAgg:", JSON.stringify(byDepartmentAgg, null, 2));
-    
+
     // DEBUG: Extract and log debug fields from details
     const debugDetails = byDepartmentAgg.flatMap(d => d.details || []).map(detail => ({
       invoiceNumber: detail.invoiceNumber,
@@ -4470,15 +4568,17 @@ export default async function handler(req, res) {
           _debug_breakdown_invoice: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
           _debug_is_cross_invoice: {
             $cond: [
-              { $gt: [{
-                $size: {
-                  $cond: [
-                    { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                    { $ifNull: ["$pendingClearedBreakdown", []] },
-                    []
-                  ]
-                }
-              }, 0] },
+              {
+                $gt: [{
+                  $size: {
+                    $cond: [
+                      { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
+                      { $ifNull: ["$pendingClearedBreakdown", []] },
+                      []
+                    ]
+                  }
+                }, 0]
+              },
               { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
               false
             ]
@@ -4808,7 +4908,7 @@ export default async function handler(req, res) {
       },
       { $sort: { amount: -1 } },
     ]);
-    
+
     // DEBUG: Log paymentsAgg results to trace double-counting issue
     console.log("DEBUG paymentsAgg results:", JSON.stringify(paymentsAgg.map(p => ({
       method: p._id,
@@ -4822,7 +4922,7 @@ export default async function handler(req, res) {
         treatment: d.treatment
       }))
     })), null, 2));
-    
+
     // DEBUG: Log raw billings that entered the pipeline
     const debugBillings = await Billing.find({ ...clinicMatch, ...dateMatch })
       .select('invoiceNumber service paymentMethod paid amount pendingClearedBreakdown multiplePayments')
@@ -4839,7 +4939,7 @@ export default async function handler(req, res) {
       multiplePaymentsCount: Array.isArray(b.multiplePayments) ? b.multiplePayments.length : 0,
       multiplePayments: Array.isArray(b.multiplePayments) ? b.multiplePayments.map(mp => ({ method: mp.paymentMethod, amount: mp.amount, type: mp.transactionType })) : []
     })), null, 2));
-    
+
     const revenueByPaymentMethod = paymentsAgg.map((p) => ({
       method: p._id || "Unknown",
       amount: Math.round(Number(p.amount || 0)),
@@ -5123,7 +5223,7 @@ export default async function handler(req, res) {
                 $expr: {
                   $and: [
                     { $eq: ["$clinicId", { $literal: clinicId }] },
-                    { $in: ["$$invNum", "$pendingClearedBreakdown.invoiceNumber"] },
+                    { $in: ["$$invNum", { $cond: [{ $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] }, "$pendingClearedBreakdown.invoiceNumber", []] }] },
                   ],
                 },
               },
@@ -5195,7 +5295,7 @@ export default async function handler(req, res) {
           doctorName: 1,
           totalFromPayments: {
             $reduce: {
-              input: "$multiplePayments",
+              input: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, "$multiplePayments", []] },
               initialValue: 0,
               in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
             }
@@ -5252,7 +5352,7 @@ export default async function handler(req, res) {
               { $gt: ["$difference", 0] },
               {
                 $concatArrays: [
-                  "$multiplePayments",
+                  { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, "$multiplePayments", []] },
                   [
                     {
                       paymentMethod: "$paymentMethod",
@@ -5264,7 +5364,7 @@ export default async function handler(req, res) {
               },
               {
                 $cond: [
-                  { $gt: [{ $size: "$multiplePayments" }, 0] },
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
                   "$multiplePayments",
                   [{ paymentMethod: "$paymentMethod", amount: "$paid", transactionType: "PAYMENT" }]
                 ]
@@ -5370,9 +5470,103 @@ export default async function handler(req, res) {
     ];
     let paymentsCountAgg = [];
     let paymentsPageAgg = [];
+
+    // DEBUG: Step-by-step pipeline tracing for Payment Reports
+    try {
+      // Step 1: Count total billings for this clinic
+      const totalClinicBillings = await Billing.countDocuments(clinicMatch);
+      // console.log("[Payment Reports DEBUG] Step 1 - Total billings for clinic:", totalClinicBillings);
+
+      // Step 2: Count billings matching date range (with invoicedDate fallback to createdAt)
+      const dateMatchedBillings = await Billing.countDocuments({
+        ...clinicMatch,
+        $expr: {
+          $and: [
+            { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
+            { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
+          ]
+        }
+      });
+      // console.log("[Payment Reports DEBUG] Step 2 - Billings matching date range:", dateMatchedBillings);
+
+      // Step 3: Check how many have invoicedDate vs only createdAt
+      const withInvoicedDate = await Billing.countDocuments({
+        ...clinicMatch,
+        invoicedDate: { $exists: true, $ne: null }
+      });
+      const withoutInvoicedDate = await Billing.countDocuments({
+        ...clinicMatch,
+        $or: [
+          { invoicedDate: { $exists: false } },
+          { invoicedDate: null }
+        ]
+      });
+      // console.log("[Payment Reports DEBUG] Step 3 - With invoicedDate:", withInvoicedDate, "| Without invoicedDate:", withoutInvoicedDate);
+
+      // Step 4: Count billings after excludeClearanceMatch
+      const afterExcludeClearance = await Billing.aggregate([
+        { $match: { ...clinicMatch, ...dateMatch } },
+        { $match: excludeClearanceMatch },
+        { $count: "total" }
+      ]);
+      // console.log("[Payment Reports DEBUG] Step 4 - After excludeClearanceMatch:", afterExcludeClearance[0]?.total || 0);
+
+      // Step 5: Check multiplePayments field types
+      const mpTypes = await Billing.aggregate([
+        { $match: { ...clinicMatch, ...dateMatch } },
+        {
+          $group: {
+            _id: { $type: "$multiplePayments" },
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+      // console.log("[Payment Reports DEBUG] Step 5 - multiplePayments field types:", mpTypes);
+
+      // Step 6: Check if any billings have paid > 0
+      const withPaid = await Billing.countDocuments({
+        ...clinicMatch,
+        $expr: {
+          $and: [
+            { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
+            { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
+          ]
+        },
+        paid: { $gt: 0 }
+      });
+      // console.log("[Payment Reports DEBUG] Step 6 - Billings with paid > 0:", withPaid);
+
+      // Step 7: Run a sample billing to see its structure
+      const sampleBilling = await Billing.findOne({
+        ...clinicMatch,
+        $expr: {
+          $and: [
+            { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
+            { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
+          ]
+        }
+      }).lean();
+      if (sampleBilling) {
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample billing keys:", Object.keys(sampleBilling));
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample invoicedDate:", sampleBilling.invoicedDate);
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample createdAt:", sampleBilling.createdAt);
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample paid:", sampleBilling.paid);
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample multiplePayments type:", typeof sampleBilling.multiplePayments, Array.isArray(sampleBilling.multiplePayments));
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample service:", sampleBilling.service);
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample treatment:", sampleBilling.treatment);
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample package:", sampleBilling.package);
+        // console.log("[Payment Reports DEBUG] Step 7 - Sample pendingClearedBreakdown type:", typeof sampleBilling.pendingClearedBreakdown, Array.isArray(sampleBilling.pendingClearedBreakdown));
+      } else {
+        // console.log("[Payment Reports DEBUG] Step 7 - No sample billing found!");
+      }
+    } catch (debugErr) {
+      // console.error("[Payment Reports DEBUG] Debug error:", debugErr.message);
+    }
+
     try {
       paymentsCountAgg = await Billing.aggregate([...paymentsPipelineBase, { $count: "total" }]);
       const paymentsTotal = Number(paymentsCountAgg[0]?.total || 0);
+      // console.log("[Payment Reports DEBUG] Step 8 - Final payments count:", paymentsTotal);
       paymentsPageAgg = await Billing.aggregate([
         ...paymentsPipelineBase,
         { $sort: { paymentDate: -1 } },
@@ -5380,8 +5574,8 @@ export default async function handler(req, res) {
         { $limit: pageSizeNum },
       ]);
     } catch (error) {
-      console.error("[Payment Reports Error] MongoDB aggregation error:", error.message);
-      console.error("[Payment Reports Error] Full error:", error);
+      // console.error("[Payment Reports Error] MongoDB aggregation error:", error.message);
+      // console.error("[Payment Reports Error] Full error:", error);
     }
     const paymentsTotal = Number(paymentsCountAgg[0]?.total || 0);
     const payments = paymentsPageAgg.map((p) => {
@@ -5934,9 +6128,15 @@ export default async function handler(req, res) {
                     $multiply: [
                       { $ifNull: ["$billingPaid", 0] },
                       {
-                        $divide: [
-                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        $cond: [
+                          { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                          0,
+                          {
+                            $divide: [
+                              { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                              { $ifNull: ["$originalAmount", "$amount", 1] }
+                            ]
+                          }
                         ]
                       }
                     ]

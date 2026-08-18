@@ -215,7 +215,7 @@ function ExpenseRow({
   currency: string;
 }) {
   const [expanded, setExpanded] = React.useState(false);
-  const pettyCash = expense.pettyCashId as any;
+  // const pettyCash = expense.pettyCashId as any;
   const isPettyCashExpense = expense.usedFromPettyCash === true;
 
   return (

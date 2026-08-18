@@ -268,9 +268,15 @@ export default async function handler(req, res) {
                 $multiply: [
                   { $ifNull: ["$billingPaid", 0] },
                   {
-                    $divide: [
-                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
+                      {
+                        $divide: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -620,9 +626,15 @@ export default async function handler(req, res) {
                           $multiply: [
                             { $ifNull: ["$billingPaid", 0] },
                             {
-                              $divide: [
-                                { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                                { $ifNull: ["$originalAmount", "$amount", 1] }
+                              $cond: [
+                                { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                                0,
+                                {
+                                  $divide: [
+                                    { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                                    { $ifNull: ["$originalAmount", "$amount", 1] }
+                                  ]
+                                }
                               ]
                             }
                           ]
@@ -1084,9 +1096,15 @@ export default async function handler(req, res) {
                 $multiply: [
                   { $ifNull: ["$billingPaid", 0] },
                   {
-                    $divide: [
-                      { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                      { $ifNull: ["$originalAmount", "$amount", 1] }
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
+                      {
+                        $divide: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
                     ]
                   }
                 ]
@@ -1406,13 +1424,13 @@ export default async function handler(req, res) {
     // New: Highest billing in memberships and packages per doctor staff with details
     // Highest billing in packages - mirrors the Revenue Report's byPackageAgg logic
     // to handle clearance billings and mixed billings properly
-    
+
     let packageBillingAggFinal = [];
     try {
       // DEBUG: Check initial billing count
       const initialCount = await Billing.countDocuments({ ...clinicMatch, ...dateMatch });
       console.log("DEBUG packageBilling - Initial billing count:", initialCount);
-      
+
       // DEBUG: Check count after appointment filter
       const afterApptFilterCount = await Billing.aggregate([
         { $match: { ...clinicMatch, ...dateMatch } },
@@ -1436,379 +1454,379 @@ export default async function handler(req, res) {
         { $count: "count" },
       ]);
       console.log("DEBUG packageBilling - After appointment filter count:", afterApptFilterCount);
-      
+
       packageBillingAggFinal = await Billing.aggregate([
-      // 1. Match clinic + date range (do not pre-filter by service type)
-      { $match: { ...clinicMatch, ...dateMatch } },
-      // 2. Lookup appointment to get doctorId
-      {
-        $lookup: {
-          from: "appointments",
-          localField: "appointmentId",
-          foreignField: "_id",
-          as: "appointment",
+        // 1. Match clinic + date range (do not pre-filter by service type)
+        { $match: { ...clinicMatch, ...dateMatch } },
+        // 2. Lookup appointment to get doctorId
+        {
+          $lookup: {
+            from: "appointments",
+            localField: "appointmentId",
+            foreignField: "_id",
+            as: "appointment",
+          },
         },
-      },
-      { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
-      // Filter by doctorStaff (only if appointment exists)
-      {
-        $match: {
-          $or: [
-            { "appointment.doctorId": { $in: staffIds } },
-            // EDGE-CASE FIX: Include billings without appointments (direct billings with unpaidPackagesPaid)
-            { appointment: null },
-          ],
-        },
-      },
-      // 3. Lookup patient registration
-      {
-        $lookup: {
-          from: "patientregistrations",
-          localField: "patientId",
-          foreignField: "_id",
-          as: "patient",
-        },
-      },
-      { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
-      // Extract packageSoldBy from patient's packages array
-      // EDGE-CASE FIX: For billings with unpaidPackagesPaid, use unpaidPackagesPaid.packageName
-      // For clearance billings, use pendingClearedBreakdown.packageName
-      // instead of $package (which is empty for these billings)
-      {
-        $addFields: {
-          effectivePackageName: {
-            $cond: [
-              // Case 1: $package is empty and unpaidPackagesPaid exists
-              {
-                $and: [
-                  { $or: [{ $eq: ["$package", ""] }, { $eq: ["$package", null] }] },
-                  { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
-                ],
-              },
-              { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
-              // Case 2 or 3: nested $cond
-              {
-                $cond: [
-                  // Case 2: $package is empty and pendingClearedBreakdown exists (clearance billing)
-                  {
-                    $and: [
-                      { $or: [{ $eq: ["$package", ""] }, { $eq: ["$package", null] }] },
-                      { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
-                    ],
-                  },
-                  { $ifNull: ["$pendingClearedBreakdown.packageName", "$package"] },
-                  // Case 3: Use $package
-                  "$package",
-                ],
-              },
+        { $unwind: { path: "$appointment", preserveNullAndEmptyArrays: true } },
+        // Filter by doctorStaff (only if appointment exists)
+        {
+          $match: {
+            $or: [
+              { "appointment.doctorId": { $in: staffIds } },
+              // EDGE-CASE FIX: Include billings without appointments (direct billings with unpaidPackagesPaid)
+              { appointment: null },
             ],
           },
         },
-      },
-      {
-        $addFields: {
-          packageSoldBy: {
-            $cond: [
-              // Only filter if effectivePackageName is not empty
-              {
-                $and: [
-                  { $ne: ["$effectivePackageName", ""] },
-                  { $ne: ["$effectivePackageName", null] },
-                ],
-              },
-              {
-                $arrayElemAt: [{
-                  $filter: {
-                    input: { $ifNull: ["$patient.packages", []] },
-                    as: "pkg",
-                    cond: {
+        // 3. Lookup patient registration
+        {
+          $lookup: {
+            from: "patientregistrations",
+            localField: "patientId",
+            foreignField: "_id",
+            as: "patient",
+          },
+        },
+        { $unwind: { path: "$patient", preserveNullAndEmptyArrays: true } },
+        // Extract packageSoldBy from patient's packages array
+        // EDGE-CASE FIX: For billings with unpaidPackagesPaid, use unpaidPackagesPaid.packageName
+        // For clearance billings, use pendingClearedBreakdown.packageName
+        // instead of $package (which is empty for these billings)
+        {
+          $addFields: {
+            effectivePackageName: {
+              $cond: [
+                // Case 1: $package is empty and unpaidPackagesPaid exists
+                {
+                  $and: [
+                    { $or: [{ $eq: ["$package", ""] }, { $eq: ["$package", null] }] },
+                    { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+                  ],
+                },
+                { $arrayElemAt: ["$unpaidPackagesPaid.packageName", 0] },
+                // Case 2 or 3: nested $cond
+                {
+                  $cond: [
+                    // Case 2: $package is empty and pendingClearedBreakdown exists (clearance billing)
+                    {
                       $and: [
-                        { $eq: ["$$pkg.packageName", "$effectivePackageName"] },
-                        { $ne: ["$$pkg.packageName", ""] },
-                        { $ne: ["$$pkg.packageName", null] },
-                      ]
+                        { $or: [{ $eq: ["$package", ""] }, { $eq: ["$package", null] }] },
+                        { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                      ],
                     },
-                  },
-                }, 0],
-              },
-              // If effectivePackageName is empty, return null
-              null,
-            ],
+                    { $ifNull: ["$pendingClearedBreakdown.packageName", "$package"] },
+                    // Case 3: Use $package
+                    "$package",
+                  ],
+                },
+              ],
+            },
           },
         },
-      },
-      {
-        $addFields: {
-          packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
-          packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
-        },
-      },
-      // DEBUG: Log after packageSoldBy extraction
-      {
-        $addFields: {
-          _debug_effectivePackageName: "$effectivePackageName",
-          _debug_packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
-          _debug_packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "packageSoldByUserId",
-          foreignField: "_id",
-          as: "packageSoldByUser",
-        },
-      },
-      {
-        $addFields: {
-          packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
-        },
-      },
-      // 4. Capture breakdown info BEFORE $unwind
-      {
-        $addFields: {
-          _origBreakdownAmount: { $arrayElemAt: ["$pendingClearedBreakdown.amountCleared", 0] },
-          _origBreakdownInvoiceNumber: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
-          _isMixedBilling: {
-            $and: [
-              { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
-              { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
-            ],
-          },
-        },
-      },
-      // 5. Unwind pendingClearedBreakdown
-      {
-        $unwind: {
-          path: "$pendingClearedBreakdown",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      // 6. Derive effective service/package/amount for each row
-      {
-        $addFields: {
-          isClearedItem: { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
-          effectiveService: {
-            $cond: [
-              { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
-              { $ifNull: ["$pendingClearedBreakdown.service", "Unknown"] },
-              "$service",
-            ],
-          },
-          // EDGE-CASE FIX: Preserve effectivePackageName from before unwind
-          // Only override if it's empty and pendingClearedBreakdown has packageName
-          effectivePackageName: {
-            $cond: [
-              {
-                $and: [
-                  { $eq: ["$effectivePackageName", ""] },
-                  { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
-                  { $ne: [{ $ifNull: ["$pendingClearedBreakdown.packageName", ""] }, ""] },
-                ],
-              },
-              "$pendingClearedBreakdown.packageName",
-              "$effectivePackageName",
-            ],
-          },
-          effectiveAmount: {
-            $cond: [
-              // If unpaidPackagesPaid exists, use the package amount from it
-              {
-                $gt: [
-                  { $size: { $ifNull: ["$unpaidPackagesPaid", []] } },
-                  0,
-                ],
-              },
-              { $arrayElemAt: ["$unpaidPackagesPaid.amount", 0] },
-              // Otherwise, calculate by subtracting treatment from total
-              {
-                $subtract: [
-                  {
-                    $subtract: [
-                      {
-                        $add: [
-                          { $ifNull: ["$paid", 0] },
-                          { $ifNull: ["$advanceUsed", 0] },
-                          { $ifNull: ["$claimAmountUsed", 0] },
-                          { $ifNull: ["$cashbackWalletUsed", 0] },
-                        ],
+        {
+          $addFields: {
+            packageSoldBy: {
+              $cond: [
+                // Only filter if effectivePackageName is not empty
+                {
+                  $and: [
+                    { $ne: ["$effectivePackageName", ""] },
+                    { $ne: ["$effectivePackageName", null] },
+                  ],
+                },
+                {
+                  $arrayElemAt: [{
+                    $filter: {
+                      input: { $ifNull: ["$patient.packages", []] },
+                      as: "pkg",
+                      cond: {
+                        $and: [
+                          { $eq: ["$$pkg.packageName", "$effectivePackageName"] },
+                          { $ne: ["$$pkg.packageName", ""] },
+                          { $ne: ["$$pkg.packageName", null] },
+                        ]
                       },
-                      // Subtract treatment amount for mixed billings (Package + Treatment)
-                      {
-                        $cond: [
-                          {
-                            $and: [
-                              { $eq: ["$service", "Package"] },
-                              { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
-                            ],
-                          },
-                          {
-                            $sum: {
-                              $map: {
-                                input: "$selectedTreatments",
-                                as: "st",
-                                in: {
-                                  $multiply: [
-                                    { $ifNull: ["$$st.price", 0] },
-                                    { $ifNull: ["$$st.quantity", 1] },
-                                  ],
+                    },
+                  }, 0],
+                },
+                // If effectivePackageName is empty, return null
+                null,
+              ],
+            },
+          },
+        },
+        {
+          $addFields: {
+            packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
+            packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
+          },
+        },
+        // DEBUG: Log after packageSoldBy extraction
+        {
+          $addFields: {
+            _debug_effectivePackageName: "$effectivePackageName",
+            _debug_packageSoldByName: { $ifNull: ["$packageSoldBy.packageSoldBy", ""] },
+            _debug_packageSoldByUserId: { $ifNull: ["$packageSoldBy.packageSoldByUserId", null] },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "packageSoldByUserId",
+            foreignField: "_id",
+            as: "packageSoldByUser",
+          },
+        },
+        {
+          $addFields: {
+            packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
+          },
+        },
+        // 4. Capture breakdown info BEFORE $unwind
+        {
+          $addFields: {
+            _origBreakdownAmount: { $arrayElemAt: ["$pendingClearedBreakdown.amountCleared", 0] },
+            _origBreakdownInvoiceNumber: { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
+            _isMixedBilling: {
+              $and: [
+                { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+              ],
+            },
+          },
+        },
+        // 5. Unwind pendingClearedBreakdown
+        {
+          $unwind: {
+            path: "$pendingClearedBreakdown",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        // 6. Derive effective service/package/amount for each row
+        {
+          $addFields: {
+            isClearedItem: { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+            effectiveService: {
+              $cond: [
+                { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+                { $ifNull: ["$pendingClearedBreakdown.service", "Unknown"] },
+                "$service",
+              ],
+            },
+            // EDGE-CASE FIX: Preserve effectivePackageName from before unwind
+            // Only override if it's empty and pendingClearedBreakdown has packageName
+            effectivePackageName: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ["$effectivePackageName", ""] },
+                    { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
+                    { $ne: [{ $ifNull: ["$pendingClearedBreakdown.packageName", ""] }, ""] },
+                  ],
+                },
+                "$pendingClearedBreakdown.packageName",
+                "$effectivePackageName",
+              ],
+            },
+            effectiveAmount: {
+              $cond: [
+                // If unpaidPackagesPaid exists, use the package amount from it
+                {
+                  $gt: [
+                    { $size: { $ifNull: ["$unpaidPackagesPaid", []] } },
+                    0,
+                  ],
+                },
+                { $arrayElemAt: ["$unpaidPackagesPaid.amount", 0] },
+                // Otherwise, calculate by subtracting treatment from total
+                {
+                  $subtract: [
+                    {
+                      $subtract: [
+                        {
+                          $add: [
+                            { $ifNull: ["$paid", 0] },
+                            { $ifNull: ["$advanceUsed", 0] },
+                            { $ifNull: ["$claimAmountUsed", 0] },
+                            { $ifNull: ["$cashbackWalletUsed", 0] },
+                          ],
+                        },
+                        // Subtract treatment amount for mixed billings (Package + Treatment)
+                        {
+                          $cond: [
+                            {
+                              $and: [
+                                { $eq: ["$service", "Package"] },
+                                { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                              ],
+                            },
+                            {
+                              $sum: {
+                                $map: {
+                                  input: "$selectedTreatments",
+                                  as: "st",
+                                  in: {
+                                    $multiply: [
+                                      { $ifNull: ["$$st.price", 0] },
+                                      { $ifNull: ["$$st.quantity", 1] },
+                                    ],
+                                  },
                                 },
                               },
                             },
-                          },
-                          0,
-                        ],
-                      },
-                    ],
-                  },
-                  {
-                    $cond: [
-                      { $eq: ["$_isMixedBilling", true] },
-                      { $ifNull: ["$_origBreakdownAmount", 0] },
-                      0,
-                    ],
-                  },
-                ],
-              },
-            ],
+                            0,
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $cond: [
+                        { $eq: ["$_isMixedBilling", true] },
+                        { $ifNull: ["$_origBreakdownAmount", 0] },
+                        0,
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            // DEBUG: Log intermediate values
+            _debug_unpaidPackagesPaid: "$unpaidPackagesPaid",
+            _debug_selectedTreatments: "$selectedTreatments",
           },
-          // DEBUG: Log intermediate values
-          _debug_unpaidPackagesPaid: "$unpaidPackagesPaid",
-          _debug_selectedTreatments: "$selectedTreatments",
         },
-      },
-      // 7. Keep only Package rows (exclude treatment billings and clearance billings)
-      {
-        $match: {
-          $and: [
-            {
-              $or: [
-                // Non-cleared Package billings
-                { isClearedItem: false, service: "Package" },
-                // Cleared Package billings (where the billing itself is a Package)
-                { isClearedItem: true, service: "Package" },
-              ],
-            },
-            // Exclude clearance billings (where breakdownInvoice is different from invoiceNumber)
-            {
-              $or: [
-                { isClearedItem: false },
-                // For cleared items, only include if it's the original invoice (not a clearance billing)
-                { $expr: { $eq: ["$invoiceNumber", "$_origBreakdownInvoiceNumber"] } },
-              ],
-            },
-          ],
-        },
-      },
-      // 7.5. Deduplicate by invoice number (remove duplicates from $unwind)
-      {
-        $group: {
-          _id: "$invoiceNumber",
-          doc: { $first: "$$ROOT" },
-        },
-      },
-      {
-        $replaceRoot: { newRoot: "$doc" },
-      },
-      // 8. Resolve final group key
-      {
-        $addFields: {
-          resolvedPackageName: {
-            $cond: [
-              // Clearance billing (isClearedItem=true AND NOT mixed billing)
+        // 7. Keep only Package rows (exclude treatment billings and clearance billings)
+        {
+          $match: {
+            $and: [
               {
-                $and: [
-                  "$isClearedItem",
-                  { $not: "$_isMixedBilling" },
+                $or: [
+                  // Non-cleared Package billings
+                  { isClearedItem: false, service: "Package" },
+                  // Cleared Package billings (where the billing itself is a Package)
+                  { isClearedItem: true, service: "Package" },
                 ],
               },
-              { $ifNull: ["$effectivePackageName", "Unknown"] },
-              // Otherwise: use effectivePackageName (handles unpaidPackagesPaid case)
-              { $ifNull: ["$effectivePackageName", "Unknown"] },
+              // Exclude clearance billings (where breakdownInvoice is different from invoiceNumber)
+              {
+                $or: [
+                  { isClearedItem: false },
+                  // For cleared items, only include if it's the original invoice (not a clearance billing)
+                  { $expr: { $eq: ["$invoiceNumber", "$_origBreakdownInvoiceNumber"] } },
+                ],
+              },
             ],
           },
         },
-      },
-      // 9. Group by packageSoldByUserId (the person who sold the package)
-      {
-        $group: {
-          _id: {
-            $cond: [
-              // If packageSoldByUserId exists, use it
-              { $ne: ["$packageSoldByUserId", null] },
-              "$packageSoldByUserId",
-              // Otherwise, fall back to appointment.doctorId (for appointment-based billings)
-              { $ifNull: ["$appointment.doctorId", "$packageSoldByUserId"] }
-            ]
+        // 7.5. Deduplicate by invoice number (remove duplicates from $unwind)
+        {
+          $group: {
+            _id: "$invoiceNumber",
+            doc: { $first: "$$ROOT" },
           },
-          amount: { $sum: "$effectiveAmount" },
-          count: { $sum: 1 },
-          details: {
-            $push: {
-              patientId: "$patientId",
-              patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
-              emrNumber: "$patient.emrNumber",
-              service: {
-                $cond: [
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$service",
-                  { $cond: ["$isClearedItem", "$effectiveService", "$service"] },
-                ],
-              },
-              packageName: {
-                $cond: [
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$effectivePackageName",
-                  { $cond: ["$isClearedItem", "$effectivePackageName", "$effectivePackageName"] },
-                ],
-              },
-              treatmentName: {
-                $cond: [
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$treatment",
-                  { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] }, "$treatment"] },
-                ],
-              },
-              invoiceNumber: {
-                $cond: [
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$invoiceNumber",
-                  // EDGE-CASE FIX: For clearance items, use the clearance billing's invoice number
-                  // not the original billing's invoice number (to avoid duplicates)
-                  { $cond: ["$isClearedItem", "$invoiceNumber", "$invoiceNumber"] },
-                ],
-              },
-              invoicedDate: "$invoicedDate",
-              // EDGE-CASE FIX: Use billing's actual amount and paid for display
-              // effectiveAmount is used for revenue calculation, but display should show actual values
-              amount: "$amount",
-              paid: "$paid",
-              pending: {
-                $cond: [
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$pending",
-                  { $cond: ["$isClearedItem", 0, "$pending"] },
-                ],
-              },
-              advance: {
-                $cond: [
-                  { $and: ["$isClearedItem", "$_isMixedBilling"] },
-                  "$advance",
-                  { $cond: ["$isClearedItem", 0, "$advance"] },
-                ],
-              },
+        },
+        {
+          $replaceRoot: { newRoot: "$doc" },
+        },
+        // 8. Resolve final group key
+        {
+          $addFields: {
+            resolvedPackageName: {
+              $cond: [
+                // Clearance billing (isClearedItem=true AND NOT mixed billing)
+                {
+                  $and: [
+                    "$isClearedItem",
+                    { $not: "$_isMixedBilling" },
+                  ],
+                },
+                { $ifNull: ["$effectivePackageName", "Unknown"] },
+                // Otherwise: use effectivePackageName (handles unpaidPackagesPaid case)
+                { $ifNull: ["$effectivePackageName", "Unknown"] },
+              ],
+            },
+          },
+        },
+        // 9. Group by packageSoldByUserId (the person who sold the package)
+        {
+          $group: {
+            _id: {
+              $cond: [
+                // If packageSoldByUserId exists, use it
+                { $ne: ["$packageSoldByUserId", null] },
+                "$packageSoldByUserId",
+                // Otherwise, fall back to appointment.doctorId (for appointment-based billings)
+                { $ifNull: ["$appointment.doctorId", "$packageSoldByUserId"] }
+              ]
+            },
+            amount: { $sum: "$effectiveAmount" },
+            count: { $sum: 1 },
+            details: {
+              $push: {
+                patientId: "$patientId",
+                patientName: { $concat: ["$patient.firstName", " ", { $ifNull: ["$patient.lastName", ""] }] },
+                emrNumber: "$patient.emrNumber",
+                service: {
+                  $cond: [
+                    { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                    "$service",
+                    { $cond: ["$isClearedItem", "$effectiveService", "$service"] },
+                  ],
+                },
+                packageName: {
+                  $cond: [
+                    { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                    "$effectivePackageName",
+                    { $cond: ["$isClearedItem", "$effectivePackageName", "$effectivePackageName"] },
+                  ],
+                },
+                treatmentName: {
+                  $cond: [
+                    { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                    "$treatment",
+                    { $cond: ["$isClearedItem", { $ifNull: ["$pendingClearedBreakdown.treatmentName", null] }, "$treatment"] },
+                  ],
+                },
+                invoiceNumber: {
+                  $cond: [
+                    { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                    "$invoiceNumber",
+                    // EDGE-CASE FIX: For clearance items, use the clearance billing's invoice number
+                    // not the original billing's invoice number (to avoid duplicates)
+                    { $cond: ["$isClearedItem", "$invoiceNumber", "$invoiceNumber"] },
+                  ],
+                },
+                invoicedDate: "$invoicedDate",
+                // EDGE-CASE FIX: Use billing's actual amount and paid for display
+                // effectiveAmount is used for revenue calculation, but display should show actual values
+                amount: "$amount",
+                paid: "$paid",
+                pending: {
+                  $cond: [
+                    { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                    "$pending",
+                    { $cond: ["$isClearedItem", 0, "$pending"] },
+                  ],
+                },
+                advance: {
+                  $cond: [
+                    { $and: ["$isClearedItem", "$_isMixedBilling"] },
+                    "$advance",
+                    { $cond: ["$isClearedItem", 0, "$advance"] },
+                  ],
+                },
+              }
             }
           }
-        }
-      },
-      { $sort: { amount: -1 } },
-      { $limit: 5 }
-    ]);
+        },
+        { $sort: { amount: -1 } },
+        { $limit: 5 }
+      ]);
     } catch (error) {
       console.error("ERROR in packageBillingAggFinal pipeline:", error.message);
       console.error("Stack trace:", error.stack);
     }
-    
+
     // DEBUG: Log final results
     console.log("DEBUG packageBillingAggFinal - Results count:", packageBillingAggFinal.length);
     if (packageBillingAggFinal.length > 0) {
