@@ -27,7 +27,7 @@ const getStoredToken = () => {
 const getAuthHeaders = () => {
   const token = getStoredToken();
   return token ? { Authorization: `Bearer ${token}` } : null;
-};   
+};
 
 const COUNTRY_CODES = [
   { code: "+1", name: "United States", flag: "🇺🇸" },
@@ -92,11 +92,11 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
     return COUNTRY_CODES.filter(
       c =>
         c.name.toLowerCase().includes(q) ||
-        c.code.replace("+","").includes(q)
+        c.code.replace("+", "").includes(q)
     );
   }, [query]);
   const selected = useMemo(() => COUNTRY_CODES.find(c => c.code === countryCode) || COUNTRY_CODES.find(c => c.code === "+971"), [countryCode]);
-  
+
   // Extract local number (without country code) for display
   const localNumber = useMemo(() => {
     if (!phone) return '';
@@ -106,7 +106,7 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
     // If it doesn't start with country code, return as is
     return phone.replace(/^\+\d+/, '');
   }, [phone, countryCode]);
-  
+
   return (
     <div className="relative w-full">
       <div className={`flex items-center border border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-teal-600`}>
@@ -119,19 +119,18 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
         >
           <span className="text-lg leading-none">{selected?.flag || "🏳️"}</span>
           <span className="text-[11px] text-gray-800">{selected?.code || "+971"}</span>
-          <svg className="w-3 h-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"/></svg>
+          <svg className="w-3 h-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z" /></svg>
         </button>
         <input
           type="tel"
           value={localNumber}
           onChange={e => {
-            const sanitized = e.target.value.replace(/[^\d]/g, "").slice(0, 10);
+            const sanitized = e.target.value.replace(/[^\d]/g, "");
             onPhoneChange(sanitized);
           }}
-          maxLength={10}
           inputMode="numeric"
           className="flex-1 px-2 py-1 text-[10px] focus:outline-none"
-          placeholder="Enter 10-digit number"
+          placeholder="Enter phone number"
         />
       </div>
       {open && (
@@ -190,7 +189,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
     invoicedBy: ""
   });
   const [isSpecificClinic, setIsSpecificClinic] = useState(false);
-  
+
   // Invoice Number Generation
   const generateInvoiceNumber = useCallback(() => {
     const date = new Date();
@@ -302,9 +301,9 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
         const clinicRes = await fetch("/api/clinics/myallClinic", { headers });
         const clinicData = await clinicRes.json();
         if (clinicData.success && clinicData.clinic) {
-          const isSpecific = 
-          clinicData.clinic._id === '6a2fb50be9a7bb7a2aaba72c' || 
-          clinicData.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
+          const isSpecific =
+            clinicData.clinic._id === '6a2fb50be9a7bb7a2aaba72c' ||
+            clinicData.clinic.owner === '6a2fb50ae9a7bb7a2aaba728';
           setIsSpecificClinic(isSpecific);
         }
       } catch {
@@ -317,12 +316,12 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
   // Auto-generate EMR number when modal opens - via API
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     const currentPath = window.location.pathname || "";
     const isClinicRoute = currentPath.startsWith('/clinic/');
     const isStaffRoute = currentPath.startsWith('/staff/');
     const isClinicPatientRegistration = currentPath.includes('clinic-patient-registration');
-    
+
     // Get user role to verify it's a valid role
     const getUserRole = () => {
       if (typeof window === "undefined") return null;
@@ -344,18 +343,18 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       }
       return null;
     };
-    
+
     const userRole = getUserRole();
     // Allow EMR generation for clinic, doctor, agent, and doctorStaff roles
     const isValidRole = userRole === "clinic" || userRole === "doctor" || userRole === "agent" || userRole === "doctorStaff";
-    
+
     // Determine if EMR should be generated:
     // 1. Clinic route with valid role, OR
     // 2. Staff route accessing clinic-patient-registration with agent/doctorStaff role
-    const shouldGenerateEMR = 
-      (isClinicRoute && isValidRole) || 
+    const shouldGenerateEMR =
+      (isClinicRoute && isValidRole) ||
       (isStaffRoute && isClinicPatientRegistration && (userRole === "agent" || userRole === "doctorStaff"));
-    
+
     if (shouldGenerateEMR && isCompact && !formData.emrNumber) {
       const headers = getAuthHeaders();
       if (headers) {
@@ -379,7 +378,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
 
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
-    
+
     // Country code
     if (name === "countryCode") {
       setFormData(prev => ({ ...prev, countryCode: value }));
@@ -397,7 +396,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
 
     // Handle referredBy - set to "No" if empty
     const finalValue = (name === "referredBy" && value === "") ? "No" : value;
-    
+
     setFormData(prev => ({ ...prev, [name]: finalValue }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
   }, [errors]);
@@ -419,19 +418,19 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       const res = await fetch(`/api/staff/patient-registration/${formData.emrNumber}`, { headers });
       const data = await res.json();
 
-        if (res.ok && data.success && data.data) {
-          const f = data.data;
-          setFormData(prev => ({
-            ...prev,
-            firstName: f.firstName || "",
-            lastName: f.lastName || "",
-            email: f.email || "",
-            mobileNumber: f.mobileNumber || "",
-            gender: f.gender || "",
-            patientType: f.patientType || "New",
-            referredBy: f.referredBy || "No",
-            city: f.city || ""
-          }));
+      if (res.ok && data.success && data.data) {
+        const f = data.data;
+        setFormData(prev => ({
+          ...prev,
+          firstName: f.firstName || "",
+          lastName: f.lastName || "",
+          email: f.email || "",
+          mobileNumber: f.mobileNumber || "",
+          gender: f.gender || "",
+          patientType: f.patientType || "New",
+          referredBy: f.referredBy || "No",
+          city: f.city || ""
+        }));
         showToast("Patient details loaded successfully", "success");
       } else {
         showToast("Patient not found. Fill details manually", "warning");
@@ -446,7 +445,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
   const validateForm = useCallback(() => {
     const newErrors = {};
     const { emrNumber, firstName, lastName, email, mobileNumber, countryCode, gender, patientType, referredBy } = formData;
-    
+
     if (!emrNumber.trim()) newErrors.emrNumber = "Required";
     else if (usedEMRNumbers.has(emrNumber)) newErrors.emrNumber = "Already exists";
 
@@ -458,9 +457,9 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       } else {
         localNum = localNum.replace(/^\+\d+/, '');
       }
-      if (!/^\d{10}$/.test(localNum)) {
-        newErrors.mobileNumber = "Mobile number must be exactly 10 digits";
-      }
+      // if (!/^\d{10}$/.test(localNum)) {
+      //   newErrors.mobileNumber = "Mobile number must be exactly 10 digits";
+      // }
     }
 
     if (isSpecificClinic) {
@@ -471,18 +470,18 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
       if (!gender.trim()) newErrors.gender = "Required";
       if (!patientType.trim()) newErrors.patientType = "Required";
       if (!referredBy || referredBy === "No") newErrors.referredBy = "Required";
-      
+
       // Validate email format if provided
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
     } else {
       // Only First Name and Mobile Number are mandatory for other clinics
       if (!firstName.trim()) newErrors.firstName = "Required";
       if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
-      
+
       // Optional fields validation if provided
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [formData, usedEMRNumbers, isCompact, isSpecificClinic]);
@@ -508,24 +507,30 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
             setConfirmModal({ isOpen: false, action: null });
             return;
           }
-          
+
           const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
           const isClinicRoute = currentPath.startsWith('/clinic/');
           const isClinicPatientRegistration = currentPath.includes('clinic-patient-registration');
-          const apiEndpoint = (isClinicRoute || isClinicPatientRegistration) 
-            ? "/api/clinic/patient-registration" 
+          const apiEndpoint = (isClinicRoute || isClinicPatientRegistration)
+            ? "/api/clinic/patient-registration"
             : "/api/staff/patient-registration";
-          
+
+          const updatedFormData = {
+            ...formData,
+            mobileNumber: `${formData.countryCode}${formData.mobileNumber.replace(/^0+/, '')}`,
+            userId: currentUser._id
+          }
+
           const res = await fetch(apiEndpoint, {
             method: "POST",
-            headers: { 
-              "Content-Type": "application/json", 
+            headers: {
+              "Content-Type": "application/json",
               ...headers
             },
-            body: JSON.stringify({ ...formData, userId: currentUser._id })
+            body: JSON.stringify(updatedFormData)
           });
           const data = await res.json();
-          
+
           if (res.ok && data.success) {
             showToast("Registered successfully!", "success");
             resetForm();
@@ -541,7 +546,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
             }
           } else {
             let errorMessage = "Failed to save patient";
-            
+
             if (data.errors && Array.isArray(data.errors)) {
               errorMessage = data.errors.join(", ");
             } else if (data.message) {
@@ -552,7 +557,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                 .replace(/email/gi, "Email address")
                 .replace(/already exists/gi, "already exists. Please check for duplicates");
             }
-            
+
             showToast(errorMessage, "error");
           }
         } catch (error) {
@@ -672,7 +677,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                     <User className={`w-3 h-3 text-gray-700`} />
                     Patient Information
                   </h2>
-                  
+
                   {/* First Row: First Name, Last Name, Mobile Number */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-3">
                     {/* First Name */}
@@ -736,10 +741,16 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                           });
                         }}
                         onPhoneChange={(val) => {
-                          const sanitized = val.replace(/[^\d]/g, "").slice(0, 10);
-                          const fullNumber = formData.countryCode + sanitized;
-                          setFormData(prev => ({ ...prev, mobileNumber: fullNumber }));
-                          if (errors.mobileNumber) setErrors(prev => ({ ...prev, mobileNumber: "" }));
+                          const sanitized = val.replace(/[^\d]/g, "");
+
+                          setFormData(prev => ({
+                            ...prev,
+                            mobileNumber: sanitized,
+                          }));
+
+                          if (errors.mobileNumber) {
+                            setErrors(prev => ({ ...prev, mobileNumber: "" }));
+                          }
                         }}
                       />
                       {errors.mobileNumber && (
@@ -801,41 +812,41 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false, onCancel }) => 
                   </div>
 
                   {/* Email Field */}
-          <div className="mb-3">
-            <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
-              Email (Optional)
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 ${errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-              placeholder="patient@email.com"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
-                <AlertCircle className="w-2.5 h-2.5" />{errors.email}
-              </p>
-            )}
-          </div>
+                  <div className="mb-3">
+                    <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+                      Email (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 ${errors.email ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      placeholder="patient@email.com"
+                    />
+                    {errors.email && (
+                      <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">
+                        <AlertCircle className="w-2.5 h-2.5" />{errors.email}
+                      </p>
+                    )}
+                  </div>
 
-          {/* City Field */}
-          <div className="mb-3">
-            <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
-              City (Optional)
-            </label>
-            <input
-              type="text"
-              name="city"
-              value={formData.city}
-              onChange={handleInputChange}
-              className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 border-gray-300`}
-              placeholder="Enter city"
-            />
-          </div>
+                  {/* City Field */}
+                  <div className="mb-3">
+                    <label className={`block text-[10px] mb-1 font-medium text-gray-700`}>
+                      City (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      className={`w-full px-2.5 py-2 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 text-gray-900 border-gray-300`}
+                      placeholder="Enter city"
+                    />
+                  </div>
 
-          {/* EMR Number Display - Auto-generated */}
+                  {/* EMR Number Display - Auto-generated */}
                   <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 pt-3 border-t border-gray-200">
                     <div className="flex items-center gap-2 bg-teal-50 px-3 py-2 rounded-md border border-teal-200 w-full sm:w-auto">
                       <FileText className="w-3.5 h-3.5 text-teal-600 flex-shrink-0" />

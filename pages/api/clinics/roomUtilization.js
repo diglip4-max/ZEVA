@@ -151,7 +151,10 @@ export default async function handler(req, res) {
       }
 
       // Fetch all rooms for this clinic
-     const rooms = await Room.find({ clinicId }).lean();
+     const rooms = await Room.find({
+       clinicId,
+       isDeleted: { $ne: true },
+     }).lean();
       
      if (!rooms || rooms.length === 0) {
        return res.status(200).json({

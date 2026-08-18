@@ -2,6 +2,7 @@
 import dbConnect from "../../../lib/database";
 import AgentPermission from "../../../models/AgentPermission";
 import User from "../../../models/Users";
+import { getActionValue } from "../../../lib/hasPermission";
 
 /**
  * Check if agent has permission for a specific module and action
@@ -193,6 +194,12 @@ export async function checkAgentPermission(
         return { hasPermission: true, error: null };
       }
 
+      // PRIORITY 2b: Check module-level custom action - also grants permission for submodules
+      const moduleCustomForSub = getActionValue(modulePermission, action);
+      if (moduleCustomForSub === true) {
+        return { hasPermission: true, error: null };
+      }
+
       // PRIORITY 3: Check if submodule exists
       const subModule = modulePermission.subModules?.find(
         (sm) => sm.name === subModuleName,
@@ -213,6 +220,12 @@ export async function checkAgentPermission(
 
       // PRIORITY 5: Check submodule-level specific action
       if (Boolean(subModule.actions?.[action])) {
+        return { hasPermission: true, error: null };
+      }
+
+      // PRIORITY 6: Check submodule-level custom action (e.g. "advance")
+      const subCustomVal = getActionValue(subModule, action);
+      if (subCustomVal === true) {
         return { hasPermission: true, error: null };
       }
 
@@ -240,6 +253,12 @@ export async function checkAgentPermission(
       String(modulePermission.actions?.[action]).toLowerCase() === "true";
 
     if (hasSpecificAction) {
+      return { hasPermission: true, error: null };
+    }
+
+    // Check module-level custom action (e.g. "advance")
+    const moduleCustomVal = getActionValue(modulePermission, action);
+    if (moduleCustomVal === true) {
       return { hasPermission: true, error: null };
     }
 

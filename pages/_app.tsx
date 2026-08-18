@@ -1,4 +1,5 @@
 import type { AppProps } from "next/app";
+import { ClinicThemeProvider } from '../context/ClinicThemeContext';
 import { useEffect, useState, useRef } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { useRouter } from "next/router";
@@ -551,7 +552,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   }, [router]);
 
   return (
-    <>
+    <ClinicThemeProvider>
       <Toaster
         position="top-right"
         gutter={8}
@@ -608,7 +609,7 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
           </CurrencyProvider>
         </SearchProvider>
       </AuthProvider>
-    </>
+    </ClinicThemeProvider>
   );
 }
 

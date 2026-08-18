@@ -1,11 +1,14 @@
 // pages/lead/offers.jsx
 import { useState, useEffect } from "react";
-import { PlusCircle, Edit, Trash2, Package, TrendingUp, Calendar, DollarSign } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Package, TrendingUp, Calendar } from "lucide-react";
 import CreateOfferModal from "../../../components/CreateOfferModal";
 import DoctorLayout from "../../../components/DoctorLayout";
 import withDoctorAuth from "../../../components/withDoctorAuth";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 function OffersPage() {
+  const { currency } = useCurrency();
   const [offers, setOffers] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOfferId, setEditingOfferId] = useState(null);
@@ -80,10 +83,10 @@ function OffersPage() {
   // Fetch all offers
   const fetchOffers = async () => {
     if (!token) return;
-    
+
     // Wait for permissions to load
     if (!permissionsLoaded) return;
-    
+
     // Check if user has read permission
     if (permissions.canRead === false) {
       setOffers([]);
@@ -97,7 +100,7 @@ function OffersPage() {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) setOffers(parsed);
       }
-    } catch {}
+    } catch { }
 
     try {
       const res = await fetch("/api/lead-ms/get-create-offer", {
@@ -110,7 +113,7 @@ function OffersPage() {
       if (data.success) {
         const next = data.offers || [];
         setOffers(next);
-        try { sessionStorage.setItem("offersCache", JSON.stringify(next)); } catch {}
+        try { sessionStorage.setItem("offersCache", JSON.stringify(next)); } catch { }
       } else {
         // If permission denied, clear offers
         if (data.message && data.message.includes("permission")) {
@@ -256,10 +259,10 @@ function OffersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-medium text-gray-600 mb-0.5">Total Discount Value</p>
-                <p className="text-xl font-bold text-teal-600">₹{totalValue.toLocaleString()}</p>
+                <p className="text-xl font-bold text-teal-600">{getCurrencySymbol(currency)}{totalValue.toLocaleString()}</p>
               </div>
               <div className="bg-teal-100 p-2 rounded-md">
-                <DollarSign className="h-5 w-5 text-teal-600" />
+
               </div>
             </div>
           </div>
@@ -345,7 +348,7 @@ function OffersPage() {
                         </td>
                         <td className="px-3 py-3">
                           <span className="text-sm font-bold text-teal-600">
-                            {offer.type === "percentage" ? `${offer.value}%` : `₹${offer.value}`}
+                            {offer.type === "percentage" ? `${offer.value}%` : `${getCurrencySymbol(currency)}${offer.value}`}
                           </span>
                         </td>
                         <td className="px-3 py-3">
@@ -354,26 +357,24 @@ function OffersPage() {
                             <span className="text-[11px]">
                               {offer.endsAt
                                 ? new Date(offer.endsAt).toLocaleDateString("en-IN", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  })
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
                                 : "No expiry"}
                             </span>
                           </div>
                         </td>
                         <td className="px-3 py-3">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              offer.status === "active"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-200 text-gray-700"
-                            }`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${offer.status === "active"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-200 text-gray-700"
+                              }`}
                           >
                             <span
-                              className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                offer.status === "active" ? "bg-green-500" : "bg-gray-500"
-                              }`}
+                              className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active" ? "bg-green-500" : "bg-gray-500"
+                                }`}
                             ></span>
                             {offer.status}
                           </span>

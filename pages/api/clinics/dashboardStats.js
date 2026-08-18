@@ -160,7 +160,7 @@ export default async function handler(req, res) {
       Lead.countDocuments({ clinicId }),
       Treatment.countDocuments({}), // Treatment is global, not clinic-specific
       Room.countDocuments({ clinicId }),
-      Department.countDocuments({ clinicId }),
+      Department.countDocuments({ clinicId, isDeleted: { $ne: true } }),
       Package.countDocuments({ clinicId }),
       CreateOffer.countDocuments({ clinicId }),
       // Count patients by userId (patients are linked to users, not directly to clinic)

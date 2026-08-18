@@ -175,27 +175,27 @@ const TemplatesPage: NextPageWithLayout = () => {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken")
+        sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-          sessionStorage.getItem("doctorToken")
+        sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
+        sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-          sessionStorage.getItem("staffToken")
+        sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken")
+        sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -619,9 +619,8 @@ const TemplatesPage: NextPageWithLayout = () => {
 
     return (
       <span
-        className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
-          colors[category] || "bg-gray-50 text-gray-700"
-        }`}
+        className={`px-2.5 py-1 rounded-full text-xs font-medium border ${colors[category] || "bg-gray-50 text-gray-700"
+          }`}
       >
         {category}
       </span>
@@ -749,9 +748,8 @@ const TemplatesPage: NextPageWithLayout = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSyncTemplates}
-              className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${
-                !isSyncing ? "bg-white" : "bg-gray-200"
-              } border border-gray-200 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
+              className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${!isSyncing ? "bg-white" : "bg-gray-200"
+                } border border-gray-200 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
             >
               <RefreshCcw className="h-5 w-5" />
               {!isSyncing ? "Sync Templates" : "Syncing..."}
@@ -846,17 +844,15 @@ const TemplatesPage: NextPageWithLayout = () => {
           <div className="flex items-center gap-2 text-gray-600 bg-gray-50 p-1 rounded-lg">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded ${
-                viewMode === "grid" ? "bg-white shadow" : "hover:bg-gray-100"
-              }`}
+              className={`p-2 rounded ${viewMode === "grid" ? "bg-white shadow" : "hover:bg-gray-100"
+                }`}
             >
               <Grid className="h-5 w-5" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded ${
-                viewMode === "list" ? "bg-white shadow" : "hover:bg-gray-100"
-              }`}
+              className={`p-2 rounded ${viewMode === "list" ? "bg-white shadow" : "hover:bg-gray-100"
+                }`}
             >
               <List className="h-5 w-5" />
             </button>
@@ -1468,11 +1464,10 @@ const TemplatesPage: NextPageWithLayout = () => {
                                 .map((button, index) => (
                                   <div
                                     key={index}
-                                    className={`flex items-center gap-3 px-4 py-3 ${
-                                      index > 0
-                                        ? "border-t border-gray-100"
-                                        : ""
-                                    } hover:bg-gray-50 transition-colors`}
+                                    className={`flex items-center gap-3 px-4 py-3 ${index > 0
+                                      ? "border-t border-gray-100"
+                                      : ""
+                                      } hover:bg-gray-50 transition-colors`}
                                   >
                                     {button?.type === "QUICK_REPLY" && (
                                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -1574,10 +1569,10 @@ const TemplatesPage: NextPageWithLayout = () => {
                   {/* Template Info (Right - 1/3 width) */}
                   <div className="lg:col-span-1 space-y-4">
                     {/* Template Details Card */}
-                    <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-4">
-                      <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <div className="bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                      <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
                         <svg
-                          className="w-4 h-4 text-gray-600"
+                          className="w-4 h-4 text-gray-600 dark:text-gray-400"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1595,22 +1590,22 @@ const TemplatesPage: NextPageWithLayout = () => {
                       <div className="space-y-4">
                         {/* Template ID */}
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                             Template ID
                           </div>
-                          <div className="text-gray-500 text-xs">
+                          <div className="text-gray-500 dark:text-gray-300 text-xs break-all">
                             {previewTemplate?.templateId ||
                               previewTemplate?._id}
                           </div>
                         </div>
                         {/* Status */}
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                             Status
                           </div>
                           <div className="flex items-center gap-2">
                             {getStatusBadge(previewTemplate.status)}
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               {previewTemplate.status === "approved"
                                 ? "✓ Ready to send"
                                 : previewTemplate.status === "pending"
@@ -1624,7 +1619,7 @@ const TemplatesPage: NextPageWithLayout = () => {
 
                         {/* Category */}
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                             Category
                           </div>
                           {previewTemplate.category ? (
@@ -1632,7 +1627,7 @@ const TemplatesPage: NextPageWithLayout = () => {
                               {getCategoryBadge(previewTemplate.category)}
                             </div>
                           ) : (
-                            <div className="text-sm text-gray-400 italic">
+                            <div className="text-sm text-gray-400 dark:text-gray-500 italic">
                               Not categorized
                             </div>
                           )}
@@ -1640,14 +1635,14 @@ const TemplatesPage: NextPageWithLayout = () => {
 
                         {/* Language */}
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                             Language
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 dark:text-gray-300">
                               {previewTemplate.language.toUpperCase()}
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               ({previewTemplate.language})
                             </span>
                           </div>
@@ -1655,7 +1650,7 @@ const TemplatesPage: NextPageWithLayout = () => {
 
                         {/* Template Type */}
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                             Template Type
                           </div>
                           <div className="flex items-center gap-2">
@@ -1682,10 +1677,10 @@ const TemplatesPage: NextPageWithLayout = () => {
                     {/* Variables Card */}
                     {previewTemplate?.variables &&
                       previewTemplate.variables.length > 0 && (
-                        <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-lg p-4">
-                          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <div className="bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 border border-blue-100 dark:border-gray-700 rounded-lg p-4">
+                          <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
                             <svg
-                              className="w-4 h-4 text-blue-600"
+                              className="w-4 h-4 text-blue-600 dark:text-blue-400"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -1706,23 +1701,23 @@ const TemplatesPage: NextPageWithLayout = () => {
                                 className="flex items-center justify-between text-sm"
                               >
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
-                                    <span className="text-xs font-bold text-blue-700">
+                                  <div className="w-6 h-6 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-blue-700 dark:text-blue-400">
                                       {i + 1}
                                     </span>
                                   </div>
-                                  <span className="text-gray-700 font-medium">
+                                  <span className="text-gray-700 dark:text-gray-300 font-medium">
                                     {v}
                                   </span>
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                   Required
                                 </div>
                               </div>
                             ))}
                           </div>
-                          <div className="mt-3 pt-3 border-t border-blue-100">
-                            <p className="text-xs text-gray-600">
+                          <div className="mt-3 pt-3 border-t border-blue-100 dark:border-gray-700">
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
                               These variables must be provided when sending this
                               template.
                             </p>
@@ -1733,10 +1728,10 @@ const TemplatesPage: NextPageWithLayout = () => {
                     {/* Buttons Card */}
                     {previewTemplate?.templateButtons &&
                       previewTemplate.templateButtons.length > 0 && (
-                        <div className="bg-gradient-to-br from-green-50 to-white border border-green-100 rounded-lg p-4">
-                          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <div className="bg-gradient-to-br from-green-50 to-white dark:from-gray-800 dark:to-gray-900 border border-green-100 dark:border-gray-700 rounded-lg p-4">
+                          <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
                             <svg
-                              className="w-4 h-4 text-green-600"
+                              className="w-4 h-4 text-green-600 dark:text-green-400"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -1758,30 +1753,29 @@ const TemplatesPage: NextPageWithLayout = () => {
                               >
                                 <div className="flex items-center gap-2">
                                   <div
-                                    className={`w-6 h-6 rounded flex items-center justify-center ${
-                                      b.type === "QUICK_REPLY"
-                                        ? "bg-green-100"
-                                        : b.type === "URL"
-                                          ? "bg-blue-100"
-                                          : b.type === "PHONE_NUMBER"
-                                            ? "bg-purple-100"
-                                            : "bg-gray-100"
-                                    }`}
+                                    className={`w-6 h-6 rounded flex items-center justify-center ${b.type === "QUICK_REPLY"
+                                      ? "bg-green-100 dark:bg-green-900/30"
+                                      : b.type === "URL"
+                                        ? "bg-blue-100 dark:bg-blue-900/30"
+                                        : b.type === "PHONE_NUMBER"
+                                          ? "bg-purple-100 dark:bg-purple-900/30"
+                                          : "bg-gray-100 dark:bg-gray-700"
+                                      }`}
                                   >
-                                    <span className="text-xs font-bold text-gray-700">
+                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
                                       {i + 1}
                                     </span>
                                   </div>
                                   <div>
-                                    <div className="text-gray-700 font-medium">
+                                    <div className="text-gray-700 dark:text-gray-300 font-medium">
                                       {b.text}
                                     </div>
-                                    <div className="text-xs text-gray-500 capitalize">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                                       {b.type.replace("_", " ").toLowerCase()}
                                     </div>
                                   </div>
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
                                   {b.type === "URL"
                                     ? "Link"
                                     : b.type === "PHONE_NUMBER"
@@ -1798,11 +1792,11 @@ const TemplatesPage: NextPageWithLayout = () => {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex justify-end items-center">
+              <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-6 py-4 flex justify-end items-center">
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowPreviewModal(false)}
-                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors"
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     Close
                   </button>

@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import { getCurrencySymbol } from '@/lib/currencyHelper';
@@ -61,11 +61,13 @@ const ManageAgentsPage = () => {
   const [profileAgent, setProfileAgent] = useState(null);
   const [viewAgent, setViewAgent] = useState(null);
   const [viewProfile, setViewProfile] = useState(null);
+  const [viewPhotoLoadFailed, setViewPhotoLoadFailed] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: "",
     email: "",
     phone: "",
+    photo: "",
     idType: "aadhaar",
     idNumber: "",
     idDocumentFrontUrl: "",
@@ -95,6 +97,10 @@ const ManageAgentsPage = () => {
       tamara: false
     }
   });
+  const photoUploadRef = useRef(0);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
+  const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingIdDocFront, setUploadingIdDocFront] = useState(false);
   const [uploadingIdDocBack, setUploadingIdDocBack] = useState(false);
   const [uploadingPassportDocFront, setUploadingPassportDocFront] = useState(false);
@@ -143,6 +149,29 @@ const ManageAgentsPage = () => {
   // Determine which token to use based on what's available
   // Priority: clinicToken > doctorToken > adminToken
   const token = clinicToken || doctorToken || adminToken || agentToken;
+
+  useEffect(() => {
+    if (profileAgent) return;
+    photoUploadRef.current = 0;
+    setPhotoLoadFailed(false);
+    setProfilePhotoPreview((prev) => {
+      if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return "";
+    });
+  }, [profileAgent]);
+
+  useEffect(() => {
+    setPhotoLoadFailed(false);
+  }, [profileForm.photo]);
+
+  useEffect(() => {
+    if (viewAgent) return;
+    setViewPhotoLoadFailed(false);
+  }, [viewAgent]);
+
+  useEffect(() => {
+    setViewPhotoLoadFailed(false);
+  }, [viewAgent?.photo, viewProfile?.photo]);
 
   // Helper function to get user role from token
   const getUserRole = () => {
@@ -387,12 +416,43 @@ const ManageAgentsPage = () => {
   const canUpdate = userRole === 'admin' ? true : permissions.canUpdate;
   const canDelete = userRole === 'admin' ? true : permissions.canDelete;
 
+  function computeCompletion(agent, profile) {
+    let total = 7;
+    let score = 0;
+    if (profile?.emergencyPhone) score += 1;
+    if (agent?.phone) score += 1;
+    if (profile?.idNumber && profile?.idDocumentFrontUrl && profile?.idDocumentBackUrl) score += 1;
+    if (profile?.passportNumber && profile?.passportDocumentFrontUrl && profile?.passportDocumentBackUrl) score += 1;
+    if (profile?.contractFrontUrl && profile?.contractBackUrl) score += 1;
+    if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
+    if (profile?.commissionType) score += 1;
+    return Math.round((score / total) * 100);
+  }
+
+  const updateCompletionsAndProfiles = (usersList, profilesList) => {
+    if (!usersList || !profilesList) return;
+    const updates = {};
+    const profiles = {};
+    usersList.forEach((u) => {
+      const profile = profilesList.find(p => p.userId === u._id || p.userId?.toString() === u._id.toString());
+      updates[u._id] = computeCompletion(u, profile || {});
+      profiles[u._id] = profile || {};
+    });
+    setCompletionMap((prev) => ({ ...prev, ...updates }));
+    setAgentProfiles((prev) => ({ ...prev, ...profiles }));
+  };
+
   async function loadAgents() {
     try {
       const { data } = await axios.get('/api/lead-ms/get-agents?role=agent', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (data.success) setAgents(data.agents || []);
+      if (data.success) {
+        setAgents(data.agents || []);
+        if (data.profiles) {
+          updateCompletionsAndProfiles(data.agents, data.profiles);
+        }
+      }
     } catch (err) {
       console.error(err);
       // Don't show error toast if read permission is false (access denied scenario)
@@ -412,7 +472,12 @@ const ManageAgentsPage = () => {
       const { data } = await axios.get('/api/lead-ms/get-agents?role=doctorStaff', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (data.success) setDoctorStaff(data.agents || []);
+      if (data.success) {
+        setDoctorStaff(data.agents || []);
+        if (data.profiles) {
+          updateCompletionsAndProfiles(data.agents, data.profiles);
+        }
+      }
     } catch (err) {
       console.error(err);
       // Don't show error toast if read permission is false (access denied scenario)
@@ -458,59 +523,28 @@ const ManageAgentsPage = () => {
     return null;
   }
 
-  function computeCompletion(agent, profile) {
-    let total = 7;
-    let score = 0;
-    if (profile?.emergencyPhone) score += 1;
-    if (agent?.phone) score += 1;
-    if (profile?.idNumber && profile?.idDocumentFrontUrl && profile?.idDocumentBackUrl) score += 1;
-    if (profile?.passportNumber && profile?.passportDocumentFrontUrl && profile?.passportDocumentBackUrl) score += 1;
-    if (profile?.contractFrontUrl && profile?.contractBackUrl) score += 1;
-    if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
-    if (profile?.commissionType) score += 1;
-    return Math.round((score / total) * 100);
-  }
-
-  useEffect(() => {
-    async function loadCompletions() {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-      const list = activeView === "agents" ? agents : doctorStaff;
-      const updates = {};
-      const profiles = {};
-      await Promise.all(
-        list.map(async (u) => {
-          const profile = await fetchAgentProfile(u._id);
-          updates[u._id] = computeCompletion(u, profile || {});
-          profiles[u._id] = profile || {};
-        })
-      );
-      setCompletionMap((prev) => ({ ...prev, ...updates }));
-      setAgentProfiles((prev) => ({ ...prev, ...profiles }));
-    }
-    if (canRead === true && (agents.length > 0 || doctorStaff.length > 0)) {
-      loadCompletions();
-    }
-  }, [agents, doctorStaff, activeView, canRead]);
-
   async function openProfile(agent) {
     const authHeaders = getAuthHeaders();
     if (!authHeaders) return;
+    setPhotoLoadFailed(false);
     setProfileAgent(agent);
     setProfileForm((f) => ({
       ...f,
       name: agent.name || "",
       email: agent.email || "",
-      phone: agent.phone || ""
+      phone: agent.phone || "",
+      photo: agent.photo || ""
     }));
     try {
       const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
       if (res.data.success) {
         const p = res.data.profile || {};
+        setPhotoLoadFailed(false);
         setProfileForm({
           name: agent.name || "",
           email: agent.email || "",
           phone: agent.phone || "",
+          photo: agent.photo || p.photo || "",
           idType: p.idType || "aadhaar",
           idNumber: p.idNumber || "",
           idDocumentFrontUrl: p.idDocumentFrontUrl || "",
@@ -636,6 +670,7 @@ const ManageAgentsPage = () => {
   async function openView(agent) {
     const authHeaders = getAuthHeaders();
     if (!authHeaders) return;
+    setViewPhotoLoadFailed(false);
     setViewAgent(agent);
     setViewLoading(true);
     setStaffTips([]);
@@ -845,6 +880,7 @@ const ManageAgentsPage = () => {
         name: profileForm.name,
         email: profileForm.email,
         phone: profileForm.phone,
+        photo: profileForm.photo,
         emergencyPhone: profileForm.emergencyPhone,
         emergencyName: profileForm.emergencyName,
         idType: profileForm.idType,
@@ -896,6 +932,41 @@ const ManageAgentsPage = () => {
           }
         );
         setCompletionMap((prev) => ({ ...prev, [profileAgent._id]: pct }));
+        const agentId = profileAgent._id;
+        const refreshed = {
+          ...profileAgent,
+          name: profileForm.name,
+          email: profileForm.email,
+          phone: profileForm.phone,
+          photo: profileForm.photo
+        };
+        setAgents((prev) =>
+          prev.map((a) => (a._id === agentId ? { ...a, name: refreshed.name, email: refreshed.email, phone: refreshed.phone, photo: refreshed.photo } : a))
+        );
+        if (viewAgent && viewAgent._id === agentId) {
+          setViewAgent({ ...viewAgent, name: refreshed.name, email: refreshed.email, phone: refreshed.phone, photo: refreshed.photo });
+          if (viewProfile) {
+            setViewProfile({ ...viewProfile, photo: refreshed.photo });
+          }
+        }
+        // Persist photo update to storage if it matches current logged in user
+        if (typeof window !== "undefined") {
+          ["agentUser", "doctorUser"].forEach((key) => {
+            const stored = localStorage.getItem(key) || sessionStorage.getItem(key);
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                if (!parsed._id || parsed._id === agentId || parsed.id === agentId || parsed.email === profileForm.email) {
+                  parsed.photo = refreshed.photo;
+                  parsed.name = refreshed.name;
+                  localStorage.setItem(key, JSON.stringify(parsed));
+                  sessionStorage.setItem(key, JSON.stringify(parsed));
+                }
+              } catch (e) { }
+            }
+          });
+          window.dispatchEvent(new Event("userProfileUpdated"));
+        }
         setProfileAgent(null);
         toast.success("Profile updated");
       } else {
@@ -1090,8 +1161,8 @@ const ManageAgentsPage = () => {
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-teal-900">Team Management</h1>
-                <p className="text-xs sm:text-sm text-teal-700 mt-1">Manage Staffs and Doctors accounts</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
+                <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-100 mt-1">Manage Staffs and Doctors accounts</p>
               </div>
             </div>
 
@@ -1155,8 +1226,8 @@ const ManageAgentsPage = () => {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-teal-900">Team Management</h1>
-            <p className="text-xs sm:text-sm text-teal-700 mt-1">Manage agents and doctor staff accounts</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
+            <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-100 mt-1">Manage agents and doctor staff accounts</p>
           </div>
           <button
             onClick={() => loadAll(false)}
@@ -1173,9 +1244,9 @@ const ManageAgentsPage = () => {
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-teal-700 uppercase tracking-wide">Total Team</p>
-                <p className="text-3xl font-bold text-teal-900 mt-2">{totalTeam}</p>
-                <p className="text-xs text-teal-700 mt-1">{approvalRate}% approved</p>
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-100 uppercase tracking-wide">Total Team</p>
+                <p className="text-3xl font-bold text-teal-900 dark:text-teal-100 mt-2">{totalTeam}</p>
+                <p className="text-xs text-teal-700 dark:text-teal-100 mt-1">{approvalRate}% approved</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
                 <Users className="w-6 h-6 text-teal-700" />
@@ -1228,8 +1299,8 @@ const ManageAgentsPage = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-teal-900">Team Members</h2>
-                <p className="text-sm text-teal-700 mt-0.5">
+                <h2 className="text-lg font-semibold text-teal-900 dark:text-teal-100">Team Members</h2>
+                <p className="text-sm text-teal-700 dark:text-teal-100 mt-0.5">
                   {currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'} total
                 </p>
               </div>
@@ -1238,8 +1309,8 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'agents'
-                    ? 'bg-white text-teal-900 shadow-sm'
-                    : 'text-teal-600 hover:text-teal-900'
+                    ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
+                    : 'text-teal-600  hover:text-teal-900'
                     }`}
                 >
                   Agents ({agents.length})
@@ -1247,7 +1318,7 @@ const ManageAgentsPage = () => {
                 <button
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeView === 'doctorStaff'
-                    ? 'bg-white text-teal-900 shadow-sm'
+                    ? 'bg-white text-teal-900 dark:text-teal-100 shadow-sm'
                     : 'text-teal-600 hover:text-teal-900'
                     }`}
                 >
@@ -1316,11 +1387,29 @@ const ManageAgentsPage = () => {
                     {/* Card Header */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-12 w-12 flex-shrink-0 rounded-full bg-gradient-to-br from-teal-700 to-teal-900 text-white flex items-center justify-center text-base font-semibold shadow-md">
-                          {agent.name?.charAt(0).toUpperCase()}
+                        <div className="relative flex-shrink-0">
+                          {agent.photo ? (
+                            <div className="h-12 w-12 rounded-full overflow-hidden ring-4 ring-white shadow-md border border-teal-200">
+                              <img
+                                src={agent.photo}
+                                alt={agent.name}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  const fb = e.currentTarget.parentElement.nextElementSibling;
+                                  e.currentTarget.parentElement.style.display = 'none';
+                                  if (fb) fb.style.display = 'flex';
+                                }}
+                              />
+                            </div>
+                          ) : null}
+                          <div
+                            className={`h-12 w-12 flex-shrink-0 rounded-full bg-gradient-to-br from-teal-700 to-teal-900 text-white flex items-center justify-center text-base font-semibold shadow-md ${agent.photo ? 'hidden' : ''}`}
+                          >
+                            {agent.name?.charAt(0).toUpperCase()}
+                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-base font-semibold text-teal-900 truncate">
+                          <div className="text-base font-semibold text-teal-900 dark:text-teal-100 truncate">
                             {agent.name}
                           </div>
                           <div className="mt-1.5">
@@ -1557,7 +1646,7 @@ const ManageAgentsPage = () => {
               <button
                 type="button"
                 onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-100 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -1630,9 +1719,9 @@ const ManageAgentsPage = () => {
 
       {profileAgent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-gray-500/30 backdrop-blur-md">
-          <div className="relative w-full max-w-5xl rounded-3xl shadow-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-200/30 bg-gradient-to-br from-white via-gray-50 to-white">
+          <div className="relative w-full max-w-5xl rounded-3xl shadow-2xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-200/30 bg-white">
             {/* Header Section */}
-            <div className="sticky top-0 bg-white/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl shadow-lg border-b border-gray-100">
+            <div className="sticky top-0 bg-white backdrop-blur-xl px-6 py-4 flex items-center justify-between z-10 rounded-t-3xl shadow-lg border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-teal-500 to-blue-500 rounded-xl">
                   <UserPlus className="w-6 h-6 text-white" />
@@ -1652,7 +1741,7 @@ const ManageAgentsPage = () => {
             </div>
 
             {/* Content Section */}
-            <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white">
+            <div className="p-6 sm:p-8 flex-1 overflow-y-auto bg-gray-50">
               <div className="space-y-8">
                 {/* Basic Information Section */}
                 <div className="bg-white rounded-2xl border border-teal-100 p-6 shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -1703,6 +1792,90 @@ const ManageAgentsPage = () => {
                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-400 focus:border-teal-400 outline-none transition-all duration-200 hover:border-gray-300 group-hover:border-gray-300"
                         placeholder="Enter mobile number"
                       />
+                    </div>
+                    {/* Profile Photo Upload */}
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <label className="block text-xs font-semibold text-teal-800 mb-2 flex items-center gap-1.5">
+                        <span className="w-1 h-4 rounded-full"></span>
+                        Profile Photo
+                      </label>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 bg-gradient-to-br from-teal-50 to-blue-50 border border-teal-200 rounded-xl">
+                        {/* Preview / Avatar — state-based fallback logic, no imperative DOM */}
+                        <div className="relative flex-shrink-0 group/avatar">
+                          {/* Image preview — rendered when photo URL exists AND load has not failed */}
+                          {profileForm.photo && !photoLoadFailed ? (
+                            <div
+                              key={`img-${profileForm.photo}`}
+                              className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-2 ring-white shadow-lg border border-teal-200"
+                            >
+                              <img
+                                src={profileForm.photo}
+                                alt="Profile Preview"
+                                className="w-full h-full object-cover"
+                                onLoad={() => setPhotoLoadFailed(false)}
+                                onError={() => setPhotoLoadFailed(true)}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-teal-500 to-blue-500 flex items-center justify-center text-white ring-4 ring-white shadow-lg"
+                            >
+                              <span className="text-xl sm:text-2xl font-bold">
+                                {(profileForm?.name || 'U').charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Upload controls */}
+                        <div className="flex flex-wrap sm:flex-row items-start sm:items-center gap-2 flex-1 min-w-0">
+                          <label className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-teal-500 to-blue-500 hover:from-teal-600 hover:to-blue-600 rounded-xl text-xs sm:text-sm font-semibold text-white cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md">
+                            {uploadingPhoto ? (
+                              <span className="animate-pulse flex items-center gap-2">
+                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Uploading...
+                              </span>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4" />
+                                <span>Upload Photo</span>
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setPhotoLoadFailed(false);
+                                  uploadFile(file, (url) => setProfileForm((f) => ({ ...f, photo: url })), setUploadingPhoto);
+                                }
+                              }}
+                            />
+                          </label>
+                          {profileForm.photo && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPhotoLoadFailed(false);
+                                setProfileForm((f) => ({ ...f, photo: "" }));
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Remove
+                            </button>
+                          )}
+                          <p className="text-[10px] sm:text-xs text-teal-700/70 w-full sm:w-auto">
+                            JPG, PNG, WebP up to 10MB
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1825,7 +1998,7 @@ const ManageAgentsPage = () => {
 
                 {/* Additional Information Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Additional Information</h3>
+                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Additional Information</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-teal-700 mb-1.5">Passport Number</label>
@@ -2092,7 +2265,7 @@ const ManageAgentsPage = () => {
 
                 {/* Other Document Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Other Document</h3>
+                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Other Document</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Commented out - Employee Visa Front */}
                     {/* <div>
@@ -2302,7 +2475,7 @@ const ManageAgentsPage = () => {
 
                 {/* Bank Permissions Section */}
                 <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Bank Permissions</h3>
+                  <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-4">Bank Permissions</h3>
                   <div className="space-y-4">
                     {clinicBankDetails?.card?.enabled && (
                       <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -2451,13 +2624,13 @@ const ManageAgentsPage = () => {
           <div className="w-full max-w-4xl sm:max-w-5xl lg:max-w-7xl bg-white rounded-lg sm:rounded-xl border border-gray-200 shadow-xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden flex flex-col mx-auto">
             <div className="px-4 py-3 sm:px-5 sm:py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10 flex-shrink-0">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-sm font-semibold text-teal-900">View Profile</h3>
-                <p className="text-[11px] text-teal-700 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
+                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">View Profile</h3>
+                <p className="text-[11px] text-teal-700 dark:text-teal-100 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
               </div>
               <button
                 type="button"
                 onClick={() => { stopActivityRefresh(); setViewAgent(null); setViewProfile(null); setTotalAppointments(null); setActivity(null); }}
-                className="flex-shrink-0 p-1.5 sm:p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1.5 sm:p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-100 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -2471,13 +2644,32 @@ const ManageAgentsPage = () => {
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gray-900 text-white flex items-center justify-center text-base sm:text-lg font-semibold flex-shrink-0">
-                          {(viewAgent?.name || 'U').charAt(0).toUpperCase()}
+                        <div className="relative">
+                          {(viewProfile?.photo || viewAgent?.photo) && !viewPhotoLoadFailed ? (
+                            <div
+                              key={`view-img-${viewProfile?.photo || viewAgent?.photo || ''}`}
+                              className="h-20 w-20 sm:h-24 sm:w-24 rounded-full overflow-hidden ring-4 ring-white shadow-xl border-2 border-teal-200 flex-shrink-0"
+                            >
+                              <img
+                                src={viewProfile?.photo || viewAgent?.photo}
+                                alt={viewAgent?.name || 'Profile'}
+                                className="h-full w-full object-cover"
+                                onLoad={() => setViewPhotoLoadFailed(false)}
+                                onError={() => setViewPhotoLoadFailed(true)}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-teal-500 to-blue-500 text-white flex items-center justify-center text-3xl sm:text-4xl font-bold flex-shrink-0 ring-4 ring-white shadow-xl"
+                            >
+                              {(viewAgent?.name || 'U').charAt(0).toUpperCase()}
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="text-base sm:text-lg font-semibold text-teal-900 truncate">{viewAgent.name || '—'}</div>
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">{viewAgent.role || '—'}</span>
+                            <div className="text-base sm:text-lg font-semibold text-teal-900 dark:text-teal-100 truncate">{viewAgent.name || '—'}</div>
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap dark:text-white">{viewAgent.role || '—'}</span>
                           </div>
                           <div className="mt-1 text-xs text-teal-700">
                             <div className="mt-1 flex flex-wrap gap-2 sm:gap-3">
@@ -2606,7 +2798,8 @@ const ManageAgentsPage = () => {
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
-                      <div className="text-base font-semibold text-teal-900 mb-4">Identity & Passport Documents</div>
+                      <div className="text-base font-semibold text-teal-900 dark:text-teal-100
+  mb-4">Identity & Passport Documents</div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2620,7 +2813,7 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Identity Card Front</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Identity Card Front</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2634,7 +2827,7 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Identity Card Back</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Identity Card Back</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2648,7 +2841,7 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Passport Front</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Passport Front</div>
                         </div>
                         <div className="rounded-xl border border-gray-200 overflow-hidden">
                           <div className="h-56 sm:h-60 lg:h-64 bg-gray-50 overflow-hidden">
@@ -2662,14 +2855,14 @@ const ManageAgentsPage = () => {
                               <div className="text-sm text-gray-400">No image</div>
                             )}
                           </div>
-                          <div className="px-4 py-2 text-sm text-teal-900">Passport Back</div>
+                          <div className="px-4 py-2 text-sm text-teal-900 dark:text-white">Passport Back</div>
                         </div>
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div className="bg-white border border-gray-200 rounded-xl p-5">
-                        <div className="text-sm font-semibold text-teal-900">Staff Status</div>
-                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
+                        <div className="text-sm font-semibold text-teal-900 dark:text-teal-100">Staff Status</div>
+                        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 dark:text-teal-100 px-3 py-3 text-sm text-teal-900 flex items-center justify-between">
                           <span>Current Status</span>
                           <span className="inline-flex items-center gap-2">
                             {(() => {
@@ -2689,7 +2882,7 @@ const ManageAgentsPage = () => {
                         </div>
                       </div>
                       <div className="bg-white border border-gray-200 rounded-xl p-5">
-                        <div className="text-sm font-semibold text-teal-900">Activity Timeline</div>
+                        <div className="text-sm font-semibold dark:text-teal-100 text-teal-900">Activity Timeline</div>
                         <div className="relative mt-3 pl-6 space-y-4 text-sm text-teal-700">
                           <div className="absolute left-3 top-0 h-full w-px bg-gray-200" />
                           <div className="flex items-start gap-3">
@@ -2698,45 +2891,45 @@ const ManageAgentsPage = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v4" /><path d="M21 3l-7 7" /><rect x="3" y="11" width="10" height="10" rx="2" /></svg>
                               </div>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Last login</div>
-                              <div>{timeAgo(activity?.lastLogin)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Last login</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.lastLogin)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 7v10" /><path d="M21 7v10" /><rect x="7" y="3" width="10" height="18" rx="2" /><path d="M8 7h8" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Password changed</div>
-                              <div>{timeAgo(activity?.passwordChangedAt)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Password changed</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.passwordChangedAt)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5h18" /><path d="M7 3v4" /><path d="M17 3v4" /><rect x="3" y="5" width="18" height="18" rx="2" /><path d="M3 10h18" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Contract updated</div>
-                              <div>{timeAgo(activity?.contractUpdatedAt)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Contract updated</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.contractUpdatedAt)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-7" /><path d="M8 12l4-4 4 4" /><rect x="3" y="4" width="18" height="16" rx="2" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Document uploaded</div>
-                              <div>{timeAgo(activity?.documentUploadedAt)}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Document uploaded</div>
+                              <div className="text-[10px] dark:text-white">{timeAgo(activity?.documentUploadedAt)}</div>
                             </div>
                           </div>
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
                               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 7v10" /><path d="M7 12h10" /><circle cx="12" cy="12" r="9" /></svg>
                             </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-teal-900">Profile created</div>
-                              <div>{activity?.profileCreatedAt ? new Date(activity.profileCreatedAt).toLocaleDateString() : '—'}</div>
+                            <div className="flex-1 dark:text-teal-100">
+                              <div className="font-medium text-teal-900 dark:text-teal-100">Profile created</div>
+                              <div className="text-[10px] dark:text-white">{activity?.profileCreatedAt ? new Date(activity.profileCreatedAt).toLocaleDateString() : '—'}</div>
                             </div>
                           </div>
                         </div>
@@ -2797,7 +2990,7 @@ const ManageAgentsPage = () => {
                   </div> */}
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <div className="text-base font-semibold text-teal-900">Additional Documents</div>
+                      <div className="text-base font-semibold text-teal-900 dark:text-teal-100">Additional Documents</div>
                       <button
                         type="button"
                         onClick={() => {
@@ -2848,7 +3041,7 @@ const ManageAgentsPage = () => {
                     </div>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="text-base font-semibold text-teal-900 mb-4">Employment & Contract</div>
+                    <div className="text-base font-semibold text-teal-900 dark:text-white mb-4 mb-4">Employment & Contract</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
@@ -2950,7 +3143,7 @@ const ManageAgentsPage = () => {
 
                   {/* Staff Tips Section */}
                   <div className="bg-white border border-gray-200 rounded-xl p-5">
-                    <div className="text-base font-semibold text-teal-900 mb-4">Staff Tips</div>
+                    <div className="text-base font-semibold text-teal-900 dark:text-white mb-4">Staff Tips</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                         <div className="text-xs text-teal-700 inline-flex items-center gap-2">
@@ -3025,7 +3218,7 @@ const ManageAgentsPage = () => {
                 <p className="text-sm font-medium text-teal-900 dark:text-teal-100 mb-2">
                   Are you sure you want to delete this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'}?
                 </p>
-                <p className="text-sm text-teal-700 dark:text-teal-400">
+                <p className="text-sm text-teal-700 dark:text-teal-100">
                   This action cannot be undone. All data associated with this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'} will be permanently removed.
                 </p>
               </div>
@@ -3066,7 +3259,7 @@ const ManageAgentsPage = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-semibold text-teal-900 dark:text-teal-100">Staff Tips Breakdown</h3>
-                  <p className="text-xs text-teal-700 dark:text-teal-400 mt-0.5">{viewAgent.name}</p>
+                  <p className="text-xs text-teal-700 dark:text-teal-100 mt-0.5">{viewAgent.name}</p>
                 </div>
                 <button
                   type="button"

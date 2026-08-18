@@ -70,6 +70,27 @@ export default async function handler(req, res) {
 
     const revenueAgg = await Billing.aggregate([
       { $match: billingMatch },
+      // EDGE-CASE FIX: Exclude pure clearance billings to prevent double-counting
+      // A pure clearance billing is one where the entire paid amount is used to clear
+      // another billing's pending (amount === pendingUsed)
+      // Billings with actual service amounts (amount > pendingUsed) should be included
+      {
+        $addFields: {
+          isPureClearance: {
+            $cond: [
+              {
+                $and: [
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                  { $eq: ["$amount", "$pendingUsed"] },
+                ],
+              },
+              true,
+              false,
+            ],
+          },
+        },
+      },
+      { $match: { isPureClearance: false } },
       {
         $lookup: {
           from: "appointments",

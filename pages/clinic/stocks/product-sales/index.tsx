@@ -1,4 +1,4 @@
-import ClinicLayout from "@/components/ClinicLayout";
+﻿import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { NextPageWithLayout } from "@/pages/_app";
 import React, { ReactElement, useState, useCallback, useEffect } from "react";
@@ -9,7 +9,6 @@ import {
   Printer,
   ShoppingCart,
   Users,
-  DollarSign,
   TrendingUp,
   ChevronDown,
   ChevronUp,
@@ -43,7 +42,8 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import AddProductSaleModal from "./_components/AddProductSaleModal";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useCurrency } from "@/context/CurrencyContext";
 
 // Types
 interface Patient {
@@ -265,6 +265,8 @@ const PaymentBadge = ({ status }: { status: string }) => {
 
 const ProductSalesPage: NextPageWithLayout = () => {
   const router = useRouter();
+  const { currency } = useCurrency();
+  const token = getTokenByPath() || getStoredToken() || "";
   const [productSales, setProductSales] = useState<ProductSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState<Pagination>({
@@ -307,18 +309,18 @@ const ProductSalesPage: NextPageWithLayout = () => {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState("");
 
   // Add sale modal states
-  const [isOpenAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
+  // const [_isOpenAddSaleModalOpen, setIsAddSaleModalOpen] = useState(false);
 
-  const handleSaleSuccess = () => {
-    setIsAddSaleModalOpen(false);
-    fetchProductSales();
-  };
+  // const handleSaleSuccess = () => {
+  //   setIsAddSaleModalOpen(false);
+  //   fetchProductSales();
+  // };
 
   const fetchProductSales = useCallback(
     debounce(async (page: number = 1, search: string = "") => {
       try {
         setLoading(true);
-        const token = getTokenByPath();
+        const tokenVal = token || getTokenByPath() || getStoredToken() || "";
         const params = new URLSearchParams();
         params.append("page", page.toString());
         params.append("limit", "10");
@@ -334,7 +336,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
 
         const response = await axios.get(
           `/api/stocks/product-sales?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}` } },
+          { headers: { Authorization: `Bearer ${tokenVal}` } },
         );
         if (response.data?.success) {
           setProductSales(response.data?.data?.sales || []);
@@ -444,10 +446,146 @@ const ProductSalesPage: NextPageWithLayout = () => {
       return;
     }
     if (userRole === "clinic" || userRole === "doctor") {
-      if (isMounted) {
-        setPermissions(allPerms);
-        setPermissionsLoaded(true);
-      }
+      const fetchClinicPermissions = async () => {
+        try {
+          const authToken =
+            clinicToken || doctorToken || agentToken || staffToken || userToken;
+          if (!authToken) {
+            if (!isMounted) return;
+            setPermissions(noPerms);
+            setPermissionsLoaded(true);
+            return;
+          }
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (!isMounted) return;
+          if (res.data.success) {
+            if (
+              res.data.permissions === null ||
+              !Array.isArray(res.data.permissions) ||
+              res.data.permissions.length === 0
+            ) {
+              setPermissions(allPerms);
+            } else {
+              let parentActions = {};
+              const parentStockModule = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock" ||
+                  mod === "stock" ||
+                  modKey === "clinic_stock" ||
+                  modKey === "stock"
+                );
+              });
+              if (parentStockModule && parentStockModule.actions) {
+                parentActions = parentStockModule.actions;
+              }
+
+              let modulePermission = res.data.permissions.find((p: any) => {
+                const mod = (p.module || "").toLowerCase();
+                const modKey = (p.moduleKey || "").toLowerCase();
+                return (
+                  mod === "clinic_stock_product_sales" ||
+                  mod === "product_sales" ||
+                  mod === "sale_products" ||
+                  mod === "sale-products" ||
+                  modKey === "clinic_stock_product_sales" ||
+                  modKey === "product_sales" ||
+                  modKey === "sale_products" ||
+                  modKey === "sale-products"
+                );
+              });
+
+              if (!modulePermission) {
+                for (const parentModule of res.data.permissions) {
+                  if (Array.isArray(parentModule.subModules)) {
+                    const foundInSubModule = parentModule.subModules.find(
+                      (sm: any) => {
+                        const key = (sm.moduleKey || "").toLowerCase();
+                        const name = (sm.name || "").toLowerCase();
+                        return (
+                          key === "clinic_stock_product_sales" ||
+                          key === "product_sales" ||
+                          key === "sale_products" ||
+                          key === "sale-products" ||
+                          name === "clinic_stock_product_sales" ||
+                          name === "product sales" ||
+                          name === "product_sales" ||
+                          name === "product sale" ||
+                          name === "product_sale" ||
+                          name === "sale products" ||
+                          name === "sale_products" ||
+                          name === "sale product" ||
+                          name === "sale_product"
+                        );
+                      },
+                    );
+                    if (foundInSubModule) {
+                      modulePermission = {
+                        actions: {
+                          ...parentActions,
+                          ...foundInSubModule.actions,
+                        },
+                      };
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (!modulePermission && parentStockModule) {
+                modulePermission = { actions: parentActions };
+              }
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                const moduleAll =
+                  actions.all === true ||
+                  actions.all === "true" ||
+                  String(actions.all).toLowerCase() === "true";
+                const moduleCreate =
+                  actions.create === true ||
+                  actions.create === "true" ||
+                  String(actions.create).toLowerCase() === "true";
+                const moduleRead =
+                  actions.read === true ||
+                  actions.read === "true" ||
+                  String(actions.read).toLowerCase() === "true";
+                const moduleUpdate =
+                  actions.update === true ||
+                  actions.update === "true" ||
+                  String(actions.update).toLowerCase() === "true";
+                const moduleDelete =
+                  actions.delete === true ||
+                  actions.delete === "true" ||
+                  String(actions.delete).toLowerCase() === "true";
+                setPermissions({
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                });
+              } else {
+                setPermissions({
+                  canRead: true,
+                  canCreate: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
+              }
+            }
+          } else {
+            setPermissions(allPerms);
+          }
+        } catch (err) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          if (isMounted) setPermissions(allPerms);
+        } finally {
+          if (isMounted) setPermissionsLoaded(true);
+        }
+      };
+      fetchClinicPermissions();
       return;
     }
     const agentStaffToken = getStoredToken();
@@ -457,8 +595,46 @@ const ProductSalesPage: NextPageWithLayout = () => {
       return;
     }
     if (agentToken || staffToken || userToken) {
-      setPermissions(allPerms);
-      if (isMounted) setPermissionsLoaded(true);
+      const fetchPermissions = async () => {
+        try {
+          if (!isMounted) return;
+          setPermissionsLoaded(false);
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: "clinic_stock_product_sales" },
+            headers: { Authorization: `Bearer ${agentStaffToken}` },
+          });
+          const data = res.data;
+          console.log("DEBUG product-sales agent permissions:", data);
+          if (!isMounted) return;
+          if (
+            !data?.permissions &&
+            data?.error?.includes("not found in agent permissions")
+          ) {
+            setPermissions(allPerms);
+            return;
+          }
+          const actions =
+            data?.permissions?.actions || data?.data?.moduleActions || {};
+          const isTrue = (val: any) =>
+            val === true ||
+            val === "true" ||
+            String(val || "").toLowerCase() === "true";
+          const canAll = isTrue(actions.all);
+          setPermissions({
+            canRead: canAll || isTrue(actions.read),
+            canCreate: canAll || isTrue(actions.create),
+            canUpdate: canAll || isTrue(actions.update),
+            canDelete: canAll || isTrue(actions.delete),
+          });
+        } catch (err) {
+          console.error("Error fetching agent permissions:", err);
+          if (isMounted) setPermissions(allPerms);
+        } finally {
+          if (isMounted) setPermissionsLoaded(true);
+        }
+      };
+      fetchPermissions();
+      return;
     } else {
       if (!isMounted) return;
       setPermissions(allPerms);
@@ -499,11 +675,11 @@ const ProductSalesPage: NextPageWithLayout = () => {
         params.set("paymentMethodId", selectedPaymentMethodId);
       if (selectedUserId) params.set("userId", selectedUserId);
 
-      const token = getTokenByPath();
+      const tokenVal = token || getTokenByPath() || getStoredToken() || "";
       const response = await axios.get(
         `/api/stocks/product-sales/export?${params.toString()}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${tokenVal}` },
           responseType: "blob", // Important for downloading files
         },
       );
@@ -563,13 +739,24 @@ const ProductSalesPage: NextPageWithLayout = () => {
             You don't have permission to view product sales. Contact your
             administrator to request access.
           </p>
+          {permissions.canCreate && (
+            <div className="flex flex-col gap-2 mt-4">
+              <button
+                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium mt-4"
+                onClick={handleAddSale}
+              >
+                <PlusIcon className="h-5 w-5 mr-2" />
+                New Sale
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-bg-page p-4 md:p-6">
       {/* Header Section */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -592,13 +779,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 New Sale
               </button>
             )}
-            <button
-              onClick={() => setIsAddSaleModalOpen(true)}
-              className="px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-700 text-white rounded-lg text-sm font-medium hover:from-gray-900 hover:to-gray-800 transition-all shadow-md hover:shadow-lg flex items-center justify-center sm:justify-start"
-            >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              New Sale Modal
-            </button>
+
             <button
               onClick={handleExport}
               disabled={exportLoading}
@@ -632,19 +813,18 @@ const ProductSalesPage: NextPageWithLayout = () => {
             },
             {
               label: "Revenue",
-              value: `AED ${(stats?.totalValue || 0).toFixed(0)}`,
-              icon: DollarSign,
+              value: `${getCurrencySymbol(currency)} ${(stats?.totalValue || 0).toFixed(0)}`,
               color: "green",
             },
             {
               label: "Total Commission",
-              value: `AED ${(stats?.totalCommission || 0).toFixed(0)}`,
+              value: `${getCurrencySymbol(currency)} ${(stats?.totalCommission || 0).toFixed(0)}`,
               icon: TrendingUp,
               color: "purple",
             },
             {
               label: "Avg. Sale",
-              value: `AED ${(stats?.avgValuePerSale || 0).toFixed(0)}`,
+              value: `${getCurrencySymbol(currency)} ${(stats?.avgValuePerSale || 0).toFixed(0)}`,
               icon: TrendingUp,
               color: "indigo",
             },
@@ -667,13 +847,23 @@ const ProductSalesPage: NextPageWithLayout = () => {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">{stat.label}</p>
+                  <p className="text-sm text-text-muted">{stat.label}</p>
                   <p className="text-2xl font-semibold text-gray-800 mt-1">
                     {stat.value}
                   </p>
                 </div>
-                <div className={`p-3 bg-${stat.color}-50 rounded-lg`}>
-                  <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
+                <div
+                  className={`p-3 bg-${stat.color}-50 rounded-lg flex items-center justify-center w-12 h-12`}
+                >
+                  {stat.icon ? (
+                    <stat.icon className={`w-6 h-6 text-${stat.color}-600`} />
+                  ) : (
+                    <span
+                      className={`text-lg font-bold text-${stat.color}-600`}
+                    >
+                      {getCurrencySymbol(currency)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -774,7 +964,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 <h3 className="text-lg font-bold text-gray-900">
                   Top Selling Products
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-muted">
                   Best performing items in sales volume
                 </p>
               </div>
@@ -837,7 +1027,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 <h3 className="text-lg font-bold text-gray-900">
                   Top Products by Commission
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-muted">
                   Items generating the most commission
                 </p>
               </div>
@@ -877,7 +1067,10 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
                   formatter={(value) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`AED ${numValue.toLocaleString()}`, "Commission"];
+                    return [
+                      `${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`,
+                      "Commission",
+                    ];
                   }}
                 />
                 <Bar
@@ -907,7 +1100,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Top Sellers</h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-muted">
                   Revenue generated by each seller
                 </p>
               </div>
@@ -948,7 +1141,10 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
                   formatter={(value) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`AED ${numValue.toLocaleString()}`, "Revenue"];
+                    return [
+                      `${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`,
+                      "Revenue",
+                    ];
                   }}
                 />
               </PieChart>
@@ -962,7 +1158,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                 <h3 className="text-lg font-bold text-gray-900">
                   Monthly Sales & Commission
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-muted">
                   Revenue and commission trend over time
                 </p>
               </div>
@@ -1017,7 +1213,10 @@ const ProductSalesPage: NextPageWithLayout = () => {
                   itemStyle={{ color: "#1f2937", fontWeight: 600 }}
                   formatter={(value, name) => {
                     const numValue = typeof value === "number" ? value : 0;
-                    return [`AED ${numValue.toLocaleString()}`, name];
+                    return [
+                      `${getCurrencySymbol(currency)} ${numValue.toLocaleString()}`,
+                      name,
+                    ];
                   }}
                   labelFormatter={(label) => label}
                 />
@@ -1074,7 +1273,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
           {loading ? (
             <div className="py-12 text-center">
               <Loader2 className="w-12 h-12 text-gray-400 mx-auto mb-4 animate-spin" />
-              <p className="text-gray-600">Loading sales...</p>
+              <p className="text-text-muted">Loading sales...</p>
             </div>
           ) : displayData.length === 0 ? (
             /* Empty State */
@@ -1101,8 +1300,8 @@ const ProductSalesPage: NextPageWithLayout = () => {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-border-default">
+                  <thead className="bg-bg-surface dark:bg-opacity-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Invoice No
@@ -1136,7 +1335,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-border-default">
                     {displayData.map((sale: any) => (
                       <React.Fragment key={sale._id}>
                         <tr
@@ -1204,7 +1403,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
 
                           {/* Sold By */}
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
+                            <div className="text-sm text-text-primary">
                               {sale.soldBy?.name || "Unknown"}
                             </div>
                           </td>
@@ -1232,13 +1431,15 @@ const ProductSalesPage: NextPageWithLayout = () => {
                           {/* Total */}
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <p className="text-sm font-bold text-gray-900 tabular-nums">
-                              AED {sale.totalPrice.toFixed(2)}
+                              {getCurrencySymbol(currency)}{" "}
+                              {sale.totalPrice.toFixed(2)}
                             </p>
                           </td>
                           {/* Total Paid */}
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <p className="text-sm font-bold text-gray-900 tabular-nums">
-                              AED {sale?.totalPaidAmount?.toFixed(2)}
+                              {getCurrencySymbol(currency)}{" "}
+                              {sale?.totalPaidAmount?.toFixed(2)}
                             </p>
                           </td>
 
@@ -1247,7 +1448,8 @@ const ProductSalesPage: NextPageWithLayout = () => {
                             {sale.totalCommission &&
                             sale.totalCommission > 0 ? (
                               <p className="text-sm font-bold text-purple-600 tabular-nums">
-                                AED {sale.totalCommission.toFixed(2)}
+                                {getCurrencySymbol(currency)}{" "}
+                                {sale.totalCommission.toFixed(2)}
                               </p>
                             ) : (
                               <p className="text-sm text-gray-400">-</p>
@@ -1321,7 +1523,7 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-border-default">
                                       {sale.items.map(
                                         (item: any, idx: number) => (
                                           <tr
@@ -1345,15 +1547,17 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                               {item.quantity}
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-600">
-                                              AED {item.unitPrice.toFixed(2)}
+                                              {getCurrencySymbol(currency)}{" "}
+                                              {item.unitPrice.toFixed(2)}
                                             </td>
                                             <td className="px-4 py-3 text-right font-bold text-gray-900">
-                                              AED {item.totalPrice.toFixed(2)}
+                                              {getCurrencySymbol(currency)}{" "}
+                                              {item.totalPrice.toFixed(2)}
                                             </td>
                                             <td className="px-4 py-3 text-right text-purple-600 font-semibold">
                                               {item.commission &&
                                               item.commission > 0
-                                                ? `AED ${item.commission.toFixed(2)}`
+                                                ? `${getCurrencySymbol(currency)} ${item.commission.toFixed(2)}`
                                                 : "-"}
                                             </td>
                                           </tr>
@@ -1369,7 +1573,8 @@ const ProductSalesPage: NextPageWithLayout = () => {
                                           Sale Total
                                         </td>
                                         <td className="px-4 py-3 text-right text-sm font-bold text-teal-700">
-                                          AED {sale.totalPrice.toFixed(2)}
+                                          {getCurrencySymbol(currency)}{" "}
+                                          {sale.totalPrice.toFixed(2)}
                                         </td>
                                       </tr>
                                     </tfoot>
@@ -1432,13 +1637,6 @@ const ProductSalesPage: NextPageWithLayout = () => {
           )}
         </div>
       </div>
-
-      {/* Add sale modal */}
-      <AddProductSaleModal
-        isOpen={isOpenAddSaleModalOpen}
-        onClose={() => setIsAddSaleModalOpen(false)}
-        onSuccess={handleSaleSuccess}
-      />
     </div>
   );
 };

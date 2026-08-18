@@ -69,7 +69,15 @@ export default async function handler(req, res) {
     // Aggregate billings (Treatment + Service). When departmentId is provided,
     // filter to services belonging to that department; otherwise return all services.
     const match = {
-      service: { $in: ["Treatment", "Service"] },
+      $or: [
+        { service: { $in: ["Treatment", "Service"] } },
+        // EDGE-CASE FIX: Include Package billings with selectedTreatments (mixed billings)
+        // This ensures Service Performance shows treatment revenue for mixed billings
+        {
+          service: "Package",
+          selectedTreatments: { $exists: true, $ne: null, $ne: [] },
+        },
+      ],
       clinicId: clinicObjectId,
     };
     if (hasDepartment) {
@@ -91,6 +99,25 @@ export default async function handler(req, res) {
 
     const data = await Billing.aggregate([
       { $match: match },
+      // EDGE-CASE FIX: Exclude pure clearance billings to prevent showing
+      // clearance billings with empty service names in the report
+      {
+        $addFields: {
+          isPureClearance: {
+            $cond: [
+              {
+                $and: [
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                  { $eq: ["$amount", "$pendingUsed"] },
+                ],
+              },
+              true,
+              false,
+            ],
+          },
+        },
+      },
+      { $match: { isPureClearance: false } },
       {
         $lookup: {
           from: "appointments",
@@ -115,26 +142,83 @@ export default async function handler(req, res) {
             $ifNull: ["$treatment", { $ifNull: ["$apptSvc.name", "Unknown"] }],
           },
           apptDeptId: "$apptSvc.departmentId",
+          // EDGE-CASE FIX: For Treatment/Service billings with unpaidPackagesPaid,
+          // subtract pendingUsed from paid because the payment was for the package,
+          // not the treatment. This prevents the treatment from showing revenue
+          // when only the package pending was cleared.
+          // For Package billings with selectedTreatments (mixed billings), use
+          // proportional scaling to calculate treatment revenue.
+          effectivePaid: {
+            $cond: [
+              {
+                $and: [
+                  { $in: ["$service", ["Treatment", "Service"]] },
+                  { $gt: [{ $size: { $ifNull: ["$unpaidPackagesPaid", []] } }, 0] },
+                  { $gt: [{ $size: { $ifNull: ["$pendingClearedBreakdown", []] } }, 0] },
+                ],
+              },
+              // Treatment/Service with unpaidPackagesPaid: subtract pendingUsed
+              {
+                $subtract: [
+                  { $ifNull: ["$paid", 0] },
+                  { $ifNull: ["$pendingUsed", 0] }
+                ]
+              },
+              // Nested $cond for Package billing with selectedTreatments
+              {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$service", "Package"] },
+                      { $gt: [{ $size: { $ifNull: ["$selectedTreatments", []] } }, 0] },
+                    ],
+                  },
+                  // Package billing with selectedTreatments: use proportional scaling
+                  {
+                    $multiply: [
+                      { $ifNull: ["$paid", 0] },
+                      {
+                        $divide: [
+                          {
+                            $multiply: [
+                              { $ifNull: [{ $arrayElemAt: ["$selectedTreatments.price", 0] }, 0] },
+                              { $ifNull: [{ $arrayElemAt: ["$selectedTreatments.quantity", 0] }, 1] }
+                            ]
+                          },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
+                        ]
+                      }
+                    ]
+                  },
+                  // All other billings: use paid as-is
+                  { $ifNull: ["$paid", 0] }
+                ]
+              }
+            ]
+          },
         },
       },
       // When departmentId is provided, keep only services that match this department
       // (by name for Treatment, or by departmentId for Service via appointment lookup)
       ...(hasDepartment
         ? [{
-            $match: {
-              $expr: {
-                $or: [
-                  { $in: ["$resolvedServiceName", serviceNames.length ? serviceNames : ["__none__"]] },
-                  { $eq: ["$apptDeptId", new mongoose.Types.ObjectId(departmentId)] },
-                ],
-              },
+          $match: {
+            $expr: {
+              $or: [
+                { $in: ["$resolvedServiceName", serviceNames.length ? serviceNames : ["__none__"]] },
+                { $eq: ["$apptDeptId", new mongoose.Types.ObjectId(departmentId)] },
+              ],
             },
-          }]
+          },
+        }]
         : []),
       {
         $group: {
           _id: "$resolvedServiceName",
-          totalRevenue: { $sum: { $ifNull: ["$paid", 0] } },
+          // EDGE-CASE FIX: Use effectivePaid (with pendingUsed subtracted)
+          // instead of paid to prevent treatment from showing revenue
+          // when only the package pending was cleared.
+          totalRevenue: { $sum: { $ifNull: ["$effectivePaid", 0] } },
           totalBookings: { $sum: 1 },
           averagePrice: { $avg: { $ifNull: ["$amount", 0] } },
         },

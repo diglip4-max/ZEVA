@@ -26,11 +26,11 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-50" role="application">
+    <div className="flex min-h-screen bg-bg-page text-text-primary" role="application">
       {/* Sidebar - ClinicSidebar with external state */}
       {!hideSidebar && (
         <div className={`h-screen ${isMobileOpen ? 'fixed lg:sticky' : 'sticky'} top-0 z-50`}>
-          <ClinicSidebar 
+          <ClinicSidebar
             externalIsDesktopHidden={isDesktopHidden}
             externalIsMobileOpen={isMobileOpen}
             onExternalToggleDesktop={handleToggleDesktop}
@@ -44,7 +44,7 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
         {/* Header - Visible on both mobile and desktop */}
         {!hideHeader && (
           <div className={`${isMobileOpen ? 'w-1/2 ml-auto' : 'w-full'} transition-all duration-300`}>
-            <ClinicHeader 
+            <ClinicHeader
               handleToggleDesktop={handleToggleDesktop}
               handleToggleMobile={handleToggleMobile}
               isDesktopHidden={isDesktopHidden}
@@ -54,11 +54,11 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
         )}
 
         {/* Page Content */}
-        <main 
-          className={`flex-1 ${isMobileOpen ? 'w-1/2 ml-auto' : 'w-full'} transition-all duration-300`} 
-          role="main" 
-          style={{ 
-            overflowY: 'auto', 
+        <main
+          className={`flex-1 ${isMobileOpen ? 'w-1/2 ml-auto' : 'w-full'} transition-all duration-300`}
+          role="main"
+          style={{
+            overflowY: 'auto',
             overflowX: 'visible',
             minWidth: 0
           }}

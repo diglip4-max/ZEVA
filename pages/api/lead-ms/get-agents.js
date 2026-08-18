@@ -241,20 +241,11 @@ export default async function handler(req, res) {
       // console.log('GET Agents Query:', JSON.stringify(query, null, 2));
       // console.log('Current User:', { role: me.role, _id: me._id.toString() });
 
-      const users = await User.find(query).select('_id name email phone isApproved declined clinicId createdBy role');
+      const users = await User.find(query).select('_id name email phone photo isApproved declined clinicId createdBy role');
+      const userIds = users.map(u => u._id);
+      const profiles = await AgentProfile.find({ userId: { $in: userIds } });
 
-      // Debug: Log results
-      // console.log('Found users:', users.length);
-      if (users.length > 0) {
-        // console.log('Sample user:', {
-        //   name: users[0].name,
-        //   role: users[0].role,
-        //   clinicId: users[0].clinicId?.toString(),
-        //   createdBy: users[0].createdBy?.toString()
-        // });
-      }
-
-      return res.status(200).json({ success: true, agents: users });
+      return res.status(200).json({ success: true, agents: users, profiles: profiles });
     } catch (err) {
       // console.error('Error fetching users:', err);
       return res.status(500).json({ success: false, message: 'Failed to fetch users', error: err.message });
@@ -390,7 +381,7 @@ export default async function handler(req, res) {
       agent.passwordChangedAt = new Date();
     } else if (action === 'updateProfile') {
       const {
-        name, email, phone, // User fields
+        name, email, phone, photo, // User fields
         agentCode, emergencyPhone, relativePhone, idType, idNumber, idDocumentUrl,
         idDocumentFrontUrl, idDocumentBackUrl,
         passportNumber, passportDocumentUrl, passportDocumentFrontUrl, passportDocumentBackUrl,
@@ -412,6 +403,7 @@ export default async function handler(req, res) {
       if (name) agent.name = name;
       if (email) agent.email = email;
       if (phone !== undefined) agent.phone = phone;
+      if (photo !== undefined) agent.set('photo', clean(photo), { strict: false });
 
       // Update AgentProfile
       let profile = await AgentProfile.findOne({ userId: agent._id });
@@ -429,6 +421,7 @@ export default async function handler(req, res) {
         profile.agentCode = `USR-${agent._id.toString()}`;
       }
 
+      if (photo !== undefined) profile.set('photo', clean(photo), { strict: false });
       if (agentCode !== undefined) profile.agentCode = agentCode;
       if (emergencyPhone !== undefined) profile.emergencyPhone = emergencyPhone;
       if (relativePhone !== undefined) profile.relativePhone = relativePhone;

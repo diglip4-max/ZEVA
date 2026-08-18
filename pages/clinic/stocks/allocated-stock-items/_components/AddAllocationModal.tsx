@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -916,7 +916,7 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
                 {/* Items Table - Similar to GRN modals */}
                 <div className="border border-gray-200 text-gray-500 rounded-lg overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
+                    <table className="min-w-full divide-y divide-border-default">
                       <thead className="bg-gray-800">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">

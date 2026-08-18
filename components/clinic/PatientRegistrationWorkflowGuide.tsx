@@ -59,7 +59,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
             {/* Image Section */}
             <div className="w-full bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6 mb-6">
               <h4 className="text-lg font-bold text-gray-800 mb-4">Patient Registration Form</h4>
-              <div className="aspect-video bg-white rounded-lg border-2 border-blue-200 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
+              <div className="aspect-video bg-transparent dark:bg-slate-800/30 rounded-lg border-2 border-blue-200 flex flex-col items-center justify-center relative overflow-hidden shadow-sm">
                 <img 
                   src="/reg.png" 
                   alt="Patient Registration Form" 
@@ -81,7 +81,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
             </div>
 
             {/* Detailed Explanation */}
-            <div className="bg-white rounded-xl p-6 border-l-4 border-blue-500 shadow-sm space-y-4">
+            <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-blue-500 shadow-sm space-y-4">
               <p className="text-gray-600 leading-relaxed">
                 The Patient Registration form captures essential patient information in a structured workflow, ensuring complete data collection and seamless EMR generation.
               </p>
@@ -177,7 +177,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
               Use powerful filters to quickly find specific patient groups based on their status and membership details.
             </p>
             <div className="grid md:grid-cols-2 gap-4 mt-4">
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+              <div className="bg-transparent dark:bg-slate-800/30 p-4 rounded-lg shadow-sm border border-blue-200">
                 <h4 className="font-bold text-blue-700 mb-2 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" /> Priority Filters
                 </h4>
@@ -188,7 +188,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+              <div className="bg-transparent dark:bg-slate-800/30 p-4 rounded-lg shadow-sm border border-blue-200">
                 <h4 className="font-bold text-blue-700 mb-2 flex items-center gap-2">
                   <Package className="w-4 h-4" /> Membership Filters
                 </h4>
@@ -199,7 +199,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+              <div className="bg-transparent dark:bg-slate-800/30 p-4 rounded-lg shadow-sm border border-blue-200">
                 <h4 className="font-bold text-blue-700 mb-2 flex items-center gap-2">
                   <Calendar className="w-4 h-4" /> Status Filters
                 </h4>
@@ -210,7 +210,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="bg-white p-4 rounded-lg shadow-sm border border-blue-200">
+              <div className="bg-transparent dark:bg-slate-800/30 p-4 rounded-lg shadow-sm border border-blue-200">
                 <h4 className="font-bold text-blue-700 mb-2 flex items-center gap-2">
                   <Shield className="w-4 h-4" /> Insurance Filters
                 </h4>
@@ -237,7 +237,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
               <h3 className="text-xl font-bold text-gray-800 mb-4">
                 Patient Actions Menu
               </h3>
-              <div className="aspect-video bg-white rounded-lg border-2 border-purple-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm">
+              <div className="aspect-video bg-transparent dark:bg-slate-800/30 rounded-lg border-2 border-purple-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm">
                 <img 
                   src="/patient-actions.png" 
                   alt="Patient Actions Menu" 
@@ -356,7 +356,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
               <h3 className="text-xl font-bold text-gray-800 mb-4">
                 Patient Profile Dashboard
               </h3>
-              <div className="aspect-video bg-white rounded-lg border-2 border-teal-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm">
+              <div className="aspect-video bg-transparent dark:bg-slate-800/30 rounded-lg border-2 border-teal-200 flex flex-col items-center justify-center relative overflow-hidden group shadow-sm">
                 <img 
                   src="/profile.png" 
                   alt="Patient Profile View" 
@@ -387,7 +387,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
               <div className="space-y-8">
                 
                 {/* 1. Overview */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-blue-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-blue-500 shadow-sm">
                   <h4 className="font-bold text-blue-800 mb-4 flex items-center gap-2 text-lg">
                     <Info className="w-5 h-5" />
                     1. Overview
@@ -417,7 +417,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 2. Treatments */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-green-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-green-500 shadow-sm">
                   <h4 className="font-bold text-green-800 mb-4 flex items-center gap-2 text-lg">
                     <FileText className="w-5 h-5" />
                     2. Treatments
@@ -447,7 +447,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 3. Billing */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-purple-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-purple-500 shadow-sm">
                   <h4 className="font-bold text-purple-800 mb-4 flex items-center gap-2 text-lg">
                     <CreditCard className="w-5 h-5" />
                     3. Billing
@@ -477,7 +477,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 4. Appointments */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-orange-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-orange-500 shadow-sm">
                   <h4 className="font-bold text-orange-800 mb-4 flex items-center gap-2 text-lg">
                     <Calendar className="w-5 h-5" />
                     4. Appointments
@@ -507,7 +507,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 5. Package & Membership */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-teal-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-teal-500 shadow-sm">
                   <h4 className="font-bold text-teal-800 mb-4 flex items-center gap-2 text-lg">
                     <Package className="w-5 h-5" />
                     5. Package & Membership
@@ -537,7 +537,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 6. Insurance */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-indigo-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-indigo-500 shadow-sm">
                   <h4 className="font-bold text-indigo-800 mb-4 flex items-center gap-2 text-lg">
                     <Shield className="w-5 h-5" />
                     6. Insurance
@@ -567,7 +567,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 7. Media & Documents */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-pink-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-pink-500 shadow-sm">
                   <h4 className="font-bold text-pink-800 mb-4 flex items-center gap-2 text-lg">
                     <ImageIcon className="w-5 h-5" />
                     7. Media & Documents
@@ -597,7 +597,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 8. Communication Log */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-yellow-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-yellow-500 shadow-sm">
                   <h4 className="font-bold text-yellow-800 mb-4 flex items-center gap-2 text-lg">
                     <MessageSquare className="w-5 h-5" />
                     8. Communication Log
@@ -627,7 +627,7 @@ const PatientRegistrationWorkflowGuide: React.FC = () => {
                 </div>
 
                 {/* 9. Advance & Pending Balance */}
-                <div className="bg-white rounded-xl p-6 border-l-4 border-red-500 shadow-sm">
+                <div className="bg-transparent dark:bg-slate-800/30 rounded-xl p-6 border-l-4 border-red-500 shadow-sm">
                   <h4 className="font-bold text-red-800 mb-4 flex items-center gap-2 text-lg">
                     <AlertCircle className="w-5 h-5" />
                     9. Advance & Pending Balance

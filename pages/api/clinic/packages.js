@@ -50,7 +50,23 @@ export default async function handler(req, res) {
         });
       }
 
-      const packages = await Package.find({ clinicId })
+      const { includeExpired } = req.query;
+      const nowDate = new Date();
+      
+      const query = {
+        clinicId,
+        isDeleted: { $ne: true }
+      };
+
+      if (includeExpired !== "true") {
+        query.$or = [
+          { endDate: { $exists: false } },
+          { endDate: null },
+          { endDate: { $gte: nowDate } }
+        ];
+      }
+
+      const packages = await Package.find(query)
         .sort({ createdAt: -1 })
         .lean();
 
@@ -154,6 +170,7 @@ export default async function handler(req, res) {
       const existingPackage = await Package.findOne({
         clinicId,
         name: name.trim(),
+        isDeleted: { $ne: true },
       });
 
       if (existingPackage) {
@@ -276,6 +293,7 @@ export default async function handler(req, res) {
         clinicId,
         name: normalizedName,
         _id: { $ne: packageId },
+        isDeleted: { $ne: true },
       });
 
       if (duplicatePackage) {
@@ -424,8 +442,16 @@ export default async function handler(req, res) {
       }
       // ---------------------------------------------------------------
 
-      await Package.findByIdAndDelete(packageId);
-
+      // Soft delete: set isDeleted to true
+      await Package.updateOne(
+        { _id: packageId },
+        {
+          $set: {
+            isDeleted: true,
+            name: `${pkg.name}`
+          }
+        }
+      );
       return res.status(200).json({
         success: true,
         message: "Package deleted successfully",

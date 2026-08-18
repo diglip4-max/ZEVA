@@ -70,6 +70,7 @@ export default async function handler(req, res) {
         toDate,
         doctorId,
         status,
+        isInvoiced,
         page = 1,
         limit = 10,
       } = req.query;
@@ -131,6 +132,39 @@ export default async function handler(req, res) {
         
         // Add to our query
         query.appointmentId = { $in: matchingAppointmentIds };
+      }
+
+      if (isInvoiced) {
+        const billings = await Billing.find({
+          clinicId,
+          isAdvanceOnly: { $ne: true }
+        }).select("appointmentId").lean();
+
+        const billedAppointmentIds = billings
+          .map(b => b.appointmentId ? b.appointmentId.toString() : null)
+          .filter(Boolean);
+
+        const uniqueBilledIds = [...new Set(billedAppointmentIds)];
+
+        if (isInvoiced === "Invoiced") {
+          if (query.appointmentId) {
+            const currentIn = query.appointmentId.$in || [];
+            query.appointmentId = { $in: currentIn.filter(id => uniqueBilledIds.includes(String(id))) };
+          } else {
+            query.appointmentId = { $in: uniqueBilledIds };
+          }
+        } else if (isInvoiced === "Remaining") {
+          if (query.appointmentId) {
+            const currentIn = query.appointmentId.$in || [];
+            query.appointmentId = { $in: currentIn.filter(id => !uniqueBilledIds.includes(String(id))) };
+          } else {
+            query.$or = [
+              { appointmentId: { $nin: uniqueBilledIds } },
+              { appointmentId: { $exists: false } },
+              { appointmentId: null }
+            ];
+          }
+        }
       }
 
       let patientQuery = {};

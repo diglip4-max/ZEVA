@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,11 +15,47 @@ interface Props {
   headers: HeadersRecord;
 }
 
+type DoctorDetail = {
+  patientId: string;
+  patientName: string;
+  emrNumber: string;
+  service: string;
+  packageName: string;
+  treatmentName: string;
+  invoiceNumber: string;
+  invoicedDate: string;
+  amount: number;
+  paid: number;
+  pending: number;
+  advance: number;
+  advanceUsed: number;
+  claimAmountUsed: number;
+  cashbackWalletUsed: number;
+  pendingUsed: number;
+  pendingClaimUsed: number;
+  packageAmount?: number;
+  selectedTreatments?: Array<{
+    treatmentName: string;
+    price: number;
+    quantity: number;
+    total: number;
+  }>;
+};
+
+type RevenueByDoctorRow = {
+  doctorId: string;
+  name: string;
+  amount: number;
+  details?: DoctorDetail[];
+};
+
 export default function AppointmentReport({ startDate, endDate, headers }: Props) {
   const { currency } = useCurrency();
+  const router = useRouter();
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({ totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 });
-  const [doctorReport, setDoctorReport] = useState<any[]>([]);
+  const [revenueByDoctor, setRevenueByDoctor] = useState<RevenueByDoctorRow[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<RevenueByDoctorRow | null>(null);
   const [doctorFilter, setDoctorFilter] = useState<string>("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("");
   const [doctorOptions, setDoctorOptions] = useState<any[]>([]);
@@ -49,25 +86,41 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
       ...(doctorFilter ? { doctorId: doctorFilter } : {}),
       ...(departmentFilter ? { departmentId: departmentFilter } : {}),
     }).toString();
-    const res = await fetch(`/api/clinic/reports/appointment-stats?${qs}`, { headers });
-    const json = await res.json();
-    if (!res.ok || !json.success) {
+    const [appointmentRes, revenueRes] = await Promise.all([
+      fetch(`/api/clinic/reports/appointment-stats?${qs}`, { headers }),
+      fetch(`/api/clinic/reports/revenue?${qs}`, { headers }),
+    ]);
+    const [appointmentJson, revenueJson] = await Promise.all([
+      appointmentRes.json(),
+      revenueRes.json(),
+    ]);
+
+    if (!appointmentRes.ok || !appointmentJson.success) {
       setLeaderboard([]);
       setSummary({ totalAppointments: 0, completedAppointments: 0, cancelledAppointments: 0, noShowAppointments: 0 });
-      setDoctorReport([]);
       setDoctorOptions([]);
       setDepartmentOptions([]);
+      setStatusCounts([]);
+      setAppointmentsByDept([]);
+      setCancelledAppointments([]);
+      setNoShowAppointments([]);
+    } else {
+      setLeaderboard(appointmentJson.data?.leaderboard || []);
+      setSummary(appointmentJson.data?.summary || {});
+      setDoctorOptions(appointmentJson.data?.filters?.doctors || []);
+      setDepartmentOptions(appointmentJson.data?.filters?.departments || []);
+      setStatusCounts(appointmentJson.data?.statusCounts || []);
+      setAppointmentsByDept(appointmentJson.data?.appointmentsByDept || []);
+      setCancelledAppointments(appointmentJson.data?.cancelledAppointments || []);
+      setNoShowAppointments(appointmentJson.data?.noShowAppointments || []);
+    }
+
+    if (!revenueRes.ok || !revenueJson.success) {
+      setRevenueByDoctor([]);
       return;
     }
-    setLeaderboard(json.data?.leaderboard || []);
-    setSummary(json.data?.summary || {});
-    setDoctorReport(json.data?.doctorReport || []);
-    setDoctorOptions(json.data?.filters?.doctors || []);
-    setDepartmentOptions(json.data?.filters?.departments || []);
-    setStatusCounts(json.data?.statusCounts || []);
-    setAppointmentsByDept(json.data?.appointmentsByDept || []);
-    setCancelledAppointments(json.data?.cancelledAppointments || []);
-    setNoShowAppointments(json.data?.noShowAppointments || []);
+
+    setRevenueByDoctor(revenueJson.data?.revenueByDoctor || []);
   }
 
   const topDoctorsChart = useMemo(
@@ -81,12 +134,19 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
 
   const revenueChart = useMemo(
     () =>
-      (doctorReport || []).map((d: any) => ({
-        name: d.doctorName || "Unknown",
-        revenue: Math.round(d.revenue || 0),
-        appointments: d.totalAppointments || 0,
+      (revenueByDoctor || []).map((d) => ({
+        name: d.name || "Unknown",
+        revenue: Math.round(d.amount || 0),
       })),
-    [doctorReport]
+    [revenueByDoctor]
+  );
+
+  const resolvedDepartmentAppointments = useMemo(
+    () =>
+      (appointmentsByDept || []).filter(
+        (d: any) => d?.departmentId && d?.departmentName
+      ),
+    [appointmentsByDept]
   );
 
   const statusChart = useMemo(
@@ -119,11 +179,10 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
     },
     {
       title: "Doctor Revenue Report",
-      headers: ["Doctor Name", "Total Appointments", `Revenue (${currency})`],
-      data: doctorReport.map(d => ({
-        "Doctor Name": d.doctorName || "Unknown",
-        "Total Appointments": d.totalAppointments || 0,
-        [`Revenue (${currency})`]: Math.round(d.revenue || 0),
+      headers: ["Doctor Name", `Revenue (${currency})`],
+      data: revenueByDoctor.map(d => ({
+        "Doctor Name": d.name || "Unknown",
+        [`Revenue (${currency})`]: Math.round(d.amount || 0),
       })),
     },
     {
@@ -137,8 +196,8 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
     {
       title: "Appointments by Department",
       headers: ["Department Name", "Total Appointments"],
-      data: appointmentsByDept.map(d => ({
-        "Department Name": d.departmentName || "Unassigned",
+      data: resolvedDepartmentAppointments.map(d => ({
+        "Department Name": d.departmentName,
         "Total Appointments": d.count || 0,
       })),
     },
@@ -162,7 +221,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
         "Notes": a.notes || "-",
       })),
     },
-  ], [summary, leaderboard, doctorReport, statusCounts, cancelledAppointments, noShowAppointments]);
+  ], [summary, leaderboard, revenueByDoctor, statusCounts, resolvedDepartmentAppointments, cancelledAppointments, noShowAppointments, currency]);
 
   return (
     <div className="space-y-6">
@@ -246,15 +305,15 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
         </div>
         <div className="w-full" style={{ height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart 
-              data={appointmentsByDept.map((d: any) => ({ name: d.departmentName || "Unassigned", appointments: d.count || 0 }))}
+            <LineChart
+              data={resolvedDepartmentAppointments.map((d: any) => ({ name: d.departmentName, appointments: d.count || 0 }))}
               margin={{ top: 10, right: 10, left: 0, bottom: 40 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
               <YAxis allowDecimals={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
               <Tooltip />
-              <Legend verticalAlign="top" height={36}/>
+              <Legend verticalAlign="top" height={36} />
               <Line type="monotone" dataKey="appointments" stroke="#2D9AA5" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Total Appointments" />
             </LineChart>
           </ResponsiveContainer>
@@ -272,14 +331,14 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
             <div className="text-xs text-gray-500">Completed Appointments</div>
             <div className="text-xl font-semibold">{summary.completedAppointments || 0}</div>
           </div>
-          <div 
+          <div
             className="p-4 border rounded cursor-pointer hover:bg-red-50 transition-colors"
             onClick={() => setIsCancelledSidebarOpen(true)}
           >
             <div className="text-xs text-gray-500">Cancelled Appointments</div>
             <div className="text-xl font-semibold text-red-600">{summary.cancelledAppointments || 0}</div>
           </div>
-          <div 
+          <div
             className="p-4 border rounded cursor-pointer hover:bg-yellow-50 transition-colors"
             onClick={() => setIsNoShowSidebarOpen(true)}
           >
@@ -311,7 +370,7 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <Cell fill="#F59E0B" />
               </Pie>
               <Tooltip />
-              <Legend verticalAlign="bottom" height={36}/>
+              <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -329,8 +388,8 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
                 <XAxis dataKey="name" angle={-30} textAnchor="end" interval={0} height={60} />
                 <YAxis tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : String(value)} />
                 <Tooltip formatter={(v: any) => formatCurrency(Number(v || 0))} />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
+                <Legend verticalAlign="top" height={36} />
+                <Line type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} name={`Revenue (${currency})`} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -339,19 +398,26 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Doctor Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Appointments</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Revenue Generated</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {doctorReport.map((d) => (
+                {revenueByDoctor.map((d) => (
                   <tr key={String(d.doctorId)}>
-                    <td className="px-4 py-2 text-sm">{d.doctorName || "Unknown"}</td>
-                    <td className="px-4 py-2 text-sm">{d.totalAppointments || 0}</td>
-                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(d.revenue || 0)}</td>
+                    <td className="px-4 py-2 text-sm">{d.name || "Unknown"}</td>
+                    <td className="px-4 py-2 text-sm font-medium">{formatCurrency(d.amount || 0)}</td>
+                    <td className="px-4 py-2 text-sm">
+                      <button
+                        onClick={() => setSelectedDoctor(d)}
+                        className="text-blue-600 hover:text-blue-800 font-medium underline"
+                      >
+                        View
+                      </button>
+                    </td>
                   </tr>
                 ))}
-                {!doctorReport.length && (
+                {!revenueByDoctor.length && (
                   <tr>
                     <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>
                       No data for selected filters
@@ -366,33 +432,35 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
 
       {/* Sidebars */}
       <AnimatePresence>
-        {isCancelledSidebarOpen && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 p-6 overflow-y-auto"
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-red-600">Cancelled Appointments</h3>
-              <button onClick={() => setIsCancelledSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              {cancelledAppointments.map((apt, i) => (
-                <div key={i} className="p-4 border rounded-lg bg-red-50">
-                  <p className="font-semibold">{apt.patientName}</p>
-                  <p className="text-sm text-gray-600">Service: {apt.serviceName}</p>
-                  {apt.treatment && <p className="text-sm text-gray-600">Treatment: {apt.treatment}</p>}
-                  {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">Note: {apt.notes}</p>}
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {
+          isCancelledSidebarOpen && (
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 p-6 overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-red-600">Cancelled Appointments</h3>
+                <button onClick={() => setIsCancelledSidebarOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                {cancelledAppointments.map((apt, i) => (
+                  <div key={i} className="p-4 border rounded-lg bg-red-50">
+                    <p className="font-semibold">{apt.patientName}</p>
+                    <p className="text-sm text-gray-600">Service: {apt.serviceName}</p>
+                    {apt.treatment && <p className="text-sm text-gray-600">Treatment: {apt.treatment}</p>}
+                    {apt.notes && <p className="text-xs text-gray-500 mt-1 italic">Note: {apt.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )
+        }
+      </AnimatePresence >
 
       <AnimatePresence>
         {isNoShowSidebarOpen && (
@@ -422,6 +490,136 @@ export default function AppointmentReport({ startDate, endDate, headers }: Props
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal for doctor details */}
+      {selectedDoctor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[80vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Revenue Details - {selectedDoctor.name}
+              </h2>
+              <button
+                onClick={() => setSelectedDoctor(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Patient Name
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      EMR No
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Service/Package
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Invoice #
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Total Amount
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      Paid
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {[...(selectedDoctor.details || [])].sort((a, b) => new Date(b.invoicedDate).getTime() - new Date(a.invoicedDate).getTime()).map((detail, index) => {
+                    return (
+                      <tr key={index}>
+                        <td className="px-4 py-2 text-sm">
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/clinic/patient-profile-view?id=${detail.patientId}`
+                              )
+                            }
+                            className="text-blue-600 hover:text-blue-800 font-medium underline"
+                          >
+                            {detail.patientName?.trim() || "Unknown"}
+                          </button>
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.emrNumber || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.service === "Package" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                Package
+                              </span>
+                              <span>{detail.packageName || "Package"}</span>
+                            </div>
+                          ) : detail.service === "Treatment" ? (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                                Treatment
+                              </span>
+                              <span>{detail.treatmentName || "Treatment"}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                {detail.service || "Service"}
+                              </span>
+                              <span>{detail.treatmentName || detail.service || "Service"}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.invoiceNumber || "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {detail.invoicedDate
+                            ? new Date(detail.invoicedDate).toLocaleDateString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {formatCurrency(detail.amount)}
+                        </td>
+                        <td className="px-4 py-2 text-sm font-medium">
+                          {formatCurrency(detail.paid)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot className="bg-gray-50 sticky bottom-0">
+                  <tr>
+                    <td
+                      className="px-4 py-2 text-sm font-semibold"
+                      colSpan={5}
+                    >
+                      Total
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(
+                        (selectedDoctor.details || []).reduce(
+                          (sum, d) => sum + Number(d.amount || 0),
+                          0
+                        )
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-sm font-semibold">
+                      {formatCurrency(selectedDoctor.amount)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

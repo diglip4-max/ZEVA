@@ -13,85 +13,85 @@ export default async function handler(req, res) {
       .json({ success: false, message: "Method not allowed" });
   }
 
-  await dbConnect();
-  const me = await getUserFromReq(req);
+  try {
+    await dbConnect();
+    const me = await getUserFromReq(req);
 
-  if (!me) {
-    return res.status(401).json({ success: false, message: "Unauthorized: Missing or invalid token" });
-  }
+    if (!me) {
+      return res.status(401).json({ success: false, message: "Unauthorized: Missing or invalid token" });
+    }
 
-  // ✅ Check permissions for creating agents (admin bypasses all checks)
-  if (me.role !== 'admin') {
-    // For clinic role: Check clinic permissions
-    if (me.role === 'clinic') {
-      const clinic = await Clinic.findOne({ owner: me._id });
-      if (clinic) {
-        const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-          clinic._id,
+    // ✅ Check permissions for creating agents (admin bypasses all checks)
+    if (me.role !== 'admin') {
+      // For clinic role: Check clinic permissions
+      if (me.role === 'clinic') {
+        const clinic = await Clinic.findOne({ owner: me._id });
+        if (clinic) {
+          const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
+            clinic._id,
+            "create_agent",
+            "create"
+          );
+          if (!clinicHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: clinicError || "You do not have permission to create agents"
+            });
+          }
+        }
+      }
+      // For agent role (agentToken): Check agent permissions
+      else if (me.role === 'agent') {
+        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+          me._id,
           "create_agent",
           "create"
         );
-        if (!clinicHasPermission) {
+        if (!agentHasPermission) {
           return res.status(403).json({
             success: false,
-            message: clinicError || "You do not have permission to create agents"
+            message: agentError || "You do not have permission to create agents"
+          });
+        }
+      }
+      // For doctorStaff role (userToken): Check agent permissions
+      else if (me.role === 'doctorStaff') {
+        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+          me._id,
+          "create_agent",
+          "create"
+        );
+        if (!agentHasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: agentError || "You do not have permission to create agents"
           });
         }
       }
     }
-    // For agent role (agentToken): Check agent permissions
-    else if (me.role === 'agent') {
-      const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
-        me._id,
-        "create_agent",
-        "create"
-      );
-      if (!agentHasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: agentError || "You do not have permission to create agents"
-        });
-      }
+
+    // Debug: Log who is creating
+    // console.log('CREATE Agent - Current User:', { 
+    //   role: me.role, 
+    //   _id: me._id.toString(),
+    //   email: me.email 
+    // });
+
+    const { name, email, phone, password, role } = req.body;
+    if (!name || !email || !password || !role) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing required fields: name, email, password, and role are required" });
     }
-    // For doctorStaff role (userToken): Check agent permissions
-    else if (me.role === 'doctorStaff') {
-      const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
-        me._id,
-        "create_agent",
-        "create"
-      );
-      if (!agentHasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: agentError || "You do not have permission to create agents"
-        });
-      }
+
+    // Validate role
+    if (!["agent", "doctorStaff"].includes(role)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid role. Allowed roles: agent, doctorStaff" 
+      });
     }
-  }
 
-  // Debug: Log who is creating
-  // console.log('CREATE Agent - Current User:', { 
-  //   role: me.role, 
-  //   _id: me._id.toString(),
-  //   email: me.email 
-  // });
-
-  const { name, email, phone, password, role } = req.body;
-  if (!name || !email || !password || !role) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing required fields: name, email, password, and role are required" });
-  }
-
-  // Validate role
-  if (!["agent", "doctorStaff"].includes(role)) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Invalid role. Allowed roles: agent, doctorStaff" 
-    });
-  }
-
-  try {
     // For agent creation: Allow admin, clinic, doctor, and agent roles
     // For doctorStaff creation: Allow admin, clinic, doctor, agent, and doctorStaff roles (permission checks already done above)
     // console.log('CREATE Agent - Role Check:', { 
@@ -174,23 +174,12 @@ export default async function handler(req, res) {
       clinicId = null;
     }
 
-    // Check if user already exists with this email and role
-    const existingQuery = { email, role };
-    if (role === "agent" && clinicId) {
-      existingQuery.clinicId = clinicId;
-    } else if (role === "agent" && !clinicId) {
-      // For admin-created agents (no clinicId), check for agents with null/undefined clinicId
-      existingQuery.$or = [
-        { clinicId: null },
-        { clinicId: { $exists: false } }
-      ];
-    }
-    
-    const existing = await User.findOne(existingQuery);
+    // Check if user already exists with this email and role (globally due to unique index email_1_role_1)
+    const existing = await User.findOne({ email, role });
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: `${role} with this email already exists${role === "agent" && clinicId ? " for this clinic" : ""}`,
+        message: `${role} with this email already exists`,
       });
     }
 
@@ -256,9 +245,9 @@ export default async function handler(req, res) {
       },
     });
   } catch (err) {
-    // console.error("Error creating user:", err);
+    console.error("Error creating user:", err);
     return res
       .status(500)
-      .json({ success: false, message: "Internal Server Error" });
+      .json({ success: false, message: err.message || "Internal Server Error" });
   }
 }

@@ -50,7 +50,7 @@ export default function GetStartedCTA() {
             </ul>
 
 
-            <button 
+            <button
               onClick={handleCreateAccount}
               className="mt-6 inline-flex font-semibold items-center gap-3 bg-yellow-400 hover:bg-yellow-500 transition text-white font-medium px-8 py-4 rounded-xl cursor-pointer"
             >
@@ -62,7 +62,7 @@ export default function GetStartedCTA() {
           {/* RIGHT STATS */}
           <div className="flex-1 grid grid-cols-1 gap-6">
             {[
-              { value: "₹0", label: "Free Forever" },
+              { value: "0", label: "Free Forever" },
               { value: "2 min", label: "Setup Time" },
               { value: "2M+", label: "Users Trust Us" },
             ].map((stat) => (

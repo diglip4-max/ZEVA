@@ -77,11 +77,13 @@ export default function Home() {
     const normalizeImagePath = (imagePath) => {
         if (!imagePath) return '';
        
+        const isWindowsDrivePath = (str) => /(?:^|[^A-Za-z])[A-Za-z]:[\\/]/.test(str);
+
         // Handle malformed URLs that have localhost concatenated with file path
         // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
-        if (imagePath.includes('localhost') && /[A-Za-z]:/.test(imagePath)) {
+        if (imagePath.includes('localhost') && isWindowsDrivePath(imagePath)) {
             // Find the drive letter (C:, D:, etc.) and extract from there
-            const driveMatch = imagePath.match(/([A-Za-z]:.*)/);
+            const driveMatch = imagePath.match(/(?:^|[^A-Za-z])([A-Za-z]:.*)/);
             if (driveMatch) {
                 imagePath = driveMatch[1];
             }
@@ -99,7 +101,7 @@ export default function Home() {
         }
        
         // If it's a Windows absolute path (C:/, D:/, etc.), extract the relative part
-        if (/^[A-Za-z]:/.test(imagePath)) {
+        if (isWindowsDrivePath(imagePath)) {
             // Find the uploads directory and extract everything from there
             const uploadsIndex = imagePath.indexOf('/uploads/');
             if (uploadsIndex !== -1) {

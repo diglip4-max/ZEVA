@@ -31,7 +31,10 @@ export const supportedCurrencies = [
  * Format an amount with the given currency using Intl.NumberFormat.
  * Falls back to a simple symbol + amount if Intl is not supported.
  */
-export const formatCurrency = (amount: number | string, currency: string = "INR"): string => {
+export const formatCurrency = (
+  amount: number | string,
+  currency: string = "INR",
+): string => {
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
   if (isNaN(num)) return `${currencySymbols[currency] ?? currency} 0`;
   try {
@@ -52,4 +55,20 @@ export const formatCurrency = (amount: number | string, currency: string = "INR"
  */
 export const getCurrencySymbol = (currency: string = "INR"): string => {
   return currencySymbols[currency] ?? currency;
+};
+
+export const formatMoney = (
+  n: number | undefined,
+  currency: string = "INR",
+): string => {
+  const currencySymbol = getCurrencySymbol(currency);
+  const amount = Number(n) || 0;
+  const isNegative = amount < 0;
+  const absoluteAmount = Math.abs(amount);
+
+  const formatted = absoluteAmount.toLocaleString("en-IN");
+
+  return isNegative
+    ? `-${currencySymbol} ${formatted}`
+    : `${currencySymbol} ${formatted}`;
 };

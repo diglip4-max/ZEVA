@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+﻿import React, { useEffect, useMemo, useState, useRef } from "react";
 import { Pencil, X, Search, ChevronDown } from "lucide-react";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
@@ -838,10 +838,10 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                   No GRNs found for this branch
                 </div>
               ) : (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-border-default rounded-lg overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-border-default">
+                      <thead className="bg-bg-surface dark:bg-opacity-50">
                         <tr>
                           <th className="px-4 py-3 text-left">
                             <input
@@ -886,7 +886,7 @@ const EditPurchaseInvoiceModal: React.FC<Props> = ({
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-border-default">
                         {grns.map((grn) => {
                           console.log({ data });
                           let total = 0;

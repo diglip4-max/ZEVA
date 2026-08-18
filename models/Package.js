@@ -86,6 +86,10 @@ const PackageSchema = new mongoose.Schema(
     endDate: {
       type: Date,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

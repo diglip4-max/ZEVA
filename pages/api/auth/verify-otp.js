@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   if (!phoneValid && !emailValid) {
     return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
   }
-  const payload = { userId: user._id, name: user.name, email: user.email, role: user.role };
+  const payload = { userId: user._id, name: user.name, email: user.email, role: user.role, photo: user.photo };
   const token = jwt.sign(payload, process.env.JWT_SECRET);
   user.otpCode = null;
   user.otpExpires = null;
@@ -28,5 +28,5 @@ export default async function handler(req, res) {
   user.otpExpiresEmail = null;
   await user.save();
   const tokenKey = user.role === "agent" ? "agentToken" : "userToken";
-  return res.status(200).json({ success: true, token, tokenKey, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+  return res.status(200).json({ success: true, token, tokenKey, user: { id: user._id, name: user.name, email: user.email, role: user.role, photo: user.photo } });
 }

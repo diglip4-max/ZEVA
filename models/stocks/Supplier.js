@@ -129,8 +129,5 @@ SupplierSchema.pre("save", async function (next) {
 });
 
 // 🔥 Important fix for Next.js hot-reload
-if (mongoose.models.Supplier) {
-  delete mongoose.models.Supplier;
-}
-
-export default mongoose.model("Supplier", SupplierSchema);
+export default mongoose.models.Supplier ||
+  mongoose.model("Supplier", SupplierSchema);

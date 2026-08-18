@@ -1,6 +1,8 @@
 //api/pettycash/getpettyCash.js
 import dbConnect from "../../../lib/database";
 import PettyCash from "../../../models/PettyCash";
+import PettyCashAllocation from "../../../models/PettyCashAllocation";
+import PettyCashExpense from "../../../models/PettyCashExpense";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
@@ -21,8 +23,8 @@ export default async function handler(req, res) {
       try {
         const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
         if (clinicError || !clinicId) {
-          return res.status(403).json({ 
-            message: clinicError || "Unable to determine clinic access" 
+          return res.status(403).json({
+            message: clinicError || "Unable to determine clinic access"
           });
         }
 
@@ -39,34 +41,48 @@ export default async function handler(req, res) {
           });
         }
       } catch (permErr) {
-        // console.error("Permission check error:", permErr);
         return res.status(500).json({ message: "Error checking permissions" });
       }
     }
 
     const staffId = user._id.toString();
-
     const search = req.query.search ? req.query.search.trim() : "";
 
     const filter = {
       staffId,
       ...(search
         ? {
-            $or: [
-              { patientName: { $regex: search, $options: "i" } },
-              { patientEmail: { $regex: search, $options: "i" } },
-            ],
-          }
+          $or: [
+            { patientName: { $regex: search, $options: "i" } },
+            { patientEmail: { $regex: search, $options: "i" } },
+          ],
+        }
         : {}),
     };
 
     const pettyCashList = await PettyCash.find(filter)
       .sort({ createdAt: -1 })
-      .lean();
+      .lean({ getters: true });
+
+    // Populate allocatedAmounts and expenses for each parent record
+    for (const record of pettyCashList) {
+      record.allocatedAmounts = await PettyCashAllocation.find({
+        pettyCashId: record._id,
+        isVoided: false,
+      })
+        .sort({ date: -1 })
+        .lean({ getters: true });
+
+      record.expenses = await PettyCashExpense.find({
+        pettyCashId: record._id,
+        isVoided: false,
+      })
+        .sort({ date: -1 })
+        .lean({ getters: true });
+    }
 
     res.status(200).json({ pettyCashList });
   } catch (error) {
-    // console.error("Error fetching petty cash:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 }

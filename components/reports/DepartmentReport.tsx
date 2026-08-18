@@ -358,16 +358,16 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Service Name
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Total Bookings
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Total Revenue
                 </th>
-                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 sm:px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap dark:text-gray-800">
                   Average Price
                 </th>
               </tr>
@@ -375,15 +375,15 @@ export default function DepartmentReport({ startDate, endDate, headers }: Props)
             <tbody className="bg-white divide-y divide-gray-100">
               {services.map((s) => (
                 <tr key={s.serviceName}>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[150px] sm:max-w-none truncate">{s.serviceName}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{s.totalBookings}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap">{formatCurrency(s.totalRevenue)}</td>
-                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap">{formatCurrency(s.averagePrice)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-800 max-w-[150px] sm:max-w-none truncate dark:text-gray-700">{s.serviceName}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap text-gray-900 dark:text-gray-900">{s.totalBookings}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium whitespace-nowrap text-gray-900 dark:text-gray-900">{formatCurrency(s.totalRevenue)}</td>
+                  <td className="px-3 sm:px-4 py-2 text-xs sm:text-sm whitespace-nowrap text-gray-900 dark:text-gray-900">{formatCurrency(s.averagePrice)}</td>
                 </tr>
               ))}
               {!services.length && (
                 <tr>
-                  <td className="px-4 py-4 text-xs sm:text-sm text-gray-500 text-center" colSpan={4}>
+                  <td className="px-4 py-4 text-xs sm:text-sm text-gray-500 text-center dark:text-gray-700" colSpan={4}>
                     {selectedDeptId === "all"
                       ? "No services found for the selected date range"
                       : "Select a department to view service performance"}
