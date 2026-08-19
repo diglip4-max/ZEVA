@@ -82,6 +82,7 @@ export default function ClinicLogin() {
       console.log("data.user:", data.user);
       console.log("data.clinic:", data.clinic);
       localStorage.setItem("clinicToken", data.token);
+      window.dispatchEvent(new Event("authTokenChanged"));
       
       // Decode JWT token to get userId (ownerId)
       let userIdFromToken = null;

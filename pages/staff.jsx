@@ -376,12 +376,14 @@ export default function StaffDoctorLogin() {
         localStorage.setItem("agentToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("userToken");
+        window.dispatchEvent(new Event("authTokenChanged"));
         setForm({ email: "", password: "" });
         router.push("/staff/dashboard");
       } else {
         localStorage.setItem("userToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("agentToken");
+        window.dispatchEvent(new Event("authTokenChanged"));
         setForm({ email: "", password: "" });
         router.push("/staff/dashboard");
       }
@@ -410,10 +412,12 @@ export default function StaffDoctorLogin() {
         localStorage.setItem("agentToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("userToken");
+        window.dispatchEvent(new Event("authTokenChanged"));
       } else {
         localStorage.setItem("userToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("agentToken");
+        window.dispatchEvent(new Event("authTokenChanged"));
       }
       
       setForm({ email: "", password: "" });

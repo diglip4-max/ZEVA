@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useClinicTheme } from "@/context/ClinicThemeContext";
 import RevenueOpportunityDetailsModal from "./RevenueOpportunityDetailsModal";
 
 const DEFAULT_DATA = {
@@ -55,6 +56,8 @@ const formatLongDate = (iso) => {
 
 export default function RevenueOpportunity({ selectedDate }) {
   const { currency } = useCurrency();
+  const { theme } = useClinicTheme();
+  const currencySymbol = getCurrencySymbol(currency || "AED");
   const [data, setData] = useState(DEFAULT_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -182,18 +185,16 @@ export default function RevenueOpportunity({ selectedDate }) {
               </div>
               {!isInitialLoading && totalPotential > 0 && (
                 <div
-                  className={`inline-flex items-center px-3.5 py-1.5 rounded-full ${
-                    isPositiveChange
+                  className={`inline-flex items-center px-3.5 py-1.5 rounded-full ${isPositiveChange
                       ? "bg-emerald-100 dark:bg-emerald-500/15"
                       : "bg-red-100 dark:bg-red-500/15"
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`font-bold text-lg ${
-                      isPositiveChange
+                    className={`font-bold text-lg ${isPositiveChange
                         ? "text-emerald-700 dark:text-emerald-400"
                         : "text-red-700 dark:text-red-400"
-                    }`}
+                      }`}
                   >
                     {isPositiveChange ? "+" : ""}
                     {Number(percentChange || 0).toFixed(0)}% {vsLabel}
@@ -223,8 +224,8 @@ export default function RevenueOpportunity({ selectedDate }) {
               {totalPotential > 0
                 ? `${Math.round(progressPercent)}% of potential`
                 : isToday
-                ? "Awaiting today's data"
-                : "No data for the selected date"}
+                  ? "Awaiting today's data"
+                  : "No data for the selected date"}
             </p>
           </div>
         </div>

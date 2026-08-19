@@ -9,7 +9,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check, Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin
+  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -4476,13 +4476,13 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               </div>
 
               {/* Add Payment Button — teal gradient, opens Advance & Pending tab */}
-              <button
+              {/* <button
                 onClick={() => setActiveTab('advance')}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
 
                 {getCurrencySymbol(currency)} Add Payment
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -11571,6 +11571,44 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                       <p className="text-[10px] text-emerald-700 uppercase font-bold">Cashback Earned</p>
                       <p className="text-sm font-bold text-emerald-800">{getCurrencySymbol(currency)}{selectedPaymentHistoryBilling.cashbackEarned}</p>
                     </div>
+                  </div>
+                )}
+
+                {/* Free Sessions Info */}
+                {(selectedPaymentHistoryBilling.usedFreeSessionCount > 0 || selectedPaymentHistoryBilling.freeOfferSessionCount > 0) && (
+                  <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1.5 bg-violet-100 rounded-full">
+                        <Gift className="w-4 h-4 text-violet-700" />
+                      </div>
+                      <p className="text-[10px] text-violet-700 uppercase font-bold">Free Sessions (Offer)</p>
+                    </div>
+                    {/* Used Free Sessions */}
+                    {selectedPaymentHistoryBilling.usedFreeSessionCount > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[9px] text-red-600 font-bold uppercase mb-1">Used ({selectedPaymentHistoryBilling.usedFreeSessionCount})</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(selectedPaymentHistoryBilling.usedFreeSessions || []).map((session: string, idx: number) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-700 text-[9px] rounded-full border border-red-200 font-medium">
+                              ✓ {session}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Earned Free Sessions */}
+                    {selectedPaymentHistoryBilling.freeOfferSessionCount > 0 && (
+                      <div>
+                        <p className="text-[9px] text-green-600 font-bold uppercase mb-1">Earned ({selectedPaymentHistoryBilling.freeOfferSessionCount})</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(selectedPaymentHistoryBilling.offerFreeSession || []).map((session: string, idx: number) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-0.5 bg-green-100 text-green-700 text-[9px] rounded-full border border-green-200 font-medium">
+                              + {session}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -7,61 +7,85 @@ import {
   checkClinicPermission,
 } from "../lead-ms/permissions-helper";
 
+// ── Constants ────────────────────────────────────────────────────────────────
+const ALLOWED_ROLES = new Set([
+  "clinic",
+  "doctor",
+  "agent",
+  "doctorStaff",
+  "staff",
+  "admin",
+]);
+
+const MODULE_KEY = "Clinic_services_setup";
+
+// Roles that bypass permission checks (agent/doctorStaff need read for Smart Recommendations)
+const READ_BYPASS_ROLES = new Set(["agent", "doctorStaff"]);
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const sendError = (res, status, message, extra = {}) => {
+  return res.status(status).json({ success: false, message, ...extra });
+};
+
+const slugify = (text = "") =>
+  String(text)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const parsePrice = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) && num >= 0 ? num : null;
+};
+
+const parseDuration = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const num = parseInt(value, 10);
+  return Number.isFinite(num) && num >= 5 ? num : null;
+};
+
+const isDuplicateKeyError = (error) =>
+  error?.code === 11000 ||
+  (error?.writeErrors &&
+    Array.isArray(error.writeErrors) &&
+    error.writeErrors.some((w) => w.code === 11000));
+
+// ── Handler ──────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   await dbConnect();
-
-  const slugify = (text = "") =>
-    String(text)
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-");
 
   let user;
   try {
     user = await getUserFromReq(req);
     if (!user) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return sendError(res, 401, "Unauthorized");
     }
-    if (
-      !["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(
-        user.role,
-      )
-    ) {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    if (!ALLOWED_ROLES.has(user.role)) {
+      return sendError(res, 403, "Access denied");
     }
   } catch {
-    return res.status(401).json({ success: false, message: "Invalid token" });
+    return sendError(res, 401, "Invalid token");
   }
 
   const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
   if (clinicError || (!clinicId && user.role !== "admin")) {
-    return res.status(403).json({
-      success: false,
-      message: clinicError || "Unable to determine clinic access",
-    });
+    return sendError(res, 403, clinicError || "Unable to determine clinic access");
   }
 
-  const moduleKey = "Clinic_services_setup";
-
+  // ── GET ──────────────────────────────────────────────────────────────────
   if (req.method === "GET") {
     try {
-      // ✅ Special bypass for agent/doctorStaff to read services (required for Smart Recommendations)
-      if (
-        user.role !== "admin" &&
-        !["agent", "doctorStaff"].includes(user.role)
-      ) {
+      if (user.role !== "admin" && !READ_BYPASS_ROLES.has(user.role)) {
         const { hasPermission, error: permError } = await checkClinicPermission(
           clinicId,
-          moduleKey,
+          MODULE_KEY,
           "read",
         );
         if (!hasPermission) {
-          return res.status(403).json({
-            success: false,
-            message: permError || "You do not have permission to view services",
-          });
+          return sendError(res, 403, permError || "You do not have permission to view services");
         }
       }
 
@@ -70,37 +94,35 @@ export default async function handler(req, res) {
       if (departmentId) {
         criteria.departmentId = departmentId;
       }
+
       const services = await Service.find(criteria)
-        .populate({
-          path: "clinicId",
-          select: "_id name address",
-        })
+        .select(
+          "_id clinicId departmentId name serviceSlug price clinicPrice durationMinutes isActive createdAt updatedAt",
+        )
         .populate({
           path: "departmentId",
           select: "_id name",
         })
         .sort({ createdAt: -1 })
         .lean();
+
       return res.status(200).json({ success: true, services });
     } catch (error) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to fetch services" });
+      console.error("[services GET]", error);
+      return sendError(res, 500, "Failed to fetch services");
     }
   }
 
+  // ── POST ─────────────────────────────────────────────────────────────────
   if (req.method === "POST") {
     try {
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        moduleKey,
+        MODULE_KEY,
         "create",
       );
       if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to create services",
-        });
+        return sendError(res, 403, permError || "You do not have permission to create services");
       }
 
       const {
@@ -113,46 +135,42 @@ export default async function handler(req, res) {
         items,
       } = req.body;
 
-      // Batch create path
+      // ── Batch create path ──────────────────────────────────────────────
       if (Array.isArray(items) && items.length > 0) {
         if (!departmentId) {
-          return res.status(400).json({
-            success: false,
-            message: "Department is required for batch service creation",
-          });
+          return sendError(res, 400, "Department is required for batch service creation");
         }
+
         const docs = [];
+        const seenNames = new Set();
+
         for (const it of items) {
           const n = (it?.name || "").trim();
           if (!n) {
-            return res
-              .status(400)
-              .json({ success: false, message: "Each item must have a name" });
+            return sendError(res, 400, "Each item must have a name");
           }
-          const p = parseFloat(it?.price);
-          if (isNaN(p) || p < 0) {
-            return res.status(400).json({
-              success: false,
-              message: `Invalid price for service "${n}"`,
-            });
+
+          const normalizedName = n.toLowerCase();
+          if (seenNames.has(normalizedName)) {
+            return sendError(res, 400, `Duplicate service "${n}" in request`);
           }
-          const d = parseInt(it?.durationMinutes);
-          if (isNaN(d) || d < 5) {
-            return res.status(400).json({
-              success: false,
-              message: `Invalid duration for service "${n}"`,
-            });
+          seenNames.add(normalizedName);
+
+          const p = parsePrice(it?.price);
+          if (p === null) {
+            return sendError(res, 400, `Invalid price for service "${n}"`);
           }
-          const cPrice =
-            it?.clinicPrice === undefined || it?.clinicPrice === null
-              ? null
-              : parseFloat(it?.clinicPrice);
-          if (cPrice !== null && (isNaN(cPrice) || cPrice < 0)) {
-            return res.status(400).json({
-              success: false,
-              message: `Invalid clinic price for service "${n}"`,
-            });
+
+          const d = parseDuration(it?.durationMinutes);
+          if (d === null) {
+            return sendError(res, 400, `Invalid duration for service "${n}"`);
           }
+
+          const cPrice = parsePrice(it?.clinicPrice);
+          if (it?.clinicPrice !== undefined && it?.clinicPrice !== null && it?.clinicPrice !== "" && cPrice === null) {
+            return sendError(res, 400, `Invalid clinic price for service "${n}"`);
+          }
+
           docs.push({
             clinicId,
             departmentId,
@@ -165,6 +183,7 @@ export default async function handler(req, res) {
             isActive: true,
           });
         }
+
         try {
           const inserted = await Service.insertMany(docs, { ordered: false });
           return res.status(201).json({
@@ -174,76 +193,45 @@ export default async function handler(req, res) {
           });
         } catch (e) {
           if (e?.writeErrors && Array.isArray(e.writeErrors)) {
-            const dupCount = e.writeErrors.filter(
-              (w) => w.code === 11000,
-            ).length;
+            const dupCount = e.writeErrors.filter((w) => w.code === 11000).length;
             const otherErrors = e.writeErrors.length - dupCount;
             const parts = [];
             if (dupCount) parts.push(`${dupCount} duplicate name(s) skipped`);
-            if (otherErrors)
-              parts.push(`${otherErrors} invalid record(s) skipped`);
+            if (otherErrors) parts.push(`${otherErrors} invalid record(s) skipped`);
             return res.status(201).json({
               success: true,
               message: `Services created with partial success (${parts.join(", ")})`,
             });
           }
-          if (e.code === 11000) {
-            return res.status(400).json({
-              success: false,
-              message: "One or more services already exist for this department",
-            });
+          if (isDuplicateKeyError(e)) {
+            return sendError(res, 409, "One or more services already exist for this department");
           }
-          return res
-            .status(500)
-            .json({ success: false, message: "Failed to create services" });
+          console.error("[services POST batch]", e);
+          return sendError(res, 500, "Failed to create services");
         }
       }
 
-      // Single create path
+      // ── Single create path ─────────────────────────────────────────────
       if (!name || !name.trim()) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Service name is required" });
-      }
-      const priceNum = parseFloat(price);
-      if (isNaN(priceNum) || priceNum < 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Valid price is required" });
-      }
-      const durationNum = parseInt(durationMinutes);
-      if (isNaN(durationNum) || durationNum < 5) {
-        return res.status(400).json({
-          success: false,
-          message: "Valid duration (min 5) is required",
-        });
-      }
-      const clinicPriceNum =
-        clinicPrice === undefined || clinicPrice === null
-          ? null
-          : parseFloat(clinicPrice);
-      if (
-        clinicPriceNum !== null &&
-        (isNaN(clinicPriceNum) || clinicPriceNum < 0)
-      ) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Valid clinic price is required" });
+        return sendError(res, 400, "Service name is required");
       }
 
-      const exists = await Service.findOne({
-        clinicId,
-        departmentId: departmentId || null,
-        name: name.trim(),
-        isDeleted: { $ne: true },
-      });
-      if (exists) {
-        return res.status(400).json({
-          success: false,
-          message: "A service with this name already exists in this department",
-        });
+      const priceNum = parsePrice(price);
+      if (priceNum === null) {
+        return sendError(res, 400, "Valid price is required");
       }
 
+      const durationNum = parseDuration(durationMinutes);
+      if (durationNum === null) {
+        return sendError(res, 400, "Valid duration (min 5) is required");
+      }
+
+      const clinicPriceNum = parsePrice(clinicPrice);
+      if (clinicPrice !== undefined && clinicPrice !== null && clinicPrice !== "" && clinicPriceNum === null) {
+        return sendError(res, 400, "Valid clinic price is required");
+      }
+
+      // No pre-check findOne — unique index enforces this atomically
       const service = await Service.create({
         clinicId,
         departmentId: departmentId || null,
@@ -256,40 +244,33 @@ export default async function handler(req, res) {
         isActive: true,
       });
 
-      return res
-        .status(201)
-        .json({ success: true, message: "Service created", service });
+      return res.status(201).json({ success: true, message: "Service created", service });
     } catch (error) {
-      if (error.code === 11000) {
-        return res.status(400).json({
-          success: false,
-          message: "A service with this name already exists in this department",
-        });
+      if (isDuplicateKeyError(error)) {
+        return sendError(
+          res,
+          409,
+          "A service with this name or slug already exists in this department",
+        );
       }
       if (error.name === "ValidationError") {
-        return res.status(400).json({
-          success: false,
-          message: error.message || "Validation error",
-        });
+        return sendError(res, 400, error.message || "Validation error");
       }
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to create service" });
+      console.error("[services POST]", error);
+      return sendError(res, 500, "Failed to create service");
     }
   }
 
+  // ── PUT ──────────────────────────────────────────────────────────────────
   if (req.method === "PUT") {
     try {
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        moduleKey,
+        MODULE_KEY,
         "update",
       );
       if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to update services",
-        });
+        return sendError(res, 403, permError || "You do not have permission to update services");
       }
 
       const {
@@ -302,158 +283,114 @@ export default async function handler(req, res) {
         departmentId,
         clinicPrice,
       } = req.body;
+
       if (!serviceId) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Service ID is required" });
+        return sendError(res, 400, "Service ID is required");
       }
       if (!name || !name.trim()) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Service name is required" });
-      }
-      const priceNum = parseFloat(price);
-      if (isNaN(priceNum) || priceNum < 0) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Valid price is required" });
-      }
-      const durationNum = parseInt(durationMinutes);
-      if (isNaN(durationNum) || durationNum < 5) {
-        return res.status(400).json({
-          success: false,
-          message: "Valid duration (min 5) is required",
-        });
-      }
-      const clinicPriceNum =
-        clinicPrice === undefined || clinicPrice === null
-          ? null
-          : parseFloat(clinicPrice);
-      if (
-        clinicPriceNum !== null &&
-        (isNaN(clinicPriceNum) || clinicPriceNum < 0)
-      ) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Valid clinic price is required" });
+        return sendError(res, 400, "Service name is required");
       }
 
-      const service = await Service.findOne({ _id: serviceId, clinicId });
-      if (!service) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Service not found" });
+      const priceNum = parsePrice(price);
+      if (priceNum === null) {
+        return sendError(res, 400, "Valid price is required");
       }
-      const duplicate = await Service.findOne({
-        clinicId,
+
+      const durationNum = parseDuration(durationMinutes);
+      if (durationNum === null) {
+        return sendError(res, 400, "Valid duration (min 5) is required");
+      }
+
+      const clinicPriceNum = parsePrice(clinicPrice);
+      if (clinicPrice !== undefined && clinicPrice !== null && clinicPrice !== "" && clinicPriceNum === null) {
+        return sendError(res, 400, "Valid clinic price is required");
+      }
+
+      const update = {
         name: name.trim(),
-        departmentId: departmentId ?? service.departmentId ?? null,
-        _id: { $ne: serviceId },
-        isDeleted: { $ne: true },
-      });
-      if (duplicate) {
-        return res.status(400).json({
-          success: false,
-          message: "Another service with this name exists in this department",
-        });
-      }
+        serviceSlug: (serviceSlug && serviceSlug.trim()) || slugify(name),
+        price: priceNum,
+        clinicPrice: clinicPriceNum,
+        durationMinutes: durationNum,
+      };
 
-      service.name = name.trim();
-      service.serviceSlug =
-        (serviceSlug && serviceSlug.trim()) || slugify(name);
-      service.price = priceNum;
-      service.clinicPrice = clinicPriceNum;
       if (departmentId !== undefined) {
-        service.departmentId = departmentId || null;
+        update.departmentId = departmentId || null;
       }
-      service.durationMinutes = durationNum;
       if (typeof isActive === "boolean") {
-        service.isActive = isActive;
+        update.isActive = isActive;
       }
-      await service.save();
 
-      return res
-        .status(200)
-        .json({ success: true, message: "Service updated", service });
+      // Single atomic operation replaces: findOne → duplicate findOne → save
+      const service = await Service.findOneAndUpdate(
+        { _id: serviceId, clinicId, isDeleted: { $ne: true } },
+        { $set: update },
+        { new: true, runValidators: true },
+      ).lean();
+
+      if (!service) {
+        return sendError(res, 404, "Service not found");
+      }
+
+      return res.status(200).json({ success: true, message: "Service updated", service });
     } catch (error) {
-      console.error("[services PUT] Error updating service:", error);
-      if (error.code === 11000) {
-        return res.status(400).json({
-          success: false,
-          message: "Another service with this name or slug exists in this department",
-        });
+      if (isDuplicateKeyError(error)) {
+        return sendError(
+          res,
+          409,
+          "Another service with this name or slug exists in this department",
+        );
       }
       if (error.name === "ValidationError") {
         const msgs = Object.values(error.errors || {})
           .map((e) => e.message)
           .join(", ");
-        return res.status(400).json({
-          success: false,
-          message: msgs || error.message || "Validation error",
-        });
+        return sendError(res, 400, msgs || error.message || "Validation error");
       }
       if (error.name === "CastError") {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid value for field: ${error.path}`,
-        });
+        return sendError(res, 400, `Invalid value for field: ${error.path}`);
       }
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to update service", error: error.message });
+      console.error("[services PUT]", error);
+      return sendError(res, 500, "Internal server error");
     }
   }
 
+  // ── DELETE ───────────────────────────────────────────────────────────────
   if (req.method === "DELETE") {
     try {
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        moduleKey,
+        MODULE_KEY,
         "delete",
       );
       if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to delete services",
-        });
+        return sendError(res, 403, permError || "You do not have permission to delete services");
       }
 
       const { serviceId } = req.query;
       if (!serviceId) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Service ID is required" });
+        return sendError(res, 400, "Service ID is required");
       }
 
-      const service = await Service.findOne({ _id: serviceId, clinicId });
-      if (!service) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Service not found" });
+      // Atomic find + soft-delete in a single operation
+      const deleted = await Service.findOneAndUpdate(
+        { _id: serviceId, clinicId, isDeleted: { $ne: true } },
+        { $set: { isDeleted: true } },
+        { new: true },
+      ).lean();
+
+      if (!deleted) {
+        return sendError(res, 404, "Service not found");
       }
 
-      // Soft delete: set isDeleted to true
-      await Service.updateOne(
-        { _id: serviceId },
-        {
-          $set: {
-            isDeleted: true,
-            name: `${service.name}`
-          }
-        }
-      );
-      return res
-        .status(200)
-        .json({ success: true, message: "Service deleted" });
+      return res.status(200).json({ success: true, message: "Service deleted" });
     } catch (error) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to delete service" });
+      console.error("[services DELETE]", error);
+      return sendError(res, 500, "Failed to delete service");
     }
   }
 
   res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
-  return res
-    .status(405)
-    .json({ success: false, message: "Method not allowed" });
+  return sendError(res, 405, "Method not allowed");
 }
+

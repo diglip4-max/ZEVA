@@ -57,13 +57,15 @@ import { getUserFromReq } from "../lead-ms/auth";
 
 const NON_REVENUE_STATUSES = ["Cancelled", "Rejected", "No Show"];
 const NON_EXPIRED_PACKAGE_STATUSES = ["Cancelled"];
+// For slot recovery: only Cancelled and Rescheduled appointments leave the slot open
+const SLOT_OPEN_STATUSES = ["Cancelled", "Rescheduled"];
 
 const FOLLOWUP_STATUS = "Follow-up";
 const HOT_LEAD_SEGMENT_REGEX = /hot\s*lead/i;
 
-// Mirrors the appointment page's calendar slot generation. 30-minute
+// Mirrors the appointment page's calendar slot generation. 15-minute
 // increments between openingTime and closingTime (24h "HH:MM" strings).
-const SLOT_INTERVAL_MINUTES = 30;
+const SLOT_INTERVAL_MINUTES = 15;
 
 /** Convert a 12-hour "HH:MM AM/PM" string to a 24-hour "HH:MM" string. */
 function convert12HourTo24(t) {
@@ -429,7 +431,7 @@ export default async function handler(req, res) {
       //   1. Pull the clinic's weekly `timings` to get the opening /
       //      closing time for the target day-of-week.
       //   2. Generate SLOT_INTERVAL_MINUTES-step slots from opening
-      //      to closing (the same 30-min rows the calendar shows).
+      //      to closing (the same 15-min rows the calendar shows).
       //   3. For each (doctor, slot), subtract it if there's an active
       //      appointment OR an active BlockedSlot record.
       //
@@ -448,13 +450,14 @@ export default async function handler(req, res) {
       // 5g-2. Every active appointment on the target date that is
       // bound to a doctor column. We only need doctorId + fromTime;
       // the calendar slot is a (doctor, fromTime) pair.
+      // Only Cancelled and Rescheduled appointments leave the slot open.
       Appointment.find({
         clinicId: clinicObjectId,
         startDate: { $gte: startOfTarget, $lte: endOfTarget },
         doctorId: { $exists: true, $ne: null },
         fromTime: { $exists: true, $nin: ["", null] },
         ...(isDoctorScoped ? { doctorId: me._id } : {}),
-        status: { $nin: NON_REVENUE_STATUSES },
+        status: { $nin: SLOT_OPEN_STATUSES },
       })
         .select("doctorId fromTime")
         .lean(),

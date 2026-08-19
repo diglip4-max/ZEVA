@@ -318,14 +318,16 @@ export const getAuthHeaders = () => {
   let token = null;
 
   if (pathname?.includes("/clinic")) {
-    token = localStorage.getItem("clinicToken");
+    token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
   } else if (pathname?.includes("/staff") || pathname?.includes("/agent")) {
     token =
-      localStorage.getItem("agentToken") || localStorage.getItem("staffToken");
+      localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") ||
+      localStorage.getItem("staffToken") || sessionStorage.getItem("staffToken") ||
+      localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
   } else if (pathname?.includes("/doctor")) {
-    token = localStorage.getItem("doctorToken");
+    token = localStorage.getItem("doctorToken") || sessionStorage.getItem("doctorToken");
   } else {
-    token = localStorage.getItem("userToken");
+    token = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
   }
 
   if (!token) {

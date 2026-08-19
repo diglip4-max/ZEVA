@@ -40,6 +40,9 @@ const getStoredToken = () => {
   return null;
 };
 
+
+
+
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, 3000);
