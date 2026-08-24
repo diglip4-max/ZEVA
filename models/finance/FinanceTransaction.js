@@ -13,6 +13,7 @@ const FinanceTransactionSchema = new Schema(
 
     category: String,
     supplierId: { type: Types.ObjectId, ref: "Supplier" },
+    supplierInvoiceNumber: { type: String },
 
     invoiceNumber: { type: String, unique: true },
     invoiceDate: Date,

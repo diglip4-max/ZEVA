@@ -1,7 +1,7 @@
-// pages/api/finance/cheques/index.js
+// pages/api/finance/reports/paid-bills.js
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
-import { FinanceCheque } from "../../../../models/finance";
+import { FinanceTransaction } from "../../../../models/finance";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -59,96 +59,44 @@ export default async function handler(req, res) {
 
   try {
     const {
-      status,
-      bank,
       supplierId,
-      search,
+      category,
       dateFrom,
       dateTo,
       page = 1,
-      limit = 20,
+      limit = 50,
     } = req.query;
 
-    const query = { clinicId };
-    if (status) query.status = status;
-    if (bank) query.bank = bank;
+    const query = { clinicId, entryType: "bill", status: "paid" };
     if (supplierId) query.supplierId = supplierId;
-    if (search) {
-      query.$or = [
-        { chequeNumber: { $regex: search, $options: "i" } },
-        { payee: { $regex: search, $options: "i" } },
-      ];
-    }
+    if (category) query.category = category;
     if (dateFrom || dateTo) {
-      query.chequeDate = {};
-      if (dateFrom) query.chequeDate.$gte = new Date(dateFrom);
-      if (dateTo) query.chequeDate.$lte = new Date(dateTo);
+      query.updatedAt = {};
+      if (dateFrom) query.updatedAt.$gte = new Date(dateFrom);
+      if (dateTo) query.updatedAt.$lte = new Date(dateTo);
     }
 
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit)));
 
-    const [cheques, total] = await Promise.all([
-      FinanceCheque.find(query)
+    const [bills, total, summary] = await Promise.all([
+      FinanceTransaction.find(query)
         .populate("supplierId", "name")
-        .populate("transactionId", "invoiceNumber category")
-        .populate("paymentId", "paymentNumber")
-        .sort({ chequeDate: -1 })
+        .sort({ updatedAt: -1 })
         .skip((pageNum - 1) * limitNum)
-        .limit(limitNum),
-      FinanceCheque.countDocuments(query),
+        .limit(limitNum)
+        .lean(),
+      FinanceTransaction.countDocuments(query),
+      FinanceTransaction.aggregate([
+        { $match: query },
+        { $group: { _id: null, totalPaid: { $sum: "$paidAmount" } } },
+      ]),
     ]);
-
-    // Summary matches the same filters as the list (minus pagination/status)
-    // so switching status tabs doesn't skew the cards
-    const { status: _drop, ...summaryFilters } = query;
-
-    const summaryResult = await FinanceCheque.aggregate([
-      { $match: summaryFilters },
-      {
-        $group: {
-          _id: null,
-          totalCheques: { $sum: 1 },
-          totalAmount: { $sum: "$amount" },
-          pendingCount: {
-            $sum: {
-              $cond: [{ $in: ["$status", ["issued", "presented"]] }, 1, 0],
-            },
-          },
-          pendingAmount: {
-            $sum: {
-              $cond: [
-                { $in: ["$status", ["issued", "presented"]] },
-                "$amount",
-                0,
-              ],
-            },
-          },
-          clearedCount: {
-            $sum: { $cond: [{ $eq: ["$status", "cleared"] }, 1, 0] },
-          },
-          bouncedCount: {
-            $sum: {
-              $cond: [{ $in: ["$status", ["bounced", "returned"]] }, 1, 0],
-            },
-          },
-        },
-      },
-    ]);
-
-    const s = summaryResult[0] || {
-      totalCheques: 0,
-      totalAmount: 0,
-      pendingCount: 0,
-      pendingAmount: 0,
-      clearedCount: 0,
-      bouncedCount: 0,
-    };
 
     return res.status(200).json({
       success: true,
-      data: cheques,
-      summary: s,
+      data: bills,
+      summary: { totalPaid: summary[0]?.totalPaid || 0 },
       pagination: {
         page: pageNum,
         limit: limitNum,

@@ -2,6 +2,7 @@ import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import PettyCashAllocation from "../../../models/PettyCashAllocation";
 import PettyCashExpense from "../../../models/PettyCashExpense";
+import PettyCash from "../../../models/PettyCash";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 

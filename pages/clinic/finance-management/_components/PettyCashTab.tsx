@@ -60,11 +60,11 @@ const TABS: { value: TabType; label: string; icon: React.ReactNode }[] = [
     label: "All Activity",
     icon: <PieChart className="w-4 h-4" />,
   },
-  {
-    value: "allocations",
-    label: "Allocations",
-    icon: <ArrowUpRight className="w-4 h-4" />,
-  },
+  // {
+  //   value: "allocations",
+  //   label: "Allocations",
+  //   icon: <ArrowUpRight className="w-4 h-4" />,
+  // },
   {
     value: "expenses",
     label: "Expenses",
@@ -417,13 +417,17 @@ function IncomeRow({
         <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-stone-400 dark:text-stone-500">Patient:</span>
+              <span className="text-stone-400 dark:text-stone-500">
+                Patient:
+              </span>
               <span className="ml-2 text-stone-600 dark:text-stone-300">
                 {income.patientName}
               </span>
             </div>
             <div>
-              <span className="text-stone-400 dark:text-stone-500">Mobile:</span>
+              <span className="text-stone-400 dark:text-stone-500">
+                Mobile:
+              </span>
               <span className="ml-2 text-stone-600 dark:text-stone-300">
                 {income.mobileNumber || "N/A"}
               </span>
@@ -435,33 +439,42 @@ function IncomeRow({
               </span>
             </div>
             <div>
-              <span className="text-stone-400 dark:text-stone-500">Service:</span>
+              <span className="text-stone-400 dark:text-stone-500">
+                Service:
+              </span>
               <span className="ml-2 text-stone-600 dark:text-stone-300">
                 {income.service || "N/A"}
               </span>
             </div>
             <div>
-              <span className="text-stone-400 dark:text-stone-500">Total Amount:</span>
+              <span className="text-stone-400 dark:text-stone-500">
+                Total Amount:
+              </span>
               <span className="ml-2 text-stone-600 dark:text-stone-300">
                 {formatMoney(income.amount, currency)}
               </span>
             </div>
             <div>
-              <span className="text-stone-400 dark:text-stone-500">Cash Received:</span>
+              <span className="text-stone-400 dark:text-stone-500">
+                Cash Received:
+              </span>
               <span className="ml-2 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
                 {formatMoney(income.cashAmount, currency)}
               </span>
             </div>
             {income.multiplePayments && income.multiplePayments.length > 0 && (
               <div className="col-span-2">
-                <span className="text-stone-400 dark:text-stone-500">Payment Breakdown:</span>
+                <span className="text-stone-400 dark:text-stone-500">
+                  Payment Breakdown:
+                </span>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {income.multiplePayments.map((payment, i) => (
                     <span
                       key={i}
                       className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
                     >
-                      {payment.paymentMethod}: {formatMoney(payment.amount, currency)}
+                      {payment.paymentMethod}:{" "}
+                      {formatMoney(payment.amount, currency)}
                     </span>
                   ))}
                 </div>
@@ -529,8 +542,9 @@ const StatsSection: React.FC<StatsSectionProps> = ({
         <StatCard
           label="Average Transaction"
           value={formatMoney(
-            (incomeSummary?.totalCashIn || 0) / (incomeSummary?.totalTransactions || 1),
-            currency
+            (incomeSummary?.totalCashIn || 0) /
+              (incomeSummary?.totalTransactions || 1),
+            currency,
           )}
           icon={<Wallet />}
           fromColor="#7c3aed"
@@ -807,8 +821,8 @@ const PettyCashTab: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={
-                viewType === "income" 
-                  ? "Search by patient name or invoice..." 
+                viewType === "income"
+                  ? "Search by patient name or invoice..."
                   : "Search…"
               }
               className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-stone-900/20"
@@ -993,7 +1007,8 @@ const PettyCashTab: React.FC = () => {
               </button>
 
               <span className="text-xs font-semibold text-stone-600 dark:text-stone-300 px-2">
-                Page {pagination.currentPage || 1} of {pagination.totalPages || 1}
+                Page {pagination.currentPage || 1} of{" "}
+                {pagination.totalPages || 1}
               </span>
 
               <button

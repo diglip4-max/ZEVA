@@ -1,7 +1,8 @@
 // pages/api/finance/payments/index.js
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
-import { FinanceTransaction } from "../../../../models/finance";
+import Supplier from "../../../../models/stocks/Supplier";
+import { BankAccount, FinanceTransaction } from "../../../../models/finance";
 import { FinancePayment } from "../../../../models/finance";
 import { FinanceCheque } from "../../../../models/finance";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
@@ -52,21 +53,20 @@ export default async function handler(req, res) {
   } else if (me.role === "admin") {
     clinicId = req.query.clinicId;
     if (!clinicId) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "clinicId is required for admin in query parameters",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "clinicId is required for admin in query parameters",
+      });
     }
   }
 
-  // ---- GET /api/finance/payments — list ----
+  // ---- GET /api/finance/payments — list + summary ----
   if (req.method === "GET") {
     try {
       const {
         supplierId,
         method,
+        search, // matches paymentNumber
         dateFrom,
         dateTo,
         page = 1,
@@ -76,6 +76,7 @@ export default async function handler(req, res) {
       const query = { clinicId };
       if (supplierId) query.supplierId = supplierId;
       if (method) query.method = method;
+      if (search) query.paymentNumber = { $regex: search, $options: "i" };
       if (dateFrom || dateTo) {
         query.date = {};
         if (dateFrom) query.date.$gte = new Date(dateFrom);
@@ -89,15 +90,48 @@ export default async function handler(req, res) {
         FinancePayment.find(query)
           .populate("supplierId", "name")
           .populate("transactionId", "invoiceNumber category")
+          // .populate("bankAccountId", "bankName accountNumber")
+          .populate("chequeId", "chequeNumber status")
           .sort({ date: -1 })
           .skip((pageNum - 1) * limitNum)
           .limit(limitNum),
         FinancePayment.countDocuments(query),
       ]);
 
+      // Summary matches the same filters as the list (minus pagination) —
+      // excludes reversed payments so cards reflect money that actually moved
+      const summaryMatch = { ...query, reversed: false };
+
+      const summaryResult = await FinancePayment.aggregate([
+        { $match: summaryMatch },
+        {
+          $group: {
+            _id: null,
+            totalPaid: { $sum: "$amount" },
+            totalPayments: { $sum: 1 },
+            chequeCount: {
+              $sum: { $cond: [{ $eq: ["$method", "cheque"] }, 1, 0] },
+            },
+          },
+        },
+      ]);
+
+      const s = summaryResult[0] || {
+        totalPaid: 0,
+        totalPayments: 0,
+        chequeCount: 0,
+      };
+      const avgPayment = s.totalPayments ? s.totalPaid / s.totalPayments : 0;
+
       return res.status(200).json({
         success: true,
         data: payments,
+        summary: {
+          totalPaid: s.totalPaid,
+          totalPayments: s.totalPayments,
+          chequeCount: s.chequeCount,
+          avgPayment,
+        },
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -106,6 +140,7 @@ export default async function handler(req, res) {
         },
       });
     } catch (error) {
+      console.error("Error fetching payments:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
@@ -148,12 +183,10 @@ export default async function handler(req, res) {
       }
 
       if (txn.isClosedMonth) {
-        return res
-          .status(423)
-          .json({
-            success: false,
-            message: "This bill belongs to a closed month",
-          });
+        return res.status(423).json({
+          success: false,
+          message: "This bill belongs to a closed month",
+        });
       }
 
       if (txn.status === "cancelled") {
@@ -183,13 +216,11 @@ export default async function handler(req, res) {
 
       if (method === "cheque") {
         if (!chequeDetails?.chequeNumber) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message:
-                "chequeDetails.chequeNumber is required for cheque payments",
-            });
+          return res.status(400).json({
+            success: false,
+            message:
+              "chequeDetails.chequeNumber is required for cheque payments",
+          });
         }
         const cheque = await FinanceCheque.create({
           clinicId,
@@ -199,6 +230,28 @@ export default async function handler(req, res) {
           amount,
           ...chequeDetails,
         });
+
+        cheque.history.push({
+          status: "issued",
+          changedBy: createdBy || me._id,
+          at: new Date(),
+        });
+
+        if (!cheque.payee) {
+          const supplier = await Supplier.findById(
+            supplierId || txn.supplierId,
+          );
+          if (supplier) {
+            cheque.payee = supplier.name;
+          }
+        }
+        if (!cheque.bank) {
+          const bankAccount = await BankAccount.findById(bankAccountId);
+          if (bankAccount) {
+            cheque.bank = bankAccount.bankName;
+          }
+        }
+        await cheque.save();
         payment.chequeId = cheque._id;
         await payment.save();
       }
@@ -222,6 +275,7 @@ export default async function handler(req, res) {
         data: { payment, bill: txn },
       });
     } catch (error) {
+      console.error("Error recording payment:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }

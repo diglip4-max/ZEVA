@@ -1,7 +1,11 @@
 // pages/api/finance/expenses/index.js
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
-import { FinanceTransaction } from "../../../../models/finance";
+import {
+  FinanceTransaction,
+  FinancePayment,
+  FinanceCheque,
+} from "../../../../models/finance";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -50,21 +54,19 @@ export default async function handler(req, res) {
   } else if (me.role === "admin") {
     clinicId = req.query.clinicId;
     if (!clinicId) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "clinicId is required for admin in query parameters",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "clinicId is required for admin in query parameters",
+      });
     }
   }
 
-  // ---- GET /api/finance/expenses — list ----
+  // ---- GET /api/finance/expenses — list + summary ----
   if (req.method === "GET") {
     try {
       const {
         category,
-        method,
+        search,
         dateFrom,
         dateTo,
         page = 1,
@@ -73,8 +75,7 @@ export default async function handler(req, res) {
 
       const query = { clinicId, entryType: "expense" };
       if (category) query.category = category;
-      if (method) query["payments.method"] = method; // adjust if method lives on FinancePayment instead
-
+      if (search) query.notes = { $regex: search, $options: "i" };
       if (dateFrom || dateTo) {
         query.invoiceDate = {};
         if (dateFrom) query.invoiceDate.$gte = new Date(dateFrom);
@@ -86,21 +87,53 @@ export default async function handler(req, res) {
 
       const [expenses, total] = await Promise.all([
         FinanceTransaction.find(query)
-          .sort({ createdAt: -1 })
+          .sort({ invoiceDate: -1, createdAt: -1 })
           .skip((pageNum - 1) * limitNum)
-          .limit(limitNum),
+          .limit(limitNum)
+          .lean(),
         FinanceTransaction.countDocuments(query),
       ]);
 
-      const totalSpend = await FinanceTransaction.aggregate([
-        { $match: { clinicId: query.clinicId, entryType: "expense" } },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
+      // Each expense has exactly one linked payment (created at the same time) —
+      // pull method/paymentNumber in for display without a separate round trip
+      const txnIds = expenses.map((e) => e._id);
+      const payments = await FinancePayment.find({
+        clinicId,
+        transactionId: { $in: txnIds },
+      })
+        .select("transactionId method paymentNumber attachment")
+        .lean();
+      const paymentByTxn = Object.fromEntries(
+        payments.map((p) => [String(p.transactionId), p]),
+      );
+
+      const enriched = expenses.map((e) => ({
+        ...e,
+        payment: paymentByTxn[String(e._id)] || null,
+      }));
+
+      const summaryMatch = { ...query };
+      const summaryResult = await FinanceTransaction.aggregate([
+        { $match: summaryMatch },
+        {
+          $group: {
+            _id: null,
+            totalSpend: { $sum: "$amount" },
+            totalCount: { $sum: 1 },
+          },
+        },
       ]);
+      const s = summaryResult[0] || { totalSpend: 0, totalCount: 0 };
+      const avgExpense = s.totalCount ? s.totalSpend / s.totalCount : 0;
 
       return res.status(200).json({
         success: true,
-        data: expenses,
-        summary: { totalSpend: totalSpend[0]?.total || 0 },
+        data: enriched,
+        summary: {
+          totalSpend: s.totalSpend,
+          totalCount: s.totalCount,
+          avgExpense,
+        },
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -113,26 +146,26 @@ export default async function handler(req, res) {
     }
   }
 
-  // ---- POST /api/finance/expenses — create (bill + payment instant, per doc Section 6) ----
+  // ---- POST /api/finance/expenses — instant bill + payment ----
   if (req.method === "POST") {
     try {
       const {
         category,
         amount,
         method = "cash",
-        notes,
-        attachments,
+        bankAccountId,
+        chequeDetails, // { chequeNumber, bank, payee, chequeDate } — rare for expenses, kept for consistency
         date,
+        notes,
+        attachment,
         createdBy = me._id,
       } = req.body;
 
       if (!category || !amount) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Category and amount are required",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Category and amount are required",
+        });
       }
       if (amount <= 0) {
         return res
@@ -140,6 +173,7 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Amount must be greater than 0" });
       }
 
+      // Section 6: expense is paid the moment it's created — no due date, no pending state
       const expense = await FinanceTransaction.create({
         clinicId,
         type: "expense",
@@ -147,10 +181,11 @@ export default async function handler(req, res) {
         category,
         invoiceDate: date ? new Date(date) : new Date(),
         amount,
-        paidAmount: amount, // instant — Rule Section 6: no due date, paid immediately
+        paidAmount: amount,
+        balance: 0,
         status: "paid",
         notes,
-        attachments: attachments || [],
+        attachments: attachment ? [attachment] : [],
         createdBy,
         history: [
           {
@@ -163,10 +198,41 @@ export default async function handler(req, res) {
         ],
       });
 
+      // Section 7: every payment the clinic makes — including instant expense payments —
+      // is stored in the Payment Center, so create the linked FinancePayment here too
+      const payment = await FinancePayment.create({
+        clinicId,
+        transactionId: expense._id,
+        amount,
+        method,
+        bankAccountId,
+        attachment,
+        notes,
+      });
+
+      if (method === "cheque") {
+        if (!chequeDetails?.chequeNumber) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "chequeDetails.chequeNumber is required for cheque payments",
+          });
+        }
+        const cheque = await FinanceCheque.create({
+          clinicId,
+          paymentId: payment._id,
+          transactionId: expense._id,
+          amount,
+          ...chequeDetails,
+        });
+        payment.chequeId = cheque._id;
+        await payment.save();
+      }
+
       return res.status(201).json({
         success: true,
         message: "Expense recorded successfully",
-        data: expense,
+        data: { expense, payment },
       });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });

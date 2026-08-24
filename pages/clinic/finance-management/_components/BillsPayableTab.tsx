@@ -29,7 +29,7 @@ import useBillsPayable, {
 import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
-import { formatMoney } from "@/lib/currencyHelper";
+import { formatMoney, getCurrencySymbol } from "@/lib/currencyHelper";
 import useClinic from "@/hooks/useClinic";
 import useSuppliers from "@/hooks/useSuppliers";
 import { handleUpload, formatFileSize } from "@/lib/helper";
@@ -306,6 +306,8 @@ function NewBillModal({
   saving: boolean;
 }) {
   const { clinic } = useClinic();
+  const { currency } = useCurrency();
+  const symbol = getCurrencySymbol(currency);
   const [supplierSearch, setSupplierSearch] = useState("");
   const { suppliers, loading: suppliersLoading } = useSuppliers({
     branchId: clinic?._id || "",
@@ -335,7 +337,7 @@ function NewBillModal({
       s.code,
       s.mobile || s.telephone,
       s.totalBalance
-        ? `Balance ₹${s.totalBalance.toLocaleString("en-IN")}`
+        ? `Balance ${formatMoney(s.totalBalance, currency)}`
         : null,
     ]
       .filter(Boolean)
@@ -560,11 +562,11 @@ function NewBillModal({
                 </h4>
               </div>
               <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                Total (₹) <span className="text-rose-500">*</span>
+                Total ({symbol}) <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 dark:text-stone-500 zfm-mono font-semibold text-lg pointer-events-none">
-                  ₹
+                  {symbol}
                 </span>
                 <input
                   type="number"
