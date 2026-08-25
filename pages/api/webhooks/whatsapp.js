@@ -17,6 +17,7 @@ import {
 } from "../../../bullmq/workflow";
 import Campaign from "../../../models/Campaign";
 import { scheduleAIReply } from "../whatsapp/aiAutoReply";
+import { classifyAndCreateOpportunity } from "../../../lib/intentClassifier";
 import PatientRegistration from "../../../models/PatientRegistration";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
@@ -534,6 +535,11 @@ const processWhatsAppWebhook = async (req) => {
           await emitIncomingMessageToUser(userId, findMessage);
           //   // it is used to send event to specific client
           //   io.to(receiverSocketId).emit("incomingMessage", findMessage);
+
+          // Classify message intent and create Opportunity (async, non-blocking)
+          classifyAndCreateOpportunity(newMessage, conversation, findLead).catch(
+            (err) => console.error("[Opportunity] Classification error:", err.message)
+          );
 
           //   // send notification to client side in real time using socket
           //   io.to(receiverSocketId).emit("newNotification", newNotification);

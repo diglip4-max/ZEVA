@@ -1,6 +1,79 @@
 import React from "react";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useClinicTheme } from "@/context/ClinicThemeContext";
+
+/**
+ * Revenue Rescue card.
+ *
+ * Data shape (from /api/agent/priorities → revenueRescue):
+ *   {
+ *     abandonedEnquiries: { count: 4 },
+ *     cancelledAppointments: { count: 3 },
+ *     packageRenewals: { count: 5 },
+ *     overdueFollowUps: { count: 8 },
+ *   }
+ *
+ * Plus recovered data (from /api/agent/revenue-opportunity):
+ *   {
+ *     recoveredSoFar: 18420,
+ *     recoveredCount: 12,
+ *   }
+ *
+ * Each stat shows the count from the Priorities API so the numbers
+ * are always in sync with the priority cards.
+ */
+
+const STAT_CONFIG = [
+  {
+    key: "abandonedEnquiries",
+    label: "abandoned enquiries",
+    bg: "bg-red-50 dark:bg-red-500/10",
+    amountColor: "text-red-600 dark:text-red-400",
+  },
+  {
+    key: "cancelledAppointments",
+    label: "cancelled appointments",
+    bg: "bg-amber-50 dark:bg-amber-500/10",
+    amountColor: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    key: "packageRenewals",
+    label: "package renewals",
+    bg: "bg-purple-50 dark:bg-purple-500/10",
+    amountColor: "text-purple-600 dark:text-purple-400",
+  },
+  {
+    key: "overdueFollowUps",
+    label: "overdue follow-ups",
+    bg: "bg-sky-50 dark:bg-sky-500/10",
+    amountColor: "text-sky-600 dark:text-sky-400",
+  },
+];
+
+function formatCurrency(amount, currencySymbol = "AED") {
+  if (amount == null || isNaN(amount)) return `${currencySymbol} 0`;
+  return `${currencySymbol} ${amount.toLocaleString("en-US")}`;
+}
 
 export default function RevenueRescue({ revenueRescueStats }) {
+  const { currency } = useCurrency();
+  const { theme } = useClinicTheme();
+  const currencySymbol = getCurrencySymbol(currency || "AED");
+  const data = revenueRescueStats || {};
+
+  // Build the cards array from the API data
+  const cards = STAT_CONFIG.map((cfg, idx) => ({
+    id: idx + 1,
+    title: `${data[cfg.key]?.count || 0} ${cfg.label}`,
+    amount: data[cfg.key]?.count || 0,
+    amountColor: cfg.amountColor,
+    bg: cfg.bg,
+  }));
+
+  // Total at risk = sum of all counts
+  const totalAtRisk = cards.reduce((sum, c) => sum + c.amount, 0);
+
   return (
     <div className="bg-white dark:bg-white/5 border-2 border-red-100 dark:border-red-500/20 rounded-2xl p-6 md:p-7 shadow-sm relative overflow-hidden">
       <div className="absolute -right-20 -top-20 w-64 h-64 bg-red-50 dark:bg-red-500/5 rounded-full opacity-70 pointer-events-none" />
@@ -19,7 +92,7 @@ export default function RevenueRescue({ revenueRescueStats }) {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-6">
-          {revenueRescueStats.map((stat) => (
+          {cards.map((stat) => (
             <div
               key={stat.id}
               className={`${stat.bg} rounded-2xl p-4 md:p-5`}
@@ -40,7 +113,7 @@ export default function RevenueRescue({ revenueRescueStats }) {
               Total at risk
             </p>
             <p className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-              AED 11,100
+              {totalAtRisk}
             </p>
           </div>
           <button className="inline-flex items-center gap-2 px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 text-base flex-shrink-0 self-start sm:self-center">

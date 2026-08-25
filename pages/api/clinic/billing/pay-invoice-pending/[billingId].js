@@ -3,6 +3,7 @@ import Billing from "../../../../../models/Billing";
 import PettyCash from "../../../../../models/PettyCash";
 import PatientRegistration from "../../../../../models/PatientRegistration";
 import Package from "../../../../../models/Package";
+import Appointment from "../../../../../models/Appointment";
 import { getUserFromReq } from "../../../lead-ms/auth";
 export default async function handler(req, res) {
   await dbConnect();
@@ -444,6 +445,53 @@ export default async function handler(req, res) {
       if (refreshed) billingForResponse = refreshed;
     } catch (refreshErr) {
       console.warn("[PayInvoicePending] Billing refresh failed:", refreshErr.message);
+    }
+
+    // ============================================================
+    // Commission Processing for pending clearance
+    // ============================================================
+    try {
+      const { processBillingCommissions } = await import("../../../../../lib/billingCommissionHelper");
+
+      const freshPatient = await PatientRegistration.findById(billing.patientId).lean();
+      const appt = billing.appointmentId
+        ? await Appointment.findById(billing.appointmentId).lean()
+        : null;
+
+      await processBillingCommissions({
+        billing: billingForResponse,
+        appointment: appt,
+        patientRegistration: freshPatient,
+        clinicId,
+        clinicUser,
+        directBilling: billing.directBilling !== false,
+        amountNum: Number(billing.amount || 0),
+        paidNum: Number(billing.paid || 0),
+        adjustedPendingUsed: 0,
+        pendingClaimUsedNum: 0,
+        totalUnpaidPackagesAmount: 0,
+        hasPackagePayload: !!billing.package,
+        hasPackageTreatments: false,
+        totalPackageSessionValue: 0,
+        selectedTreatments: billing.selectedTreatments || [],
+        selectedPackageTreatments: billing.selectedPackageTreatments || [],
+        packageSoldByUserId: null,
+        packagePaymentStatus: 'Unpaid',
+        pkgDoc: null,
+        packageName: billing.package || '',
+        paymentMethod: paymentMethod || 'Cash',
+        multiPayArr: [],
+        selectedBankPaymentDetails: { enabled: false },
+        invoicedDate: billing.invoicedDate,
+        earnedAmountForCommission: Number(billing.amount || 0),
+        referralCommissionAmount: 0,
+        paidNumForReferralCommission: 0,
+        processNewBillingCommission: false,
+        processPendingClearanceCommission: true,
+      });
+    } catch (commissionErr) {
+      console.error("[PayInvoicePending] Commission processing error:", commissionErr.message);
+      // Do not fail the payment if commission fails
     }
 
     return res.status(200).json({

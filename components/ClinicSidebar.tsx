@@ -1447,7 +1447,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 order: item.order,
               };
 
-              console.log({ item });
               // Convert subModules to children
               if (item.subModules && item.subModules.length > 0) {
                 navItem.children = item.subModules.map(

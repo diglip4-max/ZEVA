@@ -79,6 +79,12 @@ const billingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Appointment",
     },
+    // Flag: true = billing is NOT linked to an appointment treatment (walk-in / direct payment)
+    //        false = billing treatment matches the appointment's treatment (appointment-based)
+    directBilling: {
+      type: Boolean,
+      default: true,
+    },
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PatientRegistration",

@@ -103,6 +103,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { user, token } = response.data;
       localStorage.setItem("token", token);
       setUser(user);
+      window.dispatchEvent(new Event("authTokenChanged"));
     } catch (error: unknown) {
       if (isAxiosError(error)) {
         throw new Error(error.response?.data?.message || "Login failed");

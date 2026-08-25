@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     // Determine clinicId
     let clinicId;
     try {
-      const { getClinicIdFromUser } = await import("./clinic/lead-ms/permissions-helper");
+      const { getClinicIdFromUser } = await import("./lead-ms/permissions-helper");
       const { clinicId: cid } = await getClinicIdFromUser(user);
       clinicId = cid;
     } catch (err) {

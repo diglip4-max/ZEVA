@@ -99,6 +99,7 @@ interface SelectedTreatment {
   usesFreeConsultation?: boolean;
   usesMembershipDiscount?: boolean;
   isFreeSession?: boolean;
+  originalPrice?: number; // Original treatment price (before free session discount)
   originalAppointmentQuantity?: number; // Original quantity from the appointment (if any)
 }
 
@@ -3638,6 +3639,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         treatmentSlug: treatment.slug,
         treatmentServiceId: treatment.serviceId || treatment.slug,
         price: treatmentPrice, // 0 for free sessions, original price otherwise
+        originalPrice: treatment.price, // Always store original price for quantity recalculation
         quantity: 1,
         totalPrice: treatmentPrice, // Initial total = price × 1
         isFreeSession: isFreeSession,
@@ -3662,11 +3664,55 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const handleQuantityChange = (slug: string, quantity: number) => {
     if (quantity < 1) return;
     setSelectedTreatments((prev) =>
-      prev.map((t) =>
-        t.treatmentSlug === slug
-          ? { ...t, quantity, totalPrice: t.price * quantity } // Total = price × quantity (not doubled)
-          : t,
-      ),
+      prev.map((t) => {
+        if (t.treatmentSlug !== slug) return t;
+
+        if (t.isFreeSession) {
+          // For free session treatments, calculate how many units are actually free
+          const origPrice = t.originalPrice || t.price;
+
+          // Count available free sessions for this treatment from previous billings
+          let freeFromPrevious = 0;
+          availableFreeSessions.forEach((session: any) => {
+            session.offerFreeSession.forEach((freeTreatment: string) => {
+              if (freeTreatment.toLowerCase() === t.treatmentName.toLowerCase()) {
+                freeFromPrevious += session.freeOfferSessionCount || 0;
+              }
+            });
+          });
+
+          // Check if current bundle offer also provides free sessions for this treatment
+          let freeFromCurrentBundle = 0;
+          if (matchedBundleOffer && appliedOfferIds.includes(matchedBundleOffer._id)) {
+            bundleFreeSessions.forEach((freeTreatment: string) => {
+              if (freeTreatment.toLowerCase() === t.treatmentName.toLowerCase()) {
+                freeFromCurrentBundle += bundleFreeSessionCount;
+              }
+            });
+          }
+
+          const totalFreeAvailable = freeFromPrevious + freeFromCurrentBundle;
+
+          // Calculate how many units are free (capped by quantity and available free sessions)
+          const freeUnits = Math.min(quantity, totalFreeAvailable);
+          const paidUnits = quantity - freeUnits;
+
+          // Update price per unit: 0 if all units are free, originalPrice if none are free
+          // For mixed (some free, some paid), keep price = 0 but set totalPrice correctly
+          const newTotalPrice = paidUnits * origPrice;
+
+          console.log(`[FreeSession] Quantity changed for "${t.treatmentName}": qty=${quantity}, freeAvailable=${totalFreeAvailable}, freeUnits=${freeUnits}, paidUnits=${paidUnits}, totalPrice=${newTotalPrice}`);
+
+          return {
+            ...t,
+            quantity,
+            totalPrice: newTotalPrice,
+          };
+        } else {
+          // Non-free treatment: standard calculation
+          return { ...t, quantity, totalPrice: t.price * quantity };
+        }
+      }),
     );
   };
 
@@ -4507,8 +4553,50 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         offerFreeSession: matchedBundleOffer && bundleFreeSessions.length > 0 ? bundleFreeSessions : [],
         freeOfferSessionCount: matchedBundleOffer ? bundleFreeSessionCount : 0,
         // Free sessions being REDEEMED in this billing (price = 0)
-        usedFreeSessions: selectedTreatments.filter((t: any) => t.isFreeSession).map((t: any) => t.treatmentName),
-        usedFreeSessionCount: selectedTreatments.filter((t: any) => t.isFreeSession).length,
+        // For each free session treatment, calculate how many units are actually free
+        // (when quantity > available free sessions, only the free units count)
+        usedFreeSessions: selectedTreatments.filter((t: any) => t.isFreeSession).reduce((acc: string[], t: any) => {
+          // Count available free sessions for this treatment
+          let freeAvailable = 0;
+          availableFreeSessions.forEach((session: any) => {
+            session.offerFreeSession.forEach((freeTreatment: string) => {
+              if (freeTreatment.toLowerCase() === t.treatmentName.toLowerCase()) {
+                freeAvailable += session.freeOfferSessionCount || 0;
+              }
+            });
+          });
+          if (matchedBundleOffer && appliedOfferIds.includes(matchedBundleOffer._id)) {
+            bundleFreeSessions.forEach((freeTreatment: string) => {
+              if (freeTreatment.toLowerCase() === t.treatmentName.toLowerCase()) {
+                freeAvailable += bundleFreeSessionCount;
+              }
+            });
+          }
+          // Only add the number of free units actually being used (capped by quantity)
+          const freeUnitsUsed = Math.min(t.quantity, freeAvailable);
+          for (let i = 0; i < freeUnitsUsed; i++) {
+            acc.push(t.treatmentName);
+          }
+          return acc;
+        }, []),
+        usedFreeSessionCount: selectedTreatments.filter((t: any) => t.isFreeSession).reduce((count: number, t: any) => {
+          let freeAvailable = 0;
+          availableFreeSessions.forEach((session: any) => {
+            session.offerFreeSession.forEach((freeTreatment: string) => {
+              if (freeTreatment.toLowerCase() === t.treatmentName.toLowerCase()) {
+                freeAvailable += session.freeOfferSessionCount || 0;
+              }
+            });
+          });
+          if (matchedBundleOffer && appliedOfferIds.includes(matchedBundleOffer._id)) {
+            bundleFreeSessions.forEach((freeTreatment: string) => {
+              if (freeTreatment.toLowerCase() === t.treatmentName.toLowerCase()) {
+                freeAvailable += bundleFreeSessionCount;
+              }
+            });
+          }
+          return count + Math.min(t.quantity, freeAvailable);
+        }, 0),
         // Cashback offer fields
         isCashbackApplied: isCashbackApplied && matchedCashbackOffer !== null,
         cashbackOfferId: isCashbackApplied && matchedCashbackOffer ? matchedCashbackOffer._id : null,
@@ -4556,12 +4644,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           .join(", ");
         payload.quantity = totalQuantity;
         // Send the full selected treatments array with slugs and service IDs
+        // For free session treatments with mixed free/paid units, send effective per-unit price
+        // so backend revenue split calculation (price * quantity) gives the correct total
         payload.selectedTreatments = selectedTreatments.map(t => ({
           treatmentName: t.treatmentName,
           treatmentSlug: t.treatmentSlug,
           treatmentServiceId: t.treatmentServiceId,
           quantity: t.quantity,
-          price: t.price,
+          price: t.quantity > 0 ? t.totalPrice / t.quantity : t.price,
           originalAppointmentQuantity: t.originalAppointmentQuantity
         }));
       }
@@ -5596,7 +5686,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                     <button type="button" onClick={() => handleQuantityChange(treatment.treatmentSlug, Math.max(1, treatment.quantity - 1))} className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">−</button>
                                     <span className="text-xs font-semibold text-gray-900 w-5 text-center">{treatment.quantity}</span>
                                     <button type="button" onClick={() => handleQuantityChange(treatment.treatmentSlug, treatment.quantity + 1)} className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 text-xs font-bold">+</button>
-                                    <span className="text-[10px] text-gray-500 ml-1">@ {getCurrencySymbol(currency)} {treatment.price.toFixed(2)} each</span>
+                                    <span className="text-[10px] text-gray-500 ml-1">@ {getCurrencySymbol(currency)} {(treatment.isFreeSession ? (treatment.originalPrice || treatment.price) : treatment.price).toFixed(2)} each</span>
+                                    {treatment.isFreeSession && treatment.totalPrice === 0 && (
+                                      <span className="text-[9px] text-green-600 font-semibold">(Free)</span>
+                                    )}
+                                    {treatment.isFreeSession && treatment.totalPrice > 0 && (
+                                      <span className="text-[9px] text-green-600 font-semibold">({treatment.quantity} free incl.)</span>
+                                    )}
                                     <span className="text-xs font-bold text-gray-900 ml-auto sm:ml-2">{getCurrencySymbol(currency)} {treatment.totalPrice.toFixed(2)}</span>
                                   </div>
                                 </div>

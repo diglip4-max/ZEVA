@@ -11,6 +11,10 @@ import {
   Calendar,
   Download,
   Eye,
+  Gift,
+  X,
+  AlertTriangle,
+  Crown,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import CreateOfferModal from "../../components/CreateOfferModal";
@@ -89,6 +93,28 @@ function OffersPage() {
     offerId: null,
     offerTitle: "",
   });
+  const [offerAnalytics, setOfferAnalytics] = useState({
+    instantDiscount: { count: 0, totalDiscount: 0, totalRevenue: 0, list: [] },
+    bundle: { count: 0, totalFreeSessions: 0, totalRedeemed: 0 },
+    cashback: { count: 0, totalCashbackEarned: 0, totalWalletUsed: 0 },
+    freeSessionRedemption: { count: 0, totalRedeemed: 0 },
+    totalOfferBillings: 0,
+    offersUsedList: [],
+    totalRevenue: 0,
+    revenueBillingList: [],
+    mostUsedOffers: [],
+    underperformingOffers: [],
+    topPatientsList: [],
+  });
+  const [showMostUsedModal, setShowMostUsedModal] = useState(false);
+  const [showUnderperformingModal, setShowUnderperformingModal] = useState(false);
+  const [showTopPatientsModal, setShowTopPatientsModal] = useState(false);
+  const [showRevenueModal, setShowRevenueModal] = useState(false);
+  const [showOffersUsedModal, setShowOffersUsedModal] = useState(false);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [showExpiringModal, setShowExpiringModal] = useState(false);
+  const [showInactiveModal, setShowInactiveModal] = useState(false);
+  const [showActiveModal, setShowActiveModal] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -385,10 +411,32 @@ function OffersPage() {
     }
   };
 
+  // Fetch offer analytics from billing data
+  const fetchOfferAnalytics = async () => {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+
+    try {
+      const res = await fetch("/api/clinic/offer-analytics", {
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+      });
+      const data = await res.json();
+      if (data.success && data.analytics) {
+        setOfferAnalytics(data.analytics);
+      }
+    } catch (err) {
+      console.error("Error fetching offer analytics:", err);
+    }
+  };
+
   useEffect(() => {
     // Fetch offers after permissions are loaded
     if (permissionsLoaded) {
       fetchOffers();
+      fetchOfferAnalytics();
     }
   }, [permissionsLoaded, finalCanRead]);
 
@@ -655,6 +703,43 @@ function OffersPage() {
     return endDate >= now && endDate <= sevenDaysFromNow;
   }).length;
 
+  // All active offers that haven't expired yet, sorted by expiry (soonest first)
+  const expiringOffersList = offers
+    .filter((o) => {
+      if (!o.endsAt || o.status !== "active") return false;
+      const endDate = new Date(o.endsAt);
+      return endDate >= now;
+    })
+    .sort((a, b) => new Date(a.endsAt) - new Date(b.endsAt))
+    .map((o) => {
+      const endDate = new Date(o.endsAt);
+      const diffMs = endDate - now;
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      let timeLabel;
+      if (diffHours < 1) timeLabel = 'Less than 1 hour';
+      else if (diffHours < 24) timeLabel = `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+      else if (diffDays < 30) timeLabel = `${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+      else {
+        const diffMonths = Math.floor(diffDays / 30);
+        timeLabel = `${diffMonths} month${diffMonths !== 1 ? 's' : ''}`;
+      }
+      // Urgency color
+      let urgency;
+      if (diffDays === 0) urgency = { bg: 'bg-red-50', border: 'border-red-300', badge: 'bg-red-100 text-red-700', label: 'Expires today' };
+      else if (diffDays <= 3) urgency = { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-100 text-red-700', label: timeLabel };
+      else if (diffDays <= 7) urgency = { bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-700', label: timeLabel };
+      else if (diffDays <= 30) urgency = { bg: 'bg-amber-50', border: 'border-amber-200', badge: 'bg-amber-100 text-amber-700', label: timeLabel };
+      else urgency = { bg: 'bg-green-50', border: 'border-green-200', badge: 'bg-green-100 text-green-700', label: timeLabel };
+      return { ...o, timeLabel, urgency };
+    });
+
+  // All inactive offers
+  const inactiveOffersList = offers.filter((o) => o.status !== "active");
+
+  // All active offers
+  const activeOffersList = offers.filter((o) => o.status === "active");
+
   const modalToken = token || getStoredToken() || "";
 
   return (
@@ -779,8 +864,8 @@ function OffersPage() {
                 </div>
               </div>
 
-              {/* Enhanced Stats Cards - Compact */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
+              {/* Enhanced Stats Cards - Row 1: Overview */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                 <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center">
@@ -791,7 +876,10 @@ function OffersPage() {
                   <p className="text-lg sm:text-xl font-bold text-teal-900">{offers.length}</p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3">
+                <div
+                  onClick={() => activeOffersList.length > 0 && setShowActiveModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3 ${activeOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-green-200 hover:ring-green-300' : ''}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
                       <TrendingUp className="h-3.5 w-3.5 text-white" />
@@ -799,9 +887,15 @@ function OffersPage() {
                     <p className="text-[10px] font-semibold text-teal-600 uppercase">Active</p>
                   </div>
                   <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
+                  <p className="text-[9px] text-green-400 font-medium mt-0.5">
+                    {activeOffersList.length > 0 ? 'Click to view all \u2192' : ''}
+                  </p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3">
+                <div
+                  onClick={() => inactiveOffersList.length > 0 && setShowInactiveModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3 ${inactiveOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-gray-200 hover:ring-gray-300' : ''}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center">
                       <Package className="h-3.5 w-3.5 text-white" />
@@ -809,46 +903,160 @@ function OffersPage() {
                     <p className="text-[10px] font-semibold text-teal-600 uppercase">Inactive</p>
                   </div>
                   <p className="text-lg sm:text-xl font-bold text-teal-700">{inactiveOffers}</p>
+                  <p className="text-[9px] text-gray-400 font-medium mt-0.5">
+                    {inactiveOffersList.length > 0 ? 'Click to view all \u2192' : ''}
+                  </p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <span className="text-[10px] font-bold text-white">%</span>
-                    </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Percent</p>
-                  </div>
-                  <p className="text-lg sm:text-xl font-bold text-blue-600">{percentageOffers}</p>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-purple-600 p-2.5 sm:p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
-                      <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
-                    </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Fixed</p>
-                  </div>
-                  <p className="text-lg sm:text-xl font-bold text-purple-600">{fixedOffers}</p>
-                </div>
-
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3">
+                <div
+                  onClick={() => expiringOffersList.length > 0 && setShowExpiringModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3 ${expiringOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-amber-200 hover:ring-amber-300' : ''}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
                       <Calendar className="h-3.5 w-3.5 text-white" />
                     </div>
                     <p className="text-[10px] font-semibold text-teal-600 uppercase">Expiring</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringSoon}</p>
+                  <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringOffersList.length}</p>
+                  <p className="text-[9px] text-amber-500 font-medium mt-0.5">
+                    {expiringOffersList.length > 0 ? `${expiringSoon} in 7 days \u00b7 Click to view all \u2192` : 'next 7 days'}
+                  </p>
                 </div>
 
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-indigo-600 p-2.5 sm:p-3">
+                <div
+                  onClick={() => offerAnalytics.instantDiscount.list.length > 0 && setShowDiscountModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3 ${offerAnalytics.instantDiscount.list.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-blue-200 hover:ring-blue-300' : ''}`}
+                >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
-                      <span className="text-[8px] font-bold text-white">{getCurrencySymbol(currency)}</span>
+                    <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Avg Value</p>
+                    <p className="text-[10px] font-semibold text-blue-600 uppercase">Total Discount Applied</p>
                   </div>
-                  <p className="text-base sm:text-lg font-bold text-indigo-600">{getCurrencySymbol(currency)}{Math.round(averageDiscount)}</p>
+                  <p className="text-lg sm:text-xl font-bold text-blue-700">{getCurrencySymbol(currency)}{offerAnalytics.instantDiscount.totalDiscount.toFixed(2)}</p>
+                  <p className="text-[9px] text-blue-500 font-medium mt-0.5">
+                    {offerAnalytics.instantDiscount.list.length > 0 ? 'Click to view details \u2192' : `${offerAnalytics.instantDiscount.count} invoice${offerAnalytics.instantDiscount.count !== 1 ? 's' : ''}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Enhanced Stats Cards - Row 2: Analytics */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                <div
+                  onClick={() => offerAnalytics.offersUsedList.length > 0 && setShowOffersUsedModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-2.5 sm:p-3 ${offerAnalytics.offersUsedList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-orange-200 hover:ring-orange-300' : ''}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-orange-500 rounded-lg flex items-center justify-center">
+                      <Package className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-orange-600 uppercase">Total Offers Used</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-orange-600">{offerAnalytics.totalOfferBillings}</p>
+                  <p className="text-[9px] text-orange-400 font-medium mt-0.5">
+                    {offerAnalytics.offersUsedList.length > 0 ? 'Click to view details \u2192' : 'instant + cashback + bundle'}
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => offerAnalytics.revenueBillingList.length > 0 && setShowRevenueModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3 ${offerAnalytics.revenueBillingList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-green-200 hover:ring-green-300' : ''}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
+                      <TrendingUp className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-green-600 uppercase">Total Revenue</p>
+                  </div>
+                  <p className="text-lg sm:text-xl font-bold text-green-700">{getCurrencySymbol(currency)}{offerAnalytics.totalRevenue.toFixed(2)}</p>
+                  <p className="text-[9px] text-green-500 font-medium mt-0.5">from offer-applied billings</p>
+                  {offerAnalytics.revenueBillingList.length > 0 && (
+                    <p className="text-[8px] text-green-400 mt-1 font-medium">Click to view billings \u2192</p>
+                  )}
+                </div>
+
+                <div
+                  onClick={() => offerAnalytics.mostUsedOffers.length > 0 && setShowMostUsedModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-purple-500 p-2.5 sm:p-3 ${offerAnalytics.mostUsedOffers.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-purple-200 hover:ring-purple-300' : ''}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center">
+                      <Gift className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-purple-600 uppercase">Most Used Offer</p>
+                  </div>
+                  {offerAnalytics.mostUsedOffers.length > 0 ? (
+                    <>
+                      <p className="text-lg sm:text-xl font-bold text-purple-700">{offerAnalytics.mostUsedOffers.length}</p>
+                      <p className="text-[9px] text-purple-400 font-medium mt-0.5">
+                        {offerAnalytics.mostUsedOffers.map((o) => {
+                          const label = o.offerType === 'instant_discount' ? 'Instant' : o.offerType === 'cashback' ? 'Cashback' : 'Bundle';
+                          return `${label} (${o.count})`;
+                        }).join(', ')}
+                      </p>
+                      <p className="text-[8px] text-purple-400 mt-1 font-medium">Click to view offers \u2192</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg sm:text-xl font-bold text-gray-400">0</p>
+                      <p className="text-[9px] text-gray-400 font-medium mt-0.5">No offers used yet</p>
+                    </>
+                  )}
+                </div>
+
+                <div
+                  onClick={() => offerAnalytics.underperformingOffers.length > 0 && setShowUnderperformingModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-red-500 p-2.5 sm:p-3 ${offerAnalytics.underperformingOffers.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-red-200 hover:ring-red-300' : ''}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-red-500 rounded-lg flex items-center justify-center">
+                      <AlertTriangle className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-red-600 uppercase">Underperforming Offer</p>
+                  </div>
+                  {offerAnalytics.underperformingOffers.length > 0 ? (
+                    <>
+                      <p className="text-lg sm:text-xl font-bold text-red-700">{offerAnalytics.underperformingOffers.length}</p>
+                      <p className="text-[9px] text-red-400 font-medium mt-0.5">
+                        {offerAnalytics.underperformingOffers.slice(0, 3).map((o) => o.title).join(', ')}
+                        {offerAnalytics.underperformingOffers.length > 3 ? ` +${offerAnalytics.underperformingOffers.length - 3} more` : ''}
+                      </p>
+                      <p className="text-[8px] text-red-400 mt-1 font-medium">Click to view details \u2192</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg sm:text-xl font-bold text-gray-400">0</p>
+                      <p className="text-[9px] text-gray-400 font-medium mt-0.5">No offers created yet</p>
+                    </>
+                  )}
+                </div>
+
+                {/* Top Patients Card */}
+                <div
+                  onClick={() => offerAnalytics.topPatientsList.length > 0 && setShowTopPatientsModal(true)}
+                  className={`bg-white rounded-lg shadow-sm border-l-4 border-purple-500 p-2.5 sm:p-3 ${offerAnalytics.topPatientsList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-purple-200 hover:ring-purple-300' : ''}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center">
+                      <Crown className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <p className="text-[10px] font-semibold text-purple-600 uppercase">Top Patients</p>
+                  </div>
+                  {offerAnalytics.topPatientsList.length > 0 ? (
+                    <>
+                      <p className="text-lg sm:text-xl font-bold text-purple-700">{offerAnalytics.topPatientsList.length}</p>
+                      <p className="text-[9px] text-purple-400 font-medium mt-0.5">
+                        top patient{offerAnalytics.topPatientsList.length !== 1 ? 's' : ''}: {offerAnalytics.topPatientsList[0].patientName}
+                      </p>
+                      <p className="text-[8px] text-purple-400 mt-1 font-medium">Click to view top 5 \u2192</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg sm:text-xl font-bold text-gray-400">0</p>
+                      <p className="text-[9px] text-gray-400 font-medium mt-0.5">No data yet</p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1539,6 +1747,655 @@ function OffersPage() {
                 className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Most Used Offer Modal ── */}
+      {showMostUsedModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMostUsedModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Gift className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Most Used Offer</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {offerAnalytics.mostUsedOffers.length > 1
+                        ? `${offerAnalytics.mostUsedOffers.length} types tied at ${offerAnalytics.mostUsedOffers[0].count} uses`
+                        : `${offerAnalytics.mostUsedOffers[0]?.count || 0} times used`}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowMostUsedModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-4">
+              {offerAnalytics.mostUsedOffers.map((item, idx) => {
+                const typeLabel = item.offerType === 'instant_discount' ? 'Instant Discount' : item.offerType === 'cashback' ? 'Cashback' : 'Bundle';
+                const typeColor = item.offerType === 'instant_discount'
+                  ? { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' }
+                  : item.offerType === 'cashback'
+                  ? { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100 text-cyan-700' }
+                  : { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700' };
+
+                return (
+                  <div key={idx} className={`rounded-xl border ${typeColor.border} ${typeColor.bg} p-4`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${typeColor.badge}`}>
+                          {typeLabel}
+                        </span>
+                      </div>
+                      <span className={`text-sm font-extrabold ${typeColor.text}`}>
+                        {item.count} {item.count === 1 ? 'use' : 'uses'}
+                      </span>
+                    </div>
+                    {item.offerNames.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Offer Names</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {item.offerNames.map((name, i) => (
+                            <span key={i} className="px-2.5 py-1 rounded-lg bg-white text-xs font-semibold text-gray-700 border border-gray-200 shadow-sm">
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">No offer names recorded</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setShowMostUsedModal(false)}
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Underperforming Offer Modal ── */}
+      {showUnderperformingModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUnderperformingModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Underperforming Offers</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      Offers used 0 or 1 time — {offerAnalytics.underperformingOffers.length} underperforming
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowUnderperformingModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-3">
+              {offerAnalytics.underperformingOffers.map((item, idx) => {
+                const typeLabel = item.offerType === 'instant_discount' ? 'Instant Discount' : item.offerType === 'cashback' ? 'Cashback' : 'Bundle';
+                const typeColor = item.offerType === 'instant_discount'
+                  ? { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700' }
+                  : item.offerType === 'cashback'
+                  ? { bg: 'bg-cyan-50', border: 'border-cyan-200', badge: 'bg-cyan-100 text-cyan-700' }
+                  : { bg: 'bg-violet-50', border: 'border-violet-200', badge: 'bg-violet-100 text-violet-700' };
+
+                return (
+                  <div key={idx} className={`rounded-xl border ${typeColor.border} ${typeColor.bg} p-4`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 truncate">{item.title}</p>
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider ${typeColor.badge}`}>
+                          {typeLabel}
+                        </span>
+                      </div>
+                      <div className="text-right ml-3">
+                        <p className="text-lg font-extrabold text-red-600">{item.usedCount}</p>
+                        <p className="text-[9px] text-red-400 font-medium">{item.usedCount === 1 ? 'use' : 'uses'}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setShowUnderperformingModal(false)}
+                className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Total Revenue Modal ── */}
+      {showRevenueModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRevenueModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Total Revenue</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {getCurrencySymbol(currency)}{offerAnalytics.totalRevenue.toFixed(2)} from {offerAnalytics.revenueBillingList.length} billing{offerAnalytics.revenueBillingList.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowRevenueModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[60vh]">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Offer Applied</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Paid</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {offerAnalytics.revenueBillingList.map((billing, idx) => {
+                    const offerTypeLabel = billing.offerType === 'instant_discount' ? 'Instant' : billing.offerType === 'cashback' ? 'Cashback' : billing.offerType === 'bundle' ? 'Bundle' : '';
+                    const offerTypeColor = billing.offerType === 'instant_discount'
+                      ? 'bg-blue-100 text-blue-700'
+                      : billing.offerType === 'cashback'
+                      ? 'bg-cyan-100 text-cyan-700'
+                      : 'bg-violet-100 text-violet-700';
+
+                    return (
+                      <tr key={idx} className="hover:bg-green-50/50 transition-colors">
+                        <td className="px-4 py-2.5">
+                          <p className="text-xs font-semibold text-gray-900">{billing.patientName}</p>
+                          <p className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[10px] font-bold text-gray-700">{billing.invoiceNumber}</span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex flex-col gap-0.5">
+                            {billing.offerName && (
+                              <p className="text-[10px] font-semibold text-gray-800">{billing.offerName}</p>
+                            )}
+                            {offerTypeLabel && (
+                              <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider w-fit ${offerTypeColor}`}>
+                                {offerTypeLabel}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5 text-right">
+                          <span className="text-xs font-extrabold text-green-700">{getCurrencySymbol(currency)}{(billing.amount || 0).toFixed(2)}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.revenueBillingList.length} billing{offerAnalytics.revenueBillingList.length !== 1 ? 's' : ''}</p>
+              <button
+                onClick={() => setShowRevenueModal(false)}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Total Offers Used Modal ── */}
+      {showOffersUsedModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowOffersUsedModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Package className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Total Offers Used</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {offerAnalytics.totalOfferBillings} billing{offerAnalytics.totalOfferBillings !== 1 ? 's' : ''} with offers applied
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowOffersUsedModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-3">
+              {offerAnalytics.offersUsedList.map((billing, idx) => {
+                const typeLabel = billing.offerType === 'instant_discount' ? 'Instant Discount' : billing.offerType === 'cashback' ? 'Cashback' : billing.offerType === 'bundle' ? 'Bundle' : 'Offer';
+                const typeColor = billing.offerType === 'instant_discount'
+                  ? { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' }
+                  : billing.offerType === 'cashback'
+                  ? { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100 text-cyan-700' }
+                  : billing.offerType === 'bundle'
+                  ? { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700' }
+                  : { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100 text-gray-700' };
+
+                return (
+                  <div key={idx} className={`rounded-xl border ${typeColor.border} ${typeColor.bg} p-3 flex items-center justify-between hover:shadow-sm transition-shadow`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg ${typeColor.badge} flex items-center justify-center flex-shrink-0`}>
+                        <Gift className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">{billing.patientName}</p>
+                        <p className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <p className="text-[10px] font-semibold text-gray-800">{billing.offerName || '—'}</p>
+                        <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${typeColor.badge}`}>
+                          {typeLabel}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[9px] font-bold text-gray-600">{billing.invoiceNumber}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.offersUsedList.length} billing{offerAnalytics.offersUsedList.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => setShowOffersUsedModal(false)} className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Total Discount Applied Modal ── */}
+      {showDiscountModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowDiscountModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Total Discount Applied</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {getCurrencySymbol(currency)}{offerAnalytics.instantDiscount.totalDiscount.toFixed(2)} total discount &middot; {offerAnalytics.instantDiscount.count} invoice{offerAnalytics.instantDiscount.count !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowDiscountModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content - Table */}
+            <div className="overflow-y-auto max-h-[60vh]">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Offer</th>
+                    <th className="px-4 py-2.5 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Disc %</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Disc Amt</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {offerAnalytics.instantDiscount.list.map((billing, idx) => (
+                    <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <p className="text-xs font-semibold text-gray-900">{billing.patientName}</p>
+                        <p className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[10px] font-bold text-gray-700">{billing.invoiceNumber}</span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <p className="text-[10px] font-semibold text-gray-800">{billing.offerName}</p>
+                      </td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{billing.discountPercent}%</span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className="text-xs font-extrabold text-red-600">-{getCurrencySymbol(currency)}{billing.discountAmount.toFixed(2)}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.instantDiscount.list.length} invoice{offerAnalytics.instantDiscount.list.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => setShowDiscountModal(false)} className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Expiring Offers Modal ── */}
+      {showExpiringModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowExpiringModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-white" />
+                    </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Expiring Offers</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {expiringOffersList.length} active offer{expiringOffersList.length !== 1 ? 's' : ''} not yet expired
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowExpiringModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-3">
+              {expiringOffersList.map((offer) => (
+                <div key={offer._id} className={`rounded-xl border ${offer.urgency.border} ${offer.urgency.bg} p-3 flex items-center justify-between hover:shadow-sm transition-shadow`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg ${offer.urgency.badge} flex items-center justify-center flex-shrink-0`}>
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">{offer.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                          offer.offerType === 'instant_discount' ? 'bg-blue-100 text-blue-700' :
+                          offer.offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
+                          'bg-violet-100 text-violet-700'
+                        }`}>
+                          {offer.offerType === 'instant_discount' ? 'Instant' : offer.offerType === 'cashback' ? 'Cashback' : 'Bundle'}
+                        </span>
+                        <p className="text-[9px] text-gray-400">
+                          Ends: {new Date(offer.endsAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span className={`inline-block px-2 py-1 rounded-lg text-[10px] font-bold ${offer.urgency.badge}`}>
+                      {offer.urgency.label}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{expiringOffersList.length} offer{expiringOffersList.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => setShowExpiringModal(false)} className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Inactive Offers Modal ── */}
+      {showInactiveModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowInactiveModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-gray-600 to-slate-700 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Package className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Inactive Offers</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {inactiveOffersList.length} inactive offer{inactiveOffersList.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowInactiveModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-2">
+              {inactiveOffersList.map((offer) => (
+                <div key={offer._id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">{offer.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                          offer.offerType === 'instant_discount' ? 'bg-blue-100 text-blue-700' :
+                          offer.offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
+                          'bg-violet-100 text-violet-700'
+                        }`}>
+                          {offer.offerType === 'instant_discount' ? 'Instant' : offer.offerType === 'cashback' ? 'Cashback' : 'Bundle'}
+                        </span>
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-gray-200 text-[8px] font-bold text-gray-600 uppercase">
+                          {offer.status || 'inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {offer.endsAt && (
+                    <p className="text-[9px] text-gray-400 flex-shrink-0">
+                      Ended: {new Date(offer.endsAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{inactiveOffersList.length} offer{inactiveOffersList.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => setShowInactiveModal(false)} className="px-4 py-1.5 rounded-lg bg-gray-600 hover:bg-gray-700 text-white text-xs font-bold transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Active Offers Modal ── */}
+      {showActiveModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowActiveModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Active Offers</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      {activeOffersList.length} active offer{activeOffersList.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowActiveModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-2">
+              {activeOffersList.map((offer) => (
+                <div key={offer._id} className="rounded-xl border border-green-200 bg-green-50 p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-900">{offer.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                          offer.offerType === 'instant_discount' ? 'bg-blue-100 text-blue-700' :
+                          offer.offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
+                          'bg-violet-100 text-violet-700'
+                        }`}>
+                          {offer.offerType === 'instant_discount' ? 'Instant' : offer.offerType === 'cashback' ? 'Cashback' : 'Bundle'}
+                        </span>
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-green-200 text-[8px] font-bold text-green-700 uppercase">
+                          Active
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {offer.endsAt && (
+                    <p className="text-[9px] text-gray-400 flex-shrink-0">
+                      Ends: {new Date(offer.endsAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{activeOffersList.length} offer{activeOffersList.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => setShowActiveModal(false)} className="px-4 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Top Patients Modal ── */}
+      {showTopPatientsModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowTopPatientsModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-violet-600 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <Crown className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Top Patients</h3>
+                    <p className="text-[10px] text-white/70 font-medium">
+                      Top 5 patients by offer usage frequency
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowTopPatientsModal(false)} className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-3">
+              {offerAnalytics.topPatientsList.map((patient, idx) => {
+                const medals = ['🥇', '🥈', '🥉'];
+                return (
+                  <div key={patient.patientId} className={`rounded-xl border p-3 ${idx === 0 ? 'border-purple-300 bg-purple-50' : idx === 1 ? 'border-gray-300 bg-gray-50' : idx === 2 ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'} hover:shadow-sm transition-shadow`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{medals[idx] || `#${idx + 1}`}</span>
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{patient.patientName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="inline-block px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-bold">
+                          {patient.count} {patient.count === 1 ? 'use' : 'uses'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {patient.offerNames.map((name, i) => (
+                        <span key={i} className="inline-block px-1.5 py-0.5 rounded bg-white border border-gray-200 text-[9px] font-medium text-gray-600">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.topPatientsList.length} patient{offerAnalytics.topPatientsList.length !== 1 ? 's' : ''}</p>
+              <button onClick={() => setShowTopPatientsModal(false)} className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors">
+                Close
               </button>
             </div>
           </div>

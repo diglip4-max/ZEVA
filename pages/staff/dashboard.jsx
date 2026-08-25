@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import { Calendar, TrendingUp, Layers, User as UserIcon, ChevronDown } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { useCurrency } from "@/context/CurrencyContext";
+import { io } from "socket.io-client";
 
 // Import modular dashboard components
 import DashboardHeader from "../../components/staff-dashboard/DashboardHeader";
@@ -34,6 +35,7 @@ const AgentDashboard = () => {
   const [userInfo, setUserInfo] = useState({ name: "", email: "" });
   const [navigationItems, setNavigationItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [modulePermissions, setModulePermissions] = useState({});
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
@@ -47,6 +49,71 @@ const AgentDashboard = () => {
     return today.toISOString().split("T")[0];
   });
   const [showCalendar, setShowCalendar] = useState(false);
+
+  // ZEVA RECOMMENDS — fetched from /api/agent/zeva-recommends
+  const [zevaRecommendation, setZevaRecommendation] = useState({
+    doctorName: null,
+    departmentName: null,
+    topPatient: null,
+    hasFollowUpToday: false,
+    followUpLeads: [],
+  });
+
+  // APPOINTMENT TIMELINE — fetched from /api/agent/appointment-timeline
+  const [appointmentData, setAppointmentData] = useState({
+    statusCounts: [],
+    total: 0,
+    appointments: [],
+    waitingRoom: [],
+  });
+
+  // REVENUE RESCUE — fetched from /api/agent/priorities (revenueRescue key)
+  const [revenueRescueData, setRevenueRescueData] = useState({
+    abandonedEnquiries: { count: 0 },
+    cancelledAppointments: { count: 0 },
+    packageRenewals: { count: 0 },
+    overdueFollowUps: { count: 0 },
+  });
+
+  // OPEN SLOTS — fetched from /api/agent/open-slots
+  const [openSlotsData, setOpenSlotsData] = useState({
+    doctors: [],
+    totalSlots: 0,
+  });
+
+  // RENEWALS — fetched from /api/agent/priorities (packageRenewals key)
+  const [renewalsData, setRenewalsData] = useState({
+    count: 0,
+    totalRevenue: 0,
+    list: [],
+  });
+
+  // WIN BACK — fetched from /api/agent/appointment-timeline (winBack key)
+  const [winBackData, setWinBackData] = useState({
+    stats: [],
+    patients: [],
+  });
+
+  // FOLLOW-UPS — fetched from /api/agent/appointment-timeline (followUps key)
+  const [followUpsData, setFollowUpsData] = useState({
+    highIntent: { patientName: null, count: 0 },
+    revisitDue: 0,
+  });
+
+  // TODAY'S PERFORMANCE — fetched from /api/agent/today-performance
+  const [performanceData, setPerformanceData] = useState({
+    bookings: { booked: 0, totalSlots: 0, percent: 0 },
+    revenue: { amount: 0 },
+    leadBooking: { count: 0, totalLeads: 0, percent: 0 },
+  });
+
+  // RECOVERED DATA — fetched from /api/agent/revenue-opportunity
+  const [recoveredData, setRecoveredData] = useState({
+    recoveredSoFar: 0,
+    recoveredCount: 0,
+    treatmentRevenue: 0,
+    expiredPackageRevenue: 0,
+  });
 
   const variantStyles = {
     red: {
@@ -71,435 +138,8 @@ const AgentDashboard = () => {
     },
   };
 
-  const zevaRecommendation = {
-    slot: {
-      title: "Fill the 4:30 PM opening before it becomes lost capacity.",
-      doctor: "Dr. Mehta",
-      department: "Dermatology",
-      time: "4:30 PM",
-    },
-    patients: [
-      {
-        rank: 1,
-        initials: "SA",
-        initialsBg: "bg-red-500",
-        name: "Sarah Ahmed",
-        detail: "Hot lead · 87% booking lik...",
-        percent: 87,
-        percentColor: "text-indigo-600 dark:text-indigo-400",
-        percentBg: "bg-indigo-100 dark:bg-indigo-500/15",
-      },
-      {
-        rank: 2,
-        initials: "AK",
-        initialsBg: "bg-red-500",
-        name: "Ahmed Khan",
-        detail: "Requested an earlier appointment",
-        percent: null,
-      },
-      {
-        rank: 3,
-        initials: "MJ",
-        initialsBg: "bg-red-500",
-        name: "Maria Joseph",
-        detail: "Follow-up due today",
-        percent: null,
-      },
-    ],
-    foundCount: 5,
-  };
-
-  const appointmentStats = {
-    total: 38,
-    confirmed: 26,
-    pending: 4,
-    cancelled: 2,
-    waiting: 4,
-  };
-
-  const appointmentTimeline = [
-    {
-      time: "09:30",
-      initials: "SA",
-      initialsBg: "bg-red-500",
-      name: "Sarah Ahmed",
-      department: "Dermatology",
-      doctor: "Dr. Mehta",
-      status: "Confirmed",
-      statusStyle: {
-        bg: "bg-emerald-100 dark:bg-emerald-500/15",
-        text: "text-emerald-700 dark:text-emerald-400",
-        dot: "bg-emerald-500",
-      },
-      highlight: true,
-    },
-    {
-      time: "10:15",
-      initials: "MA",
-      initialsBg: "bg-red-500",
-      name: "Mohammed Ali",
-      department: "Dental",
-      doctor: "Dr. Priya",
-      status: "Checked in",
-      statusStyle: {
-        bg: "bg-blue-100 dark:bg-blue-500/15",
-        text: "text-blue-700 dark:text-blue-400",
-        dot: "bg-blue-500",
-      },
-    },
-    {
-      time: "11:00",
-      initials: "AK",
-      initialsBg: "bg-red-500",
-      name: "Aisha Khan",
-      department: "Physiotherapy",
-      doctor: "Dr. Mehta",
-      status: "Pending",
-      statusStyle: {
-        bg: "bg-amber-100 dark:bg-amber-500/15",
-        text: "text-amber-700 dark:text-amber-400",
-        dot: "bg-amber-500",
-      },
-    },
-    {
-      time: "12:30",
-      initials: "JM",
-      initialsBg: "bg-purple-500",
-      name: "John Mathew",
-      department: "Dental",
-      doctor: "Dr. Priya",
-      status: "Confirmed",
-      statusStyle: {
-        bg: "bg-emerald-100 dark:bg-emerald-500/15",
-        text: "text-emerald-700 dark:text-emerald-400",
-        dot: "bg-emerald-500",
-      },
-    },
-    {
-      time: "13:45",
-      initials: "FM",
-      initialsBg: "bg-amber-500",
-      name: "Fatima Malik",
-      department: "Dermatology",
-      doctor: "Dr. Mehta",
-      status: "Confirmed",
-      statusStyle: {
-        bg: "bg-emerald-100 dark:bg-emerald-500/15",
-        text: "text-emerald-700 dark:text-emerald-400",
-        dot: "bg-emerald-500",
-      },
-    },
-    {
-      time: "14:30",
-      initials: "RS",
-      initialsBg: "bg-amber-500",
-      name: "Ravi Sharma",
-      department: "Dermatology",
-      doctor: "Dr. Priya",
-      status: "Pending",
-      statusStyle: {
-        bg: "bg-amber-100 dark:bg-amber-500/15",
-        text: "text-amber-700 dark:text-amber-400",
-        dot: "bg-amber-500",
-      },
-    },
-  ];
-
-  const waitingRoomPatients = [
-    {
-      id: 1,
-      initials: "SA",
-      initialsBg: "bg-red-500",
-      name: "Sarah Ahmed",
-      doctor: "Dr. Mehta",
-      waitTime: "8 min",
-      highlight: false,
-      showClockIcon: false,
-      timeColor: "text-gray-600 dark:text-gray-300",
-    },
-    {
-      id: 2,
-      initials: "HA",
-      initialsBg: "bg-indigo-600",
-      name: "Hassan Ali",
-      doctor: "Dr. Priya",
-      waitTime: "14 min",
-      highlight: true,
-      showClockIcon: true,
-      timeColor: "text-amber-600 dark:text-amber-400",
-    },
-    {
-      id: 3,
-      initials: "AK",
-      initialsBg: "bg-red-500",
-      name: "Aisha Khan",
-      doctor: "Dr. Mehta",
-      waitTime: "4 min",
-      highlight: false,
-      showClockIcon: false,
-      timeColor: "text-gray-600 dark:text-gray-300",
-    },
-  ];
-
-  const hotLeads = [
-    {
-      id: 1,
-      initials: "SA",
-      initialsBg: "bg-red-500",
-      name: "Sarah Ahmed",
-      waitTime: "4 min wait",
-      waitTimeBg: "bg-amber-50 dark:bg-amber-500/10",
-      waitTimeColor: "text-amber-700 dark:text-amber-400",
-      details: "Dermatology · Asked about pricing",
-      progressPercent: 87,
-      progressBarColor: "bg-indigo-600",
-      progressTextColor: "text-indigo-600 dark:text-indigo-400",
-    },
-    {
-      id: 2,
-      initials: "AK",
-      initialsBg: "bg-red-500",
-      name: "Ahmed Khan",
-      waitTime: "18 min wait",
-      waitTimeBg: "bg-amber-50 dark:bg-amber-500/10",
-      waitTimeColor: "text-amber-700 dark:text-amber-400",
-      details: "Dental · Asked for availability",
-      progressPercent: 78,
-      progressBarColor: "bg-sky-500",
-      progressTextColor: "text-sky-600 dark:text-sky-400",
-    },
-    {
-      id: 3,
-      initials: "PR",
-      initialsBg: "bg-purple-500",
-      name: "Priya Raj",
-      waitTime: null,
-      details: "Physiotherapy · Returning patient",
-      progressPercent: 72,
-      progressBarColor: "bg-purple-500",
-      progressTextColor: "text-purple-600 dark:text-purple-400",
-    },
-  ];
-
-  const revenueRescueStats = [
-    {
-      id: 1,
-      title: "4 abandoned enquiries",
-      amount: "AED 3,200",
-      amountColor: "text-red-600 dark:text-red-400",
-      bg: "bg-red-50 dark:bg-red-500/10",
-    },
-    {
-      id: 2,
-      title: "3 cancelled appointments",
-      amount: "AED 1,800",
-      amountColor: "text-amber-600 dark:text-amber-400",
-      bg: "bg-amber-50 dark:bg-amber-500/10",
-    },
-    {
-      id: 3,
-      title: "5 package renewals",
-      amount: "AED 3,500",
-      amountColor: "text-purple-600 dark:text-purple-400",
-      bg: "bg-purple-50 dark:bg-purple-500/10",
-    },
-    {
-      id: 4,
-      title: "8 overdue follow-ups",
-      amount: "AED 2,600",
-      amountColor: "text-sky-600 dark:text-sky-400",
-      bg: "bg-sky-50 dark:bg-sky-500/10",
-    },
-  ];
-
-  const openSlotsDoctors = [
-    {
-      id: 1,
-      initials: "DM",
-      initialsBg: "bg-purple-500",
-      name: "Dr. Mehta",
-      department: "Dermatology",
-      slots: [
-        { time: "2:30 PM", patients: "5 suitable patients" },
-        { time: "4:30 PM", patients: "5 suitable patients" },
-      ],
-    },
-    {
-      id: 2,
-      initials: "DP",
-      initialsBg: "bg-purple-500",
-      name: "Dr. Priya",
-      department: "Dental",
-      slots: [
-        { time: "5:00 PM", patients: "3 suitable patients" },
-      ],
-    },
-  ];
-
-  const followUpsCategories = [
-    {
-      id: 1,
-      icon: "fire",
-      label: "High intent",
-      count: 3,
-    },
-    {
-      id: 2,
-      icon: "package",
-      label: "Package renewal",
-      count: 2,
-    },
-    {
-      id: 3,
-      icon: "revisit",
-      label: "Revisit due",
-      count: 2,
-    },
-    {
-      id: 4,
-      icon: "callback",
-      label: "Callback requested",
-      count: 1,
-    },
-  ];
-
-  const winBackStats = [
-    { count: 18, label: "High", color: "text-red-500 dark:text-red-400" },
-    { count: 42, label: "Medium", color: "text-amber-500 dark:text-amber-400" },
-    { count: 68, label: "Low", color: "text-gray-400 dark:text-gray-500" },
-    { count: 128, label: "Dormant", color: "text-gray-700 dark:text-gray-300" },
-  ];
-
-  const winBackPatients = [
-    {
-      id: 1,
-      initials: "SA",
-      initialsBg: "bg-red-500",
-      name: "Sarah Ahmed",
-      detail: "Last visit 84 days ago · typical 35d interval",
-      action: "Invite for follow-up",
-      actionColor: "text-purple-600 dark:text-purple-400",
-    },
-    {
-      id: 2,
-      initials: "KN",
-      initialsBg: "bg-emerald-500",
-      name: "Khalid Nasser",
-      detail: "Last visit 62 days ago · typical 28d interval",
-      action: "Offer package renewal",
-      actionColor: "text-purple-600 dark:text-purple-400",
-    },
-    {
-      id: 3,
-      initials: "RA",
-      initialsBg: "bg-amber-500",
-      name: "Reem Al Farsi",
-      detail: "Last visit 55 days ago · typical 21d interval",
-      action: "Confirm revisit",
-      actionColor: "text-purple-600 dark:text-purple-400",
-    },
-  ];
-
-  const renewalsData = [
-    {
-      id: 1,
-      initials: "HA",
-      initialsBg: "bg-indigo-500",
-      name: "Hassan Ali",
-      package: "Physiotherapy Package",
-      detail: "2 sessions left · AED 900 value",
-      expireBadge: "Expires in 6d",
-      expireBg: "bg-amber-50 dark:bg-amber-500/10",
-      expireColor: "text-amber-700 dark:text-amber-400",
-    },
-    {
-      id: 2,
-      initials: "FM",
-      initialsBg: "bg-amber-500",
-      name: "Fatima Malik",
-      package: "Dermatology Bundle",
-      detail: "1 sessions left · AED 1,400 value",
-      expireBadge: "Expires in 3d",
-      expireBg: "bg-red-50 dark:bg-red-500/10",
-      expireColor: "text-red-700 dark:text-red-400",
-    },
-  ];
-
-  const inboxOpportunities = [
-    {
-      id: 1,
-      initials: "SA",
-      initialsBg: "bg-red-500",
-      name: "Sarah Ahmed",
-      department: "Laser Treatment",
-      likelyPercent: 87,
-      patientMessage: "How much is the laser treatment?",
-      ourResponse: "AED 650 for a full session.",
-      suggestion: "Offer available appointment times.",
-    },
-    {
-      id: 2,
-      initials: "AK",
-      initialsBg: "bg-red-500",
-      name: "Ahmed Khan",
-      department: "Dental",
-      likelyPercent: 78,
-      patientMessage: "Is Dr. Priya available tomorrow morning?",
-      ourResponse: null,
-      suggestion: "Send available slots for tomorrow 9 AM–1 PM.",
-    },
-  ];
-
-  const todayPerformance = [
-    {
-      id: 1,
-      titleLines: ["BOOKINGS"],
-      value: "31 / 40",
-      subText: null,
-      progressPercent: 77.5,
-      progressColor: "bg-indigo-600",
-    },
-    {
-      id: 2,
-      titleLines: ["REVENUE", "BOOKED"],
-      value: "AED 18,420",
-      subText: "target AED 24,000",
-      progressPercent: 76.75,
-      progressColor: "bg-emerald-500",
-    },
-    {
-      id: 3,
-      titleLines: ["LEAD →", "BOOKING"],
-      value: "29%",
-      subText: "+4% vs yesterday",
-      progressPercent: 29,
-      progressColor: "bg-purple-500",
-    },
-    {
-      id: 4,
-      titleLines: ["AVG", "RESPONSE"],
-      value: "4m 12s",
-      subText: "target < 5 min",
-      progressPercent: 84,
-      progressColor: "bg-amber-500",
-    },
-    {
-      id: 5,
-      titleLines: ["RECOVERED"],
-      value: "3",
-      subText: "bookings rescued",
-      progressPercent: 30,
-      progressColor: "bg-sky-500",
-    },
-    {
-      id: 6,
-      titleLines: ["REVENUE", "RESCUED"],
-      value: "AED 3,200",
-      subText: "from 3 opportunities",
-      progressPercent: 32,
-      progressColor: "bg-red-500",
-    },
-  ];
+  const [hotLeads, setHotLeads] = useState([]);
+  const [inboxOpportunities, setInboxOpportunities] = useState([]);
 
   const frontDeskStatus = [
     { id: 1, label: "Appointments", dotColor: "bg-emerald-500", value: "On track", valueColor: "text-emerald-600 dark:text-emerald-400" },
@@ -512,6 +152,91 @@ const AgentDashboard = () => {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Fetch INBOX OPPORTUNITIES + HOT LEADS from API — refreshes when the selected date changes
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/inbox-opportunities", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setInboxOpportunities(res.data.data.opportunities || []);
+          setHotLeads(res.data.data.hotLeads || []);
+        }
+      } catch (err) {
+        // Silently fail — the cards will show their empty states.
+        console.error("inbox-opportunities fetch failed:", err?.message);
+      }
+    };
+
+    fetchOpportunities();
+  }, [selectedDate]);
+
+  // Listen for real-time new opportunity events via Socket.IO
+  useEffect(() => {
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken")
+        : null;
+    if (!token) return;
+
+    let decoded;
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return;
+      decoded = JSON.parse(atob(parts[1]));
+    } catch {
+      return;
+    }
+
+    const userId = decoded?.userId;
+    if (!userId) return;
+
+    const socket = io({
+      path: "/api/messages/socketio",
+      query: { userId },
+    });
+
+    socket.on("newOpportunity", (data) => {
+      setInboxOpportunities((prev) => {
+        // Avoid duplicates
+        if (prev.some((o) => o.id === data.opportunityId)) return prev;
+        const newCard = {
+          id: data.opportunityId,
+          initials: data.leadName
+            ? data.leadName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+            : "??",
+          initialsBg: "bg-red-500",
+          name: data.leadName || "Unknown",
+          department: data.intent?.replace(/_/g, " ") || "Inquiry",
+          likelyPercent: data.relevanceScore || 0,
+          patientMessage: data.leadMessage || "",
+          ourResponse: null,
+          suggestion: data.staffSuggestion || "Review and respond",
+          intent: data.intent,
+          conversationId: data.conversationId,
+          leadId: data.leadId,
+          status: "new",
+        };
+        return [newCard, ...prev];
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -551,6 +276,194 @@ const AgentDashboard = () => {
     }
   }, []);
 
+  // Fetch ZEVA RECOMMENDS data — refreshes when the selected date changes
+  useEffect(() => {
+    const fetchZevaRecommends = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/zeva-recommends", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setZevaRecommendation(res.data.data);
+        }
+      } catch (err) {
+        // Silently fail — the card will show its empty state.
+        console.error("zeva-recommends fetch failed:", err?.message);
+      }
+    };
+
+    fetchZevaRecommends();
+  }, [selectedDate]);
+
+  // Fetch APPOINTMENT TIMELINE data — refreshes when the selected date changes
+  useEffect(() => {
+    const fetchAppointmentTimeline = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/appointment-timeline", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setAppointmentData(res.data.data);
+
+          // Also extract win-back data
+          if (res.data.data.winBack) {
+            setWinBackData(res.data.data.winBack);
+          }
+
+          // Also extract follow-ups data
+          if (res.data.data.followUps) {
+            setFollowUpsData(res.data.data.followUps);
+          }
+        }
+      } catch (err) {
+        // Silently fail — the card will show its empty state.
+        console.error("appointment-timeline fetch failed:", err?.message);
+      }
+    };
+
+    fetchAppointmentTimeline();
+  }, [selectedDate]);
+
+  // Fetch REVENUE RESCUE data from the priorities API
+  useEffect(() => {
+    const fetchRevenueRescue = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/priorities", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate, timePeriod: "morning" },
+        });
+
+        if (res.data?.success && res.data?.data?.revenueRescue) {
+          setRevenueRescueData(res.data.data.revenueRescue);
+        }
+
+        // Also extract package renewals for the Renewals card
+        if (res.data?.success && res.data?.data?.packageRenewals) {
+          setRenewalsData(res.data.data.packageRenewals);
+        }
+      } catch (err) {
+        // Silently fail — the card will show zeros.
+        console.error("revenue-rescue fetch failed:", err?.message);
+      }
+    };
+
+    fetchRevenueRescue();
+  }, [selectedDate]);
+
+  // Fetch OPEN SLOTS data
+  useEffect(() => {
+    const fetchOpenSlots = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/open-slots", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setOpenSlotsData(res.data.data);
+        }
+      } catch (err) {
+        // Silently fail — the card will show its empty state.
+        console.error("open-slots fetch failed:", err?.message);
+      }
+    };
+
+    fetchOpenSlots();
+  }, [selectedDate]);
+
+  // Fetch TODAY'S PERFORMANCE data
+  useEffect(() => {
+    const fetchPerformance = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/today-performance", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setPerformanceData(res.data.data);
+        }
+      } catch (err) {
+        // Silently fail — the card will show zeros.
+        console.error("today-performance fetch failed:", err?.message);
+      }
+    };
+
+    fetchPerformance();
+  }, [selectedDate]);
+
+  // Fetch RECOVERED DATA from revenue-opportunity API
+  useEffect(() => {
+    const fetchRecovered = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/revenue-opportunity", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setRecoveredData({
+            recoveredSoFar: res.data.data.recoveredSoFar || 0,
+            recoveredCount: res.data.data.todaysAppointmentsCount || 0,
+            treatmentRevenue: res.data.data.treatmentRevenue || 0,
+            expiredPackageRevenue: res.data.data.expiredPackageRevenue || 0,
+          });
+        }
+      } catch (err) {
+        // Silently fail — the card will show zeros.
+        console.error("revenue-opportunity fetch failed:", err?.message);
+      }
+    };
+
+    fetchRecovered();
+  }, [selectedDate]);
+
   // Fetch navigation items from the same API as sidebar (single source of truth)
   useEffect(() => {
     const fetchNavigationAndPermissions = async () => {
@@ -579,6 +492,19 @@ const AgentDashboard = () => {
         });
 
         if (res.data.success) {
+          // Build a permission map for quick lookup
+          const permMap = {};
+          if (Array.isArray(res.data.permissions)) {
+            res.data.permissions.forEach((perm) => {
+              const key = perm.module; // e.g. "clinic_Appointment"
+              permMap[key] = perm.actions || {};
+              // Also store without prefix for flexible lookup
+              const keyWithoutPrefix = key.replace(/^(admin|clinic|doctor)_/, "");
+              permMap[keyWithoutPrefix] = perm.actions || {};
+            });
+          }
+          setModulePermissions(permMap);
+
           const filteredItems = (res.data.navigationItems || [])
             .filter((item) => {
               const isDashboard =
@@ -747,6 +673,7 @@ const AgentDashboard = () => {
             setShowCalendar={setShowCalendar}
             timePeriod={timePeriod}
             setTimePeriod={setTimePeriod}
+            modulePermissions={modulePermissions}
           />
 
           {/* Today's Revenue Opportunity Card */}
@@ -763,40 +690,39 @@ const AgentDashboard = () => {
           <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
             <ZevaRecommends zevaRecommendation={zevaRecommendation} />
             <AppointmentTimeline
-              appointmentStats={appointmentStats}
-              appointmentTimeline={appointmentTimeline}
+              appointmentData={appointmentData}
+              modulePermissions={modulePermissions}
             />
           </div>
 
           {/* Waiting Room + Hot Leads Section */}
           <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
-            <WaitingRoom waitingRoomPatients={waitingRoomPatients} />
-            <HotLeads hotLeads={hotLeads} />
+            <WaitingRoom waitingRoom={appointmentData.waitingRoom} />
+            <HotLeads hotLeads={hotLeads} modulePermissions={modulePermissions} />
           </div>
 
           {/* Revenue Rescue + Open Slots Section */}
           <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
-            <RevenueRescue revenueRescueStats={revenueRescueStats} />
-            <OpenSlots openSlotsDoctors={openSlotsDoctors} />
+            <RevenueRescue revenueRescueStats={revenueRescueData} />
+            <OpenSlots openSlotsData={openSlotsData} modulePermissions={modulePermissions} />
           </div>
 
           {/* Follow-ups + Win Back + Renewals Section */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
-            <FollowUps followUpsCategories={followUpsCategories} />
-            <WinBack winBackStats={winBackStats} winBackPatients={winBackPatients} />
+            <FollowUps followUpsData={followUpsData} packageRenewalsCount={renewalsData.count} />
+            <WinBack winBackData={winBackData} />
             <Renewals renewalsData={renewalsData} />
           </div>
 
-          {/* Inbox Opportunities + Today's Performance + Front Desk Status Section */}
-          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+          {/* Inbox Opportunities + Today's Performance Section */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
             <InboxOpportunities inboxOpportunities={inboxOpportunities} />
-            <TodayPerformance todayPerformance={todayPerformance} />
-            <FrontDeskStatus frontDeskStatus={frontDeskStatus} />
+            <TodayPerformance performanceData={performanceData} recoveredData={recoveredData} />
+            {/* <FrontDeskStatus frontDeskStatus={frontDeskStatus} /> */}
           </div>
 
           {/* Commissions Overview Section */}
           <CommissionsSummary
-            currency={currency}
             chartView={chartView}
             setChartView={setChartView}
             totalCommission={totalCommission}

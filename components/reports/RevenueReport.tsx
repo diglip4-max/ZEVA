@@ -1384,9 +1384,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                       Date
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
-                      Total Amount
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">
                       Revenue
                     </th>
                   </tr>
@@ -1450,9 +1447,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                               ? new Date(detail.invoicedDate).toLocaleDateString()
                               : "-"}
                           </td>
-                          <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">
-                            {fmtCurrency(detail.totalAmount)}
-                          </td>
                           <td className="px-4 py-2 text-sm font-medium text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                             {fmtCurrency(detail.revenue)}
                           </td>
@@ -1464,14 +1458,6 @@ export default function RevenueReport({ startDate, endDate, headers }: Props) {
                   <tr>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={5}>
                       Total
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {fmtCurrency(
-                        selectedDepartment.details.reduce(
-                          (sum, d) => sum + Number(d.totalAmount || 0),
-                          0
-                        )
-                      )}
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-[#2D9AA5] text-gray-900 dark:text-gray-900">
                       {fmtCurrency(selectedDepartment.amount)}

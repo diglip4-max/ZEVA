@@ -93,3 +93,11 @@ export const sendGmailEmailBatchQueue = new Queue("sendGmailEmailBatchQueue", {
 export const gmailWatchRenewalQueue = new Queue("gmailWatchRenewalQueue", {
   connection: redis,
 });
+
+// ----------------------------------- REGEX SUGGESTION GENERATION QUEUE -----------------------------------//
+export const generateRegexSuggestionsQueue = new Queue(
+  "generateRegexSuggestionsQueue",
+  {
+    connection: redis,
+  },
+);

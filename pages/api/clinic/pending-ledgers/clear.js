@@ -188,7 +188,29 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Clearance failed", details: clearanceResult });
     }
 
-    // 3) Create audit billing record (optional but recommended)
+    // 3) Compute directBilling flag for audit billing based on original billings being cleared
+    // If ANY original billing has directBilling=false (appointment-based), the clearance is also appointment-based
+    let auditDirectBilling = true; // default: direct billing
+    try {
+      const clearedInvoiceNumbers = [...new Set(clearanceResult.breakdown.map(b => b.invoiceNumber).filter(Boolean))];
+      if (clearedInvoiceNumbers.length > 0) {
+        const originalBillings = await Billing.find({
+          invoiceNumber: { $in: clearedInvoiceNumbers },
+          clinicId,
+        }).select({ invoiceNumber: 1, directBilling: 1 }).lean();
+        
+        // If ANY original billing is appointment-based (directBilling=false), clearance is also appointment-based
+        const hasAppointmentBased = originalBillings.some(b => b.directBilling === false);
+        if (hasAppointmentBased) {
+          auditDirectBilling = false;
+        }
+      }
+    } catch (err) {
+      console.error("[pending-ledgers/clear] Error computing directBilling:", err.message);
+      // Default to true (direct billing) on error
+    }
+
+    // 4) Create audit billing record (optional but recommended)
     let auditBilling = null;
     if (createAuditBilling) {
       const initialMultiplePayments =
@@ -200,6 +222,7 @@ export default async function handler(req, res) {
         clinicId,
         patientId,
         appointmentId: null,
+        directBilling: auditDirectBilling,
         invoiceNumber: clearingInvoiceNumber,
         invoicedDate: now,
         invoicedBy: user.name || user.firstName || "Clinic Staff",
@@ -245,7 +268,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 4) Cash portion -> PettyCash
+    // 5) Cash portion -> PettyCash
     try {
       const cashPortion = Math.min(amountNum, Number(clearanceResult.totalAmount || amountNum));
       if (cashPortion > 0 && (paymentMethod === "Cash" || (multiplePayments || []).some((mp) => mp.paymentMethod === "Cash"))) {

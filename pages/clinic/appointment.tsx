@@ -2403,7 +2403,7 @@ function AppointmentPage({
     });
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalTodayDate();
   const isPastDay = selectedDate < todayStr;
   const isToday = selectedDate === todayStr;
   const currentMinutes = (() => {
@@ -3556,9 +3556,10 @@ function AppointmentPage({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
-                          const current = new Date(selectedDate);
+                          const [y, m, d] = selectedDate.split("-").map(Number);
+                          const current = new Date(y, m - 1, d);
                           current.setDate(current.getDate() - 1);
-                          const newDate = current.toISOString().split("T")[0];
+                          const newDate = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
                           setSelectedDate(newDate);
                           if (typeof window !== "undefined") {
                             localStorage.setItem(
@@ -3607,9 +3608,10 @@ function AppointmentPage({
 
                       <button
                         onClick={() => {
-                          const current = new Date(selectedDate);
+                          const [y, m, d] = selectedDate.split("-").map(Number);
+                          const current = new Date(y, m - 1, d);
                           current.setDate(current.getDate() + 1);
-                          const newDate = current.toISOString().split("T")[0];
+                          const newDate = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
                           setSelectedDate(newDate);
                           if (typeof window !== "undefined") {
                             localStorage.setItem(
@@ -4252,6 +4254,28 @@ function AppointmentPage({
                         );
                       }
                     })}
+
+                    {/* Clinic closed message when no time slots for the selected day */}
+                    {timeSlots.length === 0 && orderedColumns.length > 0 && (
+                      <div
+                        className="text-center py-10"
+                        style={{ gridColumn: `1 / -1`, gridRow: "2" }}
+                      >
+                        <div className="inline-flex flex-col items-center gap-2 bg-gray-50 dark:bg-gray-100 rounded-xl px-8 py-6">
+                          <Calendar className="w-8 h-8 text-gray-400" />
+                          <p className="text-sm font-semibold text-gray-700">
+                            Clinic is closed on{" "}
+                            {(() => {
+                              const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+                              return DAYS[new Date(selectedDate + "T00:00:00").getDay()];
+                            })()}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            No time slots available for this day. Select another date to view the calendar.
+                          </p>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Time slots and data cells */}
                     {timeSlots.map((slot, rowIndex) => {

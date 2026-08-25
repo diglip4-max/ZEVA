@@ -9,7 +9,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check, Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin
+  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -888,8 +888,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     activePackages: 0,
     pendingSessions: 0,
     insuranceClaimsPending: 0,
+    offerUsed: 0,
   });
   const [loadingStats, setLoadingStats] = useState(false);
+  const [showOffersModal, setShowOffersModal] = useState(false);
 
   // Insurance Claims state
   const [insuranceClaims, setInsuranceClaims] = useState<any[]>([]);
@@ -2254,6 +2256,13 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       icon: FileText,
       color: 'text-teal-600',
       bgColor: 'bg-teal-100'
+    },
+    {
+      label: 'Offers Used',
+      value: loadingStats ? '...' : statsData.offerUsed,
+      icon: Gift,
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100'
     }
   ];
 
@@ -3215,6 +3224,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       let activePackages = 0;
       let pendingSessions = 0;
       let insuranceClaimsPending = 0;
+      let offerUsed = 0;
 
       // Insurance
       if (insuranceClaimsRes.data.success) {
@@ -3283,6 +3293,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
           const pending = parseFloat(billing.pending || 0) || 0;
           return pending === 0;
         }).length;
+
+        // Count billings where an offer was applied OR free sessions/cashback were used
+        offerUsed = treatmentBillings.filter((billing: any) => {
+          return billing.offerApplied === true ||
+            (billing.usedFreeSessions && billing.usedFreeSessions.length > 0) ||
+            billing.isCashbackApplied === true ||
+            (billing.cashbackWalletUsed && billing.cashbackWalletUsed > 0);
+        }).length;
       }
 
       setStatsData({
@@ -3293,6 +3311,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
         activePackages,
         pendingSessions,
         insuranceClaimsPending,
+        offerUsed,
       });
     } catch (error: any) {
       console.error('Error fetching stats data:', error.message);
@@ -4476,13 +4495,13 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
               </div>
 
               {/* Add Payment Button — teal gradient, opens Advance & Pending tab */}
-              <button
+              {/* <button
                 onClick={() => setActiveTab('advance')}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-lg hover:from-teal-600 hover:to-cyan-700 transition-all shadow-md font-medium text-xs whitespace-nowrap"
               >
 
                 {getCurrencySymbol(currency)} Add Payment
-              </button>
+              </button> */}
             </div>
           </div>
         </div>
@@ -4490,14 +4509,31 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
         {/* Statistics Cards Row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
           {stats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-xl p-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <div
+              key={index}
+              onClick={() => {
+                if (stat.label === 'Offers Used' && typeof stat.value === 'number' && stat.value > 0) {
+                  setShowOffersModal(true);
+                }
+              }}
+              className={`bg-white rounded-xl p-3 border border-gray-200 shadow-sm hover:shadow-md transition-all ${
+                stat.label === 'Offers Used' && typeof stat.value === 'number' && stat.value > 0
+                  ? 'cursor-pointer hover:scale-[1.03] hover:border-orange-300 ring-0 hover:ring-2 hover:ring-orange-200'
+                  : ''
+              }`}
+            >
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className={`w-7 h-7 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
                   <stat.icon className={`w-3.5 h-3.5 ${stat.color}`} />
                 </div>
               </div>
               <div className="text-lg sm:text-xl font-bold text-gray-900">{stat.value}</div>
-              <div className="text-[10px] sm:text-xs text-gray-600 truncate">{stat.label}</div>
+              <div className="text-[10px] sm:text-xs text-gray-600 truncate">
+                {stat.label}
+                {stat.label === 'Offers Used' && typeof stat.value === 'number' && stat.value > 0 && (
+                  <span className="ml-1 text-[8px] text-orange-500 font-semibold">View →</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -11573,6 +11609,44 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     </div>
                   </div>
                 )}
+
+                {/* Free Sessions Info */}
+                {(selectedPaymentHistoryBilling.usedFreeSessionCount > 0 || selectedPaymentHistoryBilling.freeOfferSessionCount > 0) && (
+                  <div className="mt-3 p-3 bg-violet-50 rounded-lg border border-violet-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="p-1.5 bg-violet-100 rounded-full">
+                        <Gift className="w-4 h-4 text-violet-700" />
+                      </div>
+                      <p className="text-[10px] text-violet-700 uppercase font-bold">Free Sessions (Offer)</p>
+                    </div>
+                    {/* Used Free Sessions */}
+                    {selectedPaymentHistoryBilling.usedFreeSessionCount > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[9px] text-red-600 font-bold uppercase mb-1">Used ({selectedPaymentHistoryBilling.usedFreeSessionCount})</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(selectedPaymentHistoryBilling.usedFreeSessions || []).map((session: string, idx: number) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-0.5 bg-red-100 text-red-700 text-[9px] rounded-full border border-red-200 font-medium">
+                              ✓ {session}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Earned Free Sessions */}
+                    {selectedPaymentHistoryBilling.freeOfferSessionCount > 0 && (
+                      <div>
+                        <p className="text-[9px] text-green-600 font-bold uppercase mb-1">Earned ({selectedPaymentHistoryBilling.freeOfferSessionCount})</p>
+                        <div className="flex flex-wrap gap-1">
+                          {(selectedPaymentHistoryBilling.offerFreeSession || []).map((session: string, idx: number) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-0.5 bg-green-100 text-green-700 text-[9px] rounded-full border border-green-200 font-medium">
+                              + {session}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Payment Details Section */}
@@ -12452,6 +12526,303 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
           </div>
         </div>
       )}
+
+      {/* Offers Used Modal */}
+      {showOffersModal && (() => {
+        const offerBillings = Array.isArray(billingHistory)
+          ? billingHistory.filter((b: any) => {
+              if (b.isAdvanceOnly) return false;
+              return b.offerApplied === true ||
+                (b.usedFreeSessions && b.usedFreeSessions.length > 0) ||
+                b.isCashbackApplied === true ||
+                (b.cashbackWalletUsed && b.cashbackWalletUsed > 0);
+            })
+          : [];
+        // Summary counts
+        const instantCount = offerBillings.filter((b: any) => b.offerType === 'instant_discount').length;
+        const bundleCount = offerBillings.filter((b: any) => b.offerType === 'bundle').length;
+        const cashbackCount = offerBillings.filter((b: any) => b.isCashbackApplied === true || b.offerType === 'cashback').length;
+        const freeRedeemedCount = offerBillings.filter((b: any) => b.usedFreeSessions && b.usedFreeSessions.length > 0 && !b.offerApplied).length;
+        // Determine primary accent border color per billing
+        const getCardAccent = (b: any) => {
+          if (b.offerType === 'instant_discount') return 'border-l-blue-500';
+          if (b.offerType === 'bundle') return 'border-l-violet-500';
+          if (b.offerType === 'cashback' || b.isCashbackApplied) return 'border-l-cyan-500';
+          if (b.usedFreeSessions?.length > 0) return 'border-l-emerald-500';
+          if (b.cashbackWalletUsed > 0) return 'border-l-amber-500';
+          return 'border-l-gray-300';
+        };
+        return (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-gray-900/70 via-gray-800/60 to-orange-900/30 backdrop-blur-lg" onClick={() => setShowOffersModal(false)} />
+          <div className="relative z-10 bg-gray-50 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[88vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 px-6 py-5 relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+              <div className="relative flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                    <Gift className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white tracking-tight">Offers & Benefits</h3>
+                    <p className="text-orange-100 text-xs font-medium mt-0.5">{offerBillings.length} invoice{offerBillings.length !== 1 ? 's' : ''} with offers or benefits</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowOffersModal(false)} className="p-2 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-sm transition-all duration-200 hover:scale-105">
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+              {/* Summary chips */}
+              {(instantCount > 0 || bundleCount > 0 || cashbackCount > 0 || freeRedeemedCount > 0) && (
+                <div className="relative flex flex-wrap gap-2">
+                  {instantCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/30 text-white text-[10px] font-bold backdrop-blur-sm border border-white/20">
+                      <TrendingUp className="w-3 h-3" /> {instantCount} Discount{instantCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {bundleCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-violet-500/30 text-white text-[10px] font-bold backdrop-blur-sm border border-white/20">
+                      <Package className="w-3 h-3" /> {bundleCount} Bundle{bundleCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {cashbackCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-500/30 text-white text-[10px] font-bold backdrop-blur-sm border border-white/20">
+                      <Wallet className="w-3 h-3" /> {cashbackCount} Cashback{cashbackCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {freeRedeemedCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/30 text-white text-[10px] font-bold backdrop-blur-sm border border-white/20">
+                      <CheckCircle className="w-3 h-3" /> {freeRedeemedCount} Free Session{freeRedeemedCount !== 1 ? 's' : ''} Used
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollbarGutter: 'stable' }}>
+              {offerBillings.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-orange-50 flex items-center justify-center mx-auto mb-4">
+                    <Gift className="w-8 h-8 text-orange-300" />
+                  </div>
+                  <p className="text-gray-500 text-sm font-medium">No offers used yet</p>
+                  <p className="text-gray-400 text-xs mt-1">Offers will appear here once applied to invoices</p>
+                </div>
+              ) : (
+                offerBillings.map((billing: any, idx: number) => {
+                  const invoiceDate = billing.invoicedDate || billing.createdAt
+                    ? new Date(billing.invoicedDate || billing.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '';
+                  const isInstant = billing.offerType === 'instant_discount';
+                  const isBundle = billing.offerType === 'bundle';
+                  const isCashback = billing.offerType === 'cashback';
+                  const hasOfferApplied = billing.offerApplied === true;
+                  const hasUsedFreeSessions = billing.usedFreeSessions && billing.usedFreeSessions.length > 0;
+                  const hasCashbackWalletUsed = billing.cashbackWalletUsed > 0;
+                  const treatmentName = billing.treatment || (billing.selectedTreatments?.[0]?.treatmentName) || '';
+
+                  return (
+                    <div key={billing._id || idx} className={`rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden border-l-4 ${getCardAccent(billing)}`}>
+                      {/* Invoice Header */}
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-100">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <FileText className="w-3.5 h-3.5 text-gray-500" />
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-gray-800">{billing.invoiceNumber || 'N/A'}</p>
+                            <p className="text-[9px] text-gray-400">{invoiceDate}{treatmentName ? ` · ${treatmentName}` : ''}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-gray-700">{getCurrencySymbol(currency)}{(billing.amount || 0).toFixed(2)}</p>
+                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider text-white shadow-sm ${
+                            isInstant ? 'bg-gradient-to-r from-blue-500 to-blue-600 shadow-blue-200' :
+                            isBundle ? 'bg-gradient-to-r from-violet-500 to-purple-600 shadow-violet-200' :
+                            isCashback ? 'bg-gradient-to-r from-cyan-500 to-teal-600 shadow-cyan-200' :
+                            hasUsedFreeSessions ? 'bg-gradient-to-r from-emerald-500 to-green-600 shadow-emerald-200' :
+                            billing.isCashbackApplied ? 'bg-gradient-to-r from-cyan-500 to-teal-600 shadow-cyan-200' :
+                            hasCashbackWalletUsed ? 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-amber-200' :
+                            'bg-gradient-to-r from-gray-400 to-gray-500 shadow-gray-200'
+                          }`}>
+                            {isInstant ? 'Instant Discount' : isBundle ? 'Bundle Offer' : isCashback ? 'Cashback' : hasUsedFreeSessions ? 'Free Session' : billing.isCashbackApplied ? 'Cashback' : hasCashbackWalletUsed ? 'Cashback Wallet' : 'Offer'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Offer Content */}
+                      <div className="px-4 py-3 space-y-2.5">
+
+                        {/* ── INSTANT DISCOUNT ── */}
+                        {hasOfferApplied && isInstant && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                              <TrendingUp className="w-5 h-5 text-blue-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-gray-900 truncate">{billing.offerName || 'Instant Discount'}</p>
+                                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[9px] font-bold uppercase tracking-wider border border-blue-200">Saved</span>
+                              </div>
+                              <p className="text-base font-extrabold text-blue-600 mt-0.5">{getCurrencySymbol(currency)}{(billing.offerDiscountAmount || 0).toFixed(2)} <span className="text-[10px] font-medium text-blue-400">discount applied</span></p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── BUNDLE OFFER ── */}
+                        {hasOfferApplied && isBundle && (
+                          <div className="space-y-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+                                <Package className="w-5 h-5 text-violet-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-gray-900 truncate">{billing.offerName || 'Bundle Offer'}</p>
+                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 text-[9px] font-bold uppercase tracking-wider border border-violet-200">Bundle Offer</span>
+                              </div>
+                            </div>
+                            {/* Free sessions included */}
+                            {billing.offerFreeSession && billing.offerFreeSession.length > 0 && (
+                              <div className="ml-13 pl-3 border-l-2 border-violet-200">
+                                <p className="text-[10px] text-violet-500 font-bold uppercase tracking-wider mb-1">Free Sessions Earned</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {billing.offerFreeSession.map((s: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 rounded-lg bg-violet-50 text-violet-700 text-[10px] font-semibold border border-violet-200">{s}</span>
+                                  ))}
+                                </div>
+                                {(billing.freeOfferSessionCount || 0) > 0 && (
+                                  <p className="text-[10px] text-violet-500 mt-1.5">× {billing.freeOfferSessionCount} session{(billing.freeOfferSessionCount || 0) !== 1 ? 's' : ''}</p>
+                                )}
+                              </div>
+                            )}
+                            {/* Free sessions redeemed */}
+                            {hasUsedFreeSessions && (
+                              <div className="ml-13 pl-3 border-l-2 border-emerald-200">
+                                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mb-1">Sessions Redeemed</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {billing.usedFreeSessions.map((s: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200">✓ {s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ── CASHBACK OFFER (offerApplied) ── */}
+                        {hasOfferApplied && isCashback && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center flex-shrink-0">
+                                <Wallet className="w-5 h-5 text-cyan-500" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-gray-900 truncate">{billing.offerName || 'Cashback Offer'}</p>
+                                <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-600 text-[9px] font-bold uppercase tracking-wider border border-cyan-200">Cashback</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 ml-13">
+                              <div className="px-3 py-1.5 rounded-lg bg-cyan-50 border border-cyan-200">
+                                <p className="text-[9px] text-cyan-500 font-bold uppercase">Earned</p>
+                                <p className="text-sm font-extrabold text-cyan-700">{getCurrencySymbol(currency)}{(billing.cashbackAmount || 0).toFixed(2)}</p>
+                              </div>
+                              {billing.cashbackEndDate && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-cyan-500">
+                                  <Calendar className="w-3 h-3" />
+                                  <span className="font-semibold">Valid till {new Date(billing.cashbackEndDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                </div>
+                              )}
+                            </div>
+                            {hasCashbackWalletUsed && (
+                              <div className="ml-13 flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                                <CreditCard className="w-4 h-4 text-amber-500" />
+                                <span className="text-[10px] font-bold text-amber-700">Wallet Used:</span>
+                                <span className="text-sm font-extrabold text-amber-700">{getCurrencySymbol(currency)}{(billing.cashbackWalletUsed || 0).toFixed(2)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* ── STANDALONE: Free Session Redemption (no offerApplied) ── */}
+                        {!hasOfferApplied && hasUsedFreeSessions && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                              <CheckCircle className="w-5 h-5 text-emerald-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-gray-900">Free Session Redeemed</p>
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[9px] font-bold uppercase tracking-wider border border-emerald-200">Used</span>
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-0.5">{billing.usedFreeSessionCount || billing.usedFreeSessions.length} session{billing.usedFreeSessions.length !== 1 ? 's' : ''} from previous bundle offer</p>
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {billing.usedFreeSessions.map((s: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-200">✓ {s}</span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── STANDALONE: Cashback Earned (no offerApplied) ── */}
+                        {!hasOfferApplied && billing.isCashbackApplied && (
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center flex-shrink-0">
+                              <Wallet className="w-5 h-5 text-cyan-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-gray-900">{billing.cashbackOfferName || 'Cashback Earned'}</p>
+                                <span className="px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-600 text-[9px] font-bold uppercase tracking-wider border border-cyan-200">Earned</span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1.5">
+                                <p className="text-base font-extrabold text-cyan-600">{getCurrencySymbol(currency)}{(billing.cashbackAmount || 0).toFixed(2)}</p>
+                                {billing.cashbackEndDate && (
+                                  <span className="flex items-center gap-1 text-[10px] text-cyan-500 font-semibold">
+                                    <Calendar className="w-3 h-3" /> till {new Date(billing.cashbackEndDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* ── STANDALONE: Cashback Wallet Used (no offerApplied) ── */}
+                        {!hasOfferApplied && hasCashbackWalletUsed && (
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                              <CreditCard className="w-5 h-5 text-amber-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-gray-900">Cashback Wallet Used</p>
+                                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[9px] font-bold uppercase tracking-wider border border-amber-200">Wallet</span>
+                              </div>
+                              <p className="text-base font-extrabold text-amber-600 mt-0.5">{getCurrencySymbol(currency)}{(billing.cashbackWalletUsed || 0).toFixed(2)} <span className="text-[10px] font-medium text-amber-400">deducted from wallet</span></p>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3.5 border-t border-gray-200 bg-white">
+              <button onClick={() => setShowOffersModal(false)} className="w-full py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold tracking-wide transition-colors shadow-sm">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
     </div>
   );
 };

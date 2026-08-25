@@ -1178,7 +1178,7 @@ const ManageAgentsPage = () => {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                 >
                   <UserPlus className="w-4 h-4" />
-                  Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+                  Add {activeView === 'agents' ? 'Team' : 'Doctor'}
                 </button>
               )}
             </div>
@@ -1203,7 +1203,7 @@ const ManageAgentsPage = () => {
           <div className="max-w-md mx-auto text-center bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-teal-900 mb-2">Access denied</h2>
             <p className="text-sm text-teal-700">
-              You do not have permission to view the Create Agent module. Please contact your
+              You do not have permission to view the Create team memebers module. Please contact your
               administrator.
             </p>
           </div>
@@ -1313,7 +1313,7 @@ const ManageAgentsPage = () => {
                     : 'text-teal-600  hover:text-teal-900'
                     }`}
                 >
-                  Agents ({agents.length})
+                  Staff ({agents.length})
                 </button>
                 <button
                   onClick={() => setActiveView('doctorStaff')}
@@ -1343,7 +1343,7 @@ const ManageAgentsPage = () => {
                   className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center whitespace-nowrap"
                 >
                   <UserPlus className="w-4 h-4" />
-                  Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+                  Add {activeView === 'agents' ? 'Team' : 'Doctor'}
                 </button>
               )}
             </div>
@@ -1371,7 +1371,7 @@ const ManageAgentsPage = () => {
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     <UserPlus className="w-4 h-4" />
-                    Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+                    Add {activeView === 'agents' ? 'Team' : 'Doctor'}
                   </button>
                 )}
               </div>

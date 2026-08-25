@@ -942,14 +942,45 @@ export default async function handler(req, res) {
         transactionType: "CASHBACK_USAGE"
       }] : [])
     ];
-
-
+    
+    // Compute directBilling flag: true = billing is NOT linked to appointment treatment (direct/walk-in)
+    // false = billing treatment matches appointment's treatment (appointment-based)
+    let directBilling = true; // default to true
+    if (appointment) {
+      const hasTreatment = treatment && treatment.trim();
+      const hasSelectedTreatments = Array.isArray(selectedTreatments) && selectedTreatments.length > 0;
+          
+      if (hasSelectedTreatments) {
+        // Mixed billing or multiple treatments: check if any treatment matches appointment services
+        const appointmentServiceIds = new Set();
+        if (appointment.serviceId) appointmentServiceIds.add(String(appointment.serviceId));
+        if (appointment.serviceIds) {
+          appointment.serviceIds.forEach(id => appointmentServiceIds.add(String(id)));
+        }
+            
+        // If ANY treatment matches appointment, it's appointment-based (directBilling = false)
+        const hasMatchingTreatment = selectedTreatments.some(t => {
+          const tServiceId = String(t.treatmentServiceId || t.treatmentSlug || "");
+          return tServiceId && appointmentServiceIds.has(tServiceId);
+        });
+            
+        directBilling = !hasMatchingTreatment;
+      } else if (hasTreatment) {
+        // Single treatment: compare treatment name with appointment.treatment
+        directBilling = (treatment.trim() !== appointment.treatment?.trim());
+      } else {
+        // Package-only or no treatment: direct billing
+        directBilling = true;
+      }
+    }
+    
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
       invoicedByRole: clinicUser.role,
       invoicedByRate: invoicedByRate,
       appointmentId: appointment._id,
+      directBilling: directBilling,
       patientId: patientRegistration._id,
       invoiceNumber,
       invoicedDate: new Date(invoicedDate),
@@ -1018,7 +1049,7 @@ export default async function handler(req, res) {
       offerApplied: isOfferApplied || false,
       offerId: offerId || null,
       offerName: offerTitle || null,
-      offerType: offerType || null,
+      offerType: offerType || (isCashbackApplied ? "cashback" : null),
       offerDiscountAmount: offerDiscountAmount || 0,
       cashbackEarned: cashbackEarned || 0,
       bundleSessionsAdded: bundleSessionsAdded || 0,
@@ -1546,17 +1577,7 @@ export default async function handler(req, res) {
     //console.log("[CreatePatientRegistration] Final selected bank payment details:", selectedBankPaymentDetails);
     const earnedAmountForCommission = amountNum; // Amount before any deductions
 
-    console.log("\n=== Package/Service Amount Split ===");
-    console.log("amountNum:", amountNum);
-    console.log("paidNum:", paidNum);
-    console.log("pendingUsedNum:", pendingUsedNum);
-    console.log("pendingClaimUsedNum:", pendingClaimUsedNum);
-    console.log("hasPackagePayload:", hasPackagePayload);
-    console.log("selectedPackageTreatments.length:", selectedPackageTreatments?.length);
-    console.log("selectedTreatments (from req.body):", selectedTreatments);
-    console.log("appointment.serviceId:", appointment?.serviceId);
-    console.log("appointment.serviceIds:", appointment?.serviceIds);
-    console.log("appointment.services:", appointment?.services);
+   
 
     // Calculate package and service parts
     const hasPackageTreatments = hasPackagePayload && selectedPackageTreatments.length > 0;
@@ -1569,29 +1590,46 @@ export default async function handler(req, res) {
     // - Split between service and package amounts
     let serviceAmount, packageAmount;
     if (hasPackageTreatments) {
-      // Has selected treatments - split between service and package
+      // Has selected package treatments (sessions consumed from existing package) - split between service and package
       serviceAmount = Math.max(0, amountNum - totalPackageSessionValue);
       packageAmount = totalPackageSessionValue;
     } else if (hasPackagePayload && totalPackageSessionValue === 0) {
-      // New package purchase without treatments - entire amount is for package
-      serviceAmount = 0;
-      packageAmount = amountNum;
+      // Package present but no sessions consumed (new package purchase or billing treatment + package together)
+      // Calculate service amount from selectedTreatments prices; rest is for the package
+      const selectedTreatmentsTotal = Array.isArray(selectedTreatments)
+        ? selectedTreatments.reduce((sum, t) => sum + ((t.price || 0) * (t.quantity || 1)), 0)
+        : 0;
+      if (selectedTreatmentsTotal > 0) {
+        // Billing treatment + package together: treatment price is service, rest is package
+        serviceAmount = Math.min(selectedTreatmentsTotal, amountNum);
+        packageAmount = Math.max(0, amountNum - serviceAmount);
+      } else {
+        // Pure new package purchase without any treatments - entire amount is for package
+        serviceAmount = 0;
+        packageAmount = amountNum;
+      }
     } else {
       // No package - entire amount is for service
       serviceAmount = amountNum;
       packageAmount = 0;
     }
 
-    console.log("hasPackageTreatments:", hasPackageTreatments);
-    console.log("serviceAmount:", serviceAmount);
-    console.log("packageAmount:", packageAmount);
-    console.log("totalPackageSessionValue:", totalPackageSessionValue);
+    
 
     // Calculate commissionable amounts:
     let commissionablePaidAmount = Math.max(0, paidNum - adjustedPendingUsed - pendingClaimUsedNum);
     commissionablePaidAmount = Math.min(commissionablePaidAmount, amountNum);
 
-    console.log("commissionablePaidAmount (before service split):", commissionablePaidAmount);
+    // When unpaidPackagesPaid is present without a new package purchase (!hasPackagePayload),
+    // the paid amount includes payment for previously unpaid packages. This portion should NOT
+    // be part of treatment/service commission. Subtract it so only the treatment price gets commission.
+    // When hasPackagePayload is true, packageAmount already captures the package portion.
+    const unpaidPackagePaymentInPaid = !hasPackagePayload ? totalUnpaidPackagesAmount : 0;
+
+    // Subtract package portion so service/treatment commission excludes the package amount.
+    // The package commission is handled separately by the Package Sold By Person commission block.
+    const serviceCommissionablePaidAmount = Math.max(0, commissionablePaidAmount - packageAmount - unpaidPackagePaymentInPaid);
+
 
     // Split service amount into appointment treatments and direct treatments
     let appointmentTreatmentsAmount = 0;
@@ -1601,7 +1639,6 @@ export default async function handler(req, res) {
     if (appointment?.serviceIds) {
       appointment.serviceIds.forEach(id => appointmentServiceIds.add(String(id)));
     }
-    console.log("appointmentServiceIds:", Array.from(appointmentServiceIds));
 
     if (selectedTreatments && selectedTreatments.length > 0) {
       selectedTreatments.forEach(t => {
@@ -1611,21 +1648,13 @@ export default async function handler(req, res) {
         const currentQty = t.quantity || 1;
         const unitPrice = t.price || 0;
 
-        console.log(`
-        Treatment: ${t.treatmentName}
-        Service ID: ${tServiceId}
-        Is from appointment: ${isFromAppointment}
-        Original appointment qty: ${originalQty}
-        Current qty: ${currentQty}
-        Unit price: ${unitPrice}
-        `);
+        
 
         if (isFromAppointment) {
           // If it's from appointment, split the quantity
           const appointmentQty = Math.min(currentQty, originalQty);
           const directQty = Math.max(0, currentQty - originalQty);
 
-          console.log(`Appointment qty: ${appointmentQty}, Direct qty: ${directQty}`);
 
           appointmentTreatmentsAmount += unitPrice * appointmentQty;
           directTreatmentsAmount += unitPrice * directQty;
@@ -1639,10 +1668,10 @@ export default async function handler(req, res) {
       appointmentTreatmentsAmount = serviceAmount;
     }
 
-    console.log("appointmentTreatmentsAmount:", appointmentTreatmentsAmount);
-    console.log("directTreatmentsAmount:", directTreatmentsAmount);
+    
 
-    // Split commissionable paid amount proportionally between appointment and direct treatments
+    // Split service commissionable paid amount proportionally between appointment and direct treatments
+    // Uses serviceCommissionablePaidAmount (excludes package) so treatment commission doesn't include package portion
     const totalServiceAmount = appointmentTreatmentsAmount + directTreatmentsAmount;
     let appointmentCommissionablePaidAmount = 0;
     let directCommissionablePaidAmount = 0;
@@ -1650,15 +1679,14 @@ export default async function handler(req, res) {
     if (totalServiceAmount > 0) {
       const appointmentRatio = appointmentTreatmentsAmount / totalServiceAmount;
       const directRatio = directTreatmentsAmount / totalServiceAmount;
-      appointmentCommissionablePaidAmount = commissionablePaidAmount * appointmentRatio;
-      directCommissionablePaidAmount = commissionablePaidAmount * directRatio;
+      appointmentCommissionablePaidAmount = serviceCommissionablePaidAmount * appointmentRatio;
+      directCommissionablePaidAmount = serviceCommissionablePaidAmount * directRatio;
     } else {
       appointmentCommissionablePaidAmount = 0;
       directCommissionablePaidAmount = 0;
     }
 
-    console.log("appointmentCommissionablePaidAmount:", appointmentCommissionablePaidAmount);
-    console.log("directCommissionablePaidAmount:", directCommissionablePaidAmount);
+
 
     if (multiPayArr.length > 0) {
     }
@@ -1680,11 +1708,7 @@ export default async function handler(req, res) {
       const paidNumForReferralCommission = commissionablePaidAmount;
       const referredByStr = String(referredBy || "").trim();
 
-      console.log("=== Referral Commission Check ===");
-      console.log("paidNumForReferralCommission:", paidNumForReferralCommission);
-      console.log("referredByStr:", referredByStr);
-      console.log("appointmentCommissionablePaidAmount:", appointmentCommissionablePaidAmount);
-      console.log("directCommissionablePaidAmount:", directCommissionablePaidAmount);
+      
 
       if (
         paidNumForReferralCommission > 0 &&
@@ -1704,11 +1728,9 @@ export default async function handler(req, res) {
           return full && full === referredByStr.toLowerCase();
         });
 
-        console.log("Referral match found:", !!match);
 
         if (match) {
           const commissionPercent = Number(match.referralPercent || 0);
-          console.log("Referral commission percent:", commissionPercent);
           if (commissionPercent > 0) {
             // Check if we need to apply bank deduction before or after commission
             const applyDeductionAfterCommission = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "earned";
@@ -1779,10 +1801,7 @@ export default async function handler(req, res) {
                 deductionApplied: true
               };
 
-              console.log("[CreatePatientRegistration] Referral bank deduction on commission:", {
-                deductionAmount,
-                finalCommissionAmount: commissionAmount
-              });
+            
             }
 
             // console.log("[CreatePatientRegistration] Final referral commission amount:", commissionAmount);
@@ -1795,10 +1814,7 @@ export default async function handler(req, res) {
             referralShareForAppointment = (appointmentCommissionablePaidAmount / totalServiceCommissionable) * referralCommissionAmount;
             referralShareForDirect = (directCommissionablePaidAmount / totalServiceCommissionable) * referralCommissionAmount;
 
-            console.log("Referral split:");
-            console.log("- referralCommissionAmount:", referralCommissionAmount);
-            console.log("- referralShareForAppointment:", referralShareForAppointment);
-            console.log("- referralShareForDirect:", referralShareForDirect);
+            
 
             // Optionally try to map to a staff user via email or phone
             let staffId = null;
@@ -2214,12 +2230,7 @@ export default async function handler(req, res) {
               }
             }
 
-            console.log(
-              "[PendingLedger] Cleared",
-              breakdown.length,
-              "ledger row(s) via invoice",
-              invoiceNumber,
-            );
+           
           }
         } else {
           console.warn(
@@ -2286,18 +2297,257 @@ export default async function handler(req, res) {
       }
     }
 
-    // Doctor/Staff commission based on AgentProfile (supports flat, target-based, and after_deduction)
+    // ============================================================
+    // Commission Processing (delegated to centralized helper)
+    // Handles: Doctor, Billed Person, Package Sold By, and Pending Clearance commissions
+    // ============================================================
     try {
-      console.log("\n=== Doctor/Staff Commission Check ===");
-      console.log("appointmentCommissionablePaidAmount:", appointmentCommissionablePaidAmount);
-      console.log("appointment?.doctorId:", appointment?.doctorId);
-      console.log("Condition (appointmentCommissionablePaidAmount > 0 && appointment?.doctorId):", appointmentCommissionablePaidAmount > 0 && appointment?.doctorId);
+      console.log(">>> COMMISSION HELPER: About to import and call processBillingCommissions");
+      const { processBillingCommissions } = await import("../../../lib/billingCommissionHelper");
 
+      const commissionResult = await processBillingCommissions({
+        billing,
+        appointment,
+        patientRegistration,
+        clinicId: clinic._id,
+        clinicUser,
+        directBilling,
+        amountNum,
+        paidNum,
+        adjustedPendingUsed,
+        pendingClaimUsedNum,
+        totalUnpaidPackagesAmount,
+        hasPackagePayload,
+        hasPackageTreatments,
+        totalPackageSessionValue,
+        selectedTreatments,
+        selectedPackageTreatments,
+        packageSoldByUserId,
+        packagePaymentStatus,
+        pkgDoc,
+        packageName,
+        paymentMethod,
+        multiPayArr,
+        selectedBankPaymentDetails,
+        invoicedDate,
+        earnedAmountForCommission,
+        referralCommissionAmount,
+        paidNumForReferralCommission: commissionablePaidAmount,
+        processNewBillingCommission: true,
+        processPendingClearanceCommission: true,
+        billingNotes: notes,
+      });
+
+      if (commissionResult.commissionRecords?.length > 0) {
+        console.log(`✅ Total commission records created: ${commissionResult.commissionRecords.length}`);
+      } else {
+        console.log("⚠️ Commission helper returned 0 records");
+      }
+    } catch (commissionHelperErr) {
+      console.error("❌ Commission helper error:", commissionHelperErr.message);
+      console.error("❌ Commission helper error stack:", commissionHelperErr.stack);
+      // Do not fail the billing creation if commission creation fails
+    }
+
+    // === BEGIN_OLD_COMMISSION_BLOCKS_REMOVED ===
+    // The following commission blocks have been moved to lib/billingCommissionHelper.js:
+    // - Pending Clearance Commission
+    // - Doctor/Staff Commission
+    // - Billed Person Commission
+    // - Package Sold By Person Commission
+    // They are now handled by the processBillingCommissions() call above.
+    // Keeping this marker for reference. Original code was ~616 lines.
+    if (false) { try {
+      // Fetch the billing from DB to get the complete pendingClearedBreakdown
+      // (written by the pending clearance flows above via $push/$set)
+      const billingForPendingClearance = await Billing.findById(billing._id).lean();
+      const pendingClearanceBreakdown = billingForPendingClearance?.pendingClearedBreakdown || [];
+
+      if (pendingClearanceBreakdown.length > 0) {
+        // Group breakdown entries by original invoice number
+        const breakdownByOriginalInvoice = new Map();
+        for (const entry of pendingClearanceBreakdown) {
+          const invNum = entry.invoiceNumber;
+          if (!invNum) continue;
+          if (!breakdownByOriginalInvoice.has(invNum)) {
+            breakdownByOriginalInvoice.set(invNum, []);
+          }
+          breakdownByOriginalInvoice.get(invNum).push(entry);
+        }
+
+        // Process commission for each original invoice that had pending cleared
+        for (const [originalInvoiceNumber, entries] of breakdownByOriginalInvoice) {
+          try {
+            const totalAmountCleared = entries.reduce((sum, e) => sum + (Number(e.amountCleared) || 0), 0);
+            if (totalAmountCleared <= 0) continue;
+
+            // Fetch the original billing to get directBilling flag and staff IDs
+            const originalBilling = await Billing.findOne({
+              invoiceNumber: originalInvoiceNumber,
+              clinicId: clinic._id,
+            }).lean();
+
+            if (!originalBilling) {
+              console.warn("[PendingClearanceCommission] Original billing not found for invoice:", originalInvoiceNumber);
+              continue;
+            }
+
+            const origDirectBilling = originalBilling.directBilling !== false; // default true
+            let commissionStaffId = null;
+            let commissionSource = "";
+
+            // Check if any entry is for a package (has packageId)
+            const packageEntry = entries.find(e => e.packageId);
+
+            if (packageEntry) {
+              // Package pending clearance: resolve packageSoldBy name to userId
+              const freshPatient = await PatientRegistration.findById(patientRegistration._id).lean();
+              const patientPackage = freshPatient?.packages?.find(p => String(p.packageId) === String(packageEntry.packageId));
+
+              if (patientPackage?.packageSoldBy) {
+                const packageSoldByName = patientPackage.packageSoldBy;
+                // Resolve name to user ID from the User model
+                const packageSoldByUser = await User.findOne({
+                  clinicId: clinic._id,
+                  name: { $regex: new RegExp(`^${packageSoldByName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}$`, 'i') }
+                }).lean();
+
+                if (packageSoldByUser) {
+                  commissionStaffId = packageSoldByUser._id;
+                  commissionSource = `Package sold by ${packageSoldByName} (pending clearance)`;
+                }
+              }
+            } else if (!origDirectBilling && originalBilling.doctorId) {
+              // Appointment-based: commission for the doctor from original billing
+              commissionStaffId = originalBilling.doctorId;
+              commissionSource = "Doctor (pending clearance)";
+            } else if (origDirectBilling && originalBilling.invoicedById) {
+              // Direct billing: commission for the invoicedBy person from original billing
+              commissionStaffId = originalBilling.invoicedById;
+              commissionSource = "InvoicedBy (pending clearance)";
+            }
+
+            if (!commissionStaffId) continue;
+
+            // Calculate commission using the same calculator (all conditions remain same)
+            const commissionResult = await calculateCommissionForStaff({
+              staffId: commissionStaffId,
+              clinicId: clinic._id,
+              paidAmount: totalAmountCleared,
+              earnedAmount: totalAmountCleared,
+              patientId: patientRegistration._id,
+              appointmentId: originalBilling.appointmentId,
+              currentBillingId: billing._id,
+              bankPaymentDetails: selectedBankPaymentDetails,
+            });
+
+            if (commissionResult.shouldCreateCommission) {
+              const commissionType = commissionResult.commissionType;
+
+              // Determine commission base amount (same logic as existing blocks)
+              let commissionBaseAmount;
+              if (commissionResult.bankDeduction.deductionApplied && selectedBankPaymentDetails.applyOn === "paid") {
+                commissionBaseAmount = commissionResult.bankDeduction.finalPaidAmount || totalAmountCleared;
+              } else {
+                commissionBaseAmount = totalAmountCleared;
+              }
+
+              if (commissionType === "target_based") {
+                commissionBaseAmount = commissionResult.amountAboveTarget || 0;
+              } else if (commissionType === "after_deduction") {
+                commissionBaseAmount = commissionResult.netAmount || 0;
+              } else if (commissionType === "target_plus_expense") {
+                commissionBaseAmount = commissionResult.netCommissionableAmount || 0;
+              }
+
+              const commissionData = {
+                clinicId: clinic._id,
+                source: "staff",
+                staffId: commissionStaffId,
+                commissionType: commissionResult.commissionType,
+                appointmentId: originalBilling.appointmentId || null,
+                patientId: patientRegistration._id,
+                billingId: billing._id,
+                commissionPercent: commissionResult.commissionPercentage,
+                amountPaid: totalAmountCleared,
+                commissionAmount: commissionResult.commissionAmount,
+                invoicedDate: new Date(invoicedDate),
+                notes: `${commissionSource} - cleared pending for invoice ${originalInvoiceNumber}`,
+                createdBy: clinicUser._id,
+                paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
+                multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
+                bankDeduction: {
+                  enabled: commissionResult.bankDeduction?.enabled || false,
+                  type: commissionResult.bankDeduction?.type,
+                  value: commissionResult.bankDeduction?.value,
+                  applyOn: commissionResult.bankDeduction?.applyOn,
+                  deductionAmount: commissionResult.bankDeduction?.deductionAmount,
+                },
+                referralCommissionDeducted: 0,
+                commissionBaseAmount,
+                finalCommissionAmount: commissionResult.commissionAmount || 0,
+                isPendingClearanceCommission: true,
+                originalInvoiceNumber,
+                originalDirectBilling: origDirectBilling,
+              };
+
+              // Add target-based specific fields if applicable
+              if (commissionType === "target_based") {
+                commissionData.targetAmount = commissionResult.targetAmount || 0;
+                commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
+                commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+              }
+
+              // Add after_deduction specific fields if applicable
+              if (commissionType === "after_deduction") {
+                commissionData.totalExpenses = commissionResult.totalExpenses || 0;
+                commissionData.netAmount = commissionResult.netAmount || 0;
+                commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
+                commissionData.complaintsCount = commissionResult.complaintsCount || 0;
+                commissionData.lastBillingDate = commissionResult.lastBillingDate || null;
+                commissionData.lastBillingInvoice = commissionResult.lastBillingInvoice || null;
+                commissionData.isFirstBilling = commissionResult.isFirstBilling || false;
+              }
+
+              // Add target_plus_expense specific fields if applicable
+              if (commissionType === "target_plus_expense") {
+                commissionData.targetAmount = commissionResult.targetAmount || 0;
+                commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
+                commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+                commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
+                commissionData.totalExpenses = commissionResult.totalExpenses || 0;
+                commissionData.netCommissionableAmount = commissionResult.netCommissionableAmount || 0;
+                commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
+                commissionData.complaintsCount = commissionResult.complaintsCount || 0;
+              }
+
+              await Commission.create(commissionData);
+              console.log(`✅ Pending clearance commission created for ${commissionSource}, invoice ${originalInvoiceNumber}, amount: ${totalAmountCleared}`);
+            }
+          } catch (entryErr) {
+            console.error("[PendingClearanceCommission] Error processing commission for invoice:", originalInvoiceNumber, entryErr.message);
+            // Continue with next invoice - don't fail the entire billing
+          }
+        }
+      }
+    } catch (pendingClearanceCommissionErr) {
+      console.error("❌ Pending clearance commission error:", pendingClearanceCommissionErr.message);
+      // Do not fail the billing creation if commission creation fails
+    }
+
+    // Doctor/Staff commission based on AgentProfile (supports flat, target-based, and after_deduction)
+    // directBilling layer: When directBilling is false (appointment-based treatment),
+    // commission is calculated for the doctor on the appointment treatment share.
+    // When directBilling is true (direct/walk-in billing), doctor commission is skipped.
+    // Note: Package portion is handled separately by the Package Sold By Person commission block.
+    try {
+     
       // Calculate adjusted paid amount for doctor/staff: if referral commission was given, subtract it from the paid amount
-      const adjustedDoctorStaffPaidAmount = Math.max(0, appointmentCommissionablePaidAmount - referralShareForAppointment);
+      // Doctor gets commission on appointmentCommissionablePaidAmount (treatment share only, excluding package)
+      const doctorCommissionablePaidAmount = appointmentCommissionablePaidAmount;
+      const adjustedDoctorStaffPaidAmount = Math.max(0, doctorCommissionablePaidAmount - referralShareForAppointment);
 
-
-      if (appointmentCommissionablePaidAmount > 0 && appointment?.doctorId) {
+      if (!directBilling && doctorCommissionablePaidAmount > 0 && appointment?.doctorId) {
 
         // console.log("[CreatePatientRegistration] Doctor/Staff commission calculation:");
         // console.log("[CreatePatientRegistration]   - Original paid amount:", commissionablePaidAmount);
@@ -2327,9 +2577,7 @@ export default async function handler(req, res) {
         });
 
 
-        console.log("commissionResult.shouldCreateCommission:", commissionResult.shouldCreateCommission);
         if (commissionResult.shouldCreateCommission) {
-          console.log("Creating doctor/staff commission entry...");
           const commissionData = {
             clinicId: clinic._id,
             source: "staff",
@@ -2339,7 +2587,7 @@ export default async function handler(req, res) {
             patientId: patientRegistration._id,
             billingId: billing._id,
             commissionPercent: commissionResult.commissionPercentage,
-            amountPaid: appointmentCommissionablePaidAmount, // Store only the capped treatment/service price
+            amountPaid: doctorCommissionablePaidAmount, // Appointment treatment share (excludes package)
             commissionAmount: commissionResult.commissionAmount,
             invoicedDate: new Date(invoicedDate),
             notes: notes || "",
@@ -2441,19 +2689,22 @@ export default async function handler(req, res) {
     }
 
     // Billed person (clinicUser) commission for directly added services
+    // directBilling layer: When directBilling is true (direct/walk-in billing),
+    // commission is calculated for the invoicedBy person on the direct treatment share.
+    // When directBilling is false (appointment-based treatment), billed person commission is skipped.
+    // Note: Package portion is handled separately by the Package Sold By Person commission block.
     try {
-      console.log("\n=== Billed Person Commission Check ===");
-      console.log("directCommissionablePaidAmount:", directCommissionablePaidAmount);
-      console.log("clinicUser._id:", clinicUser._id);
-      console.log("Condition (directCommissionablePaidAmount > 0):", directCommissionablePaidAmount > 0);
+     
+
+      // When directBilling is true, invoicedBy person gets commission on directCommissionablePaidAmount (direct treatment share only, excluding package)
+      const billedPersonCommissionablePaidAmount = directCommissionablePaidAmount;
+      const billedPersonReferralShare = referralShareForDirect;
 
       // Check if we should calculate commission for the billed person
-      if (directCommissionablePaidAmount > 0) {
-        console.log("Conditions met for billed person commission (direct treatments)");
+      if (directBilling && billedPersonCommissionablePaidAmount > 0) {
 
-        // Calculate adjusted paid amount: subtract referral commission (only the share for direct treatments)
-        const adjustedBilledPersonPaidAmount = Math.max(0, directCommissionablePaidAmount - referralShareForDirect);
-        console.log("adjustedBilledPersonPaidAmount:", adjustedBilledPersonPaidAmount);
+        // Calculate adjusted paid amount: subtract referral commission share
+        const adjustedBilledPersonPaidAmount = Math.max(0, billedPersonCommissionablePaidAmount - billedPersonReferralShare);
 
         // Use the same commission calculator for consistency
         const commissionResult = await calculateCommissionForStaff({
@@ -2467,10 +2718,8 @@ export default async function handler(req, res) {
           bankPaymentDetails: selectedBankPaymentDetails,
         });
 
-        console.log("commissionResult for billed person:", commissionResult);
 
         if (commissionResult.shouldCreateCommission) {
-          console.log("Creating commission entry for billed person");
 
           const commissionType = commissionResult.commissionType;
 
@@ -2499,7 +2748,7 @@ export default async function handler(req, res) {
             patientId: patientRegistration._id,
             billingId: billing._id,
             commissionPercent: commissionResult.commissionPercentage,
-            amountPaid: directCommissionablePaidAmount,
+            amountPaid: billedPersonCommissionablePaidAmount, // Direct treatment share (excludes package)
             commissionAmount: commissionResult.commissionAmount,
             invoicedDate: new Date(invoicedDate),
             notes: "Billed person commission",
@@ -2549,27 +2798,53 @@ export default async function handler(req, res) {
           }
 
           await Commission.create(commissionData);
-          console.log("=== Billed Person Commission Created Successfully ===");
         } else {
-          console.log("No billed person commission created:", commissionResult.reason);
         }
       } else {
         if (!(directCommissionablePaidAmount > 0)) {
-          console.log("No billed person commission: directCommissionablePaidAmount is not > 0");
         }
       }
     } catch (billedPersonCommissionErr) {
-      console.error("❌ Commission calculation/store error (billed person):", billedPersonCommissionErr);
       // Do not fail the billing creation if commission creation fails
     }
 
     // Package Sold By Person commission
     try {
-      console.log("=== Package Sold By Person Commission Start ===");
-      console.log("hasPackageTreatments:", hasPackageTreatments);
-      console.log("hasPackagePayload:", hasPackagePayload);
-      console.log("packageSoldByUserId:", packageSoldByUserId);
-      console.log("packagePaymentStatus:", packagePaymentStatus);
+      
+      // Fallback: if packageSoldByUserId is still null but there's a package amount,
+      // resolve from the patient's profile (package may have been newly assigned during this billing)
+      if (!packageSoldByUserId && hasPackagePayload && packageAmount > 0) {
+        const freshPatientForPkg = await PatientRegistration.findById(patientRegistration._id).lean();
+        const matchedPkg = freshPatientForPkg?.packages?.find(p =>
+          String(p.packageId) === String(pkgDoc?._id) || p.packageName === packageName
+        );
+        if (matchedPkg) {
+          if (matchedPkg.packageSoldByUserId) {
+            packageSoldByUserId = matchedPkg.packageSoldByUserId;
+          } else if (matchedPkg.packageSoldBy) {
+            // Resolve name to userId
+            const pkgSoldByName = matchedPkg.packageSoldBy.trim();
+            const foundPkgUser = await User.findOne({
+              clinicId: clinic._id,
+              $or: [
+                { name: pkgSoldByName },
+                { $expr: { $eq: [{ $concat: ['$firstName', ' ', '$lastName'] }, pkgSoldByName] } }
+              ]
+            }).lean();
+            if (foundPkgUser) {
+              packageSoldByUserId = foundPkgUser._id;
+            }
+          }
+          // Also update payment status from the newly assigned package
+          if (matchedPkg.paymentStatus) {
+            packagePaymentStatus = matchedPkg.paymentStatus;
+          }
+        }
+        // If still not resolved, use clinicUser (the person who created this billing/package)
+        if (!packageSoldByUserId) {
+          packageSoldByUserId = clinicUser._id;
+        }
+      }
 
       // For package sold by person commission:
       // - hasPackageTreatments: billing sessions from existing package (totalPackageSessionValue > 0)
@@ -2577,16 +2852,13 @@ export default async function handler(req, res) {
       const shouldCalculatePackageCommission = (hasPackageTreatments || (hasPackagePayload && packageAmount > 0)) && packageSoldByUserId && (packagePaymentStatus === 'Full' || packagePaymentStatus === 'Partial' || packagePaymentStatus === 'paid');
 
       if (shouldCalculatePackageCommission) {
-        console.log("Conditions met, checking AgentProfile for packageSoldByUserId:", packageSoldByUserId);
         // Check if packageSoldByUser has commission configured
         const soldByAgentProfile = await AgentProfile.findOne({ userId: packageSoldByUserId });
-        console.log("soldByAgentProfile found:", !!soldByAgentProfile);
-        console.log("soldByAgentProfile.commissionPercentage:", soldByAgentProfile?.commissionPercentage);
+      
 
         if (soldByAgentProfile && soldByAgentProfile.commissionPercentage && soldByAgentProfile.commissionPercentage > 0) {
           // Calculate commission for sold by person
           const commissionPercent = Number(soldByAgentProfile.commissionPercentage);
-          console.log("Commission percent to use:", commissionPercent);
 
           // Check if we need to apply bank deduction before or after commission
           const applyDeductionAfterCommission = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "earned";
@@ -2595,9 +2867,7 @@ export default async function handler(req, res) {
           // - If hasPackageTreatments: use totalPackageSessionValue (session-based billing)
           // - If new package purchase: use packageAmount (full package price)
           const commissionBaseAmount = hasPackageTreatments ? totalPackageSessionValue : packageAmount;
-          console.log("commissionBaseAmount:", commissionBaseAmount);
-          console.log("totalPackageSessionValue:", totalPackageSessionValue);
-          console.log("packageAmount:", packageAmount);
+        
 
           let baseAmount = commissionBaseAmount;
           let adjustedAmount = baseAmount;
@@ -2612,45 +2882,37 @@ export default async function handler(req, res) {
             deductionApplied: false
           };
 
-          console.log("selectedBankPaymentDetails:", selectedBankPaymentDetails);
-          console.log("applyDeductionAfterCommission:", applyDeductionAfterCommission);
+        
 
           if (selectedBankPaymentDetails.enabled && !applyDeductionAfterCommission) {
             // Apply bank deduction first (applyOn: paid)
-            console.log("Applying bank deduction BEFORE commission (applyOn: paid)");
             bankDeductionResult = calculateBankDeduction({
               earnedAmount: commissionBaseAmount,
               paidAmount: baseAmount,
               bankPaymentDetails: selectedBankPaymentDetails
             });
             adjustedAmount = bankDeductionResult.finalPaidAmount;
-            console.log("Bank deduction result (before commission):", bankDeductionResult);
-            console.log("Adjusted amount after bank deduction:", adjustedAmount);
+          
           }
 
           // Calculate commission
           let commissionAmount = Number(
             ((adjustedAmount * commissionPercent) / 100).toFixed(2)
           );
-          console.log("Commission amount before any after deductions:", commissionAmount);
 
           // Now apply bank deduction to commission amount if applyOn is "earned"
           if (applyDeductionAfterCommission) {
-            console.log("Applying bank deduction AFTER commission (applyOn: earned)");
             let deductionAmount = 0;
 
             if (selectedBankPaymentDetails.type === "flat") {
               deductionAmount = Number(selectedBankPaymentDetails.value);
-              console.log("Flat deduction amount:", deductionAmount);
             } else if (selectedBankPaymentDetails.type === "percentage") {
               deductionAmount = (commissionAmount * Number(selectedBankPaymentDetails.value)) / 100;
-              console.log("Percentage deduction amount:", deductionAmount);
             }
 
             // Apply deduction
             commissionAmount = Math.max(0, commissionAmount - deductionAmount);
             commissionAmount = Number(commissionAmount.toFixed(2));
-            console.log("Commission amount after bank deduction:", commissionAmount);
 
             bankDeductionResult = {
               enabled: true,
@@ -2659,17 +2921,15 @@ export default async function handler(req, res) {
               applyOn: selectedBankPaymentDetails.applyOn,
               deductionAmount: Number(deductionAmount.toFixed(2)),
               finalEarnedAmount: commissionBaseAmount,
-              finalPaidAmount: packageCommissionablePaidAmount,
+              finalPaidAmount: baseAmount,
               deductionApplied: true
             };
           }
 
           // Set commission base amount (for logging purposes, already defined above)
           const finalCommissionBaseAmount = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "paid" ? adjustedAmount : baseAmount;
-          console.log("finalCommissionBaseAmount:", finalCommissionBaseAmount);
 
           // Create commission entry
-          console.log("Creating Commission entry with amount:", commissionAmount);
           await Commission.create({
             clinicId: clinic._id,
             source: "staff",
@@ -2696,17 +2956,15 @@ export default async function handler(req, res) {
               deductionAmount: bankDeductionResult.deductionAmount
             }
           });
-          console.log("=== Package Sold By Person Commission Created Successfully ===");
         } else {
-          console.log("No commission created because soldByAgentProfile doesn't have a valid commission percentage");
         }
       } else {
-        console.log("No package sold by person commission: conditions not met");
       }
     } catch (packageCommissionErr) {
       console.error("❌ Commission calculation/store error (package):", packageCommissionErr);
       // Do not fail the billing creation if commission creation fails
     }
+    } /* end if(false) */
 
     // ============================================================
     // Refresh the billing document from DB so the response includes

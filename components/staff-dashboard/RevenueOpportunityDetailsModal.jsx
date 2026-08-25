@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useClinicTheme } from "@/context/ClinicThemeContext";
 
 /**
  * Modal that explains WHERE the "Today's Revenue Opportunity" total is
@@ -13,6 +14,8 @@ import { getCurrencySymbol } from "@/lib/currencyHelper";
  */
 export default function RevenueOpportunityDetailsModal({ isOpen, onClose, selectedDate }) {
   const { currency } = useCurrency();
+  const { theme } = useClinicTheme();
+  const currencySymbol = getCurrencySymbol(currency || "AED");
   const [activeTab, setActiveTab] = useState("appointments");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);

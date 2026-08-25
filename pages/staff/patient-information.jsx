@@ -1648,11 +1648,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 
   useEffect(() => { fetchPatients(); }, [routeContext]);
 
-  // Debounce search query
+  // Debounce search query (reduced from 300ms for faster perceived response)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 300);
+    }, 150);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
