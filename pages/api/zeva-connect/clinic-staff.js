@@ -1,4 +1,5 @@
 import dbConnect from "../../../lib/database";
+import AgentProfile from "../../../models/AgentProfile";
 import Users from "../../../models/Users";
 
 export default async function handler(req, res) {
@@ -33,16 +34,27 @@ export default async function handler(req, res) {
         .json({ success: false, message: "No users found" });
     }
 
-    const userList = users.map((user) => ({
-      zevaUserId: user._id,
-      clinicId: user.clinicId,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      gender: user.gender,
-      dateOfBirth: user.dateOfBirth,
-      age: user.age,
-    }));
+    const userList = await Promise.all(
+      users.map(async (user) => {
+        let avatarUrl = "";
+        const agentProfile = await AgentProfile.findOne({ userId: user._id });
+        if (agentProfile && agentProfile?.photo) {
+          avatarUrl = agentProfile.photo;
+        }
+
+        return {
+          zevaUserId: user._id,
+          clinicId: user.clinicId,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          gender: user.gender,
+          dateOfBirth: user.dateOfBirth,
+          age: user.age,
+          avatarUrl: avatarUrl,
+        };
+      }),
+    );
     return res.status(200).json({
       success: true,
       message: "Users found",
