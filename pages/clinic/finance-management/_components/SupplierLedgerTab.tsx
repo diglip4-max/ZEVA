@@ -23,6 +23,7 @@ import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 const formatDate = (d?: string): string =>
   d
@@ -183,11 +184,29 @@ function SupplierPicker({
 // ============================================================
 // MAIN TAB
 // ============================================================
-const SupplierLedgerTab: React.FC = () => {
+const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
+  // permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
   const { currency } = useCurrency();
   const [supplierId, setSupplierId] = useState<string>("");
   const { supplier, bills, payments, cheques, summary, loading, error } =
     useSupplierLedger(supplierId || null);
+
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
 
   return (
     <div className="space-y-7">

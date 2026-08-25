@@ -24,6 +24,7 @@ import StatCard from "./StatCard";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney, getCurrencySymbol } from "@/lib/currencyHelper";
 import { BankAccountData } from "../_hooks/useBankAccounts";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 const formatDate = (d?: string): string =>
   d
@@ -750,7 +751,13 @@ function EditAccountModal({
 // ============================================================
 // MAIN TAB - COMPLETE
 // ============================================================
-const BankAccountsTab: React.FC = () => {
+const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
+  permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
   const { currency } = useCurrency();
   const {
     bankAccounts,
@@ -773,6 +780,18 @@ const BankAccountsTab: React.FC = () => {
     active?._id || null,
   );
 
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="space-y-7">
       <div className="flex items-center justify-between">
@@ -784,16 +803,19 @@ const BankAccountsTab: React.FC = () => {
             Payments made through each bank account
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
-          style={{
-            backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          Add Account
-        </button>
+
+        {permissions.canCreate && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Add Account
+          </button>
+        )}
       </div>
 
       <StatCard
@@ -868,16 +890,18 @@ const BankAccountsTab: React.FC = () => {
                 )}
 
                 {/* Edit icon button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditTarget(a);
-                  }}
-                  className="absolute bottom-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-teal-600 dark:hover:text-teal-400 transition-all opacity-0 group-hover:opacity-100"
-                  title="Edit account"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
+                {permissions.canUpdate && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditTarget(a);
+                    }}
+                    className="absolute bottom-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-teal-600 dark:hover:text-teal-400 transition-all opacity-0 group-hover:opacity-100"
+                    title="Edit account"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

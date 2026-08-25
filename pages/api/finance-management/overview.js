@@ -1,28 +1,53 @@
 // pages/api/finance-management/overview.js
+//
+// Finance Manager — Dashboard Overview
+// Aggregates data ONLY from the Finance Manager's own domains:
+//   Bills & Payables  -> FinanceTransaction (entryType: "bill")
+//   Payment Center     -> FinancePayment
+//   Cheque Manager      -> FinanceCheque
+//   Bank Accounts        -> BankAccount
+//   Petty Cash             -> PettyCashAllocation + PettyCashExpense
+//
+// Deliberately does NOT touch patient Billing / ProductSale — that belongs
+// to a different module and was the source of the previous (wrong) overview.
+
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
-import Billing from "../../../models/Billing";
 import Supplier from "../../../models/stocks/Supplier";
-import PatientRegistration from "../../../models/PatientRegistration";
+import {
+  FinanceTransaction,
+  FinancePayment,
+  FinanceCheque,
+  BankAccount,
+} from "../../../models/finance";
 import PettyCashAllocation from "../../../models/PettyCashAllocation";
 import PettyCashExpense from "../../../models/PettyCashExpense";
-import ManualPettyCash from "../../../models/ManualPettyCash";
-import ProductSale from "../../../models/stocks/ProductSale";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
-// Helper function to safely parse numbers
+// ------------------------------------------------------------------
+// helpers
+// ------------------------------------------------------------------
 const parseNumber = (value) => {
   if (value === null || value === undefined) return 0;
   if (typeof value === "number") return value;
-  if (typeof value === "string") return parseFloat(value);
-  if (value?.$numberDecimal) return parseFloat(value.$numberDecimal);
-  if (value?._bsontype === "Decimal128") return parseFloat(value.toString());
+  if (typeof value === "string") return parseFloat(value) || 0;
+  if (value?.$numberDecimal) return parseFloat(value.$numberDecimal) || 0;
+  if (value?._bsontype === "Decimal128")
+    return parseFloat(value.toString()) || 0;
   return 0;
 };
 
+const monthLabel = (year, month) =>
+  new Date(year, month - 1, 1).toLocaleDateString("en-US", {
+    month: "short",
+    year: "2-digit",
+  });
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({ message: "Method Not Allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method Not Allowed" });
   }
 
   try {
@@ -30,10 +55,9 @@ export default async function handler(req, res) {
 
     const me = await getUserFromReq(req);
     if (!me) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authenticated",
-      });
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authenticated" });
     }
 
     if (
@@ -46,30 +70,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // ---- resolve clinicId ----
     let clinicId;
     if (me.role === "clinic") {
       const clinic = await Clinic.findOne({ owner: me._id });
       if (!clinic) {
-        return res.status(400).json({
-          success: false,
-          message: "Clinic not found for this user",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "Clinic not found for this user" });
       }
       clinicId = clinic._id;
-    } else if (me.role === "agent") {
+    } else if (["agent", "doctor", "doctorStaff"].includes(me.role)) {
       if (!me.clinicId) {
-        return res.status(400).json({
-          success: false,
-          message: "Agent not tied to a clinic",
-        });
-      }
-      clinicId = me.clinicId;
-    } else if (me.role === "doctor" || me.role === "doctorStaff") {
-      if (!me.clinicId) {
-        return res.status(400).json({
-          success: false,
-          message: "Doctor not tied to a clinic",
-        });
+        return res
+          .status(400)
+          .json({ success: false, message: "User not tied to a clinic" });
       }
       clinicId = me.clinicId;
     } else if (me.role === "admin") {
@@ -81,590 +96,693 @@ export default async function handler(req, res) {
         });
       }
     } else {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
+      return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const staffId = me._id.toString();
+    // ---- date scaffolding ----
+    const { startDate, endDate } = req.query;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
 
-    // Date filters from query
-    const { startDate, endDate, period = "monthly" } = req.query;
-    const dateFilter = {};
-    if (startDate) {
-      dateFilter.$gte = new Date(startDate);
-    }
-    if (endDate) {
-      dateFilter.$lte = new Date(endDate);
-    }
+    // trend-chart window: explicit filter, else last 6 months
+    const trendFrom = startDate
+      ? new Date(startDate)
+      : new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const trendTo = endDate ? new Date(endDate) : now;
 
-    const baseFilter = {
-      clinicId,
-    };
+    // date range filter for breakdowns (only applied when user sets a filter)
+    const hasDateFilter = !!(startDate || endDate);
+    const dateRangeFilter = hasDateFilter
+      ? { $gte: trendFrom, $lte: trendTo }
+      : undefined;
 
-    // ============================================================
-    // 1. BILLING SUMMARY
-    // ============================================================
-    const billingFilter = {
-      ...baseFilter,
-      paymentMethod: { $ne: "Cash" },
-      service: { $ne: "Product" },
-      ...(me.role === "clinic" ? {} : { invoicedById: staffId }),
-      ...(Object.keys(dateFilter).length ? { invoicedDate: dateFilter } : {}),
-    };
+    const clinicMatch = { clinicId };
 
-    const billingSummary = await Billing.aggregate([
-      { $match: billingFilter },
+    // ================================================================
+    // 1. BILLS & PAYABLES  (FinanceTransaction, entryType: "bill")
+    // ================================================================
+    const billMatch = { ...clinicMatch, entryType: "bill" };
+    // filtered bill match — applies date range to invoiceDate when user has selected a filter
+    const billMatchFiltered = hasDateFilter
+      ? { ...billMatch, invoiceDate: dateRangeFilter }
+      : billMatch;
+
+    const [billSummaryAgg] = await FinanceTransaction.aggregate([
+      { $match: billMatchFiltered },
       {
         $group: {
           _id: null,
-          totalAmount: { $sum: "$amount" },
-          totalPaid: { $sum: "$paid" },
-          totalPending: { $sum: "$pending" },
-          totalAdvance: { $sum: "$advance" },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // ============================================================
-    // 2. BILLING BY SERVICE TYPE
-    // ============================================================
-    const billingByService = await Billing.aggregate([
-      { $match: billingFilter },
-      {
-        $group: {
-          _id: "$service",
-          total: { $sum: "$amount" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { total: -1 } },
-    ]);
-
-    // ============================================================
-    // 3. MONTHLY BILLING TREND
-    // ============================================================
-    const monthlyBillingTrend = await Billing.aggregate([
-      { $match: billingFilter },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$invoicedDate" },
-            month: { $month: "$invoicedDate" },
-          },
-          totalAmount: { $sum: "$amount" },
-          totalPaid: { $sum: "$paid" },
-          totalPending: { $sum: "$pending" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-    ]);
-
-    // ============================================================
-    // 4. WEEKLY BILLING TREND (last 12 weeks)
-    // ============================================================
-    const weeklyBillingTrend = await Billing.aggregate([
-      { $match: billingFilter },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$invoicedDate" },
-            week: { $week: "$invoicedDate" },
-          },
-          totalAmount: { $sum: "$amount" },
-          totalPaid: { $sum: "$paid" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.week": 1 } },
-      { $limit: 12 },
-    ]);
-
-    // ============================================================
-    // 5. PETTY CASH ALLOCATIONS SUMMARY
-    // ============================================================
-    const allocationFilter = {
-      ...baseFilter,
-      ...(me.role === "clinic" ? {} : { staffId }),
-      ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}),
-      isVoided: { $ne: true }, // Exclude voided allocations
-    };
-
-    const allocationSummary = await PettyCashAllocation.aggregate([
-      { $match: allocationFilter },
-      {
-        $group: {
-          _id: null,
-          totalAllocated: { $sum: "$amount" },
-          totalAllocations: { $sum: 1 },
-          averageAllocation: { $avg: "$amount" },
-          minAllocation: { $min: "$amount" },
-          maxAllocation: { $max: "$amount" },
-        },
-      },
-    ]);
-
-    // ============================================================
-    // 6. PETTY CASH EXPENSES SUMMARY (ONLY usedFromPettyCash: true)
-    // ============================================================
-    const expenseFilter = {
-      ...baseFilter,
-      ...(me.role === "clinic" ? {} : { staffId }),
-      ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}),
-      usedFromPettyCash: true, // ONLY count expenses from petty cash
-      isVoided: { $ne: true }, // Exclude voided expenses
-    };
-
-    const expenseSummary = await PettyCashExpense.aggregate([
-      { $match: expenseFilter },
-      {
-        $group: {
-          _id: null,
-          totalSpent: { $sum: "$spentAmount" },
-          totalExpenses: { $sum: 1 },
-          averageExpense: { $avg: "$spentAmount" },
-          minExpense: { $min: "$spentAmount" },
-          maxExpense: { $max: "$spentAmount" },
-          vendors: { $addToSet: "$vendor" },
-          vendorNames: { $addToSet: "$vendorName" },
-        },
-      },
-    ]);
-
-    // ============================================================
-    // 7. MANUAL PETTY CASH SUMMARY (KEPT - NOT REMOVED)
-    // ============================================================
-    const manualPettyCashFilter = {
-      ...baseFilter,
-      ...(me.role === "clinic" ? {} : { addedBy: staffId }),
-      ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
-    };
-
-    const manualPettyCashSummary = await ManualPettyCash.aggregate([
-      { $match: manualPettyCashFilter },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$amount" },
-          totalExpenses: {
+          totalBillsAmount: { $sum: "$amount" },
+          totalPaidAmount: { $sum: "$paidAmount" },
+          totalBills: { $sum: 1 },
+          totalOutstanding: {
             $sum: {
-              $cond: [{ $eq: ["$isExpense", true] }, "$amount", 0],
+              $cond: [
+                { $in: ["$status", ["paid", "cancelled"]] },
+                0,
+                { $subtract: ["$amount", "$paidAmount"] },
+              ],
             },
           },
-          totalIncome: {
+          overdueAmount: {
             $sum: {
-              $cond: [{ $eq: ["$isExpense", false] }, "$amount", 0],
+              $cond: [
+                { $eq: ["$status", "overdue"] },
+                { $subtract: ["$amount", "$paidAmount"] },
+                0,
+              ],
             },
           },
-          totalRecords: { $sum: 1 },
-          expenseCount: {
+          overdueCount: {
+            $sum: { $cond: [{ $eq: ["$status", "overdue"] }, 1, 0] },
+          },
+          upcomingAmount: {
             $sum: {
-              $cond: [{ $eq: ["$isExpense", true] }, 1, 0],
+              $cond: [
+                { $eq: ["$status", "upcoming"] },
+                { $subtract: ["$amount", "$paidAmount"] },
+                0,
+              ],
             },
           },
-          incomeCount: {
-            $sum: {
-              $cond: [{ $eq: ["$isExpense", false] }, 1, 0],
-            },
-          },
-          totalItems: {
-            $sum: {
-              $cond: [{ $isArray: "$items" }, { $size: "$items" }, 0],
-            },
-          },
-        },
-      },
-    ]);
-
-    // ============================================================
-    // 8. MONTHLY MANUAL PETTY CASH TREND (KEPT)
-    // ============================================================
-    const monthlyManualPettyCash = await ManualPettyCash.aggregate([
-      { $match: manualPettyCashFilter },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$createdAt" },
-            month: { $month: "$createdAt" },
-          },
-          totalIncome: {
-            $sum: {
-              $cond: [{ $eq: ["$isExpense", false] }, "$amount", 0],
-            },
-          },
-          totalExpenses: {
-            $sum: {
-              $cond: [{ $eq: ["$isExpense", true] }, "$amount", 0],
-            },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-    ]);
-
-    // ============================================================
-    // 9. PETTY CASH RECENT ACTIVITY (last 10 combined)
-    // ============================================================
-    const recentAllocations = await PettyCashAllocation.find(allocationFilter)
-      .populate("staffId", "name email")
-      .populate("createdBy", "name email")
-      .sort({ date: -1 })
-      .limit(5)
-      .lean();
-
-    const recentExpenses = await PettyCashExpense.find(expenseFilter)
-      .populate("vendor", "name email")
-      .populate("createdBy", "name email")
-      .sort({ date: -1 })
-      .limit(5)
-      .lean();
-
-    // Transform recent activity
-    const recentActivity = [
-      ...recentAllocations.map((a) => ({
-        ...a,
-        type: "allocation",
-        amount: parseNumber(a.amount),
-        date: a.date,
-        description: `Allocation of ${parseNumber(a.amount)}`,
-      })),
-      ...recentExpenses.map((e) => ({
-        ...e,
-        type: "expense",
-        amount: parseNumber(e.spentAmount),
-        date: e.date,
-        description: e.description,
-      })),
-    ]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 10);
-
-    // ============================================================
-    // 10. MONTHLY PETTY CASH TREND (Allocations + Expenses)
-    // ============================================================
-    const monthlyPettyCash = await PettyCashAllocation.aggregate([
-      { $match: allocationFilter },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$date" },
-            month: { $month: "$date" },
-          },
-          totalAllocated: { $sum: "$amount" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-    ]);
-
-    const monthlyExpenses = await PettyCashExpense.aggregate([
-      { $match: expenseFilter },
-      {
-        $group: {
-          _id: {
-            year: { $year: "$date" },
-            month: { $month: "$date" },
-          },
-          totalSpent: { $sum: "$spentAmount" },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { "_id.year": 1, "_id.month": 1 } },
-    ]);
-
-    // Combine monthly data
-    const monthlyPettyCashData = monthlyPettyCash.map((item) => {
-      const month = `${item._id.month}/${item._id.year}`;
-      const expense = monthlyExpenses.find(
-        (e) => e._id.year === item._id.year && e._id.month === item._id.month,
-      );
-      return {
-        month,
-        totalAllocated: parseNumber(item.totalAllocated),
-        totalSpent: expense ? parseNumber(expense.totalSpent) : 0,
-        allocationCount: item.count,
-        expenseCount: expense ? expense.count : 0,
-      };
-    });
-
-    // ============================================================
-    // 11. PRODUCT SALES SUMMARY
-    // ============================================================
-    const productSaleFilter = {
-      ...baseFilter,
-      ...(me.role === "clinic" ? {} : { soldBy: staffId }),
-      ...(Object.keys(dateFilter).length ? { invoiceDate: dateFilter } : {}),
-    };
-
-    const productSaleSummary = await ProductSale.aggregate([
-      { $match: productSaleFilter },
-      {
-        $group: {
-          _id: null,
-          totalSales: { $sum: "$totalPrice" },
-          totalPaid: { $sum: "$totalPaidAmount" },
-          totalCommission: { $sum: "$totalCommission" },
-          totalRecords: { $sum: 1 },
-          completedCount: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "completed"] }, 1, 0],
-            },
+          upcomingCount: {
+            $sum: { $cond: [{ $eq: ["$status", "upcoming"] }, 1, 0] },
           },
           pendingCount: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "pending"] }, 1, 0],
-            },
+            $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
           },
-          paidCount: {
-            $sum: {
-              $cond: [{ $eq: ["$paymentStatus", "paid"] }, 1, 0],
-            },
+          partialCount: {
+            $sum: { $cond: [{ $eq: ["$status", "partial"] }, 1, 0] },
           },
-          pendingPaymentCount: {
-            $sum: {
-              $cond: [{ $eq: ["$paymentStatus", "pending"] }, 1, 0],
-            },
-          },
+          paidCount: { $sum: { $cond: [{ $eq: ["$status", "paid"] }, 1, 0] } },
         },
       },
     ]);
 
-    // ============================================================
-    // 12. MONTHLY PRODUCT SALES TREND
-    // ============================================================
-    const monthlyProductSales = await ProductSale.aggregate([
-      { $match: productSaleFilter },
+    const billSummary = billSummaryAgg || {
+      totalBillsAmount: 0,
+      totalPaidAmount: 0,
+      totalBills: 0,
+      totalOutstanding: 0,
+      overdueAmount: 0,
+      overdueCount: 0,
+      upcomingAmount: 0,
+      upcomingCount: 0,
+      pendingCount: 0,
+      partialCount: 0,
+      paidCount: 0,
+    };
+
+    const billStatusBreakdown = await FinanceTransaction.aggregate([
+      { $match: billMatchFiltered },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          amount: { $sum: "$amount" },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
+    const billCategoryBreakdown = await FinanceTransaction.aggregate([
+      { $match: billMatchFiltered },
+      {
+        $group: {
+          _id: { $ifNull: ["$category", "Uncategorized"] },
+          amount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
+    const monthlyBillTrend = await FinanceTransaction.aggregate([
+      {
+        $match: {
+          ...billMatch,
+          invoiceDate: { $gte: trendFrom, $lte: trendTo },
+        },
+      },
       {
         $group: {
           _id: {
             year: { $year: "$invoiceDate" },
             month: { $month: "$invoiceDate" },
           },
-          totalSales: { $sum: "$totalPrice" },
-          totalPaid: { $sum: "$totalPaidAmount" },
+          billed: { $sum: "$amount" },
+          paid: { $sum: "$paidAmount" },
           count: { $sum: 1 },
         },
       },
       { $sort: { "_id.year": 1, "_id.month": 1 } },
     ]);
 
-    // ============================================================
-    // 13. RECENT BILLINGS (last 10)
-    // ============================================================
-    const recentBillings = await Billing.find(billingFilter)
-      .populate("patientId", "firstName lastName email mobileNumber emrNumber")
-      .populate("doctorId", "name email")
-      .populate("invoicedById", "name email")
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean();
-
-    // ============================================================
-    // 14. PAYMENT METHOD BREAKDOWN
-    // ============================================================
-    const paymentMethodBreakdown = await Billing.aggregate([
-      { $match: billingFilter },
+    // unpaid suppliers — grouped outstanding > 0
+    const unpaidSupplierAgg = await FinanceTransaction.aggregate([
+      {
+        $match: {
+          ...billMatchFiltered,
+          status: { $nin: ["paid", "cancelled"] },
+        },
+      },
       {
         $group: {
-          _id: "$paymentMethod",
-          total: { $sum: "$amount" },
+          _id: "$supplierId",
+          outstanding: { $sum: { $subtract: ["$amount", "$paidAmount"] } },
+          billCount: { $sum: 1 },
+        },
+      },
+      { $match: { outstanding: { $gt: 0 } } },
+      { $sort: { outstanding: -1 } },
+      { $limit: 8 },
+    ]);
+
+    const supplierIds = unpaidSupplierAgg.map((s) => s._id).filter(Boolean);
+    const suppliers = supplierIds.length
+      ? await Supplier.find({ _id: { $in: supplierIds } })
+          .select("name")
+          .lean()
+      : [];
+    const supplierNameMap = Object.fromEntries(
+      suppliers.map((s) => [s._id.toString(), s.name]),
+    );
+
+    const topUnpaidSuppliers = unpaidSupplierAgg.map((s) => ({
+      supplierId: s._id,
+      name: (s._id && supplierNameMap[s._id.toString()]) || "Unknown Supplier",
+      outstanding: parseNumber(s.outstanding),
+      billCount: s.billCount,
+    }));
+
+    const totalUnpaidSuppliers = await FinanceTransaction.aggregate([
+      {
+        $match: {
+          ...billMatchFiltered,
+          status: { $nin: ["paid", "cancelled"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$supplierId",
+          outstanding: { $sum: { $subtract: ["$amount", "$paidAmount"] } },
+        },
+      },
+      { $match: { outstanding: { $gt: 0 } } },
+      { $count: "count" },
+    ]);
+
+    // ================================================================
+    // 2. PAYMENT CENTER  (FinancePayment)
+    // ================================================================
+    const paymentMatch = { ...clinicMatch, reversed: false };
+    const paymentMatchFiltered = hasDateFilter
+      ? { ...paymentMatch, date: dateRangeFilter }
+      : paymentMatch;
+
+    const [paymentSummaryAgg] = await FinancePayment.aggregate([
+      { $match: paymentMatchFiltered },
+      {
+        $group: {
+          _id: null,
+          totalPaid: { $sum: "$amount" },
+          totalPayments: { $sum: 1 },
+          paidThisMonth: {
+            $sum: { $cond: [{ $gte: ["$date", monthStart] }, "$amount", 0] },
+          },
+          paidThisYear: {
+            $sum: { $cond: [{ $gte: ["$date", yearStart] }, "$amount", 0] },
+          },
+        },
+      },
+    ]);
+
+    const paymentSummary = paymentSummaryAgg || {
+      totalPaid: 0,
+      totalPayments: 0,
+      paidThisMonth: 0,
+      paidThisYear: 0,
+    };
+
+    const paymentMethodBreakdown = await FinancePayment.aggregate([
+      { $match: paymentMatchFiltered },
+      {
+        $group: {
+          _id: "$method",
+          amount: { $sum: "$amount" },
           count: { $sum: 1 },
         },
       },
-      { $sort: { total: -1 } },
+      { $sort: { amount: -1 } },
     ]);
 
-    // ============================================================
-    // 15. STATUS BREAKDOWN
-    // ============================================================
-    const statusBreakdown = await Billing.aggregate([
-      { $match: billingFilter },
+    const monthlyPaymentTrend = await FinancePayment.aggregate([
+      { $match: { ...paymentMatch, date: { $gte: trendFrom, $lte: trendTo } } },
+      {
+        $group: {
+          _id: { year: { $year: "$date" }, month: { $month: "$date" } },
+          amount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    // ================================================================
+    // 3. CHEQUE MANAGER  (FinanceCheque)
+    // ================================================================
+    const chequeMatch = { ...clinicMatch };
+    const chequeMatchFiltered = hasDateFilter
+      ? { ...chequeMatch, chequeDate: dateRangeFilter }
+      : chequeMatch;
+
+    const [chequeSummaryAgg] = await FinanceCheque.aggregate([
+      { $match: chequeMatchFiltered },
+      {
+        $group: {
+          _id: null,
+          totalCheques: { $sum: 1 },
+          totalAmount: { $sum: "$amount" },
+          pendingCount: {
+            $sum: {
+              $cond: [{ $in: ["$status", ["issued", "presented"]] }, 1, 0],
+            },
+          },
+          pendingAmount: {
+            $sum: {
+              $cond: [
+                { $in: ["$status", ["issued", "presented"]] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+          clearedCount: {
+            $sum: { $cond: [{ $eq: ["$status", "cleared"] }, 1, 0] },
+          },
+          clearedAmount: {
+            $sum: { $cond: [{ $eq: ["$status", "cleared"] }, "$amount", 0] },
+          },
+          bouncedCount: {
+            $sum: {
+              $cond: [{ $in: ["$status", ["bounced", "returned"]] }, 1, 0],
+            },
+          },
+          bouncedAmount: {
+            $sum: {
+              $cond: [
+                { $in: ["$status", ["bounced", "returned"]] },
+                "$amount",
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const chequeSummary = chequeSummaryAgg || {
+      totalCheques: 0,
+      totalAmount: 0,
+      pendingCount: 0,
+      pendingAmount: 0,
+      clearedCount: 0,
+      clearedAmount: 0,
+      bouncedCount: 0,
+      bouncedAmount: 0,
+    };
+
+    const chequeStatusBreakdown = await FinanceCheque.aggregate([
+      { $match: chequeMatchFiltered },
       {
         $group: {
           _id: "$status",
-          total: { $sum: "$amount" },
           count: { $sum: 1 },
+          amount: { $sum: "$amount" },
+        },
+      },
+      { $sort: { amount: -1 } },
+    ]);
+
+    const [upcomingChequeAgg] = await FinanceCheque.aggregate([
+      {
+        $match: {
+          ...chequeMatch,
+          status: { $in: ["issued", "presented"] },
+          chequeDate: { $gte: now },
+        },
+      },
+      {
+        $group: { _id: null, amount: { $sum: "$amount" }, count: { $sum: 1 } },
+      },
+    ]);
+
+    const upcomingCheques = await FinanceCheque.find({
+      ...chequeMatch,
+      status: { $in: ["issued", "presented"] },
+      chequeDate: { $gte: now },
+    })
+      .sort({ chequeDate: 1 })
+      .limit(5)
+      .populate("supplierId", "name")
+      .lean();
+
+    // ================================================================
+    // 4. BANK ACCOUNTS
+    // ================================================================
+    const bankAccounts = await BankAccount.find({
+      ...clinicMatch,
+      isActive: true,
+    })
+      .sort({ currentBalance: -1 })
+      .lean();
+    const totalBankBalance = bankAccounts.reduce(
+      (sum, a) => sum + parseNumber(a.currentBalance),
+      0,
+    );
+
+    // ================================================================
+    // 5. PETTY CASH  (PettyCashAllocation + PettyCashExpense)
+    // ================================================================
+    const pettyCashClinicMatch = { clinicId, isVoided: { $ne: true } };
+
+    const [allocationAgg] = await PettyCashAllocation.aggregate([
+      { $match: pettyCashClinicMatch },
+      {
+        $group: {
+          _id: null,
+          totalAllocated: { $sum: "$amount" },
+          totalAllocations: { $sum: 1 },
         },
       },
     ]);
 
-    // ============================================================
-    // BUILD RESPONSE
-    // ============================================================
-    const billingData =
-      billingSummary.length > 0
-        ? billingSummary[0]
-        : {
-          totalAmount: 0,
-          totalPaid: 0,
-          totalPending: 0,
-          totalAdvance: 0,
-          count: 0,
-        };
-
-    const allocationData =
-      allocationSummary.length > 0
-        ? allocationSummary[0]
-        : {
-          totalAllocated: 0,
-          totalAllocations: 0,
-          averageAllocation: 0,
-          minAllocation: 0,
-          maxAllocation: 0,
-        };
-
-    const expenseData =
-      expenseSummary.length > 0
-        ? expenseSummary[0]
-        : {
-          totalSpent: 0,
-          totalExpenses: 0,
-          averageExpense: 0,
-          minExpense: 0,
-          maxExpense: 0,
-          vendors: [],
-          vendorNames: [],
-        };
-
-    const manualPettyCashData =
-      manualPettyCashSummary.length > 0
-        ? manualPettyCashSummary[0]
-        : {
-          totalAmount: 0,
-          totalExpenses: 0,
-          totalIncome: 0,
-          totalRecords: 0,
-          expenseCount: 0,
-          incomeCount: 0,
-          totalItems: 0,
-        };
-
-    const productSaleData =
-      productSaleSummary.length > 0
-        ? productSaleSummary[0]
-        : {
-          totalSales: 0,
-          totalPaid: 0,
-          totalCommission: 0,
-          totalRecords: 0,
-          completedCount: 0,
-          pendingCount: 0,
-          paidCount: 0,
-          pendingPaymentCount: 0,
-        };
-
-    const totalAllocated = parseNumber(allocationData.totalAllocated);
-    const totalSpent = parseNumber(expenseData.totalSpent);
-    const totalBalance = totalAllocated - totalSpent;
-
-    // Calculate total revenue including manual petty cash income
-    const totalRevenue =
-      billingData.totalPaid +
-      productSaleData.totalPaid +
-      manualPettyCashData.totalIncome;
-
-    // Total expenses = Petty Cash Expenses + Manual Petty Cash Expenses
-    const totalExpenses = totalSpent + manualPettyCashData.totalExpenses;
-
-    const netBalance = totalRevenue - totalExpenses;
-    const pendingDues =
-      billingData.totalPending +
-      (productSaleData.totalSales - productSaleData.totalPaid);
-
-    // Format monthly data for charts
-    const formatMonthlyData = (data, type) => {
-      return data.map((item) => ({
-        month: `${item._id.month}/${item._id.year}`,
-        ...item,
-      }));
+    const pettyCashExpenseMatch = {
+      clinicId,
+      isVoided: { $ne: true },
+      usedFromPettyCash: true,
     };
 
+    const [expenseAgg] = await PettyCashExpense.aggregate([
+      { $match: pettyCashExpenseMatch },
+      {
+        $group: {
+          _id: null,
+          totalSpent: { $sum: "$spentAmount" },
+          totalExpenses: { $sum: 1 },
+          spentThisMonth: {
+            $sum: {
+              $cond: [{ $gte: ["$date", monthStart] }, "$spentAmount", 0],
+            },
+          },
+          spentThisYear: {
+            $sum: {
+              $cond: [{ $gte: ["$date", yearStart] }, "$spentAmount", 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    const totalAllocated = parseNumber(allocationAgg?.totalAllocated);
+    const totalSpentPettyCash = parseNumber(expenseAgg?.totalSpent);
+    const pettyCashBalance = totalAllocated - totalSpentPettyCash;
+
+    const monthlyPettyCashAllocated = await PettyCashAllocation.aggregate([
+      {
+        $match: {
+          ...pettyCashClinicMatch,
+          date: { $gte: trendFrom, $lte: trendTo },
+        },
+      },
+      {
+        $group: {
+          _id: { year: { $year: "$date" }, month: { $month: "$date" } },
+          allocated: { $sum: "$amount" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    const monthlyPettyCashSpent = await PettyCashExpense.aggregate([
+      {
+        $match: {
+          ...pettyCashExpenseMatch,
+          date: { $gte: trendFrom, $lte: trendTo },
+        },
+      },
+      {
+        $group: {
+          _id: { year: { $year: "$date" }, month: { $month: "$date" } },
+          spent: { $sum: "$spentAmount" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
+
+    // merge petty cash monthly trend into one array
+    const pettyCashMonthKeys = new Set([
+      ...monthlyPettyCashAllocated.map((m) => `${m._id.year}-${m._id.month}`),
+      ...monthlyPettyCashSpent.map((m) => `${m._id.year}-${m._id.month}`),
+    ]);
+    const monthlyPettyCashTrend = Array.from(pettyCashMonthKeys)
+      .map((key) => {
+        const [year, month] = key.split("-").map(Number);
+        const alloc = monthlyPettyCashAllocated.find(
+          (m) => m._id.year === year && m._id.month === month,
+        );
+        const spent = monthlyPettyCashSpent.find(
+          (m) => m._id.year === year && m._id.month === month,
+        );
+        return {
+          month: monthLabel(year, month),
+          sortKey: year * 100 + month,
+          allocated: parseNumber(alloc?.allocated),
+          spent: parseNumber(spent?.spent),
+        };
+      })
+      .sort((a, b) => a.sortKey - b.sortKey)
+      .map(({ sortKey, ...rest }) => rest);
+
+    // ================================================================
+    // 6. THIS MONTH / THIS YEAR EXPENSES  (bills paid + petty cash spent)
+    // ================================================================
+    const thisMonthExpenses =
+      paymentSummary.paidThisMonth + parseNumber(expenseAgg?.spentThisMonth);
+    const thisYearExpenses =
+      paymentSummary.paidThisYear + parseNumber(expenseAgg?.spentThisYear);
+
+    // ================================================================
+    // 7. RECENT ACTIVITY  (bills + payments + cheques, merged timeline)
+    // ================================================================
+    const [recentBills, recentPayments, recentCheques] = await Promise.all([
+      FinanceTransaction.find(billMatch)
+        .populate("supplierId", "name")
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+      FinancePayment.find(paymentMatch)
+        .populate("supplierId", "name")
+        .populate("transactionId", "invoiceNumber category")
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+      FinanceCheque.find(chequeMatch)
+        .populate("supplierId", "name")
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .lean(),
+    ]);
+
+    const recentActivity = [
+      ...recentBills.map((b) => ({
+        type: "bill",
+        id: b._id,
+        title: b.invoiceNumber,
+        subtitle: b.supplierId?.name || b.category || "Bill",
+        amount: parseNumber(b.amount),
+        status: b.status,
+        date: b.createdAt,
+        details: {
+          invoiceNumber: b.invoiceNumber,
+          supplierName: b.supplierId?.name || null,
+          supplierInvoiceNumber: b.supplierInvoiceNumber || null,
+          category: b.category || null,
+          invoiceDate: b.invoiceDate || null,
+          dueDate: b.dueDate || null,
+          totalAmount: parseNumber(b.amount),
+          paidAmount: parseNumber(b.paidAmount),
+          balance: parseNumber(b.balance ?? b.amount - b.paidAmount),
+          status: b.status,
+          notes: b.notes || null,
+          attachments: (b.attachments || []).length,
+          createdAt: b.createdAt,
+        },
+      })),
+      ...recentPayments.map((p) => ({
+        type: "payment",
+        id: p._id,
+        title: p.paymentNumber,
+        subtitle:
+          p.supplierId?.name || p.transactionId?.invoiceNumber || "Payment",
+        amount: parseNumber(p.amount),
+        status: p.method,
+        date: p.createdAt,
+        details: {
+          paymentNumber: p.paymentNumber,
+          supplierName: p.supplierId?.name || null,
+          billInvoiceNumber: p.transactionId?.invoiceNumber || null,
+          billCategory: p.transactionId?.category || null,
+          amount: parseNumber(p.amount),
+          paymentDate: p.date || null,
+          method: p.method,
+          hasAttachment: !!p.attachment,
+          notes: p.notes || null,
+          reversed: !!p.reversed,
+          createdAt: p.createdAt,
+        },
+      })),
+      ...recentCheques.map((c) => ({
+        type: "cheque",
+        id: c._id,
+        title: c.chequeNumber,
+        subtitle: c.supplierId?.name || c.payee || "Cheque",
+        amount: parseNumber(c.amount),
+        status: c.status,
+        date: c.createdAt,
+        details: {
+          chequeNumber: c.chequeNumber,
+          supplierName: c.supplierId?.name || null,
+          payee: c.payee || null,
+          bank: c.bank || null,
+          amount: parseNumber(c.amount),
+          chequeDate: c.chequeDate || null,
+          status: c.status,
+          createdAt: c.createdAt,
+        },
+      })),
+    ]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 10);
+
+    // ================================================================
+    // RESPONSE
+    // ================================================================
     return res.status(200).json({
       success: true,
       data: {
-        billing: {
-          totalAmount: billingData.totalAmount,
-          totalPaid: billingData.totalPaid,
-          totalPending: billingData.totalPending,
-          totalAdvance: billingData.totalAdvance,
-          count: billingData.count,
+        kpis: {
+          outstandingBills: {
+            amount: parseNumber(billSummary.totalOutstanding),
+            count: billSummary.totalBills - billSummary.paidCount,
+          },
+          overdueBills: {
+            amount: parseNumber(billSummary.overdueAmount),
+            count: billSummary.overdueCount,
+          },
+          upcomingBills: {
+            amount: parseNumber(billSummary.upcomingAmount),
+            count: billSummary.upcomingCount,
+          },
+          upcomingCheques: {
+            amount: parseNumber(upcomingChequeAgg?.amount),
+            count: upcomingChequeAgg?.count || 0,
+          },
+          pettyCashBalance,
+          bankBalance: totalBankBalance,
+          thisMonthExpenses,
+          thisYearExpenses,
+          unpaidSuppliers: totalUnpaidSuppliers[0]?.count || 0,
+          totalPaidAllTime: parseNumber(paymentSummary.totalPaid),
+          totalPaidThisMonth: parseNumber(paymentSummary.paidThisMonth),
+          totalPaidThisYear: parseNumber(paymentSummary.paidThisYear),
+        },
+        bills: {
+          totalBillsAmount: parseNumber(billSummary.totalBillsAmount),
+          totalPaidAmount: parseNumber(billSummary.totalPaidAmount),
+          totalBills: billSummary.totalBills,
+          totalOutstanding: parseNumber(billSummary.totalOutstanding),
+          statusBreakdown: billStatusBreakdown.map((s) => ({
+            status: s._id || "unknown",
+            count: s.count,
+            amount: parseNumber(s.amount),
+          })),
+          categoryBreakdown: billCategoryBreakdown.map((c) => ({
+            category: c._id,
+            amount: parseNumber(c.amount),
+            count: c.count,
+          })),
+          monthlyTrend: monthlyBillTrend.map((m) => ({
+            month: monthLabel(m._id.year, m._id.month),
+            billed: parseNumber(m.billed),
+            paid: parseNumber(m.paid),
+            count: m.count,
+          })),
+        },
+        payments: {
+          totalPaid: parseNumber(paymentSummary.totalPaid),
+          totalPayments: paymentSummary.totalPayments,
+          avgPayment: paymentSummary.totalPayments
+            ? paymentSummary.totalPaid / paymentSummary.totalPayments
+            : 0,
+          methodBreakdown: paymentMethodBreakdown.map((m) => ({
+            method: m._id || "unknown",
+            amount: parseNumber(m.amount),
+            count: m.count,
+          })),
+          monthlyTrend: monthlyPaymentTrend.map((m) => ({
+            month: monthLabel(m._id.year, m._id.month),
+            amount: parseNumber(m.amount),
+            count: m.count,
+          })),
+        },
+        cheques: {
+          totalCheques: chequeSummary.totalCheques,
+          totalAmount: parseNumber(chequeSummary.totalAmount),
+          pendingCount: chequeSummary.pendingCount,
+          pendingAmount: parseNumber(chequeSummary.pendingAmount),
+          clearedCount: chequeSummary.clearedCount,
+          clearedAmount: parseNumber(chequeSummary.clearedAmount),
+          bouncedCount: chequeSummary.bouncedCount,
+          bouncedAmount: parseNumber(chequeSummary.bouncedAmount),
+          statusBreakdown: chequeStatusBreakdown.map((s) => ({
+            status: s._id || "unknown",
+            count: s.count,
+            amount: parseNumber(s.amount),
+          })),
+          upcoming: upcomingCheques.map((c) => ({
+            _id: c._id,
+            chequeNumber: c.chequeNumber,
+            payee: c.supplierId?.name || c.payee,
+            bank: c.bank,
+            amount: parseNumber(c.amount),
+            chequeDate: c.chequeDate,
+            status: c.status,
+          })),
+        },
+        bankAccounts: {
+          totalBalance: totalBankBalance,
+          accounts: bankAccounts.map((a) => ({
+            _id: a._id,
+            bankName: a.bankName,
+            accountName: a.accountName,
+            accountNumber: a.accountNumber,
+            currentBalance: parseNumber(a.currentBalance),
+          })),
         },
         pettyCash: {
-          // From PettyCashAllocation
-          totalAllocated: totalAllocated,
-          totalAllocations: allocationData.totalAllocations || 0,
-          averageAllocation: parseNumber(allocationData.averageAllocation),
-          minAllocation: parseNumber(allocationData.minAllocation),
-          maxAllocation: parseNumber(allocationData.maxAllocation),
-
-          // From PettyCashExpense (only usedFromPettyCash: true)
-          totalSpent: totalSpent,
-          totalExpenses: expenseData.totalExpenses || 0,
-          averageExpense: parseNumber(expenseData.averageExpense),
-          minExpense: parseNumber(expenseData.minExpense),
-          maxExpense: parseNumber(expenseData.maxExpense),
-
-          // Balance
-          totalBalance: totalBalance,
-
-          // Vendors
-          uniqueVendors:
-            expenseData.vendors?.filter((v) => v !== null).length || 0,
+          totalAllocated,
+          totalSpent: totalSpentPettyCash,
+          balance: pettyCashBalance,
+          monthlyTrend: monthlyPettyCashTrend,
         },
-        manualPettyCash: {
-          totalAmount: manualPettyCashData.totalAmount,
-          totalExpenses: manualPettyCashData.totalExpenses,
-          totalIncome: manualPettyCashData.totalIncome,
-          totalRecords: manualPettyCashData.totalRecords,
-          expenseCount: manualPettyCashData.expenseCount,
-          incomeCount: manualPettyCashData.incomeCount,
-          totalItems: manualPettyCashData.totalItems,
-        },
-        productSales: {
-          totalSales: productSaleData.totalSales,
-          totalPaid: productSaleData.totalPaid,
-          totalCommission: productSaleData.totalCommission,
-          totalRecords: productSaleData.totalRecords,
-          completedCount: productSaleData.completedCount,
-          pendingCount: productSaleData.pendingCount,
-          paidCount: productSaleData.paidCount,
-          pendingPaymentCount: productSaleData.pendingPaymentCount,
-        },
-        overview: {
-          totalRevenue,
-          totalExpenses,
-          netBalance,
-          pendingDues,
-        },
-        charts: {
-          monthlyBillingTrend: formatMonthlyData(
-            monthlyBillingTrend,
-            "billing",
-          ),
-          weeklyBillingTrend: weeklyBillingTrend,
-          billingByService: billingByService,
-          monthlyPettyCash: monthlyPettyCashData,
-          monthlyManualPettyCash: formatMonthlyData(
-            monthlyManualPettyCash,
-            "manual",
-          ),
-          monthlyProductSales: formatMonthlyData(
-            monthlyProductSales,
-            "product",
-          ),
-          paymentMethodBreakdown: paymentMethodBreakdown,
-          statusBreakdown: statusBreakdown,
-        },
-        recentBillings: recentBillings || [],
-        recentPettyCashActivity: recentActivity,
+        topUnpaidSuppliers,
+        recentActivity,
       },
     });
   } catch (error) {
-    console.error("Error fetching overview data:", error);
+    console.error("Error fetching finance overview:", error);
     return res
       .status(500)
       .json({ success: false, message: "Internal Server Error" });

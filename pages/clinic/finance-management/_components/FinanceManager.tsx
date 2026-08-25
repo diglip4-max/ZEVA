@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import PettyCashTab from "./PettyCashTab";
 import BillingTab from "./BillingTab";
@@ -14,6 +14,9 @@ import ExpensesTab from "./ExpensesTab";
 import SupplierLedgerTab from "./SupplierLedgerTab";
 import ReportsTab from "./ReportsTab";
 import BankAccountsTab from "./BankAccountsTab";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/router";
+import useFinancePermission from "../_hooks/useFinancePermission";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -23,6 +26,9 @@ const FONTS = `
 `;
 
 export default function FinanceManager() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get("view") || "overview";
   const { theme } = useClinicTheme();
   const isDark = theme === "dark";
   const { clinic } = useClinic();
@@ -42,7 +48,7 @@ export default function FinanceManager() {
     | "cheques"
     | "vendorHistory"
     | "reports"
-  >("overview");
+  >(currentTab as any);
 
   const tabs: { id: typeof activeTab; label: string }[] = [
     { id: "overview", label: "Overview" },
@@ -61,6 +67,35 @@ export default function FinanceManager() {
     { id: "vendorHistory", label: "Vendor History" },
     { id: "reports", label: "Reports" },
   ];
+
+  const parentModuleKey = "clinic_finance_management";
+  const moduleKey = useMemo(() => {
+    if (activeTab === "overview") {
+      return "clinic_finance_overview";
+    } else if (activeTab === "billsPayable") {
+      return "clinic_finance_bills_payables";
+    } else if (activeTab === "expenses") {
+      return "clinic_finance_expenses";
+    } else if (activeTab === "payments") {
+      return "clinic_finance_payments";
+    } else if (activeTab === "pettyCash") {
+      return "clinic_finance_petty_cash";
+    } else if (activeTab === "bankAccounts") {
+      return "clinic_finance_bank_accounts";
+    } else if (activeTab === "cheques") {
+      return "clinic_finance_cheque_manager";
+    } else if (activeTab === "vendorHistory") {
+      return "clinic_finance_vendor_history";
+    } else if (activeTab === "reports") {
+      return "clinic_finance_reports";
+    }
+
+    return `clinic_finance_${activeTab}`;
+  }, [activeTab]);
+  const permissionData = useFinancePermission({
+    moduleKey,
+    parentModuleKey,
+  });
 
   return (
     <div>
@@ -126,7 +161,17 @@ export default function FinanceManager() {
               {tabs.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setActiveTab(t.id)}
+                  onClick={() => {
+                    setActiveTab(t.id);
+
+                    router.push(
+                      `/clinic/finance-management?view=${t.id}`,
+                      undefined,
+                      {
+                        shallow: true, // Prevents re-fetching if data is already loaded
+                      },
+                    );
+                  }}
                   className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 ${
                     activeTab === t.id
                       ? "bg-white dark:bg-stone-700 text-teal-700 dark:text-teal-300 shadow-sm"
@@ -141,46 +186,59 @@ export default function FinanceManager() {
         </div>
 
         <div className="w-full px-6 sm:px-10 py-8 sm:py-10">
-          {/* Overview Tab */}
-          {activeTab === "overview" && (
-            <OverviewTab
-              isDark={isDark}
-              onTabChange={(tab) => setActiveTab(tab as any)}
-            />
-          )}
+          <>
+            {/* Overview Tab */}
+            {activeTab === "overview" && (
+              <OverviewTab
+                isDark={isDark}
+                onTabChange={(tab) => setActiveTab(tab as any)}
+                permissionData={permissionData}
+              />
+            )}
 
-          {/* Billing Tab */}
-          {activeTab === "billing" && <BillingTab />}
+            {/* Billing Tab */}
+            {activeTab === "billing" && <BillingTab />}
 
-          {/* Petty Cash Tab */}
-          {activeTab === "pettyCash" && <PettyCashTab />}
+            {/* Petty Cash Tab */}
+            {activeTab === "pettyCash" && <PettyCashTab {...permissionData} />}
 
-          {/* Manual Petty Cash Tab */}
-          {activeTab === "manualPettyCash" && <ManualPettyCashTab />}
+            {/* Manual Petty Cash Tab */}
+            {activeTab === "manualPettyCash" && <ManualPettyCashTab />}
 
-          {/* Product Sales Tab */}
-          {activeTab === "productSales" && <ProductSaleTab />}
+            {/* Product Sales Tab */}
+            {activeTab === "productSales" && <ProductSaleTab />}
 
-          {/* Bills Payable Tab */}
-          {activeTab === "billsPayable" && <BillsPayableTab />}
+            {/* Bills Payable Tab */}
+            {activeTab === "billsPayable" && (
+              <BillsPayableTab {...permissionData} />
+            )}
 
-          {/* Expenses Tab */}
-          {activeTab === "expenses" && <ExpensesTab />}
+            {/* Expenses Tab */}
+            {activeTab === "expenses" && <ExpensesTab {...permissionData} />}
 
-          {/* Payments Tab */}
-          {activeTab === "payments" && <FinancePaymentsTab />}
+            {/* Payments Tab */}
+            {activeTab === "payments" && (
+              <FinancePaymentsTab {...permissionData} />
+            )}
 
-          {/* Bank Accounts Tab */}
-          {activeTab === "bankAccounts" && <BankAccountsTab />}
+            {/* Bank Accounts Tab */}
+            {activeTab === "bankAccounts" && (
+              <BankAccountsTab {...permissionData} />
+            )}
 
-          {/* Cheques Tab */}
-          {activeTab === "cheques" && <FinanceChequesTab />}
+            {/* Cheques Tab */}
+            {activeTab === "cheques" && (
+              <FinanceChequesTab {...permissionData} />
+            )}
 
-          {/* Vendor History Tab */}
-          {activeTab === "vendorHistory" && <SupplierLedgerTab />}
+            {/* Vendor History Tab */}
+            {activeTab === "vendorHistory" && (
+              <SupplierLedgerTab {...permissionData} />
+            )}
 
-          {/* Reports Tab */}
-          {activeTab === "reports" && <ReportsTab />}
+            {/* Reports Tab */}
+            {activeTab === "reports" && <ReportsTab {...permissionData} />}
+          </>
         </div>
       </div>
     </div>

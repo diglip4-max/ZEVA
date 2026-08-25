@@ -33,6 +33,7 @@ import { formatMoney, getCurrencySymbol } from "@/lib/currencyHelper";
 import useClinic from "@/hooks/useClinic";
 import useSuppliers from "@/hooks/useSuppliers";
 import { handleUpload, formatFileSize } from "@/lib/helper";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 type SupplierStatus = "Active" | "Inactive";
 
@@ -967,7 +968,13 @@ function StatsSection({
 // ============================================================
 // MAIN TAB
 // ============================================================
-const BillsPayableTab: React.FC = () => {
+const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
+  permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
   const { currency } = useCurrency();
   const {
     bills,
@@ -1008,6 +1015,18 @@ const BillsPayableTab: React.FC = () => {
     setCancelReason("");
   };
 
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="space-y-7">
       <div className="flex items-center justify-between">
@@ -1019,16 +1038,18 @@ const BillsPayableTab: React.FC = () => {
             Every invoice the clinic owes — now or later
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
-          style={{
-            backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          New Bill
-        </button>
+        {permissions.canCreate && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            New Bill
+          </button>
+        )}
       </div>
 
       <StatsSection summary={summary} loading={loading} currency={currency} />

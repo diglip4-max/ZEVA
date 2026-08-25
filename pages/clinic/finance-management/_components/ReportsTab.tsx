@@ -29,6 +29,7 @@ import useFinanceReports, {
 import StatCard from "./StatCard";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 const formatDate = (d?: string): string =>
   d
@@ -121,7 +122,13 @@ function BillTable({ rows, currency }: { rows: any[]; currency: string }) {
 // ============================================================
 // MAIN TAB
 // ============================================================
-const ReportsTab: React.FC = () => {
+const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
+  // permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
   const { currency } = useCurrency();
   const {
     reportType,
@@ -439,6 +446,14 @@ const ReportsTab: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-[10px] text-stone-400 dark:text-stone-500 uppercase tracking-wide">
+                      Paid
+                    </div>
+                    <div className="font-mono text-sm font-semibold text-stone-800 dark:text-stone-100">
+                      {formatMoney(s.totalPaid, currency)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-stone-400 dark:text-stone-500 uppercase tracking-wide">
                       Balance
                     </div>
                     <div className="font-mono text-sm font-semibold text-rose-500 dark:text-rose-400">
@@ -539,6 +554,18 @@ const ReportsTab: React.FC = () => {
         return <EmptyState />;
     }
   };
+
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
 
   return (
     <div className="space-y-7">

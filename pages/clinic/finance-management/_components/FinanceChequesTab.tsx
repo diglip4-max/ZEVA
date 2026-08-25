@@ -24,6 +24,7 @@ import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 const formatDate = (d?: string): string =>
   d
@@ -114,11 +115,13 @@ function ChequeRow({
   currency,
   onAdvance,
   onChangeStatus,
+  permissions,
 }: {
   cheque: ChequeData;
   currency: string;
   onAdvance: (cheque: ChequeData, next: ChequeStatus) => void;
   onChangeStatus: (cheque: ChequeData) => void;
+  permissions: UseFinancePermissionReturn["permissions"];
 }) {
   const [expanded, setExpanded] = useState(false);
   const supplierName =
@@ -238,7 +241,8 @@ function ChequeRow({
             </div>
           )}
 
-          {!isTerminal && (
+          {/* User that has update permission so he can change status of cheque */}
+          {permissions.canUpdate && !isTerminal && (
             <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-4">
               {nextStep && (
                 <button
@@ -496,7 +500,13 @@ function StatsSection({
 // ============================================================
 // MAIN TAB
 // ============================================================
-const FinanceChequesTab: React.FC = () => {
+const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
+  permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
   const { currency } = useCurrency();
   const {
     cheques,
@@ -523,6 +533,18 @@ const FinanceChequesTab: React.FC = () => {
 
   const from = pagination?.totalResults === 0 ? 0 : (page - 1) * 15 + 1;
   const to = Math.min(page * 15, pagination?.totalResults || 0);
+
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
 
   return (
     <div className="space-y-7">
@@ -612,6 +634,7 @@ const FinanceChequesTab: React.FC = () => {
                     currency={currency}
                     onAdvance={(c, next) => updateStatus(c._id, next)}
                     onChangeStatus={setStatusTarget}
+                    permissions={permissions}
                   />
                 ))
               )}

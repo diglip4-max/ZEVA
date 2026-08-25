@@ -30,6 +30,7 @@ import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney, getCurrencySymbol } from "@/lib/currencyHelper";
 // import useBankAccounts from "@/hooks/useBankAccounts";
 import { handleUpload } from "@/lib/helper";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
 
 const formatDate = (d?: string): string =>
   d
@@ -778,7 +779,13 @@ function StatsSection({
 // ============================================================
 // MAIN TAB
 // ============================================================
-const ExpensesTab: React.FC = () => {
+const ExpensesTab: React.FC<UseFinancePermissionReturn> = ({
+  permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
   const { currency } = useCurrency();
   const {
     expenses,
@@ -807,6 +814,18 @@ const ExpensesTab: React.FC = () => {
   const from = pagination?.totalResults === 0 ? 0 : (page - 1) * 15 + 1;
   const to = Math.min(page * 15, pagination?.totalResults || 0);
 
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="space-y-7">
       <div className="flex items-center justify-between">
@@ -818,16 +837,19 @@ const ExpensesTab: React.FC = () => {
             Instant payments — fuel, tea, courier, supplies
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
-          style={{
-            backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          New Expense
-        </button>
+
+        {permissions.canCreate && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
+            style={{
+              backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            New Expense
+          </button>
+        )}
       </div>
 
       <StatsSection summary={summary} loading={loading} currency={currency} />
