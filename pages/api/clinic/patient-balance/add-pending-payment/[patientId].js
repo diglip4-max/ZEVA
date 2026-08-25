@@ -4,6 +4,7 @@ import Clinic from "../../../../../models/Clinic";
 import PatientRegistration from "../../../../../models/PatientRegistration";
 import Package from "../../../../../models/Package";
 import PettyCash from "../../../../../models/PettyCash";
+import Appointment from "../../../../../models/Appointment";
 import { getUserFromReq } from "../../../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -672,6 +673,63 @@ export default async function handler(req, res) {
     // Combine cash breakdown and advance breakdown
     const totalBreakdown = [...breakdown, ...advanceBreakdown];
     const totalTotalCleared = totalCleared + advanceTotalCleared;
+
+    // ============================================================
+    // Commission Processing for pending clearance
+    // ============================================================
+    try {
+      const { processBillingCommissions } = await import("../../../../../lib/billingCommissionHelper");
+
+      // Process commission for each affected original billing
+      const processedInvoiceNumbers = new Set();
+      for (const b of totalBreakdown) {
+        if (!b.invoiceNumber || processedInvoiceNumbers.has(b.invoiceNumber)) continue;
+        processedInvoiceNumbers.add(b.invoiceNumber);
+
+        const invoice = updatedBillings.find(ib => ib.invoiceNumber === b.invoiceNumber);
+        if (!invoice) continue;
+
+        const appt = invoice.appointmentId
+          ? await Appointment.findById(invoice.appointmentId).lean()
+          : null;
+        const freshPatient = await PatientRegistration.findById(patientId).lean();
+
+        await processBillingCommissions({
+          billing: invoice,
+          appointment: appt,
+          patientRegistration: freshPatient,
+          clinicId,
+          clinicUser,
+          directBilling: invoice.directBilling !== false,
+          amountNum: Number(invoice.amount || 0),
+          paidNum: Number(invoice.paid || 0),
+          adjustedPendingUsed: 0,
+          pendingClaimUsedNum: 0,
+          totalUnpaidPackagesAmount: 0,
+          hasPackagePayload: !!invoice.package,
+          hasPackageTreatments: false,
+          totalPackageSessionValue: 0,
+          selectedTreatments: invoice.selectedTreatments || [],
+          selectedPackageTreatments: invoice.selectedPackageTreatments || [],
+          packageSoldByUserId: null,
+          packagePaymentStatus: 'Unpaid',
+          pkgDoc: null,
+          packageName: invoice.package || '',
+          paymentMethod: paymentMethod || 'Cash',
+          multiPayArr: [],
+          selectedBankPaymentDetails: { enabled: false },
+          invoicedDate: invoice.invoicedDate,
+          earnedAmountForCommission: Number(invoice.amount || 0),
+          referralCommissionAmount: 0,
+          paidNumForReferralCommission: 0,
+          processNewBillingCommission: false,
+          processPendingClearanceCommission: true,
+        });
+      }
+    } catch (commissionErr) {
+      console.error("[AddPendingPayment] Commission processing error:", commissionErr.message);
+      // Do not fail the pending payment if commission fails
+    }
 
     return res.status(200).json({
       success: true,

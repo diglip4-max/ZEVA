@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/router";
 import axios from "axios";
 import NotificationBell from "./NotificationBell";
 import ReceptionistChat from "./ReceptionistChat";
-import { Bot, Sparkles } from "lucide-react";
+import { Bot, Sparkles, Search, X } from "lucide-react";
+import useZevaConnect from "@/hooks/useZevaConnect";
 import { useClinicTheme } from "../context/ClinicThemeContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { normalizeImagePath } from "@/lib/utils";
+
+
 
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
@@ -50,6 +54,145 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     top: number;
     right: number;
   }>({ top: 0, right: 0 });
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const [searchDropdownPos, setSearchDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
+  const router = useRouter();
+  const { handleZevaConnect } = useZevaConnect();
+
+  // Navigation items for search (mirrors AgentSidebar)
+  interface SearchNavItem {
+    label: string;
+    path?: string;
+    icon: string;
+    description?: string;
+    parentLabel?: string;
+    parentIcon?: string;
+    onClick?: () => void;
+  }
+  const [navItems, setNavItems] = useState<SearchNavItem[]>([]);
+
+  // Fetch navigation items from sidebar-permissions API (same as AgentSidebar)
+  useEffect(() => {
+    const fetchNavItems = async () => {
+      try {
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") ||
+              localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+            : null;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/sidebar-permissions", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.data.success) {
+          const items: SearchNavItem[] = [];
+
+          // Add Dashboard as first item
+          items.push({ label: "Dashboard", path: "/staff/dashboard", icon: "📊", description: "Staff Dashboard" });
+
+          const hasAnyPerm = (perms: Record<string, boolean> | null | undefined): boolean => {
+            if (!perms) return false;
+            return Object.values(perms).some((v) => v === true);
+          };
+
+          (res.data.navigationItems || []).forEach((mod: any) => {
+            const modPerms = mod.permissions;
+            const subs: any[] = mod.subModules || [];
+
+            // Filter sub-modules by permission
+            const visibleSubs = subs.filter((s: any) => hasAnyPerm(s.permissions));
+
+            // If module has children, add each child as a searchable item
+            if (visibleSubs.length > 0) {
+              visibleSubs.forEach((sub: any) => {
+                items.push({
+                  label: sub.name,
+                  path: sub.path,
+                  icon: sub.icon,
+                  description: sub.name,
+                  parentLabel: mod.label,
+                  parentIcon: mod.icon,
+                  ...(sub.name === "Team Chat" ? { onClick: handleZevaConnect } : {}),
+                });
+              });
+            } else if (mod.path && hasAnyPerm(modPerms)) {
+              // Single module (no children) — add directly
+              items.push({
+                label: mod.label,
+                path: mod.path,
+                icon: mod.icon,
+                description: mod.description || mod.label,
+              });
+            }
+          });
+
+          setNavItems(items);
+        }
+      } catch {
+        // Silent fail
+      }
+    };
+
+    fetchNavItems();
+  }, []);
+
+  // Filtered search results based on query
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return navItems
+      .filter((item) => {
+        const inLabel = item.label.toLowerCase().includes(q);
+        const inDesc = item.description?.toLowerCase().includes(q) || false;
+        const inParent = item.parentLabel?.toLowerCase().includes(q) || false;
+        return inLabel || inDesc || inParent;
+      })
+      .slice(0, 10); // limit to 10 results
+  }, [searchQuery, navItems]);
+
+
+ 
+
+  const computeSearchDropdownPos = () => {
+    if (typeof window === "undefined") return;
+    const el = searchContainerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setSearchDropdownPos({
+      top: rect.bottom + 8,
+      left: rect.left,
+      width: rect.width,
+    });
+  };
+
+  useEffect(() => {
+    if (!searchFocused) return;
+    computeSearchDropdownPos();
+    const handler = () => computeSearchDropdownPos();
+    window.addEventListener("resize", handler);
+    window.addEventListener("scroll", handler, true);
+    return () => {
+      window.removeEventListener("resize", handler);
+      window.removeEventListener("scroll", handler, true);
+    };
+  }, [searchFocused]);
+
+  const handleSearchNavigate = (item: SearchNavItem) => {
+    setSearchQuery("");
+    setSearchFocused(false);
+    searchInputRef.current?.blur();
+    if (item.onClick) {
+      item.onClick();
+    } else if (item.path) {
+      router.push(item.path);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -270,6 +413,110 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                   Healthcare Excellence
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Center: Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8" ref={searchContainerRef}>
+            <div className="relative w-full">
+              <div className={`flex items-center rounded-xl border transition-all duration-300 ${searchFocused ? 'border-[#2D9AA5] ring-2 ring-[#2D9AA5]/20 bg-white shadow-md' : 'border-gray-200 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800 hover:border-gray-300 dark:hover:border-zinc-600'}`}>
+                <div className="pl-3 pr-1 flex items-center">
+                  <Search className={`w-4 h-4 transition-colors duration-300 ${searchFocused ? 'text-[#2D9AA5]' : 'text-gray-400 dark:text-zinc-500'}`} />
+                </div>
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                  placeholder="Search modules..."
+                  className="w-full py-2 pr-3 pl-1 text-sm bg-transparent text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-zinc-500 focus:outline-none"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                    className="pr-3 pl-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Search dropdown rendered via portal to escape stacking contexts */}
+              {searchFocused && typeof window !== "undefined" && createPortal(
+                <>
+                  {/* Backdrop to close dropdown */}
+                  <div
+                    className="fixed inset-0 z-[9998]"
+                    onClick={() => { setSearchFocused(false); setSearchQuery(""); }}
+                  />
+
+                  {/* Results dropdown */}
+                  {searchResults.length > 0 && (
+                    <div
+                      className="fixed bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-[9999] max-h-80 overflow-y-auto"
+                      style={{
+                        top: searchDropdownPos.top,
+                        left: searchDropdownPos.left,
+                        width: searchDropdownPos.width,
+                      }}
+                    >
+                      <div className="px-3 py-2 border-b border-gray-100 dark:border-zinc-800">
+                        <p className="text-[10px] font-semibold text-gray-400 dark:text-zinc-500 uppercase tracking-wider">
+                          {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} found
+                        </p>
+                      </div>
+                      {searchResults.map((item, idx) => (
+                        <button
+                          key={`${item.path || item.label}-${idx}`}
+                          onMouseDown={(e) => { e.preventDefault(); handleSearchNavigate(item); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-left border-b border-gray-50 dark:border-zinc-800/50 last:border-b-0"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-zinc-800 flex items-center justify-center text-base flex-shrink-0">
+                            {item.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{item.label}</span>
+                              {item.parentLabel && (
+                                <span className="text-[10px] text-[#2D9AA5] dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                                  {item.parentLabel}
+                                </span>
+                              )}
+                            </div>
+                            {item.description && item.description !== item.label && (
+                              <p className="text-[11px] text-gray-400 dark:text-zinc-500 truncate">{item.description}</p>
+                            )}
+                          </div>
+                          <svg className="w-3.5 h-3.5 text-gray-300 dark:text-zinc-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* No results message */}
+                  {searchQuery.trim().length > 0 && searchResults.length === 0 && navItems.length > 0 && (
+                    <div
+                      className="fixed bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-2xl p-4 z-[9999] text-center"
+                      style={{
+                        top: searchDropdownPos.top,
+                        left: searchDropdownPos.left,
+                        width: searchDropdownPos.width,
+                      }}
+                    >
+                      <div className="w-10 h-10 bg-gray-100 dark:bg-zinc-800 rounded-xl flex items-center justify-center mx-auto mb-2">
+                        <Search className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No modules found</p>
+                      <p className="text-xs text-gray-400 dark:text-zinc-500 mt-0.5">Try a different search term</p>
+                    </div>
+                  )}
+                </>,
+                document.body,
+              )}
             </div>
           </div>
 

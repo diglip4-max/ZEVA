@@ -1389,9 +1389,7 @@ export default async function handler(req, res) {
     const doctorScopedRoles = ["doctorStaff", "doctor"];
     const isDoctorScoped = doctorScopedRoles.includes(me.role);
 
-    console.log("[DEBUG priorities] User:", me._id?.toString(), "role:", me.role, "clinicId:", clinicObjectId?.toString());
-    console.log("[DEBUG priorities] dateStr:", dateStr, "period:", period.key, "dayStart:", dayStart, "dayEnd:", dayEnd);
-    console.log("[DEBUG priorities] isDoctorScoped:", isDoctorScoped);
+
 
     // 6. Run ALL 12 sections in parallel (4 per period).
     //    Each card group (morning / afternoon / evening) is fetched
@@ -1512,7 +1510,7 @@ export default async function handler(req, res) {
       },
     };
 
-    console.log("[DEBUG priorities] RESULTS => newLeads:", newLeads.count, "followUps:", followUps.count, "followUpsResponded:", followUpsResponded.count, "hotLeads:", hotLeads.count);
+    // console.log("[DEBUG priorities] RESULTS => newLeads:", newLeads.count, "followUps:", followUps.count, "followUpsResponded:", followUpsResponded.count, "hotLeads:", hotLeads.count);
 
     return res.status(200).json({
       success: true,
@@ -1540,7 +1538,7 @@ export default async function handler(req, res) {
       },
     });
   } catch (err) {
-    console.error("[DEBUG priorities] ERROR:", err.message);
+    // console.error("[DEBUG priorities] ERROR:", err.message);
     return res
       .status(500)
       .json({ success: false, message: err.message || "Internal Server Error" });

@@ -114,6 +114,7 @@ type CommissionDetail = {
   invoiceNumber: string;
   invoicedDate: string;
   amountPaid: number;
+  finalCommissionAmount?: number;
   commissionAmount: number;
   totalAmount: number;
   paid: number;
@@ -505,8 +506,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -533,8 +532,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       </td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.amount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -545,12 +542,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedPackageStaff.amount)}</td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {formatCurrency(selectedPackageStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
-                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -690,8 +681,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
@@ -722,8 +711,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       </td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.amount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -734,12 +721,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.amount || 0), 0))}
                     </td>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedMembershipStaff.amount)}</td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.pending || 0), 0))}
-                    </td>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">
-                      {formatCurrency(selectedMembershipStaff.details.reduce((sum, d) => sum + Number(d.advance || 0), 0))}
-                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -908,8 +889,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Commission</th>
                   </tr>
                 </thead>
@@ -931,15 +910,13 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       </td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.totalAmount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.commissionAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.finalCommissionAmount ?? detail.commissionAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={8}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={6}>Total</td>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedDoctorStaffCommission.totalCommission)}</td>
                   </tr>
                 </tfoot>
@@ -972,8 +949,6 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Total Amount</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Pending</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Advance</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider dark:text-gray-800">Commission</th>
                   </tr>
                 </thead>
@@ -995,15 +970,13 @@ export default function DoctorStaffReport({ startDate, endDate, headers }: Props
                       </td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.totalAmount)}</td>
                       <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.paid)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.pending)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.advance)}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.commissionAmount)}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-900">{formatCurrency(detail.finalCommissionAmount ?? detail.commissionAmount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="bg-gray-50 sticky bottom-0">
                   <tr>
-                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={8}>Total</td>
+                    <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900" colSpan={6}>Total</td>
                     <td className="px-4 py-2 text-sm font-semibold text-gray-900 dark:text-gray-900">{formatCurrency(selectedAgentCommission.totalCommission)}</td>
                   </tr>
                 </tfoot>

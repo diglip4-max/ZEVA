@@ -312,12 +312,12 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-200 dark:border-zinc-800 flex-shrink-0 relative">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-800">
-              <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center text-white shadow-sm">
-                <span className="font-semibold text-sm">AG</span>
-              </div>
+              {/* <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center text-white shadow-sm">
+                <span className="font-semibold text-sm">TW</span>
+              </div> */}
               <div>
                 <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 block">
-                  Agent Portal
+                 Team Workspace
                 </span>
               </div>
             </div>

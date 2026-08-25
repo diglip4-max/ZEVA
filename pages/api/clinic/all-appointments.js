@@ -416,37 +416,27 @@ export default async function handler(req, res) {
         const isHexSearch = search.length <= 4 && /^[0-9a-fA-F]+$/.test(search);
 
         if (isHexSearch) {
-          // Search by visitId (last 4 digits of appointment _id)
+          // Search by visitId (last 4 digits of appointment _id) using regex
           try {
-            const allAppointments = await Appointment.find({ clinicId })
-              .select("_id")
-              .lean();
-            matchingAppointmentIds = allAppointments
-              .filter(
-                (apt) =>
-                  apt._id.toString().slice(-4).toLowerCase() ===
-                  search.toLowerCase(),
-              )
-              .map((apt) => apt._id);
+            const matchingApts = await Appointment.find({
+              clinicId,
+              _id: { $regex: `${search}$`, $options: "i" },
+            }).select("_id").lean();
+            matchingAppointmentIds = matchingApts.map((apt) => apt._id);
           } catch (err) {
-            console.error("Error fetching appointments for hex search:", err);
+            console.error("Error in appointment hex search:", err);
             matchingAppointmentIds = [];
           }
 
-          // Search by patientId (last 4 digits) - only for current clinic patients
+          // Search by patientId (last 4 digits) — scoped to this clinic
           try {
-            const allPatients = await PatientRegistration.find({ clinicId })
-              .select("_id")
-              .lean();
-            matchingPatientIds = allPatients
-              .filter(
-                (p) =>
-                  p._id.toString().slice(-4).toLowerCase() ===
-                  search.toLowerCase(),
-              )
-              .map((p) => p._id);
+            const matchingPts = await PatientRegistration.find({
+              clinicId,
+              _id: { $regex: `${search}$`, $options: "i" },
+            }).select("_id").lean();
+            matchingPatientIds = matchingPts.map((p) => p._id);
           } catch (err) {
-            console.error("Error fetching patients for hex search:", err);
+            console.error("Error in patient hex search:", err);
             matchingPatientIds = [];
           }
         }
@@ -515,7 +505,8 @@ export default async function handler(req, res) {
         }
       }
 
-      // Combine conditions with $or if we have multiple, otherwise use the single condition
+      // ── Combine search conditions with $or (not $and) ──
+      // All search matches (patient + bookedByName) should be OR'd together
       if (queryConditions.length > 1) {
         query.$or = queryConditions;
       } else if (queryConditions.length === 1) {
@@ -527,102 +518,68 @@ export default async function handler(req, res) {
       const limitNum = parseInt(limit);
       const skip = (pageNum - 1) * limitNum;
 
-      let total, appointments, totalRevenue = 0;
+      let total = 0, appointments = [], totalRevenue = 0;
       let dayWiseStatusCounts = {};
       try {
-        // Get total count for pagination (use the final query)
-        total = await Appointment.countDocuments(query);
-      
-        // Compute day-wise status counts for the filtered date range (independent of pagination)
-        try {
-          const statusAgg = await Appointment.aggregate([
-            { $match: query },
-            {
-              $group: {
-                _id: "$status",
-                count: { $sum: 1 }
-              }
-            }
-          ]);
-          
-          statusAgg.forEach(item => {
-            if (item._id) {
-              dayWiseStatusCounts[item._id] = item.count;
-            }
-          });
-        } catch (statusErr) {
-          console.error("Error computing status counts:", statusErr);
-          dayWiseStatusCounts = {};
-        }
-      
-        // Compute total revenue for the same filtered appointments
-        try {
-          const revenueAgg = await Appointment.aggregate([
-            { $match: query },
-            {
-              $lookup: {
-                from: "billings",
-                localField: "_id",
-                foreignField: "appointmentId",
-                as: "bills",
-              },
-            },
-            { $unwind: { path: "$bills", preserveNullAndEmptyArrays: true } },
-            {
-              $group: {
-                _id: "$_id",
-                amount: { $sum: { $ifNull: ["$bills.amount", 0] } },
-              },
-            },
-            {
-              $group: {
-                _id: null,
-                total: { $sum: "$amount" },
-              },
-            },
-          ]);
-          totalRevenue = revenueAgg?.[0]?.total || 0;
-        } catch (revErr) {
-          totalRevenue = 0;
-        }
+        // ── Run all 4 queries in parallel (count + statusAgg + revenueAgg + data) ──
+        // Each creates an independent MongoDB operation — safe to run concurrently
+        const countPromise = Appointment.countDocuments(query);
 
-        // Fetch appointments with pagination
-        appointments = await Appointment.find(query)
+        const statusAggPromise = Appointment.aggregate([
+          { $match: query },
+          { $group: { _id: "$status", count: { $sum: 1 } } },
+        ]);
+
+        const revenueAggPromise = Appointment.aggregate([
+          { $match: query },
+          {
+            $lookup: {
+              from: "billings",
+              localField: "_id",
+              foreignField: "appointmentId",
+              as: "bills",
+            },
+          },
+          { $unwind: { path: "$bills", preserveNullAndEmptyArrays: true } },
+          {
+            $group: {
+              _id: "$_id",
+              amount: { $sum: { $ifNull: ["$bills.amount", 0] } },
+            },
+          },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ]);
+
+        const dataPromise = Appointment.find(query)
           .populate({
             path: "patientId",
             model: "PatientRegistration",
-            select:
-              "firstName lastName mobileNumber email emrNumber invoiceNumber gender invoicedDate",
+            select: "firstName lastName mobileNumber email emrNumber invoiceNumber gender invoicedDate",
           })
-          .populate({
-            path: "doctorId",
-            model: "User",
-            select: "name email",
-          })
-          .populate({
-            path: "roomId",
-            model: "Room",
-            select: "name",
-          })
-          .populate({
-            path: "serviceId",
-            model: "Service",
-            select: "name price clinicPrice",
-          })
-          .populate({
-            path: "serviceIds",
-            model: "Service",
-            select: "name price clinicPrice",
-          })
-          .populate({
-            path: "services.serviceId",
-            model: "Service",
-            select: "name price clinicPrice",
-          })
+          .populate({ path: "doctorId", model: "User", select: "name email" })
+          .populate({ path: "roomId", model: "Room", select: "name" })
+          .populate({ path: "serviceId", model: "Service", select: "name price clinicPrice" })
+          .populate({ path: "serviceIds", model: "Service", select: "name price clinicPrice" })
+          .populate({ path: "services.serviceId", model: "Service", select: "name price clinicPrice" })
           .sort({ startDate: -1, fromTime: -1, createdAt: -1 })
           .skip(skip)
           .limit(limitNum)
           .lean();
+
+        const [countResult, statusAgg, revenueAgg, dataResult] = await Promise.all([
+          countPromise,
+          statusAggPromise,
+          revenueAggPromise,
+          dataPromise,
+        ]);
+
+        total = countResult;
+        appointments = dataResult;
+        totalRevenue = revenueAgg?.[0]?.total || 0;
+
+        statusAgg.forEach((item) => {
+          if (item._id) dayWiseStatusCounts[item._id] = item.count;
+        });
       } catch (err) {
         console.error("Error fetching appointments:", err);
         return res.status(500).json({

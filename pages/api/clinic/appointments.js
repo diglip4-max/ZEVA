@@ -84,9 +84,9 @@ export default async function handler(req, res) {
           result.error &&
           result.error.includes("not found in agent permissions")
         ) {
-          console.log(
-            `[appointments] Module clinic_ScheduledAppointment not found in permissions for user ${clinicUser._id}, allowing access by default`,
-          );
+          // console.log(
+          //   `[appointments] Module clinic_ScheduledAppointment not found in permissions for user ${clinicUser._id}, allowing access by default`,
+          // );
         } else if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
@@ -110,9 +110,9 @@ export default async function handler(req, res) {
       // Filter by date if provided
       // Normalize date to UTC midnight for consistent querying
       if (date) {
-        console.log("=== APPOINTMENTS QUERY DEBUG ===");
-        console.log("Received date query parameter:", date);
-        console.log("Type of date:", typeof date);
+        // console.log("=== APPOINTMENTS QUERY DEBUG ===");
+        // console.log("Received date query parameter:", date);
+        // console.log("Type of date:", typeof date);
 
         // Parse date string (expected format: YYYY-MM-DD)
         parsedDateMatch = String(date)
@@ -123,9 +123,9 @@ export default async function handler(req, res) {
           const month = parseInt(parsedDateMatch[2], 10) - 1; // Month is 0-indexed
           const day = parseInt(parsedDateMatch[3], 10);
 
-          console.log(
-            `Parsed date components: year=${year}, month=${month + 1}, day=${day}`,
-          );
+          // console.log(
+          //   `Parsed date components: year=${year}, month=${month + 1}, day=${day}`,
+          // );
 
           // Create start of day in UTC (00:00:00.000)
           const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
@@ -134,10 +134,10 @@ export default async function handler(req, res) {
             Date.UTC(year, month, day, 23, 59, 59, 999),
           );
 
-          console.log("Query startOfDay (UTC):", startOfDay.toISOString());
-          console.log("Query endOfDay (UTC):", endOfDay.toISOString());
-          console.log("Query startOfDay timestamp:", startOfDay.getTime());
-          console.log("Query endOfDay timestamp:", endOfDay.getTime());
+          // console.log("Query startOfDay (UTC):", startOfDay.toISOString());
+          // console.log("Query endOfDay (UTC):", endOfDay.toISOString());
+          // console.log("Query startOfDay timestamp:", startOfDay.getTime());
+          // console.log("Query endOfDay timestamp:", endOfDay.getTime());
 
           // Use a wider range to catch any timezone edge cases
           // Start from previous day 12:00 UTC to next day 12:00 UTC to ensure we catch all dates
@@ -718,7 +718,7 @@ export default async function handler(req, res) {
       }
 
       // Create appointment
-      console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
+      // console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
       // Ensure appointmentDate is normalized to UTC midnight
       const normalizedAppointmentDate =
         appointmentDate instanceof Date
@@ -803,22 +803,22 @@ export default async function handler(req, res) {
         const validIds = svcs.map((s) => s._id?.toString()).filter(Boolean);
         appointmentData.serviceIds = validIds;
       }
-      console.log(
-        "💾 Appointment data being saved:",
-        JSON.stringify(appointmentData, null, 2),
-      );
+      // console.log(
+      //   "💾 Appointment data being saved:",
+      //   JSON.stringify(appointmentData, null, 2),
+      // );
 
       const appointment = await Appointment.create(appointmentData);
 
-      console.log("✅ Appointment created. ID:", appointment._id);
-      console.log(
-        "✅ Appointment bookedFrom immediately after create:",
-        appointment.bookedFrom,
-      );
-      console.log(
-        "✅ Appointment bookedFrom type:",
-        typeof appointment.bookedFrom,
-      );
+      // console.log("✅ Appointment created. ID:", appointment._id);
+      // console.log(
+      //   "✅ Appointment bookedFrom immediately after create:",
+      //   appointment.bookedFrom,
+      // );
+      // console.log(
+      //   "✅ Appointment bookedFrom type:",
+      //   typeof appointment.bookedFrom,
+      // );
 
       // Sync referral to patient's referredBy field
       if (referral !== undefined) {
@@ -832,12 +832,12 @@ export default async function handler(req, res) {
 
       // Force-set bookedFrom in case schema hot-reload missed the new field
       if (appointment.bookedFrom !== validBookedFrom) {
-        console.log(
-          "⚠ bookedFrom on created doc is",
-          appointment.bookedFrom,
-          "-> forcing update to",
-          validBookedFrom,
-        );
+        // console.log(
+        //   "⚠ bookedFrom on created doc is",
+        //   appointment.bookedFrom,
+        //   "-> forcing update to",
+        //   validBookedFrom,
+        // );
         await Appointment.updateOne(
           { _id: appointment._id },
           { $set: { bookedFrom: validBookedFrom } },
@@ -855,14 +855,14 @@ export default async function handler(req, res) {
         .populate("serviceIds", "name")
         .lean();
 
-      console.log(
-        "📖 Populated appointment bookedFrom from DB:",
-        populatedAppointment.bookedFrom,
-      );
-      console.log(
-        "📖 Populated appointment bookedFrom type:",
-        typeof populatedAppointment.bookedFrom,
-      );
+      // console.log(
+      //   "📖 Populated appointment bookedFrom from DB:",
+      //   populatedAppointment.bookedFrom,
+      // );
+      // console.log(
+      //   "📖 Populated appointment bookedFrom type:",
+      //   typeof populatedAppointment.bookedFrom,
+      // );
 
       // Fetch doctor treatments for the created appointment's doctor
       let doctorTreatments = [];
