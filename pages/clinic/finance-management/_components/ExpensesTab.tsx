@@ -6,6 +6,7 @@ import {
   Upload,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Loader2,
   Inbox,
   Paperclip,
@@ -22,6 +23,9 @@ import {
   CreditCard,
   Globe,
   Wallet,
+  File,
+  Clock,
+  Receipt,
 } from "lucide-react";
 import useExpenses, { ExpenseData, ExpenseMethod } from "../_hooks/useExpenses";
 import StatCard from "./StatCard";
@@ -108,105 +112,297 @@ function MethodPill({ method }: { method: ExpenseMethod }) {
 }
 
 // ============================================================
-// EXPENSE ROW — expandable, mirrors BillRow/PaymentRow pattern
-// (no edit/cancel — expenses are instant & final per Section 6)
+// DETAILS VIEW — mirrors BillDetailsView style for Expenses
 // ============================================================
-function ExpenseRow({
+function ExpenseDetailsView({
   expense,
   currency,
 }: {
   expense: ExpenseData;
   currency: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const methodLabel = expense.payment
+    ? METHOD_META[expense.payment.method].label
+    : "—";
+  const methodIcon = expense.payment
+    ? METHOD_META[expense.payment.method].icon
+    : Wallet;
+
+  const allAttachments: string[] = [];
+  if (expense.payment?.attachment)
+    allAttachments.push(expense.payment.attachment);
+  if (expense.attachments?.length) allAttachments.push(...expense.attachments);
+
+  const fields: Array<{
+    label: string;
+    value?: React.ReactNode;
+    icon: React.ReactNode;
+    accent?: string;
+    span?: 1 | 2;
+  }> = [
+    {
+      label: "Payment #",
+      value: expense.payment?.paymentNumber ? (
+        <span className="font-mono">{expense.payment.paymentNumber}</span>
+      ) : (
+        <span className="text-stone-300 dark:text-stone-600">—</span>
+      ),
+      icon: <Receipt className="w-3.5 h-3.5" />,
+      accent: "from-violet-50 to-white dark:from-violet-950/40",
+    },
+    {
+      label: "Payment date",
+      value: formatDate(expense.invoiceDate),
+      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      accent: "from-sky-50 to-white dark:from-sky-950/40",
+    },
+    {
+      label: "Category",
+      value: expense.category || "—",
+      icon: <TrendingUp className="w-3.5 h-3.5" />,
+      accent: "from-amber-50 to-white dark:from-amber-950/40",
+    },
+    {
+      label: "Payment method",
+      value: (
+        <span className="inline-flex items-center gap-1.5 font-medium text-stone-700 dark:text-stone-200">
+          {React.createElement(methodIcon, { className: "w-3.5 h-3.5" })}
+          {methodLabel}
+        </span>
+      ),
+      icon: <Wallet className="w-3.5 h-3.5" />,
+      accent: "from-rose-50 to-white dark:from-rose-950/40",
+    },
+  ];
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-500 dark:text-stone-400 shrink-0">
-            <Coins className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {expense.category}
-              </span>
-              {expense.payment && (
-                <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                  {expense.payment.paymentNumber}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{formatDate(expense.invoiceDate)}</span>
-              {expense.notes && (
-                <>
-                  <span>•</span>
-                  <span className="truncate max-w-[220px]">
-                    {expense.notes}
-                  </span>
-                </>
-              )}
-            </div>
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Settlement
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span className="text-teal-600 dark:text-teal-400">
+              {formatMoney(expense.paidAmount, currency)} paid
+            </span>
+            <span className="text-stone-300 dark:text-stone-600">of</span>
+            <span className="text-stone-700 dark:text-stone-200">
+              {formatMoney(expense.amount, currency)}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {expense.payment && <MethodPill method={expense.payment.method} />}
-          <div className="font-mono font-semibold text-sm text-rose-500 dark:text-rose-400">
-            −{formatMoney(expense.amount, currency)}
-          </div>
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: "100%",
+              backgroundImage:
+                "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
+            }}
           />
         </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span className="text-teal-600 dark:text-teal-400">
+            100.0% settled · Paid instantly
+          </span>
+          <span className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400">
+            <CheckCircle2 className="w-3 h-3" /> No balance due
+          </span>
+        </div>
       </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Status:
-              </span>
-              <span className="ml-2 inline-flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Paid instantly
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields.map((f) => (
+          <div
+            key={f.label}
+            className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${f.accent} p-3.5`}
+          >
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
+                {f.icon}
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                {f.label}
               </span>
             </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Attachment:
-              </span>
-              {expense.payment?.attachment ? (
+            <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+              {f.value}
+            </div>
+          </div>
+        ))}
+
+        <div className="sm:col-span-2 rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/30 p-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
+              <Clock className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+              Recorded at
+            </span>
+          </div>
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 pl-[26px]">
+            {expense.createdAt
+              ? new Date(expense.createdAt).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "—"}
+          </div>
+        </div>
+      </div>
+
+      {allAttachments.length > 0 && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+              <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Attachments · {allAttachments.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {allAttachments.map((url, i) => {
+              const isImg =
+                /\.(png|jpe?g|gif|webp|bmp)$/i.test(url) ||
+                url.startsWith("data:image");
+              const fname =
+                url.split("/").pop()?.slice(0, 40) || `Attachment ${i + 1}`;
+              return (
                 <a
-                  href={expense.payment.attachment}
+                  key={i}
+                  href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                  className="group flex items-center gap-2 rounded-lg border border-stone-100 dark:border-stone-700/60 bg-stone-50 dark:bg-stone-800/40 hover:bg-white dark:hover:bg-stone-800 p-2.5 transition-colors"
                 >
-                  <Paperclip className="w-3 h-3" /> View
+                  <div className="w-9 h-9 rounded-md bg-white dark:bg-stone-900 flex items-center justify-center shrink-0 border border-stone-100 dark:border-stone-700/60 overflow-hidden">
+                    {isImg ? (
+                      <img
+                        src={url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <File className="w-4 h-4 text-stone-400" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12px] font-medium text-stone-700 dark:text-stone-200 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                      #{i + 1}
+                    </div>
+                    <div className="text-[10px] text-stone-400 dark:text-stone-500 truncate">
+                      {fname}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-3 h-3 text-stone-300 dark:text-stone-600 shrink-0 group-hover:text-teal-500 transition-colors" />
                 </a>
-              ) : (
-                <span className="ml-2 text-[11px] text-stone-300 dark:text-stone-600">
-                  None
-                </span>
-              )}
-            </div>
-            {expense.notes && (
-              <div className="col-span-2">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Notes:
-                </span>
-                <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {expense.notes}
-                </span>
-              </div>
-            )}
+              );
+            })}
           </div>
         </div>
       )}
+
+      {expense.notes && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-stone-800/40 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
+              <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Notes
+            </span>
+          </div>
+          <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed pl-[32px]">
+            {expense.notes}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// EXPENSE ROW — expandable, mirrors BillRow pattern exactly
+// ============================================================
+function ExpenseRow({
+  expense,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  expense: ExpenseData;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const paymentNumber = expense.payment?.paymentNumber || "—";
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-full bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
+          <Coins className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+            {expense.category}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span className="font-mono">{paymentNumber}</span>
+            <span>·</span>
+            <span>{formatDate(expense.invoiceDate)}</span>
+            {expense.notes && (
+              <>
+                <span>·</span>
+                <span className="truncate">{expense.notes}</span>
+              </>
+            )}
+          </div>
+        </div>
+        {expense.payment && <MethodPill method={expense.payment.method} />}
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div className="font-mono font-semibold text-rose-600 dark:text-rose-400 text-sm">
+            −{formatMoney(expense.amount, currency)}
+          </div>
+          <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+            Paid instantly
+          </div>
+        </div>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-rose-200 dark:from-rose-900 to-transparent" />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <ExpenseDetailsView expense={expense} currency={currency} />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -810,6 +1006,9 @@ const ExpensesTab: React.FC<UseFinancePermissionReturn> = ({
   } = useExpenses();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(
+    null,
+  );
 
   const from = pagination?.totalResults === 0 ? 0 : (page - 1) * 15 + 1;
   const to = Math.min(page * 15, pagination?.totalResults || 0);
@@ -927,6 +1126,12 @@ const ExpensesTab: React.FC<UseFinancePermissionReturn> = ({
                     key={expense._id}
                     expense={expense}
                     currency={currency}
+                    isOpen={expandedExpenseId === expense._id}
+                    onToggle={() =>
+                      setExpandedExpenseId(
+                        expandedExpenseId === expense._id ? null : expense._id,
+                      )
+                    }
                   />
                 ))
               )}

@@ -4,6 +4,7 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Loader2,
   Inbox,
   FileCheck2,
@@ -13,6 +14,12 @@ import {
   XCircle,
   FileText,
   RotateCcw,
+  Paperclip,
+  File,
+  Info,
+  CalendarClock,
+  Landmark,
+  Receipt,
 } from "lucide-react";
 import useFinanceCheques, {
   ChequeData,
@@ -108,9 +115,9 @@ const NEXT_STEP: Partial<Record<ChequeStatus, ChequeStatus>> = {
 };
 
 // ============================================================
-// CHEQUE ROW — expandable, mirrors PaymentRow pattern
+// CHEQUE DETAILS VIEW — expanded card body
 // ============================================================
-function ChequeRow({
+function ChequeDetailsView({
   cheque,
   currency,
   onAdvance,
@@ -123,7 +130,6 @@ function ChequeRow({
   onChangeStatus: (cheque: ChequeData) => void;
   permissions: UseFinancePermissionReturn["permissions"];
 }) {
-  const [expanded, setExpanded] = useState(false);
   const supplierName =
     typeof cheque.supplierId === "string" || !cheque.supplierId
       ? null
@@ -141,135 +147,373 @@ function ChequeRow({
   const isTerminal =
     cheque.status === "cleared" || cheque.status === "cancelled";
 
+  const isFailure =
+    cheque.status === "returned" ||
+    cheque.status === "bounced" ||
+    cheque.status === "cancelled";
+
+  const lifecycleOrder: ChequeStatus[] = ["issued", "presented", "cleared"];
+
+  const statusRank: Record<ChequeStatus, number> = {
+    issued: 0,
+    presented: 1,
+    cleared: 2,
+    returned: 3,
+    bounced: 3,
+    cancelled: 3,
+  };
+
+  const currentRank = statusRank[cheque.status];
+
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-500 dark:text-stone-400 shrink-0">
-            <FileCheck2 className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {cheque.payee}
-              </span>
-              <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                #{cheque.chequeNumber}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{cheque.bank}</span>
-              <span>•</span>
-              <span>{formatDate(cheque.chequeDate)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
+    <div className="space-y-5">
+      {/* Lifecycle progress */}
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Lifecycle
+          </span>
           <ChequeStatusPill status={cheque.status} />
-          <div className="font-mono font-semibold text-sm text-stone-800 dark:text-stone-100">
-            {formatMoney(cheque.amount, currency)}
-          </div>
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
+        </div>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {lifecycleOrder.map((s, idx) => {
+            const reached = currentRank >= statusRank[s];
+            const isLast = idx === lifecycleOrder.length - 1;
+            return (
+              <React.Fragment key={s}>
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className={`w-3.5 h-3.5 rounded-full border-2 ${
+                      reached
+                        ? `${STATUS_META[s].dot} border-transparent`
+                        : "bg-transparent border-stone-200 dark:border-stone-700"
+                    }`}
+                  />
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+                    {STATUS_META[s].label}
+                  </span>
+                </div>
+                {!isLast && (
+                  <div
+                    className={`h-0.5 flex-1 mb-4 rounded-full ${
+                      currentRank > statusRank[s]
+                        ? STATUS_META[lifecycleOrder[idx + 1]].dot
+                        : "bg-stone-100 dark:bg-stone-800"
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
+          {isFailure && (
+            <>
+              <div className="h-0.5 w-4 mb-4 rounded-full border-t-2 border-dashed border-rose-300 dark:border-rose-800" />
+              <div className="flex flex-col items-center gap-1">
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-dashed border-rose-400 dark:border-rose-500 bg-rose-50 dark:bg-rose-950/40" />
+                <span className="text-[9px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                  {STATUS_META[cheque.status].label}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {supplierName && (
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Supplier:
-                </span>
-                <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {supplierName}
-                </span>
-              </div>
-            )}
-            {invoiceNumber && (
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Against bill:
-                </span>
-                <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                  {invoiceNumber}
-                </span>
-              </div>
-            )}
-            {paymentNumber && (
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Payment:
-                </span>
-                <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                  {paymentNumber}
-                </span>
-              </div>
-            )}
-          </div>
 
-          {cheque.history?.length > 0 && (
-            <div className="mt-4">
-              <div className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-wider mb-2">
-                Status history
-              </div>
-              <div className="space-y-1.5">
-                {[...cheque.history]
-                  // .sort(
-                  //   (a, b) =>
-                  //     new Date(b.at).getTime() - new Date(a.at).getTime(),
-                  // )
-                  .map((h, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 text-xs text-stone-500 dark:text-stone-400"
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full ${STATUS_META[h.status].dot}`}
-                      />
-                      <span className="font-medium text-stone-600 dark:text-stone-300">
-                        {STATUS_META[h.status].label}
-                      </span>
-                      <span>{formatDate(h.at)}</span>
-                    </div>
-                  ))}
-              </div>
+      {/* Info grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-sky-50 to-white dark:from-sky-950/40 p-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-sm">
+              <Landmark className="w-3.5 h-3.5" />
             </div>
-          )}
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+              Bank
+            </span>
+          </div>
+          <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+            {cheque.bank}
+          </div>
+        </div>
 
-          {/* User that has update permission so he can change status of cheque */}
-          {permissions.canUpdate && !isTerminal && (
-            <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-4">
-              {nextStep && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAdvance(cheque, nextStep);
-                  }}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  Mark as {STATUS_META[nextStep].label}
-                </button>
-              )}
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 p-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm">
+              <CalendarClock className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+              Cheque date
+            </span>
+          </div>
+          <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+            {formatDate(cheque.chequeDate)}
+          </div>
+        </div>
+
+        {supplierName && (
+          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/30 p-3.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
+                <Receipt className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                Supplier
+              </span>
+            </div>
+            <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 pl-[26px]">
+              {supplierName}
+            </div>
+          </div>
+        )}
+
+        {invoiceNumber && (
+          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/40 p-3.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-violet-600 dark:text-violet-400 shadow-sm">
+                <Receipt className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                Against Bill
+              </span>
+            </div>
+            <div className="text-sm font-mono font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+              {invoiceNumber}
+            </div>
+          </div>
+        )}
+
+        {paymentNumber && (
+          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/40 p-3.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm">
+                <File className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                Payment ref
+              </span>
+            </div>
+            <div className="text-sm font-mono font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+              {paymentNumber}
+            </div>
+          </div>
+        )}
+
+        <div className="sm:col-span-2 rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-stone-50 to-white dark:from-stone-800/40 p-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-600 dark:text-stone-400 shadow-sm">
+              <FileCheck2 className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+              Amount
+            </span>
+          </div>
+          <div className="text-lg font-mono font-bold text-stone-800 dark:text-stone-100 pl-[26px]">
+            {formatMoney(cheque.amount, currency)}
+          </div>
+        </div>
+      </div>
+
+      {/* Status history */}
+      {cheque.history?.length > 0 && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+              <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Status History
+            </span>
+          </div>
+          <div className="space-y-1.5">
+            {cheque.history.map((h, i) => {
+              const byName =
+                typeof h.changedBy === "string"
+                  ? null
+                  : h.changedBy?.name || h.changedBy?.email;
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${STATUS_META[h.status].dot} shrink-0`}
+                  />
+                  <span className="font-medium text-stone-600 dark:text-stone-300">
+                    {STATUS_META[h.status].label}
+                  </span>
+                  <span className="text-stone-400 dark:text-stone-500">
+                    {formatDate(h.at)}
+                  </span>
+                  {byName && (
+                    <span className="text-stone-400 dark:text-stone-500 ml-auto truncate">
+                      by {byName}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Status-action bar */}
+      {permissions.canUpdate && !isTerminal && (
+        <div className="pt-4 border-t border-stone-100 dark:border-stone-700/60 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 text-[11px] text-stone-400 dark:text-stone-500">
+            <Info className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              Mark cheque forward using next status, or change to any terminal
+              state.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {nextStep && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onChangeStatus(cheque);
+                  onAdvance(cheque, nextStep);
                 }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-stone-500 dark:text-stone-400 hover:text-rose-500 dark:hover:text-rose-400 hover:underline"
+                className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/50 border border-teal-200 dark:border-teal-900/60 px-3.5 py-1.5 text-[11px] font-bold text-teal-700 dark:text-teal-400 transition-colors"
               >
-                <RotateCcw className="w-3 h-3" />
-                Change status
+                <CheckCircle2 className="w-3 h-3" />
+                Mark as {STATUS_META[nextStep].label}
               </button>
-            </div>
-          )}
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeStatus(cheque);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 dark:bg-stone-800/50 hover:bg-stone-100 dark:hover:bg-stone-700/60 border border-stone-200 dark:border-stone-700 px-3.5 py-1.5 text-[11px] font-bold text-stone-600 dark:text-stone-300 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Change status
+            </button>
+          </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================
+// CHEQUE ROW — accordion expandable row (BillsPayableTab pattern)
+// ============================================================
+function ChequeRow({
+  cheque,
+  currency,
+  isOpen,
+  onToggle,
+  onAdvance,
+  onChangeStatus,
+  permissions,
+}: {
+  cheque: ChequeData;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  onAdvance: (cheque: ChequeData, next: ChequeStatus) => void;
+  onChangeStatus: (cheque: ChequeData) => void;
+  permissions: UseFinancePermissionReturn["permissions"];
+}) {
+  let amountCaption: React.ReactNode = null;
+  switch (cheque.status) {
+    case "issued":
+      amountCaption = (
+        <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 zfm-mono">
+          Awaiting presentation
+        </div>
+      );
+      break;
+    case "presented":
+      amountCaption = (
+        <div className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 zfm-mono">
+          Awaiting clearance
+        </div>
+      );
+      break;
+    case "cleared":
+      amountCaption = (
+        <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+          Cleared
+        </div>
+      );
+      break;
+    case "returned":
+    case "bounced":
+      amountCaption = (
+        <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 zfm-mono">
+          Returned / Bounced
+        </div>
+      );
+      break;
+    case "cancelled":
+      amountCaption = (
+        <div className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 zfm-mono">
+          Cancelled
+        </div>
+      );
+      break;
+  }
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-950/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+          <FileCheck2 className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+            {cheque.payee}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span className="font-mono">#{cheque.chequeNumber}</span>
+            <span>·</span>
+            <span>{cheque.bank}</span>
+            <span>·</span>
+            <span>{formatDate(cheque.chequeDate)}</span>
+          </div>
+        </div>
+        <ChequeStatusPill status={cheque.status} />
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+            {formatMoney(cheque.amount, currency)}
+          </div>
+          {amountCaption}
+        </div>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-0" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      {/* Smooth expand/collapse — identical to BillsPayableTab BillRow */}
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <ChequeDetailsView
+                cheque={cheque}
+                currency={currency}
+                onAdvance={onAdvance}
+                onChangeStatus={onChangeStatus}
+                permissions={permissions}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -530,6 +774,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
   } = useFinanceCheques();
 
   const [statusTarget, setStatusTarget] = useState<ChequeData | null>(null);
+  const [expandedChequeId, setExpandedChequeId] = useState<string | null>(null);
 
   const from = pagination?.totalResults === 0 ? 0 : (page - 1) * 15 + 1;
   const to = Math.min(page * 15, pagination?.totalResults || 0);
@@ -627,16 +872,23 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
                   <span className="text-sm">No cheques found.</span>
                 </div>
               ) : (
-                cheques.map((cheque) => (
-                  <ChequeRow
-                    key={cheque._id}
-                    cheque={cheque}
-                    currency={currency}
-                    onAdvance={(c, next) => updateStatus(c._id, next)}
-                    onChangeStatus={setStatusTarget}
-                    permissions={permissions}
-                  />
-                ))
+                cheques.map((cheque) => {
+                  const isOpen = expandedChequeId === cheque._id;
+                  return (
+                    <ChequeRow
+                      key={cheque._id}
+                      cheque={cheque}
+                      currency={currency}
+                      isOpen={isOpen}
+                      onToggle={() =>
+                        setExpandedChequeId(isOpen ? null : cheque._id)
+                      }
+                      onAdvance={(c, next) => updateStatus(c._id, next)}
+                      onChangeStatus={setStatusTarget}
+                      permissions={permissions}
+                    />
+                  );
+                })
               )}
             </div>
           )}

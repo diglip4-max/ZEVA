@@ -6,6 +6,7 @@ import {
   ArrowDownRight,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Loader2,
   Inbox,
   Paperclip,
@@ -28,6 +29,10 @@ import {
   Tag,
   Trash2,
   Upload,
+  CalendarClock,
+  Clock,
+  File,
+  Info,
 } from "lucide-react";
 import { getTokenByPath, handleUpload } from "@/lib/helper";
 import usePettyCash, {
@@ -211,54 +216,328 @@ function TypePill({ type }: { type: "Income" | "Expense" }) {
 }
 
 // ============================================================
-// ALLOCATION ROW COMPONENT
+// SHARED: Attachment grid (reusable for all 4 row types)
 // ============================================================
-function AllocationRow({
+function AttachmentsGrid({ urls }: { urls: string[] }) {
+  if (!urls || urls.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+          <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+        </div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+          Attachments · {urls.length}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+        {urls.map((url, i) => {
+          const isImg =
+            /\.(png|jpe?g|gif|webp|bmp)$/i.test(url) ||
+            url.startsWith("data:image");
+          const fname =
+            url.split("/").pop()?.slice(0, 40) || `Attachment ${i + 1}`;
+          return (
+            <a
+              key={i}
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="group flex items-center gap-2 rounded-lg border border-stone-100 dark:border-stone-700/60 bg-stone-50 dark:bg-stone-800/40 hover:bg-white dark:hover:bg-stone-800 p-2.5 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-md bg-white dark:bg-stone-900 flex items-center justify-center shrink-0 border border-stone-100 dark:border-stone-700/60 overflow-hidden">
+                {isImg ? (
+                  <img
+                    src={url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <File className="w-4 h-4 text-stone-400" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[12px] font-medium text-stone-700 dark:text-stone-200 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                  #{i + 1}
+                </div>
+                <div className="text-[10px] text-stone-400 dark:text-stone-500 truncate">
+                  {fname}
+                </div>
+              </div>
+              <ChevronRight className="w-3 h-3 text-stone-300 dark:text-stone-600 shrink-0 group-hover:text-teal-500 transition-colors" />
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SHARED: Info field card
+// ============================================================
+function InfoCard({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  icon: React.ReactNode;
+  accent: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${accent} p-3.5`}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
+          {icon}
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+          {label}
+        </span>
+      </div>
+      <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// SHARED: Void info block (allocations + expenses have void)
+// ============================================================
+function VoidBlock({
+  reason,
+  by,
+  at,
+}: {
+  reason?: string;
+  by?: any;
+  at?: string;
+}) {
+  if (!reason) return null;
+  const byLabel = !by
+    ? "Unknown"
+    : typeof by === "string"
+      ? by?.slice(-6)
+      : by?.name || by?.email;
+  return (
+    <div className="rounded-xl border border-rose-100 dark:border-rose-900/50 bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/40 p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-6 h-6 rounded-lg bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center">
+          <X className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+        </div>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
+          Voided
+        </span>
+      </div>
+      <div className="space-y-1.5 pl-[32px] text-sm">
+        <div>
+          <span className="text-stone-400 dark:text-stone-500 text-xs">
+            Reason:{" "}
+          </span>
+          <span className="text-stone-700 dark:text-stone-200">{reason}</span>
+        </div>
+        {byLabel && (
+          <div>
+            <span className="text-stone-400 dark:text-stone-500 text-xs">
+              By:{" "}
+            </span>
+            <span className="text-stone-700 dark:text-stone-200">
+              {byLabel}
+            </span>
+          </div>
+        )}
+        {at && (
+          <div>
+            <span className="text-stone-400 dark:text-stone-500 text-xs">
+              At:{" "}
+            </span>
+            <span className="text-stone-700 dark:text-stone-200">
+              {formatDateTime(at)}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ALLOCATION ROW + DETAILS
+// ============================================================
+function AllocationDetailsView({
   allocation,
   currency,
 }: {
   allocation: AllocationData;
   currency: string;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
   const pettyCash = allocation.pettyCashId as any;
+  const fields = [
+    {
+      label: "Staff",
+      value: getStaffName(allocation.staffId),
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent: "from-sky-50 to-white dark:from-sky-950/40",
+    },
+    {
+      label: "Allocation date",
+      value: formatDate(allocation.date),
+      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      accent: "from-violet-50 to-white dark:from-violet-950/40",
+    },
+    {
+      label: "Allocated by",
+      value: allocation.createdBy?.name || "Unknown",
+      icon: <CreditCard className="w-3.5 h-3.5" />,
+      accent: "from-amber-50 to-white dark:from-amber-950/40",
+    },
+    {
+      label: "Petty Cash ID",
+      value: (
+        <span className="font-mono">
+          {allocation.pettyCashId?._id?.slice(-8) || "N/A"}
+        </span>
+      ),
+      icon: <Wallet className="w-3.5 h-3.5" />,
+      accent: "from-teal-50 to-white dark:from-teal-950/40",
+    },
+  ];
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button className="w-6 h-6 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {getStaffName(allocation.staffId)}
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Allocation
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span className="text-teal-600 dark:text-teal-400">
+              +{formatMoney(allocation.amount, currency)} allocated
+            </span>
+            {allocation.isVoided && (
+              <span className="text-rose-500 line-through opacity-70">
+                Voided
               </span>
-              {pettyCash && (
-                <span className="text-xs text-stone-400 dark:text-stone-500">
-                  {pettyCash.patient?.name || pettyCash.note || ""}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{formatDate(allocation.date)}</span>
-              <span>•</span>
-              <span>By: {allocation.createdBy?.name || "Unknown"}</span>
-              {allocation.isVoided && (
-                <span className="text-rose-500 dark:text-rose-400 font-semibold">
-                  (Voided)
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <ReceiptLinks receipts={allocation.receipts || []} />
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${
+              allocation.isVoided ? "bg-stone-300 dark:bg-stone-600" : ""
+            }`}
+            style={{
+              width: "100%",
+              backgroundImage: allocation.isVoided
+                ? undefined
+                : "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          {pettyCash?.patient?.name || pettyCash?.note ? (
+            <span className="text-stone-500 dark:text-stone-400">
+              For: {pettyCash.patient?.name || pettyCash.note}
+            </span>
+          ) : (
+            <span />
+          )}
           <span
+            className={`inline-flex items-center gap-1 ${
+              allocation.isVoided
+                ? "text-stone-400 dark:text-stone-500"
+                : "text-teal-600 dark:text-teal-400"
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            {allocation.isVoided ? "Voided" : "Active allocation"}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields.map((f) => (
+          <InfoCard
+            key={f.label}
+            label={f.label}
+            value={f.value}
+            icon={f.icon}
+            accent={f.accent}
+          />
+        ))}
+        <div className="sm:col-span-2">
+          <InfoCard
+            label="Recorded at"
+            value={formatDateTime(allocation.createdAt)}
+            icon={<Clock className="w-3.5 h-3.5" />}
+            accent="from-slate-50 to-white dark:from-stone-800/40"
+          />
+        </div>
+      </div>
+
+      <AttachmentsGrid urls={allocation.receipts || []} />
+
+      {allocation.isVoided && (
+        <VoidBlock
+          reason={allocation.voidReason}
+          by={allocation.voidedBy}
+          at={allocation.voidedAt}
+        />
+      )}
+    </div>
+  );
+}
+
+function AllocationRow({
+  allocation,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  allocation: AllocationData;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const pettyCash = allocation.pettyCashId as any;
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+          <ArrowUpRight className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+            {getStaffName(allocation.staffId)}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            {pettyCash?.patient?.name || pettyCash?.note ? (
+              <>
+                <span>{pettyCash.patient?.name || pettyCash.note}</span>
+                <span>·</span>
+              </>
+            ) : null}
+            <span>{formatDate(allocation.date)}</span>
+            <span>·</span>
+            <span>By: {allocation.createdBy?.name || "Unknown"}</span>
+            {allocation.isVoided && (
+              <span className="text-rose-500 dark:text-rose-400 font-semibold">
+                (Voided)
+              </span>
+            )}
+          </div>
+        </div>
+        <ReceiptLinks receipts={allocation.receipts || []} />
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div
             className={`font-mono font-semibold text-sm ${
               allocation.isVoided
                 ? "text-stone-400 dark:text-stone-500 line-through"
@@ -266,323 +545,485 @@ function AllocationRow({
             }`}
           >
             +{formatMoney(allocation.amount, currency)}
-          </span>
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
-        </div>
-      </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Petty Cash ID:
-              </span>
-              <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                {allocation.pettyCashId?._id || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Created:
-              </span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {formatDateTime(allocation.createdAt)}
-              </span>
-            </div>
-            {allocation.voidReason && (
-              <div className="col-span-2">
-                <span className="text-rose-500 dark:text-rose-400">
-                  Void Reason:
-                </span>
-                <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {allocation.voidReason}
-                </span>
-              </div>
-            )}
+          </div>
+          <div
+            className={`text-[10px] zfm-mono font-semibold ${
+              allocation.isVoided
+                ? "text-stone-400 dark:text-stone-500"
+                : "text-teal-600 dark:text-teal-400"
+            }`}
+          >
+            {allocation.isVoided ? "Voided" : "Allocated"}
           </div>
         </div>
-      )}
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <AllocationDetailsView
+                allocation={allocation}
+                currency={currency}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ============================================================
-// EXPENSE ROW COMPONENT
+// EXPENSE ROW + DETAILS
 // ============================================================
-function ExpenseRow({
+function ExpenseDetailsView({
   expense,
   currency,
 }: {
   expense: ExpenseData;
   currency: string;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
   const isPettyCashExpense = expense.usedFromPettyCash === true;
+  const fields = [
+    {
+      label: "Vendor",
+      value: expense.vendorName || expense.vendor?.name || "—",
+      icon: <Building2 className="w-3.5 h-3.5" />,
+      accent: "from-violet-50 to-white dark:from-violet-950/40",
+    },
+    {
+      label: "Expense date",
+      value: formatDate(expense.date),
+      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      accent: "from-sky-50 to-white dark:from-sky-950/40",
+    },
+    {
+      label: "Created by",
+      value: expense.createdBy?.name || "Unknown",
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent: "from-amber-50 to-white dark:from-amber-950/40",
+    },
+    {
+      label: "Source",
+      value: isPettyCashExpense ? (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 text-xs font-semibold">
+          Petty Cash
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 text-xs font-semibold">
+          Informational
+        </span>
+      ),
+      icon: <Wallet className="w-3.5 h-3.5" />,
+      accent: isPettyCashExpense
+        ? "from-rose-50 to-white dark:from-rose-950/40"
+        : "from-slate-50 to-white dark:from-stone-800/40",
+    },
+    {
+      label: "Petty Cash ID",
+      value: (
+        <span className="font-mono">
+          {expense.pettyCashId?._id?.slice(-8) || "N/A"}
+        </span>
+      ),
+      icon: <Tag className="w-3.5 h-3.5" />,
+      accent: "from-teal-50 to-white dark:from-teal-950/40",
+    },
+    {
+      label: "Recorded at",
+      value: formatDateTime(expense.createdAt),
+      icon: <Clock className="w-3.5 h-3.5" />,
+      accent: "from-indigo-50 to-white dark:from-indigo-950/40",
+    },
+  ];
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button
-            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-              isPettyCashExpense
-                ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400"
-                : "bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500"
-            }`}
-          >
-            {isPettyCashExpense ? (
-              <ArrowDownRight className="w-3.5 h-3.5" />
-            ) : (
-              <span className="text-xs font-bold">ℹ</span>
-            )}
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {expense.description}
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            {isPettyCashExpense ? "Petty Cash Spend" : "Info Entry"}
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span
+              className={
+                isPettyCashExpense
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-stone-500 dark:text-stone-400"
+              }
+            >
+              −{formatMoney(expense.spentAmount, currency)} spent
+            </span>
+            {expense.isVoided && (
+              <span className="text-rose-500 line-through opacity-70">
+                Voided
               </span>
-              {expense.vendorName && (
-                <span className="text-xs text-stone-400 dark:text-stone-500">
-                  {expense.vendorName}
-                </span>
-              )}
-              {!isPettyCashExpense && (
-                <span className="text-xs font-semibold text-stone-400 dark:text-stone-500 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
-                  Info Only
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{formatDate(expense.date)}</span>
-              <span>•</span>
-              <span>By: {expense.createdBy?.name || "Unknown"}</span>
-              {expense.isVoided && (
-                <span className="text-rose-500 dark:text-rose-400 font-semibold">
-                  (Voided)
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <ReceiptLinks receipts={expense.receipts || []} />
-          {isPettyCashExpense ? (
-            <span
-              className={`font-mono font-semibold text-sm ${
-                expense.isVoided
-                  ? "text-stone-400 dark:text-stone-500 line-through"
-                  : "text-rose-500 dark:text-rose-400"
-              }`}
-            >
-              -{formatMoney(expense.spentAmount, currency)}
-            </span>
-          ) : (
-            <span className="font-mono text-sm text-stone-400 dark:text-stone-500">
-              {formatMoney(expense.spentAmount, currency)}
-            </span>
-          )}
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: "100%",
+              backgroundImage: expense.isVoided
+                ? undefined
+                : isPettyCashExpense
+                  ? "linear-gradient(90deg, #dc2626, #ef4444, #f87171)"
+                  : "linear-gradient(90deg, #6b7280, #9ca3af, #d1d5db)",
+              backgroundColor: expense.isVoided ? "#d1d5db" : undefined,
+            }}
           />
         </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span className="text-stone-500 dark:text-stone-400 truncate max-w-[60%]">
+            {expense.description}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 ${
+              expense.isVoided
+                ? "text-stone-400 dark:text-stone-500"
+                : isPettyCashExpense
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-stone-500 dark:text-stone-400"
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            {expense.isVoided
+              ? "Voided"
+              : isPettyCashExpense
+                ? "Deducted"
+                : "Informational"}
+          </span>
+        </div>
       </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-stone-400 dark:text-stone-500">
-                Source:
-              </span>
-              <span
-                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                  isPettyCashExpense
-                    ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
-                    : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400"
-                }`}
-              >
-                {isPettyCashExpense ? "Petty Cash" : "Informational"}
-              </span>
-              {!isPettyCashExpense && (
-                <span className="text-xs text-stone-400 dark:text-stone-500">
-                  (Does not affect balance)
-                </span>
-              )}
-            </div>
 
-            {expense.items && expense.items.length > 0 && (
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Items:
-                </span>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {expense.items.map((item, i) => (
-                    <span
-                      key={i}
-                      className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
-                    >
-                      {item.itemName} -{" "}
-                      {formatMoney(item.amount || 0, currency)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Petty Cash ID:
-                </span>
-                <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                  {expense.pettyCashId?._id || "N/A"}
-                </span>
-              </div>
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Created:
-                </span>
-                <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {formatDateTime(expense.createdAt)}
-                </span>
-              </div>
-              {expense.voidReason && (
-                <div className="col-span-2">
-                  <span className="text-rose-500 dark:text-rose-400">
-                    Void Reason:
-                  </span>
-                  <span className="ml-2 text-stone-600 dark:text-stone-300">
-                    {expense.voidReason}
-                  </span>
-                </div>
-              )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields.map((f) => (
+          <InfoCard
+            key={f.label}
+            label={f.label}
+            value={f.value}
+            icon={f.icon}
+            accent={f.accent}
+          />
+        ))}
+      </div>
+
+      {expense.items && expense.items.length > 0 && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
+              <Tag className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
             </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Line Items · {expense.items.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pl-[32px]">
+            {expense.items.map((item, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-lg bg-stone-50 dark:bg-stone-800/50 px-3 py-2 border border-stone-100 dark:border-stone-700/60"
+              >
+                <span className="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">
+                  {item.itemName || `Item ${i + 1}`}
+                </span>
+                <span className="text-xs font-mono font-semibold text-stone-600 dark:text-stone-300 ml-2 shrink-0">
+                  {formatMoney(item.amount || 0, currency)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
+      )}
+
+      <AttachmentsGrid urls={expense.receipts || []} />
+
+      {expense.isVoided && (
+        <VoidBlock
+          reason={expense.voidReason}
+          by={expense.voidedBy}
+          at={expense.voidedAt}
+        />
       )}
     </div>
   );
 }
 
+function ExpenseRow({
+  expense,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  expense: ExpenseData;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const isPettyCashExpense = expense.usedFromPettyCash === true;
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+            isPettyCashExpense
+              ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400"
+              : "bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400"
+          }`}
+        >
+          {isPettyCashExpense ? (
+            <ArrowDownRight className="w-4 h-4" />
+          ) : (
+            <Info className="w-4 h-4" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+              {expense.description}
+            </span>
+            {expense.vendorName && (
+              <span className="text-xs text-stone-400 dark:text-stone-500 truncate">
+                {expense.vendorName}
+              </span>
+            )}
+            {!isPettyCashExpense && (
+              <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                Info Only
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span>{formatDate(expense.date)}</span>
+            <span>·</span>
+            <span>By: {expense.createdBy?.name || "Unknown"}</span>
+            {expense.isVoided && (
+              <span className="text-rose-500 dark:text-rose-400 font-semibold">
+                (Voided)
+              </span>
+            )}
+          </div>
+        </div>
+        <ReceiptLinks receipts={expense.receipts || []} />
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div
+            className={`font-mono font-semibold text-sm ${
+              expense.isVoided
+                ? "text-stone-400 dark:text-stone-500 line-through"
+                : isPettyCashExpense
+                  ? "text-rose-500 dark:text-rose-400"
+                  : "text-stone-400 dark:text-stone-500"
+            }`}
+          >
+            {isPettyCashExpense ? "−" : ""}
+            {formatMoney(expense.spentAmount, currency)}
+          </div>
+          <div
+            className={`text-[10px] zfm-mono font-semibold ${
+              expense.isVoided
+                ? "text-stone-400 dark:text-stone-500"
+                : isPettyCashExpense
+                  ? "text-rose-500 dark:text-rose-400"
+                  : "text-stone-400 dark:text-stone-500"
+            }`}
+          >
+            {expense.isVoided
+              ? "Voided"
+              : isPettyCashExpense
+                ? "Deducted"
+                : "Info entry"}
+          </div>
+        </div>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown
+              className={
+                isPettyCashExpense
+                  ? "w-4 h-4 text-rose-500 dark:text-rose-400"
+                  : "w-4 h-4 text-stone-500 dark:text-stone-400"
+              }
+            />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b ${
+                isPettyCashExpense
+                  ? "from-rose-200 dark:from-rose-900 to-transparent"
+                  : "from-stone-200 dark:from-stone-700 to-transparent"
+              }`}
+            />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <ExpenseDetailsView expense={expense} currency={currency} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
-// INCOME ROW COMPONENT
+// INCOME ROW + DETAILS
 // ============================================================
-function IncomeRow({
+function IncomeDetailsView({
   income,
   currency,
 }: {
   income: CashIncomeData;
   currency: string;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
+  const fields = [
+    {
+      label: "Patient",
+      value: income.patientName || "Unknown",
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent: "from-emerald-50 to-white dark:from-emerald-950/40",
+    },
+    {
+      label: "Invoice #",
+      value: <span className="font-mono">{income.invoiceNumber}</span>,
+      icon: <Receipt className="w-3.5 h-3.5" />,
+      accent: "from-violet-50 to-white dark:from-violet-950/40",
+    },
+    {
+      label: "Mobile",
+      value: income.mobileNumber || "N/A",
+      icon: <CreditCard className="w-3.5 h-3.5" />,
+      accent: "from-sky-50 to-white dark:from-sky-950/40",
+    },
+    {
+      label: "EMR #",
+      value: income.emrNumber || "N/A",
+      icon: <FileText className="w-3.5 h-3.5" />,
+      accent: "from-amber-50 to-white dark:from-amber-950/40",
+    },
+    {
+      label: "Service",
+      value: income.service || "N/A",
+      icon: <TrendingUp className="w-3.5 h-3.5" />,
+      accent: "from-teal-50 to-white dark:from-teal-950/40",
+    },
+    {
+      label: "Invoiced date",
+      value: formatDate(income.invoicedDate),
+      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      accent: "from-indigo-50 to-white dark:from-indigo-950/40",
+    },
+  ];
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500 dark:text-emerald-400 shrink-0">
-            <Coins className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {income.patientName || "Unknown Patient"}
-              </span>
-              <span className="text-xs text-stone-400 dark:text-stone-500">
-                #{income.invoiceNumber}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{formatDate(income.invoicedDate)}</span>
-              <span>•</span>
-              <span>{income.service || "Service"}</span>
-              <span>•</span>
-              <span>Payment: {income.paymentMethod}</span>
-            </div>
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Cash Income
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span className="text-emerald-600 dark:text-emerald-400">
+              +{formatMoney(income.cashAmount, currency)} received
+            </span>
+            <span className="text-stone-400 dark:text-stone-500 text-[10px]">
+              of {formatMoney(income.amount, currency)}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="font-mono font-semibold text-sm text-emerald-600 dark:text-emerald-400">
-            +{formatMoney(income.cashAmount, currency)}
-          </span>
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width:
+                income.amount > 0
+                  ? `${Math.min((income.cashAmount / income.amount) * 100, 100)}%`
+                  : "100%",
+              backgroundImage:
+                "linear-gradient(90deg, #059669, #10b981, #34d399)",
+            }}
           />
         </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span className="text-emerald-600 dark:text-emerald-400">
+            Paid via {income.paymentMethod}
+          </span>
+          <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="w-3 h-3" />
+            {income.status || "Processed"}
+          </span>
+        </div>
       </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Patient:
-              </span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {income.patientName}
-              </span>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields.map((f) => (
+          <InfoCard
+            key={f.label}
+            label={f.label}
+            value={f.value}
+            icon={f.icon}
+            accent={f.accent}
+          />
+        ))}
+      </div>
+
+      {income.multiplePayments && income.multiplePayments.length > 0 && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-lg bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center">
+              <Wallet className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
             </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Mobile:
-              </span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {income.mobileNumber || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">EMR #:</span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {income.emrNumber || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Service:
-              </span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {income.service || "N/A"}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Total Amount:
-              </span>
-              <span className="ml-2 text-stone-600 dark:text-stone-300">
-                {formatMoney(income.amount, currency)}
-              </span>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Cash Received:
-              </span>
-              <span className="ml-2 font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                {formatMoney(income.cashAmount, currency)}
-              </span>
-            </div>
-            {income.multiplePayments && income.multiplePayments.length > 0 && (
-              <div className="col-span-2">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Payment Breakdown:
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Payment Breakdown · {income.multiplePayments.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pl-[32px]">
+            {income.multiplePayments.map((payment, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-lg bg-stone-50 dark:bg-stone-800/50 px-3 py-2 border border-stone-100 dark:border-stone-700/60"
+              >
+                <span className="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">
+                  {payment.paymentMethod || `Payment ${i + 1}`}
                 </span>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {income.multiplePayments.map((payment, i) => (
-                    <span
-                      key={i}
-                      className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
-                    >
-                      {payment.paymentMethod}:{" "}
-                      {formatMoney(payment.amount, currency)}
-                    </span>
-                  ))}
-                </div>
+                <span className="text-xs font-mono font-semibold text-emerald-600 dark:text-emerald-400 ml-2 shrink-0">
+                  +{formatMoney(payment.amount || 0, currency)}
+                </span>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}
@@ -590,68 +1031,308 @@ function IncomeRow({
   );
 }
 
+function IncomeRow({
+  income,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  income: CashIncomeData;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-500 dark:text-emerald-400 shrink-0">
+          <Coins className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+              {income.patientName || "Unknown Patient"}
+            </span>
+            <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
+              #{income.invoiceNumber}
+            </span>
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span>{formatDate(income.invoicedDate)}</span>
+            <span>·</span>
+            <span>{income.service || "Service"}</span>
+            <span>·</span>
+            <span>{income.paymentMethod}</span>
+          </div>
+        </div>
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div className="font-mono font-semibold text-sm text-emerald-600 dark:text-emerald-400">
+            +{formatMoney(income.cashAmount, currency)}
+          </div>
+          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 zfm-mono font-semibold">
+            {income.status || "Received"}
+          </div>
+        </div>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-emerald-200 dark:from-emerald-900 to-transparent" />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <IncomeDetailsView income={income} currency={currency} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
-// MANUAL PETTY CASH ROW COMPONENT
+// MANUAL PETTY CASH ROW + DETAILS
 // ============================================================
-function ManualPettyCashRow({
+function ManualDetailsView({
   item,
   currency,
 }: {
   item: ManualPettyCashItem;
   currency: string;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
   const type = getManualType(item);
   const isExpense = item.isExpense;
+  const fields = [
+    {
+      label: "Type",
+      value: <TypePill type={type} />,
+      icon: <Tag className="w-3.5 h-3.5" />,
+      accent: isExpense
+        ? "from-rose-50 to-white dark:from-rose-950/40"
+        : "from-emerald-50 to-white dark:from-emerald-950/40",
+    },
+    {
+      label: "Vendor",
+      value: getVendorLabel(item),
+      icon: <Building2 className="w-3.5 h-3.5" />,
+      accent: "from-violet-50 to-white dark:from-violet-950/40",
+    },
+    {
+      label: "Added by",
+      value: getAddedByLabel(item),
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent: "from-sky-50 to-white dark:from-sky-950/40",
+    },
+    {
+      label: "Created",
+      value: formatDateTime(item.createdAt),
+      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      accent: "from-amber-50 to-white dark:from-amber-950/40",
+    },
+    {
+      label: "Used from Petty Cash",
+      value: item.usedFromPettyCash ? "Yes" : "No",
+      icon: <Wallet className="w-3.5 h-3.5" />,
+      accent: "from-teal-50 to-white dark:from-teal-950/40",
+    },
+    {
+      label: "Entry name",
+      value: item.name || "—",
+      icon: <FileText className="w-3.5 h-3.5" />,
+      accent: "from-indigo-50 to-white dark:from-indigo-950/40",
+    },
+  ];
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button
-            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-              isExpense
-                ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400"
-                : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500 dark:text-emerald-400"
-            }`}
-          >
-            {isExpense ? (
-              <ArrowDownRight className="w-3.5 h-3.5" />
-            ) : (
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            )}
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {item.name}
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            {isExpense ? "Manual Expense" : "Manual Income"}
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span
+              className={
+                isExpense
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "text-emerald-600 dark:text-emerald-400"
+              }
+            >
+              {isExpense ? "−" : "+"}
+              {formatMoney(item.amount, currency)}
+            </span>
+            {item.note && (
+              <span className="text-stone-400 dark:text-stone-500 text-[10px] truncate max-w-[200px]">
+                · {item.note}
               </span>
-              {item.vendorName || item.vendorId ? (
-                <span className="text-xs text-stone-400 dark:text-stone-500">
-                  {getVendorLabel(item)}
-                </span>
-              ) : null}
-              <TypePill type={type} />
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span>{formatDate(item.createdAt)}</span>
-              <span>•</span>
-              <span>By: {getAddedByLabel(item)}</span>
-              {item.note && (
-                <>
-                  <span>•</span>
-                  <span className="truncate max-w-[200px]">{item.note}</span>
-                </>
-              )}
-            </div>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <ImageLinks images={item.images || []} />
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: "100%",
+              backgroundImage: isExpense
+                ? "linear-gradient(90deg, #dc2626, #ef4444, #f87171)"
+                : "linear-gradient(90deg, #059669, #10b981, #34d399)",
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span className="text-stone-500 dark:text-stone-400 truncate max-w-[60%]">
+            {item.name}
+          </span>
           <span
+            className={`inline-flex items-center gap-1 ${
+              isExpense
+                ? "text-rose-600 dark:text-rose-400"
+                : "text-emerald-600 dark:text-emerald-400"
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            Manual entry · {type}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields.map((f) => (
+          <InfoCard
+            key={f.label}
+            label={f.label}
+            value={f.value}
+            icon={f.icon}
+            accent={f.accent}
+          />
+        ))}
+      </div>
+
+      {item.items && item.items.length > 0 && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
+              <Tag className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Line Items · {item.items.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pl-[32px]">
+            {item.items.map((it, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-lg bg-stone-50 dark:bg-stone-800/50 px-3 py-2 border border-stone-100 dark:border-stone-700/60"
+              >
+                <span className="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">
+                  {it.itemName || `Item ${i + 1}`}
+                </span>
+                <span className="text-xs font-mono font-semibold text-stone-600 dark:text-stone-300 ml-2 shrink-0">
+                  {formatMoney(it.amount || 0, currency)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <AttachmentsGrid urls={item.images || []} />
+
+      {item.note && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-stone-800/40 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-900/40 flex items-center justify-center">
+              <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Note
+            </span>
+          </div>
+          <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed pl-[32px]">
+            {item.note}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManualPettyCashRow({
+  item,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  item: ManualPettyCashItem;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const type = getManualType(item);
+  const isExpense = item.isExpense;
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+            isExpense
+              ? "bg-rose-50 dark:bg-rose-950/50 text-rose-500 dark:text-rose-400"
+              : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-500 dark:text-emerald-400"
+          }`}
+        >
+          {isExpense ? (
+            <ArrowDownRight className="w-4 h-4" />
+          ) : (
+            <ArrowUpRight className="w-4 h-4" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+              {item.name}
+            </span>
+            {item.vendorName || item.vendorId ? (
+              <span className="text-xs text-stone-400 dark:text-stone-500 truncate">
+                {getVendorLabel(item)}
+              </span>
+            ) : null}
+            <TypePill type={type} />
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span>{formatDate(item.createdAt)}</span>
+            <span>·</span>
+            <span>By: {getAddedByLabel(item)}</span>
+            {item.note && (
+              <>
+                <span>·</span>
+                <span className="truncate max-w-[200px]">{item.note}</span>
+              </>
+            )}
+          </div>
+        </div>
+        <ImageLinks images={item.images || []} />
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div
             className={`font-mono font-semibold text-sm ${
               isExpense
                 ? "text-rose-500 dark:text-rose-400"
@@ -660,78 +1341,56 @@ function ManualPettyCashRow({
           >
             {isExpense ? "−" : "+"}
             {formatMoney(item.amount, currency)}
-          </span>
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
+          </div>
+          <div
+            className={`text-[10px] zfm-mono font-semibold ${
+              isExpense
+                ? "text-rose-500 dark:text-rose-400"
+                : "text-emerald-600 dark:text-emerald-400"
+            }`}
+          >
+            {type}
+          </div>
         </div>
-      </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-stone-400 dark:text-stone-500">Type</span>
-                <TypePill type={type} />
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Vendor
-                </span>
-                <span className="text-stone-700 dark:text-stone-300">
-                  {getVendorLabel(item)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Added By
-                </span>
-                <span className="text-stone-700 dark:text-stone-300">
-                  {getAddedByLabel(item)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Created
-                </span>
-                <span className="text-stone-700 dark:text-stone-300 font-mono text-xs">
-                  {formatDateTime(item.createdAt)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Used from Petty Cash
-                </span>
-                <span className="text-stone-700 dark:text-stone-300">
-                  {item.usedFromPettyCash ? "Yes" : "No"}
-                </span>
-              </div>
-            </div>
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Items ({item.items?.length || 0}):
-              </span>
-              {!item.items || item.items.length === 0 ? (
-                <div className="mt-1 text-xs text-stone-400 dark:text-stone-500">
-                  No items recorded for this transaction.
-                </div>
-              ) : (
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {item.items.map((it, i) => (
-                    <span
-                      key={i}
-                      className="bg-stone-100 dark:bg-stone-800 px-2 py-1 rounded text-xs"
-                    >
-                      {it.itemName || "Unnamed"} -{" "}
-                      {formatMoney(it.amount || 0, currency)}
-                    </span>
-                  ))}
-                </div>
-              )}
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown
+              className={
+                isExpense
+                  ? "w-4 h-4 text-rose-500 dark:text-rose-400"
+                  : "w-4 h-4 text-emerald-500 dark:text-emerald-400"
+              }
+            />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b ${
+                isExpense
+                  ? "from-rose-200 dark:from-rose-900 to-transparent"
+                  : "from-emerald-200 dark:from-emerald-900 to-transparent"
+              }`}
+            />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <ManualDetailsView item={item} currency={currency} />
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -1834,6 +2493,7 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
   const [saving, setSaving] = useState(false);
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
   const [expenseSaving, setExpenseSaving] = useState(false);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
   // keep the underlying petty-cash hook's viewType in sync for the tabs it owns
   React.useEffect(() => {
@@ -2164,6 +2824,12 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                         key={income._id}
                         income={income}
                         currency={currency}
+                        isOpen={expandedRowId === income._id}
+                        onToggle={() =>
+                          setExpandedRowId(
+                            expandedRowId === income._id ? null : income._id,
+                          )
+                        }
                       />
                     ))
                   )}
@@ -2183,6 +2849,12 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                         key={alloc._id}
                         allocation={alloc}
                         currency={currency}
+                        isOpen={expandedRowId === alloc._id}
+                        onToggle={() =>
+                          setExpandedRowId(
+                            expandedRowId === alloc._id ? null : alloc._id,
+                          )
+                        }
                       />
                     ))
                   )}
@@ -2202,6 +2874,12 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                         key={exp._id}
                         expense={exp}
                         currency={currency}
+                        isOpen={expandedRowId === exp._id}
+                        onToggle={() =>
+                          setExpandedRowId(
+                            expandedRowId === exp._id ? null : exp._id,
+                          )
+                        }
                       />
                     ))
                   )}
@@ -2223,6 +2901,12 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                         key={item._id}
                         item={item}
                         currency={currency}
+                        isOpen={expandedRowId === item._id}
+                        onToggle={() =>
+                          setExpandedRowId(
+                            expandedRowId === item._id ? null : item._id,
+                          )
+                        }
                       />
                     ))
                   )}
@@ -2245,6 +2929,12 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                           key={exp._id}
                           expense={exp}
                           currency={currency}
+                          isOpen={expandedRowId === exp._id}
+                          onToggle={() =>
+                            setExpandedRowId(
+                              expandedRowId === exp._id ? null : exp._id,
+                            )
+                          }
                         />
                       ))}
                       {/* Then allocations */}
@@ -2253,6 +2943,12 @@ const PettyCashTab: React.FC<UseFinancePermissionReturn> = ({
                           key={alloc._id}
                           allocation={alloc}
                           currency={currency}
+                          isOpen={expandedRowId === alloc._id}
+                          onToggle={() =>
+                            setExpandedRowId(
+                              expandedRowId === alloc._id ? null : alloc._id,
+                            )
+                          }
                         />
                       ))}
                       {filteredAllocations.length > 5 && (
