@@ -196,6 +196,14 @@ async function resolveClinicId(req, me) {
     }
     return { clinicId: qClinicId };
   }
+  // Clinic role: clinic is found by owner, not by user.clinicId
+  if (me.role === "clinic") {
+    const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
+    if (!clinic) {
+      return { error: { status: 403, message: "Clinic not found for this user" } };
+    }
+    return { clinicId: clinic._id.toString() };
+  }
   if (!me.clinicId) {
     return { error: { status: 403, message: "User not linked to a clinic" } };
   }
@@ -218,7 +226,7 @@ export default async function handler(req, res) {
     }
 
     // 2. AuthZ — agent-side roles + admin (for diagnostic views)
-    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin"];
+    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin", "clinic"];
     if (!allowedRoles.includes(me.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }

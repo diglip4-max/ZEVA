@@ -30,6 +30,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     photo?: string;
   } | null>(null);
   const [walletOpen, setWalletOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [receptionistOpen, setReceptionistOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [commissionCount, setCommissionCount] = useState<number>(0);
@@ -50,7 +51,12 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   >([]);
   const walletBtnRef = useRef<HTMLButtonElement | null>(null);
   const receptionistBtnRef = useRef<HTMLButtonElement | null>(null);
+  const profileBtnRef = useRef<HTMLButtonElement | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{
+    top: number;
+    right: number;
+  }>({ top: 0, right: 0 });
+  const [profileDropdownPos, setProfileDropdownPos] = useState<{
     top: number;
     right: number;
   }>({ top: 0, right: 0 });
@@ -351,6 +357,35 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
       window.removeEventListener("scroll", handler, true);
     };
   }, [walletOpen]);
+
+  const computeProfileDropdownPos = () => {
+    if (typeof window === "undefined") return;
+    const btn = profileBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const top = rect.bottom + 8;
+    const right = Math.max(8, window.innerWidth - rect.right);
+    setProfileDropdownPos({ top, right });
+  };
+
+  const toggleProfileDropdown = () => {
+    setProfileDropdownOpen((prev) => {
+      const next = !prev;
+      if (!prev) computeProfileDropdownPos();
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!profileDropdownOpen) return;
+    const handler = () => computeProfileDropdownPos();
+    window.addEventListener("resize", handler);
+    window.addEventListener("scroll", handler, true);
+    return () => {
+      window.removeEventListener("resize", handler);
+      window.removeEventListener("scroll", handler, true);
+    };
+  }, [profileDropdownOpen]);
 
   //   const getInitials = (name: string) => {
   //     return name
@@ -717,14 +752,12 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 sm:gap-3">
-              <div
-                className="w-5 h-5 sm:w-8 sm:h-8 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer"
-                onClick={() => {
-                  if (tokenUser?.photo) {
-                    setPreviewImage(normalizeImagePath(tokenUser.photo));
-                  }
-                }}
+            <div className="relative flex items-center">
+              <button
+                ref={profileBtnRef}
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden cursor-pointer border-2 border-transparent hover:border-[#2D9AA5] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#2D9AA5]"
+                onClick={toggleProfileDropdown}
+                aria-label="User menu"
               >
                 {tokenUser?.photo ? (
                   <img
@@ -733,34 +766,86 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-white font-medium text-[10px] sm:text-sm">
+                  <span className="text-white font-medium text-xs sm:text-base">
                     {tokenUser?.name?.charAt(0)?.toUpperCase() || "D"}
                   </span>
                 )}
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium text-gray-700 hover:text-red-600  rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
-                aria-label="Logout"
-              >
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <svg
-                    className="w-3 h-3 sm:w-4 sm:h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Logout</span>
-                </div>
               </button>
+
+              {profileDropdownOpen && typeof window !== "undefined" && createPortal(
+                <>
+                  <div
+                    className="fixed inset-0 z-[9998] cursor-default"
+                    onClick={() => setProfileDropdownOpen(false)}
+                  />
+
+                  <div
+                    className="fixed bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-xl shadow-xl z-[9999] py-1.5 animate-in fade-in slide-in-from-top-2 duration-150 w-52"
+                    style={{
+                      top: profileDropdownPos.top,
+                      right: profileDropdownPos.right,
+                    }}
+                  >
+                    <div className="px-4 py-2 border-b border-gray-100 dark:border-zinc-700">
+                      <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                        {tokenUser?.name || "User"}
+                      </p>
+                      <p className="text-[10px] text-gray-500 dark:text-zinc-400 truncate">
+                        {tokenUser?.email || ""}
+                      </p>
+                    </div>
+
+                    {tokenUser?.photo && (
+                      <button
+                        onClick={() => {
+                          setPreviewImage(normalizeImagePath(tokenUser.photo!));
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors text-left"
+                      >
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        View Profile Picture
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors text-left"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                </>,
+                document.body,
+              )}
             </div>
           </div>
         </div>

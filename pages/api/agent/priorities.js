@@ -398,16 +398,16 @@ async function fetchNewLeadsSection({ clinicObjectId, period, dayStart, dayEnd, 
   }
 
   // DEBUG: Log what we're querying
-  console.log("[DEBUG fetchNewLeadsSection] clinicObjectId:", clinicObjectId?.toString());
-  console.log("[DEBUG fetchNewLeadsSection] dayStart:", dayStart, "dayEnd:", dayEnd);
-  console.log("[DEBUG fetchNewLeadsSection] period:", period.start, "-", period.end, "=> mins:", periodStartMin, "-", periodEndMin);
+  // console.log("[DEBUG fetchNewLeadsSection] clinicObjectId:", clinicObjectId?.toString());
+  // console.log("[DEBUG fetchNewLeadsSection] dayStart:", dayStart, "dayEnd:", dayEnd);
+  // console.log("[DEBUG fetchNewLeadsSection] period:", period.start, "-", period.end, "=> mins:", periodStartMin, "-", periodEndMin);
 
   // Quick count of messages for this clinic in the date range
   const totalMsgCount = await Message.countDocuments({
     clinicId: clinicObjectId,
     createdAt: { $gte: dayStart, $lte: dayEnd },
   });
-  console.log("[DEBUG fetchNewLeadsSection] Total messages for clinic in date range:", totalMsgCount);
+  // console.log("[DEBUG fetchNewLeadsSection] Total messages for clinic in date range:", totalMsgCount);
 
   // Sample recent messages to check fields
   const sampleMsgs = await Message.find({
@@ -418,13 +418,13 @@ async function fetchNewLeadsSection({ clinicObjectId, period, dayStart, dayEnd, 
     .sort({ createdAt: -1 })
     .limit(5)
     .lean();
-  console.log("[DEBUG fetchNewLeadsSection] Sample recent messages:", JSON.stringify(sampleMsgs.map(m => ({
-    direction: m.direction,
-    recipientId: m.recipientId?.toString(),
-    channel: m.channel,
-    content: (m.content || "").slice(0, 50),
-    createdAt: m.createdAt,
-  })), null, 2));
+  // console.log("[DEBUG fetchNewLeadsSection] Sample recent messages:", JSON.stringify(sampleMsgs.map(m => ({
+  //   direction: m.direction,
+  //   recipientId: m.recipientId?.toString(),
+  //   channel: m.channel,
+  //   content: (m.content || "").slice(0, 50),
+  //   createdAt: m.createdAt,
+  // })), null, 2));
 
   // 1. Group by `recipientId` (the Lead) and pick the most recent
   //    message per lead. This is where the "Set" of unique leads
@@ -481,14 +481,14 @@ async function fetchNewLeadsSection({ clinicObjectId, period, dayStart, dayEnd, 
     { $match: { outgoingAfter: { $size: 0 } } },
   ]);
 
-  console.log("[DEBUG fetchNewLeadsSection] Aggregation result (latestPerLead) count:", latestPerLead.length);
+  // console.log("[DEBUG fetchNewLeadsSection] Aggregation result (latestPerLead) count:", latestPerLead.length);
   if (latestPerLead.length > 0) {
-    console.log("[DEBUG fetchNewLeadsSection] latestPerLead details:", JSON.stringify(latestPerLead.map(r => ({
-      recipientId: r._id?.toString(),
-      direction: r.latest?.direction,
-      createdAt: r.latest?.createdAt,
-      hasOutgoingAfter: r.outgoingAfter?.length,
-    })), null, 2));
+    // console.log("[DEBUG fetchNewLeadsSection] latestPerLead details:", JSON.stringify(latestPerLead.map(r => ({
+    //   recipientId: r._id?.toString(),
+    //   direction: r.latest?.direction,
+    //   createdAt: r.latest?.createdAt,
+    //   hasOutgoingAfter: r.outgoingAfter?.length,
+    // })), null, 2));
   }
 
   if (!latestPerLead.length) {
