@@ -15,7 +15,6 @@ import {
   BarChart3,
   Activity,
   CheckCircle2,
-  User,
   Crown,
   Stethoscope,
   Building2,
@@ -408,7 +407,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
   const [moduleStats, setModuleStats] = useState<ModuleStats>({});
   const [allModules, setAllModules] = useState<NavigationItem[]>([]);
-  const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
+  const [_clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [_permissions, setPermissions] = useState<
     SidebarResponse["permissions"]
   >([]);
@@ -2575,12 +2574,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return "Good Evening";
   };
 
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // const formatTime = (date: Date): string => {
+  //   return date.toLocaleTimeString("en-US", {
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //   });
+  // };
 
   // Get modules that have permission (from navigationItems)
   const modulesWithPermission = useMemo(() => {
