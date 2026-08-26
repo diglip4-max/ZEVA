@@ -481,7 +481,7 @@ export default async function handler(req, res) {
     const pettyCashExpenseMatch = {
       clinicId,
       isVoided: { $ne: true },
-      usedFromPettyCash: true,
+      // usedFromPettyCash: true,
     };
 
     const [expenseAgg] = await PettyCashExpense.aggregate([
