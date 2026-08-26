@@ -15,8 +15,18 @@ import {
   Building2,
   Phone,
   Mail,
+  ChevronRight,
+  ChevronDown,
+  CalendarClock,
+  TrendingUp,
+  FileText,
+  User,
 } from "lucide-react";
-import useSupplierLedger from "../_hooks/useSupplierLedger";
+import useSupplierLedger, {
+  LedgerBill,
+  LedgerPayment,
+  LedgerCheque,
+} from "../_hooks/useSupplierLedger";
 import useSuppliers from "@/hooks/useSuppliers";
 import useClinic from "@/hooks/useClinic";
 import StatCard from "./StatCard";
@@ -124,6 +134,621 @@ const METHOD_ICON: Record<string, React.ElementType> = {
   petty_cash: Wallet,
 };
 
+const METHOD_LABEL: Record<string, string> = {
+  cash: "Cash",
+  bank_transfer: "Bank Transfer",
+  cheque: "Cheque",
+  card: "Card",
+  online: "Online",
+  petty_cash: "Petty Cash",
+};
+
+function InfoCard({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  icon: React.ReactNode;
+  accent: string;
+}) {
+  return (
+    <div
+      className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${accent} p-3.5`}
+    >
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="w-5 h-5 rounded-md bg-white/80 dark:bg-stone-900/60 flex items-center justify-center shadow-sm">
+          {icon}
+        </div>
+        <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-[0.14em]">
+          {label}
+        </span>
+      </div>
+      <div className="pl-[26px] text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+        {value || <span className="text-stone-300 dark:text-stone-600">—</span>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// BILL DETAILS + ROW — violet/teal theme (bills)
+// ============================================================
+function BillDetailsView({
+  bill,
+  currency,
+}: {
+  bill: LedgerBill;
+  currency: string;
+}) {
+  const paidPct = bill.amount > 0 ? (bill.paidAmount / bill.amount) * 100 : 0;
+  const balancePct = bill.amount > 0 ? (bill.balance / bill.amount) * 100 : 0;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Settlement progress
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span className="text-teal-600 dark:text-teal-400">
+              {formatMoney(bill.paidAmount, currency)} paid
+            </span>
+            <span className="text-stone-300 dark:text-stone-600">of</span>
+            <span className="text-stone-700 dark:text-stone-200">
+              {formatMoney(bill.amount, currency)}
+            </span>
+          </div>
+        </div>
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${paidPct}%`,
+              backgroundImage:
+                "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
+            }}
+          />
+          {bill.balance > 0 && (
+            <div
+              className="absolute inset-y-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out"
+              style={{
+                left: `${paidPct}%`,
+                width: `${balancePct}%`,
+              }}
+            />
+          )}
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400">
+            <CheckCircle2 className="w-3 h-3" />
+            {paidPct.toFixed(1)}% settled
+          </span>
+          {bill.balance > 0 && (
+            <span className="text-orange-500 dark:text-orange-400">
+              {balancePct.toFixed(1)}% due
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <InfoCard
+          label="Invoice #"
+          value={<span className="font-mono">{bill.invoiceNumber}</span>}
+          icon={
+            <Receipt className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+          }
+          accent="from-violet-50 to-white dark:from-violet-950/40"
+        />
+        <InfoCard
+          label="Category"
+          value={bill.category}
+          icon={
+            <TrendingUp className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          }
+          accent="from-amber-50 to-white dark:from-amber-950/40"
+        />
+        <InfoCard
+          label="Due date"
+          value={formatDate(bill.dueDate)}
+          icon={
+            <CalendarClock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+          }
+          accent="from-rose-50 to-white dark:from-rose-950/40"
+        />
+        <InfoCard
+          label="Status"
+          value={<span className="capitalize">{bill.status || "—"}</span>}
+          icon={
+            <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+          }
+          accent="from-sky-50 to-white dark:from-sky-950/40"
+        />
+      </div>
+    </div>
+  );
+}
+
+function BillRow({
+  bill,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  bill: LedgerBill;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-950/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+          <Receipt className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+            {bill.category}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span className="font-mono">{bill.invoiceNumber}</span>
+            <span>·</span>
+            <span>Due {formatDate(bill.dueDate)}</span>
+          </div>
+        </div>
+        <StatusDot status={bill.status} />
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+            {formatMoney(bill.amount, currency)}
+          </div>
+          {bill.balance > 0 ? (
+            <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 zfm-mono">
+              {formatMoney(bill.balance, currency)} due
+            </div>
+          ) : (
+            <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+              Fully paid
+            </div>
+          )}
+        </div>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-violet-500 dark:text-violet-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-violet-200 dark:from-violet-900 to-transparent" />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <BillDetailsView bill={bill} currency={currency} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// PAYMENT DETAILS + ROW — emerald/teal theme (payments)
+// ============================================================
+function PaymentDetailsView({
+  payment,
+  currency,
+}: {
+  payment: LedgerPayment;
+  currency: string;
+}) {
+  const invoiceNumber =
+    typeof payment.transactionId === "string"
+      ? payment.transactionId
+      : payment.transactionId?.invoiceNumber;
+  const invoiceCategory =
+    typeof payment.transactionId === "string"
+      ? null
+      : payment.transactionId?.category || null;
+  const Icon = METHOD_ICON[payment.method] || Banknote;
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Payment status
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            {payment.reversed ? (
+              <span className="text-rose-500 dark:text-rose-400 inline-flex items-center gap-1">
+                {formatMoney(payment.amount, currency)} reversed
+              </span>
+            ) : (
+              <span className="text-teal-600 dark:text-teal-400 inline-flex items-center gap-1">
+                {formatMoney(payment.amount, currency)} settled
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${
+              payment.reversed ? "" : ""
+            }`}
+            style={{
+              width: "100%",
+              backgroundImage: payment.reversed
+                ? "linear-gradient(90deg, #f43f5e, #ef4444, #dc2626)"
+                : "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span
+            className={`inline-flex items-center gap-1 ${
+              payment.reversed
+                ? "text-rose-500 dark:text-rose-400"
+                : "text-teal-600 dark:text-teal-400"
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            {payment.reversed ? "Reversed" : "Paid in full"}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <InfoCard
+          label="Payment #"
+          value={<span className="font-mono">{payment.paymentNumber}</span>}
+          icon={
+            <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          }
+          accent="from-emerald-50 to-white dark:from-emerald-950/40"
+        />
+        <InfoCard
+          label="Date"
+          value={formatDate(payment.date)}
+          icon={
+            <CalendarClock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+          }
+          accent="from-sky-50 to-white dark:from-sky-950/40"
+        />
+        <InfoCard
+          label="Method"
+          value={METHOD_LABEL[payment.method] || payment.method}
+          icon={
+            <Icon className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+          }
+          accent="from-teal-50 to-white dark:from-teal-950/40"
+        />
+        <InfoCard
+          label="Linked invoice"
+          value={
+            invoiceNumber ? (
+              <div className="truncate">
+                <span className="font-mono">{invoiceNumber}</span>
+                {invoiceCategory && (
+                  <span className="text-[11px] text-stone-400 dark:text-stone-500 ml-2">
+                    · {invoiceCategory}
+                  </span>
+                )}
+              </div>
+            ) : null
+          }
+          icon={
+            <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+          }
+          accent="from-violet-50 to-white dark:from-violet-950/40"
+        />
+      </div>
+    </div>
+  );
+}
+
+function PaymentRow({
+  payment,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  payment: LedgerPayment;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = METHOD_ICON[payment.method] || Banknote;
+  const invoiceNumber =
+    typeof payment.transactionId === "string"
+      ? payment.transactionId
+      : payment.transactionId?.invoiceNumber;
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+            payment.reversed
+              ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
+              : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400"
+          }`}
+        >
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate flex items-center gap-2">
+            <span className="zfm-mono">{payment.paymentNumber}</span>
+            {payment.reversed && (
+              <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+                Reversed
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            {invoiceNumber && (
+              <>
+                <span>→</span>
+                <span className="zfm-mono">{invoiceNumber}</span>
+                <span>·</span>
+              </>
+            )}
+            <span>{formatDate(payment.date)}</span>
+            <span>·</span>
+            <span>{METHOD_LABEL[payment.method] || payment.method}</span>
+          </div>
+        </div>
+        <span
+          className={`font-mono text-sm font-semibold shrink-0 text-right min-w-[108px] ${
+            payment.reversed
+              ? "text-stone-400 dark:text-stone-500 line-through"
+              : "text-emerald-600 dark:text-emerald-400"
+          }`}
+        >
+          {formatMoney(payment.amount, currency)}
+        </span>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown
+              className={`w-4 h-4 ${
+                payment.reversed
+                  ? "text-rose-500 dark:text-rose-400"
+                  : "text-emerald-500 dark:text-emerald-400"
+              }`}
+            />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b to-transparent ${
+                payment.reversed
+                  ? "from-rose-200 dark:from-rose-900"
+                  : "from-emerald-200 dark:from-emerald-900"
+              }`}
+            />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <PaymentDetailsView payment={payment} currency={currency} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CHEQUE DETAILS + ROW — indigo/blue theme (cheques)
+// ============================================================
+function ChequeDetailsView({
+  cheque,
+  currency,
+}: {
+  cheque: LedgerCheque;
+  currency: string;
+}) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Cheque status
+          </span>
+          <div className="flex items-center gap-3 text-[11px] font-mono font-semibold">
+            <span className="text-indigo-600 dark:text-indigo-400">
+              {formatMoney(cheque.amount, currency)}
+            </span>
+            <StatusDot status={cheque.status} />
+          </div>
+        </div>
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: "100%",
+              backgroundImage:
+                cheque.status === "cleared"
+                  ? "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)"
+                  : cheque.status === "bounced" || cheque.status === "returned"
+                    ? "linear-gradient(90deg, #f43f5e, #ef4444, #dc2626)"
+                    : "linear-gradient(90deg, #6366f1, #818cf8, #6366f1)",
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+            <CheckCircle2 className="w-3 h-3" />
+            {cheque.status
+              ? cheque.status.charAt(0).toUpperCase() + cheque.status.slice(1)
+              : "—"}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <InfoCard
+          label="Cheque #"
+          value={<span className="font-mono">#{cheque.chequeNumber}</span>}
+          icon={
+            <FileCheck2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+          }
+          accent="from-indigo-50 to-white dark:from-indigo-950/40"
+        />
+        <InfoCard
+          label="Cheque date"
+          value={formatDate(cheque.chequeDate)}
+          icon={
+            <CalendarClock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+          }
+          accent="from-sky-50 to-white dark:from-sky-950/40"
+        />
+        <InfoCard
+          label="Bank"
+          value={cheque.bank}
+          icon={
+            <Landmark className="w-3.5 h-3.5 text-stone-600 dark:text-stone-400" />
+          }
+          accent="from-stone-50 to-white dark:from-stone-800/40"
+        />
+        <InfoCard
+          label="Payee"
+          value={cheque.payee}
+          icon={
+            <User className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+          }
+          accent="from-violet-50 to-white dark:from-violet-950/40"
+        />
+      </div>
+    </div>
+  );
+}
+
+function ChequeRow({
+  cheque,
+  currency,
+  isOpen,
+  onToggle,
+}: {
+  cheque: LedgerCheque;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  const themeBadge =
+    cheque.status === "cleared"
+      ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400"
+      : cheque.status === "bounced" || cheque.status === "returned"
+        ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
+        : "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400";
+  const themeChevron =
+    cheque.status === "cleared"
+      ? "text-teal-500 dark:text-teal-400"
+      : cheque.status === "bounced" || cheque.status === "returned"
+        ? "text-rose-500 dark:text-rose-400"
+        : "text-indigo-500 dark:text-indigo-400";
+  const themeConnector =
+    cheque.status === "cleared"
+      ? "from-teal-200 dark:from-teal-900"
+      : cheque.status === "bounced" || cheque.status === "returned"
+        ? "from-rose-200 dark:from-rose-900"
+        : "from-indigo-200 dark:from-indigo-900";
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div
+          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${themeBadge}`}
+        >
+          <FileCheck2 className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+            <span className="zfm-mono">#{cheque.chequeNumber}</span>
+            <span className="ml-2 text-xs text-stone-400 dark:text-stone-500 font-medium">
+              {cheque.bank}
+            </span>
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span>{formatDate(cheque.chequeDate)}</span>
+            <span>·</span>
+            <span>Payable to {cheque.payee}</span>
+          </div>
+        </div>
+        <StatusDot status={cheque.status} />
+        <div className="text-right shrink-0 min-w-[108px]">
+          <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+            {formatMoney(cheque.amount, currency)}
+          </div>
+        </div>
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className={`w-4 h-4 ${themeChevron}`} />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div
+              className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b to-transparent ${themeConnector}`}
+            />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <ChequeDetailsView cheque={cheque} currency={currency} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
 // SUPPLIER PICKER
 // ============================================================
@@ -193,6 +818,7 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
 }) => {
   const { currency } = useCurrency();
   const [supplierId, setSupplierId] = useState<string>("");
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const { supplier, bills, payments, cheques, summary, loading, error } =
     useSupplierLedger(supplierId || null);
 
@@ -350,30 +976,17 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
                 No bills yet
               </div>
             ) : (
-              <div className="divide-y divide-stone-100 dark:divide-stone-800">
+              <div>
                 {bills.map((b) => (
-                  <div
+                  <BillRow
                     key={b._id}
-                    className="px-5 py-3 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                        {b.category}
-                      </span>
-                      <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                        {b.invoiceNumber}
-                      </span>
-                      <span className="text-xs text-stone-400 dark:text-stone-500">
-                        Due {formatDate(b.dueDate)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <StatusDot status={b.status} />
-                      <span className="font-mono text-sm font-semibold text-stone-800 dark:text-stone-100">
-                        {formatMoney(b.amount, currency)}
-                      </span>
-                    </div>
-                  </div>
+                    bill={b}
+                    currency={currency}
+                    isOpen={expandedRowId === b._id}
+                    onToggle={() =>
+                      setExpandedRowId(expandedRowId === b._id ? null : b._id)
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -393,49 +1006,18 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
                 No payments yet
               </div>
             ) : (
-              <div className="divide-y divide-stone-100 dark:divide-stone-800">
-                {payments.map((p) => {
-                  const Icon = METHOD_ICON[p.method] || Banknote;
-                  const invoiceNumber =
-                    typeof p.transactionId === "string"
-                      ? p.transactionId
-                      : p.transactionId?.invoiceNumber;
-                  return (
-                    <div
-                      key={p._id}
-                      className="px-5 py-3 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Icon className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500" />
-                        <span className="text-sm font-medium text-stone-800 dark:text-stone-100 zfm-mono">
-                          {p.paymentNumber}
-                        </span>
-                        {invoiceNumber && (
-                          <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                            → {invoiceNumber}
-                          </span>
-                        )}
-                        <span className="text-xs text-stone-400 dark:text-stone-500">
-                          {formatDate(p.date)}
-                        </span>
-                        {p.reversed && (
-                          <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
-                            Reversed
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className={`font-mono text-sm font-semibold shrink-0 ${
-                          p.reversed
-                            ? "text-stone-400 dark:text-stone-500 line-through"
-                            : "text-teal-600 dark:text-teal-400"
-                        }`}
-                      >
-                        {formatMoney(p.amount, currency)}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div>
+                {payments.map((p) => (
+                  <PaymentRow
+                    key={p._id}
+                    payment={p}
+                    currency={currency}
+                    isOpen={expandedRowId === p._id}
+                    onToggle={() =>
+                      setExpandedRowId(expandedRowId === p._id ? null : p._id)
+                    }
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -454,30 +1036,17 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
                 No cheques yet
               </div>
             ) : (
-              <div className="divide-y divide-stone-100 dark:divide-stone-800">
+              <div>
                 {cheques.map((c) => (
-                  <div
+                  <ChequeRow
                     key={c._id}
-                    className="px-5 py-3 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-medium text-stone-800 dark:text-stone-100 zfm-mono">
-                        #{c.chequeNumber}
-                      </span>
-                      <span className="text-xs text-stone-400 dark:text-stone-500">
-                        {c.bank}
-                      </span>
-                      <span className="text-xs text-stone-400 dark:text-stone-500">
-                        {formatDate(c.chequeDate)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <StatusDot status={c.status} />
-                      <span className="font-mono text-sm font-semibold text-stone-800 dark:text-stone-100">
-                        {formatMoney(c.amount, currency)}
-                      </span>
-                    </div>
-                  </div>
+                    cheque={c}
+                    currency={currency}
+                    isOpen={expandedRowId === c._id}
+                    onToggle={() =>
+                      setExpandedRowId(expandedRowId === c._id ? null : c._id)
+                    }
+                  />
                 ))}
               </div>
             )}

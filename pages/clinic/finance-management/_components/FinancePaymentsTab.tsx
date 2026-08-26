@@ -6,6 +6,7 @@ import {
   Upload,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Loader2,
   Inbox,
   Paperclip,
@@ -24,6 +25,7 @@ import {
   CreditCard,
   Globe,
   Wallet,
+  Info,
 } from "lucide-react";
 import useFinancePayments, {
   PaymentData,
@@ -120,9 +122,9 @@ const METHOD_TABS: { value: MethodFilter; label: string }[] = [
 ];
 
 // ============================================================
-// PAYMENT ROW — expandable, mirrors BillRow pattern
+// PAYMENT DETAILS VIEW — mirrors BillsPayableTab BillDetailsView
 // ============================================================
-function PaymentRow({
+function PaymentDetailsView({
   payment,
   currency,
   onReverse,
@@ -131,7 +133,6 @@ function PaymentRow({
   currency: string;
   onReverse: (payment: PaymentData) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const supplierName =
     typeof payment.supplierId === "string"
       ? "—"
@@ -149,129 +150,319 @@ function PaymentRow({
       ? null
       : payment.chequeId?.chequeNumber;
 
+  const methodMeta = METHOD_META[payment.method];
+  const MethodIcon = methodMeta.icon;
+
+  const isImg = (url: string) =>
+    /\.(png|jpe?g|gif|webp|bmp)$/i.test(url) || url.startsWith("data:image");
+
+  const fields: Array<{
+    label: string;
+    value?: React.ReactNode;
+    icon: React.ReactNode;
+    accent: string;
+    span?: 1 | 2;
+    skip?: boolean;
+  }> = [
+    {
+      label: "Against Bill",
+      value: <span className="font-mono">{invoiceNumber}</span>,
+      icon: <Receipt className="w-3.5 h-3.5" />,
+      accent: "from-violet-50 to-white dark:from-violet-950/40",
+    },
+    {
+      label: "Payment Date",
+      value: formatDate(payment.date),
+      icon: <CalendarClock className="w-3.5 h-3.5" />,
+      accent: "from-sky-50 to-white dark:from-sky-950/40",
+    },
+    {
+      label: "Method",
+      value: (
+        <span className="inline-flex items-center gap-1.5">
+          <MethodIcon className="w-3.5 h-3.5" />
+          {methodMeta.label}
+        </span>
+      ),
+      icon: <MethodIcon className="w-3.5 h-3.5" />,
+      accent: "from-amber-50 to-white dark:from-amber-950/40",
+    },
+    {
+      label: "Bank",
+      value: bankName || "—",
+      icon: <Landmark className="w-3.5 h-3.5" />,
+      accent: "from-stone-50 to-white dark:from-stone-800/60",
+      skip: !bankName,
+    },
+    {
+      label: "Cheque #",
+      value: chequeNumber ? (
+        <span className="font-mono">{chequeNumber}</span>
+      ) : (
+        "—"
+      ),
+      icon: <FileCheck2 className="w-3.5 h-3.5" />,
+      accent: "from-indigo-50 to-white dark:from-indigo-950/40",
+      skip: !chequeNumber,
+    },
+    {
+      label: "Supplier",
+      value: supplierName,
+      icon: <Receipt className="w-3.5 h-3.5" />,
+      accent: "from-teal-50 to-white dark:from-teal-950/30",
+      span: 2,
+    },
+  ];
+
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <div
-        className="px-4 py-3 flex items-center justify-between hover:bg-stone-50 dark:hover:bg-stone-800/50 cursor-pointer transition-colors"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <button className="w-6 h-6 rounded-full bg-stone-100 dark:bg-stone-800 flex items-center justify-center text-stone-500 dark:text-stone-400 shrink-0">
-            <DollarSign className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                {supplierName}
-              </span>
-              <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                {payment.paymentNumber}
-              </span>
-              {payment.reversed && (
-                <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
-                  Reversed
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
-              <span className="zfm-mono">{invoiceNumber}</span>
-              <span>•</span>
-              <span>{formatDate(payment.date)}</span>
-            </div>
+    <div className="space-y-5">
+      {/* Payment record summary bar — 100% filled */}
+      <div>
+        <div className="flex items-center justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+            Payment record
+          </span>
+          <div className="text-[11px] font-mono font-semibold text-teal-600 dark:text-teal-400">
+            Paid {formatMoney(payment.amount, currency)}
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <MethodPill method={payment.method} />
+        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{
+              width: "100%",
+              backgroundImage:
+                "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
+          <span
+            className={
+              payment.reversed
+                ? "text-rose-500 dark:text-rose-400"
+                : "text-teal-600 dark:text-teal-400"
+            }
+          >
+            {payment.reversed ? "REVERSED" : "Settled"}
+          </span>
+          <span className="font-mono text-stone-500 dark:text-stone-400">
+            {payment.paymentNumber}
+          </span>
+        </div>
+      </div>
+
+      {/* Info grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {fields
+          .filter((f) => !f.skip)
+          .map((f) => (
+            <div
+              key={f.label}
+              className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${f.accent} p-3.5 ${f.span === 2 ? "sm:col-span-2" : ""}`}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
+                  {f.icon}
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                  {f.label}
+                </span>
+              </div>
+              <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+                {f.value}
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* Attachments */}
+      {payment.attachment && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
+              <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Attachments
+            </span>
+          </div>
+          <a
+            href={payment.attachment}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-center gap-2 rounded-lg border border-stone-100 dark:border-stone-700/60 bg-stone-50 dark:bg-stone-800/40 hover:bg-white dark:hover:bg-stone-800 p-2.5 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-md bg-white dark:bg-stone-900 flex items-center justify-center shrink-0 border border-stone-100 dark:border-stone-700/60 overflow-hidden">
+              {isImg(payment.attachment) ? (
+                <img
+                  src={payment.attachment}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <File className="w-4 h-4 text-stone-400" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium text-stone-700 dark:text-stone-200 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                Attached file
+              </div>
+              <div className="text-[10px] text-stone-400 dark:text-stone-500 truncate">
+                Click to open in new tab
+              </div>
+            </div>
+            <ChevronRight className="w-3 h-3 text-stone-300 dark:text-stone-600 shrink-0 group-hover:text-teal-500 transition-colors" />
+          </a>
+        </div>
+      )}
+
+      {/* Notes */}
+      {payment.notes && (
+        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-stone-800/40 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
+              <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              Notes
+            </span>
+          </div>
+          <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed pl-[32px]">
+            {payment.notes}
+          </p>
+        </div>
+      )}
+
+      {/* Reverse payment CTA bar */}
+      {!payment.reversed && (
+        <div className="pt-4 border-t border-stone-100 dark:border-stone-700/60 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 text-[11px] text-stone-400 dark:text-stone-500">
+            <Info className="w-3.5 h-3.5" />
+            Reversing keeps history — it doesn&apos;t delete the record.
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReverse(payment);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 px-3.5 py-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reverse payment
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// PAYMENT ROW — expandable accordion, mirrors BillRow pattern
+// ============================================================
+function PaymentRow({
+  payment,
+  currency,
+  isOpen,
+  onToggle,
+  onReverse,
+}: {
+  payment: PaymentData;
+  currency: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  onReverse: (payment: PaymentData) => void;
+}) {
+  const supplierName =
+    typeof payment.supplierId === "string"
+      ? "—"
+      : payment.supplierId?.name || "—";
+  const invoiceNumber =
+    typeof payment.transactionId === "string"
+      ? payment.transactionId
+      : payment.transactionId?.invoiceNumber || "—";
+
+  return (
+    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+      <button
+        onClick={onToggle}
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+          <DollarSign className="w-4 h-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+              {supplierName}
+            </div>
+            {payment.reversed && (
+              <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+                Reversed
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
+            <span className="font-mono">{payment.paymentNumber}</span>
+            <span>·</span>
+            <span className="font-mono">{invoiceNumber}</span>
+            <span>·</span>
+            <span>{formatDate(payment.date)}</span>
+          </div>
+        </div>
+        <MethodPill method={payment.method} />
+        <div className="text-right shrink-0 min-w-[108px]">
           <div
             className={`font-mono font-semibold text-sm ${
               payment.reversed
                 ? "text-stone-400 dark:text-stone-500 line-through"
-                : "text-teal-600 dark:text-teal-400"
+                : "text-stone-800 dark:text-stone-100"
             }`}
           >
             {formatMoney(payment.amount, currency)}
           </div>
-          <ChevronRight
-            className={`w-4 h-4 text-stone-400 dark:text-stone-500 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
-        </div>
-      </div>
-      {expanded && (
-        <div className="px-4 py-3 bg-stone-50/50 dark:bg-stone-800/30 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Against bill:
-              </span>
-              <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                {invoiceNumber}
-              </span>
+          {payment.reversed ? (
+            <div className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 zfm-mono">
+              Reversed
             </div>
-            {bankName && (
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Bank:
-                </span>
-                <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {bankName}
-                </span>
-              </div>
-            )}
-            {chequeNumber && (
-              <div>
-                <span className="text-stone-400 dark:text-stone-500">
-                  Cheque #:
-                </span>
-                <span className="ml-2 font-mono text-stone-600 dark:text-stone-300">
-                  {chequeNumber}
-                </span>
-              </div>
-            )}
-            <div>
-              <span className="text-stone-400 dark:text-stone-500">
-                Attachment:
-              </span>
-              {payment.attachment ? (
-                <a
-                  href={payment.attachment}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-2 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  <Paperclip className="w-3 h-3" /> View
-                </a>
-              ) : (
-                <span className="ml-2 text-[11px] text-stone-300 dark:text-stone-600">
-                  None
-                </span>
-              )}
-            </div>
-            {payment.notes && (
-              <div className="col-span-2">
-                <span className="text-stone-400 dark:text-stone-500">
-                  Notes:
-                </span>
-                <span className="ml-2 text-stone-600 dark:text-stone-300">
-                  {payment.notes}
-                </span>
-              </div>
-            )}
-          </div>
-          {!payment.reversed && (
-            <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onReverse(payment);
-                }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-500 dark:text-rose-400 hover:underline"
-              >
-                <RotateCcw className="w-3 h-3" /> Reverse payment
-              </button>
+          ) : (
+            <div className="text-[10px] text-teal-600 dark:text-teal-400 zfm-mono font-semibold">
+              Paid
             </div>
           )}
         </div>
-      )}
+        <div
+          className={`shrink-0 transition-transform duration-200 ${
+            isOpen ? "rotate-90" : ""
+          }`}
+        >
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+          )}
+        </div>
+      </button>
+
+      {/* Smooth expand/collapse — identical to BillsPayableTab */}
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pt-2 pb-5 pl-13 ml-13 relative">
+            <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
+            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+              <PaymentDetailsView
+                payment={payment}
+                currency={currency}
+                onReverse={onReverse}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -959,6 +1150,9 @@ const FinancePaymentsTab: React.FC<UseFinancePermissionReturn> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [reverseTarget, setReverseTarget] = useState<PaymentData | null>(null);
   const [reverseReason, setReverseReason] = useState("");
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(
+    null,
+  );
 
   const from = pagination?.totalResults === 0 ? 0 : (page - 1) * 15 + 1;
   const to = Math.min(page * 15, pagination?.totalResults || 0);
@@ -1078,14 +1272,21 @@ const FinancePaymentsTab: React.FC<UseFinancePermissionReturn> = ({
                   <span className="text-sm">No payments found.</span>
                 </div>
               ) : (
-                payments.map((payment) => (
-                  <PaymentRow
-                    key={payment._id}
-                    payment={payment}
-                    currency={currency}
-                    onReverse={setReverseTarget}
-                  />
-                ))
+                payments.map((payment) => {
+                  const isOpen = expandedPaymentId === payment._id;
+                  return (
+                    <PaymentRow
+                      key={payment._id}
+                      payment={payment}
+                      currency={currency}
+                      isOpen={isOpen}
+                      onToggle={() =>
+                        setExpandedPaymentId(isOpen ? null : payment._id)
+                      }
+                      onReverse={setReverseTarget}
+                    />
+                  );
+                })
               )}
             </div>
           )}
