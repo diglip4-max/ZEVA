@@ -89,9 +89,9 @@ export default async function handler(req, res) {
     : null;
 
   // DEBUG: Log the match criteria
-  console.log("DEBUG Revenue API - clinicMatch:", clinicMatch);
-  console.log("DEBUG Revenue API - dateMatch:", dateMatch);
-  console.log("DEBUG Revenue API - paymentMethodFilter:", paymentMethodFilter);
+  // console.log("DEBUG Revenue API - clinicMatch:", clinicMatch);
+  // console.log("DEBUG Revenue API - dateMatch:", dateMatch);
+  // console.log("DEBUG Revenue API - paymentMethodFilter:", paymentMethodFilter);
 
   const pageNum = Math.max(1, parseInt(paymentsPage || "1", 10));
   const pageSizeNum = Math.max(1, parseInt(paymentsPageSize || "10", 10));
@@ -973,14 +973,14 @@ export default async function handler(req, res) {
           packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
         },
       },
-      // Filter: For Package billings, only include if seller is a doctor
+      // Filter: For Package billings, only include if seller is a doctor or doctorStaff
       // Mixed billings (Package + Treatment from appointment) are handled
       // separately by the $unionWith at line 1410 to avoid duplication
       {
         $match: {
           $or: [
             { service: { $ne: "Package" } },
-            { $and: [{ service: "Package" }, { packageSoldByRole: "doctor" }] },
+            { $and: [{ service: "Package" }, { packageSoldByRole: { $in: ["doctor", "doctorStaff"] } }] },
             // Clearance billing: let it pass so the cleared facet stream can process its breakdown items
             {
               $and: [
@@ -1989,27 +1989,27 @@ export default async function handler(req, res) {
     ]);
 
     // DEBUG: Log byDoctorAgg results with debug fields
-    console.log("DEBUG byDoctorAgg results:", JSON.stringify(byDoctorAgg.map(d => ({
-      doctorId: String(d._id),
-      amount: d.amount,
-      details: d.details.map(det => ({
-        invoiceNumber: det.invoiceNumber,
-        service: det.service,
-        treatmentName: det.treatmentName,
-        packageName: det.packageName,
-        totalAmount: det.amount,
-        paid: det.paid,
-        pending: det.pending,
-        isClearedItem: det.isClearedItem,
-        // Debug fields
-        _debug_billingPaid: det._debug_billingPaid,
-        _debug_paid: det._debug_paid,
-        _debug_pendingUsed: det._debug_pendingUsed,
-        _debug_treatmentAmount: det._debug_treatmentAmount,
-        _debug_treatmentPrice: det._debug_treatmentPrice,
-        _debug_originalAmount: det._debug_originalAmount,
-      }))
-    })), null, 2));
+    // console.log("DEBUG byDoctorAgg results:", JSON.stringify(byDoctorAgg.map(d => ({
+    //   doctorId: String(d._id),
+    //   amount: d.amount,
+    //   details: d.details.map(det => ({
+    //     invoiceNumber: det.invoiceNumber,
+    //     service: det.service,
+    //     treatmentName: det.treatmentName,
+    //     packageName: det.packageName,
+    //     totalAmount: det.amount,
+    //     paid: det.paid,
+    //     pending: det.pending,
+    //     isClearedItem: det.isClearedItem,
+    //     // Debug fields
+    //     _debug_billingPaid: det._debug_billingPaid,
+    //     _debug_paid: det._debug_paid,
+    //     _debug_pendingUsed: det._debug_pendingUsed,
+    //     _debug_treatmentAmount: det._debug_treatmentAmount,
+    //     _debug_treatmentPrice: det._debug_treatmentPrice,
+    //     _debug_originalAmount: det._debug_originalAmount,
+    //   }))
+    // })), null, 2));
 
     // SEPARATE PIPELINE: Unpaid package billings without appointment (sold by doctorStaff)
     // These billings don't have an appointment, so they're excluded from the main byDoctorAgg pipeline
@@ -4468,7 +4468,7 @@ export default async function handler(req, res) {
     const byDepartmentAgg = await Billing.aggregate(departmentPipeline);
 
     // DEBUG: Log the aggregation results to see what's happening
-    console.log("DEBUG byDepartmentAgg:", JSON.stringify(byDepartmentAgg, null, 2));
+    // console.log("DEBUG byDepartmentAgg:", JSON.stringify(byDepartmentAgg, null, 2));
 
     // DEBUG: Extract and log debug fields from details
     const debugDetails = byDepartmentAgg.flatMap(d => d.details || []).map(detail => ({
@@ -4479,7 +4479,7 @@ export default async function handler(req, res) {
       debug_after_match: detail._debug_after_match,
       debug_after_effectiveAmountForService: detail._debug_after_effectiveAmountForService,
     }));
-    console.log("DEBUG Department Details:", JSON.stringify(debugDetails, null, 2));
+    // console.log("DEBUG Department Details:", JSON.stringify(debugDetails, null, 2));
 
     const departmentIds = byDepartmentAgg.map((d) => d._id).filter(Boolean);
     const departmentMap = departmentIds.length
@@ -4914,35 +4914,35 @@ export default async function handler(req, res) {
     ]);
 
     // DEBUG: Log paymentsAgg results to trace double-counting issue
-    console.log("DEBUG paymentsAgg results:", JSON.stringify(paymentsAgg.map(p => ({
-      method: p._id,
-      amount: p.amount,
-      details: p.details.map(d => ({
-        invoiceNumber: d.invoiceNumber,
-        service: d.service,
-        package: d.package,
-        revenue: d.revenue,
-        totalAmount: d.totalAmount,
-        treatment: d.treatment
-      }))
-    })), null, 2));
+    // console.log("DEBUG paymentsAgg results:", JSON.stringify(paymentsAgg.map(p => ({
+    //   method: p._id,
+    //   amount: p.amount,
+    //   details: p.details.map(d => ({
+    //     invoiceNumber: d.invoiceNumber,
+    //     service: d.service,
+    //     package: d.package,
+    //     revenue: d.revenue,
+    //     totalAmount: d.totalAmount,
+    //     treatment: d.treatment
+    //   }))
+    // })), null, 2));
 
     // DEBUG: Log raw billings that entered the pipeline
     const debugBillings = await Billing.find({ ...clinicMatch, ...dateMatch })
       .select('invoiceNumber service paymentMethod paid amount pendingClearedBreakdown multiplePayments')
       .lean();
-    console.log("DEBUG Raw billings:", JSON.stringify(debugBillings.map(b => ({
-      invoiceNumber: b.invoiceNumber,
-      service: b.service,
-      paymentMethod: b.paymentMethod,
-      paid: b.paid,
-      amount: b.amount,
-      hasBreakdown: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0,
-      breakdownInvoice: Array.isArray(b.pendingClearedBreakdown) ? b.pendingClearedBreakdown[0]?.invoiceNumber : null,
-      isCrossInvoice: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0 && b.pendingClearedBreakdown[0]?.invoiceNumber !== b.invoiceNumber,
-      multiplePaymentsCount: Array.isArray(b.multiplePayments) ? b.multiplePayments.length : 0,
-      multiplePayments: Array.isArray(b.multiplePayments) ? b.multiplePayments.map(mp => ({ method: mp.paymentMethod, amount: mp.amount, type: mp.transactionType })) : []
-    })), null, 2));
+    // console.log("DEBUG Raw billings:", JSON.stringify(debugBillings.map(b => ({
+    //   invoiceNumber: b.invoiceNumber,
+    //   service: b.service,
+    //   paymentMethod: b.paymentMethod,
+    //   paid: b.paid,
+    //   amount: b.amount,
+    //   hasBreakdown: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0,
+    //   breakdownInvoice: Array.isArray(b.pendingClearedBreakdown) ? b.pendingClearedBreakdown[0]?.invoiceNumber : null,
+    //   isCrossInvoice: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0 && b.pendingClearedBreakdown[0]?.invoiceNumber !== b.invoiceNumber,
+    //   multiplePaymentsCount: Array.isArray(b.multiplePayments) ? b.multiplePayments.length : 0,
+    //   multiplePayments: Array.isArray(b.multiplePayments) ? b.multiplePayments.map(mp => ({ method: mp.paymentMethod, amount: mp.amount, type: mp.transactionType })) : []
+    // })), null, 2));
 
     const revenueByPaymentMethod = paymentsAgg.map((p) => ({
       method: p._id || "Unknown",

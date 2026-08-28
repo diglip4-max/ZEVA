@@ -239,10 +239,23 @@ export default async function handler(req, res) {
           totalRevenue: { $sum: "$totalAmount" },
           totalPaid: { $sum: "$totalPaid" },
           totalPending: { $sum: "$totalPending" },
+          // BUG FIX: Conditions were previously not mutually exclusive.
+          //   old paid:   totalPending <= 0   (only checked pending)
+          //   old unpaid: totalPaid    <= 0   (only checked paid)
+          // When totalPaid=0 AND totalPending=0, the same record was counted
+          // in BOTH paid AND unpaid, making paid+partially+unpaid exceed
+          // totalPackagesSold. Now uses the same pattern as the package-performance
+          // combined summary and monthly aggregation:
+          //   paid      = totalPaid    > 0 AND totalPending <= 0
+          //   partially = totalPaid    > 0 AND totalPending  > 0
+          //   unpaid    = totalPaid   <= 0 AND totalPending  > 0
+          // Records where totalPaid=0 AND totalPending=0 (e.g. free/$0 packages
+          // or amounts cleared entirely via advance/claim) are not counted in
+          // any bucket, ensuring paid+partially+unpaid never exceeds sold.
           paidPackages: {
             $sum: {
               $cond: [
-                { $lte: ["$totalPending", 0] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $lte: ["$totalPending", 0] }] },
                 1,
                 0
               ]
@@ -251,7 +264,7 @@ export default async function handler(req, res) {
           partiallyPaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: ["$totalPending", 0] }, { $gt: ["$totalPaid", 0] }] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0
               ]
@@ -260,7 +273,7 @@ export default async function handler(req, res) {
           unpaidPackages: {
             $sum: {
               $cond: [
-                { $lte: ["$totalPaid", 0] },
+                { $and: [{ $lte: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0
               ]
