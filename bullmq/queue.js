@@ -101,3 +101,8 @@ export const generateRegexSuggestionsQueue = new Queue(
     connection: redis,
   },
 );
+
+// ----------------------------------- NOTIFICATION QUEUE -----------------------------------//
+export const notificationQueue = new Queue("notificationQueue", {
+  connection: redis,
+});

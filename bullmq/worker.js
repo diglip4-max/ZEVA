@@ -2227,7 +2227,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
                 ? recipient.phone
                 : `+${recipient.phone}`;
               const withoutPlusNumber = withPlusNumber.replace("+", "");
-              const patient = await PatientRegistration.findOne({
+              let patient = await PatientRegistration.findOne({
                 clinicId: campaign.clinicId,
                 mobileNumber: withoutPlusNumber,
               });
@@ -3348,6 +3348,216 @@ const listImapIncomingEmailWorker = new Worker(
       } catch (error) {
         console.error("❌ Error fetching incoming emails: ", error);
       }
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 10,
+  },
+);
+
+// ----------------------------------- NOTIFICATION WORKER -----------------------------------//
+export const notificationWorker = new Worker(
+  "notificationQueue",
+  async (job) => {
+    const {
+      clinicId,
+      channel,
+      recipient,
+      leadId,
+      priority,
+      providerId,
+      templateId,
+      mediaType,
+      mediaUrl,
+      variableMappings,
+      headerVariableMappings = {},
+      buttonVariableMappings = {},
+      attachments,
+    } = job.data;
+    console.log(`Processing notification job worker: ${job.id}`, job.data);
+    console.log(`Dispatching notification to channel: ${channel}`);
+
+    try {
+      // Make an array of header, button and body parameters for whatsapp message
+      let headerParameters = [];
+      if (headerVariableMappings) {
+        headerParameters = Object.entries(headerVariableMappings).map(
+          ([key, value]) => ({
+            type: "text",
+            text: value,
+          }),
+        );
+      }
+      let buttonParameters = [];
+      if (buttonVariableMappings) {
+        // Ensure it's an array of objects, not an object of objects
+        buttonParameters = Object.values(buttonVariableMappings).map(
+          (value) => ({
+            type: "text",
+            text: value,
+          }),
+        );
+      }
+      let bodyParameters = [];
+      if (variableMappings) {
+        bodyParameters = Object.entries(variableMappings).map(
+          ([key, value]) => ({
+            type: "text",
+            text: value,
+          }),
+        );
+      }
+
+      const lead = await Lead.findById(leadId);
+      if (!lead) {
+        throw new Error(`Lead with id ${leadId} not found`);
+      }
+
+      // Find conversation for leadId
+      let conversation = await Conversation.findOne({
+        clinicId: clinicId,
+        leadId: leadId,
+      });
+
+      if (!conversation) {
+        // if not found conversation then create new one
+        conversation = new Conversation({
+          clinicId: clinicId,
+          // ownerId: workflow?.ownerId,
+          leadId: leadId,
+        });
+        await conversation.save();
+      }
+
+      // Find Provider from providerId
+      let provider = await Provider.findById(providerId);
+      if (!provider) {
+        throw new Error(`Provider with id ${providerId} not found`);
+      }
+
+      // Find Template from templateId
+      let template = await Template.findById(templateId);
+      if (!template) {
+        throw new Error(`Template with id ${templateId} not found`);
+      }
+
+      let content = template.content;
+
+      // Create message
+      const newMessage = new Message({
+        clinicId: clinicId,
+        conversationId: conversation._id,
+        leadId: leadId,
+        senderId: providerId,
+        recipientId: leadId,
+        channel: channel,
+        messageType: "automation",
+        direction: "outgoing",
+        content,
+        mediaUrl,
+        mediaType,
+        source: "Zeva Notification",
+        status: "sending",
+        provider: provider._id,
+        bodyParameters,
+        headerParameters,
+        headerText: template.headerText || "",
+        footerText: template.footer || "",
+      });
+      // assign this message as a recentMessage
+      conversation.recentMessage = newMessage._id;
+      conversation.status = "open";
+      await Promise.all([newMessage.save(), conversation.save()]);
+
+      let toPhoneNumber = lead?.phone;
+      let msgData;
+      let resData;
+
+      if (channel === "sms") {
+        msgData = {
+          to: toPhoneNumber,
+          from: channel === "email" ? provider?.email : provider?.phone,
+          msg: content,
+          channel: "sms",
+          type: messageType,
+          clientMessageId: newMessage._id,
+          // StatusCallback: `${config.SERVER_URL}/api/messageStatusCallback?messageId=${newMessage._id}`,
+          credentials: {
+            account_sid: provider?.secrets?.accountSid,
+            auth_token: provider?.secrets?.accountToken,
+            msgServiceId: provider?.secrets?.messagingServiceId,
+          },
+          mediaUrl,
+        };
+        // resData = await handleSmsSendMessage(msgData);
+      } else if (channel === "whatsapp") {
+        const accessToken = provider?.secrets?.whatsappAccessToken;
+        const phoneNumberId = provider?.phone;
+        if (!accessToken || !phoneNumberId) {
+          throw new Error("WhatsApp access token or phone number is missing");
+        }
+        msgData = {
+          channel: "whatsapp",
+          to: toPhoneNumber,
+          template: template.uniqueName,
+          language: template?.language || "en_US",
+          components: [
+            template?.isHeader && template?.headerType
+              ? {
+                  type: "header",
+                  ...(template.headerType === "text"
+                    ? headerParameters.length > 0
+                      ? { parameters: headerParameters } // Pass parameters only if they exist
+                      : {} // Use static text
+                    : {
+                        parameters: [
+                          {
+                            type: template.headerType,
+                            [template.headerType]: {
+                              link: mediaUrl,
+                            },
+                          },
+                        ],
+                      }),
+                }
+              : null,
+            bodyParameters?.length > 0
+              ? {
+                  type: "body",
+                  parameters: bodyParameters,
+                }
+              : null,
+
+            // for authentication template
+            template?.category?.toLowerCase() === "authentication"
+              ? {
+                  type: "button",
+                  sub_type: "url",
+                  index: "0",
+                  parameters: bodyParameters,
+                }
+              : null,
+          ].filter(Boolean),
+          clientMessageId: newMessage._id, // above message id
+          credentials: {
+            accessToken,
+            phoneNumberId,
+          },
+        };
+
+        resData = await handleWhatsappSendMessage(msgData);
+      }
+
+      if (!resData) {
+        newMessage.status = "failed";
+      } else {
+        newMessage.status = "queued";
+        newMessage.providerMessageId = resData?.messages?.[0]?.id || "";
+      }
+      await Promise.all([newMessage.save(), conversation.save()]);
+    } catch (err) {
+      console.error(`Error processing notification job worker: ${job.id}`, err);
     }
   },
   {
