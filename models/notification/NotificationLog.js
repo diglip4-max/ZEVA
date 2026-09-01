@@ -19,12 +19,16 @@ const NotificationLogSchema = new Schema(
     },
 
     notificationTypeKey: { type: String, required: true, index: true },
+    category: { type: String, required: true, index: true },
     label: { type: String, required: true },
-    triggerEvent: { type: String, required: true },
+    trigger: {
+      event: { type: String, required: true },
+      conditions: { type: Schema.Types.Mixed, default: {} },
+    },
     sourceId: { type: Types.ObjectId }, // paymentId, appointmentId, etc.
 
     channel: { type: String, enum: ["whatsapp", "sms", "email", "app_push"] },
-    recipientType: {
+    recipient: {
       type: String,
       enum: ["patient", "staff"],
       default: "patient",
@@ -32,14 +36,25 @@ const NotificationLogSchema = new Schema(
 
     status: {
       type: String,
-      enum: ["pending", "sent", "delivered", "read", "failed"],
+      enum: [
+        "pending",
+        "queued",
+        "sent",
+        "delivered",
+        "read",
+        "opened",
+        "clicked",
+        "failed",
+      ],
       default: "pending",
     },
     sentAt: { type: Date },
     deliveredAt: { type: Date },
     readAt: { type: Date },
+    openedAt: { type: Date }, // for booking/offer links — section 23 "Opened" metric
     clickedAt: { type: Date }, // for booking/offer links — section 23 "Clicked" metric
-    failureReason: { type: String },
+
+    error: { type: String, default: "" },
 
     // Section 24 audit trail: who/what caused this notification.
     // Omit for system-triggered events; set for manual sends/resends.

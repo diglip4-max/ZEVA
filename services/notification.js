@@ -1,3 +1,4 @@
+import { notificationQueue } from "../bullmq/queue.js";
 import { Setting } from "../models/settings/Setting";
 
 export const dispatchNotification = async ({
@@ -48,6 +49,7 @@ export const dispatchNotification = async ({
     }
     for (let item of channels) {
       const {
+        clinicId,
         channel,
         isEnabled,
         recipient,
@@ -68,8 +70,82 @@ export const dispatchNotification = async ({
         continue;
       }
       console.log(`Dispatching notification to channel: ${item.channel}`);
+      const job = await notificationQueue.add({
+        clinicId,
+        notificationTypeKey,
+        notificationCategory,
+        channel,
+        recipient,
+        // leadId,
+        priority,
+        providerId,
+        templateId,
+        mediaType,
+        mediaUrl,
+        variableMappings,
+        headerVariableMappings,
+        buttonVariableMappings,
+        attachments,
+      });
+
+      console.log(`Notification job added with ID: ${job.id}`);
     }
   } catch (err) {
     console.log("Error dispatching notification:", err);
+  }
+};
+
+// Update Notification status when message sent, delivered, read, clicked
+export const updateNotificationStatus = async ({
+  messageId,
+  status,
+  error,
+}) => {
+  if (!messageId) {
+    console.log("messageId is required for update notification status");
+    return;
+  }
+  if (!status) {
+    console.log("status is required for update notification status");
+    return;
+  }
+  if (!error) {
+    console.log("error is required for update notification status");
+    return;
+  }
+
+  try {
+    // Find Notification Log for the message
+    const notificationLog = await NotificationLog.findOne({
+      messageId,
+    });
+    if (!notificationLog) {
+      console.log("Notification Log not found for message");
+      return;
+    }
+    // Update Notification Log status
+    if (status === "failed") {
+      notificationLog.status = status;
+      notificationLog.error = error;
+    } else if (status === "sent") {
+      notificationLog.status = status;
+      notificationLog.sentAt = new Date();
+    } else if (status === "delivered") {
+      notificationLog.status = status;
+      notificationLog.deliveredAt = new Date();
+    } else if (status === "read") {
+      notificationLog.status = status;
+      notificationLog.readAt = new Date();
+    } else if (status === "opened") {
+      notificationLog.status = status;
+      notificationLog.openedAt = new Date();
+    } else if (status === "clicked") {
+      notificationLog.status = status;
+      notificationLog.clickedAt = new Date();
+    }
+    await notificationLog.save();
+    console.log("Notification status updated successfully");
+  } catch (err) {
+    console.log("Error updating notification status:", err);
   }
 };

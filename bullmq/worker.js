@@ -73,6 +73,7 @@ import { validateEmail } from "../services/validate.js";
 import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { uploadMedia } from "../services/upload.js";
+import { NotificationLog } from "../models/notification/NotificationLog.js";
 
 // --- Helper to add listeners to all workers ---
 const addWorkerListeners = (worker, queueName) => {
@@ -3362,6 +3363,11 @@ export const notificationWorker = new Worker(
   async (job) => {
     const {
       clinicId,
+      notificationTypeKey,
+      notificationCategory,
+      label,
+      trigger,
+      sourceId,
       channel,
       recipient,
       leadId,
@@ -3549,13 +3555,41 @@ export const notificationWorker = new Worker(
         resData = await handleWhatsappSendMessage(msgData);
       }
 
+      // Create notification log here for notification history
+      let notificationLog = new NotificationLog({
+        clinicId,
+        patientId,
+        notificationTypeKey,
+        category,
+        label,
+        trigger,
+        sourceId,
+        channel,
+        recipient,
+        leadId,
+        triggeredBy: {
+          type: "system",
+          userId: null,
+        },
+        messageId: newMessage._id,
+      });
+      await notificationLog.save();
+
       if (!resData) {
         newMessage.status = "failed";
+        notificationLog.status = "failed";
+        notificationLog.error = "Failed to send message";
       } else {
         newMessage.status = "queued";
         newMessage.providerMessageId = resData?.messages?.[0]?.id || "";
+        notificationLog.status = "queued";
+        notificationLog.error = "";
       }
-      await Promise.all([newMessage.save(), conversation.save()]);
+      await Promise.all([
+        newMessage.save(),
+        conversation.save(),
+        notificationLog.save(),
+      ]);
     } catch (err) {
       console.error(`Error processing notification job worker: ${job.id}`, err);
     }
