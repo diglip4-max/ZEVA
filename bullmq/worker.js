@@ -2227,7 +2227,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
                 ? recipient.phone
                 : `+${recipient.phone}`;
               const withoutPlusNumber = withPlusNumber.replace("+", "");
-              const patient = await PatientRegistration.findOne({
+              let patient = await PatientRegistration.findOne({
                 clinicId: campaign.clinicId,
                 mobileNumber: withoutPlusNumber,
               });
