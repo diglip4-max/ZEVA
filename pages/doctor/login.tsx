@@ -21,6 +21,7 @@ const setAuthData = (user: { name: string; email: string }, token: string) => {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
       localStorage.setItem(TOKEN_KEY, token);
+      window.dispatchEvent(new Event("authTokenChanged"));
     } catch (error) {
       console.error('Failed to store auth data:', error);
     }

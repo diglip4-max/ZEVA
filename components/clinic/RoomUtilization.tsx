@@ -39,18 +39,32 @@ const RoomUtilization: React.FC<RoomUtilizationProps> = ({
          return;
         }
 
-       const params: any = { filter: timeRange };
+        const params: any = { filter: timeRange };
         
-        // Add date parameters based on filter
-       if (timeRange === 'today' && selectedDate) {
-         params.date = selectedDate.toISOString().split('T')[0];
-       } else if (timeRange === 'week' && selectedDate) {
-         params.date = selectedDate.toISOString().split('T')[0];
+        // Add date parameters based on filter using local timezone formatting to prevent date shift
+        if (timeRange === 'today' && selectedDate) {
+          const year = selectedDate.getFullYear();
+          const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+          const day = String(selectedDate.getDate()).padStart(2, '0');
+          params.date = `${year}-${month}-${day}`;
+        } else if (timeRange === 'week' && selectedDate) {
+          const year = selectedDate.getFullYear();
+          const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+          const day = String(selectedDate.getDate()).padStart(2, '0');
+          params.date = `${year}-${month}-${day}`;
         } else if (timeRange === 'month' && selectedDate) {
-         const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-         const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
-         params.startDate = startDate.toISOString().split('T')[0];
-         params.endDate = endDate.toISOString().split('T')[0];
+          const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+          const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+          
+          const startYear = startDate.getFullYear();
+          const startMonth = String(startDate.getMonth() + 1).padStart(2, '0');
+          const startDay = String(startDate.getDate()).padStart(2, '0');
+          params.startDate = `${startYear}-${startMonth}-${startDay}`;
+          
+          const endYear = endDate.getFullYear();
+          const endMonth = String(endDate.getMonth() + 1).padStart(2, '0');
+          const endDay = String(endDate.getDate()).padStart(2, '0');
+          params.endDate = `${endYear}-${endMonth}-${endDay}`;
         }
         // For 'overall', no additional params needed
 

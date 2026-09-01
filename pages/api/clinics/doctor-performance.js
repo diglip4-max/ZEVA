@@ -78,118 +78,124 @@ export default async function handler(req, res) {
           message: permError || "You do not have permission to view this data",
         });
       }
-      */
+      */    const { filter= 'month', date, startDate, endDate } = req.query;
 
-    const { filter= 'month', date, startDate, endDate } = req.query;
+    // Calculate date range based on filter using UTC dates to match MongoDB's UTC midnights
+    let queryStartDate = null;
+    let queryEndDate = null;
 
-      // Calculate date range based on filter
-     let queryStartDate = null;
-     let queryEndDate = null;
-
-  if (filter === 'today') {
-      const baseDate = date ? dayjs(date) : dayjs();
-      queryStartDate = baseDate.startOf('day').toDate();
-      queryEndDate = baseDate.endOf('day').toDate();
+    if (filter === 'today') {
+      const dateStr = date || new Date().toISOString().split('T')[0];
+      queryStartDate = new Date(`${dateStr}T00:00:00.000Z`);
+      queryEndDate = new Date(`${dateStr}T23:59:59.999Z`);
     } else if (filter === 'week') {
       // Monday to Sunday of the week containing the date
       const baseDate = date ? dayjs(date) : dayjs();
       const day = baseDate.day(); // 0 is Sunday, 1 is Monday, etc.
       const diffToMonday = day === 0 ? -6 : 1 - day;
-      queryStartDate = baseDate.add(diffToMonday, 'day').startOf('day').toDate();
-      queryEndDate = dayjs(queryStartDate).add(6, 'day').endOf('day').toDate();
+      const startBase = baseDate.add(diffToMonday, 'day');
+      const startStr = startBase.toISOString().split('T')[0];
+      queryStartDate = new Date(`${startStr}T00:00:00.000Z`);
+      
+      const endBase = startBase.add(6, 'day');
+      const endStr = endBase.toISOString().split('T')[0];
+      queryEndDate = new Date(`${endStr}T23:59:59.999Z`);
     } else if (filter === 'month') {
       // Last 30 days
-      const end = date ? dayjs(date) : dayjs();
-      const start = end.subtract(30, 'day');
-      queryStartDate = start.startOf('day').toDate();
-      queryEndDate = end.endOf('day').toDate();
+      const endBase = date ? dayjs(date) : dayjs();
+      const endStr = endBase.toISOString().split('T')[0];
+      queryEndDate = new Date(`${endStr}T23:59:59.999Z`);
+      
+      const startBase = endBase.subtract(30, 'day');
+      const startStr = startBase.toISOString().split('T')[0];
+      queryStartDate = new Date(`${startStr}T00:00:00.000Z`);
     } else if (filter === 'overall') {
       // For overall, get data since clinic registration
       queryStartDate = clinic?.registeredAt ? dayjs(clinic.registeredAt).startOf('day').toDate() : dayjs().subtract(1, 'year').startOf('day').toDate();
       queryEndDate = dayjs().endOf('day').toDate();
     } else if (filter === 'all' || filter === 'lifetime') {
-       // Lifetime: no date restrictions (all-time)
-       queryStartDate = null;
-       queryEndDate = null;
-      } else {
-       // Default to current month
-    const baseDate = dayjs();
-       queryStartDate = baseDate.startOf('month').toDate();
-       queryEndDate = baseDate.endOf('month').toDate();
-      }
+      // Lifetime: no date restrictions (all-time)
+      queryStartDate = null;
+      queryEndDate = null;
+    } else {
+      // Default to current month
+      const baseDate = dayjs();
+      const startStr = baseDate.startOf('month').toISOString().split('T')[0];
+      queryStartDate = new Date(`${startStr}T00:00:00.000Z`);
+      const endStr = baseDate.endOf('month').toISOString().split('T')[0];
+      queryEndDate = new Date(`${endStr}T23:59:59.999Z`);
+    }
 
     if (startDate && endDate) {
-        queryStartDate = dayjs(startDate).startOf('day').toDate();
-        queryEndDate = dayjs(endDate).endOf('day').toDate();
-      }
+      queryStartDate = new Date(`${startDate}T00:00:00.000Z`);
+      queryEndDate = new Date(`${endDate}T23:59:59.999Z`);
+    }
 
-    // console.log('📅 Date Range:', { filter, queryStartDate, queryEndDate });
+    // Fetch all appointments (include Cancelled/Rejected to display total bookings count accurately)
+    const apptQuery = { clinicId };
+    if (queryStartDate && queryEndDate) {
+      apptQuery.startDate = { $gte: queryStartDate, $lte: queryEndDate };
+    }
+    const appointments = await Appointment.find(apptQuery).lean();
 
-      // Fetch all appointments with doctor details
-      const apptQuery = { clinicId, status: { $nin: ['Cancelled', 'Rejected'] } };
-      if (queryStartDate && queryEndDate) {
-        apptQuery.startDate = { $gte: queryStartDate, $lte: queryEndDate };
-      }
-  const appointments = await Appointment.find(apptQuery).lean();
-
-  console.log('✅ Found', appointments.length, 'appointments');
+    console.log('✅ Found', appointments.length, 'appointments');
      
-  // Fetch ALL staff doctors for this clinic (baseline for zero revenue/appointments too)
- const staffDocs = await User.find({ 
+    // Fetch ALL staff doctors for this clinic (baseline for zero revenue/appointments too)
+    const staffDocs = await User.find({ 
       clinicId,
       role: 'doctorStaff'
     }).select('_id name email').lean();
- console.log('👨‍⚕️ Staff doctors in clinic:', staffDocs.length);
- 
- // Create a map and a set for quick lookup of staff doctors
- const doctorMap = {};
- const staffDoctorIds = new Set();
- staffDocs.forEach(doc => {
-   const key = doc._id.toString();
-   staffDoctorIds.add(key);
-   doctorMap[key] = {
-     name: doc.name,
-     email: doc.email
-   };
- });
-   
-  if (appointments.length > 0) {
- console.log('🎯 Sample appointment doctorId:', appointments[0].doctorId.toString());
- console.log('🎯 Sample doctor from map:', doctorMap[appointments[0].doctorId.toString()]);
-  }
-
-      // 1. Appointments per Doctor (only staff doctors)
-   const doctorAppointmentMap = {};
+    console.log('👨‍⚕️ Staff doctors in clinic:', staffDocs.length);
+    
+    // Create a map and a set for quick lookup of staff doctors
+    const doctorMap = {};
+    const staffDoctorIds = new Set();
+    staffDocs.forEach(doc => {
+      const key = doc._id.toString();
+      staffDoctorIds.add(key);
+      doctorMap[key] = {
+        name: doc.name,
+        email: doc.email
+      };
+    });
       
-      appointments.forEach(apt => {
-     if (!apt.doctorId) return;
-        
-    const doctorKey = apt.doctorId._id ? apt.doctorId._id.toString() : apt.doctorId.toString();
+    if (appointments.length > 0) {
+      console.log('🎯 Sample appointment doctorId:', appointments[0].doctorId.toString());
+      console.log('🎯 Sample doctor from map:', doctorMap[appointments[0].doctorId.toString()]);
+    }
+
+    // 1. Appointments per Doctor (only staff doctors)
+    const doctorAppointmentMap = {};
+       
+    appointments.forEach(apt => {
+      if (!apt.doctorId) return;
+         
+      const doctorKey = apt.doctorId._id ? apt.doctorId._id.toString() : apt.doctorId.toString();
       // Skip non-staff doctors
       if (!staffDoctorIds.has(doctorKey)) return;
-      
+       
       // Get doctor info from our manual map
-   const doctorInfo = doctorMap[doctorKey] || {};
-        
-     if (!doctorAppointmentMap[doctorKey]) {
-         doctorAppointmentMap[doctorKey] = {
-           doctorId: doctorKey,
-           doctorName: doctorInfo.name || 'Unknown Doctor',
-            doctorEmail: doctorInfo.email || '',
-         appointmentCount: 0,
-        completedAppointments: 0,
-            pendingAppointments: 0
-          };
-        }
-        
-       doctorAppointmentMap[doctorKey].appointmentCount += 1;
-        
-     if (['Completed', 'Discharge', 'invoice'].includes(apt.status)) {
-         doctorAppointmentMap[doctorKey].completedAppointments += 1;
-        } else {
-         doctorAppointmentMap[doctorKey].pendingAppointments += 1;
-        }
-      });
+      const doctorInfo = doctorMap[doctorKey] || {};
+         
+      if (!doctorAppointmentMap[doctorKey]) {
+        doctorAppointmentMap[doctorKey] = {
+          doctorId: doctorKey,
+          doctorName: doctorInfo.name || 'Unknown Doctor',
+          doctorEmail: doctorInfo.email || '',
+          appointmentCount: 0,
+          completedAppointments: 0,
+          pendingAppointments: 0
+        };
+      }
+         
+      doctorAppointmentMap[doctorKey].appointmentCount += 1;
+         
+      if (['Completed', 'Discharge', 'invoice'].includes(apt.status)) {
+        doctorAppointmentMap[doctorKey].completedAppointments += 1;
+      } else if (!['Cancelled', 'Rejected'].includes(apt.status)) {
+        doctorAppointmentMap[doctorKey].pendingAppointments += 1;
+      }
+    });
 
     // Ensure every staff doctor is present (for zero-appointment doctors)
     staffDocs.forEach(doc => {

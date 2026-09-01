@@ -75,7 +75,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
       return;
     }
     
-    const toastId = toast.loading(`Creating ${role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}...`);
+    const toastId = toast.loading(`Creating ${role === 'doctorStaff' ? 'Doctor Staff' : 'Member'}...`);
     setSubmitting(true);
     try {
       const { data } = await axios.post(
@@ -84,7 +84,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (data?.success) {
-        toast.success(`${role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'} created successfully!`, { id: toastId });
+        toast.success(`${role === 'doctorStaff' ? 'Doctor Staff' : 'Member'} created successfully!`, { id: toastId });
         setName(''); setEmail(''); setPhone(''); setPassword(''); setRole(defaultRole || 'agent');
         onCreated?.();
         onClose?.();
@@ -109,7 +109,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
-          <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">Create {role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}</h3>
+          <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">Create {role === 'doctorStaff' ? 'Doctor Staff' : 'Member'}</h3>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors" aria-label="Close">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -127,7 +127,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
                   required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors"
                 >
-                  <option value="agent">Agent</option>
+                  <option value="agent">Member</option>
                   <option value="doctorStaff">Doctor Staff</option>
                 </select>
               </div>
@@ -137,7 +137,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
               <input 
                 value={name} 
                 onChange={(e) => setName(e.target.value)} 
-                placeholder={role === 'doctorStaff' ? 'Staff name' : 'Agent name'} 
+                placeholder={role === 'doctorStaff' ? 'Staff name' : 'Member name'} 
                 required 
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
               />
@@ -148,7 +148,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
                 type="email" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
-                placeholder={role === 'doctorStaff' ? 'staff@example.com' : 'agent@example.com'} 
+                placeholder={role === 'doctorStaff' ? 'staff@example.com' : 'member@example.com'} 
                 required 
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
               />

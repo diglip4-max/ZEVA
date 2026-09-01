@@ -120,11 +120,18 @@ export default async function handler(req, res) {
       userIdFilter = authUser._id;
     }
 
+    const scopeFilter = {
+      $or: [
+        { userId: userIdFilter },
+        ...(clinicId ? [{ clinicId: clinicId }] : [])
+      ]
+    };
+
     // Search by firstName, lastName, mobileNumber, email, or EMR number
     // Using case-insensitive regex for partial matching
     const patients = await PatientRegistration.find({
       $and: [
-        { userId: userIdFilter },
+        scopeFilter,
         {
           $or: [
             { firstName: { $regex: searchTerm, $options: "i" } },

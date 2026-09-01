@@ -621,6 +621,7 @@ const RegisterClinic = (): React.ReactNode => {
           localStorage.setItem("clinicUser", JSON.stringify(loginResponse.data.user));
           localStorage.setItem("clinicId", loginResponse.data.clinic._id);
           localStorage.setItem("ownerId", loginResponse.data.user._id);
+          window.dispatchEvent(new Event("authTokenChanged"));
           
           // Store trial info in sessionStorage for sidebar countdown timer
           if (loginResponse.data.trial) {

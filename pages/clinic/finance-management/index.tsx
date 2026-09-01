@@ -6,9 +6,9 @@ import FinanceManager from "./_components/FinanceManager";
 
 const FinanceManagementPage: NextPageWithLayout = () => {
   return (
-    <div>
+    <>
       <FinanceManager />
-    </div>
+    </>
   );
 };
 

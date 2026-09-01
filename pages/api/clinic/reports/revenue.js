@@ -89,9 +89,9 @@ export default async function handler(req, res) {
     : null;
 
   // DEBUG: Log the match criteria
-  console.log("DEBUG Revenue API - clinicMatch:", clinicMatch);
-  console.log("DEBUG Revenue API - dateMatch:", dateMatch);
-  console.log("DEBUG Revenue API - paymentMethodFilter:", paymentMethodFilter);
+  // console.log("DEBUG Revenue API - clinicMatch:", clinicMatch);
+  // console.log("DEBUG Revenue API - dateMatch:", dateMatch);
+  // console.log("DEBUG Revenue API - paymentMethodFilter:", paymentMethodFilter);
 
   const pageNum = Math.max(1, parseInt(paymentsPage || "1", 10));
   const pageSizeNum = Math.max(1, parseInt(paymentsPageSize || "10", 10));
@@ -973,14 +973,14 @@ export default async function handler(req, res) {
           packageSoldByRole: { $arrayElemAt: ["$packageSoldByUser.role", 0] },
         },
       },
-      // Filter: For Package billings, only include if seller is a doctor
+      // Filter: For Package billings, only include if seller is a doctor or doctorStaff
       // Mixed billings (Package + Treatment from appointment) are handled
       // separately by the $unionWith at line 1410 to avoid duplication
       {
         $match: {
           $or: [
             { service: { $ne: "Package" } },
-            { $and: [{ service: "Package" }, { packageSoldByRole: "doctor" }] },
+            { $and: [{ service: "Package" }, { packageSoldByRole: { $in: ["doctor", "doctorStaff"] } }] },
             // Clearance billing: let it pass so the cleared facet stream can process its breakdown items
             {
               $and: [
@@ -1989,27 +1989,27 @@ export default async function handler(req, res) {
     ]);
 
     // DEBUG: Log byDoctorAgg results with debug fields
-    console.log("DEBUG byDoctorAgg results:", JSON.stringify(byDoctorAgg.map(d => ({
-      doctorId: String(d._id),
-      amount: d.amount,
-      details: d.details.map(det => ({
-        invoiceNumber: det.invoiceNumber,
-        service: det.service,
-        treatmentName: det.treatmentName,
-        packageName: det.packageName,
-        totalAmount: det.amount,
-        paid: det.paid,
-        pending: det.pending,
-        isClearedItem: det.isClearedItem,
-        // Debug fields
-        _debug_billingPaid: det._debug_billingPaid,
-        _debug_paid: det._debug_paid,
-        _debug_pendingUsed: det._debug_pendingUsed,
-        _debug_treatmentAmount: det._debug_treatmentAmount,
-        _debug_treatmentPrice: det._debug_treatmentPrice,
-        _debug_originalAmount: det._debug_originalAmount,
-      }))
-    })), null, 2));
+    // console.log("DEBUG byDoctorAgg results:", JSON.stringify(byDoctorAgg.map(d => ({
+    //   doctorId: String(d._id),
+    //   amount: d.amount,
+    //   details: d.details.map(det => ({
+    //     invoiceNumber: det.invoiceNumber,
+    //     service: det.service,
+    //     treatmentName: det.treatmentName,
+    //     packageName: det.packageName,
+    //     totalAmount: det.amount,
+    //     paid: det.paid,
+    //     pending: det.pending,
+    //     isClearedItem: det.isClearedItem,
+    //     // Debug fields
+    //     _debug_billingPaid: det._debug_billingPaid,
+    //     _debug_paid: det._debug_paid,
+    //     _debug_pendingUsed: det._debug_pendingUsed,
+    //     _debug_treatmentAmount: det._debug_treatmentAmount,
+    //     _debug_treatmentPrice: det._debug_treatmentPrice,
+    //     _debug_originalAmount: det._debug_originalAmount,
+    //   }))
+    // })), null, 2));
 
     // SEPARATE PIPELINE: Unpaid package billings without appointment (sold by doctorStaff)
     // These billings don't have an appointment, so they're excluded from the main byDoctorAgg pipeline
@@ -3045,39 +3045,44 @@ export default async function handler(req, res) {
           effectiveAmount: {
             $cond: [
               { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
-              { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+              // Breakdown exists (after $unwind): check if self-referencing or cross-referencing
               {
-                $subtract: [
-                  {
-                    $add: [
-                      { $ifNull: ["$__effectivePaid", 0] },
-                      { $ifNull: ["$advanceUsed", 0] },
-                      { $ifNull: ["$claimAmountUsed", 0] },
-                      { $ifNull: ["$cashbackWalletUsed", 0] },
-                    ],
-                  },
+                $cond: [
+                  // Self-referencing: breakdown's invoiceNumber matches billing's own invoiceNumber
+                  // Check if paid already includes the clearance (paid + amountCleared > amount)
+                  // If so, the clearance billing also exists → use amountCleared to avoid double-counting
+                  // Otherwise, no clearance billing → use billing-level paid
+                  { $eq: ["$invoiceNumber", { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", ""] }] },
                   {
                     $cond: [
                       {
-                        $and: [
+                        $gt: [
                           {
-                            $gt: [{
-                              $size: {
-                                $cond: [
-                                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                                  []
-                                ]
-                              }
-                            }, 0]
+                            $add: [
+                              { $ifNull: ["$__effectivePaid", 0] },
+                              { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] }
+                            ]
                           },
-                          { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
-                        ],
+                          { $ifNull: ["$amount", "$originalAmount", 0] }
+                        ]
                       },
-                      { $ifNull: [{ $arrayElemAt: ["$pendingClearedBreakdown.amountCleared", 0] }, 0] },
-                      0,
-                    ],
+                      // paid + amountCleared > amount → paid includes clearance → use amountCleared
+                      { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+                      // paid doesn't include clearance → use billing-level paid
+                      { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] }] }
+                    ]
                   },
+                  // Cross-referencing: breakdown points to a different invoice - use amountCleared
+                  { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] }
+                ]
+              },
+              // No breakdown: use billing-level paid amount
+              {
+                $add: [
+                  { $ifNull: ["$__effectivePaid", 0] },
+                  { $ifNull: ["$advanceUsed", 0] },
+                  { $ifNull: ["$claimAmountUsed", 0] },
+                  { $ifNull: ["$cashbackWalletUsed", 0] },
                 ],
               },
             ],
@@ -3093,16 +3098,13 @@ export default async function handler(req, res) {
           $or: [
             { isClearedItem: false, service: { $in: ["Treatment", "Service"] } },
             // Cleared items: Treatment/Service from breakdown
-            // EDGE-CASE FIX: Exclude self-referencing breakdowns where the
-            // breakdown's invoiceNumber matches the billing's own invoiceNumber.
-            // Without this, a Treatment billing with a self-referencing breakdown
-            // creates two rows (cleared + non-cleared) and double-counts revenue.
+            // Self-referencing breakdowns are included: pay-invoice-pending updates the billing's
+            // paid amount and adds a self-referencing breakdown; effectiveAmount uses billing-level paid
             {
               $expr: {
                 $and: [
                   { $eq: ["$isClearedItem", true] },
                   { $in: ["$effectiveService", ["Treatment", "Service"]] },
-                  { $ne: ["$invoiceNumber", { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", ""] }] },
                 ],
               },
             },
@@ -3202,7 +3204,7 @@ export default async function handler(req, res) {
               // Package billing with selectedTreatments: use proportional scaling
               {
                 $multiply: [
-                  { $ifNull: ["$__effectivePaid", 0] },
+                  { $ifNull: ["$effectiveAmount", 0] },
                   {
                     $cond: [
                       { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
@@ -4131,39 +4133,44 @@ export default async function handler(req, res) {
           effectiveAmount: {
             $cond: [
               { $ne: [{ $ifNull: ["$pendingClearedBreakdown", null] }, null] },
-              { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+              // Breakdown exists (after $unwind): check if self-referencing or cross-referencing
               {
-                $subtract: [
-                  {
-                    $add: [
-                      { $ifNull: ["$__effectivePaid", 0] },
-                      { $ifNull: ["$advanceUsed", 0] },
-                      { $ifNull: ["$claimAmountUsed", 0] },
-                      { $ifNull: ["$cashbackWalletUsed", 0] },
-                    ],
-                  },
+                $cond: [
+                  // Self-referencing: breakdown's invoiceNumber matches billing's own invoiceNumber
+                  // Check if paid already includes the clearance (paid + amountCleared > amount)
+                  // If so, the clearance billing also exists → use amountCleared to avoid double-counting
+                  // Otherwise, no clearance billing → use billing-level paid
+                  { $eq: ["$invoiceNumber", { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", ""] }] },
                   {
                     $cond: [
                       {
-                        $and: [
+                        $gt: [
                           {
-                            $gt: [{
-                              $size: {
-                                $cond: [
-                                  { $eq: [{ $type: "$pendingClearedBreakdown" }, "array"] },
-                                  { $ifNull: ["$pendingClearedBreakdown", []] },
-                                  []
-                                ]
-                              }
-                            }, 0]
+                            $add: [
+                              { $ifNull: ["$__effectivePaid", 0] },
+                              { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] }
+                            ]
                           },
-                          { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
-                        ],
+                          { $ifNull: ["$amount", "$originalAmount", 0] }
+                        ]
                       },
-                      { $ifNull: [{ $arrayElemAt: ["$pendingClearedBreakdown.amountCleared", 0] }, 0] },
-                      0,
-                    ],
+                      // paid + amountCleared > amount → paid includes clearance → use amountCleared
+                      { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] },
+                      // paid doesn't include clearance → use billing-level paid
+                      { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }, { $ifNull: ["$claimAmountUsed", 0] }, { $ifNull: ["$cashbackWalletUsed", 0] }] }
+                    ]
                   },
+                  // Cross-referencing: breakdown points to a different invoice - use amountCleared
+                  { $ifNull: ["$pendingClearedBreakdown.amountCleared", 0] }
+                ]
+              },
+              // No breakdown: use billing-level paid amount
+              {
+                $add: [
+                  { $ifNull: ["$__effectivePaid", 0] },
+                  { $ifNull: ["$advanceUsed", 0] },
+                  { $ifNull: ["$claimAmountUsed", 0] },
+                  { $ifNull: ["$cashbackWalletUsed", 0] },
                 ],
               },
             ],
@@ -4179,16 +4186,13 @@ export default async function handler(req, res) {
           $or: [
             { isClearedItem: false, service: { $in: ["Treatment", "Service"] } },
             // Cleared items: Treatment/Service from breakdown
-            // EDGE-CASE FIX: Exclude self-referencing breakdowns where the
-            // breakdown's invoiceNumber matches the billing's own invoiceNumber.
-            // Without this, a Treatment billing with a self-referencing breakdown
-            // creates two rows (cleared + non-cleared) and double-counts revenue.
+            // Self-referencing breakdowns are included: pay-invoice-pending updates the billing's
+            // paid amount and adds a self-referencing breakdown; effectiveAmount uses billing-level paid
             {
               $expr: {
                 $and: [
                   { $eq: ["$isClearedItem", true] },
                   { $in: ["$effectiveService", ["Treatment", "Service"]] },
-                  { $ne: ["$invoiceNumber", { $ifNull: ["$pendingClearedBreakdown.invoiceNumber", ""] }] },
                 ],
               },
             },
@@ -4298,7 +4302,7 @@ export default async function handler(req, res) {
               { $ne: ["$selectedTreatments", null] },
               {
                 $multiply: [
-                  { $ifNull: ["$billingPaid", 0] },
+                  { $ifNull: ["$effectiveAmount", 0] },
                   {
                     $cond: [
                       { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
@@ -4464,7 +4468,7 @@ export default async function handler(req, res) {
     const byDepartmentAgg = await Billing.aggregate(departmentPipeline);
 
     // DEBUG: Log the aggregation results to see what's happening
-    console.log("DEBUG byDepartmentAgg:", JSON.stringify(byDepartmentAgg, null, 2));
+    // console.log("DEBUG byDepartmentAgg:", JSON.stringify(byDepartmentAgg, null, 2));
 
     // DEBUG: Extract and log debug fields from details
     const debugDetails = byDepartmentAgg.flatMap(d => d.details || []).map(detail => ({
@@ -4475,7 +4479,7 @@ export default async function handler(req, res) {
       debug_after_match: detail._debug_after_match,
       debug_after_effectiveAmountForService: detail._debug_after_effectiveAmountForService,
     }));
-    console.log("DEBUG Department Details:", JSON.stringify(debugDetails, null, 2));
+    // console.log("DEBUG Department Details:", JSON.stringify(debugDetails, null, 2));
 
     const departmentIds = byDepartmentAgg.map((d) => d._id).filter(Boolean);
     const departmentMap = departmentIds.length
@@ -4910,35 +4914,35 @@ export default async function handler(req, res) {
     ]);
 
     // DEBUG: Log paymentsAgg results to trace double-counting issue
-    console.log("DEBUG paymentsAgg results:", JSON.stringify(paymentsAgg.map(p => ({
-      method: p._id,
-      amount: p.amount,
-      details: p.details.map(d => ({
-        invoiceNumber: d.invoiceNumber,
-        service: d.service,
-        package: d.package,
-        revenue: d.revenue,
-        totalAmount: d.totalAmount,
-        treatment: d.treatment
-      }))
-    })), null, 2));
+    // console.log("DEBUG paymentsAgg results:", JSON.stringify(paymentsAgg.map(p => ({
+    //   method: p._id,
+    //   amount: p.amount,
+    //   details: p.details.map(d => ({
+    //     invoiceNumber: d.invoiceNumber,
+    //     service: d.service,
+    //     package: d.package,
+    //     revenue: d.revenue,
+    //     totalAmount: d.totalAmount,
+    //     treatment: d.treatment
+    //   }))
+    // })), null, 2));
 
     // DEBUG: Log raw billings that entered the pipeline
     const debugBillings = await Billing.find({ ...clinicMatch, ...dateMatch })
       .select('invoiceNumber service paymentMethod paid amount pendingClearedBreakdown multiplePayments')
       .lean();
-    console.log("DEBUG Raw billings:", JSON.stringify(debugBillings.map(b => ({
-      invoiceNumber: b.invoiceNumber,
-      service: b.service,
-      paymentMethod: b.paymentMethod,
-      paid: b.paid,
-      amount: b.amount,
-      hasBreakdown: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0,
-      breakdownInvoice: Array.isArray(b.pendingClearedBreakdown) ? b.pendingClearedBreakdown[0]?.invoiceNumber : null,
-      isCrossInvoice: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0 && b.pendingClearedBreakdown[0]?.invoiceNumber !== b.invoiceNumber,
-      multiplePaymentsCount: Array.isArray(b.multiplePayments) ? b.multiplePayments.length : 0,
-      multiplePayments: Array.isArray(b.multiplePayments) ? b.multiplePayments.map(mp => ({ method: mp.paymentMethod, amount: mp.amount, type: mp.transactionType })) : []
-    })), null, 2));
+    // console.log("DEBUG Raw billings:", JSON.stringify(debugBillings.map(b => ({
+    //   invoiceNumber: b.invoiceNumber,
+    //   service: b.service,
+    //   paymentMethod: b.paymentMethod,
+    //   paid: b.paid,
+    //   amount: b.amount,
+    //   hasBreakdown: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0,
+    //   breakdownInvoice: Array.isArray(b.pendingClearedBreakdown) ? b.pendingClearedBreakdown[0]?.invoiceNumber : null,
+    //   isCrossInvoice: Array.isArray(b.pendingClearedBreakdown) && b.pendingClearedBreakdown.length > 0 && b.pendingClearedBreakdown[0]?.invoiceNumber !== b.invoiceNumber,
+    //   multiplePaymentsCount: Array.isArray(b.multiplePayments) ? b.multiplePayments.length : 0,
+    //   multiplePayments: Array.isArray(b.multiplePayments) ? b.multiplePayments.map(mp => ({ method: mp.paymentMethod, amount: mp.amount, type: mp.transactionType })) : []
+    // })), null, 2));
 
     const revenueByPaymentMethod = paymentsAgg.map((p) => ({
       method: p._id || "Unknown",
@@ -5199,17 +5203,63 @@ export default async function handler(req, res) {
           pendingClearedBreakdown: { $ifNull: ["$pendingClearedBreakdown", []] },
         },
       },
-      // Derive isOriginalBeingCleared: true when the breakdown's first
-      // invoiceNumber matches this billing's own invoiceNumber (meaning this
-      // billing is the original whose pending was cleared by another billing).
+      // Derive isOriginalBeingCleared: true when a DIFFERENT billing
+      // cleared this billing's pending amount. Self-referencing breakdowns
+      // (from pay-invoice-pending) mean the billing paid its own pending,
+      // NOT that another billing cleared it — so exclude those.
       {
         $addFields: {
           isOriginalBeingCleared: {
-            $eq: [
-              "$invoiceNumber",
-              { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] },
-            ],
+            $and: [
+              { $ne: ["$invoiceNumber", { $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }] },
+              { $ne: [{ $arrayElemAt: ["$pendingClearedBreakdown.invoiceNumber", 0] }, null] },
+            ]
           },
+          // Multi-payment method support: define $__effectivePaid before effectivePaid uses it
+          // Exclude PENDING_CLEARANCE and ADVANCE_USAGE from multiplePayments to prevent
+          // double-counting (these are internal accounting, not real cash inflows)
+          __effectivePaid: {
+            $cond: {
+              if: {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] },
+                        as: "mp",
+                        cond: {
+                          $and: [
+                            { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "PENDING_CLEARANCE"] },
+                            { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "ADVANCE_USAGE"] }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  0
+                ]
+              },
+              then: {
+                $reduce: {
+                  input: {
+                    $filter: {
+                      input: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] },
+                      as: "mp",
+                      cond: {
+                        $and: [
+                          { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "PENDING_CLEARANCE"] },
+                          { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "ADVANCE_USAGE"] }
+                        ]
+                      }
+                    }
+                  },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
         },
       },
       // Lookup clearance billings that cleared this billing's pending amount
@@ -5295,7 +5345,18 @@ export default async function handler(req, res) {
           doctorName: 1,
           totalFromPayments: {
             $reduce: {
-              input: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, "$multiplePayments", []] },
+              input: {
+                $filter: {
+                  input: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, "$multiplePayments", []] },
+                  as: "mp",
+                  cond: {
+                    $and: [
+                      { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "PENDING_CLEARANCE"] },
+                      { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "ADVANCE_USAGE"] }
+                    ]
+                  }
+                }
+              },
               initialValue: 0,
               in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
             }
@@ -5352,7 +5413,18 @@ export default async function handler(req, res) {
               { $gt: ["$difference", 0] },
               {
                 $concatArrays: [
-                  { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, "$multiplePayments", []] },
+                  {
+                    $filter: {
+                      input: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, "$multiplePayments", []] },
+                      as: "mp",
+                      cond: {
+                        $and: [
+                          { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "PENDING_CLEARANCE"] },
+                          { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "ADVANCE_USAGE"] }
+                        ]
+                      }
+                    }
+                  },
                   [
                     {
                       paymentMethod: "$paymentMethod",
@@ -5365,7 +5437,18 @@ export default async function handler(req, res) {
               {
                 $cond: [
                   { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
-                  "$multiplePayments",
+                  {
+                    $filter: {
+                      input: "$multiplePayments",
+                      as: "mp",
+                      cond: {
+                        $and: [
+                          { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "PENDING_CLEARANCE"] },
+                          { $ne: [{ $ifNull: ["$$mp.transactionType", null] }, "ADVANCE_USAGE"] }
+                        ]
+                      }
+                    }
+                  },
                   [{ paymentMethod: "$paymentMethod", amount: "$paid", transactionType: "PAYMENT" }]
                 ]
               }
@@ -5471,102 +5554,8 @@ export default async function handler(req, res) {
     let paymentsCountAgg = [];
     let paymentsPageAgg = [];
 
-    // DEBUG: Step-by-step pipeline tracing for Payment Reports
-    try {
-      // Step 1: Count total billings for this clinic
-      const totalClinicBillings = await Billing.countDocuments(clinicMatch);
-      // console.log("[Payment Reports DEBUG] Step 1 - Total billings for clinic:", totalClinicBillings);
-
-      // Step 2: Count billings matching date range (with invoicedDate fallback to createdAt)
-      const dateMatchedBillings = await Billing.countDocuments({
-        ...clinicMatch,
-        $expr: {
-          $and: [
-            { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
-            { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
-          ]
-        }
-      });
-      // console.log("[Payment Reports DEBUG] Step 2 - Billings matching date range:", dateMatchedBillings);
-
-      // Step 3: Check how many have invoicedDate vs only createdAt
-      const withInvoicedDate = await Billing.countDocuments({
-        ...clinicMatch,
-        invoicedDate: { $exists: true, $ne: null }
-      });
-      const withoutInvoicedDate = await Billing.countDocuments({
-        ...clinicMatch,
-        $or: [
-          { invoicedDate: { $exists: false } },
-          { invoicedDate: null }
-        ]
-      });
-      // console.log("[Payment Reports DEBUG] Step 3 - With invoicedDate:", withInvoicedDate, "| Without invoicedDate:", withoutInvoicedDate);
-
-      // Step 4: Count billings after excludeClearanceMatch
-      const afterExcludeClearance = await Billing.aggregate([
-        { $match: { ...clinicMatch, ...dateMatch } },
-        { $match: excludeClearanceMatch },
-        { $count: "total" }
-      ]);
-      // console.log("[Payment Reports DEBUG] Step 4 - After excludeClearanceMatch:", afterExcludeClearance[0]?.total || 0);
-
-      // Step 5: Check multiplePayments field types
-      const mpTypes = await Billing.aggregate([
-        { $match: { ...clinicMatch, ...dateMatch } },
-        {
-          $group: {
-            _id: { $type: "$multiplePayments" },
-            count: { $sum: 1 }
-          }
-        }
-      ]);
-      // console.log("[Payment Reports DEBUG] Step 5 - multiplePayments field types:", mpTypes);
-
-      // Step 6: Check if any billings have paid > 0
-      const withPaid = await Billing.countDocuments({
-        ...clinicMatch,
-        $expr: {
-          $and: [
-            { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
-            { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
-          ]
-        },
-        paid: { $gt: 0 }
-      });
-      // console.log("[Payment Reports DEBUG] Step 6 - Billings with paid > 0:", withPaid);
-
-      // Step 7: Run a sample billing to see its structure
-      const sampleBilling = await Billing.findOne({
-        ...clinicMatch,
-        $expr: {
-          $and: [
-            { $gte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, startAt] },
-            { $lte: [{ $ifNull: ["$invoicedDate", "$createdAt"] }, endAt] }
-          ]
-        }
-      }).lean();
-      if (sampleBilling) {
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample billing keys:", Object.keys(sampleBilling));
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample invoicedDate:", sampleBilling.invoicedDate);
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample createdAt:", sampleBilling.createdAt);
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample paid:", sampleBilling.paid);
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample multiplePayments type:", typeof sampleBilling.multiplePayments, Array.isArray(sampleBilling.multiplePayments));
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample service:", sampleBilling.service);
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample treatment:", sampleBilling.treatment);
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample package:", sampleBilling.package);
-        // console.log("[Payment Reports DEBUG] Step 7 - Sample pendingClearedBreakdown type:", typeof sampleBilling.pendingClearedBreakdown, Array.isArray(sampleBilling.pendingClearedBreakdown));
-      } else {
-        // console.log("[Payment Reports DEBUG] Step 7 - No sample billing found!");
-      }
-    } catch (debugErr) {
-      // console.error("[Payment Reports DEBUG] Debug error:", debugErr.message);
-    }
-
     try {
       paymentsCountAgg = await Billing.aggregate([...paymentsPipelineBase, { $count: "total" }]);
-      const paymentsTotal = Number(paymentsCountAgg[0]?.total || 0);
-      // console.log("[Payment Reports DEBUG] Step 8 - Final payments count:", paymentsTotal);
       paymentsPageAgg = await Billing.aggregate([
         ...paymentsPipelineBase,
         { $sort: { paymentDate: -1 } },
@@ -5575,7 +5564,6 @@ export default async function handler(req, res) {
       ]);
     } catch (error) {
       // console.error("[Payment Reports Error] MongoDB aggregation error:", error.message);
-      // console.error("[Payment Reports Error] Full error:", error);
     }
     const paymentsTotal = Number(paymentsCountAgg[0]?.total || 0);
     const payments = paymentsPageAgg.map((p) => {
@@ -5954,6 +5942,34 @@ export default async function handler(req, res) {
               { $gt: [{ $size: "$appointmentServiceIds" }, 0] },
             ]
           },
+        },
+      },
+      // Multi-payment method support: define $__effectivePaid before billingPaid uses it
+      {
+        $addFields: {
+          __effectivePaid: {
+            $cond: {
+              if: {
+                $and: [
+                  { $gt: [{ $size: { $cond: [{ $eq: [{ $type: "$multiplePayments" }, "array"] }, { $ifNull: ["$multiplePayments", []] }, []] } }, 0] },
+                  { $ne: [paymentMethod, ""] },
+                  { $ne: [{ $ifNull: ["$paymentMethod", ""] }, paymentMethod] }
+                ]
+              },
+              then: {
+                $reduce: {
+                  input: { $filter: { input: "$multiplePayments", as: "mp", cond: { $eq: ["$$mp.paymentMethod", paymentMethod] } } },
+                  initialValue: 0,
+                  in: { $add: ["$$value", { $ifNull: ["$$this.amount", 0] }] }
+                }
+              },
+              else: { $ifNull: ["$paid", 0] }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
           // Store billing-level paid amount before $unwind (for capping treatment amounts on partial payments)
           // Include advanceUsed to capture full revenue (paid + advanceUsed)
           billingPaid: { $add: [{ $ifNull: ["$__effectivePaid", 0] }, { $ifNull: ["$advanceUsed", 0] }] },
@@ -6115,28 +6131,20 @@ export default async function handler(req, res) {
                   0
                 ]
               },
-              // FIXED: For "Treatment" service billings, use direct price × quantity
-              // (not proportional scaling) to get the actual treatment revenue.
-              // For "Package" service billings (mixed), use proportional scaling.
+              // For both "Treatment" and "Package" service billings, use proportional scaling for partial payments
+              // treatmentAmount = billingPaid × (price × quantity / originalAmount)
+              // For full payments this equals price × quantity; for partial payments it scales down proportionally
               {
-                $cond: [
-                  { $eq: ["$service", "Treatment"] },
-                  // Treatment service billing: use direct treatment price
-                  { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                  // Package/mixed billing: use proportional scaling
+                $multiply: [
+                  { $ifNull: ["$billingPaid", 0] },
                   {
-                    $multiply: [
-                      { $ifNull: ["$billingPaid", 0] },
+                    $cond: [
+                      { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
+                      0,
                       {
-                        $cond: [
-                          { $eq: [{ $ifNull: ["$originalAmount", "$amount", 1] }, 0] },
-                          0,
-                          {
-                            $divide: [
-                              { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
-                              { $ifNull: ["$originalAmount", "$amount", 1] }
-                            ]
-                          }
+                        $divide: [
+                          { $multiply: [{ $ifNull: ["$selectedTreatments.price", 0] }, { $ifNull: ["$selectedTreatments.quantity", 1] }] },
+                          { $ifNull: ["$originalAmount", "$amount", 1] }
                         ]
                       }
                     ]

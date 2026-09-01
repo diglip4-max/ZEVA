@@ -20,8 +20,8 @@ const FinancePaymentSchema = new Schema(
       required: true,
     },
 
-    // bankAccountId: { type: Types.ObjectId, ref: "BankAccount" },
-    chequeId: { type: Types.ObjectId, ref: "Cheque" },
+    bankAccountId: { type: Types.ObjectId, ref: "BankAccount" },
+    chequeId: { type: Types.ObjectId, ref: "FinanceCheque" },
 
     attachment: String,
     notes: String,

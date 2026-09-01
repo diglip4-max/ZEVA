@@ -240,6 +240,9 @@ const routeMap: { [key: string]: () => Promise<any> } = {
     import("../clinic/release-requested-claims"),
   "all-claims": () => import("../clinic/all-claims"),
   "clinic-invoices": () => import("../clinic/invoices"),
+
+  // Finance routes
+  "clinic-finance-management": () => import("../clinic/finance-management"),
 };
 
 const StaffDynamicPage = () => {

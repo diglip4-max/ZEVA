@@ -2424,7 +2424,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move mt-3 mb-1",
                             {
                               "bg-[#2D9AA5] text-white": isActive,
-                              "text-text-secondary hover:bg-bg-hover": !isActive,
+                              "text-text-secondary hover:bg-bg-hover":
+                                !isActive,
                             },
                           )}
                         >

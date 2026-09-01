@@ -33,6 +33,7 @@ export default function LoginPage() {
       }
 
       localStorage.setItem("role", apiRole);
+      window.dispatchEvent(new Event("authTokenChanged"));
 
       // Redirect based on role match
       if (apiRole === "lead" && selectedRole === "lead") {

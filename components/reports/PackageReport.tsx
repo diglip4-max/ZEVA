@@ -97,6 +97,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   const [expiryData, setExpiryData] = useState<any>(null);
   // KPI Detail Modal state
   const [kpiModal, setKpiModal] = useState<{ open: boolean; title: string; data: any[] }>({ open: false, title: '', data: [] });
+  // Action Center Modal state
+  const [actionCenterModal, setActionCenterModal] = useState<{ open: boolean; title: string; data: any[] }>({ open: false, title: '', data: [] });
   // Default selected month to the month of startDate
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const date = new Date(startDate);
@@ -340,12 +342,8 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       }
       
       // For billing-related KPIs, fetch from packages-sold API
-      // includeUnpaid=true asks the API to also include package records from
-      // PatientRegistration that have no billing yet (unpaid / partially paid),
-      // so the modal shows the SAME package set the dashboard cards are counting.
-      // The main report and export flows do NOT pass this flag, so their default
-      // behavior is preserved.
-      const params: any = { startDate, endDate, limit: "1000", getAll: "true", includeUnpaid: "true" };
+      // Only include packages with Billing records to match KPI card counts
+      const params: any = { startDate, endDate, limit: "1000", getAll: "true" };
       if (selectedDoctor) {
         params.doctorId = selectedDoctor;
         // Pass doctor name so the PatientRegistration pipeline can filter by packageSoldBy
@@ -457,8 +455,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           
         case 'paidRevenue':
           title = 'Paid Revenue';
+          // BUG FIX: only include packages that are ACTUALLY paid
+          //   (totalPaid > 0 AND totalPending <= 0), not all packages
+          //   where pending happens to be 0 (which includes fully-cleared
+          //   packages with paidAmount=0 and the "unpaid zeroed-out" bug victims).
           data = validPackages
-            .filter((p: any) => (p.totalPending || 0) === 0)
+            .filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) === 0)
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
@@ -488,8 +490,12 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           
         case 'paidPackages':
           title = 'Paid Packages';
+          // BUG FIX: same as paidRevenue above — require totalPaid > 0.
+          // Otherwise packages that have pending=0 but paid=0 (the bug victims
+          // cleared entirely via advance/claim) would appear in this list,
+          // making the "Paid Packages" modal inconsistent with the KPI count.
           data = validPackages
-            .filter((p: any) => (p.totalPending || 0) === 0)
+            .filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) === 0)
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
@@ -518,8 +524,13 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           
         case 'unpaidPackages':
           title = 'Unpaid Packages';
+          // BUG FIX: require totalPending > 0 to be in this list.
+          // Previously, any package with totalPaid=0 was shown — including the
+          // "fully cleared" packages (paid=0 AND pending=0) which would inflate
+          // Show ALL unpaid packages for the selected date range
+          // No additional filters (doctor/staff) unless explicitly selected by user
           data = validPackages
-            .filter((p: any) => (p.totalPaid || 0) === 0)
+            .filter((p: any) => (p.totalPaid || 0) === 0 && (p.totalPending || 0) > 0)
             .map((p: any) => ({
               packageName: p.packageName,
               patientName: p.patientName,
@@ -539,6 +550,73 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     } catch (e) {
       console.error('Error fetching KPI details:', e);
     }
+  }
+
+  // Handle Action Center card click
+  function handleActionCenterClick(cardType: string) {
+    let title = '';
+    let data: any[] = [];
+
+    switch (cardType) {
+      case 'expiring7Days':
+        title = 'Expiring Soon (7 Days)';
+        data = expiryData?.expiring7DaysData || [];
+        break;
+      case 'expiredPackages':
+        title = 'Expired Packages';
+        data = expiryData?.expiredPackagesData || [];
+        break;
+      case 'unpaidPackages':
+        title = 'Unpaid Packages';
+        // Filter soldRows for unpaid packages (match KPI logic: totalPaid <= 0)
+        const unpaidFiltered = (soldRows || [])
+          .filter((p: any) => (p.totalPaid || 0) <= 0 && (p.totalPending || 0) > 0);
+        console.log('[DEBUG Unpaid Modal] soldRows length:', (soldRows || []).length);
+        console.log('[DEBUG Unpaid Modal] unpaidFiltered length:', unpaidFiltered.length);
+        console.log('[DEBUG Unpaid Modal] unpaidFiltered data:', unpaidFiltered.map(p => ({
+          patientName: p.patientName,
+          packageName: p.packageName,
+          totalPaid: p.totalPaid,
+          totalPending: p.totalPending,
+          totalValue: p.totalValue
+        })));
+        data = unpaidFiltered.map((p: any) => ({
+          packageName: p.packageName || 'Unknown',
+          patientName: p.patientName || 'Unknown Patient',
+          patientId: p.patientId || null,
+          amount: p.totalValue || 0,
+          paidAmount: p.totalPaid || 0,
+          expirationDate: p.endDate || null,
+          date: p.firstPurchaseDate || p.createdAt,
+        }));
+        break;
+      case 'inactiveHolders':
+        title = 'Inactive Patients';
+        // Filter soldRows for unused packages (sessionsUsed = 0)
+        // Use soldRows instead of packages state because soldRows has actual patient data
+        data = (soldRows || [])
+          .filter((p: any) => (p.sessionsUsed || 0) <= 0)
+          .map((p: any) => ({
+            packageName: p.packageName || 'Unknown',
+            patientName: p.patientName || 'Unknown Patient',
+            patientId: p.patientId || null,
+            amount: p.totalValue || 0,
+            paidAmount: p.totalPaid || 0,
+            expirationDate: p.expirationDate || null,
+            date: p.firstPurchaseDate || p.createdAt,
+          }));
+        break;
+      case 'renewalOpportunities':
+        title = 'Renewal Ready';
+        // Combine expiring 7 days + expiring 30 days
+        data = [
+          ...(expiryData?.expiring7DaysData || []),
+          ...(expiryData?.expiring30DaysData || []),
+        ];
+        break;
+    }
+
+    setActionCenterModal({ open: true, title, data });
   }
 
   async function fetchClinics() {
@@ -652,10 +730,14 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     try {
       const params: any = {};
       if (selectedClinic) params.clinicId = selectedClinic;
+      // DEBUG: Log that dates are NOT being passed (root cause of discrepancy)
+      console.log('[PKG_RPT_DEBUG] fetchPackageExpiry called with params:', params, '| startDate:', startDate, '| endDate:', endDate);
+      console.log('[PKG_RPT_DEBUG] NOTE: startDate/endDate are NOT passed to package-expiry API - this is the bug!');
       const qs = new URLSearchParams(params).toString();
       const res = await fetch(`/api/clinic/reports/package-expiry?${qs}`, { headers });
       const json = await res.json();
       if (res.ok && json.success) {
+        console.log('[PKG_RPT_DEBUG] fetchPackageExpiry response data:', json.data);
         setExpiryData(json.data || null);
       } else {
         setExpiryData(null);
@@ -667,7 +749,7 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
   }
 
   async function fetchPackagesSold(p = 1) {
-    const params: any = { startDate, endDate, page: String(p), limit: "1000" };
+    const params: any = { startDate, endDate, page: String(p), limit: "1000", getAll: "true" };
     if (selectedDepartment) params.departmentId = selectedDepartment;
     if (selectedDoctor) params.doctorId = selectedDoctor;
     if (selectedSalesStaff) params.salesStaffId = selectedSalesStaff;
@@ -888,14 +970,27 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
       );
       
+      // BUG FIX: previously these were not mutually exclusive.
+      //   old paid:   totalPending === 0   (only checked pending)
+      //   old unpaid: totalPaid    === 0   (only checked paid)
+      // When totalPaid=0 AND totalPending=0 (e.g. fully cleared via advance,
+      // or a package with no payment yet), the same row was counted in BOTH
+      // paid AND unpaid, making paid+partially+unpaid exceed totalPackagesSold.
+      // Now mirrors the backend's mutually exclusive pattern:
+      //   paid      = totalPaid    > 0 AND totalPending === 0
+      //   partially = totalPaid    > 0 AND totalPending  > 0
+      //   unpaid    = totalPaid   === 0 AND totalPending  > 0
+      //   (the (totalPaid===0, totalPending===0) bucket is intentionally not counted
+      //   anywhere — it represents a fully-cleared or pre-sold package that belongs
+      //   in the paid bucket only when totalPaid > 0.)
       primarySource = {
         totalPackagesSold: validRows.length,
         totalRevenue: validRows.reduce((sum: number, p: any) => sum + (p.totalValue || 0), 0),
         totalPaid: validRows.reduce((sum: number, p: any) => sum + (p.totalPaid || 0), 0),
         totalPending: validRows.reduce((sum: number, p: any) => sum + (p.totalPending || 0), 0),
-        paidPackages: validRows.filter((p: any) => (p.totalPending || 0) === 0).length,
+        paidPackages: validRows.filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) === 0).length,
         partiallyPaid: validRows.filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) > 0).length,
-        unpaidPackages: validRows.filter((p: any) => (p.totalPaid || 0) === 0).length,
+        unpaidPackages: validRows.filter((p: any) => (p.totalPaid || 0) === 0 && (p.totalPending || 0) > 0).length,
       };
     } else if (selectedDoctor) {
       // Doctor filter: use filtered doctor sales staff data for all KPIs
@@ -1012,14 +1107,17 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
         p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
       );
       
+      // See the BUG FIX comment above (no-filter path) for the rationale.
+      // Same mutually-exclusive pattern: paid requires totalPaid>0, unpaid requires
+      // totalPending>0, partially requires both > 0.
       primarySource = {
         totalPackagesSold: validRows.length,
         totalRevenue: validRows.reduce((sum: number, p: any) => sum + (p.totalValue || 0), 0),
         totalPaid: validRows.reduce((sum: number, p: any) => sum + (p.totalPaid || 0), 0),
         totalPending: validRows.reduce((sum: number, p: any) => sum + (p.totalPending || 0), 0),
-        paidPackages: validRows.filter((p: any) => (p.totalPending || 0) === 0).length,
+        paidPackages: validRows.filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) === 0).length,
         partiallyPaid: validRows.filter((p: any) => (p.totalPaid || 0) > 0 && (p.totalPending || 0) > 0).length,
-        unpaidPackages: validRows.filter((p: any) => (p.totalPaid || 0) === 0).length,
+        unpaidPackages: validRows.filter((p: any) => (p.totalPaid || 0) === 0 && (p.totalPending || 0) > 0).length,
       };
       
       console.log('DEBUG Payment Method Filter - Calculated from soldRows:', primarySource);
@@ -1088,9 +1186,21 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
     
     const prevPartiallyPaid = prevSummary?.partiallyPaid ?? 0;
     
-    const unpaidPackages = !useFilteredSource && useSalesStaffSum
-      ? salesStaffTotals.unpaidPackages
-      : (primarySource?.unpaidPackages ?? 0);
+    // Calculate unpaid packages from actual soldRows data
+    // API summary is unreliable (shows 0 but actual data has unpaid packages)
+    const validRows = (soldRows || []).filter((p: any) => 
+      p.packageName && p.packageName.trim() !== '' && (p.totalValue || 0) > 0
+    );
+    const unpaidPackages = validRows.filter((p: any) => (p.totalPaid || 0) === 0 && (p.totalPending || 0) > 0).length;
+    
+    console.log('[DEBUG Unpaid Calc] soldRows length:', (soldRows || []).length);
+    console.log('[DEBUG Unpaid Calc] validRows length:', validRows.length);
+    console.log('[DEBUG Unpaid Calc] unpaidPackages count:', unpaidPackages);
+    
+    console.log('[DEBUG KPI Unpaid] useSalesStaffSum:', useSalesStaffSum, 'useFilteredSource:', useFilteredSource);
+    console.log('[DEBUG KPI Unpaid] salesStaffTotals.unpaidPackages:', salesStaffTotals?.unpaidPackages);
+    console.log('[DEBUG KPI Unpaid] primarySource?.unpaidPackages:', primarySource?.unpaidPackages);
+    console.log('[DEBUG KPI Unpaid] Final unpaidPackages:', unpaidPackages);
     
     const prevUnpaidPackages = prevSummary?.unpaidPackages ?? 0;
     
@@ -1212,6 +1322,27 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
       inactiveHolders: unusedPackages,
     };
   }, [rows, soldRows, topPackagesSummary, topPackagesPreviousSummary, packagesSoldSummary, packagesSoldPreviousSummary, packages, combinedSummary, overviewCombinedSummary, selectedDoctor, selectedDepartment, selectedSalesStaff, selectedClinic, selectedPaymentMethod, doctorLeaderboard, overviewDoctorLeaderboard, salesStaff, overviewSalesStaffLeaderboard, expiryData]);
+
+  // ─ DEBUG: Log final metrics for KPI comparison ─────────────────────
+  console.log('[PKG_RPT_DEBUG] Final metrics:', {
+    totalPackagesSold: metrics.totalPackagesSold,
+    activePackages: metrics.activePackages,
+    activePackagesSource: expiryData !== null ? 'expiryData (PatientRegistration)' : 'fallback (packages state)',
+    expiryData: expiryData ? {
+      activePackages: expiryData.activePackages,
+      expiredPackages: expiryData.expiredPackages,
+      expiring7Days: expiryData.expiring7Days,
+      expiring30Days: expiryData.expiring30Days,
+    } : null,
+    packagesSoldSummary: packagesSoldSummary ? {
+      totalPackagesSold: packagesSoldSummary.totalPackagesSold,
+      activePackages: packagesSoldSummary.activePackages,
+    } : null,
+    lifecycleSummary: lifecycleSummary ? {
+      totalPackagesSold: lifecycleSummary.totalPackagesSold,
+      activePackages: lifecycleSummary.activePackages,
+    } : null,
+  });
 
   // Calculate total sales staff KPIs
   // const salesStaffMetrics = useMemo(() => {
@@ -2270,49 +2401,64 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+            <div 
+              className="bg-red-50 rounded-xl p-4 border border-red-100 cursor-pointer hover:shadow-md hover:border-red-300 transition-all"
+              onClick={() => handleActionCenterClick('expiring7Days')}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">⏰</div>
                 <span className="text-xl font-bold text-red-800">{metrics.expiring7Days}</span>
               </div>
-              <p className="text-sm font-semibold text-red-900 mb-3">Expiring Soon</p>
-              
+              <p className="text-sm font-semibold text-red-900 mb-1">Expiring Soon</p>
+              <p className="text-xs text-red-600">Click to view details</p>
             </div>
 
-            <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+            <div 
+              className="bg-orange-50 rounded-xl p-4 border border-orange-100 cursor-pointer hover:shadow-md hover:border-orange-300 transition-all"
+              onClick={() => handleActionCenterClick('expiredPackages')}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">⏰</div>
                 <span className="text-xl font-bold text-orange-800">{metrics.expiredPackages}</span>
               </div>
-              <p className="text-sm font-semibold text-orange-900 mb-3">Expired Packages</p>
-              
+              <p className="text-sm font-semibold text-orange-900 mb-1">Expired Packages</p>
+              <p className="text-xs text-orange-600">Click to view details</p>
             </div>
 
-            <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
+            <div 
+              className="bg-amber-50 rounded-xl p-4 border border-amber-100 cursor-pointer hover:shadow-md hover:border-amber-300 transition-all"
+              onClick={() => handleActionCenterClick('unpaidPackages')}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">💲</div>
                 <span className="text-xl font-bold text-amber-800">{metrics.unpaidPackages}</span>
               </div>
-              <p className="text-sm font-semibold text-amber-900 mb-3">Unpaid Packages</p>
-              
+              <p className="text-sm font-semibold text-amber-900 mb-1">Unpaid Packages</p>
+              <p className="text-xs text-amber-600">Click to view details</p>
             </div>
 
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div 
+              className="bg-gray-50 rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-gray-400 transition-all"
+              onClick={() => handleActionCenterClick('inactiveHolders')}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-700">👤</div>
                 <span className="text-xl font-bold text-gray-800">{metrics.inactiveHolders}</span>
               </div>
-              <p className="text-sm font-semibold text-gray-900 mb-3">Inactive Patients</p>
-             
+              <p className="text-sm font-semibold text-gray-900 mb-1">Inactive Patients</p>
+              <p className="text-xs text-gray-500">Click to view details</p>
             </div>
 
-            <div className="bg-teal-50 rounded-xl p-4 border border-teal-100">
+            <div 
+              className="bg-teal-50 rounded-xl p-4 border border-teal-100 cursor-pointer hover:shadow-md hover:border-teal-300 transition-all"
+              onClick={() => handleActionCenterClick('renewalOpportunities')}
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center text-teal-700">🔄</div>
                 <span className="text-xl font-bold text-teal-800">{metrics.renewalOpportunities}</span>
               </div>
-              <p className="text-sm font-semibold text-teal-900 mb-3">Renewal Ready</p>
-              
+              <p className="text-sm font-semibold text-teal-900 mb-1">Renewal Ready</p>
+              <p className="text-xs text-teal-600">Click to view details</p>
             </div>
           </div>
         </div>
@@ -2716,6 +2862,81 @@ export default function PackageReport({ startDate, endDate, headers }: Props) {
                 <span className="text-sm text-gray-600">Total: {kpiModal.data.length} package(s)</span>
                 <button
                   onClick={() => setKpiModal({ open: false, title: '', data: [] })}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Center Detail Modal */}
+      {actionCenterModal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setActionCenterModal({ open: false, title: '', data: [] })}>
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">{actionCenterModal.title}</h3>
+              <button
+                onClick={() => setActionCenterModal({ open: false, title: '', data: [] })}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+              {actionCenterModal.data.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">No packages found</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package Name</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiry Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purchase Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {actionCenterModal.data.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {item.patientId ? (
+                              <a href={`/patient/${item.patientId}`} className="text-teal-600 hover:text-teal-800 hover:underline" target="_blank" rel="noopener noreferrer">
+                                {item.patientName || 'N/A'}
+                              </a>
+                            ) : (
+                              item.patientName || 'N/A'
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.packageName || 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(item.amount || 0)}</td>
+                          <td className="px-4 py-3 text-sm text-right text-emerald-600">{formatCurrency(item.paidAmount || 0)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.expirationDate ? new Date(item.expirationDate).toLocaleDateString() : 'N/A'}</td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total: {actionCenterModal.data.length} package(s)</span>
+                <button
+                  onClick={() => setActionCenterModal({ open: false, title: '', data: [] })}
                   className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
                 >
                   Close

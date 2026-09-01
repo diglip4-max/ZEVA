@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useClinicTheme } from "@/context/ClinicThemeContext";
 import RevenueOpportunityDetailsModal from "./RevenueOpportunityDetailsModal";
 
 const DEFAULT_DATA = {
@@ -53,8 +54,10 @@ const formatLongDate = (iso) => {
   });
 };
 
-export default function RevenueOpportunity({ selectedDate }) {
+export default function RevenueOpportunity({ selectedDate, token: externalToken = null }) {
   const { currency } = useCurrency();
+  const { theme } = useClinicTheme();
+  const currencySymbol = getCurrencySymbol(currency || "AED");
   const [data, setData] = useState(DEFAULT_DATA);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,15 +68,13 @@ export default function RevenueOpportunity({ selectedDate }) {
       setIsLoading(true);
       setError(null);
 
-      const agentToken =
+      const token = externalToken || (
         typeof window !== "undefined"
-          ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
-          : null;
-      const userToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
-          : null;
-      const token = agentToken || userToken;
+          ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") ||
+            localStorage.getItem("userToken") || sessionStorage.getItem("userToken") ||
+            localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken")
+          : null
+      );
 
       if (!token) {
         setData(DEFAULT_DATA);
@@ -106,7 +107,7 @@ export default function RevenueOpportunity({ selectedDate }) {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, externalToken]);
 
   useEffect(() => {
     fetchRevenueOpportunity();
@@ -135,15 +136,15 @@ export default function RevenueOpportunity({ selectedDate }) {
   const vsLabel = isToday ? "vs yesterday" : "vs previous day";
 
   return (
-    <div className="mb-6 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-6 md:p-8 shadow-sm relative overflow-hidden">
+    <div className="mb-6 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-4 md:p-5 shadow-sm relative overflow-hidden">
       <div className="absolute -right-32 -top-32 w-80 h-80 bg-indigo-50 dark:bg-indigo-500/5 rounded-full opacity-70 pointer-events-none" />
       <div className="absolute -right-20 bottom-0 w-72 h-72 bg-purple-50 dark:bg-purple-500/5 rounded-full opacity-60 pointer-events-none" />
 
       <div className="relative">
         {/* Top Row: Potential Revenue + Recovered So Far */}
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
           <div>
-            <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.12em] mb-3">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-[0.12em] mb-2">
               {headerTitle}
               {data.scope === "doctor" && data.scopeNote ? (
                 <span
@@ -173,7 +174,7 @@ export default function RevenueOpportunity({ selectedDate }) {
               ) : null}
             </p>
             <div className="flex flex-wrap items-baseline gap-4">
-              <div className="text-5xl md:text-6xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+              <div className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                 {isInitialLoading ? (
                   <span className="inline-block w-40 h-12 bg-gray-200 dark:bg-white/10 rounded animate-pulse" />
                 ) : (
@@ -182,18 +183,16 @@ export default function RevenueOpportunity({ selectedDate }) {
               </div>
               {!isInitialLoading && totalPotential > 0 && (
                 <div
-                  className={`inline-flex items-center px-3.5 py-1.5 rounded-full ${
-                    isPositiveChange
+                  className={`inline-flex items-center px-3.5 py-1.5 rounded-full ${isPositiveChange
                       ? "bg-emerald-100 dark:bg-emerald-500/15"
                       : "bg-red-100 dark:bg-red-500/15"
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`font-bold text-lg ${
-                      isPositiveChange
+                    className={`font-bold text-sm ${isPositiveChange
                         ? "text-emerald-700 dark:text-emerald-400"
                         : "text-red-700 dark:text-red-400"
-                    }`}
+                      }`}
                   >
                     {isPositiveChange ? "+" : ""}
                     {Number(percentChange || 0).toFixed(0)}% {vsLabel}
@@ -201,7 +200,7 @@ export default function RevenueOpportunity({ selectedDate }) {
                 </div>
               )}
             </div>
-            <p className="mt-3 text-lg text-gray-500 dark:text-gray-400 font-medium">
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 font-medium">
               {isToday
                 ? "Potential revenue ZEVA identified today"
                 : "Potential revenue ZEVA identified for the selected date"}
@@ -209,28 +208,28 @@ export default function RevenueOpportunity({ selectedDate }) {
           </div>
 
           <div className="md:text-right">
-            <p className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
               Recovered so far
             </p>
-            <div className="text-4xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
+            <div className="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
               {isInitialLoading ? (
                 <span className="inline-block w-32 h-9 bg-gray-200 dark:bg-white/10 rounded animate-pulse" />
               ) : (
                 formatCurrency(recoveredSoFar, currency)
               )}
             </div>
-            <p className="mt-1 text-base text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {totalPotential > 0
                 ? `${Math.round(progressPercent)}% of potential`
                 : isToday
-                ? "Awaiting today's data"
-                : "No data for the selected date"}
+                  ? "Awaiting today's data"
+                  : "No data for the selected date"}
             </p>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full h-3 bg-gray-100 dark:bg-white/10 rounded-full mb-8 overflow-hidden">
+        <div className="w-full h-2 bg-gray-100 dark:bg-white/10 rounded-full mb-5 overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all duration-700"
             style={{ width: progressWidth }}
@@ -238,7 +237,7 @@ export default function RevenueOpportunity({ selectedDate }) {
         </div>
 
         {/* Category Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           {/* Hot Leads (count) */}
           <CategoryCard
             color="bg-indigo-600"
@@ -288,9 +287,9 @@ export default function RevenueOpportunity({ selectedDate }) {
         <div className="flex flex-wrap items-center gap-4">
           <button
             onClick={() => setIsDetailsOpen(true)}
-            className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-lg"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -300,7 +299,7 @@ export default function RevenueOpportunity({ selectedDate }) {
             </svg>
             Start Revenue Recovery
           </button>
-          <p className="text-lg text-gray-600 dark:text-gray-300 font-medium">
+          <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
             <span className="font-bold text-indigo-600 dark:text-indigo-400">
               {Number(highValueActions || 0)}
             </span>{" "}
@@ -313,6 +312,7 @@ export default function RevenueOpportunity({ selectedDate }) {
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
         selectedDate={selectedDate}
+        token={externalToken}
       />
     </div>
   );
@@ -321,24 +321,24 @@ export default function RevenueOpportunity({ selectedDate }) {
 function CategoryCard({ color, hoverBorder, label, value, formatValue, unit, sublabel }) {
   return (
     <div
-      className={`bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-5 ${hoverBorder} transition-all duration-200`}
+      className={`bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-4 ${hoverBorder} transition-all duration-200`}
     >
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`w-3 h-3 rounded-full ${color} flex-shrink-0`} />
-        <p className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.1em]">
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`w-2.5 h-2.5 rounded-full ${color} flex-shrink-0`} />
+        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.1em]">
           {label}
         </p>
       </div>
-      <div className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+      <div className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
         {formatValue(value)}
       </div>
       {unit ? (
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 font-medium">
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 font-medium">
           {unit}
         </p>
       ) : null}
       {sublabel ? (
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{sublabel}</p>
+        <p className="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">{sublabel}</p>
       ) : null}
     </div>
   );

@@ -39,7 +39,10 @@ const Conversation: React.FC<IProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start">
             <div className="flex items-center space-x-2">
-              <span className="font-semibold text-gray-800 dark:text-slate-100 truncate">
+              <span
+                className="font-semibold text-gray-800 dark:text-slate-100 truncate"
+                title={conversation?.leadId?.name || ""}
+              >
                 {conversation?.leadId?.name?.length > 0
                   ? truncateText(conversation?.leadId?.name, 12)
                   : conversation?.leadId?.name}
@@ -51,7 +54,10 @@ const Conversation: React.FC<IProps> = ({
           </div>
 
           {conversation?.recentMessage?.channel !== "email" && (
-            <div className="flex justify-between items-start">
+            <div
+              className="flex justify-between items-start"
+              title={conversation?.recentMessage?.content || ""}
+            >
               <p
                 className={`text-sm truncate mt-1 ${
                   conversation?.unreadMessages?.length > 0

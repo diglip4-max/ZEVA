@@ -1,5 +1,9 @@
 import React from "react";
+import { useRouter } from "next/router";
 import { Calendar, ChevronDown } from "lucide-react";
+import { useCurrency } from "@/context/CurrencyContext";
+import { getCurrencySymbol } from "@/lib/currencyHelper";
+import { useClinicTheme } from "@/context/ClinicThemeContext";
 
 export default function DashboardHeader({
   userInfo,
@@ -9,7 +13,21 @@ export default function DashboardHeader({
   setShowCalendar,
   timePeriod,
   setTimePeriod,
+  modulePermissions,
 }) {
+  const { currency } = useCurrency();
+  const { theme } = useClinicTheme();
+  const currencySymbol = getCurrencySymbol(currency || "AED");
+  const router = useRouter();
+
+  const perms = modulePermissions || {};
+  // Check clinic_Appointment permission — hide "New Booking" if create is false
+  const appointmentActions = perms["clinic_Appointment"] || perms["Appointment"] || {};
+  const canCreateAppointment = appointmentActions.create !== false;
+
+  // Check clinic_create_lead permission — hide "Add Lead" if create is false
+  const leadActions = perms["clinic_create_lead"] || perms["create_lead"] || {};
+  const canCreateLead = leadActions.create !== false;
   return (
     <div className="mb-6">
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -95,19 +113,29 @@ export default function DashboardHeader({
             )}
           </div>
 
-          <button className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-all duration-200 hover:shadow-md text-base">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Booking
-          </button>
+          {canCreateAppointment && (
+            <button
+              onClick={() => router.push("/staff/clinic-appointment")}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-all duration-200 hover:shadow-md text-base"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Booking
+            </button>
+          )}
 
-          <button className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/15 text-gray-800 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-white/20 shadow-sm transition-all duration-200 text-base">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Add Lead
-          </button>
+          {canCreateLead && (
+            <button
+              onClick={() => router.push("/staff/clinic-create-lead")}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/15 text-gray-800 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-white/20 shadow-sm transition-all duration-200 text-base"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add Lead
+            </button>
+          )}
 
           <div className="inline-flex bg-gray-100 dark:bg-white/10 rounded-xl p-1 border border-gray-200 dark:border-white/10">
             <button

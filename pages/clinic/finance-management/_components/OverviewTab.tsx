@@ -1,35 +1,33 @@
 // components/finance/OverviewTab.tsx
 import React, { useMemo, useState } from "react";
 import {
-  TrendingUp,
   TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
   Clock,
-  ShieldCheck,
-  DollarSign,
-  ShoppingBag,
+  AlertTriangle,
+  Wallet,
+  Landmark,
   Receipt,
   PieChart,
   Calendar,
-  Filter,
   X,
   BarChart3,
-  LineChart as LineChartIcon,
   Activity,
   CreditCard,
   Percent,
-  ChevronDown,
-  ChevronRight,
-  Wallet,
-  Stethoscope,
+  Users,
   FileText,
-  Package,
   Inbox,
+  ChevronRight,
+  ChevronDown,
+  Banknote,
+  Paperclip,
+  Info,
 } from "lucide-react";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -38,20 +36,24 @@ import {
   PieChart as RePieChart,
   Pie,
   Cell,
-  BarChart,
-  Bar,
   Legend,
   LineChart,
   Line,
 } from "recharts";
-import useOverview, { OverviewFilters } from "../_hooks/useOverview";
+import useOverview, {
+  OverviewFilters,
+  RecentActivityItem,
+  BillDetails,
+  PaymentDetails,
+  ChequeDetails,
+} from "../_hooks/useOverview";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
-import {
-  getPatientInitials,
-  getPatientDisplayName,
-  getAvatarColor,
-} from "../_hooks/useBilling";
+import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
+
+// ============================================================
+// FONTS / SHARED TOKENS
+// ============================================================
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -59,6 +61,17 @@ const FONTS = `
 .zfm-body { font-family: 'Manrope', sans-serif; }
 .zfm-mono { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
 `;
+
+const COLORS = [
+  "#0f766e",
+  "#14b8a6",
+  "#5eead4",
+  "#d97706",
+  "#f59e0b",
+  "#e11d48",
+  "#7c3aed",
+  "#3b82f6",
+];
 
 // ============================================================
 // SUB-COMPONENTS
@@ -73,6 +86,7 @@ interface StatCardProps {
   fromColor: string;
   toColor: string;
   iconColor: string;
+  onClick?: () => void;
 }
 
 function StatCard({
@@ -84,9 +98,13 @@ function StatCard({
   fromColor,
   toColor,
   iconColor,
+  onClick,
 }: StatCardProps) {
   return (
-    <div className="group bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 p-6">
+    <div
+      onClick={onClick}
+      className={`group bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 p-6 ${onClick ? "cursor-pointer" : ""}`}
+    >
       <div className="flex items-center justify-between mb-4">
         <span className="text-[11px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">
           {label}
@@ -102,7 +120,7 @@ function StatCard({
           } as React.HTMLAttributes<SVGElement>)}
         </div>
       </div>
-      <div className="zfm-display text-[27px] font-semibold text-stone-900 dark:text-stone-50">
+      <div className="zfm-display text-[25px] font-semibold text-stone-900 dark:text-stone-50">
         {value}
       </div>
       {trend && (
@@ -117,6 +135,57 @@ function StatCard({
           {trend}
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniStat({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactElement;
+  tone: "amber" | "rose" | "blue" | "purple";
+}) {
+  const toneMap = {
+    amber: {
+      bg: "bg-amber-50 dark:bg-amber-950/40",
+      text: "text-amber-700 dark:text-amber-400",
+    },
+    rose: {
+      bg: "bg-rose-50 dark:bg-rose-950/40",
+      text: "text-rose-700 dark:text-rose-400",
+    },
+    blue: {
+      bg: "bg-blue-50 dark:bg-blue-950/40",
+      text: "text-blue-700 dark:text-blue-400",
+    },
+    purple: {
+      bg: "bg-purple-50 dark:bg-purple-950/40",
+      text: "text-purple-700 dark:text-purple-400",
+    },
+  }[tone];
+
+  return (
+    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition-all">
+      <div
+        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${toneMap.bg}`}
+      >
+        {React.cloneElement(icon, {
+          className: `w-4 h-4 ${toneMap.text}`,
+        } as React.HTMLAttributes<SVGElement>)}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest truncate">
+          {label}
+        </div>
+        <div className="text-sm font-bold text-stone-800 dark:text-stone-100 zfm-mono">
+          {value}
+        </div>
+      </div>
     </div>
   );
 }
@@ -141,58 +210,74 @@ function SectionHeading({ children, action }: SectionHeadingProps) {
   );
 }
 
+const STATUS_MAP: Record<string, { dot: string; text: string; bg: string }> = {
+  paid: {
+    dot: "bg-teal-500",
+    text: "text-teal-700 dark:text-teal-400",
+    bg: "bg-teal-50 dark:bg-teal-950/50",
+  },
+  cleared: {
+    dot: "bg-teal-500",
+    text: "text-teal-700 dark:text-teal-400",
+    bg: "bg-teal-50 dark:bg-teal-950/50",
+  },
+  partial: {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-950/50",
+  },
+  pending: {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-950/50",
+  },
+  presented: {
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-400",
+    bg: "bg-amber-50 dark:bg-amber-950/50",
+  },
+  upcoming: {
+    dot: "bg-blue-500",
+    text: "text-blue-700 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-950/50",
+  },
+  issued: {
+    dot: "bg-blue-500",
+    text: "text-blue-700 dark:text-blue-400",
+    bg: "bg-blue-50 dark:bg-blue-950/50",
+  },
+  draft: {
+    dot: "bg-stone-400",
+    text: "text-stone-600 dark:text-stone-400",
+    bg: "bg-stone-100 dark:bg-stone-800",
+  },
+  overdue: {
+    dot: "bg-rose-500",
+    text: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 dark:bg-rose-950/50",
+  },
+  bounced: {
+    dot: "bg-rose-500",
+    text: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 dark:bg-rose-950/50",
+  },
+  returned: {
+    dot: "bg-rose-500",
+    text: "text-rose-700 dark:text-rose-400",
+    bg: "bg-rose-50 dark:bg-rose-950/50",
+  },
+  cancelled: {
+    dot: "bg-red-500",
+    text: "text-red-700 dark:text-red-400",
+    bg: "bg-red-50 dark:bg-red-950/50",
+  },
+};
+
 function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { dot: string; text: string; bg: string }> = {
-    Active: {
-      dot: "bg-blue-500",
-      text: "text-blue-700 dark:text-blue-400",
-      bg: "bg-blue-50 dark:bg-blue-950/50",
-    },
-    Completed: {
-      dot: "bg-teal-500",
-      text: "text-teal-700 dark:text-teal-400",
-      bg: "bg-teal-50 dark:bg-teal-950/50",
-    },
-    Paid: {
-      dot: "bg-teal-500",
-      text: "text-teal-700 dark:text-teal-400",
-      bg: "bg-teal-50 dark:bg-teal-950/50",
-    },
-    Partial: {
-      dot: "bg-amber-500",
-      text: "text-amber-700 dark:text-amber-400",
-      bg: "bg-amber-50 dark:bg-amber-950/50",
-    },
-    Pending: {
-      dot: "bg-amber-500",
-      text: "text-amber-700 dark:text-amber-400",
-      bg: "bg-amber-50 dark:bg-amber-950/50",
-    },
-    Overdue: {
-      dot: "bg-rose-500",
-      text: "text-rose-700 dark:text-rose-400",
-      bg: "bg-rose-50 dark:bg-rose-950/50",
-    },
-    Cancelled: {
-      dot: "bg-red-500",
-      text: "text-red-700 dark:text-red-400",
-      bg: "bg-red-50 dark:bg-red-950/50",
-    },
-    Rejected: {
-      dot: "bg-rose-500",
-      text: "text-rose-700 dark:text-rose-400",
-      bg: "bg-rose-50 dark:bg-rose-950/50",
-    },
-    Released: {
-      dot: "bg-purple-500",
-      text: "text-purple-700 dark:text-purple-400",
-      bg: "bg-purple-50 dark:bg-purple-950/50",
-    },
-  };
-  const s = map[status] || map.Active;
+  const s = STATUS_MAP[status] || STATUS_MAP.draft;
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${s.bg} ${s.text}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold capitalize ${s.bg} ${s.text}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
       {status}
@@ -200,44 +285,19 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function ServiceBadge({ service }: { service: string }) {
-  const map: Record<
-    string,
-    { icon: React.ReactNode; bg: string; text: string }
-  > = {
-    Package: {
-      icon: <Package className="w-3 h-3" />,
-      bg: "bg-purple-50 dark:bg-purple-950/50",
-      text: "text-purple-700 dark:text-purple-400",
-    },
-    Treatment: {
-      icon: <Stethoscope className="w-3 h-3" />,
-      bg: "bg-blue-50 dark:bg-blue-950/50",
-      text: "text-blue-700 dark:text-blue-400",
-    },
-    Service: {
-      icon: <FileText className="w-3 h-3" />,
-      bg: "bg-teal-50 dark:bg-teal-950/50",
-      text: "text-teal-700 dark:text-teal-400",
-    },
-    Product: {
-      icon: <CreditCard className="w-3 h-3" />,
-      bg: "bg-amber-50 dark:bg-amber-950/50",
-      text: "text-amber-700 dark:text-amber-400",
-    },
-  };
-  const s = map[service] || map.Service;
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold ${s.bg} ${s.text}`}
-    >
-      {s.icon}
-      {service}
-    </span>
-  );
-}
+const ACTIVITY_ICON: Record<RecentActivityItem["type"], React.ReactElement> = {
+  bill: <Receipt className="w-3.5 h-3.5" />,
+  payment: <CreditCard className="w-3.5 h-3.5" />,
+  cheque: <Banknote className="w-3.5 h-3.5" />,
+};
 
-const formatDate = (d?: string | Date): string =>
+const ACTIVITY_LABEL: Record<RecentActivityItem["type"], string> = {
+  bill: "Bill created",
+  payment: "Payment made",
+  cheque: "Cheque issued",
+};
+
+const formatDate = (d?: string | Date | null): string =>
   d
     ? new Date(d).toLocaleDateString("en-IN", {
         day: "2-digit",
@@ -246,9 +306,9 @@ const formatDate = (d?: string | Date): string =>
       })
     : "—";
 
-const formatDateTime = (d?: string | Date): string =>
+const formatDateTime = (d?: string | Date | null): string =>
   d
-    ? new Date(d).toLocaleString("en-IN", {
+    ? new Date(d).toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -257,72 +317,188 @@ const formatDateTime = (d?: string | Date): string =>
       })
     : "—";
 
-const getInvoicedByName = (item: any): string => {
-  if (!item.invoicedById) return "—";
-  if (typeof item.invoicedById === "string")
-    return `User #${item.invoicedById.slice(-6)}`;
+interface DetailRowProps {
+  label: string;
+  value?: React.ReactNode;
+  mono?: boolean;
+}
+
+function DetailRow({ label, value, mono }: DetailRowProps) {
+  if (value === undefined || value === null || value === "") return null;
   return (
-    item.invoicedById.name ||
-    item.invoicedById.email ||
-    `User #${item.invoicedById._id.slice(-6)}`
+    <div className="flex items-start gap-3 py-1.5">
+      <div className="w-36 shrink-0 text-[11px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest pt-1">
+        {label}
+      </div>
+      <div
+        className={`text-sm text-stone-700 dark:text-stone-200 break-words ${
+          mono ? "font-mono font-semibold" : ""
+        }`}
+      >
+        {value}
+      </div>
+    </div>
   );
-};
+}
 
-function PaymentBreakdown({ item }: { item: any }) {
-  const { currency } = useCurrency();
-  const hasMultiplePayments =
-    item.multiplePayments && item.multiplePayments.length > 0;
-
+function BillDetailsView({
+  details,
+  inr,
+}: {
+  details: BillDetails;
+  inr: (n: number) => string;
+}) {
+  const progress =
+    details.totalAmount && details.totalAmount > 0
+      ? Math.round(((details.paidAmount || 0) / details.totalAmount) * 100)
+      : 0;
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-stone-500 dark:text-stone-400">Amount</span>
-        <span className="font-semibold text-stone-800 dark:text-stone-100">
-          {formatMoney(item.amount, currency)}
-        </span>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-stone-500 dark:text-stone-400">Paid</span>
-        <span className="font-semibold text-teal-600 dark:text-teal-400">
-          {formatMoney(item.paid, currency)}
-        </span>
-      </div>
-      {item.pending > 0 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-stone-500 dark:text-stone-400">Pending</span>
-          <span className="font-semibold text-amber-600 dark:text-amber-400">
-            {formatMoney(item.pending, currency)}
-          </span>
+    <div className="space-y-0.5">
+      <DetailRow label="Invoice #" value={details.invoiceNumber} mono />
+      <DetailRow
+        label="Supplier Inv#"
+        value={details.supplierInvoiceNumber || "—"}
+      />
+      <DetailRow label="Supplier" value={details.supplierName || "—"} />
+      <DetailRow label="Category" value={details.category || "—"} />
+      <DetailRow label="Invoice Date" value={formatDate(details.invoiceDate)} />
+      <DetailRow label="Due Date" value={formatDate(details.dueDate)} />
+      <DetailRow
+        label="Total Amount"
+        value={inr(details.totalAmount || 0)}
+        mono
+      />
+      <div className="flex items-start gap-3 py-1.5">
+        <div className="w-36 shrink-0 text-[11px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest pt-3">
+          Paid Progress
         </div>
-      )}
-      {item.advance && item.advance > 0 && (
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-stone-500 dark:text-stone-400">Advance</span>
-          <span className="font-semibold text-purple-600 dark:text-purple-400">
-            {formatMoney(item.advance, currency)}
-          </span>
-        </div>
-      )}
-      {hasMultiplePayments && (
-        <div className="mt-2 pt-2 border-t border-stone-100 dark:border-stone-800">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-1">
-            Split Payments
+        <div className="flex-1 pt-1.5">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 font-mono">
+              {inr(details.paidAmount || 0)} paid
+            </span>
+            <span className="text-xs font-semibold text-stone-500 dark:text-stone-400 font-mono">
+              {progress}%
+            </span>
           </div>
-          {item.multiplePayments?.map((payment: any, idx: number) => (
+          <div className="h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
             <div
-              key={idx}
-              className="flex items-center justify-between text-xs"
-            >
-              <span className="text-stone-500 dark:text-stone-400">
-                {payment.paymentMethod}
-              </span>
-              <span className="font-mono font-semibold text-stone-700 dark:text-stone-300">
-                {formatMoney(payment.amount, currency)}
-              </span>
-            </div>
-          ))}
+              className="h-full rounded-full"
+              style={{
+                width: `${progress}%`,
+                backgroundImage: "linear-gradient(90deg,#14b8a6,#0f766e)",
+              }}
+            />
+          </div>
+          <div className="mt-1 text-[11px] font-semibold text-rose-500 dark:text-rose-400 font-mono">
+            {inr(details.balance || 0)} balance due
+          </div>
         </div>
-      )}
+      </div>
+      <DetailRow
+        label="Status"
+        value={
+          details.status ? <StatusPill status={details.status} /> : undefined
+        }
+      />
+      <DetailRow
+        label="Attachments"
+        value={
+          details.attachments && details.attachments > 0 ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+              <Paperclip className="w-3 h-3" />
+              {details.attachments} file{details.attachments === 1 ? "" : "s"}
+            </span>
+          ) : undefined
+        }
+      />
+      {details.notes && <DetailRow label="Notes" value={details.notes} />}
+      <DetailRow label="Created" value={formatDateTime(details.createdAt)} />
+    </div>
+  );
+}
+
+function PaymentDetailsView({
+  details,
+  inr,
+}: {
+  details: PaymentDetails;
+  inr: (n: number) => string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <DetailRow label="Payment #" value={details.paymentNumber} mono />
+      <DetailRow label="Supplier" value={details.supplierName || "—"} />
+      <DetailRow
+        label="Bill Invoice"
+        value={details.billInvoiceNumber || "—"}
+        mono
+      />
+      <DetailRow label="Bill Category" value={details.billCategory || "—"} />
+      <DetailRow label="Amount Paid" value={inr(details.amount || 0)} mono />
+      <DetailRow label="Payment Date" value={formatDate(details.paymentDate)} />
+      <DetailRow
+        label="Method"
+        value={
+          details.method ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold capitalize text-blue-700 dark:text-blue-400">
+              {details.method.replace("_", " ")}
+            </span>
+          ) : undefined
+        }
+      />
+      <DetailRow
+        label="Attachment"
+        value={
+          details.hasAttachment ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+              <Paperclip className="w-3 h-3" /> Attached
+            </span>
+          ) : undefined
+        }
+      />
+      <DetailRow
+        label="Status"
+        value={
+          details.reversed ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 dark:bg-rose-950/40 px-3 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+              Reversed
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 dark:bg-teal-950/40 px-3 py-1 text-xs font-semibold text-teal-700 dark:text-teal-400">
+              Completed
+            </span>
+          )
+        }
+      />
+      {details.notes && <DetailRow label="Notes" value={details.notes} />}
+      <DetailRow label="Created" value={formatDateTime(details.createdAt)} />
+    </div>
+  );
+}
+
+function ChequeDetailsView({
+  details,
+  inr,
+}: {
+  details: ChequeDetails;
+  inr: (n: number) => string;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <DetailRow label="Cheque #" value={details.chequeNumber} mono />
+      <DetailRow label="Supplier" value={details.supplierName || "—"} />
+      <DetailRow label="Payee" value={details.payee || "—"} />
+      <DetailRow label="Bank" value={details.bank || "—"} />
+      <DetailRow label="Amount" value={inr(details.amount || 0)} mono />
+      <DetailRow label="Cheque Date" value={formatDate(details.chequeDate)} />
+      <DetailRow
+        label="Status"
+        value={
+          details.status ? <StatusPill status={details.status} /> : undefined
+        }
+      />
+      <DetailRow label="Created" value={formatDateTime(details.createdAt)} />
     </div>
   );
 }
@@ -331,11 +507,47 @@ function PaymentBreakdown({ item }: { item: any }) {
 // FILTER BAR
 // ============================================================
 
-interface FilterBarProps {
-  filters: OverviewFilters;
-  onFiltersChange: (filters: OverviewFilters) => void;
-  onRefresh: () => void;
-  loading: boolean;
+function dateStr(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+const buildQuickRanges = () => {
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const thisYearStart = new Date(now.getFullYear(), 0, 1);
+  return [
+    { label: "Last 6 Months", get: () => ({}) as OverviewFilters },
+    {
+      label: "This Month",
+      get: () =>
+        ({
+          startDate: dateStr(thisMonthStart),
+          endDate: dateStr(now),
+        }) as OverviewFilters,
+    },
+    {
+      label: "This Year",
+      get: () =>
+        ({
+          startDate: dateStr(thisYearStart),
+          endDate: dateStr(now),
+        }) as OverviewFilters,
+    },
+  ];
+};
+
+function matchQuickRange(
+  f: OverviewFilters,
+  ranges: ReturnType<typeof buildQuickRanges>,
+): string {
+  if (!f.startDate && !f.endDate) return "Last 6 Months";
+  for (const r of ranges) {
+    const expected = r.get();
+    if (expected.startDate === f.startDate && expected.endDate === f.endDate) {
+      return r.label;
+    }
+  }
+  return "Custom Range";
 }
 
 function FilterBar({
@@ -343,918 +555,193 @@ function FilterBar({
   onFiltersChange,
   onRefresh,
   loading,
-}: FilterBarProps) {
-  const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState<OverviewFilters>(filters);
+}: {
+  filters: OverviewFilters;
+  onFiltersChange: (f: OverviewFilters) => void;
+  onRefresh: () => void;
+  loading: boolean;
+}) {
+  const quickRanges = useMemo(buildQuickRanges, []);
 
-  const handleApplyFilters = () => {
-    onFiltersChange(localFilters);
-    setShowFilters(false);
-  };
+  const [showCustom, setShowCustom] = useState(false);
+  const [local, setLocal] = useState<OverviewFilters>(filters);
+  const [activeRange, setActiveRange] = useState<string>(() =>
+    matchQuickRange(filters, buildQuickRanges()),
+  );
 
-  const handleClearFilters = () => {
-    const cleared = { period: "monthly" } as OverviewFilters;
-    setLocalFilters(cleared);
-    onFiltersChange(cleared);
-    setShowFilters(false);
-  };
+  React.useEffect(() => {
+    setLocal(filters);
+    setActiveRange((prev) => {
+      const matched = matchQuickRange(filters, quickRanges);
+      if (
+        matched === "Custom Range" &&
+        !filters.startDate &&
+        !filters.endDate
+      ) {
+        return prev;
+      }
+      return matched;
+    });
+    if (
+      (filters.startDate || filters.endDate) &&
+      matchQuickRange(filters, quickRanges) === "Custom Range"
+    ) {
+      setShowCustom(true);
+    }
+  }, [filters, quickRanges]);
 
   return (
     <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-4 mb-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-400">
-            <Calendar className="w-4 h-4" />
-            <span className="font-medium">
-              {filters.startDate && filters.endDate
-                ? `${new Date(filters.startDate).toLocaleDateString()} - ${new Date(filters.endDate).toLocaleDateString()}`
-                : filters.startDate
-                  ? `From ${new Date(filters.startDate).toLocaleDateString()}`
-                  : filters.endDate
-                    ? `Until ${new Date(filters.endDate).toLocaleDateString()}`
-                    : "All Time"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest">
-              Period:
-            </span>
-            <select
-              value={filters.period || "monthly"}
-              onChange={(e) => {
-                const newFilters = {
-                  ...filters,
-                  period: e.target.value as any,
-                };
-                setLocalFilters(newFilters);
-                onFiltersChange(newFilters);
-              }}
-              className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Calendar className="w-4 h-4 text-stone-400" />
+          {quickRanges.map((r) => {
+            const isActive = activeRange === r.label;
+            return (
+              <button
+                key={r.label}
+                onClick={() => {
+                  const next = r.get();
+                  setLocal(next);
+                  onFiltersChange(next);
+                  setActiveRange(r.label);
+                  setShowCustom(false);
+                }}
+                className={`text-sm rounded-full border px-3.5 py-1.5 font-medium transition-all ${
+                  isActive
+                    ? "border-teal-500 bg-teal-600 text-white shadow-sm"
+                    : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
+                }`}
+              >
+                {r.label}
+              </button>
+            );
+          })}
           <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
+            onClick={() => {
+              setShowCustom(!showCustom);
+              if (!showCustom) setActiveRange("Custom Range");
+            }}
+            className={`text-sm rounded-full border px-3.5 py-1.5 font-medium transition-all ${
+              activeRange === "Custom Range"
+                ? "border-teal-500 bg-teal-600 text-white shadow-sm"
+                : "border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700"
+            }`}
           >
-            <Filter className="w-4 h-4" />
-            Filters
-            {(filters.startDate || filters.endDate) && (
-              <span className="w-2 h-2 rounded-full bg-teal-500" />
-            )}
-          </button>
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-full bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Activity className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            Custom Range
           </button>
         </div>
-      </div>
-
-      {/* Expanded Filter Panel */}
-      {showFilters && (
-        <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={localFilters.startDate || ""}
-                onChange={(e) =>
-                  setLocalFilters({
-                    ...localFilters,
-                    startDate: e.target.value,
-                  })
-                }
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={localFilters.endDate || ""}
-                onChange={(e) =>
-                  setLocalFilters({ ...localFilters, endDate: e.target.value })
-                }
-                className="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              />
-            </div>
-            <div className="flex items-end gap-2">
-              <button
-                onClick={handleApplyFilters}
-                className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-lg transition-all"
-              >
-                Apply Filters
-              </button>
-              <button
-                onClick={handleClearFilters}
-                className="rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// CHART COMPONENTS
-// ============================================================
-
-interface MonthlyTrendChartProps {
-  data: any[];
-  currency: string;
-  isDark?: boolean;
-}
-
-function MonthlyTrendChart({
-  data,
-  currency,
-  isDark = false,
-}: MonthlyTrendChartProps) {
-  const chartGrid = isDark ? "#292524" : "#f0efed";
-  const chartAxis = isDark ? "#78716c" : "#a8a29e";
-  const chartAxisMuted = isDark ? "#57534e" : "#c4c1bd";
-
-  const formatCurrency = (value: any) => formatMoney(Number(value), currency);
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-      <SectionHeading>
-        <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Monthly Billing Trend
-        </div>
-      </SectionHeading>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={data}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke={chartGrid}
-            vertical={false}
-          />
-          <XAxis
-            dataKey="month"
-            tick={{ fontSize: 11, fill: chartAxis }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: chartAxisMuted }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={formatCurrency}
-          />
-          <Tooltip
-            formatter={(v) => formatMoney(Number(v), currency)}
-            contentStyle={{
-              borderRadius: 12,
-              border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
-              fontSize: 12,
-              backgroundColor: isDark ? "#1c1917" : "#ffffff",
-              color: isDark ? "#e7e5e4" : "#1c1917",
-            }}
-          />
-          <Legend />
-          <Bar
-            dataKey="totalAmount"
-            name="Total Billed"
-            fill="#0f766e"
-            radius={[4, 4, 0, 0]}
-          />
-          <Bar
-            dataKey="totalPaid"
-            name="Paid"
-            fill="#14b8a6"
-            radius={[4, 4, 0, 0]}
-          />
-          <Bar
-            dataKey="totalPending"
-            name="Pending"
-            fill="#d97706"
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-interface ServiceDistributionChartProps {
-  data: any[];
-  currency: string;
-  isDark?: boolean;
-}
-
-function ServiceDistributionChart({
-  data,
-  currency,
-  isDark = false,
-}: ServiceDistributionChartProps) {
-  const COLORS = [
-    "#0f766e",
-    "#14b8a6",
-    "#5eead4",
-    "#d97706",
-    "#f59e0b",
-    "#e11d48",
-  ];
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-      <SectionHeading>
-        <div className="flex items-center gap-2">
-          <PieChart className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Revenue by Service
-        </div>
-      </SectionHeading>
-      <ResponsiveContainer width="100%" height={250}>
-        <RePieChart>
-          <Pie
-            data={data}
-            dataKey="total"
-            nameKey="_id"
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-            label={({ name, percent = 0 }) =>
-              `${name} ${(percent * 100).toFixed(0)}%`
-            }
-            labelLine={false}
-          >
-            {data.map((_entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(v) => formatMoney(Number(v), currency)}
-            contentStyle={{
-              borderRadius: 12,
-              border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
-              fontSize: 12,
-              backgroundColor: isDark ? "#1c1917" : "#ffffff",
-              color: isDark ? "#e7e5e4" : "#1c1917",
-            }}
-          />
-        </RePieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-interface PaymentMethodChartProps {
-  data: any[];
-  currency: string;
-  isDark?: boolean;
-}
-
-function PaymentMethodChart({
-  data,
-  currency,
-  isDark = false,
-}: PaymentMethodChartProps) {
-  const COLORS = [
-    "#0f766e",
-    "#14b8a6",
-    "#5eead4",
-    "#d97706",
-    "#f59e0b",
-    "#e11d48",
-  ];
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-      <SectionHeading>
-        <div className="flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Payment Methods
-        </div>
-      </SectionHeading>
-      <ResponsiveContainer width="100%" height={200}>
-        <RePieChart>
-          <Pie
-            data={data}
-            dataKey="total"
-            nameKey="_id"
-            cx="50%"
-            cy="50%"
-            innerRadius={40}
-            outerRadius={70}
-            label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}
-          >
-            {data.map((_entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(v) => formatMoney(Number(v), currency)}
-            contentStyle={{
-              borderRadius: 12,
-              border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
-              fontSize: 12,
-              backgroundColor: isDark ? "#1c1917" : "#ffffff",
-              color: isDark ? "#e7e5e4" : "#1c1917",
-            }}
-          />
-        </RePieChart>
-      </ResponsiveContainer>
-      <div className="flex flex-wrap gap-3 mt-3 justify-center">
-        {data.map((item, index) => (
-          <div key={index} className="flex items-center gap-1.5 text-xs">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-            />
-            <span className="text-stone-600 dark:text-stone-400">
-              {item._id || "Unknown"}
-            </span>
-            <span className="font-semibold text-stone-800 dark:text-stone-200">
-              ({formatMoney(item.total, currency)})
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-interface StatusDistributionChartProps {
-  data: any[];
-  currency: string;
-  isDark?: boolean;
-}
-
-function StatusDistributionChart({
-  data,
-  isDark = false,
-}: StatusDistributionChartProps) {
-  const COLORS = ["#0f766e", "#d97706", "#e11d48"];
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-      <SectionHeading>
-        <div className="flex items-center gap-2">
-          <Percent className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Status Breakdown
-        </div>
-      </SectionHeading>
-      <ResponsiveContainer width="100%" height={200}>
-        <RePieChart>
-          <Pie
-            data={data}
-            dataKey="count"
-            nameKey="_id"
-            cx="50%"
-            cy="50%"
-            innerRadius={40}
-            outerRadius={70}
-            label={({ percent = 0 }) => `${(percent * 100).toFixed(0)}%`}
-          >
-            {data.map((_entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(v, name) => [`${Number(v) || 0} invoices`, name]}
-            contentStyle={{
-              borderRadius: 12,
-              border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
-              fontSize: 12,
-              backgroundColor: isDark ? "#1c1917" : "#ffffff",
-              color: isDark ? "#e7e5e4" : "#1c1917",
-            }}
-          />
-        </RePieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-interface ManualPettyCashTrendChartProps {
-  data: any[];
-  currency: string;
-  isDark?: boolean;
-}
-
-function ManualPettyCashTrendChart({
-  data,
-  currency,
-  isDark = false,
-}: ManualPettyCashTrendChartProps) {
-  const chartGrid = isDark ? "#292524" : "#f0efed";
-  const chartAxis = isDark ? "#78716c" : "#a8a29e";
-  const chartAxisMuted = isDark ? "#57534e" : "#c4c1bd";
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-      <SectionHeading>
-        <div className="flex items-center gap-2">
-          <LineChartIcon className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Manual Petty Cash Trend
-        </div>
-      </SectionHeading>
-      <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={data}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke={chartGrid}
-            vertical={false}
-          />
-          <XAxis
-            dataKey="month"
-            tick={{ fontSize: 11, fill: chartAxis }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: chartAxisMuted }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v) => formatMoney(Number(v), currency)}
-          />
-          <Tooltip
-            formatter={(v) => formatMoney(Number(v), currency)}
-            contentStyle={{
-              borderRadius: 12,
-              border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
-              fontSize: 12,
-              backgroundColor: isDark ? "#1c1917" : "#ffffff",
-              color: isDark ? "#e7e5e4" : "#1c1917",
-            }}
-          />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey="totalIncome"
-            name="Income"
-            stroke="#0f766e"
-            strokeWidth={2.5}
-          />
-          <Line
-            type="monotone"
-            dataKey="totalExpenses"
-            name="Expenses"
-            stroke="#e11d48"
-            strokeWidth={2.5}
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-interface ProductSalesTrendChartProps {
-  data: any[];
-  currency: string;
-  isDark?: boolean;
-}
-
-function ProductSalesTrendChart({
-  data,
-  currency,
-  isDark = false,
-}: ProductSalesTrendChartProps) {
-  const chartGrid = isDark ? "#292524" : "#f0efed";
-  const chartAxis = isDark ? "#78716c" : "#a8a29e";
-  const chartAxisMuted = isDark ? "#57534e" : "#c4c1bd";
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
-      <SectionHeading>
-        <div className="flex items-center gap-2">
-          <ShoppingBag className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          Product Sales Trend
-        </div>
-      </SectionHeading>
-      <ResponsiveContainer width="100%" height={250}>
-        <AreaChart data={data}>
-          <defs>
-            <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0f766e" stopOpacity={0.3} />
-              <stop offset="100%" stopColor="#0f766e" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke={chartGrid}
-            vertical={false}
-          />
-          <XAxis
-            dataKey="month"
-            tick={{ fontSize: 11, fill: chartAxis }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 11, fill: chartAxisMuted }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={(v) => formatMoney(Number(v), currency)}
-          />
-          <Tooltip
-            formatter={(v) => formatMoney(Number(v), currency)}
-            contentStyle={{
-              borderRadius: 12,
-              border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
-              fontSize: 12,
-              backgroundColor: isDark ? "#1c1917" : "#ffffff",
-              color: isDark ? "#e7e5e4" : "#1c1917",
-            }}
-          />
-          <Legend />
-          <Area
-            type="monotone"
-            dataKey="totalSales"
-            name="Total Sales"
-            stroke="#0f766e"
-            fill="url(#salesGrad)"
-            strokeWidth={2.5}
-          />
-          <Area
-            type="monotone"
-            dataKey="totalPaid"
-            name="Paid"
-            stroke="#14b8a6"
-            fill="none"
-            strokeWidth={2}
-            strokeDasharray="5 5"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// ============================================================
-// RECENT BILLINGS TABLE
-// ============================================================
-
-interface RecentBillingsProps {
-  billings: any[];
-  currency: string;
-  onViewAll: () => void;
-}
-
-function RecentBillings({
-  billings,
-  currency,
-  onViewAll,
-}: RecentBillingsProps) {
-  const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set());
-
-  const toggleExpand = (id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  return (
-    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
-      <div className="p-6 border-b border-stone-100 dark:border-stone-800">
-        <SectionHeading
-          action={
-            <button
-              onClick={onViewAll}
-              className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300"
-            >
-              View All →
-            </button>
-          }
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className="flex items-center gap-2 rounded-full bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-50"
         >
-          <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-            Recent Billings
-          </div>
-        </SectionHeading>
+          <Activity className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
       </div>
 
-      {billings.length === 0 ? (
-        <div className="text-center py-16 text-stone-400 dark:text-stone-500">
-          <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
-          <p className="text-sm">No recent billings found.</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto bg-white dark:bg-stone-900">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] text-stone-500 dark:text-stone-400 uppercase tracking-widest font-bold border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
-                <th className="px-5 py-3.5 font-bold w-10"></th>
-                <th className="px-5 py-3.5 font-bold">Invoice</th>
-                <th className="px-5 py-3.5 font-bold">Patient</th>
-                <th className="px-5 py-3.5 font-bold">Service</th>
-                <th className="px-5 py-3.5 font-bold text-right">Amount</th>
-                <th className="px-5 py-3.5 font-bold text-right">Paid</th>
-                <th className="px-5 py-3.5 font-bold text-right">Pending</th>
-                <th className="px-5 py-3.5 font-bold text-right">
-                  Payment Method
-                </th>
-                <th className="px-5 py-3.5 font-bold">Status</th>
-                <th className="px-5 py-3.5 font-bold">Date</th>
-                <th className="px-5 py-3.5 font-bold"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-              {billings.map((item, idx) => {
-                const expanded = expandedIds.has(item._id);
-                const status = item.status || "Active";
-                const isFullyPaid = item.pending === 0 && item.paid > 0;
-
-                return (
-                  <React.Fragment key={item._id || idx}>
-                    <tr
-                      className={`${
-                        idx % 2 === 1
-                          ? "bg-stone-50/50 dark:bg-stone-800/30"
-                          : "bg-white dark:bg-stone-900"
-                      } hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors duration-150`}
-                    >
-                      <td className="px-5 py-3.5">
-                        <button
-                          onClick={() => toggleExpand(item._id)}
-                          className="w-8 h-8 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors shadow-sm dark:shadow-stone-900/20"
-                          aria-label={expanded ? "Collapse" : "Expand"}
-                        >
-                          {expanded ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-xs">
-                          {item.invoiceNumber}
-                        </div>
-                        <div className="text-[10px] text-stone-400 dark:text-stone-500 mt-0.5">
-                          {getInvoicedByName(item)}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAvatarColor(item.patientId)}`}
-                          >
-                            {getPatientInitials(item.patientId)}
-                          </div>
-                          <div>
-                            <div className="text-stone-800 dark:text-stone-100 font-medium text-sm">
-                              {getPatientDisplayName(item.patientId)}
-                            </div>
-                            {item.patientId &&
-                              typeof item.patientId !== "string" &&
-                              item.patientId.emrNumber && (
-                                <div className="text-[10px] text-stone-400 dark:text-stone-500">
-                                  EMR: {item.patientId.emrNumber}
-                                </div>
-                              )}
-                            {item.doctorName && (
-                              <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
-                                Dr. {item.doctorName}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="flex flex-col gap-1">
-                          <ServiceBadge service={item.service} />
-                          {(item.treatment || item.package) && (
-                            <span className="text-xs text-stone-500 dark:text-stone-400 truncate max-w-[120px]">
-                              {item.treatment || item.package}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-stone-800 dark:text-stone-100">
-                        {formatMoney(item.amount, currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-teal-600 dark:text-teal-400">
-                        {formatMoney(item.paid, currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-amber-600 dark:text-amber-400">
-                        {formatMoney(item.pending, currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-amber-600 dark:text-amber-400 text-xs">
-                        {item.paymentMethod}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <StatusPill status={status} />
-                        {isFullyPaid && item.pending === 0 && (
-                          <div className="text-[9px] text-teal-600 dark:text-teal-400 font-medium mt-0.5">
-                            Fully Paid
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-5 py-3.5 text-stone-400 dark:text-stone-500 font-mono text-xs whitespace-nowrap">
-                        {formatDate(item.invoicedDate)}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          onClick={() => toggleExpand(item._id)}
-                          className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 whitespace-nowrap hover:underline"
-                        >
-                          {expanded ? "Hide" : "Details"}
-                        </button>
-                      </td>
-                    </tr>
-
-                    {expanded && (
-                      <tr className="bg-stone-50/70 dark:bg-stone-800/40">
-                        <td
-                          colSpan={10}
-                          className="px-5 py-5 border-t border-stone-200 dark:border-stone-700"
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Payment Details */}
-                            <div>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">
-                                <Wallet className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
-                                Payment Details
-                              </div>
-                              <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-4 shadow-sm dark:shadow-stone-900/20">
-                                <PaymentBreakdown item={item} />
-                              </div>
-                            </div>
-
-                            {/* Treatment/Service Details */}
-                            <div>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">
-                                <Stethoscope className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                                Treatment Details
-                              </div>
-                              <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-4 shadow-sm dark:shadow-stone-900/20 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-stone-500 dark:text-stone-400">
-                                    Service
-                                  </span>
-                                  <span className="font-medium text-stone-800 dark:text-stone-100">
-                                    {item.service}
-                                  </span>
-                                </div>
-                                {item.treatment && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Treatment
-                                    </span>
-                                    <span className="font-medium text-stone-800 dark:text-stone-100">
-                                      {item.treatment}
-                                    </span>
-                                  </div>
-                                )}
-                                {item.package && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Package
-                                    </span>
-                                    <span className="font-medium text-stone-800 dark:text-stone-100">
-                                      {item.package}
-                                    </span>
-                                  </div>
-                                )}
-                                {item.quantity && item.quantity > 0 && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Quantity
-                                    </span>
-                                    <span className="font-medium text-stone-800 dark:text-stone-100">
-                                      {item.quantity}
-                                    </span>
-                                  </div>
-                                )}
-                                {item.sessions && item.sessions > 0 && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Sessions
-                                    </span>
-                                    <span className="font-medium text-stone-800 dark:text-stone-100">
-                                      {item.sessions}
-                                    </span>
-                                  </div>
-                                )}
-                                {item.doctorName && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Doctor
-                                    </span>
-                                    <span className="font-medium text-stone-800 dark:text-stone-100">
-                                      {item.doctorName}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Additional Info */}
-                            <div>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500 mb-3">
-                                <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                                Additional Info
-                              </div>
-                              <div className="bg-white dark:bg-stone-900 rounded-xl border border-stone-200 dark:border-stone-700 p-4 shadow-sm dark:shadow-stone-900/20 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-stone-500 dark:text-stone-400">
-                                    Created
-                                  </span>
-                                  <span className="font-medium text-stone-800 dark:text-stone-100 text-xs">
-                                    {formatDateTime(item.createdAt)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-stone-500 dark:text-stone-400">
-                                    Invoiced By
-                                  </span>
-                                  <span className="font-medium text-stone-800 dark:text-stone-100">
-                                    {getInvoicedByName(item)}
-                                  </span>
-                                </div>
-                                {item.invoicedByRole && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Role
-                                    </span>
-                                    <span className="font-medium text-stone-800 dark:text-stone-100">
-                                      {item.invoicedByRole}
-                                    </span>
-                                  </div>
-                                )}
-                                {item.notes && (
-                                  <div className="text-sm">
-                                    <span className="text-stone-500 dark:text-stone-400">
-                                      Notes
-                                    </span>
-                                    <p className="text-stone-700 dark:text-stone-300 mt-1 text-sm bg-stone-50 dark:bg-stone-800 rounded-lg px-3 py-2 border border-stone-100 dark:border-stone-700">
-                                      {item.notes}
-                                    </p>
-                                  </div>
-                                )}
-                                {item.pendingBalanceImage &&
-                                  item.pendingBalanceImage.length > 0 && (
-                                    <div>
-                                      <span className="text-xs text-stone-500 dark:text-stone-400">
-                                        Pending Balance Images
-                                      </span>
-                                      <div className="flex gap-1 mt-1">
-                                        {item.pendingBalanceImage.map(
-                                          (url: string, i: number) => (
-                                            <a
-                                              key={i}
-                                              href={url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="text-xs text-teal-600 dark:text-teal-400 hover:underline"
-                                            >
-                                              📎 #{i + 1}
-                                            </a>
-                                          ),
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+      {showCustom && (
+        <div className="mt-4 pt-4 border-t border-stone-100 dark:border-stone-800 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={local.startDate || ""}
+              onChange={(e) =>
+                setLocal({ ...local, startDate: e.target.value })
+              }
+              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5 block">
+              End Date
+            </label>
+            <input
+              type="date"
+              value={local.endDate || ""}
+              onChange={(e) => setLocal({ ...local, endDate: e.target.value })}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => {
+                onFiltersChange(local);
+                setShowCustom(false);
+              }}
+              className="flex-1 rounded-xl bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:shadow-lg transition-all"
+            >
+              Apply
+            </button>
+            <button
+              onClick={() => {
+                setLocal({});
+                onFiltersChange({});
+                setShowCustom(false);
+                setActiveRange("Last 6 Months");
+              }}
+              className="rounded-xl border border-stone-200 dark:border-stone-700 px-4 py-2 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+// ============================================================
+// CHART CARDS
+// ============================================================
+
+function ChartCard({
+  title,
+  icon,
+  children,
+  action,
+}: {
+  title: string;
+  icon: React.ReactElement;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm hover:shadow-md transition-all duration-300 p-6">
+      <SectionHeading action={action}>
+        <div className="flex items-center gap-2">
+          {React.cloneElement(icon, {
+            className: "w-4 h-4 text-teal-600 dark:text-teal-400",
+          } as React.HTMLAttributes<SVGElement>)}
+          {title}
+        </div>
+      </SectionHeading>
+      {children}
+    </div>
+  );
+}
+
+function EmptyChart({ label }: { label: string }) {
+  return (
+    <div className="h-[220px] flex flex-col items-center justify-center text-stone-400 dark:text-stone-500">
+      <Inbox className="w-6 h-6 mb-2 text-stone-300 dark:text-stone-600" />
+      <p className="text-sm">{label}</p>
+    </div>
+  );
+}
+
+function tooltipStyle(isDark: boolean) {
+  return {
+    borderRadius: 12,
+    border: `1px solid ${isDark ? "#292524" : "#f0efed"}`,
+    fontSize: 12,
+    backgroundColor: isDark ? "#1c1917" : "#ffffff",
+    color: isDark ? "#e7e5e4" : "#1c1917",
+  };
 }
 
 // ============================================================
@@ -1264,62 +751,82 @@ function RecentBillings({
 interface OverviewTabProps {
   isDark?: boolean;
   onTabChange?: (tab: string) => void;
+  permissionData: UseFinancePermissionReturn;
 }
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
   isDark = false,
   onTabChange,
+  permissionData,
 }) => {
+  const { permissionsLoaded, canAccessPage, AccessDenied, PermissionLoading } =
+    permissionData;
   const { currency } = useCurrency();
   const { loading, error, data, filters, setFilters, refresh } = useOverview();
 
-  const inr = (n: number): string => formatMoney(n, currency);
+  const [expandedActivityId, setExpandedActivityId] = useState<string | null>(
+    null,
+  );
 
-  const handleViewAllBillings = () => {
-    if (onTabChange) {
-      onTabChange("billing");
-    }
-  };
-
-  // Format chart data
-  const formattedMonthlyBilling = useMemo(() => {
-    if (!data?.charts?.monthlyBillingTrend) return [];
-    return data.charts.monthlyBillingTrend.map((item) => ({
-      month: item.month || `M${item._id?.month}/${item._id?.year}`,
-      totalAmount: item.totalAmount || 0,
-      totalPaid: item.totalPaid || 0,
-      totalPending: item.totalPending || 0,
-      count: item.count || 0,
-    }));
-  }, [data]);
-
-  const formattedManualPettyCash = useMemo(() => {
-    if (!data?.charts?.monthlyManualPettyCash) return [];
-    return data.charts.monthlyManualPettyCash.map((item) => ({
-      month: item.month || `M${item._id?.month}/${item._id?.year}`,
-      totalIncome: item.totalIncome || 0,
-      totalExpenses: item.totalExpenses || 0,
-      count: item.count || 0,
-    }));
-  }, [data]);
-
-  const formattedProductSales = useMemo(() => {
-    if (!data?.charts?.monthlyProductSales) return [];
-    return data.charts.monthlyProductSales.map((item) => ({
-      month: item.month || `M${item._id?.month}/${item._id?.year}`,
-      totalSales: item.totalSales || 0,
-      totalPaid: item.totalPaid || 0,
-      count: item.count || 0,
-    }));
-  }, [data]);
-
+  const inr = (n: number): string => formatMoney(n || 0, currency);
   const isLoading = loading || !data;
+
+  const chartGrid = isDark ? "#292524" : "#f0efed";
+  const chartAxis = isDark ? "#78716c" : "#a8a29e";
+
+  const goTo = (tab: string) => () => onTabChange && onTabChange(tab);
+
+  const billStatusData = useMemo(
+    () =>
+      (data?.bills.statusBreakdown || []).map((s) => ({
+        name: s.status,
+        value: s.amount,
+        count: s.count,
+      })),
+    [data],
+  );
+  const billCategoryData = useMemo(
+    () =>
+      (data?.bills.categoryBreakdown || [])
+        .slice(0, 6)
+        .map((c) => ({ name: c.category, value: c.amount, count: c.count })),
+    [data],
+  );
+  const paymentMethodData = useMemo(
+    () =>
+      (data?.payments.methodBreakdown || []).map((m) => ({
+        name: m.method?.replace("_", " "),
+        value: m.amount,
+        count: m.count,
+      })),
+    [data],
+  );
+  const chequeStatusData = useMemo(
+    () =>
+      (data?.cheques.statusBreakdown || []).map((s) => ({
+        name: s.status,
+        value: s.amount,
+        count: s.count,
+      })),
+    [data],
+  );
+
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
 
   return (
     <div className="zfm-body">
       <style>{FONTS}</style>
 
-      {/* Filter Bar */}
       <FilterBar
         filters={filters}
         onFiltersChange={setFilters}
@@ -1327,7 +834,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         loading={loading}
       />
 
-      {/* Loading State */}
+      {/* Loading */}
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           {[1, 2, 3, 4].map((i) => (
@@ -1336,16 +843,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-6 animate-pulse"
             >
               <div className="flex items-center justify-between mb-4">
-                <div className="h-3 w-20 bg-stone-200 dark:bg-stone-700 rounded"></div>
-                <div className="w-10 h-10 rounded-full bg-stone-200 dark:bg-stone-700"></div>
+                <div className="h-3 w-20 bg-stone-200 dark:bg-stone-700 rounded" />
+                <div className="w-10 h-10 rounded-full bg-stone-200 dark:bg-stone-700" />
               </div>
-              <div className="h-8 w-24 bg-stone-200 dark:bg-stone-700 rounded"></div>
+              <div className="h-8 w-24 bg-stone-200 dark:bg-stone-700 rounded" />
             </div>
           ))}
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error */}
       {!isLoading && error && (
         <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 rounded-2xl p-6 mb-8 text-center">
           <p className="text-rose-600 dark:text-rose-400 font-medium">
@@ -1360,297 +867,681 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       )}
 
-      {/* Summary Cards */}
-      {!isLoading && !error && data?.overview && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            label="Total Revenue"
-            value={inr(data.overview.totalRevenue)}
-            icon={<TrendingUp />}
-            trend="From billing, sales & manual income"
-            trendPositive
-            fromColor="#ccfbf1"
-            toColor="#5eead4"
-            iconColor="text-teal-700"
-          />
-          <StatCard
-            label="Total Expenses"
-            value={inr(data.overview.totalExpenses)}
-            icon={<TrendingDown />}
-            trend="Petty cash & manual expenses"
-            trendPositive={false}
-            fromColor="#ffe4e6"
-            toColor="#fda4af"
-            iconColor="text-rose-700"
-          />
-
-          {/* Net Balance Card */}
-          <div
-            className="relative overflow-hidden rounded-2xl p-6 text-white shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300"
-            style={{
-              backgroundImage:
-                "linear-gradient(135deg, #14b8a6 0%, #0f766e 45%, #0a4a44 100%)",
-            }}
-          >
-            <div
-              className="absolute -right-10 -top-12 w-40 h-40 rounded-full"
-              style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-            />
-            <div
-              className="absolute right-10 bottom-0 w-24 h-24 rounded-full"
-              style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
-            />
-            <div
-              className="absolute top-0 left-0 w-1/2 h-full pointer-events-none"
-              style={{
-                backgroundImage:
-                  "linear-gradient(115deg, rgba(255,255,255,0.14) 0%, transparent 40%)",
-              }}
-            />
-            <div className="relative flex items-center justify-between mb-5">
-              <div
-                className="w-8 h-6 rounded-[4px]"
-                style={{
-                  backgroundImage: "linear-gradient(135deg, #fde68a, #d97706)",
-                }}
-              />
-              <ShieldCheck className="w-4 h-4 text-amber-200" />
-            </div>
-            <span className="relative text-[11px] font-bold text-teal-100 uppercase tracking-widest block mb-1.5">
-              Net Balance
-            </span>
-            <div className="relative zfm-display text-[27px] font-semibold text-amber-200">
-              {inr(data.overview.netBalance)}
-            </div>
-            <div className="relative mt-6 flex items-center justify-between">
-              <span className="zfm-mono text-[10px] text-teal-200 tracking-[0.2em]">
-                ZEVA •••• FIN01
-              </span>
-              <span className="text-[10px] text-teal-200">
-                {new Date().toLocaleDateString("en-IN", {
-                  month: "short",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-          </div>
-
-          <StatCard
-            label="Pending Dues"
-            value={inr(data.overview.pendingDues)}
-            icon={<Clock />}
-            trend={`${data.billing.count || 0} invoices pending`}
-            trendPositive={false}
-            fromColor="#fef3c7"
-            toColor="#fcd34d"
-            iconColor="text-amber-700"
-          />
-        </div>
-      )}
-
-      {/* Detailed Stats Grid */}
       {!isLoading && !error && data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-5 hover:shadow-md transition-all">
-            <div className="flex items-center gap-2 text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">
-              <Receipt className="w-3.5 h-3.5" />
-              Billing
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">Paid</span>
-                <span className="font-semibold text-teal-600 dark:text-teal-400">
-                  {inr(data.billing.totalPaid)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Pending
-                </span>
-                <span className="font-semibold text-amber-600 dark:text-amber-400">
-                  {inr(data.billing.totalPending)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Invoices
-                </span>
-                <span className="font-semibold text-stone-700 dark:text-stone-300">
-                  {data.billing.count}
-                </span>
-              </div>
-            </div>
+        <>
+          {/* ===== HERO KPI ROW ===== */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <StatCard
+              label="Outstanding Bills"
+              value={inr(data.kpis.outstandingBills.amount)}
+              icon={<Receipt />}
+              trend={`${data.kpis.outstandingBills.count} bills unpaid`}
+              trendPositive={false}
+              fromColor="#fef3c7"
+              toColor="#fcd34d"
+              iconColor="text-amber-700"
+              onClick={goTo("bills")}
+            />
+            <StatCard
+              label="This Month Expenses"
+              value={inr(data.kpis.thisMonthExpenses)}
+              icon={<TrendingDown />}
+              trend={`Year to date: ${inr(data.kpis.thisYearExpenses)}`}
+              trendPositive={false}
+              fromColor="#ffe4e6"
+              toColor="#fda4af"
+              iconColor="text-rose-700"
+            />
+            <StatCard
+              label="Petty Cash Balance"
+              value={inr(data.kpis.pettyCashBalance)}
+              icon={<Wallet />}
+              trend={`${inr(data.pettyCash.totalAllocated)} allocated`}
+              trendPositive={data.kpis.pettyCashBalance >= 0}
+              fromColor="#ccfbf1"
+              toColor="#5eead4"
+              iconColor="text-teal-700"
+              onClick={goTo("pettycash")}
+            />
+            <StatCard
+              label="Bank Balance"
+              value={inr(data.kpis.bankBalance)}
+              icon={<Landmark />}
+              trend={`${data.bankAccounts.accounts.length} active account${data.bankAccounts.accounts.length === 1 ? "" : "s"}`}
+              trendPositive
+              fromColor="#dbeafe"
+              toColor="#93c5fd"
+              iconColor="text-blue-700"
+              onClick={goTo("bank")}
+            />
           </div>
 
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-5 hover:shadow-md transition-all">
-            <div className="flex items-center gap-2 text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">
-              <DollarSign className="w-3.5 h-3.5" />
-              Petty Cash
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Allocated
-                </span>
-                <span className="font-semibold text-stone-700 dark:text-stone-300">
-                  {inr(data.pettyCash.totalAllocated)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Spent
-                </span>
-                <span className="font-semibold text-rose-600 dark:text-rose-400">
-                  {inr(data.pettyCash.totalSpent)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Balance
-                </span>
-                <span
-                  className={`font-semibold ${data.pettyCash?.totalBalance > 0 ? "text-teal-600 dark:text-teal-400" : "text-rose-600 dark:text-rose-400"}`}
+          {/* ===== SECONDARY KPI STRIP ===== */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <MiniStat
+              label="Overdue Bills"
+              value={inr(data.kpis.overdueBills.amount)}
+              icon={<AlertTriangle />}
+              tone="rose"
+            />
+            <MiniStat
+              label="Upcoming Bills"
+              value={inr(data.kpis.upcomingBills.amount)}
+              icon={<Clock />}
+              tone="blue"
+            />
+            <MiniStat
+              label="Upcoming Cheques"
+              value={inr(data.kpis.upcomingCheques.amount)}
+              icon={<Banknote />}
+              tone="purple"
+            />
+            <MiniStat
+              label="Unpaid Suppliers"
+              value={String(data.kpis.unpaidSuppliers)}
+              icon={<Users />}
+              tone="amber"
+            />
+          </div>
+
+          {/* ===== CHARTS ===== */}
+          <div className="space-y-6">
+            {/* Monthly bills billed vs paid */}
+            <ChartCard
+              title="Bills — Billed vs Paid"
+              icon={<BarChart3 />}
+              action={
+                <button
+                  onClick={goTo("bills")}
+                  className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
                 >
-                  {inr(data.pettyCash.totalBalance)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-5 hover:shadow-md transition-all">
-            <div className="flex items-center gap-2 text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">
-              <PieChart className="w-3.5 h-3.5" />
-              Manual Petty Cash
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Income
-                </span>
-                <span className="font-semibold text-teal-600 dark:text-teal-400">
-                  {inr(data.manualPettyCash.totalIncome)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Expenses
-                </span>
-                <span className="font-semibold text-rose-600 dark:text-rose-400">
-                  {inr(data.manualPettyCash.totalExpenses)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Records
-                </span>
-                <span className="font-semibold text-stone-700 dark:text-stone-300">
-                  {data.manualPettyCash.totalRecords}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-5 hover:shadow-md transition-all">
-            <div className="flex items-center gap-2 text-xs font-semibold text-stone-400 dark:text-stone-500 uppercase tracking-widest mb-2">
-              <ShoppingBag className="w-3.5 h-3.5" />
-              Product Sales
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Total Sales
-                </span>
-                <span className="font-semibold text-stone-700 dark:text-stone-300">
-                  {inr(data.productSales.totalSales)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">Paid</span>
-                <span className="font-semibold text-teal-600 dark:text-teal-400">
-                  {inr(data.productSales.totalPaid)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-stone-500 dark:text-stone-400">
-                  Completed
-                </span>
-                <span className="font-semibold text-stone-700 dark:text-stone-300">
-                  {data.productSales.completedCount}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Charts Section */}
-      {!isLoading && !error && data && (
-        <div className="space-y-6">
-          {/* Monthly Billing Trend */}
-          {formattedMonthlyBilling.length > 0 && (
-            <MonthlyTrendChart
-              data={formattedMonthlyBilling}
-              currency={currency}
-              isDark={isDark}
-            />
-          )}
-
-          {/* Two Column Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {data.charts.billingByService &&
-              data.charts.billingByService.length > 0 && (
-                <ServiceDistributionChart
-                  data={data.charts.billingByService}
-                  currency={currency}
-                  isDark={isDark}
-                />
+                  View All →
+                </button>
+              }
+            >
+              {data.bills.monthlyTrend.length === 0 ? (
+                <EmptyChart label="No bills in this period." />
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={data.bills.monthlyTrend}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartGrid}
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: chartAxis }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: chartAxis }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => inr(Number(v))}
+                    />
+                    <Tooltip
+                      formatter={(v) => inr(Number(v))}
+                      contentStyle={tooltipStyle(isDark)}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="billed"
+                      name="Billed"
+                      fill="#0f766e"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="paid"
+                      name="Paid"
+                      fill="#14b8a6"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               )}
-            {data.charts.paymentMethodBreakdown &&
-              data.charts.paymentMethodBreakdown.length > 0 && (
-                <PaymentMethodChart
-                  data={data.charts.paymentMethodBreakdown}
-                  currency={currency}
-                  isDark={isDark}
-                />
+            </ChartCard>
+
+            {/* Bill status + category */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartCard title="Bill Status Breakdown" icon={<Percent />}>
+                {billStatusData.length === 0 ? (
+                  <EmptyChart label="No bills yet." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={230}>
+                    <RePieChart>
+                      <Pie
+                        data={billStatusData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={80}
+                        label={({ name, percent = 0 }) =>
+                          `${name} ${(percent * 100).toFixed(0)}%`
+                        }
+                        labelLine={false}
+                      >
+                        {billStatusData.map((_e, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => inr(Number(v))}
+                        contentStyle={tooltipStyle(isDark)}
+                      />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                )}
+              </ChartCard>
+
+              <ChartCard title="Expenses by Category" icon={<PieChart />}>
+                {billCategoryData.length === 0 ? (
+                  <EmptyChart label="No categorized bills yet." />
+                ) : (
+                  <ResponsiveContainer width="100%" height={230}>
+                    <RePieChart>
+                      <Pie
+                        data={billCategoryData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, percent = 0 }) =>
+                          `${name} ${(percent * 100).toFixed(0)}%`
+                        }
+                        labelLine={false}
+                      >
+                        {billCategoryData.map((_e, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => inr(Number(v))}
+                        contentStyle={tooltipStyle(isDark)}
+                      />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                )}
+              </ChartCard>
+            </div>
+
+            {/* Payment method + cheque status */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ChartCard
+                title="Payment Methods"
+                icon={<CreditCard />}
+                action={
+                  <button
+                    onClick={goTo("payments")}
+                    className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                  >
+                    View All →
+                  </button>
+                }
+              >
+                {paymentMethodData.length === 0 ? (
+                  <EmptyChart label="No payments recorded yet." />
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={190}>
+                      <RePieChart>
+                        <Pie
+                          data={paymentMethodData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          label={({ percent = 0 }) =>
+                            `${(percent * 100).toFixed(0)}%`
+                          }
+                        >
+                          {paymentMethodData.map((_e, i) => (
+                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(v) => inr(Number(v))}
+                          contentStyle={tooltipStyle(isDark)}
+                        />
+                      </RePieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap gap-3 mt-3 justify-center">
+                      {paymentMethodData.map((item, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-1.5 text-xs"
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{
+                              backgroundColor: COLORS[i % COLORS.length],
+                            }}
+                          />
+                          <span className="text-stone-600 dark:text-stone-400 capitalize">
+                            {item.name || "Unknown"}
+                          </span>
+                          <span className="font-semibold text-stone-800 dark:text-stone-200">
+                            ({inr(item.value)})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </ChartCard>
+
+              <ChartCard
+                title="Cheque Status"
+                icon={<Banknote />}
+                action={
+                  <button
+                    onClick={goTo("cheques")}
+                    className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                  >
+                    View All →
+                  </button>
+                }
+              >
+                {chequeStatusData.length === 0 ? (
+                  <EmptyChart label="No cheques issued yet." />
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={190}>
+                      <RePieChart>
+                        <Pie
+                          data={chequeStatusData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          label={({ percent = 0 }) =>
+                            `${(percent * 100).toFixed(0)}%`
+                          }
+                        >
+                          {chequeStatusData.map((_e, i) => (
+                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(v) => inr(Number(v))}
+                          contentStyle={tooltipStyle(isDark)}
+                        />
+                      </RePieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap gap-3 mt-3 justify-center">
+                      {chequeStatusData.map((item, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-1.5 text-xs"
+                        >
+                          <span
+                            className="w-2.5 h-2.5 rounded-full"
+                            style={{
+                              backgroundColor: COLORS[i % COLORS.length],
+                            }}
+                          />
+                          <span className="text-stone-600 dark:text-stone-400 capitalize">
+                            {item.name}
+                          </span>
+                          <span className="font-semibold text-stone-800 dark:text-stone-200">
+                            ({item.count})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </ChartCard>
+            </div>
+
+            {/* Petty cash trend */}
+            <ChartCard
+              title="Petty Cash — Allocated vs Spent"
+              icon={<Wallet />}
+              action={
+                <button
+                  onClick={goTo("pettycash")}
+                  className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                >
+                  View All →
+                </button>
+              }
+            >
+              {data.pettyCash.monthlyTrend.length === 0 ? (
+                <EmptyChart label="No petty cash activity in this period." />
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={data.pettyCash.monthlyTrend}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={chartGrid}
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: chartAxis }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: chartAxis }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => inr(Number(v))}
+                    />
+                    <Tooltip
+                      formatter={(v) => inr(Number(v))}
+                      contentStyle={tooltipStyle(isDark)}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="allocated"
+                      name="Allocated"
+                      stroke="#0f766e"
+                      strokeWidth={2.5}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="spent"
+                      name="Spent"
+                      stroke="#e11d48"
+                      strokeWidth={2.5}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               )}
-          </div>
+            </ChartCard>
 
-          {/* Another Two Column Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {data.charts.statusBreakdown &&
-              data.charts.statusBreakdown.length > 0 && (
-                <StatusDistributionChart
-                  data={data.charts.statusBreakdown}
-                  currency={currency}
-                  isDark={isDark}
-                />
+            {/* Top unpaid suppliers + Bank accounts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-6">
+                <SectionHeading>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    Top Unpaid Suppliers
+                  </div>
+                </SectionHeading>
+                {data.topUnpaidSuppliers.length === 0 ? (
+                  <EmptyChart label="Every supplier is paid up." />
+                ) : (
+                  <div className="space-y-3">
+                    {data.topUnpaidSuppliers.map((s, i) => {
+                      const max = data.topUnpaidSuppliers[0].outstanding || 1;
+                      const pct = Math.max(
+                        6,
+                        Math.round((s.outstanding / max) * 100),
+                      );
+                      return (
+                        <div key={s.supplierId || i}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="font-medium text-stone-700 dark:text-stone-300 truncate">
+                              {s.name}
+                            </span>
+                            <span className="font-mono font-semibold text-rose-600 dark:text-rose-400">
+                              {inr(s.outstanding)}
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${pct}%`,
+                                backgroundImage:
+                                  "linear-gradient(90deg,#f59e0b,#e11d48)",
+                              }}
+                            />
+                          </div>
+                          <div className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5">
+                            {s.billCount} bill{s.billCount === 1 ? "" : "s"}{" "}
+                            pending
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-6">
+                <SectionHeading
+                  action={
+                    <button
+                      onClick={goTo("bank")}
+                      className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                    >
+                      Manage →
+                    </button>
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    Bank Accounts
+                  </div>
+                </SectionHeading>
+                {data.bankAccounts.accounts.length === 0 ? (
+                  <EmptyChart label="No bank accounts added yet." />
+                ) : (
+                  <div className="space-y-3">
+                    {data.bankAccounts.accounts.map((a) => (
+                      <div
+                        key={a._id}
+                        className="flex items-center justify-between rounded-xl border border-stone-100 dark:border-stone-800 p-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center shrink-0">
+                            <Landmark className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+                              {a.bankName}
+                            </div>
+                            <div className="text-xs text-stone-400 dark:text-stone-500 truncate">
+                              {a.accountName || "—"}{" "}
+                              {a.accountNumber
+                                ? `•••• ${a.accountNumber.slice(-4)}`
+                                : ""}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="font-mono font-semibold text-stone-800 dark:text-stone-100 shrink-0">
+                          {inr(a.currentBalance)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Upcoming cheques */}
+            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-stone-100 dark:border-stone-800">
+                <SectionHeading
+                  action={
+                    <button
+                      onClick={goTo("cheques")}
+                      className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                    >
+                      View All →
+                    </button>
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <Banknote className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    Upcoming Cheques
+                  </div>
+                </SectionHeading>
+              </div>
+              {data.cheques.upcoming.length === 0 ? (
+                <div className="text-center py-14 text-stone-400 dark:text-stone-500">
+                  <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+                  <p className="text-sm">No cheques due soon.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-[11px] text-stone-500 dark:text-stone-400 uppercase tracking-widest font-bold border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
+                        <th className="px-5 py-3 font-bold">Cheque #</th>
+                        <th className="px-5 py-3 font-bold">Payee</th>
+                        <th className="px-5 py-3 font-bold">Bank</th>
+                        <th className="px-5 py-3 font-bold text-right">
+                          Amount
+                        </th>
+                        <th className="px-5 py-3 font-bold">Due Date</th>
+                        <th className="px-5 py-3 font-bold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                      {data.cheques.upcoming.map((c) => (
+                        <tr
+                          key={c._id}
+                          className="hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors"
+                        >
+                          <td className="px-5 py-3.5 font-mono font-semibold text-stone-800 dark:text-stone-100 text-xs">
+                            {c.chequeNumber}
+                          </td>
+                          <td className="px-5 py-3.5 text-stone-700 dark:text-stone-300">
+                            {c.payee || "—"}
+                          </td>
+                          <td className="px-5 py-3.5 text-stone-500 dark:text-stone-400 text-xs">
+                            {c.bank || "—"}
+                          </td>
+                          <td className="px-5 py-3.5 text-right font-mono font-semibold text-stone-800 dark:text-stone-100">
+                            {inr(c.amount)}
+                          </td>
+                          <td className="px-5 py-3.5 text-stone-500 dark:text-stone-400 text-xs">
+                            {formatDate(c.chequeDate)}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <StatusPill status={c.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            {formattedManualPettyCash.length > 0 && (
-              <ManualPettyCashTrendChart
-                data={formattedManualPettyCash}
-                currency={currency}
-                isDark={isDark}
-              />
-            )}
+            </div>
+
+            {/* Recent activity */}
+            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-100 dark:border-stone-800 shadow-sm p-6">
+              <SectionHeading
+                action={
+                  data.recentActivity.length > 0 ? (
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-400 dark:text-stone-500">
+                      <Info className="w-3.5 h-3.5" />
+                      Click row to expand
+                    </div>
+                  ) : undefined
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  Recent Activity
+                </div>
+              </SectionHeading>
+              {data.recentActivity.length === 0 ? (
+                <EmptyChart label="Nothing recorded yet." />
+              ) : (
+                <div className="divide-y divide-stone-100 dark:divide-stone-800">
+                  {data.recentActivity.map((item) => {
+                    const rowKey = `${item.type}-${item.id}`;
+                    const isOpen = expandedActivityId === rowKey;
+                    return (
+                      <div key={rowKey}>
+                        <button
+                          onClick={() =>
+                            setExpandedActivityId(isOpen ? null : rowKey)
+                          }
+                          className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-2 -mx-2 transition-colors"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+                            {ACTIVITY_ICON[item.type]}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate">
+                              {ACTIVITY_LABEL[item.type]} · {item.title}
+                            </div>
+                            <div className="text-xs text-stone-400 dark:text-stone-500 truncate">
+                              {item.subtitle}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-mono font-semibold text-stone-800 dark:text-stone-100 text-sm">
+                              {inr(item.amount)}
+                            </div>
+                            <div className="text-[10px] text-stone-400 dark:text-stone-500">
+                              {formatDate(item.date)}
+                            </div>
+                          </div>
+                          <div
+                            className={`shrink-0 transition-transform duration-200 ${
+                              isOpen ? "rotate-90" : ""
+                            }`}
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+                            )}
+                          </div>
+                        </button>
+                        <div
+                          className={`grid transition-all duration-300 ease-in-out ${
+                            isOpen
+                              ? "grid-rows-[1fr] opacity-100"
+                              : "grid-rows-[0fr] opacity-0"
+                          }`}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="pt-2 pb-5 pl-13 ml-13 relative">
+                              <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
+                              <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+                                {item.type === "bill" && item.details && (
+                                  <BillDetailsView
+                                    details={item.details as BillDetails}
+                                    inr={inr}
+                                  />
+                                )}
+                                {item.type === "payment" && item.details && (
+                                  <PaymentDetailsView
+                                    details={item.details as PaymentDetails}
+                                    inr={inr}
+                                  />
+                                )}
+                                {item.type === "cheque" && item.details && (
+                                  <ChequeDetailsView
+                                    details={item.details as ChequeDetails}
+                                    inr={inr}
+                                  />
+                                )}
+                                {!item.details && (
+                                  <div className="text-xs text-stone-400 dark:text-stone-500 py-2">
+                                    No additional details available.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* Product Sales Trend */}
-          {formattedProductSales.length > 0 && (
-            <ProductSalesTrendChart
-              data={formattedProductSales}
-              currency={currency}
-              isDark={isDark}
-            />
-          )}
-
-          {/* Recent Billings */}
-          <RecentBillings
-            billings={data.recentBillings || []}
-            currency={currency}
-            onViewAll={handleViewAllBillings}
-          />
-        </div>
+        </>
       )}
     </div>
   );

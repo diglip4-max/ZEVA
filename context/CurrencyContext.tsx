@@ -56,17 +56,17 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
   useEffect(() => {
     // Attempt to fetch currency immediately on mount
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    const maxRetries = 5;
 
     const attemptFetch = async () => {
       const success = await fetchCurrency();
       // If auth headers weren't ready yet (just after login redirect), retry after a short delay
-      if (!success) {
-        const authHeaders = getAuthHeaders();
-        if (!authHeaders) {
-          retryTimer = setTimeout(async () => {
-            await fetchCurrency();
-          }, 1500);
-        }
+      if (!success && retryCount < maxRetries) {
+        retryCount++;
+        retryTimer = setTimeout(async () => {
+          await attemptFetch();
+        }, 1500);
       }
     };
 
@@ -91,8 +91,16 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
 
     window.addEventListener("storage", handleStorage);
 
+    // Also listen for token changes in the SAME tab (e.g., after login)
+    const handleTokenChange = () => {
+      fetchCurrency();
+    };
+
+    window.addEventListener("authTokenChanged", handleTokenChange);
+
     return () => {
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("authTokenChanged", handleTokenChange);
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [fetchCurrency]);

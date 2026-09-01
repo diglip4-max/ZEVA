@@ -1,6 +1,89 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
+import Clinic from "../../../models/Clinic";
+import Users from "../../../models/Users";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
+
+// ── Text & compound indexes (run once per process) ──
+let indexesEnsured = false;
+const ensureSearchIndexes = async () => {
+  if (indexesEnsured) return;
+  indexesEnsured = true;
+  // Compound index for the most common query: clinic/userId + sort by createdAt desc
+  PatientRegistration.collection.createIndex(
+    { userId: 1, createdAt: -1 },
+    { name: "userId_createdAt_idx" }
+  ).catch(() => {});
+  // Compound index for status-filtered + sorted queries
+  PatientRegistration.collection.createIndex(
+    { userId: 1, status: 1, createdAt: -1 },
+    { name: "userId_status_createdAt_idx" }
+  ).catch(() => {});
+  // Compound index for advance-claim-filtered + sorted queries
+  PatientRegistration.collection.createIndex(
+    { userId: 1, advanceClaimStatus: 1, createdAt: -1 },
+    { name: "userId_claim_createdAt_idx" }
+  ).catch(() => {});
+  // Compound index for combined status + claim + sort
+  PatientRegistration.collection.createIndex(
+    { userId: 1, status: 1, advanceClaimStatus: 1, createdAt: -1 },
+    { name: "userId_status_claim_createdAt_idx" }
+  ).catch(() => {});
+  // Text index for fast full-text search across multiple fields
+  PatientRegistration.collection.createIndex(
+    { firstName: "text", lastName: "text", email: "text", emrNumber: "text", invoiceNumber: "text" },
+    { name: "patient_search_text_idx", default_language: "none" }
+  ).catch(() => {});
+  // Individual field indexes for regex fallback (phone / emr search)
+  PatientRegistration.collection.createIndex({ mobileNumber: 1 }).catch(() => {});
+  PatientRegistration.collection.createIndex({ emrNumber: 1 }).catch(() => {});
+  PatientRegistration.collection.createIndex({ invoiceNumber: 1 }).catch(() => {});
+};
+
+// ── Field projection for list view (skip heavy arrays / long strings) ──
+// Critical: returning only fields the list UI uses keeps payload small & fast.
+const LIST_PROJECTION = {
+  _id: 1,
+  firstName: 1,
+  lastName: 1,
+  email: 1,
+  mobileNumber: 1,
+  countryCode: 1,
+  emrNumber: 1,
+  invoiceNumber: 1,
+  doctor: 1,
+  status: 1,
+  advanceClaimStatus: 1,
+  profileImage: 1,
+  gender: 1,
+  dateOfBirth: 1,
+  city: 1,
+  createdAt: 1,
+  updatedAt: 1,
+};
+
+// ── In-memory cache for clinic user IDs (avoids repeated DB lookups) ──
+const clinicUserCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const getCachedClinicUserIds = async (clinicId, ownerUserId) => {
+  const cacheKey = clinicId?.toString() || ownerUserId?.toString();
+  const cached = clinicUserCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.ids;
+  const clinicUsers = await Users.find({
+    $or: [{ _id: ownerUserId }, { clinicId: clinicId }],
+  }).select("_id").lean();
+  const ids = clinicUsers.map((u) => u._id);
+  clinicUserCache.set(cacheKey, { ids, ts: Date.now() });
+  return ids;
+};
+
+// ── Short-lived count cache for the unfiltered base query ──
+// On a 1000+ row collection, countDocuments() is the slowest part of the request.
+// For the most common case (no search/filter, just pagination), cache the count.
+const countCache = new Map();
+const COUNT_CACHE_TTL = 30 * 1000; // 30 seconds
+const buildCountCacheKey = (userId, query) =>
+  `${userId?.toString?.() || userId}|${JSON.stringify(query)}`;
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -35,21 +118,15 @@ export default async function handler(req, res) {
       // Build query based on user role - CRITICAL: userId filter must be applied first
       let query = {};
 
+      // Ensure search indexes exist (runs once per process)
+      ensureSearchIndexes();
+
       // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
       if (user.role === "clinic") {
-        const Clinic = (await import("../../../models/Clinic")).default;
-        const clinic = await Clinic.findOne({ owner: user._id });
+        const clinic = await Clinic.findOne({ owner: user._id }).select("_id").lean();
         if (clinic) {
-          // Find all users belonging to this clinic (clinic owner + agents + doctorStaff)
-          const User = (await import("../../../models/Users")).default;
-          const clinicUsers = await User.find({
-            $or: [
-              { _id: user._id }, // Clinic owner
-              { clinicId: clinic._id }, // Agents and doctorStaff linked to clinic
-            ],
-          }).select("_id");
-
-          const clinicUserIds = clinicUsers.map((u) => u._id);
+          // Use cached clinic user IDs to avoid repeated DB lookups
+          const clinicUserIds = await getCachedClinicUserIds(clinic._id, user._id);
           query.userId = { $in: clinicUserIds };
         } else {
           // Fallback: only show clinic owner's patients
@@ -59,17 +136,11 @@ export default async function handler(req, res) {
       // For agent/doctorStaff: show all patients belonging to the clinic
       else if (user.role === "agent" || user.role === "doctorStaff") {
         if (user.clinicId) {
-          const Clinic = (await import("../../../models/Clinic")).default;
-          const clinic = await Clinic.findById(user.clinicId);
+          const clinic = await Clinic.findById(user.clinicId).select("_id owner").lean();
           if (clinic) {
-            const User = (await import("../../../models/Users")).default;
-            const clinicUsers = await User.find({
-              $or: [
-                { _id: clinic.owner }, // Clinic owner
-                { clinicId: user.clinicId }, // All agents/staff linked to this clinic
-              ],
-            }).select("_id");
-            query.userId = { $in: clinicUsers.map((u) => u._id) };
+            // Use cached clinic user IDs to avoid repeated DB lookups
+            const clinicUserIds = await getCachedClinicUserIds(clinic._id, clinic.owner);
+            query.userId = { $in: clinicUserIds };
           } else {
             query.userId = user._id;
           }
@@ -100,71 +171,57 @@ export default async function handler(req, res) {
       const andClauses = [];
       andClauses.push({ userId: query.userId });
 
-      // Unified search: if a single `name` query is used, it searches across
-      // firstName, lastName, mobileNumber, emrNumber, invoiceNumber, email
-      // (mirrors the frontend's omnibar behavior).
+      // ── Optimized search logic ──
+      // Uses $text index for alphabetic queries (10-100x faster than $regex)
+      // Falls back to prefix regex for phone numbers and short queries (< 3 chars)
       if (name) {
-        const nameTerms = name.trim().split(/\s+/).filter(Boolean);
-        const digitsOnly = name.replace(/[^\d]/g, "");
+        const trimmed = name.trim();
+        const sanitized = trimmed.replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+        const hasDigits = /\d/.test(trimmed);
 
-        const orClauses = [
-          // Match individual first/last names (any word)
-          ...nameTerms.map((t) => ({
-            firstName: { $regex: t, $options: "i" },
-          })),
-          ...nameTerms.map((t) => ({ lastName: { $regex: t, $options: "i" } })),
-          { emrNumber: { $regex: name, $options: "i" } },
-          { invoiceNumber: { $regex: name, $options: "i" } },
-          { email: { $regex: name, $options: "i" } },
-        ];
+        if (!hasDigits && sanitized.length >= 3) {
+          // ✅ FAST PATH: Use $text index for alphabetic queries (3+ chars)
+          // Text index searches across firstName, lastName, email, emrNumber, invoiceNumber
+          // MongoDB tokenizer splits on whitespace/special chars, so partial tokens match
+          // e.g. "mus" matches "Mushtaq" because text index stores word tokens
+          const textTerms = sanitized.split(/\s+/).filter(Boolean);
+          const textSearch = textTerms.map((t) => `"${t}"`).join(" ");
+          andClauses.push({ $text: { $search: textSearch } });
+        } else {
+          // 🔁 FALLBACK: Regex for phone numbers or short queries (< 3 chars)
+          // Uses prefix regex (^term) which can leverage field indexes
+          const orClauses = [];
+          const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-        // Match concatenated full name for queries like "John Doe"
-        orClauses.push({
-          $expr: {
-            $regexMatch: {
-              input: {
-                $concat: [
-                  { $ifNull: ["$firstName", ""] },
-                  " ",
-                  { $ifNull: ["$lastName", ""] },
-                ],
-              },
-              regex: name,
-              options: "i",
-            },
-          },
-        });
+          if (trimmed.length >= 2) {
+            // Prefix regex for name fields — can use single-field indexes
+            orClauses.push(
+              { firstName: { $regex: `^${escRegex}`, $options: "i" } },
+              { lastName: { $regex: `^${escRegex}`, $options: "i" } },
+              { email: { $regex: `^${escRegex}`, $options: "i" } },
+              { emrNumber: { $regex: `^${escRegex}`, $options: "i" } },
+              { invoiceNumber: { $regex: `^${escRegex}`, $options: "i" } },
+            );
+          } else {
+            // Single char — broader match
+            orClauses.push(
+              { firstName: { $regex: escRegex, $options: "i" } },
+              { lastName: { $regex: escRegex, $options: "i" } },
+              { email: { $regex: escRegex, $options: "i" } },
+              { emrNumber: { $regex: escRegex, $options: "i" } },
+              { invoiceNumber: { $regex: escRegex, $options: "i" } },
+            );
+          }
 
-        // Phone flexible matching inside the unified `name` query
-        if (digitsOnly) {
-          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
-          orClauses.push(
-            { mobileNumber: { $regex: flexiblePattern, $options: "i" } },
-            {
-              $expr: {
-                $regexMatch: {
-                  input: {
-                    $replaceAll: {
-                      input: {
-                        $replaceAll: {
-                          input: { $ifNull: ["$mobileNumber", ""] },
-                          find: " ",
-                          replacement: "",
-                        },
-                      },
-                      find: "+",
-                      replacement: "",
-                    },
-                  },
-                  regex: digitsOnly,
-                  options: "i",
-                },
-              },
-            },
-          );
+          // Phone number flexible matching (handles +91 98765-43210 etc.)
+          const digitsOnly = trimmed.replace(/[^\d]/g, "");
+          if (digitsOnly) {
+            const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
+            orClauses.push({ mobileNumber: { $regex: flexiblePattern, $options: "i" } });
+          }
+
+          andClauses.push({ $or: orClauses });
         }
-
-        andClauses.push({ $or: orClauses });
       } else {
         // Dedicated filters when `name` is not used as omnibar
         if (emrNumber)
@@ -178,32 +235,9 @@ export default async function handler(req, res) {
           const digitsOnly = phone.replace(/[^\d]/g, "");
           if (digitsOnly) {
             const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
-            andClauses.push({
-              $or: [
-                { mobileNumber: { $regex: flexiblePattern, $options: "i" } },
-                {
-                  $expr: {
-                    $regexMatch: {
-                      input: {
-                        $replaceAll: {
-                          input: {
-                            $replaceAll: {
-                              input: { $ifNull: ["$mobileNumber", ""] },
-                              find: " ",
-                              replacement: "",
-                            },
-                          },
-                          find: "+",
-                          replacement: "",
-                        },
-                      },
-                      regex: digitsOnly,
-                      options: "i",
-                    },
-                  },
-                },
-              ],
-            });
+            andClauses.push(
+              { mobileNumber: { $regex: flexiblePattern, $options: "i" } },
+            );
           }
         }
       }
@@ -218,15 +252,58 @@ export default async function handler(req, res) {
       const sizeNum = parseInt(pageSize, 10) || 0;
       const skip = sizeNum > 0 ? (pageNum - 1) * sizeNum : 0;
       const limit = sizeNum > 0 ? sizeNum : 0;
-      const totalCount = await PatientRegistration.countDocuments(query);
 
-      // Fetch patients without populate first
-      const patientsQuery = PatientRegistration.find(query).sort({
-        createdAt: -1,
-      });
-      if (skip > 0) patientsQuery.skip(skip);
+      // ── Deep-pagination guard ──
+      // Skipping tens of thousands of docs is slow even with an index.
+      // Clamp the skip to a reasonable max and surface a flag so the client
+      // can warn the user / switch to a search-based fetch.
+      const MAX_SKIP = 5000;
+      let skipClamped = false;
+      let effectiveSkip = skip;
+      if (skip > MAX_SKIP) {
+        effectiveSkip = MAX_SKIP;
+        skipClamped = true;
+      }
+
+      // 🔹 Try to serve the count from cache (only when no extra filters applied
+      // beyond the userId scope, which is the most common case on the list view).
+      const noExtraFilters = andClauses.length === 1; // only { userId: ... }
+      const countCacheKey = buildCountCacheKey(user._id, query);
+      let totalCount = null;
+      if (noExtraFilters) {
+        const cached = countCache.get(countCacheKey);
+        if (cached && Date.now() - cached.ts < COUNT_CACHE_TTL) {
+          totalCount = cached.count;
+        }
+      }
+
+      // Build the data query:
+      //   - select() => small payload (skip heavy fields like selectedTreatments)
+      //   - lean()   => plain JS objects, no Mongoose overhead
+      //   - allowDiskUse() => fallback for sorts that exceed RAM on huge collections
+      //   - sort by createdAt desc (uses the new compound index)
+      const patientsQuery = PatientRegistration.find(query)
+        .select(LIST_PROJECTION)
+        .sort({ createdAt: -1 })
+        .lean({ getters: false })
+        .allowDiskUse(true);
+      if (effectiveSkip > 0) patientsQuery.skip(effectiveSkip);
       if (limit > 0) patientsQuery.limit(limit);
-      const patients = await patientsQuery.lean();
+
+      // Run count and data fetch in parallel (only fetch count if not cached)
+      const dbCalls = [patientsQuery];
+      if (totalCount === null) {
+        dbCalls.push(PatientRegistration.countDocuments(query).allowDiskUse(true));
+      }
+
+      const results = await Promise.all(dbCalls);
+      const patients = results[0];
+      if (totalCount === null) {
+        totalCount = results[1];
+        if (noExtraFilters) {
+          countCache.set(countCacheKey, { count: totalCount, ts: Date.now() });
+        }
+      }
 
       // 🔹 Map doctor name - handle both ObjectId references and string names
       const patientDetails = patients.map((p) => {
@@ -247,6 +324,14 @@ export default async function handler(req, res) {
 
       const totalPages = sizeNum > 0 ? Math.ceil(totalCount / sizeNum) : 1;
 
+      // 🔹 Short-lived HTTP cache so the browser/CDN can serve repeat page-1 hits
+      // without hitting Node. First page with no filters is the most cacheable.
+      if (noExtraFilters && pageNum === 1) {
+        res.setHeader("Cache-Control", "private, max-age=10");
+      } else {
+        res.setHeader("Cache-Control", "no-store");
+      }
+
       return res.status(200).json({
         success: true,
         count: totalCount,
@@ -259,6 +344,7 @@ export default async function handler(req, res) {
           hasNextPage: sizeNum > 0 ? pageNum < totalPages : false,
           hasPrevPage: sizeNum > 0 ? pageNum > 1 : false,
         },
+        ...(skipClamped ? { skipClamped: true, maxSkip: MAX_SKIP } : {}),
       });
     } catch (err) {
       console.error("GET error:", err);

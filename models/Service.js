@@ -55,8 +55,11 @@ const ServiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-ServiceSchema.index({ clinicId: 1, departmentId: 1, name: 1 }, { unique: true, partialFilterExpression: { name: { $exists: true } } });
-ServiceSchema.index({ clinicId: 1, departmentId: 1, serviceSlug: 1 }, { unique: true, partialFilterExpression: { serviceSlug: { $exists: true } } });
+ServiceSchema.index({ clinicId: 1, departmentId: 1, name: 1 }, { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } });
+ServiceSchema.index({ clinicId: 1, departmentId: 1, serviceSlug: 1 }, { unique: true, partialFilterExpression: { isDeleted: { $ne: true } } });
+ServiceSchema.index({ clinicId: 1, createdAt: -1 });
+ServiceSchema.index({ clinicId: 1, isDeleted: 1, createdAt: -1 });
+ServiceSchema.index({ clinicId: 1, departmentId: 1, isDeleted: 1 });
 
 delete mongoose.models.Service;
 export default mongoose.models.Service || mongoose.model("Service", ServiceSchema);
