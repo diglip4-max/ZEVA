@@ -222,7 +222,8 @@ const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : module
           canPrint: false,
           canExport: false,
           canAdvance: false,
-          canAll: false
+          canAll: false, 
+          canCopy: false,
         });
       } finally {
         setLoading(false);

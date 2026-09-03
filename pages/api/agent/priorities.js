@@ -1349,28 +1349,29 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // 2. AuthZ — same roles as revenue-opportunity (agent-side staff + doctor + admin)
-    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin"];
+    // 2. AuthZ — same roles as revenue-opportunity
+    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin", "clinic"];
     if (!allowedRoles.includes(me.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     // 3. Resolve clinic
-    if (me.role !== "admin" && !me.clinicId) {
+    let clinicObjectId = null;
+    if (me.role === "admin") {
+      clinicObjectId = req.query.clinicId && mongoose.Types.ObjectId.isValid(req.query.clinicId)
+        ? new mongoose.Types.ObjectId(req.query.clinicId)
+        : null;
+    } else if (me.clinicId) {
+      clinicObjectId = new mongoose.Types.ObjectId(me.clinicId.toString());
+    } else if (me.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: me._id }).select("_id").lean();
+      if (clinic) clinicObjectId = clinic._id;
+    }
+
+    if (!clinicObjectId && me.role !== "admin") {
       return res
         .status(403)
         .json({ success: false, message: "User not linked to a clinic" });
-    }
-    const clinicObjectId =
-      me.role === "admin"
-        ? req.query.clinicId && mongoose.Types.ObjectId.isValid(req.query.clinicId)
-          ? new mongoose.Types.ObjectId(req.query.clinicId)
-          : null
-        : new mongoose.Types.ObjectId(me.clinicId.toString());
-    if (!clinicObjectId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Unable to resolve clinicId" });
     }
 
     // 4. Resolve time-period and date

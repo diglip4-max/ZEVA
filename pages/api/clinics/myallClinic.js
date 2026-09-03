@@ -53,14 +53,14 @@ export default async function handler(req, res) {
     // Fetch clinic data
     if (!clinic) {
       if (me.role === "clinic") {
-        clinic = await Clinic.findOne({ owner: me._id }).lean();
+        clinic = await Clinic.findOne({ owner: me._id }).populate("owner", "name").lean();
       } else if (clinicId) {
-        clinic = await Clinic.findById(clinicId).lean();
+        clinic = await Clinic.findById(clinicId).populate("owner", "name").lean();
       } else {
         return res.status(404).json({ success: false, message: "Clinic not found" });
       }
     } else {
-      clinic = await Clinic.findById(clinic._id).lean();
+      clinic = await Clinic.findById(clinic._id).populate("owner", "name").lean();
     }
 
     // ✅ Log result of DB query
