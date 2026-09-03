@@ -22,13 +22,13 @@ import {
   File,
   Image as ImageIcon,
   Info,
+  CalendarDays,
 } from "lucide-react";
 import useBillsPayable, {
   BillData,
   BillStatus,
   BillStatusFilter,
 } from "../_hooks/useBillsPayable";
-import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney, getCurrencySymbol } from "@/lib/currencyHelper";
@@ -74,9 +74,16 @@ const formatDate = (d?: string): string =>
       })
     : "—";
 
+const formatDateShort = (d?: string): string =>
+  d
+    ? new Date(d).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+      })
+    : "—";
+
 // ============================================================
 // STATUS PILL — bill-specific (draft/pending/upcoming/partial/paid/overdue/cancelled)
-// Kept local to this file — doesn't touch the 3-state StatusPill in FinanceManager.tsx
 // ============================================================
 const STATUS_META: Record<
   BillStatus,
@@ -86,43 +93,43 @@ const STATUS_META: Record<
     label: "Draft",
     dot: "bg-stone-400",
     text: "text-stone-600 dark:text-stone-300",
-    bg: "bg-stone-100 dark:bg-stone-800",
+    bg: "bg-[#F1ECE0] dark:bg-[#16231f]",
   },
   pending: {
     label: "Pending",
     dot: "bg-amber-500",
     text: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-50 dark:bg-amber-950",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
   },
   upcoming: {
     label: "Upcoming",
     dot: "bg-sky-500",
     text: "text-sky-700 dark:text-sky-300",
-    bg: "bg-sky-50 dark:bg-sky-950",
+    bg: "bg-sky-50 dark:bg-sky-950/40",
   },
   partial: {
     label: "Partial",
     dot: "bg-violet-500",
     text: "text-violet-700 dark:text-violet-300",
-    bg: "bg-violet-50 dark:bg-violet-950",
+    bg: "bg-violet-50 dark:bg-violet-950/40",
   },
   paid: {
     label: "Paid",
     dot: "bg-teal-500",
     text: "text-teal-700 dark:text-teal-300",
-    bg: "bg-teal-50 dark:bg-teal-950",
+    bg: "bg-teal-50 dark:bg-teal-950/40",
   },
   overdue: {
     label: "Overdue",
     dot: "bg-rose-500",
     text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
+    bg: "bg-rose-50 dark:bg-rose-950/40",
   },
   cancelled: {
     label: "Cancelled",
     dot: "bg-stone-300",
     text: "text-stone-400 dark:text-stone-500",
-    bg: "bg-stone-100 dark:bg-stone-800",
+    bg: "bg-[#F1ECE0] dark:bg-[#16231f]",
   },
 };
 
@@ -148,11 +155,10 @@ const STATUS_TABS: { value: BillStatusFilter; label: string }[] = [
   { value: "partial", label: "Partial" },
   { value: "overdue", label: "Overdue" },
   { value: "paid", label: "Paid" },
-  { value: "cancelled", label: "Cancelled" },
 ];
 
 // ============================================================
-// DETAILS VIEW — mirrors OverviewTab's BillDetailsView style
+// DETAILS VIEW
 // ============================================================
 function BillDetailsView({
   bill,
@@ -181,31 +187,31 @@ function BillDetailsView({
         <span className="text-stone-300 dark:text-stone-600">—</span>
       ),
       icon: <Receipt className="w-3.5 h-3.5" />,
-      accent: "from-violet-50 to-white dark:from-violet-950/40",
+      accent:
+        "from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]",
     },
     {
       label: "Invoice date",
       value: formatDate(bill.invoiceDate),
       icon: <CalendarClock className="w-3.5 h-3.5" />,
-      accent: "from-sky-50 to-white dark:from-sky-950/40",
+      accent: "from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]",
     },
     {
       label: "Category",
       value: bill.category || "—",
       icon: <TrendingUp className="w-3.5 h-3.5" />,
-      accent: "from-amber-50 to-white dark:from-amber-950/40",
+      accent: "from-amber-50 to-white dark:from-amber-950/30 dark:to-[#111d19]",
     },
     {
       label: "Due date",
       value: formatDate(bill.dueDate),
       icon: <Clock className="w-3.5 h-3.5" />,
-      accent: "from-rose-50 to-white dark:from-rose-950/40",
+      accent: "from-rose-50 to-white dark:from-rose-950/30 dark:to-[#111d19]",
     },
   ];
 
   return (
     <div className="space-y-5">
-      {/* Amount bar — structured like OverviewTab */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
@@ -221,22 +227,15 @@ function BillDetailsView({
             </span>
           </div>
         </div>
-        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+        <div className="relative w-full h-2 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${paidPct}%`,
-              backgroundImage:
-                "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
-            }}
+            className="absolute inset-y-0 left-0 rounded-full bg-teal-500"
+            style={{ width: `${paidPct}%` }}
           />
           {bill.balance > 0 && (
             <div
-              className="absolute inset-y-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out"
-              style={{
-                left: `${paidPct}%`,
-                width: `${balancePct}%`,
-              }}
+              className="absolute inset-y-0 rounded-full bg-amber-400"
+              style={{ left: `${paidPct}%`, width: `${balancePct}%` }}
             />
           )}
         </div>
@@ -252,15 +251,14 @@ function BillDetailsView({
         </div>
       </div>
 
-      {/* Info grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {fields.map((f) => (
           <div
             key={f.label}
-            className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${f.accent} p-3.5`}
+            className={`rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br ${f.accent} p-3.5`}
           >
             <div className="flex items-center gap-1.5 mb-1.5">
-              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
                 {f.icon}
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
@@ -273,10 +271,9 @@ function BillDetailsView({
           </div>
         ))}
 
-        {/* Supplier — spans full width */}
-        <div className="sm:col-span-2 rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/30 p-3.5">
+        <div className="sm:col-span-2 rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19] p-3.5">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
               <Receipt className="w-3.5 h-3.5" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
@@ -289,9 +286,8 @@ function BillDetailsView({
         </div>
       </div>
 
-      {/* Attachments */}
       {bill.attachments && bill.attachments.length > 0 && (
-        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+        <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-white dark:bg-[#111d19] p-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
               <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -313,9 +309,9 @@ function BillDetailsView({
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="group flex items-center gap-2 rounded-lg border border-stone-100 dark:border-stone-700/60 bg-stone-50 dark:bg-stone-800/40 hover:bg-white dark:hover:bg-stone-800 p-2.5 transition-colors"
+                  className="group flex items-center gap-2 rounded-lg border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-[#F8F5EF] dark:bg-[#16231f]/60 hover:bg-white dark:hover:bg-[#16231f] p-2.5 transition-colors"
                 >
-                  <div className="w-9 h-9 rounded-md bg-white dark:bg-stone-900 flex items-center justify-center shrink-0 border border-stone-100 dark:border-stone-700/60 overflow-hidden">
+                  <div className="w-9 h-9 rounded-md bg-white dark:bg-[#111d19] flex items-center justify-center shrink-0 border border-[#EDE7DA] dark:border-[#1f2e29]/60 overflow-hidden">
                     {isImg ? (
                       <img
                         src={url}
@@ -342,9 +338,8 @@ function BillDetailsView({
         </div>
       )}
 
-      {/* Notes */}
       {bill.notes && (
-        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-stone-800/40 p-4">
+        <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-white dark:bg-[#111d19] p-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
               <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
@@ -363,8 +358,8 @@ function BillDetailsView({
 }
 
 // ============================================================
-// BILL ROW — expandable, mirrors OverviewTab Recent Activity pattern
-// Accordion: parent controls expandedId → ONE row open at a time
+// BILL ROW — flexible icon-row layout, same shape as
+// Expenses/Petty Cash rows (not a strict column grid)
 // ============================================================
 function BillRow({
   bill,
@@ -381,14 +376,15 @@ function BillRow({
 }) {
   const supplierName =
     typeof bill.supplierId === "string" ? "—" : bill.supplierId?.name || "—";
+  const attachmentCount = bill.attachments?.length || 0;
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+    <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0">
       <button
         onClick={onToggle}
-        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3  transition-colors"
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
-        <div className="w-9 h-9 rounded-full bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+        <div className="w-9 h-9 rounded-full bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
           <Receipt className="w-4 h-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -396,11 +392,19 @@ function BillRow({
             {supplierName}
           </div>
           <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
-            <span className="font-mono">{bill.invoiceNumber}</span>
+            <span className="zfm-mono">
+              {bill.supplierInvoiceNumber || bill.invoiceNumber}
+            </span>
             <span>·</span>
             <span>{bill.category}</span>
             <span>·</span>
-            <span>Due {formatDate(bill.dueDate)}</span>
+            <span>Due {formatDateShort(bill.dueDate)}</span>
+            {attachmentCount > 0 && (
+              <span className="inline-flex items-center gap-0.5 shrink-0">
+                <Paperclip className="w-3 h-3" />
+                {attachmentCount}
+              </span>
+            )}
           </div>
         </div>
         <BillStatusPill status={bill.status} />
@@ -431,7 +435,6 @@ function BillRow({
         </div>
       </button>
 
-      {/* Smooth expand/collapse — identical to OverviewTab */}
       <div
         className={`grid transition-all duration-300 ease-in-out ${
           isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
@@ -440,12 +443,11 @@ function BillRow({
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
-            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+            <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <BillDetailsView bill={bill} currency={currency} />
 
-              {/* Cancel bill CTA */}
               {bill.status !== "paid" && bill.status !== "cancelled" && (
-                <div className="mt-5 pt-4 border-t border-stone-100 dark:border-stone-700/60 flex items-center justify-between gap-3">
+                <div className="mt-5 pt-4 border-t border-[#EDE7DA] dark:border-[#1f2e29]/60 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5 text-[11px] text-stone-400 dark:text-stone-500">
                     <Info className="w-3.5 h-3.5" />
                     Cancelling keeps history — it doesn&apos;t delete the
@@ -456,7 +458,7 @@ function BillRow({
                       e.stopPropagation();
                       onCancel(bill);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 px-3.5 py-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 px-3.5 py-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 transition-colors"
                   >
                     <Ban className="w-3 h-3" />
                     Cancel bill
@@ -472,7 +474,7 @@ function BillRow({
 }
 
 // ============================================================
-// NEW BILL MODAL — premium, wide, searchable-select driven
+// NEW BILL MODAL
 // ============================================================
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -546,7 +548,6 @@ function NewBillModal({
   const handleAttachFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const list = Array.from(files);
-    // Create temp trackers
     const trackers = list.map((f) => ({
       id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 8)}`,
       name: f.name,
@@ -569,7 +570,6 @@ function NewBillModal({
       } catch (err) {
         console.error("Upload failed", err);
       } finally {
-        // remove tracker after small delay so user sees "100%"
         setTimeout(() => {
           setUploadingFiles((prev) => prev.filter((t) => t.id !== trackerId));
         }, 400);
@@ -620,49 +620,16 @@ function NewBillModal({
         backdropFilter: "blur(6px)",
       }}
     >
-      <div className="relative bg-white dark:bg-stone-900 rounded-3xl w-full max-w-5xl shadow-[0_30px_90px_-20px_rgba(0,0,0,0.45)] border border-stone-100 dark:border-stone-800 max-h-[92vh] flex flex-col overflow-hidden">
-        {/* ============ STICKY HEADER ============ */}
-        <div
-          className="relative px-6 sm:px-8 py-6 shrink-0 overflow-hidden border-b border-stone-100/60 dark:border-stone-800/60"
-          style={{
-            backgroundImage:
-              "linear-gradient(135deg, rgba(20,184,166,0.14), rgba(15,118,110,0.05) 55%, rgba(255,255,255,0) 100%)",
-          }}
-        >
-          <div
-            className="absolute -right-20 -top-24 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-80"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(20,184,166,0.22), transparent 65%)",
-            }}
-          />
-          <div
-            className="absolute -left-16 bottom-0 w-56 h-56 rounded-full blur-3xl pointer-events-none opacity-60"
-            style={{
-              background:
-                "radial-gradient(circle, rgba(99,102,241,0.16), transparent 70%)",
-            }}
-          />
+      <div className="relative bg-white dark:bg-[#111d19] rounded-3xl w-full max-w-5xl shadow-[0_30px_90px_-20px_rgba(0,0,0,0.45)] border border-[#EDE7DA] dark:border-[#1a2622] max-h-[92vh] flex flex-col overflow-hidden">
+        {/* STICKY HEADER */}
+        <div className="relative px-6 sm:px-8 py-6 shrink-0 border-b border-[#EDE7DA]/60 dark:border-[#1a2622]/60">
           <div className="relative flex items-start justify-between gap-3">
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <div
-                  className="absolute inset-0 rounded-[20px] blur-md opacity-50"
-                  style={{
-                    backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
-                  }}
-                />
-                <div
-                  className="relative w-14 h-14 rounded-[20px] flex items-center justify-center shadow-lg shrink-0 ring-1 ring-white/40"
-                  style={{
-                    backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
-                  }}
-                >
-                  <Receipt className="w-6 h-6 text-white" />
-                </div>
+              <div className="w-14 h-14 rounded-[20px] flex items-center justify-center shadow-sm shrink-0 bg-teal-600 dark:bg-teal-500">
+                <Receipt className="w-6 h-6 text-white" />
               </div>
               <div>
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-100/80 dark:bg-teal-900/40 px-2.5 py-1 text-[10px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-[0.14em] mb-1.5">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-[10px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-[0.14em] mb-1.5">
                   <DollarSign className="w-3 h-3" />
                   New Payable
                 </div>
@@ -677,7 +644,7 @@ function NewBillModal({
             </div>
             <button
               onClick={onClose}
-              className="shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-white dark:hover:bg-stone-800 hover:text-stone-700 dark:hover:text-stone-200 transition-all border border-stone-200/60 dark:border-stone-700/60 bg-white/50 dark:bg-stone-800/40 backdrop-blur shadow-sm hover:shadow-md"
+              className="shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] hover:text-stone-700 dark:hover:text-stone-200 transition-all border border-[#E8E3D8]/60 dark:border-[#1f2e29]/60 bg-white dark:bg-[#111d19] shadow-sm"
               title="Close"
             >
               <X className="w-[18px] h-[18px]" />
@@ -685,10 +652,10 @@ function NewBillModal({
           </div>
         </div>
 
-        {/* ============ SCROLLABLE BODY ============ */}
-        <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 sm:py-7 bg-gradient-to-b from-stone-50/40 via-white to-white dark:from-stone-900 dark:via-stone-900 dark:to-stone-900">
+        {/* SCROLLABLE BODY */}
+        <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 sm:py-7 bg-[#FBF9F4] dark:bg-[#0d1613]">
           {warning && (
-            <div className="mb-6 px-4 py-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-100 dark:border-rose-900/50 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-start gap-2.5 shadow-sm">
+            <div className="mb-6 px-4 py-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-start gap-2.5 shadow-sm">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{warning}</span>
             </div>
@@ -696,7 +663,7 @@ function NewBillModal({
 
           {/* CARD: Supplier & Amount — hero row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-            <div className="md:col-span-2 p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm">
+            <div className="md:col-span-2 p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16231f] border border-[#EDE7DA] dark:border-[#1f2e29] shadow-sm">
               <div className="flex items-center gap-1.5 mb-3">
                 <div className="w-6 h-6 rounded-lg bg-teal-50 dark:bg-teal-900/40 flex items-center justify-center">
                   <TrendingUp className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
@@ -720,21 +687,7 @@ function NewBillModal({
               />
             </div>
 
-            <div
-              className="p-4 sm:p-5 rounded-2xl border shadow-sm relative overflow-hidden"
-              style={{
-                backgroundImage:
-                  "linear-gradient(160deg, rgba(20,184,166,0.08), rgba(20,184,166,0.02) 60%)",
-                borderColor: "rgba(20,184,166,0.25)",
-              }}
-            >
-              <div
-                className="absolute -right-8 -bottom-10 w-40 h-40 rounded-full blur-2xl opacity-60 pointer-events-none"
-                style={{
-                  background:
-                    "radial-gradient(circle, rgba(20,184,166,0.25), transparent 60%)",
-                }}
-              />
+            <div className="p-4 sm:p-5 rounded-2xl border border-teal-200/60 dark:border-teal-900/40 bg-teal-50/40 dark:bg-teal-950/20">
               <div className="flex items-center gap-1.5 mb-3">
                 <div className="w-6 h-6 rounded-lg bg-teal-100 dark:bg-teal-900/60 flex items-center justify-center">
                   <DollarSign className="w-3.5 h-3.5 text-teal-700 dark:text-teal-300" />
@@ -757,7 +710,7 @@ function NewBillModal({
                     setForm((f) => ({ ...f, amount: e.target.value }))
                   }
                   placeholder="0"
-                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono font-bold transition-all shadow-inner"
+                  className="w-full pl-9 pr-4 py-3.5 text-2xl rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono font-bold transition-all shadow-inner"
                 />
               </div>
               <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-2">
@@ -767,7 +720,7 @@ function NewBillModal({
           </div>
 
           {/* CARD: Invoice Details */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm mb-5">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16231f] border border-[#EDE7DA] dark:border-[#1f2e29] shadow-sm mb-5">
             <div className="flex items-center gap-1.5 mb-4">
               <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-900/40 flex items-center justify-center">
                 <CalendarClock className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
@@ -804,7 +757,7 @@ function NewBillModal({
                       }))
                     }
                     placeholder="e.g. INV1025"
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
                   />
                 </div>
               </div>
@@ -830,7 +783,7 @@ function NewBillModal({
                             : f.dueDate,
                       }))
                     }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
                   />
                 </div>
                 <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1">
@@ -852,7 +805,7 @@ function NewBillModal({
                     onChange={(e) =>
                       setForm((f) => ({ ...f, dueDate: e.target.value }))
                     }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 zfm-mono transition-all"
                   />
                 </div>
                 <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-1">
@@ -863,7 +816,7 @@ function NewBillModal({
           </div>
 
           {/* CARD: Attachments */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm mb-5">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16231f] border border-[#EDE7DA] dark:border-[#1f2e29] shadow-sm mb-5">
             <div className="flex items-center gap-1.5 mb-4">
               <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-900/40 flex items-center justify-center">
                 <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -887,9 +840,9 @@ function NewBillModal({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full group relative p-5 rounded-2xl border-2 border-dashed border-stone-200 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800/30 hover:bg-stone-50 dark:hover:bg-stone-800/60 hover:border-teal-400/60 dark:hover:border-teal-500/50 transition-all flex flex-col items-center justify-center gap-2 text-stone-500 dark:text-stone-400 hover:text-teal-600 dark:hover:text-teal-400"
+              className="w-full group relative p-5 rounded-2xl border-2 border-dashed border-[#EDE7DA] dark:border-[#1a2622] bg-[#F8F5EF]/70 dark:bg-[#16231f]/40 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] hover:border-teal-400/60 dark:hover:border-teal-500/50 transition-all flex flex-col items-center justify-center gap-2 text-stone-500 dark:text-stone-400 hover:text-teal-600 dark:hover:text-teal-400"
             >
-              <div className="w-10 h-10 rounded-2xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 group-hover:border-teal-200 dark:group-hover:border-teal-800 flex items-center justify-center shadow-sm group-hover:scale-105 transition-all">
+              <div className="w-10 h-10 rounded-2xl bg-white dark:bg-[#111d19] border border-[#EDE7DA] dark:border-[#1f2e29] group-hover:border-teal-200 dark:group-hover:border-teal-800 flex items-center justify-center shadow-sm group-hover:scale-105 transition-all">
                 <Upload className="w-5 h-5" />
               </div>
               <div className="text-center">
@@ -902,13 +855,12 @@ function NewBillModal({
               </div>
             </button>
 
-            {/* Uploading progress rows */}
             {uploadingFiles.length > 0 && (
               <div className="mt-4 space-y-2">
                 {uploadingFiles.map((t) => (
                   <div
                     key={t.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-stone-50 dark:bg-stone-800 border border-stone-100 dark:border-stone-700"
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[#F8F5EF] dark:bg-[#16231f] border border-[#EDE7DA] dark:border-[#1f2e29]"
                   >
                     <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
                       <Loader2 className="w-4 h-4 text-teal-600 dark:text-teal-400 animate-spin" />
@@ -917,7 +869,7 @@ function NewBillModal({
                       <div className="text-xs font-medium text-stone-700 dark:text-stone-200 truncate">
                         {t.name}
                       </div>
-                      <div className="mt-1 h-1 w-full rounded-full bg-stone-200 dark:bg-stone-700 overflow-hidden">
+                      <div className="mt-1 h-1 w-full rounded-full bg-[#E8E3D8] dark:bg-[#1f2e29] overflow-hidden">
                         <div
                           className="h-full bg-teal-500 transition-all"
                           style={{ width: `${t.progress}%` }}
@@ -932,7 +884,6 @@ function NewBillModal({
               </div>
             )}
 
-            {/* Uploaded attachments */}
             {form.attachments.length > 0 && (
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {form.attachments.map((url, idx) => {
@@ -947,13 +898,13 @@ function NewBillModal({
                   return (
                     <div
                       key={`${url}-${idx}`}
-                      className="group flex items-center gap-3 px-3 py-2 rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-teal-300 dark:hover:border-teal-700/60 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all"
+                      className="group flex items-center gap-3 px-3 py-2 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] hover:border-teal-300 dark:hover:border-teal-700/60 hover:bg-teal-50/50 dark:hover:bg-teal-950/20 transition-all"
                     >
                       <div
                         className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                           isImage
                             ? "bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                            : "bg-stone-100 dark:bg-stone-700/60 text-stone-500 dark:text-stone-400"
+                            : "bg-[#F1ECE0] dark:bg-[#16231f] text-stone-500 dark:text-stone-400"
                         }`}
                       >
                         {isImage ? (
@@ -973,7 +924,7 @@ function NewBillModal({
                       <button
                         type="button"
                         onClick={() => removeAttachment(idx)}
-                        className="w-7 h-7 rounded-lg opacity-70 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-stone-400 hover:text-rose-500 dark:text-stone-500 dark:hover:text-rose-400 flex items-center justify-center transition-all shrink-0"
+                        className="w-7 h-7 rounded-lg opacity-70 group-hover:opacity-100 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-stone-400 hover:text-rose-500 dark:text-stone-500 dark:hover:text-rose-400 flex items-center justify-center transition-all shrink-0"
                         title="Remove attachment"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -986,7 +937,7 @@ function NewBillModal({
           </div>
 
           {/* CARD: Notes */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-stone-800/50 border border-stone-100 dark:border-stone-700 shadow-sm">
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-[#16231f] border border-[#EDE7DA] dark:border-[#1f2e29] shadow-sm">
             <div className="flex items-center gap-1.5 mb-3">
               <div className="w-6 h-6 rounded-lg bg-sky-50 dark:bg-sky-900/40 flex items-center justify-center">
                 <FileText className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
@@ -1005,13 +956,13 @@ function NewBillModal({
               }
               placeholder="Any context the finance team should know — partial payment terms, PO reference, approval note, etc."
               rows={3}
-              className="w-full px-4 py-3 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all resize-none leading-relaxed"
+              className="w-full px-4 py-3 text-sm rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-500/10 dark:focus:ring-teal-400/10 focus:border-teal-500 dark:focus:border-teal-400 transition-all resize-none leading-relaxed"
             />
           </div>
         </div>
 
-        {/* ============ STICKY FOOTER ============ */}
-        <div className="shrink-0 px-6 sm:px-8 py-4 sm:py-5 border-t border-stone-100 dark:border-stone-800 bg-gradient-to-t from-stone-50 via-white to-white dark:from-stone-900 dark:via-stone-900 dark:to-stone-900">
+        {/* STICKY FOOTER */}
+        <div className="shrink-0 px-6 sm:px-8 py-4 sm:py-5 border-t border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#111d19]">
           <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
             <div className="flex flex-col gap-1">
               <div className="hidden sm:flex items-center gap-2 text-[11px] text-stone-400 dark:text-stone-500">
@@ -1032,17 +983,14 @@ function NewBillModal({
             <div className="flex gap-3 ml-auto w-full sm:w-auto">
               <button
                 onClick={onClose}
-                className="flex-1 sm:flex-none px-5 sm:px-6 py-3 rounded-full text-sm font-semibold border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-all shadow-sm hover:shadow"
+                className="flex-1 sm:flex-none px-5 sm:px-6 py-3 rounded-full text-sm font-semibold border border-[#EDE7DA] dark:border-[#1a2622] text-stone-600 dark:text-stone-300 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-all shadow-sm hover:shadow"
               >
                 Cancel
               </button>
               <button
                 onClick={submit}
                 disabled={!canSave || saving}
-                className="relative flex-1 sm:flex-none px-6 sm:px-8 py-3 rounded-full text-sm font-semibold text-white shadow-[0_10px_30px_-10px_rgba(20,184,166,0.6)] hover:shadow-[0_16px_36px_-12px_rgba(20,184,166,0.7)] hover:scale-[1.02] active:scale-95 transition-all duration-200 disabled:grayscale disabled:opacity-50 disabled:pointer-events-none disabled:hover:scale-100 disabled:shadow-none flex items-center justify-center gap-2"
-                style={{
-                  backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
-                }}
+                className="relative flex-1 sm:flex-none px-6 sm:px-8 py-3 rounded-full text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-sm hover:shadow transition-all duration-200 disabled:grayscale disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>
@@ -1065,7 +1013,7 @@ function NewBillModal({
 }
 
 // ============================================================
-// STATS SECTION
+// STATS SECTION — flat divided row: Pending / Upcoming / Overdue / Partial
 // ============================================================
 function StatsSection({
   summary,
@@ -1073,75 +1021,232 @@ function StatsSection({
   currency,
 }: {
   summary: {
-    totalOutstanding: number;
-    overdueCount: number;
-    paidThisMonth: number;
-    totalBills: number;
+    pendingAmount: number;
+    upcomingAmount: number;
+    overdueAmount: number;
+    partialAmount: number;
   };
   loading: boolean;
   currency: string;
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[#EDE7DA] dark:divide-[#1a2622] bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-6 animate-pulse"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="h-3 w-20 bg-stone-200 dark:bg-stone-700 rounded" />
-              <div className="w-10 h-10 rounded-full bg-stone-200 dark:bg-stone-700" />
-            </div>
-            <div className="h-8 w-24 bg-stone-200 dark:bg-stone-700 rounded" />
+          <div key={i} className="p-5 animate-pulse">
+            <div className="h-3 w-16 bg-[#F1ECE0] dark:bg-[#1c2a25] rounded mb-3" />
+            <div className="h-6 w-20 bg-[#F1ECE0] dark:bg-[#1c2a25] rounded" />
           </div>
         ))}
       </div>
     );
   }
 
+  const stats = [
+    { label: "Pending", value: summary.pendingAmount },
+    { label: "Upcoming", value: summary.upcomingAmount },
+    {
+      label: "Overdue",
+      value: summary.overdueAmount,
+      tone: "text-rose-600 dark:text-rose-400",
+    },
+    { label: "Partial", value: summary.partialAmount },
+  ];
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <StatCard
-        label="Outstanding"
-        value={formatMoney(summary.totalOutstanding, currency)}
-        icon={<Clock />}
-        fromColor="#d97706"
-        toColor="#f59e0b"
-        iconColor="text-white"
-        trend="Payable now"
-        trendPositive={false}
-      />
-      <StatCard
-        label="Overdue Bills"
-        value={summary.overdueCount}
-        icon={<AlertTriangle />}
-        fromColor="#dc2626"
-        toColor="#ef4444"
-        iconColor="text-white"
-        trend="Needs attention"
-        trendPositive={false}
-      />
-      <StatCard
-        label="Paid This Month"
-        value={formatMoney(summary.paidThisMonth, currency)}
-        icon={<CheckCircle2 />}
-        fromColor="#0d9488"
-        toColor="#14b8a6"
-        iconColor="text-white"
-        trend="Settled"
-        trendPositive={true}
-      />
-      <StatCard
-        label="Total Bills"
-        value={summary.totalBills}
-        icon={<FileText />}
-        fromColor="#7c3aed"
-        toColor="#8b5cf6"
-        iconColor="text-white"
-        trend="All time"
-        trendPositive={true}
-      />
+    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[#EDE7DA] dark:divide-[#1a2622] bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+      {stats.map((s) => (
+        <div key={s.label} className="p-5">
+          <div className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
+            {s.label}
+          </div>
+          <div
+            className={`text-lg font-semibold zfm-mono ${
+              s.tone || "text-stone-800 dark:text-stone-100"
+            }`}
+          >
+            {formatMoney(s.value, currency)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// NEXT 30 DAYS PANEL
+// ============================================================
+function Next30DaysPanel({
+  items,
+  total,
+  currency,
+}: {
+  items: {
+    _id: string;
+    supplierName: string;
+    dueDate?: string;
+    balance: number;
+  }[];
+  total: number;
+  currency: string;
+}) {
+  return (
+    <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden h-full flex flex-col justify-between">
+      <div className="px-5 py-4 border-b border-[#EDE7DA] dark:border-[#1a2622] flex items-center gap-2">
+        <CalendarDays className="w-4 h-4 text-stone-400 dark:text-stone-500" />
+        <h3 className="text-sm font-bold text-stone-700 dark:text-stone-200">
+          Next 30 Days
+        </h3>
+      </div>
+
+      <div>
+        {items.length === 0 ? (
+          <>
+            <div className="px-5 pt-4 pb-1 flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
+              <span className="font-semibold text-stone-500 dark:text-stone-400">
+                Today
+              </span>
+              <span>{formatDate(new Date().toISOString())}</span>
+            </div>
+            <div className="px-5 py-10 text-center text-stone-400 dark:text-stone-500 text-sm">
+              <Inbox className="w-5 h-5 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+              Nothing due in the next 30 days.
+            </div>
+          </>
+        ) : (
+          <div className="relative px-5 pt-4 pb-3">
+            {/* Timeline connector line running through every dot */}
+            <div className="absolute left-[26px] top-6 bottom-6 w-px bg-gradient-to-b from-teal-300 via-[#EDE7DA] dark:from-teal-800 dark:via-[#1a2622] to-transparent" />
+
+            {/* Today marker */}
+            <div className="relative flex items-center gap-2.5 pb-4">
+              <span className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-4 ring-teal-50 dark:ring-teal-950/40 shrink-0 z-10" />
+              <span className="text-sm font-semibold text-stone-700 dark:text-stone-200">
+                Today
+              </span>
+              <span className="text-xs text-stone-400 dark:text-stone-500">
+                {formatDate(new Date().toISOString())}
+              </span>
+            </div>
+
+            {items.map((b) => (
+              <div
+                key={b._id}
+                className="relative flex items-start gap-2.5 pb-4 last:pb-0"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-white dark:bg-[#111d19] border-2 border-stone-300 dark:border-stone-600 mt-0.5 shrink-0 z-10" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-stone-700 dark:text-stone-200 truncate">
+                    {b.supplierName}
+                  </div>
+                  <div className="text-xs text-stone-400 dark:text-stone-500">
+                    {formatDateShort(b.dueDate)}
+                  </div>
+                </div>
+                <div className="text-sm font-mono font-semibold text-stone-800 dark:text-stone-100 shrink-0">
+                  {formatMoney(b.balance, currency)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 py-4 border-t border-[#EDE7DA] dark:border-[#1a2622] flex items-center justify-between h-fit">
+        <span className="text-sm font-bold text-stone-700 dark:text-stone-200">
+          Total upcoming
+        </span>
+        <span className="text-sm font-mono font-bold text-stone-800 dark:text-stone-100">
+          {formatMoney(total, currency)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// OVERDUE AGING PANEL
+// ============================================================
+function OverdueAgingPanel({
+  aging,
+  currency,
+  onReviewOverdue,
+}: {
+  aging: {
+    d1to7: number;
+    d8to30: number;
+    d31plus: number;
+    totalAmount: number;
+    totalCount: number;
+    highestRiskSupplier: { name: string; amount: number } | null;
+  };
+  currency: string;
+  onReviewOverdue: () => void;
+}) {
+  const maxBucket = Math.max(1, aging.d1to7, aging.d8to30, aging.d31plus);
+  const buckets = [
+    { label: "1–7 days", value: aging.d1to7, color: "bg-teal-500" },
+    { label: "8–30 days", value: aging.d8to30, color: "bg-amber-500" },
+    { label: "31+ days", value: aging.d31plus, color: "bg-rose-500" },
+  ];
+
+  return (
+    <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden h-full">
+      <div className="px-5 py-4 border-b border-[#EDE7DA] dark:border-[#1a2622]">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400" />
+          <h3 className="text-sm font-bold text-stone-700 dark:text-stone-200">
+            Overdue Aging
+          </h3>
+        </div>
+        <p className="text-xs text-stone-400 dark:text-stone-500 mt-0.5 pl-6">
+          {formatMoney(aging.totalAmount, currency)} · {aging.totalCount} bills
+        </p>
+      </div>
+
+      <div className="p-5 space-y-4">
+        {buckets.map((b) => {
+          const pct = Math.max(2, (b.value / maxBucket) * 100);
+          return (
+            <div key={b.label}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm text-stone-600 dark:text-stone-300">
+                  {b.label}
+                </span>
+                <span className="text-sm font-semibold zfm-mono text-stone-800 dark:text-stone-100">
+                  {formatMoney(b.value, currency)}
+                </span>
+              </div>
+              <div className="relative w-full h-1.5 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
+                <div
+                  className={`absolute inset-y-0 left-0 rounded-full ${b.color}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+
+        {aging.highestRiskSupplier && (
+          <div className="flex items-center justify-between rounded-xl bg-[#F8F5EF] dark:bg-[#16231f]/60 px-3.5 py-2.5 text-sm">
+            <span className="text-stone-500 dark:text-stone-400">
+              Highest-risk supplier
+            </span>
+            <span className="font-semibold text-stone-800 dark:text-stone-100">
+              {aging.highestRiskSupplier.name} ·{" "}
+              {formatMoney(aging.highestRiskSupplier.amount, currency)}
+            </span>
+          </div>
+        )}
+
+        <button
+          onClick={onReviewOverdue}
+          className="w-full rounded-xl border border-[#E8E3D8] dark:border-[#1f2e29] py-2.5 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors"
+        >
+          Review overdue
+        </button>
+      </div>
     </div>
   );
 }
@@ -1160,6 +1265,9 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
   const {
     bills,
     summary,
+    upcoming30,
+    totalUpcoming30,
+    overdueAging,
     categories,
     loading,
     saving,
@@ -1217,28 +1325,39 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
             Bills & Payables
           </h2>
           <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
-            Every invoice the clinic owes — now or later
+            Every supplier obligation, from invoice to payment.
           </p>
         </div>
         {permissions.canCreate && (
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
-            style={{
-              backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-            }}
+            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-sm hover:shadow transition-all duration-200"
           >
-            <Plus className="w-4 h-4" />
-            New Bill
+            <FileText className="w-4 h-4" />
+            Create Bill
           </button>
         )}
       </div>
 
       <StatsSection summary={summary} loading={loading} currency={currency} />
 
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm dark:shadow-stone-900/20 overflow-hidden transition-colors duration-300">
+      {/* Two-column layout: Next 30 Days + Overdue Aging — above the table */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <Next30DaysPanel
+          items={upcoming30}
+          total={totalUpcoming30}
+          currency={currency}
+        />
+        <OverdueAgingPanel
+          aging={overdueAging}
+          currency={currency}
+          onReviewOverdue={() => setStatusFilter("overdue")}
+        />
+      </div>
+
+      <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden transition-colors duration-300">
         {/* Status pill tabs */}
-        <div className="border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
+        <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613]">
           <div className="flex items-center gap-1 p-1 overflow-x-auto">
             {STATUS_TABS.map((t) => (
               <button
@@ -1246,8 +1365,8 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
                 onClick={() => setStatusFilter(t.value)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                   statusFilter === t.value
-                    ? "bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-stone-900/20"
-                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-stone-800/50"
+                    ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20"
+                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/50"
                 }`}
               >
                 {t.label}
@@ -1257,20 +1376,20 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
         </div>
 
         {/* Filter bar */}
-        <div className="p-5 border-b border-stone-200 dark:border-stone-700 flex flex-wrap items-center gap-2.5 bg-white dark:bg-stone-900">
+        <div className="p-5 border-b border-[#EDE7DA] dark:border-[#1a2622] flex flex-wrap items-center gap-2.5 bg-white dark:bg-[#111d19]">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="w-4 h-4 text-stone-400 dark:text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search invoice or supplier invoice #…"
-              className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-stone-900/20"
+              className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-black/20"
             />
           </div>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           >
             {categories.map((c) => (
               <option key={c} value={c}>
@@ -1282,18 +1401,18 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           />
         </div>
 
         {/* Content */}
-        <div className="bg-white dark:bg-stone-900">
+        <div className="bg-white dark:bg-[#111d19]">
           {loading && (
             <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" />
@@ -1308,7 +1427,7 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
           )}
 
           {!loading && !error && (
-            <div className="divide-y divide-stone-100 dark:divide-stone-800">
+            <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622]">
               {bills.length === 0 ? (
                 <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                   <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
@@ -1337,7 +1456,7 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
 
         {/* Pagination footer */}
         {!loading && !error && pagination && pagination.totalResults > 0 && (
-          <div className="px-5 py-4 border-t border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-5 py-4 border-t border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#111d19] flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-stone-400 dark:text-stone-500 font-medium">
               Showing{" "}
               <span className="text-stone-600 dark:text-stone-300 font-semibold">
@@ -1352,7 +1471,7 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
               <button
                 onClick={prevPage}
                 disabled={page <= 1}
-                className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-stone-900/20"
+                className="w-8 h-8 rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-black/20"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -1363,7 +1482,7 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
               <button
                 onClick={nextPage}
                 disabled={!pagination.hasMore}
-                className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-stone-900/20"
+                className="w-8 h-8 rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-black/20"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -1389,9 +1508,9 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
             backdropFilter: "blur(3px)",
           }}
         >
-          <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-sm p-7 shadow-2xl">
+          <div className="bg-white dark:bg-[#111d19] rounded-3xl w-full max-w-sm p-7 shadow-2xl border border-transparent dark:border-[#1f2e29]">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center">
                 <Ban className="w-5 h-5 text-rose-500 dark:text-rose-400" />
               </div>
               <h3 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
@@ -1406,7 +1525,7 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               placeholder="Reason (required)"
-              className="w-full px-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900 focus:border-rose-400 transition-all mb-5"
+              className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-rose-100 dark:focus:ring-rose-900 focus:border-rose-400 transition-all mb-5"
             />
             <div className="flex gap-2.5">
               <button
@@ -1414,7 +1533,7 @@ const BillsPayableTab: React.FC<UseFinancePermissionReturn> = ({
                   setCancelTarget(null);
                   setCancelReason("");
                 }}
-                className="flex-1 py-2.5 rounded-full text-sm font-semibold border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+                className="flex-1 py-2.5 rounded-full text-sm font-semibold border border-[#EDE7DA] dark:border-[#1a2622] text-stone-600 dark:text-stone-300 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors"
               >
                 Keep bill
               </button>

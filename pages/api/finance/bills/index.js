@@ -125,8 +125,26 @@ export default async function handler(req, res) {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-      const summary = await FinanceTransaction.aggregate([
+      // ------------------------------------------------------------
+      // Summary — totals + per-status outstanding amounts. All amounts
+      // use (amount - paidAmount), i.e. what's actually still owed.
+      // ------------------------------------------------------------
+      const statusAmountSum = (s) => ({
+        $sum: {
+          $cond: [
+            { $eq: ["$status", s] },
+            { $subtract: ["$amount", "$paidAmount"] },
+            0,
+          ],
+        },
+      });
+      const statusCountSum = (s) => ({
+        $sum: { $cond: [{ $eq: ["$status", s] }, 1, 0] },
+      });
+
+      const summaryResult = await FinanceTransaction.aggregate([
         { $match: { clinicId: query.clinicId, entryType: "bill" } },
         {
           $group: {
@@ -140,9 +158,7 @@ export default async function handler(req, res) {
                 ],
               },
             },
-            overdueCount: {
-              $sum: { $cond: [{ $eq: ["$status", "overdue"] }, 1, 0] },
-            },
+            overdueCount: statusCountSum("overdue"),
             paidThisMonth: {
               $sum: {
                 $cond: [
@@ -158,19 +174,119 @@ export default async function handler(req, res) {
               },
             },
             totalBills: { $sum: 1 },
+
+            pendingAmount: statusAmountSum("pending"),
+            pendingCount: statusCountSum("pending"),
+            upcomingAmount: statusAmountSum("upcoming"),
+            upcomingCount: statusCountSum("upcoming"),
+            overdueAmount: statusAmountSum("overdue"),
+            partialAmount: statusAmountSum("partial"),
+            partialCount: statusCountSum("partial"),
           },
         },
       ]);
 
+      const summary = summaryResult[0] || {
+        totalOutstanding: 0,
+        overdueCount: 0,
+        paidThisMonth: 0,
+        totalBills: 0,
+        pendingAmount: 0,
+        pendingCount: 0,
+        upcomingAmount: 0,
+        upcomingCount: 0,
+        overdueAmount: 0,
+        partialAmount: 0,
+        partialCount: 0,
+      };
+      delete summary._id;
+
+      // ------------------------------------------------------------
+      // Next 30 days — upcoming/pending/partial bills due soon,
+      // soonest first, for the "Next 30 Days" panel.
+      // ------------------------------------------------------------
+      const upcoming30Docs = await FinanceTransaction.find({
+        clinicId,
+        entryType: "bill",
+        status: { $nin: ["paid", "cancelled"] },
+        dueDate: { $gte: now, $lte: in30Days },
+      })
+        .populate("supplierId", "name")
+        .sort({ dueDate: 1 })
+        .limit(15);
+
+      const upcoming30 = upcoming30Docs.map((b) => ({
+        _id: b._id,
+        supplierName:
+          b.supplierId && typeof b.supplierId === "object"
+            ? b.supplierId.name
+            : "—",
+        invoiceNumber: b.invoiceNumber,
+        dueDate: b.dueDate,
+        balance: b.amount - (b.paidAmount || 0),
+      }));
+
+      const totalUpcoming30 = upcoming30.reduce((sum, b) => sum + b.balance, 0);
+
+      // ------------------------------------------------------------
+      // Overdue aging — bucket every currently-overdue bill by how
+      // many days past its due date it is, and find the supplier
+      // with the largest overdue balance ("highest-risk supplier").
+      // ------------------------------------------------------------
+      const overdueDocs = await FinanceTransaction.find({
+        clinicId,
+        entryType: "bill",
+        status: "overdue",
+      }).populate("supplierId", "name");
+
+      const aging = { d1to7: 0, d8to30: 0, d31plus: 0 };
+      const bySupplier = {};
+
+      for (const b of overdueDocs) {
+        const balance = b.amount - (b.paidAmount || 0);
+        const daysOverdue = b.dueDate
+          ? Math.max(
+              0,
+              Math.floor(
+                (now.getTime() - new Date(b.dueDate).getTime()) / 86400000,
+              ),
+            )
+          : 0;
+
+        if (daysOverdue <= 7) aging.d1to7 += balance;
+        else if (daysOverdue <= 30) aging.d8to30 += balance;
+        else aging.d31plus += balance;
+
+        const supplierName =
+          b.supplierId && typeof b.supplierId === "object"
+            ? b.supplierId.name
+            : "Unknown supplier";
+        bySupplier[supplierName] = (bySupplier[supplierName] || 0) + balance;
+      }
+
+      let highestRiskSupplier = null;
+      for (const [name, amount] of Object.entries(bySupplier)) {
+        if (!highestRiskSupplier || amount > highestRiskSupplier.amount) {
+          highestRiskSupplier = { name, amount };
+        }
+      }
+
+      const overdueAging = {
+        d1to7: aging.d1to7,
+        d8to30: aging.d8to30,
+        d31plus: aging.d31plus,
+        totalAmount: aging.d1to7 + aging.d8to30 + aging.d31plus,
+        totalCount: overdueDocs.length,
+        highestRiskSupplier,
+      };
+
       return res.status(200).json({
         success: true,
         data: bills,
-        summary: summary[0] || {
-          totalOutstanding: 0,
-          overdueCount: 0,
-          paidThisMonth: 0,
-          totalBills: 0,
-        },
+        summary,
+        upcoming30,
+        totalUpcoming30,
+        overdueAging,
         pagination: {
           page: pageNum,
           limit: limitNum,

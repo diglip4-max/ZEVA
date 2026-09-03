@@ -29,7 +29,6 @@ import useSupplierLedger, {
 } from "../_hooks/useSupplierLedger";
 import useSuppliers from "@/hooks/useSuppliers";
 import useClinic from "@/hooks/useClinic";
-import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
@@ -53,62 +52,62 @@ const BILL_STATUS_META: Record<
 > = {
   draft: {
     text: "text-stone-600 dark:text-stone-300",
-    bg: "bg-stone-100 dark:bg-stone-800",
+    bg: "bg-[#F1ECE0] dark:bg-[#16231f]",
     dot: "bg-stone-400",
   },
   pending: {
     text: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-50 dark:bg-amber-950",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
     dot: "bg-amber-500",
   },
   upcoming: {
     text: "text-sky-700 dark:text-sky-300",
-    bg: "bg-sky-50 dark:bg-sky-950",
+    bg: "bg-sky-50 dark:bg-sky-950/40",
     dot: "bg-sky-500",
   },
   partial: {
     text: "text-violet-700 dark:text-violet-300",
-    bg: "bg-violet-50 dark:bg-violet-950",
+    bg: "bg-violet-50 dark:bg-violet-950/40",
     dot: "bg-violet-500",
   },
   paid: {
     text: "text-teal-700 dark:text-teal-300",
-    bg: "bg-teal-50 dark:bg-teal-950",
+    bg: "bg-teal-50 dark:bg-teal-950/40",
     dot: "bg-teal-500",
   },
   overdue: {
     text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
+    bg: "bg-rose-50 dark:bg-rose-950/40",
     dot: "bg-rose-500",
   },
   cancelled: {
     text: "text-stone-400 dark:text-stone-500",
-    bg: "bg-stone-100 dark:bg-stone-800",
+    bg: "bg-[#F1ECE0] dark:bg-[#16231f]",
     dot: "bg-stone-300",
   },
   issued: {
     text: "text-sky-700 dark:text-sky-300",
-    bg: "bg-sky-50 dark:bg-sky-950",
+    bg: "bg-sky-50 dark:bg-sky-950/40",
     dot: "bg-sky-500",
   },
   presented: {
     text: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-50 dark:bg-amber-950",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
     dot: "bg-amber-500",
   },
   cleared: {
     text: "text-teal-700 dark:text-teal-300",
-    bg: "bg-teal-50 dark:bg-teal-950",
+    bg: "bg-teal-50 dark:bg-teal-950/40",
     dot: "bg-teal-500",
   },
   returned: {
     text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
+    bg: "bg-rose-50 dark:bg-rose-950/40",
     dot: "bg-rose-500",
   },
   bounced: {
     text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
+    bg: "bg-rose-50 dark:bg-rose-950/40",
     dot: "bg-rose-500",
   },
 };
@@ -156,10 +155,10 @@ function InfoCard({
 }) {
   return (
     <div
-      className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${accent} p-3.5`}
+      className={`rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br ${accent} p-3.5`}
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <div className="w-5 h-5 rounded-md bg-white/80 dark:bg-stone-900/60 flex items-center justify-center shadow-sm">
+        <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center shadow-sm">
           {icon}
         </div>
         <span className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-[0.14em]">
@@ -174,7 +173,36 @@ function InfoCard({
 }
 
 // ============================================================
-// BILL DETAILS + ROW — violet/teal theme (bills)
+// FLAT STAT ROW — divided single-row card, matching Cheque
+// Manager / Bank Accounts style (no gradient icon tiles)
+// ============================================================
+function StatRow({
+  stats,
+}: {
+  stats: { label: string; value: React.ReactNode; tone?: string }[];
+}) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-[#EDE7DA] dark:divide-[#1a2622] bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+      {stats.map((s) => (
+        <div key={s.label} className="p-5">
+          <div className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
+            {s.label}
+          </div>
+          <div
+            className={`text-lg font-semibold zfm-mono ${
+              s.tone || "text-stone-800 dark:text-stone-100"
+            }`}
+          >
+            {s.value}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================
+// BILL DETAILS + ROW
 // ============================================================
 function BillDetailsView({
   bill,
@@ -203,18 +231,14 @@ function BillDetailsView({
             </span>
           </div>
         </div>
-        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+        <div className="relative w-full h-2 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
           <div
-            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${paidPct}%`,
-              backgroundImage:
-                "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
-            }}
+            className="absolute inset-y-0 left-0 rounded-full bg-teal-500 transition-all duration-500 ease-out"
+            style={{ width: `${paidPct}%` }}
           />
           {bill.balance > 0 && (
             <div
-              className="absolute inset-y-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out"
+              className="absolute inset-y-0 rounded-full bg-amber-400 transition-all duration-500 ease-out"
               style={{
                 left: `${paidPct}%`,
                 width: `${balancePct}%`,
@@ -242,7 +266,7 @@ function BillDetailsView({
           icon={
             <Receipt className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
           }
-          accent="from-violet-50 to-white dark:from-violet-950/40"
+          accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Category"
@@ -250,7 +274,7 @@ function BillDetailsView({
           icon={
             <TrendingUp className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           }
-          accent="from-amber-50 to-white dark:from-amber-950/40"
+          accent="from-amber-50 to-white dark:from-amber-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Due date"
@@ -258,7 +282,7 @@ function BillDetailsView({
           icon={
             <CalendarClock className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
           }
-          accent="from-rose-50 to-white dark:from-rose-950/40"
+          accent="from-rose-50 to-white dark:from-rose-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Status"
@@ -266,7 +290,7 @@ function BillDetailsView({
           icon={
             <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
           }
-          accent="from-sky-50 to-white dark:from-sky-950/40"
+          accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
         />
       </div>
     </div>
@@ -285,12 +309,12 @@ function BillRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+    <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0">
       <button
         onClick={onToggle}
-        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
-        <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-950/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+        <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
           <Receipt className="w-4 h-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -339,7 +363,7 @@ function BillRow({
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-violet-200 dark:from-violet-900 to-transparent" />
-            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+            <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <BillDetailsView bill={bill} currency={currency} />
             </div>
           </div>
@@ -350,7 +374,7 @@ function BillRow({
 }
 
 // ============================================================
-// PAYMENT DETAILS + ROW — emerald/teal theme (payments)
+// PAYMENT DETAILS + ROW
 // ============================================================
 function PaymentDetailsView({
   payment,
@@ -388,16 +412,12 @@ function PaymentDetailsView({
             )}
           </div>
         </div>
-        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+        <div className="relative w-full h-2 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
           <div
-            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out ${
-              payment.reversed ? "" : ""
-            }`}
+            className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
             style={{
               width: "100%",
-              backgroundImage: payment.reversed
-                ? "linear-gradient(90deg, #f43f5e, #ef4444, #dc2626)"
-                : "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
+              backgroundColor: payment.reversed ? "#f43f5e" : "#14b8a6",
             }}
           />
         </div>
@@ -422,7 +442,7 @@ function PaymentDetailsView({
           icon={
             <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
           }
-          accent="from-emerald-50 to-white dark:from-emerald-950/40"
+          accent="from-emerald-50 to-white dark:from-emerald-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Date"
@@ -430,7 +450,7 @@ function PaymentDetailsView({
           icon={
             <CalendarClock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
           }
-          accent="from-sky-50 to-white dark:from-sky-950/40"
+          accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Method"
@@ -438,7 +458,7 @@ function PaymentDetailsView({
           icon={
             <Icon className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           }
-          accent="from-teal-50 to-white dark:from-teal-950/40"
+          accent="from-teal-50 to-white dark:from-teal-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Linked invoice"
@@ -457,7 +477,7 @@ function PaymentDetailsView({
           icon={
             <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
           }
-          accent="from-violet-50 to-white dark:from-violet-950/40"
+          accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
         />
       </div>
     </div>
@@ -482,16 +502,16 @@ function PaymentRow({
       : payment.transactionId?.invoiceNumber;
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+    <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0">
       <button
         onClick={onToggle}
-        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
         <div
           className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
             payment.reversed
-              ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
-              : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400"
+              ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+              : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
           }`}
         >
           <Icon className="w-4 h-4" />
@@ -500,7 +520,7 @@ function PaymentRow({
           <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 truncate flex items-center gap-2">
             <span className="zfm-mono">{payment.paymentNumber}</span>
             {payment.reversed && (
-              <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full">
                 Reversed
               </span>
             )}
@@ -560,7 +580,7 @@ function PaymentRow({
                   : "from-emerald-200 dark:from-emerald-900"
               }`}
             />
-            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+            <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <PaymentDetailsView payment={payment} currency={currency} />
             </div>
           </div>
@@ -571,7 +591,7 @@ function PaymentRow({
 }
 
 // ============================================================
-// CHEQUE DETAILS + ROW — indigo/blue theme (cheques)
+// CHEQUE DETAILS + ROW
 // ============================================================
 function ChequeDetailsView({
   cheque,
@@ -580,6 +600,12 @@ function ChequeDetailsView({
   cheque: LedgerCheque;
   currency: string;
 }) {
+  const barColor =
+    cheque.status === "cleared"
+      ? "#14b8a6"
+      : cheque.status === "bounced" || cheque.status === "returned"
+        ? "#f43f5e"
+        : "#6366f1";
   return (
     <div className="space-y-5">
       <div>
@@ -594,18 +620,10 @@ function ChequeDetailsView({
             <StatusDot status={cheque.status} />
           </div>
         </div>
-        <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+        <div className="relative w-full h-2 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
           <div
             className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: "100%",
-              backgroundImage:
-                cheque.status === "cleared"
-                  ? "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)"
-                  : cheque.status === "bounced" || cheque.status === "returned"
-                    ? "linear-gradient(90deg, #f43f5e, #ef4444, #dc2626)"
-                    : "linear-gradient(90deg, #6366f1, #818cf8, #6366f1)",
-            }}
+            style={{ width: "100%", backgroundColor: barColor }}
           />
         </div>
         <div className="flex items-center justify-between mt-2 text-[10px] font-bold uppercase tracking-wider">
@@ -625,7 +643,7 @@ function ChequeDetailsView({
           icon={
             <FileCheck2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
           }
-          accent="from-indigo-50 to-white dark:from-indigo-950/40"
+          accent="from-indigo-50 to-white dark:from-indigo-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Cheque date"
@@ -633,7 +651,7 @@ function ChequeDetailsView({
           icon={
             <CalendarClock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
           }
-          accent="from-sky-50 to-white dark:from-sky-950/40"
+          accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
         />
         <InfoCard
           label="Bank"
@@ -641,7 +659,7 @@ function ChequeDetailsView({
           icon={
             <Landmark className="w-3.5 h-3.5 text-stone-600 dark:text-stone-400" />
           }
-          accent="from-stone-50 to-white dark:from-stone-800/40"
+          accent="from-[#F8F5EF] to-white dark:from-[#16231f]/60 dark:to-[#111d19]"
         />
         <InfoCard
           label="Payee"
@@ -649,7 +667,7 @@ function ChequeDetailsView({
           icon={
             <User className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
           }
-          accent="from-violet-50 to-white dark:from-violet-950/40"
+          accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
         />
       </div>
     </div>
@@ -669,10 +687,10 @@ function ChequeRow({
 }) {
   const themeBadge =
     cheque.status === "cleared"
-      ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400"
+      ? "bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400"
       : cheque.status === "bounced" || cheque.status === "returned"
-        ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
-        : "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400";
+        ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400"
+        : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400";
   const themeChevron =
     cheque.status === "cleared"
       ? "text-teal-500 dark:text-teal-400"
@@ -687,10 +705,10 @@ function ChequeRow({
         : "from-indigo-200 dark:from-indigo-900";
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+    <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0">
       <button
         onClick={onToggle}
-        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
         <div
           className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${themeBadge}`}
@@ -739,7 +757,7 @@ function ChequeRow({
             <div
               className={`absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b to-transparent ${themeConnector}`}
             />
-            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+            <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <ChequeDetailsView cheque={cheque} currency={currency} />
             </div>
           </div>
@@ -848,7 +866,7 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
       <SupplierPicker value={supplierId} onChange={setSupplierId} />
 
       {!supplierId && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+        <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm px-5 py-16 text-center text-stone-400 dark:text-stone-500">
           <Building2 className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
           <span className="text-sm">
             Choose a supplier above to see their full ledger.
@@ -857,14 +875,14 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
       )}
 
       {supplierId && loading && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-5 py-16 text-center text-stone-400 dark:text-stone-500">
+        <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm px-5 py-16 text-center text-stone-400 dark:text-stone-500">
           <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" />
           <span className="text-sm">Loading ledger…</span>
         </div>
       )}
 
       {supplierId && !loading && error && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-5 py-16 text-center text-rose-500 dark:text-rose-400 text-sm">
+        <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm px-5 py-16 text-center text-rose-500 dark:text-rose-400 text-sm">
           {error}
         </div>
       )}
@@ -872,14 +890,9 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
       {supplierId && !loading && !error && supplier && (
         <>
           {/* Supplier header card */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm p-5 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm shrink-0"
-                style={{
-                  backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
-                }}
-              >
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-teal-600 dark:bg-teal-500 shrink-0">
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -914,57 +927,40 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
             )}
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard
-              label="Total Billed"
-              value={formatMoney(summary.totalBilled, currency)}
-              icon={<Receipt />}
-              fromColor="#7c3aed"
-              toColor="#8b5cf6"
-              iconColor="text-white"
-              trend={`${summary.billCount} bills`}
-              trendPositive={true}
-            />
-            <StatCard
-              label="Total Paid"
-              value={formatMoney(summary.totalPaid, currency)}
-              icon={<CheckCircle2 />}
-              fromColor="#0d9488"
-              toColor="#14b8a6"
-              iconColor="text-white"
-              trend={`${summary.totalPayments} payments`}
-              trendPositive={true}
-            />
-            <StatCard
-              label="Balance Due"
-              value={formatMoney(summary.totalBalance, currency)}
-              icon={<Clock />}
-              fromColor="#d97706"
-              toColor="#f59e0b"
-              iconColor="text-white"
-              trend={`${summary.overdueCount} overdue`}
-              trendPositive={summary.overdueCount === 0}
-            />
-            <StatCard
-              label="Cheques"
-              value={summary.totalCheques}
-              icon={<FileCheck2 />}
-              fromColor="#4f46e5"
-              toColor="#6366f1"
-              iconColor="text-white"
-              trend={
-                summary.bouncedCheques > 0
-                  ? `${summary.bouncedCheques} bounced`
-                  : `${summary.pendingCheques} pending`
-              }
-              trendPositive={summary.bouncedCheques === 0}
-            />
-          </div>
+          {/* Stats — flat divided row, matching Cheque Manager / Bank Accounts */}
+          <StatRow
+            stats={[
+              {
+                label: "Total Billed",
+                value: formatMoney(summary.totalBilled, currency),
+              },
+              {
+                label: "Total Paid",
+                value: formatMoney(summary.totalPaid, currency),
+                tone: "text-teal-600 dark:text-teal-400",
+              },
+              {
+                label: "Balance Due",
+                value: formatMoney(summary.totalBalance, currency),
+                tone:
+                  summary.totalBalance > 0
+                    ? "text-amber-600 dark:text-amber-400"
+                    : undefined,
+              },
+              {
+                label: "Cheques",
+                value: summary.totalCheques,
+                tone:
+                  summary.bouncedCheques > 0
+                    ? "text-rose-500 dark:text-rose-400"
+                    : undefined,
+              },
+            ]}
+          />
 
           {/* Bills */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
+          <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#EDE7DA] dark:border-[#1a2622] flex items-center gap-2">
               <Receipt className="w-4 h-4 text-stone-400 dark:text-stone-500" />
               <h3 className="text-sm font-bold text-stone-700 dark:text-stone-200">
                 Bills
@@ -993,8 +989,8 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
           </div>
 
           {/* Payments */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
+          <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#EDE7DA] dark:border-[#1a2622] flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-stone-400 dark:text-stone-500" />
               <h3 className="text-sm font-bold text-stone-700 dark:text-stone-200">
                 Payments
@@ -1023,8 +1019,8 @@ const SupplierLedgerTab: React.FC<UseFinancePermissionReturn> = ({
           </div>
 
           {/* Cheques */}
-          <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2">
+          <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#EDE7DA] dark:border-[#1a2622] flex items-center gap-2">
               <FileCheck2 className="w-4 h-4 text-stone-400 dark:text-stone-500" />
               <h3 className="text-sm font-bold text-stone-700 dark:text-stone-200">
                 Cheques

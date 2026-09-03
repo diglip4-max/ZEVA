@@ -46,6 +46,7 @@ export interface ChequeData {
   paymentId?: PaymentRef | string;
   history: ChequeHistoryEntry[];
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChequeSummary {
