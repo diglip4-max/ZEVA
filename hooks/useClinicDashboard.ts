@@ -199,6 +199,12 @@ interface JourneyDetail {
   pending: number;
 }
 
+interface ExpiredStockItem {
+  name: string;
+  expiryDate: string;
+  quantity: number;
+}
+
 interface ControlExceptionsData {
   collectedRevenue: number;
   outstandingAmount: number;
@@ -208,6 +214,20 @@ interface ControlExceptionsData {
   incompleteJourneyDetails: JourneyDetail[];
   pendingDischargeDetails: JourneyDetail[];
   billingIncompleteDetails: JourneyDetail[];
+  criticalItems: number;
+  belowReorderLevel: number;
+  highCostItems: number;
+  expiredStockDetails: ExpiredStockItem[];
+  expensesAmount: number;
+  payableWithin7Days: number;
+}
+
+interface RecommendationData {
+  eveningServiceName: string | null;
+  eveningServicePrice: number;
+  eveningBookingCount: number;
+  highValuePatientCount: number;
+  highValuePatientRevenue: number;
 }
 
 interface WeekMetric {
@@ -221,6 +241,9 @@ interface ZevaIntelligenceData {
   newPatients: WeekMetric;
   repeatVisits: WeekMetric;
   noShows: WeekMetric;
+  noShowAnomaly: { trend: string; percent: number; currentCount: number; previousCount: number };
+  topServiceAnomaly: { serviceName: string | null; percent: number; trend: string; currentRevenue: number; previousRevenue: number; bookingCount: number };
+  decreasingServiceAnomaly: { serviceName: string | null; percent: number; currentAvg: number; previousAvg: number };
 }
 
 interface RevenueLeakageData {
@@ -365,12 +388,28 @@ export function useClinicDashboard(selectedDate: string) {
     incompleteJourneyDetails: [],
     pendingDischargeDetails: [],
     billingIncompleteDetails: [],
+    criticalItems: 0,
+    belowReorderLevel: 0,
+    highCostItems: 0,
+    expiredStockDetails: [],
+    expensesAmount: 0,
+    payableWithin7Days: 0,
+  });
+  const [recommendationData, setRecommendationData] = useState<RecommendationData>({
+    eveningServiceName: null,
+    eveningServicePrice: 0,
+    eveningBookingCount: 0,
+    highValuePatientCount: 0,
+    highValuePatientRevenue: 0,
   });
   const [zevaIntelligenceData, setZevaIntelligenceData] = useState<ZevaIntelligenceData>({
     revenue: { currentWeek: 0, previousWeek: 0, changePercent: 0 },
     newPatients: { currentWeek: 0, previousWeek: 0, changePercent: 0 },
     repeatVisits: { currentWeek: 0, previousWeek: 0, changePercent: 0 },
     noShows: { currentWeek: 0, previousWeek: 0, changePercent: 0 },
+    noShowAnomaly: { trend: "neutral", percent: 0, currentCount: 0, previousCount: 0 },
+    topServiceAnomaly: { serviceName: null, percent: 0, trend: "below", currentRevenue: 0, previousRevenue: 0, bookingCount: 0 },
+    decreasingServiceAnomaly: { serviceName: null, percent: 0, currentAvg: 0, previousAvg: 0 },
   });
   const [revenueLeakageData, setRevenueLeakageData] = useState<RevenueLeakageData>({
     unbilledAmount: 0,
@@ -416,7 +455,7 @@ export function useClinicDashboard(selectedDate: string) {
       const headers = { Authorization: `Bearer ${token}` };
 
       // 1. Fetch Clinic Info
-      const clinicRes = await axios.get('/api/clinics/myallClinic', { headers }).catch(e => null);
+      const clinicRes = await axios.get('/api/clinics/myallClinic', { headers }).catch(() => null);
       if (clinicRes?.data?.success && clinicRes.data.clinic) {
         setClinicInfo(clinicRes.data.clinic);
       }
@@ -427,7 +466,7 @@ export function useClinicDashboard(selectedDate: string) {
         startDate: selectedDate,
         endDate: selectedDate
       });
-      const revenueRes = await axios.get(`/api/clinic/reports/revenue?${revenueParams.toString()}`, { headers }).catch(e => null);
+      const revenueRes = await axios.get(`/api/clinic/reports/revenue?${revenueParams.toString()}`, { headers }).catch(() => null);
       if (revenueRes?.data?.success) {
         const treatmentRev = revenueRes.data.data?.treatmentRevenue || 0;
         const packageRev = revenueRes.data.data?.packageRevenue || 0;
@@ -447,7 +486,7 @@ export function useClinicDashboard(selectedDate: string) {
 
       // 3. Fetch Revenue Opportunity
       const oppParams = { date: selectedDate };
-      const oppRes = await axios.get('/api/agent/revenue-opportunity', { headers, params: oppParams }).catch(e => null);
+      const oppRes = await axios.get('/api/agent/revenue-opportunity', { headers, params: oppParams }).catch(() => null);
       if (oppRes?.data?.success && oppRes.data.data) {
         setOpportunityData({
           totalPotential: oppRes.data.data.totalPotential || 0,
@@ -461,8 +500,8 @@ export function useClinicDashboard(selectedDate: string) {
       const afternoonParams = { timePeriod: 'afternoon', date: selectedDate };
 
       const [morningRes, afternoonRes] = await Promise.all([
-        axios.get('/api/agent/priorities', { headers, params: morningParams }).catch(e => null),
-        axios.get('/api/agent/priorities', { headers, params: afternoonParams }).catch(e => null),
+        axios.get('/api/agent/priorities', { headers, params: morningParams }).catch(() => null),
+        axios.get('/api/agent/priorities', { headers, params: afternoonParams }).catch(() => null),
       ]);
 
       const priorities: PriorityData = {};
@@ -482,7 +521,7 @@ export function useClinicDashboard(selectedDate: string) {
       const riskRes = await axios.get('/api/clinic/revenue-at-risk', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (riskRes?.data?.success && riskRes.data.data) {
         setRevenueAtRiskData({
           totalAmount: riskRes.data.data.totalAmount || 0,
@@ -497,7 +536,7 @@ export function useClinicDashboard(selectedDate: string) {
       const outstandingRes = await axios.get('/api/clinic/outstanding-balance', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (outstandingRes?.data?.success && outstandingRes.data.data) {
         setOutstandingBalanceData({
           totalPending: outstandingRes.data.data.totalPending || 0,
@@ -512,7 +551,7 @@ export function useClinicDashboard(selectedDate: string) {
       const winBackRes = await axios.get('/api/agent/appointment-timeline', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (winBackRes?.data?.success && winBackRes.data.data?.winBack) {
         setWinBackData(winBackRes.data.data.winBack);
       }
@@ -521,7 +560,7 @@ export function useClinicDashboard(selectedDate: string) {
       const tomorrowRes = await axios.get('/api/clinic/tomorrow-business', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (tomorrowRes?.data?.success && tomorrowRes.data.data) {
         setTomorrowBusinessData({
           totalAppointments: tomorrowRes.data.data.totalAppointments || 0,
@@ -538,7 +577,7 @@ export function useClinicDashboard(selectedDate: string) {
       const capacityRes = await axios.get('/api/clinic/clinic-capacity', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (capacityRes?.data?.success && capacityRes.data.data) {
         setClinicCapacityData({
           available: capacityRes.data.data.available || 0,
@@ -553,7 +592,7 @@ export function useClinicDashboard(selectedDate: string) {
       const biRes = await axios.get('/api/clinic/business-intelligence', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (biRes?.data?.success && biRes.data.data) {
         setBusinessIntelligenceData({
           newPatientCount: biRes.data.data.newPatientCount || 0,
@@ -584,7 +623,7 @@ export function useClinicDashboard(selectedDate: string) {
       const retentionRes = await axios.get('/api/clinic/patient-retention', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (retentionRes?.data?.success && retentionRes.data.data) {
         setPatientRetentionData({
           newPatients: retentionRes.data.data.newPatients || 0,
@@ -603,7 +642,7 @@ export function useClinicDashboard(selectedDate: string) {
       const staffRes = await axios.get('/api/clinic/staff-intelligence', {
         headers,
         params: { date: selectedDate },
-      }).catch(e => null);
+      }).catch(() => null);
       if (staffRes?.data?.success && staffRes.data.data) {
         setStaffIntelligenceData({
           inClinic: staffRes.data.data.inClinic || 0,
@@ -616,13 +655,13 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 13. Fetch Recent Offers
-      const offersRes = await axios.get('/api/clinic/recent-offers', { headers }).catch(e => null);
+      const offersRes = await axios.get('/api/clinic/recent-offers', { headers }).catch(() => null);
       if (offersRes?.data?.success && offersRes.data.data) {
         setRecentOffers(offersRes.data.data);
       }
 
       // 14. Fetch Referral Data
-      const referralRes = await axios.get('/api/clinic/referral-data', { headers }).catch(e => null);
+      const referralRes = await axios.get('/api/clinic/referral-data', { headers }).catch(() => null);
       if (referralRes?.data?.success && referralRes.data.data) {
         setReferralData({
           referralPatients: referralRes.data.data.referralPatients || 0,
@@ -631,7 +670,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 15. Fetch Revenue Leakage Data
-      const leakageRes = await axios.get('/api/clinic/revenue-leakage', { headers, params: { date: selectedDate } }).catch(e => null);
+      const leakageRes = await axios.get('/api/clinic/revenue-leakage', { headers, params: { date: selectedDate } }).catch(() => null);
       if (leakageRes?.data?.success && leakageRes.data.data) {
         const ld = leakageRes.data.data;
         setRevenueLeakageData({
@@ -667,7 +706,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 16. Fetch Package & Membership Intelligence
-      const pkgRes = await axios.get('/api/clinic/package-membership-intelligence', { headers, params: { date: selectedDate } }).catch(e => null);
+      const pkgRes = await axios.get('/api/clinic/package-membership-intelligence', { headers, params: { date: selectedDate } }).catch(() => null);
       if (pkgRes?.data?.success && pkgRes.data.data) {
         const pd = pkgRes.data.data;
         setPackageMembershipData({
@@ -691,7 +730,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 17. Fetch Control & Exceptions Data
-      const ctrlRes = await axios.get('/api/clinic/control-exceptions', { headers, params: { date: selectedDate } }).catch(e => null);
+      const ctrlRes = await axios.get('/api/clinic/control-exceptions', { headers, params: { date: selectedDate } }).catch(() => null);
       if (ctrlRes?.data?.success && ctrlRes.data.data) {
         setControlExceptionsData({
           collectedRevenue: ctrlRes.data.data.collectedRevenue || 0,
@@ -702,11 +741,17 @@ export function useClinicDashboard(selectedDate: string) {
           incompleteJourneyDetails: ctrlRes.data.data.incompleteJourneyDetails || [],
           pendingDischargeDetails: ctrlRes.data.data.pendingDischargeDetails || [],
           billingIncompleteDetails: ctrlRes.data.data.billingIncompleteDetails || [],
+          criticalItems: ctrlRes.data.data.criticalItems || 0,
+          belowReorderLevel: ctrlRes.data.data.belowReorderLevel || 0,
+          highCostItems: ctrlRes.data.data.highCostItems || 0,
+          expiredStockDetails: ctrlRes.data.data.expiredStockDetails || [],
+          expensesAmount: ctrlRes.data.data.expensesAmount || 0,
+          payableWithin7Days: ctrlRes.data.data.payableWithin7Days || 0,
         });
       }
 
       // 18. Fetch Zeva Intelligence Data
-      const ziRes = await axios.get('/api/clinic/zeva-intelligence', { headers, params: { date: selectedDate } }).catch(e => null);
+      const ziRes = await axios.get('/api/clinic/zeva-intelligence', { headers, params: { date: selectedDate } }).catch(() => null);
       if (ziRes?.data?.success && ziRes.data.data) {
         const zd = ziRes.data.data;
         setZevaIntelligenceData({
@@ -714,6 +759,22 @@ export function useClinicDashboard(selectedDate: string) {
           newPatients: { currentWeek: zd.newPatients?.currentWeek || 0, previousWeek: zd.newPatients?.previousWeek || 0, changePercent: zd.newPatients?.changePercent || 0 },
           repeatVisits: { currentWeek: zd.repeatVisits?.currentWeek || 0, previousWeek: zd.repeatVisits?.previousWeek || 0, changePercent: zd.repeatVisits?.changePercent || 0 },
           noShows: { currentWeek: zd.noShows?.currentWeek || 0, previousWeek: zd.noShows?.previousWeek || 0, changePercent: zd.noShows?.changePercent || 0 },
+          noShowAnomaly: zd.noShowAnomaly || { trend: "neutral", percent: 0, currentCount: 0, previousCount: 0 },
+          topServiceAnomaly: zd.topServiceAnomaly || { serviceName: null, percent: 0, trend: "below", currentRevenue: 0, previousRevenue: 0, bookingCount: 0 },
+          decreasingServiceAnomaly: zd.decreasingServiceAnomaly || { serviceName: null, percent: 0, currentAvg: 0, previousAvg: 0 },
+        });
+      }
+
+      // 19. Fetch Zeva Recommends (evening service + high-value patients)
+      const zrRes = await axios.get('/api/agent/zeva-recommends', { headers, params: { date: selectedDate } }).catch(() => null);
+      if (zrRes?.data?.success && zrRes.data.data) {
+        const zd = zrRes.data.data;
+        setRecommendationData({
+          eveningServiceName: zd.eveningServiceName || null,
+          eveningServicePrice: zd.eveningServicePrice || 0,
+          eveningBookingCount: zd.eveningBookingCount || 0,
+          highValuePatientCount: zd.highValuePatientCount || 0,
+          highValuePatientRevenue: zd.highValuePatientRevenue || 0,
         });
       }
 
@@ -748,6 +809,7 @@ export function useClinicDashboard(selectedDate: string) {
     packageMembershipData,
     controlExceptionsData,
     zevaIntelligenceData,
+    recommendationData,
     refreshData: fetchDashboardData
   };
 }

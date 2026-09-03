@@ -10,9 +10,16 @@ interface Props {
     averageBill: number;
     [key: string]: any;
   };
+  recommendationData?: {
+    eveningServiceName: string | null;
+    eveningServicePrice: number;
+    eveningBookingCount: number;
+    highValuePatientCount: number;
+    highValuePatientRevenue: number;
+  };
 }
 
-const DashboardRecommendations = ({ businessIntelligenceData }: Props) => {
+const DashboardRecommendations = ({ businessIntelligenceData, recommendationData }: Props) => {
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || "AED");
 
@@ -20,6 +27,12 @@ const DashboardRecommendations = ({ businessIntelligenceData }: Props) => {
   const noShowsChange = businessIntelligenceData?.noShowsChange || 0;
   const totalAppointments = businessIntelligenceData?.existingServiceCount || 0;
   const averageBill = businessIntelligenceData?.averageBill || 0;
+
+  const eveningServiceName = recommendationData?.eveningServiceName || null;
+  const eveningServicePrice = recommendationData?.eveningServicePrice || 0;
+  const eveningBookingCount = recommendationData?.eveningBookingCount || 0;
+  const highValuePatientCount = recommendationData?.highValuePatientCount || 0;
+  const highValuePatientRevenue = recommendationData?.highValuePatientRevenue || 0;
 
   // Calculate no-show rate
   const noShowRate = totalAppointments > 0 ? Math.round((noShowCount / totalAppointments) * 100) : 0;
@@ -42,40 +55,48 @@ const DashboardRecommendations = ({ businessIntelligenceData }: Props) => {
         {/* Recommendation 1 */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 border-l-[3px] border-l-[#D4A373] flex flex-col justify-between min-h-[160px]">
           <div>
-            <h4 className="text-sm font-bold text-gray-900 mb-2">Increase evening physiotherapy availability</h4>
+            <h4 className="text-sm font-bold text-gray-900 mb-2">
+              {eveningServiceName ? `Increase evening ${eveningServiceName} availability` : 'Increase evening service availability'}
+            </h4>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Demand is 21% above current capacity in the 6-8 PM window.
+              {eveningBookingCount > 0
+                ? `${eveningBookingCount} bookings in 5-8 PM slot — highest evening demand.`
+                : 'Demand is high in the 5-8 PM window.'}
             </p>
           </div>
           <div className="mt-4">
             <div className="mb-2">
-              <span className="block text-lg font-bold text-amber-700">AED 9,500</span>
+              <span className="block text-lg font-bold text-amber-700">{formatCurrency(eveningServicePrice)}</span>
               <span className="block text-xs font-semibold text-amber-700">opportunity</span>
             </div>
-            <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
+            {/* <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
               Review
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
+            </button> */}
           </div>
         </div>
 
         {/* Recommendation 2 */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 border-l-[3px] border-l-[#D4A373] flex flex-col justify-between min-h-[160px]">
           <div>
-            <h4 className="text-sm font-bold text-gray-900 mb-2">Reactivate 14 high-value patients</h4>
+            <h4 className="text-sm font-bold text-gray-900 mb-2">
+              Reactivate {highValuePatientCount > 0 ? highValuePatientCount : 0} high-value patients
+            </h4>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Historical average patient value of AED 8,200 across this group.
+              {highValuePatientCount > 0
+                ? `Total revenue captured from ${highValuePatientCount} repeat patients.`
+                : 'No repeat patients identified yet.'}
             </p>
           </div>
           <div className="mt-4">
             <div className="mb-2">
-              <span className="block text-lg font-bold text-amber-700">AED 8,200</span>
+              <span className="block text-lg font-bold text-amber-700">{formatCurrency(highValuePatientRevenue)}</span>
               <span className="block text-xs font-semibold text-amber-700">value</span>
             </div>
-            <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
+            {/* <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
               Start campaign
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -92,10 +113,10 @@ const DashboardRecommendations = ({ businessIntelligenceData }: Props) => {
               <span className="block text-lg font-bold text-amber-700">{formatCurrency(recoverableRevenue)}</span>
               <span className="block text-xs font-semibold text-amber-700">recoverable</span>
             </div>
-            <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
+            {/* <button className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 transition-colors">
               Activate automation
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

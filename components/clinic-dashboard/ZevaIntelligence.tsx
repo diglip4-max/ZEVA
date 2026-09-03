@@ -14,6 +14,9 @@ interface Props {
     newPatients: WeekMetric;
     repeatVisits: WeekMetric;
     noShows: WeekMetric;
+    noShowAnomaly?: { trend: string; percent: number; currentCount: number; previousCount: number };
+    topServiceAnomaly?: { serviceName: string | null; percent: number; trend: string; currentRevenue: number; previousRevenue: number; bookingCount: number };
+    decreasingServiceAnomaly?: { serviceName: string | null; percent: number; currentAvg: number; previousAvg: number };
   };
 }
 
@@ -25,6 +28,9 @@ const ZevaIntelligence = ({ zevaIntelligenceData }: Props) => {
   const newPatients = zevaIntelligenceData?.newPatients;
   const repeatVisits = zevaIntelligenceData?.repeatVisits;
   const noShows = zevaIntelligenceData?.noShows;
+  const noShowAnomaly = zevaIntelligenceData?.noShowAnomaly || { trend: "neutral", percent: 0, currentCount: 0, previousCount: 0 };
+  const topServiceAnomaly = zevaIntelligenceData?.topServiceAnomaly || { serviceName: null, percent: 0, trend: "below", currentRevenue: 0, previousRevenue: 0, bookingCount: 0 };
+  const decreasingServiceAnomaly = zevaIntelligenceData?.decreasingServiceAnomaly || { serviceName: null, percent: 0, currentAvg: 0, previousAvg: 0 };
 
   const formatCurrency = (amount: number) => {
     return `${currencySymbol} ${(amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
@@ -113,33 +119,50 @@ const ZevaIntelligence = ({ zevaIntelligenceData }: Props) => {
           <h3 className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-6">ZEVA Anomalies</h3>
           
           <div className="flex flex-col">
+            {/* Anomaly 1: No-show rate */}
             <div className="flex items-start gap-3 py-4 border-b border-gray-100">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-2 shrink-0"></div>
               <p className="text-sm text-gray-700">
-                No-show rate is <span className="font-bold text-gray-900">38% higher</span> than your normal range.
+                {noShowAnomaly.trend === "neutral" ? (
+                  <>No-show rate is <span className="font-bold text-gray-900">stable</span> compared to last week ({noShowAnomaly.currentCount} today vs {noShowAnomaly.previousCount} previous week).</>
+                ) : noShowAnomaly.trend === "higher" ? (
+                  <>No-show rate is <span className="font-bold text-gray-900">{noShowAnomaly.percent}% higher</span> than your normal range ({noShowAnomaly.currentCount} today vs {noShowAnomaly.previousCount} previous week).</>
+                ) : (
+                  <>No-show rate is <span className="font-bold text-gray-900">{noShowAnomaly.percent}% lower</span> than your normal range ({noShowAnomaly.currentCount} today vs {noShowAnomaly.previousCount} previous week).</>
+                )}
               </p>
             </div>
             
+            {/* Anomaly 2: Top service revenue trend */}
             <div className="flex items-start gap-3 py-4 border-b border-gray-100">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-2 shrink-0"></div>
               <p className="text-sm text-gray-700">
-                Dental revenue is <span className="font-bold text-gray-900">17% below</span> its 4-week trend.
+                {topServiceAnomaly.serviceName ? (
+                  <>{topServiceAnomaly.serviceName} revenue is <span className="font-bold text-gray-900">{topServiceAnomaly.percent}% {topServiceAnomaly.trend}</span> its 4-week trend ({topServiceAnomaly.bookingCount} bookings this week).</>
+                ) : (
+                  <>No top service identified this week.</>
+                )}
               </p>
             </div>
             
+            {/* Anomaly 3: Decreasing service average bill */}
             <div className="flex items-start gap-3 py-4 border-b border-gray-100">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-2 shrink-0"></div>
               <p className="text-sm text-gray-700">
-                Average Ayurveda bill decreased <span className="font-bold text-gray-900">11%</span>.
+                {decreasingServiceAnomaly.serviceName ? (
+                  <>Average {decreasingServiceAnomaly.serviceName} bill decreased <span className="font-bold text-gray-900">{decreasingServiceAnomaly.percent}%</span> ({formatCurrency(decreasingServiceAnomaly.previousAvg)} → {formatCurrency(decreasingServiceAnomaly.currentAvg)}).</>
+                ) : (
+                  <>No service average decrease detected this week.</>
+                )}
               </p>
             </div>
             
-            <div className="flex items-start gap-3 py-4">
+            {/* <div className="flex items-start gap-3 py-4">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-600 mt-2 shrink-0"></div>
               <p className="text-sm text-gray-700">
                 WhatsApp response time increased from <span className="font-bold text-gray-900">8m → 31m</span>.
               </p>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
