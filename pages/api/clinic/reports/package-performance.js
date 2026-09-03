@@ -736,6 +736,10 @@ export default async function handler(req, res) {
         },
       },
     ]);
+
+    // ── DEBUG: Log combined summary ───────────────────────────────────
+    console.log('[PKG_PERF_DEBUG] Combined summary aggregation raw result:', combinedSummaryAgg);
+
     const combinedSummary = combinedSummaryAgg?.[0] || {
       totalPackages: 0,
       totalRevenue: 0,
@@ -912,6 +916,12 @@ export default async function handler(req, res) {
     };
 
     const lifecycleSummaryAgg = await Billing.aggregate(buildLifecycleSummaryPipeline(monthSectionMatch));
+
+    // ── DEBUG: Log lifecycle summary ───────────────────────────────────
+    console.log('[PKG_PERF_DEBUG] Lifecycle summary query params:', { startDate, endDate });
+    console.log('[PKG_PERF_DEBUG] Lifecycle summary monthSectionMatch:', JSON.stringify(monthSectionMatch, null, 2));
+    console.log('[PKG_PERF_DEBUG] Lifecycle summary aggregation raw result:', lifecycleSummaryAgg);
+
     const lifecycleSummary = lifecycleSummaryAgg?.[0] || {
       totalPackagesSold: 0,
       activePackages: 0,
@@ -1406,10 +1416,23 @@ export default async function handler(req, res) {
           totalPaid: { $sum: "$totalPaid" },
           totalPending: { $sum: "$totalPending" },
           totalRevenue: { $sum: "$totalAmount" },
+          // BUG FIX: Conditions were previously not mutually exclusive.
+          //   old paid:   totalPending <= 0   (only checked pending)
+          //   old unpaid: totalPaid    <= 0   (only checked paid)
+          // When totalPaid=0 AND totalPending=0, the same record was counted
+          // in BOTH paid AND unpaid, making paid+partially+unpaid exceed
+          // totalPackagesSold. Now uses the same pattern as the combined
+          // summary (lines 709-734) and monthly aggregation (lines 543-569):
+          //   paid      = totalPaid    > 0 AND totalPending <= 0
+          //   partially = totalPaid    > 0 AND totalPending  > 0
+          //   unpaid    = totalPaid   <= 0 AND totalPending  > 0
+          // Records where totalPaid=0 AND totalPending=0 (e.g. free/$0 packages
+          // or amounts cleared entirely via advance/claim) are not counted in
+          // any bucket, which matches the behavior of the other aggregations.
           paidPackages: {
             $sum: {
               $cond: [
-                { $lte: ["$totalPending", 0] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $lte: ["$totalPending", 0] }] },
                 1,
                 0
               ]
@@ -1418,7 +1441,7 @@ export default async function handler(req, res) {
           partiallyPaidPackages: {
             $sum: {
               $cond: [
-                { $and: [{ $gt: ["$totalPending", 0] }, { $gt: ["$totalPaid", 0] }] },
+                { $and: [{ $gt: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0
               ]
@@ -1427,7 +1450,7 @@ export default async function handler(req, res) {
           unpaidPackages: {
             $sum: {
               $cond: [
-                { $lte: ["$totalPaid", 0] },
+                { $and: [{ $lte: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] },
                 1,
                 0
               ]
@@ -1438,6 +1461,24 @@ export default async function handler(req, res) {
     ];
 
     const salesStaffBillingResults = await Billing.aggregate(salesStaffBillingPipeline);
+
+    // ── DEBUG: log the FIXED Billing aggregation result so we can see in the terminal
+    // what the API is actually returning right now. Remove after verification. ─────
+    try {
+      const billingTotals = salesStaffBillingResults.reduce(
+        (acc, r) => {
+          acc.totalPackagesSold += r.totalPackagesSold || 0;
+          acc.paidPackages += r.paidPackages || 0;
+          acc.partiallyPaidPackages += r.partiallyPaidPackages || 0;
+          acc.unpaidPackages += r.unpaidPackages || 0;
+          return acc;
+        },
+        { totalPackagesSold: 0, paidPackages: 0, partiallyPaidPackages: 0, unpaidPackages: 0 }
+      );
+      const sum = billingTotals.paidPackages + billingTotals.partiallyPaidPackages + billingTotals.unpaidPackages;
+      console.log('[PKG_PERF_DEBUG] Billing-only (pre-PR-merge) totals:', billingTotals, 'sum:', sum, 'isValid:', sum <= billingTotals.totalPackagesSold);
+    } catch (e) { console.log('[PKG_PERF_DEBUG] log error', e); }
+    // ── END DEBUG ─────────────────────────────────────────────────────
 
     // Now get PatientRegistration data (packages without billing records)
     const salesStaffPrMatch = user.role !== "admin" ? { clinicId: new mongoose.Types.ObjectId(String(clinicId)) } : (selectedClinicId ? { clinicId: new mongoose.Types.ObjectId(String(selectedClinicId)) } : {});
@@ -1613,13 +1654,22 @@ export default async function handler(req, res) {
     });
 
     // Add filtered PR results
+    // BUG FIX: salesStaffPrUniqueResults is grouped by (patientId, packageName, soldBy, month, year)
+    // and does NOT carry a `totalPackagesSold` field — only totalPrice/paidAmount sums.
+    // The previous merge used `existing.totalPackagesSold + r.totalPackagesSold`, where
+    // `r.totalPackagesSold` is undefined, producing NaN and effectively wiping the
+    // Billing counts for that key. For a single (patient, package) PR group, the
+    // count is always exactly 1, so use 1 instead.
     salesStaffPrFilteredResults.forEach(r => {
       const key = `${r._id.soldBy || ""}__${r._id.month}__${r._id.year}`;
       if (mergedMonthlyResults.has(key)) {
         const existing = mergedMonthlyResults.get(key);
         mergedMonthlyResults.set(key, {
           _id: existing._id,
-          totalPackagesSold: existing.totalPackagesSold + r.totalPackagesSold,
+          // Each PR record is one (patient, package, month, year) tuple → count of 1.
+          // Previously this was `existing + r.totalPackagesSold` (NaN), which is why
+          // FINAL salesStaffLeaderboard totals dropped below the Billing-only totals.
+          totalPackagesSold: existing.totalPackagesSold + 1,
           totalRevenue: existing.totalRevenue + r.totalPrice,
           totalPaid: existing.totalPaid + r.paidAmount,
           totalPending: existing.totalPending + (r.totalPrice - r.paidAmount),
@@ -1798,6 +1848,25 @@ export default async function handler(req, res) {
       department: d.department,
       revenue: Math.round(Number(d.revenue || 0))
     }));
+
+    // ── DEBUG: log final salesStaffLeaderboard totals so we can see in the terminal
+    // what the UI receives. Remove after verification. ───────────────────────────
+    try {
+      const finalTotals = salesStaffLeaderboard.reduce(
+        (acc, r) => {
+          acc.totalPackagesSold += r.totalPackagesSold || 0;
+          acc.paidPackages += r.paidPackages || 0;
+          acc.partiallyPaidPackages += r.partiallyPaidPackages || 0;
+          acc.unpaidPackages += r.unpaidPackages || 0;
+          return acc;
+        },
+        { totalPackagesSold: 0, paidPackages: 0, partiallyPaidPackages: 0, unpaidPackages: 0 }
+      );
+      const sum = finalTotals.paidPackages + finalTotals.partiallyPaidPackages + finalTotals.unpaidPackages;
+      console.log('[PKG_PERF_DEBUG] FINAL salesStaffLeaderboard totals:', finalTotals, 'sum:', sum, 'isValid:', sum <= finalTotals.totalPackagesSold);
+      console.log('[PKG_PERF_DEBUG] combinedSummary:', combinedSummary);
+    } catch (e) { console.log('[PKG_PERF_DEBUG] final log error', e); }
+    // ── END DEBUG ─────────────────────────────────────────────────────────────
 
     return res.status(200).json({
       success: true,

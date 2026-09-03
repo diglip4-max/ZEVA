@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 import { useClinicTheme } from "@/context/ClinicThemeContext";
@@ -51,8 +51,12 @@ export default function WaitingRoom({ waitingRoom }) {
   const currencySymbol = getCurrencySymbol(currency || "AED");
   const patients = Array.isArray(waitingRoom) ? waitingRoom : [];
   const count = patients.length;
+  const [showModal, setShowModal] = useState(false);
+  const visiblePatients = patients.slice(0, 3);
+  const hasMore = count > 3;
 
   return (
+    <>
     <div className="lg:col-span-1 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-6 md:p-7 shadow-sm">
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -71,8 +75,8 @@ export default function WaitingRoom({ waitingRoom }) {
       </div>
 
       <div className="space-y-3 mb-5">
-        {patients.length > 0 ? (
-          patients.map((patient, idx) => {
+        {visiblePatients.length > 0 ? (
+          visiblePatients.map((patient, idx) => {
             // Highlight patients who have been waiting longer than 10 minutes
             const isLongWait = patient.waitMinutes > 10;
             const isOnTime = patient.waitMinutes === 0;
@@ -129,9 +133,118 @@ export default function WaitingRoom({ waitingRoom }) {
         )}
       </div>
 
-      <button className="w-full inline-flex items-center justify-center px-5 py-3 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-white/15 shadow-sm transition-all duration-200 text-base">
-        Manage Waiting Room
-      </button>
+      {hasMore && (
+        <button
+          onClick={() => setShowModal(true)}
+          className="w-full inline-flex items-center justify-center px-5 py-3 bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 text-gray-700 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-white/15 shadow-sm transition-all duration-200 text-base"
+        >
+          {`Manage Waiting Room (${count - 3} more)`}
+        </button>
+      )}
     </div>
+
+    {/* Manage Waiting Room Modal */}
+    {showModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={() => setShowModal(false)}
+      >
+        <div className="absolute inset-0 z-0 bg-gray-900/60 backdrop-blur-sm" />
+        <div
+          className="relative z-10 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Modal Header */}
+          <div className="px-6 py-5 border-b border-gray-200 dark:border-white/10 flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                Waiting Room
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">
+                {count} {count === 1 ? "patient" : "patients"} currently waiting
+              </p>
+            </div>
+            <button
+              onClick={() => setShowModal(false)}
+              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+              aria-label="Close"
+            >
+              <svg
+                className="w-5 h-5 text-gray-600 dark:text-gray-300"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          {/* Modal Content */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-3" style={{ scrollbarGutter: "stable" }}>
+            {patients.map((patient, idx) => {
+              const isLongWait = patient.waitMinutes > 10;
+              const isOnTime = patient.waitMinutes === 0;
+
+              return (
+                <div
+                  key={patient._id || idx}
+                  className={`flex items-center gap-3.5 p-4 rounded-2xl transition-all duration-150 ${
+                    isLongWait
+                      ? "bg-amber-50 dark:bg-amber-500/10 border-2 border-amber-200 dark:border-amber-500/30"
+                      : "bg-gray-50 dark:bg-white/5 border-2 border-transparent"
+                  }`}
+                >
+                  <div className={`w-11 h-11 rounded-full ${colorForName(patient.patientName)} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                    <span className="text-white font-bold text-sm">{patient.initials}</span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white leading-tight truncate">
+                      {patient.patientName}
+                    </h4>
+                    <p className="text-base text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
+                      {patient.doctorName}
+                      {patient.department ? ` · ${patient.department}` : ""}
+                    </p>
+                  </div>
+
+                  <div className={`inline-flex items-center gap-1.5 font-bold text-base flex-shrink-0 ${
+                    isLongWait
+                      ? "text-amber-600 dark:text-amber-400"
+                      : isOnTime
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-gray-600 dark:text-gray-300"
+                  }`}>
+                    {isLongWait && (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    {patient.waitLabel}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5">
+            <button
+              onClick={() => setShowModal(false)}
+              className="w-full inline-flex items-center justify-center px-5 py-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl shadow-sm transition-colors text-base"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

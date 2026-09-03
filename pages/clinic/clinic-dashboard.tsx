@@ -15,7 +15,6 @@ import {
   BarChart3,
   Activity,
   CheckCircle2,
-  User,
   Crown,
   Stethoscope,
   Building2,
@@ -50,6 +49,7 @@ import {
   Download,
   RefreshCw,
   Clock,
+  Search,
 } from "lucide-react";
 import {
   BarChart,
@@ -70,6 +70,11 @@ import {
   Area,
 } from "recharts";
 import Stats from "../../components/Stats";
+import RevenueOpportunity from "../../components/staff-dashboard/RevenueOpportunity";
+import ZevaRecommends from "../../components/staff-dashboard/ZevaRecommends";
+import AppointmentTimeline from "../../components/staff-dashboard/AppointmentTimeline";
+import WaitingRoom from "../../components/staff-dashboard/WaitingRoom";
+import HotLeads from "../../components/staff-dashboard/HotLeads";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import MembershipPackageReports from "../../components/clinic/MembershipPackageReports";
@@ -204,7 +209,9 @@ type WidgetType =
   | "analytics-overview"
   | "subscription-status"
   | "additional-stats"
-  | "financial-reports";
+  | "financial-reports"
+  | "zeva-recommends"
+  | "waiting-room";
 
 interface DashboardWidget {
   id: string;
@@ -276,39 +283,53 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
     order: 2,
   },
   {
+    id: "zeva-recommends",
+    type: "zeva-recommends",
+    title: "ZEVA Recommends",
+    visible: true,
+    order: 3,
+  },
+  {
     id: "financial",
     type: "financial-reports",
     title: "Financial Reports",
     visible: true,
-    order: 3,
+    order: 4,
+  },
+  {
+    id: "waiting-room",
+    type: "waiting-room",
+    title: "Waiting Room & Hot Leads",
+    visible: true,
+    order: 5,
   },
   {
     id: "9",
     type: "appointment-status-overview",
     title: "Appointment Status Overview",
     visible: true,
-    order: 4,
+    order: 6,
   },
   {
     id: "14",
     type: "patient-reports",
     title: "Patient Reports",
     visible: true,
-    order: 5,
+    order: 7,
   },
   {
     id: "10",
     type: "lead-status-charts",
     title: "Lead Status Charts",
     visible: true,
-    order: 6,
+    order: 8,
   },
   {
     id: "5",
     type: "status-charts",
     title: "Status Breakdown Charts",
     visible: true,
-    order: 7,
+    order: 9,
   },
   {
     id: "11",
@@ -386,7 +407,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
   const [moduleStats, setModuleStats] = useState<ModuleStats>({});
   const [allModules, setAllModules] = useState<NavigationItem[]>([]);
-  const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
+  const [_clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [_permissions, setPermissions] = useState<
     SidebarResponse["permissions"]
   >([]);
@@ -411,9 +432,36 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  const [showFilterCalendar, setShowFilterCalendar] = useState<boolean>(false);
   const [timeRangeFilter, setTimeRangeFilter] = useState<
     "today" | "week" | "month" | "overall"
   >("today");
+
+  const clinicToken =
+    typeof window !== "undefined"
+      ? localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken")
+      : null;
+
+  // ZEVA RECOMMENDS — fetched from /api/agent/zeva-recommends
+  const [zevaRecommendation, setZevaRecommendation] = useState({
+    doctorName: null,
+    departmentName: null,
+    topPatient: null,
+    hasFollowUpToday: false,
+    followUpLeads: [],
+  });
+
+  // APPOINTMENT TIMELINE — fetched from /api/agent/appointment-timeline
+  const [appointmentTimelineData, setAppointmentTimelineData] = useState({
+    statusCounts: [],
+    total: 0,
+    appointments: [],
+    waitingRoom: [],
+  });
+
+  // HOT LEADS — fetched from /api/agent/inbox-opportunities
+  const [hotLeads, setHotLeads] = useState<any[]>([]);
   const [filteredAppointmentData, setFilteredAppointmentData] = useState<any[]>(
     [],
   );
@@ -2313,6 +2361,75 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   }, [navigationItems, permissionsLoaded, moduleAccess.canRead, userRole]);
 
+  // Fetch ZEVA RECOMMENDS data
+  useEffect(() => {
+    const fetchZevaRecommends = async () => {
+      try {
+        const token = clinicToken;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/zeva-recommends", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate.toISOString().split("T")[0] },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setZevaRecommendation(res.data.data);
+        }
+      } catch (err) {
+        console.error("zeva-recommends fetch failed:", err);
+      }
+    };
+
+    fetchZevaRecommends();
+  }, [selectedDate, clinicToken]);
+
+  // Fetch APPOINTMENT TIMELINE data
+  useEffect(() => {
+    const fetchAppointmentTimeline = async () => {
+      try {
+        const token = clinicToken;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/appointment-timeline", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate.toISOString().split("T")[0] },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setAppointmentTimelineData(res.data.data);
+        }
+      } catch (err) {
+        console.error("appointment-timeline fetch failed:", err);
+      }
+    };
+
+    fetchAppointmentTimeline();
+  }, [selectedDate, clinicToken]);
+
+  // Fetch HOT LEADS data
+  useEffect(() => {
+    const fetchHotLeads = async () => {
+      try {
+        const token = clinicToken;
+        if (!token) return;
+
+        const res = await axios.get("/api/agent/inbox-opportunities", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { date: selectedDate.toISOString().split("T")[0] },
+        });
+
+        if (res.data?.success && res.data?.data) {
+          setHotLeads(res.data.data.hotLeads || []);
+        }
+      } catch (err) {
+        console.error("inbox-opportunities fetch failed:", err);
+      }
+    };
+
+    fetchHotLeads();
+  }, [selectedDate, clinicToken]);
+
   useEffect(() => {
     if (!permissionsLoaded) return;
     if (
@@ -2457,12 +2574,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return "Good Evening";
   };
 
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  // const formatTime = (date: Date): string => {
+  //   return date.toLocaleTimeString("en-US", {
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //   });
+  // };
 
   // Get modules that have permission (from navigationItems)
   const modulesWithPermission = useMemo(() => {
@@ -5597,255 +5714,200 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
       {/* Modern Dashboard Layout */}
       <div className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
-        {/* Dashboard Header */}
+        {/* Dashboard Header - Single Row */}
         <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-teal-800 mb-1">
-                {clinicInfo.name || "Clinic Dashboard"}
-              </h1>
-              <div className="flex items-center gap-3 text-sm text-teal-600">
-                <div className="flex items-center gap-1.5">
-                  <User className="w-4 h-4" />
-                  <span>
-                    {clinicInfo.ownerName || clinicUser?.name || "N/A"}
-                  </span>
-                </div>
-                <span> </span>
-                <span className="font-semibold">{formatTime(currentTime)}</span>
-              </div>
-            </div>
-
-            {/* Date Picker Center */}
-            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
-              <button
-                onClick={() => {
-                  const week = new Date();
-                  setSelectedDate(week);
-                }}
-                className="px-2 py-1 hover:bg-gray-100 rounded text-gray-600 transition-colors text-xs font-medium"
-                title="Go to Today"
-              >
-                Today
-              </button>
-              <div className="relative">
-                <div
-                  className="flex items-center gap-0 px-3 py-1 cursor-pointer hover:bg-gray-50 rounded-md transition-colors"
-                  onClick={() => setShowCalendar(!showCalendar)}
-                >
-                  <span className="text-sm font-medium text-gray-700">
-                    {selectedDate
-                      .toLocaleDateString("en-GB")
-                      .replace(/\//g, "-")}
-                  </span>
-                </div>
-
-                {/* Calendar Dropdown */}
-                {showCalendar && (
-                  <div className="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64 calendar-container">
-                    <div className="flex items-center justify-between mb-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigateMonth("prev");
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <span className="text-sm font-medium text-gray-700">
-                        {selectedDate.toLocaleDateString("en-GB", {
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigateMonth("next");
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 mb-1">
-                      {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
-                        <div
-                          key={day}
-                          className="text-center text-xs font-medium text-gray-500 py-1"
-                        >
-                          {day}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {renderCalendar()}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              {isEditMode ? (
-                <>
-                  <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
-                    <button
-                      onClick={handleUndo}
-                      disabled={historyIndex <= 0}
-                      className="p-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Undo (Ctrl+Z)"
-                    >
-                      <Undo2 className="w-4 h-4 text-gray-600" />
-                    </button>
-                    <button
-                      onClick={handleRedo}
-                      disabled={historyIndex >= cardHistory.length - 1}
-                      className="p-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Redo (Ctrl+Y)"
-                    >
-                      <Redo2 className="w-4 h-4 text-gray-600" />
-                    </button>
-                  </div>
-                  <button
-                    onClick={handleSaveLayout}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Save</span>
-                  </button>
-                  <button
-                    onClick={handleResetLayout}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Reset</span>
-                  </button>
-                  <button
-                    onClick={() => setIsEditMode(false)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm"
-                  >
-                    <X className="w-4 h-4" />
-                    <span>Cancel</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="bg-yellow-400 text-white px-4 py-2 rounded-lg">
-                    <p className="text-sm font-medium">{getGreeting()}</p>
-                  </div>
-                  <button
-                    onClick={() => setIsEditMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
-                  >
-                    <Edit2 className="w-3 h-3" />
-                    <span>Customize</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          {isEditMode && (
-            <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
-              <p className="text-sm text-teal-800">
-                <strong>Edit Mode:</strong> Drag widgets (teal grip) to reorder
-                sections. Drag stat cards (teal grip) to move between grids.
-                Drag charts (orange grip) to reorder. Drag stats sections (teal
-                grip) to reorder. Use eye icons to show/hide. Keyboard: Ctrl+Z
-                (undo), Ctrl+Y (redo).
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Filter Bar - Department, Doctor, Service, Last 30 Days */}
-        <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-3">
             {/* Search Bar */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search reports..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
-                <svg
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
+            <div className="relative w-96">
+              <input
+                type="text"
+                placeholder="Search reports..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             </div>
 
-            {/* Export Button */}
-            <button
-              onClick={handleExportDashboard}
-              className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
-              title="Export dashboard data"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export</span>
-            </button>
+            {isEditMode ? (
+              <>
+                <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+                  <button
+                    onClick={handleUndo}
+                    disabled={historyIndex <= 0}
+                    className="p-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo2 className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <button
+                    onClick={handleRedo}
+                    disabled={historyIndex >= cardHistory.length - 1}
+                    className="p-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Redo (Ctrl+Y)"
+                  >
+                    <Redo2 className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+                <button
+                  onClick={handleSaveLayout}
+                  className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm shadow-sm"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Save</span>
+                </button>
+                <button
+                  onClick={handleResetLayout}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm shadow-sm"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>Reset</span>
+                </button>
+                <button
+                  onClick={() => setIsEditMode(false)}
+                  className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm shadow-sm"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Cancel</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Greeting */}
+                <div className="bg-yellow-400 text-white px-3 py-2 rounded-lg whitespace-nowrap">
+                  <p className="text-sm font-medium">{getGreeting()}</p>
+                </div>
 
-            {/* Refresh Button */}
-            <button
-              onClick={handleRefreshDashboard}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
-              title="Refresh dashboard"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Refresh</span>
-            </button>
+                {/* Date Calendar */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowFilterCalendar(!showFilterCalendar)}
+                    className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
+                    title="Select date"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span className="font-medium">
+                      {selectedDate.toLocaleDateString("en-GB").replace(/\//g, "-")}
+                    </span>
+                  </button>
 
-            {/* Time Range Filter */}
-            <select
-              value={timeRangeFilter}
-              onChange={(e) =>
-                setTimeRangeFilter(
-                  e.target.value as "today" | "week" | "month" | "overall",
-                )
-              }
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              title="Select time range for all graphs"
-            >
-              <option value="today">Today</option>
-              <option value="week">Week</option>
-              <option value="month">Month</option>
-              <option value="overall">Overall</option>
-            </select>
+                  {showFilterCalendar && (
+                    <div className="absolute z-50 left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64 calendar-container">
+                      <div className="flex items-center justify-between mb-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateMonth("prev");
+                          }}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-sm font-medium text-gray-700">
+                          {selectedDate.toLocaleDateString("en-GB", {
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateMonth("next");
+                          }}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 mb-1">
+                        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((day) => (
+                          <div
+                            key={day}
+                            className="text-center text-xs font-medium text-gray-500 py-1"
+                          >
+                            {day}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {renderCalendar()}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-            {/* Clear Filters Button */}
-            {(searchQuery || timeRangeFilter !== "today") && (
-              <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setTimeRangeFilter("today");
-                }}
-                className="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium"
-                title="Clear all filters"
-              >
-                <X className="w-4 h-4" />
-                <span>Clear All</span>
-              </button>
+                {/* Customize Button */}
+                <button
+                  onClick={() => setIsEditMode(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium shadow-sm"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Customize</span>
+                </button>
+
+                {/* Export Button */}
+                <button
+                  onClick={handleExportDashboard}
+                  className="flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium"
+                  title="Export dashboard data"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export</span>
+                </button>
+
+                {/* Refresh Button */}
+                <button
+                  onClick={handleRefreshDashboard}
+                  className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                  title="Refresh dashboard"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Refresh</span>
+                </button>
+
+                {/* Time Range Filter + Calendar */}
+                <div className="relative flex items-center gap-2">
+                  <select
+                    value={timeRangeFilter}
+                    onChange={(e) =>
+                      setTimeRangeFilter(
+                        e.target.value as "today" | "week" | "month" | "overall",
+                      )
+                    }
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                    title="Select time range for all graphs"
+                  >
+                    <option value="today">Today</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                    <option value="overall">Overall</option>
+                  </select>
+                </div>
+
+                {/* Clear Filters Button */}
+                {(searchQuery || timeRangeFilter !== "today") && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setTimeRangeFilter("today");
+                      setShowFilterCalendar(false);
+                    }}
+                    className="flex items-center gap-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors text-sm font-medium"
+                    title="Clear all filters"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
 
           {/* Active Filters Display */}
           {(searchQuery || timeRangeFilter !== "today") && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                Active filters:
+                Active:
               </span>
               {searchQuery && (
                 <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
@@ -5893,7 +5955,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
               )}
             </div>
           )}
+
+          {isEditMode && (
+            <div className="mt-3 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+              <p className="text-sm text-teal-800">
+                <strong>Edit Mode:</strong> Drag widgets (teal grip) to reorder
+                sections. Drag stat cards (teal grip) to move between grids.
+                Drag charts (orange grip) to reorder. Drag stats sections (teal
+                grip) to reorder. Use eye icons to show/hide. Keyboard: Ctrl+Z
+                (undo), Ctrl+Y (redo).
+              </p>
+            </div>
+          )}
         </div>
+
+        {/* Today's Revenue Opportunity */}
+        <RevenueOpportunity selectedDate={selectedDate.toISOString().split("T")[0]} />
 
         {/* Unified Drag and Drop Context - handles both widget-level and item-level drags */}
         <DndContext
@@ -6568,6 +6645,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           </div>
                         );
 
+                      case "zeva-recommends":
+                        // ZEVA Recommends + Appointment Timeline Section
+                        return (
+                          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+                            <ZevaRecommends zevaRecommendation={zevaRecommendation} />
+                            <AppointmentTimeline
+                              appointmentData={appointmentTimelineData}
+                              modulePermissions={null}
+                            />
+                          </div>
+                        );
+
                       case "financial-reports":
                         // Financial Reports Section - Revenue, Payments, and Financial Performance
                         return (
@@ -7029,6 +7118,15 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 })}
                               </div>
                             </div>
+                          </div>
+                        );
+
+                      case "waiting-room":
+                        // Waiting Room + Hot Leads Section
+                        return (
+                          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+                            <WaitingRoom waitingRoom={appointmentTimelineData.waitingRoom} />
+                            <HotLeads hotLeads={hotLeads} modulePermissions={null} />
                           </div>
                         );
 

@@ -90,11 +90,30 @@ export default async function handler(req, res) {
         console.log('📊 Returning mock room utilization for new clinic:', clinicId);
         const mockData = generateMockRoomUtilization();
         
+        const mappedMockData = mockData.utilizationData.map((d, index) => ({
+          roomId: `mock-room-${index}`,
+          roomName: d.roomName,
+          bookedHours: d.utilizedHours,
+          appointmentCount: d.totalAppointments,
+          utilization: d.utilizationPercentage,
+          totalAvailableHours: d.availableHours
+        }));
+
+        const timeDiff = queryEndDate.getTime() - queryStartDate.getTime();
+        const totalDays = Math.max(1, Math.round(timeDiff / (1000 * 60 * 60 * 24)));
+
         return res.status(200).json({
           success: true,
-          utilizationData: mockData.utilizationData,
-          averageUtilization: mockData.averageUtilization,
-          totalRooms: mockData.totalRooms,
+          utilizationData: mappedMockData,
+          dateRange: {
+            startDate: queryStartDate,
+            endDate: queryEndDate,
+            totalDays
+          },
+          summary: {
+            totalRooms: mappedMockData.length,
+            averageUtilization: mockData.averageUtilization
+          },
           isMockData: true,
           message: 'Showing sample room utilization data for new clinic!',
         });
@@ -114,85 +133,83 @@ export default async function handler(req, res) {
           success: false,
           message: permError || "You do not have permission to view room utilization",
         });
-      }
+      }      const { filter= 'month', date, startDate, endDate } = req.query;
 
-     const { filter= 'month', date, startDate, endDate } = req.query;
-
-      // Calculate date range based on filter
+      // Calculate date range based on filter using UTC dates to match MongoDB's UTC midnights
       let queryStartDate;
       let queryEndDate;
 
       if (filter === 'today') {
-        const baseDate = date ? dayjs(date) : dayjs();
-        queryStartDate = baseDate.startOf('day').toDate();
-        queryEndDate = baseDate.endOf('day').toDate();
+        const dateStr = date || new Date().toISOString().split('T')[0];
+        queryStartDate = new Date(`${dateStr}T00:00:00.000Z`);
+        queryEndDate = new Date(`${dateStr}T23:59:59.999Z`);
       } else if (filter === 'week') {
         const baseDate = date ? dayjs(date) : dayjs();
-        queryStartDate = baseDate.subtract(6, 'day').startOf('day').toDate(); // 7 days total including today
-        queryEndDate = baseDate.endOf('day').toDate();
+        const dateStr = baseDate.toISOString().split('T')[0];
+        queryEndDate = new Date(`${dateStr}T23:59:59.999Z`);
+        const startBase = baseDate.subtract(6, 'day');
+        const startStr = startBase.toISOString().split('T')[0];
+        queryStartDate = new Date(`${startStr}T00:00:00.000Z`);
       } else if (filter === 'month') {
         const baseDate = date ? dayjs(date) : dayjs();
-        queryStartDate = baseDate.subtract(1, 'month').add(1, 'day').startOf('day').toDate();
-        queryEndDate = baseDate.endOf('day').toDate();
+        const dateStr = baseDate.toISOString().split('T')[0];
+        queryEndDate = new Date(`${dateStr}T23:59:59.999Z`);
+        const startBase = baseDate.subtract(1, 'month').add(1, 'day');
+        const startStr = startBase.toISOString().split('T')[0];
+        queryStartDate = new Date(`${startStr}T00:00:00.000Z`);
       } else if (filter === 'overall') {
         // For overall, get data since clinic registration
         queryStartDate = clinic?.registeredAt ? dayjs(clinic.registeredAt).startOf('day').toDate() : dayjs().subtract(1, 'year').startOf('day').toDate();
         queryEndDate = dayjs().endOf('day').toDate();
       } else {
         // Default to month
-        queryStartDate = dayjs().subtract(1, 'month').add(1, 'day').startOf('day').toDate();
-        queryEndDate = dayjs().endOf('day').toDate();
+        const baseDate = dayjs();
+        const dateStr = baseDate.toISOString().split('T')[0];
+        queryEndDate = new Date(`${dateStr}T23:59:59.999Z`);
+        const startBase = baseDate.subtract(1, 'month').add(1, 'day');
+        const startStr = startBase.toISOString().split('T')[0];
+        queryStartDate = new Date(`${startStr}T00:00:00.000Z`);
       }
 
       // If specific dates are provided, use them
-    if (startDate && endDate) {
-        queryStartDate = dayjs(startDate).startOf('day').toDate();
-        queryEndDate = dayjs(endDate).endOf('day').toDate();
+      if (startDate && endDate) {
+        queryStartDate = new Date(`${startDate}T00:00:00.000Z`);
+        queryEndDate = new Date(`${endDate}T23:59:59.999Z`);
       }
 
       // Fetch all rooms for this clinic
-     const rooms = await Room.find({
-       clinicId,
-       isDeleted: { $ne: true },
-     }).lean();
+      const rooms = await Room.find({
+        clinicId,
+        isDeleted: { $ne: true },
+      }).lean();
       
-     if (!rooms || rooms.length === 0) {
-       return res.status(200).json({
+      if (!rooms || rooms.length === 0) {
+        return res.status(200).json({
           success: true,
           utilizationData: [],
           message: "No rooms found"
         });
       }
 
-      // Fetch appointments within the date range
-     const appointments = await Appointment.find({
+      // Fetch appointments within the date range (retrieve all to count them correctly)
+      const appointments = await Appointment.find({
         clinicId,
         roomId: { $in: rooms.map(r => r._id) },
         startDate: {
           $gte: queryStartDate,
           $lte: queryEndDate
-        },
-        status: { $nin: ['Cancelled', 'Rejected'] } // Exclude cancelled appointments
+        }
       }).lean();
 
       // Calculate total available hours per room (assuming 8-hour workday)
-     const WORK_HOURS_PER_DAY = 8;
-     
-     // Cap the end date to today if it's in the future for capacity calculation
-     const today = new Date();
-     let capacityEndDate = queryEndDate;
-     if (queryEndDate > today) {
-       capacityEndDate = today;
-     }
-     
-     let timeDiff = capacityEndDate.getTime() - queryStartDate.getTime();
-     if (timeDiff < 0) timeDiff = 0; // In case query starts in the future
-     
-     const totalDays = Math.max(1, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
-     const totalAvailableHoursPerRoom = totalDays * WORK_HOURS_PER_DAY;
+      const WORK_HOURS_PER_DAY = 8;
+      
+      const timeDiff = queryEndDate.getTime() - queryStartDate.getTime();
+      const totalDays = Math.max(1, Math.round(timeDiff / (1000 * 60 * 60 * 24)));
+      const totalAvailableHoursPerRoom = totalDays * WORK_HOURS_PER_DAY;
 
       // Calculate utilization for each room
-     const roomUsageMap = {};
+      const roomUsageMap = {};
       
       rooms.forEach(room => {
         roomUsageMap[room._id.toString()] = {
@@ -205,20 +222,29 @@ export default async function handler(req, res) {
 
       // Sum up the booked hours for each room
       appointments.forEach(appointment => {
-       const roomIdStr = appointment.roomId.toString();
-       if (roomUsageMap[roomIdStr]) {
-          // Calculate duration in hours
-         const fromTime = appointment.fromTime || "00:00";
-         const toTime = appointment.toTime || "00:00";
-          
-         const [fromHour, fromMinute] = fromTime.split(':').map(Number);
-         const [toHour, toMinute] = toTime.split(':').map(Number);
-          
-         const durationInHours = (toHour + toMinute / 60) - (fromHour + fromMinute / 60);
-          
-         if (durationInHours > 0) {
-            roomUsageMap[roomIdStr].bookedHours += durationInHours;
-            roomUsageMap[roomIdStr].appointmentCount += 1;
+        const roomIdStr = appointment.roomId.toString();
+        if (roomUsageMap[roomIdStr]) {
+          // Count all appointments in the scheduler towards the booking count
+          roomUsageMap[roomIdStr].appointmentCount += 1;
+
+          // Only calculate utilization hours if status is active (not Cancelled/Rejected)
+          if (appointment.status !== 'Cancelled' && appointment.status !== 'Rejected') {
+            const fromTime = appointment.fromTime || "00:00";
+            const toTime = appointment.toTime || "00:00";
+             
+            const [fromHour, fromMinute] = fromTime.split(':').map(Number);
+            const [toHour, toMinute] = toTime.split(':').map(Number);
+             
+            let durationInHours = (toHour + toMinute / 60) - (fromHour + fromMinute / 60);
+            
+            // Handle overnight shifts correctly (e.g. 23:30 to 12:30)
+            if (durationInHours < 0) {
+              durationInHours += 24;
+            }
+             
+            if (durationInHours > 0) {
+              roomUsageMap[roomIdStr].bookedHours += durationInHours;
+            }
           }
         }
       });

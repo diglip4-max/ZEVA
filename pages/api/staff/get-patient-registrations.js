@@ -65,9 +65,8 @@ export default async function handler(req, res) {
       }
 
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
-
-      // Build query based on user role - CRITICAL: userId filter must be applied first
-      let query = {};
+      // Build query based on user role - CRITICAL: scope to clinicId OR userId in clinicUsers
+      let scopeFilter = {};
       
       // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
       if (user.role === 'clinic') {
@@ -84,10 +83,15 @@ export default async function handler(req, res) {
           }).select("_id");
           
           const clinicUserIds = clinicUsers.map(u => u._id);
-          query.userId = { $in: clinicUserIds };
+          scopeFilter = {
+            $or: [
+              { userId: { $in: clinicUserIds } },
+              { clinicId: clinic._id }
+            ]
+          };
         } else {
           // Fallback: only show clinic owner's patients
-          query.userId = user._id;
+          scopeFilter = { userId: user._id };
         }
       } 
       // For agent/doctorStaff: show all patients belonging to the clinic
@@ -103,47 +107,42 @@ export default async function handler(req, res) {
                 { clinicId: user.clinicId }
               ]
             }).select("_id");
-            query.userId = { $in: clinicUsers.map(u => u._id) };
+            scopeFilter = {
+              $or: [
+                { userId: { $in: clinicUsers.map(u => u._id) } },
+                { clinicId: user.clinicId }
+              ]
+            };
           } else {
-            query.userId = user._id;
+            scopeFilter = { userId: user._id };
           }
         } else {
-          query.userId = user._id;
+          scopeFilter = { userId: user._id };
         }
       }
       // For other roles: show their own patients
       else {
-        query.userId = user._id;
+        scopeFilter = { userId: user._id };
       }
 
-      // Handle name search - if name filter exists, use $and to combine with userId filter
+      // Build overall query using $and to avoid keys/operators collisions
+      const andConditions = [scopeFilter];
+
       if (name) {
-        const nameFilter = {
+        andConditions.push({
           $or: [
             { firstName: { $regex: name, $options: "i" } },
             { lastName: { $regex: name, $options: "i" } },
           ]
-        };
-        // Store userId filter before reconstructing query
-        const userIdFilter = { userId: query.userId };
-        // Reconstruct query with $and to ensure userId filter is preserved
-        query = {
-          $and: [userIdFilter, nameFilter]
-        };
-        // Add other filters to the $and array
-        if (emrNumber) query.$and.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
-        if (invoiceNumber) query.$and.push({ invoiceNumber: { $regex: invoiceNumber, $options: "i" } });
-        if (phone) query.$and.push({ mobileNumber: { $regex: phone, $options: "i" } });
-        if (claimStatus) query.$and.push({ advanceClaimStatus: claimStatus });
-        if (applicationStatus) query.$and.push({ status: applicationStatus });
-      } else {
-        // Apply additional filters normally when no name filter
-        if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
-        if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
-        if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
-        if (claimStatus) query.advanceClaimStatus = claimStatus;
-        if (applicationStatus) query.status = applicationStatus;
+        });
       }
+      if (emrNumber) andConditions.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
+      if (invoiceNumber) andConditions.push({ invoiceNumber: { $regex: invoiceNumber, $options: "i" } });
+      if (phone) andConditions.push({ mobileNumber: { $regex: phone, $options: "i" } });
+      if (claimStatus) andConditions.push({ advanceClaimStatus: claimStatus });
+      if (applicationStatus) andConditions.push({ status: applicationStatus });
+
+      const query = { $and: andConditions };
 
       // Fetch patients without populate first
       const patients = await PatientRegistration.find(query)
