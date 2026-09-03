@@ -11,8 +11,6 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
-  FileText,
   RotateCcw,
   Paperclip,
   File,
@@ -20,6 +18,11 @@ import {
   CalendarClock,
   Landmark,
   Receipt,
+  Sparkles,
+  Hash,
+  User,
+  Tag,
+  CalendarDays,
 } from "lucide-react";
 import useFinanceCheques, {
   ChequeData,
@@ -27,7 +30,6 @@ import useFinanceCheques, {
   ChequeStatusFilter,
   CHEQUE_STATUSES,
 } from "../_hooks/useFinanceCheques";
-import StatCard from "./StatCard";
 import SearchableSelect from "@/components/shared/SearchableSelect";
 import { useCurrency } from "@/context/CurrencyContext";
 import { formatMoney } from "@/lib/currencyHelper";
@@ -51,39 +53,39 @@ const STATUS_META: Record<
 > = {
   issued: {
     label: "Issued",
-    dot: "bg-sky-500",
-    text: "text-sky-700 dark:text-sky-300",
-    bg: "bg-sky-50 dark:bg-sky-950",
+    dot: "bg-amber-500",
+    text: "text-amber-700 dark:text-amber-300",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
   },
   presented: {
     label: "Presented",
     dot: "bg-amber-500",
     text: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-50 dark:bg-amber-950",
+    bg: "bg-amber-50 dark:bg-amber-950/40",
   },
   cleared: {
     label: "Cleared",
     dot: "bg-teal-500",
     text: "text-teal-700 dark:text-teal-300",
-    bg: "bg-teal-50 dark:bg-teal-950",
+    bg: "bg-teal-50 dark:bg-teal-950/40",
   },
   returned: {
     label: "Returned",
     dot: "bg-rose-500",
     text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
+    bg: "bg-rose-50 dark:bg-rose-950/40",
   },
   bounced: {
     label: "Bounced",
     dot: "bg-rose-500",
     text: "text-rose-700 dark:text-rose-300",
-    bg: "bg-rose-50 dark:bg-rose-950",
+    bg: "bg-rose-50 dark:bg-rose-950/40",
   },
   cancelled: {
     label: "Cancelled",
     dot: "bg-stone-300",
     text: "text-stone-400 dark:text-stone-500",
-    bg: "bg-stone-100 dark:bg-stone-800",
+    bg: "bg-stone-100 dark:bg-[#16231f]",
   },
 };
 
@@ -138,6 +140,10 @@ function ChequeDetailsView({
     typeof cheque.transactionId === "string" || !cheque.transactionId
       ? null
       : cheque.transactionId?.invoiceNumber;
+  const category =
+    typeof cheque.transactionId === "string" || !cheque.transactionId
+      ? null
+      : cheque.transactionId?.category;
   const paymentNumber =
     typeof cheque.paymentId === "string" || !cheque.paymentId
       ? null
@@ -186,7 +192,7 @@ function ChequeDetailsView({
                     className={`w-3.5 h-3.5 rounded-full border-2 ${
                       reached
                         ? `${STATUS_META[s].dot} border-transparent`
-                        : "bg-transparent border-stone-200 dark:border-stone-700"
+                        : "bg-transparent border-stone-200 dark:border-[#1f2e29]"
                     }`}
                   />
                   <span className="text-[9px] font-bold uppercase tracking-wider text-stone-400 dark:text-stone-500">
@@ -198,7 +204,7 @@ function ChequeDetailsView({
                     className={`h-0.5 flex-1 mb-4 rounded-full ${
                       currentRank > statusRank[s]
                         ? STATUS_META[lifecycleOrder[idx + 1]].dot
-                        : "bg-stone-100 dark:bg-stone-800"
+                        : "bg-stone-100 dark:bg-[#16231f]"
                     }`}
                   />
                 )}
@@ -221,23 +227,53 @@ function ChequeDetailsView({
 
       {/* Info grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-sky-50 to-white dark:from-sky-950/40 p-3.5">
+        <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-fuchsia-50 to-white dark:from-fuchsia-950/20 dark:to-[#111d19] p-3.5">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-sm">
-              <Landmark className="w-3.5 h-3.5" />
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400 shadow-sm">
+              <Hash className="w-3.5 h-3.5" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
-              Bank
+              Cheque number
             </span>
           </div>
-          <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
-            {cheque.bank}
+          <div className="text-sm font-mono font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+            #{cheque.chequeNumber}
           </div>
         </div>
 
-        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/40 p-3.5">
+        <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-orange-50 to-white dark:from-orange-950/20 dark:to-[#111d19] p-3.5">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-orange-600 dark:text-orange-400 shadow-sm">
+              <User className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+              Payee
+            </span>
+          </div>
+          <div className="text-sm font-semibold text-stone-800 dark:text-stone-100 pl-[26px] truncate">
+            {cheque.payee || "—"}
+          </div>
+        </div>
+
+        {cheque.bank && (
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19] p-3.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-sky-600 dark:text-sky-400 shadow-sm">
+                <Landmark className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                Bank
+              </span>
+            </div>
+            <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+              {cheque.bank}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/30 dark:to-[#111d19] p-3.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-sm">
               <CalendarClock className="w-3.5 h-3.5" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
@@ -250,9 +286,9 @@ function ChequeDetailsView({
         </div>
 
         {supplierName && (
-          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/30 p-3.5">
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19] p-3.5">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
                 <Receipt className="w-3.5 h-3.5" />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
@@ -266,10 +302,10 @@ function ChequeDetailsView({
         )}
 
         {invoiceNumber && (
-          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/40 p-3.5">
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19] p-3.5">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-violet-600 dark:text-violet-400 shadow-sm">
-                <Receipt className="w-3.5 h-3.5" />
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-violet-600 dark:text-violet-400 shadow-sm">
+                <File className="w-3.5 h-3.5" />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
                 Against Bill
@@ -282,9 +318,9 @@ function ChequeDetailsView({
         )}
 
         {paymentNumber && (
-          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/40 p-3.5">
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/30 dark:to-[#111d19] p-3.5">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm">
                 <File className="w-3.5 h-3.5" />
               </div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
@@ -297,9 +333,25 @@ function ChequeDetailsView({
           </div>
         )}
 
-        <div className="sm:col-span-2 rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-stone-50 to-white dark:from-stone-800/40 p-3.5">
+        {category && (
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-lime-50 to-white dark:from-lime-950/20 dark:to-[#111d19] p-3.5">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-lime-700 dark:text-lime-400 shadow-sm">
+                <Tag className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
+                Category
+              </span>
+            </div>
+            <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+              {category}
+            </div>
+          </div>
+        )}
+
+        <div className="sm:col-span-2 rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-[#F8F5EF] to-white dark:from-[#16231f]/60 dark:to-[#111d19] p-3.5">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-600 dark:text-stone-400 shadow-sm">
+            <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-stone-600 dark:text-stone-400 shadow-sm">
               <FileCheck2 className="w-3.5 h-3.5" />
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
@@ -312,9 +364,23 @@ function ChequeDetailsView({
         </div>
       </div>
 
+      {/* Created / Updated meta row */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-stone-400 dark:text-stone-500 pl-1">
+        <span className="flex items-center gap-1.5">
+          <CalendarDays className="w-3.5 h-3.5" />
+          Created {formatDate(cheque.createdAt)}
+        </span>
+        {cheque.updatedAt && (
+          <span className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            Last updated {formatDate(cheque.updatedAt)}
+          </span>
+        )}
+      </div>
+
       {/* Status history */}
       {cheque.history?.length > 0 && (
-        <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-white dark:bg-stone-800/30 p-4">
+        <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-white dark:bg-[#111d19] p-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-6 h-6 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
               <Paperclip className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -354,7 +420,7 @@ function ChequeDetailsView({
 
       {/* Status-action bar */}
       {permissions.canUpdate && !isTerminal && (
-        <div className="pt-4 border-t border-stone-100 dark:border-stone-700/60 flex items-center justify-between gap-3 flex-wrap">
+        <div className="pt-4 border-t border-[#EDE7DA] dark:border-[#1f2e29]/60 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-1.5 text-[11px] text-stone-400 dark:text-stone-500">
             <Info className="w-3.5 h-3.5 shrink-0" />
             <span>
@@ -380,7 +446,7 @@ function ChequeDetailsView({
                 e.stopPropagation();
                 onChangeStatus(cheque);
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-stone-50 dark:bg-stone-800/50 hover:bg-stone-100 dark:hover:bg-stone-700/60 border border-stone-200 dark:border-stone-700 px-3.5 py-1.5 text-[11px] font-bold text-stone-600 dark:text-stone-300 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#F8F5EF] dark:bg-[#16231f] hover:bg-[#F1ECE0] dark:hover:bg-[#1c2a25] border border-[#E8E3D8] dark:border-[#1f2e29] px-3.5 py-1.5 text-[11px] font-bold text-stone-600 dark:text-stone-300 transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
               Change status
@@ -423,7 +489,7 @@ function ChequeRow({
       break;
     case "presented":
       amountCaption = (
-        <div className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 zfm-mono">
+        <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 zfm-mono">
           Awaiting clearance
         </div>
       );
@@ -453,12 +519,12 @@ function ChequeRow({
   }
 
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
+    <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0 px-2">
       <button
         onClick={onToggle}
-        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60 rounded-xl px-3 transition-colors"
       >
-        <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-950/50 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
+        <div className="w-9 h-9 rounded-full bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
           <FileCheck2 className="w-4 h-4" />
         </div>
         <div className="min-w-0 flex-1">
@@ -502,7 +568,7 @@ function ChequeRow({
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
-            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+            <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               <ChequeDetailsView
                 cheque={cheque}
                 currency={currency}
@@ -567,10 +633,10 @@ function ChangeStatusModal({
         backdropFilter: "blur(3px)",
       }}
     >
-      <div className="bg-white dark:bg-stone-900 rounded-3xl w-full max-w-sm p-7 shadow-2xl">
+      <div className="bg-white dark:bg-[#111d19] rounded-3xl w-full max-w-sm p-7 shadow-2xl border border-transparent dark:border-[#1f2e29]">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-violet-50 dark:bg-violet-950 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
               <FileCheck2 className="w-5 h-5 text-violet-500 dark:text-violet-400" />
             </div>
             <div>
@@ -584,14 +650,14 @@ function ChangeStatusModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {warning && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-300 text-xs font-medium">
+          <div className="mb-4 px-4 py-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 text-xs font-medium">
             {warning}
           </div>
         )}
@@ -609,7 +675,7 @@ function ChangeStatusModal({
         </div>
 
         {isFailure && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2">
+          <div className="mb-4 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             <span>
               The linked payment will be reversed automatically — the bill's
@@ -619,7 +685,7 @@ function ChangeStatusModal({
         )}
 
         {isRecovery && (
-          <div className="mb-4 px-4 py-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 text-xs flex items-start gap-2">
+          <div className="mb-4 px-4 py-3 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 text-xs flex items-start gap-2">
             <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
             <span>
               This cheque had bounced — the linked payment will be reinstated
@@ -632,13 +698,13 @@ function ChangeStatusModal({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Reason (optional)"
-          className="w-full px-4 py-2.5 text-sm rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-900 focus:border-teal-400 transition-all mb-5"
+          className="w-full px-4 py-2.5 text-sm rounded-xl border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] text-stone-900 dark:text-stone-50 focus:outline-none focus:ring-2 focus:ring-teal-100 dark:focus:ring-teal-900 focus:border-teal-400 transition-all mb-5"
         />
 
         <div className="flex gap-2.5">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-full text-sm font-semibold border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors"
+            className="flex-1 py-2.5 rounded-full text-sm font-semibold border border-[#E8E3D8] dark:border-[#1f2e29] text-stone-600 dark:text-stone-300 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors"
           >
             Cancel
           </button>
@@ -659,7 +725,7 @@ function ChangeStatusModal({
 }
 
 // ============================================================
-// STATS SECTION
+// STATS SECTION — flat divided row, matching reference screenshots
 // ============================================================
 function StatsSection({
   summary,
@@ -667,6 +733,11 @@ function StatsSection({
   currency,
 }: {
   summary: {
+    issuedAmount?: number;
+    presentedAmount?: number;
+    clearedAmount?: number;
+    returnedAmount?: number;
+    bouncedAmount?: number;
     pendingAmount: number;
     pendingCount: number;
     clearedCount: number;
@@ -678,65 +749,37 @@ function StatsSection({
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-6 animate-pulse"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="h-3 w-20 bg-stone-200 dark:bg-stone-700 rounded" />
-              <div className="w-10 h-10 rounded-full bg-stone-200 dark:bg-stone-700" />
-            </div>
-            <div className="h-8 w-24 bg-stone-200 dark:bg-stone-700 rounded" />
+      <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-[#EDE7DA] dark:divide-[#1a2622] bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="p-5 animate-pulse">
+            <div className="h-3 w-16 bg-[#F1ECE0] dark:bg-[#1c2a25] rounded mb-3" />
+            <div className="h-6 w-20 bg-[#F1ECE0] dark:bg-[#1c2a25] rounded" />
           </div>
         ))}
       </div>
     );
   }
 
+  const stats = [
+    { label: "Issued", value: summary.issuedAmount ?? 0 },
+    { label: "Presented", value: summary.presentedAmount ?? 0 },
+    { label: "Cleared", value: summary.clearedAmount ?? 0 },
+    { label: "Returned", value: summary.returnedAmount ?? 0 },
+    { label: "Bounced", value: summary.bouncedAmount ?? 0 },
+  ];
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <StatCard
-        label="Pending Cheques"
-        value={formatMoney(summary.pendingAmount, currency)}
-        icon={<Clock />}
-        fromColor="#d97706"
-        toColor="#f59e0b"
-        iconColor="text-white"
-        trend={`${summary.pendingCount} cheques`}
-        trendPositive={false}
-      />
-      <StatCard
-        label="Cleared"
-        value={summary.clearedCount}
-        icon={<CheckCircle2 />}
-        fromColor="#0d9488"
-        toColor="#14b8a6"
-        iconColor="text-white"
-        trend="Settled"
-        trendPositive={true}
-      />
-      <StatCard
-        label="Bounced / Returned"
-        value={summary.bouncedCount}
-        icon={<XCircle />}
-        fromColor="#dc2626"
-        toColor="#ef4444"
-        iconColor="text-white"
-        trend="Needs follow-up"
-        trendPositive={false}
-      />
-      <StatCard
-        label="Total Cheques"
-        value={summary.totalCheques}
-        icon={<FileText />}
-        fromColor="#7c3aed"
-        toColor="#8b5cf6"
-        iconColor="text-white"
-        trend="All time"
-        trendPositive={true}
-      />
+    <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-y md:divide-y-0 divide-[#EDE7DA] dark:divide-[#1a2622] bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm overflow-hidden">
+      {stats.map((s) => (
+        <div key={s.label} className="p-5">
+          <div className="text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">
+            {s.label}
+          </div>
+          <div className="text-lg font-semibold text-stone-800 dark:text-stone-100 zfm-mono">
+            {formatMoney(s.value, currency)}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -793,20 +836,37 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
 
   return (
     <div className="space-y-7">
-      <div>
-        <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
-          Cheque Manager
-        </h2>
-        <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
-          Track every cheque from issue to clearance
-        </p>
+      {/* Status lifecycle banner */}
+      <div className="flex items-start gap-3 rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#111d19] px-5 py-4">
+        <Sparkles className="w-4 h-4 mt-0.5 text-amber-500 dark:text-amber-400 shrink-0" />
+        <div className="text-sm text-stone-600 dark:text-stone-300">
+          <span className="font-bold text-stone-800 dark:text-stone-100">
+            Status lifecycle
+          </span>{" "}
+          <span className="block sm:inline text-stone-500 dark:text-stone-400 mt-0.5 sm:mt-0">
+            Cheques move Issued → Presented → Cleared, or may be Returned,
+            Bounced or Cancelled. This is tracked separately from a bill's own
+            payment status.
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+            Cheque Manager
+          </h2>
+          <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+            Track every cheque from issue to clearance
+          </p>
+        </div>
       </div>
 
       <StatsSection summary={summary} loading={loading} currency={currency} />
 
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm dark:shadow-stone-900/20 overflow-hidden transition-colors duration-300">
+      <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm dark:shadow-black/20 overflow-hidden transition-colors duration-300">
         {/* Status pill tabs */}
-        <div className="border-b border-stone-200 dark:border-stone-700 bg-stone-50/50 dark:bg-stone-800/30">
+        <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613]">
           <div className="flex items-center gap-1 p-1 overflow-x-auto">
             {STATUS_TABS.map((t) => (
               <button
@@ -814,8 +874,8 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
                 onClick={() => setStatusFilter(t.value)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
                   statusFilter === t.value
-                    ? "bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-stone-900/20"
-                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-stone-800/50"
+                    ? "bg-white dark:bg-[#16231f] text-stone-800 dark:text-stone-100 shadow-sm dark:shadow-black/20"
+                    : "text-stone-400 dark:text-stone-500 hover:text-stone-600 dark:hover:text-stone-300 hover:bg-white/50 dark:hover:bg-[#16231f]/50"
                 }`}
               >
                 {t.label}
@@ -825,32 +885,32 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
         </div>
 
         {/* Filter bar */}
-        <div className="p-5 border-b border-stone-200 dark:border-stone-700 flex flex-wrap items-center gap-2.5 bg-white dark:bg-stone-900">
+        <div className="p-5 border-b border-[#EDE7DA] dark:border-[#1a2622] flex flex-wrap items-center gap-2.5 bg-white dark:bg-[#111d19]">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="w-4 h-4 text-stone-400 dark:text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search cheque number or payee…"
-              className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-stone-900/20"
+              className="w-full pl-10 pr-3 py-2.5 text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 focus:border-teal-500 dark:focus:border-teal-400 transition-all shadow-sm dark:shadow-black/20"
             />
           </div>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-stone-900/20"
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:focus:ring-teal-400/20 text-stone-600 dark:text-stone-300 font-medium shadow-sm dark:shadow-black/20"
           />
         </div>
 
         {/* Content */}
-        <div className="bg-white dark:bg-stone-900">
+        <div className="bg-white dark:bg-[#111d19]">
           {loading && (
             <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
               <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" />
@@ -865,7 +925,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
           )}
 
           {!loading && !error && (
-            <div className="divide-y divide-stone-100 dark:divide-stone-800">
+            <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622]">
               {cheques.length === 0 ? (
                 <div className="px-5 py-16 text-center text-stone-400 dark:text-stone-500">
                   <Inbox className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
@@ -896,7 +956,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
 
         {/* Pagination footer */}
         {!loading && !error && pagination && pagination.totalResults > 0 && (
-          <div className="px-5 py-4 border-t border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 flex flex-wrap items-center justify-between gap-3">
+          <div className="px-5 py-4 border-t border-[#EDE7DA] dark:border-[#1a2622] bg-white dark:bg-[#111d19] flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs text-stone-400 dark:text-stone-500 font-medium">
               Showing{" "}
               <span className="text-stone-600 dark:text-stone-300 font-semibold">
@@ -911,7 +971,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
               <button
                 onClick={prevPage}
                 disabled={page <= 1}
-                className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-stone-900/20"
+                className="w-8 h-8 rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-black/20"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -922,7 +982,7 @@ const FinanceChequesTab: React.FC<UseFinancePermissionReturn> = ({
               <button
                 onClick={nextPage}
                 disabled={!pagination.hasMore}
-                className="w-8 h-8 rounded-full border border-stone-200 dark:border-stone-700 flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-stone-900/20"
+                className="w-8 h-8 rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] flex items-center justify-center text-stone-500 dark:text-stone-400 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm dark:shadow-black/20"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

@@ -38,6 +38,30 @@ export interface BillSummary {
   overdueCount: number;
   paidThisMonth: number;
   totalBills: number;
+  pendingAmount: number;
+  pendingCount: number;
+  upcomingAmount: number;
+  upcomingCount: number;
+  overdueAmount: number;
+  partialAmount: number;
+  partialCount: number;
+}
+
+export interface UpcomingBillRef {
+  _id: string;
+  supplierName: string;
+  invoiceNumber: string;
+  dueDate?: string;
+  balance: number;
+}
+
+export interface OverdueAging {
+  d1to7: number;
+  d8to30: number;
+  d31plus: number;
+  totalAmount: number;
+  totalCount: number;
+  highestRiskSupplier: { name: string; amount: number } | null;
 }
 
 export interface PaginationInfo {
@@ -65,11 +89,32 @@ const DEFAULT_SUMMARY: BillSummary = {
   overdueCount: 0,
   paidThisMonth: 0,
   totalBills: 0,
+  pendingAmount: 0,
+  pendingCount: 0,
+  upcomingAmount: 0,
+  upcomingCount: 0,
+  overdueAmount: 0,
+  partialAmount: 0,
+  partialCount: 0,
+};
+
+const DEFAULT_OVERDUE_AGING: OverdueAging = {
+  d1to7: 0,
+  d8to30: 0,
+  d31plus: 0,
+  totalAmount: 0,
+  totalCount: 0,
+  highestRiskSupplier: null,
 };
 
 export default function useBillsPayable() {
   const [bills, setBills] = useState<BillData[]>([]);
   const [summary, setSummary] = useState<BillSummary>(DEFAULT_SUMMARY);
+  const [upcoming30, setUpcoming30] = useState<UpcomingBillRef[]>([]);
+  const [totalUpcoming30, setTotalUpcoming30] = useState<number>(0);
+  const [overdueAging, setOverdueAging] = useState<OverdueAging>(
+    DEFAULT_OVERDUE_AGING,
+  );
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +159,12 @@ export default function useBillsPayable() {
 
       setBills(data.data || []);
       setSummary({ ...DEFAULT_SUMMARY, ...(data.summary || {}) });
+      setUpcoming30(data.upcoming30 || []);
+      setTotalUpcoming30(data.totalUpcoming30 || 0);
+      setOverdueAging({
+        ...DEFAULT_OVERDUE_AGING,
+        ...(data.overdueAging || {}),
+      });
       setPagination(
         data.pagination
           ? {
@@ -226,6 +277,9 @@ export default function useBillsPayable() {
   return {
     bills,
     summary,
+    upcoming30,
+    totalUpcoming30,
+    overdueAging,
     categories,
     loading,
     saving,

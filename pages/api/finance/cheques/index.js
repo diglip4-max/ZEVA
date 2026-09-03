@@ -103,6 +103,18 @@ export default async function handler(req, res) {
     // so switching status tabs doesn't skew the cards
     const { status: _drop, ...summaryFilters } = query;
 
+    // Helper to build a { count, amount } accumulator pair for a given status
+    const statusSum = (statuses) => ({
+      $sum: {
+        $cond: [{ $in: ["$status", statuses] }, 1, 0],
+      },
+    });
+    const statusAmountSum = (statuses) => ({
+      $sum: {
+        $cond: [{ $in: ["$status", statuses] }, "$amount", 0],
+      },
+    });
+
     const summaryResult = await FinanceCheque.aggregate([
       { $match: summaryFilters },
       {
@@ -110,28 +122,26 @@ export default async function handler(req, res) {
           _id: null,
           totalCheques: { $sum: 1 },
           totalAmount: { $sum: "$amount" },
-          pendingCount: {
-            $sum: {
-              $cond: [{ $in: ["$status", ["issued", "presented"]] }, 1, 0],
-            },
-          },
-          pendingAmount: {
-            $sum: {
-              $cond: [
-                { $in: ["$status", ["issued", "presented"]] },
-                "$amount",
-                0,
-              ],
-            },
-          },
-          clearedCount: {
-            $sum: { $cond: [{ $eq: ["$status", "cleared"] }, 1, 0] },
-          },
-          bouncedCount: {
-            $sum: {
-              $cond: [{ $in: ["$status", ["bounced", "returned"]] }, 1, 0],
-            },
-          },
+
+          // Per-status counts
+          issuedCount: statusSum(["issued"]),
+          presentedCount: statusSum(["presented"]),
+          clearedCount: statusSum(["cleared"]),
+          returnedCount: statusSum(["returned"]),
+          bouncedCount: statusSum(["bounced", "returned"]),
+          cancelledCount: statusSum(["cancelled"]),
+
+          // Per-status amounts — used by the Cheque Manager stats row
+          issuedAmount: statusAmountSum(["issued"]),
+          presentedAmount: statusAmountSum(["presented"]),
+          clearedAmount: statusAmountSum(["cleared"]),
+          returnedAmount: statusAmountSum(["returned"]),
+          bouncedAmount: statusAmountSum(["bounced"]),
+          cancelledAmount: statusAmountSum(["cancelled"]),
+
+          // Legacy aggregate fields kept for backward compatibility
+          pendingCount: statusSum(["issued", "presented"]),
+          pendingAmount: statusAmountSum(["issued", "presented"]),
         },
       },
     ]);
@@ -139,11 +149,22 @@ export default async function handler(req, res) {
     const s = summaryResult[0] || {
       totalCheques: 0,
       totalAmount: 0,
+      issuedCount: 0,
+      presentedCount: 0,
+      clearedCount: 0,
+      returnedCount: 0,
+      bouncedCount: 0,
+      cancelledCount: 0,
+      issuedAmount: 0,
+      presentedAmount: 0,
+      clearedAmount: 0,
+      returnedAmount: 0,
+      bouncedAmount: 0,
+      cancelledAmount: 0,
       pendingCount: 0,
       pendingAmount: 0,
-      clearedCount: 0,
-      bouncedCount: 0,
     };
+    delete s._id;
 
     return res.status(200).json({
       success: true,
