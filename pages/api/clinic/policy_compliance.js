@@ -7,6 +7,7 @@ import Policy from "../../../models/Policy";
 import Playbook from "../../../models/Playbook";
 import Acknowledgment from "../../../models/Acknowledgment";
 import User from "../../../models/Users";
+import DoctorDepartment from "../../../models/DoctorDepartment";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -39,20 +40,28 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
+  // Resolve agent/doctorStaff/staff department names from DoctorDepartment model
+  // Used to filter SOPs/Policies/Playbooks by matching the document's department
+  // against the logged-in agent's assigned departments.
+  let agentDepartmentNames = [];
+  if (["agent", "doctorStaff", "staff"].includes(user.role)) {
+    const userId = user._id || user.userId || user.id;
+    const deptRecords = await DoctorDepartment.find({ doctorId: userId }).select("name").lean();
+    agentDepartmentNames = deptRecords.map(d => d.name).filter(Boolean);
+  }
+
   const { type } = req.query;
 
   if (type === "sops") {
-    // For agent/doctorStaff, only show SOPs assigned to them via Acknowledgment records
+    // For agent/doctorStaff/staff, show SOPs whose department matches the agent's assigned departments
     let sopFilter = { clinicId };
     if (["agent", "doctorStaff", "staff"].includes(user.role)) {
-      const userId = user._id || user.userId || user.id;
-      const acks = await Acknowledgment.find({
-        clinicId,
-        staffId: userId,
-        documentType: "SOP"
-      }).select("documentId").lean();
-      const allowedIds = acks.map(a => a.documentId);
-      sopFilter = { clinicId, _id: { $in: allowedIds } };
+      if (agentDepartmentNames.length > 0) {
+        sopFilter = { clinicId, department: { $in: agentDepartmentNames } };
+      } else {
+        // Agent has no departments assigned – show nothing
+        return res.status(200).json({ success: true, items: [] });
+      }
     }
     const items = await SOP.find(sopFilter).sort({ updatedAt: -1 }).lean();
     const agentsTotal = await User.countDocuments({ clinicId, role: "agent" });
@@ -95,17 +104,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, items: withPercents });
   }
   if (type === "policies") {
-    // For agent/doctorStaff, only show Policies assigned to them via Acknowledgment records
+    // For agent/doctorStaff/staff, show Policies whose department matches the agent's assigned departments
     let policyFilter = { clinicId };
     if (["agent", "doctorStaff", "staff"].includes(user.role)) {
-      const userId = user._id || user.userId || user.id;
-      const acks = await Acknowledgment.find({
-        clinicId,
-        staffId: userId,
-        documentType: "Policy"
-      }).select("documentId").lean();
-      const allowedIds = acks.map(a => a.documentId);
-      policyFilter = { clinicId, _id: { $in: allowedIds } };
+      if (agentDepartmentNames.length > 0) {
+        policyFilter = { clinicId, department: { $in: agentDepartmentNames } };
+      } else {
+        return res.status(200).json({ success: true, items: [] });
+      }
     }
     const items = await Policy.find(policyFilter).sort({ updatedAt: -1 }).lean();
     const agentsTotal = await User.countDocuments({ clinicId, role: "agent" });
@@ -145,17 +151,14 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, items: withPercents });
   }
   if (type === "playbooks") {
-    // For agent/doctorStaff, only show Playbooks assigned to them via Acknowledgment records
+    // For agent/doctorStaff/staff, show Playbooks whose department matches the agent's assigned departments
     let playbookFilter = { clinicId };
     if (["agent", "doctorStaff", "staff"].includes(user.role)) {
-      const userId = user._id || user.userId || user.id;
-      const acks = await Acknowledgment.find({
-        clinicId,
-        staffId: userId,
-        documentType: "Playbook"
-      }).select("documentId").lean();
-      const allowedIds = acks.map(a => a.documentId);
-      playbookFilter = { clinicId, _id: { $in: allowedIds } };
+      if (agentDepartmentNames.length > 0) {
+        playbookFilter = { clinicId, department: { $in: agentDepartmentNames } };
+      } else {
+        return res.status(200).json({ success: true, items: [] });
+      }
     }
     const items = await Playbook.find(playbookFilter).sort({ updatedAt: -1 }).lean();
     return res.status(200).json({ success: true, items });
@@ -166,17 +169,17 @@ export default async function handler(req, res) {
   let policyQuery = { clinicId };
   let playbookQuery = { clinicId };
   if (["agent", "doctorStaff", "staff"].includes(user.role)) {
-    const userId = user._id || user.userId || user.id;
-    const userAcks = await Acknowledgment.find({
-      clinicId,
-      staffId: userId
-    }).select("documentId documentType").lean();
-    const sopIds = userAcks.filter(a => a.documentType === "SOP").map(a => a.documentId);
-    const policyIds = userAcks.filter(a => a.documentType === "Policy").map(a => a.documentId);
-    const playbookIds = userAcks.filter(a => a.documentType === "Playbook").map(a => a.documentId);
-    sopQuery = { clinicId, _id: { $in: sopIds } };
-    policyQuery = { clinicId, _id: { $in: policyIds } };
-    playbookQuery = { clinicId, _id: { $in: playbookIds } };
+    if (agentDepartmentNames.length > 0) {
+      sopQuery = { clinicId, department: { $in: agentDepartmentNames } };
+      policyQuery = { clinicId, department: { $in: agentDepartmentNames } };
+      playbookQuery = { clinicId, department: { $in: agentDepartmentNames } };
+    } else {
+      // Agent has no departments assigned – show zero counts
+      return res.status(200).json({
+        success: true,
+        overview: { sopCount: 0, policyCount: 0, playbookCount: 0 },
+      });
+    }
   }
   const sopCount = await SOP.countDocuments(sopQuery);
   const policyCount = await Policy.countDocuments(policyQuery);
