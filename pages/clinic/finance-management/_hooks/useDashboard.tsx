@@ -442,7 +442,7 @@ const get = async <T = any,>(path: string, qs: string): Promise<T> => {
 // HOOK
 // ============================================================
 
-export function useDashboard(
+export default function useDashboard(
   options: UseDashboardOptions = {},
 ): UseDashboardReturn {
   const { clinicId, autoFetch = true, initialFilters } = options;

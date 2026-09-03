@@ -18,8 +18,7 @@ import {
   Tag,
   CreditCard,
 } from "lucide-react";
-import {
-  useDashboard,
+import useDashboard, {
   DashboardData,
   DashboardFilters,
   FiltersMeta,
