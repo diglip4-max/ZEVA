@@ -86,7 +86,7 @@ export default async function handler(req, res) {
         category,
         dueDateFrom,
         dueDateTo,
-        search, // matches supplierInvoiceNumber or invoiceNumber
+        search,
         page = 1,
         limit = 20,
       } = req.query;
@@ -128,37 +128,53 @@ export default async function handler(req, res) {
       const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       // ------------------------------------------------------------
-      // Summary — totals + per-status outstanding amounts. All amounts
-      // use (amount - paidAmount), i.e. what's actually still owed.
+      // SUMMARY — DYNAMIC OVERDUE CALCULATION
       // ------------------------------------------------------------
-      const statusAmountSum = (s) => ({
-        $sum: {
-          $cond: [
-            { $eq: ["$status", s] },
-            { $subtract: ["$amount", "$paidAmount"] },
-            0,
-          ],
-        },
-      });
-      const statusCountSum = (s) => ({
-        $sum: { $cond: [{ $eq: ["$status", s] }, 1, 0] },
-      });
-
       const summaryResult = await FinanceTransaction.aggregate([
         { $match: { clinicId: query.clinicId, entryType: "bill" } },
         {
+          $addFields: {
+            isActuallyOverdue: {
+              $and: [
+                { $lt: ["$dueDate", now] },
+                {
+                  $not: {
+                    $in: ["$status", ["paid", "cancelled"]],
+                  },
+                },
+              ],
+            },
+            outstandingBalance: {
+              $subtract: ["$amount", { $ifNull: ["$paidAmount", 0] }],
+            },
+          },
+        },
+        {
           $group: {
             _id: null,
+
+            // Total outstanding (all non-paid/non-cancelled bills)
             totalOutstanding: {
               $sum: {
                 $cond: [
                   { $in: ["$status", ["paid", "cancelled"]] },
                   0,
-                  { $subtract: ["$amount", "$paidAmount"] },
+                  "$outstandingBalance",
                 ],
               },
             },
-            overdueCount: statusCountSum("overdue"),
+
+            // 🔥 OVERDUE - Dynamic calculation
+            overdueCount: {
+              $sum: { $cond: ["$isActuallyOverdue", 1, 0] },
+            },
+            overdueAmount: {
+              $sum: {
+                $cond: ["$isActuallyOverdue", "$outstandingBalance", 0],
+              },
+            },
+
+            // Paid this month
             paidThisMonth: {
               $sum: {
                 $cond: [
@@ -168,20 +184,53 @@ export default async function handler(req, res) {
                       { $lt: ["$updatedAt", monthEnd] },
                     ],
                   },
-                  "$paidAmount",
+                  { $ifNull: ["$paidAmount", 0] },
                   0,
                 ],
               },
             },
+
             totalBills: { $sum: 1 },
 
-            pendingAmount: statusAmountSum("pending"),
-            pendingCount: statusCountSum("pending"),
-            upcomingAmount: statusAmountSum("upcoming"),
-            upcomingCount: statusCountSum("upcoming"),
-            overdueAmount: statusAmountSum("overdue"),
-            partialAmount: statusAmountSum("partial"),
-            partialCount: statusCountSum("partial"),
+            // Status-wise amounts (these remain based on actual status field)
+            pendingAmount: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "pending"] },
+                  "$outstandingBalance",
+                  0,
+                ],
+              },
+            },
+            pendingCount: {
+              $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
+            },
+
+            upcomingAmount: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "upcoming"] },
+                  "$outstandingBalance",
+                  0,
+                ],
+              },
+            },
+            upcomingCount: {
+              $sum: { $cond: [{ $eq: ["$status", "upcoming"] }, 1, 0] },
+            },
+
+            partialAmount: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "partial"] },
+                  "$outstandingBalance",
+                  0,
+                ],
+              },
+            },
+            partialCount: {
+              $sum: { $cond: [{ $eq: ["$status", "partial"] }, 1, 0] },
+            },
           },
         },
       ]);
@@ -189,21 +238,20 @@ export default async function handler(req, res) {
       const summary = summaryResult[0] || {
         totalOutstanding: 0,
         overdueCount: 0,
+        overdueAmount: 0,
         paidThisMonth: 0,
         totalBills: 0,
         pendingAmount: 0,
         pendingCount: 0,
         upcomingAmount: 0,
         upcomingCount: 0,
-        overdueAmount: 0,
         partialAmount: 0,
         partialCount: 0,
       };
       delete summary._id;
 
       // ------------------------------------------------------------
-      // Next 30 days — upcoming/pending/partial bills due soon,
-      // soonest first, for the "Next 30 Days" panel.
+      // Next 30 days — upcoming/pending/partial bills due soon
       // ------------------------------------------------------------
       const upcoming30Docs = await FinanceTransaction.find({
         clinicId,
@@ -229,14 +277,21 @@ export default async function handler(req, res) {
       const totalUpcoming30 = upcoming30.reduce((sum, b) => sum + b.balance, 0);
 
       // ------------------------------------------------------------
-      // Overdue aging — bucket every currently-overdue bill by how
-      // many days past its due date it is, and find the supplier
-      // with the largest overdue balance ("highest-risk supplier").
+      // Overdue aging — DYNAMIC (check dueDate, not status)
       // ------------------------------------------------------------
       const overdueDocs = await FinanceTransaction.find({
         clinicId,
         entryType: "bill",
-        status: "overdue",
+        $expr: {
+          $and: [
+            { $lt: ["$dueDate", now] },
+            {
+              $not: {
+                $in: ["$status", ["paid", "cancelled"]],
+              },
+            },
+          ],
+        },
       }).populate("supplierId", "name");
 
       const aging = { d1to7: 0, d8to30: 0, d31plus: 0 };
@@ -295,6 +350,7 @@ export default async function handler(req, res) {
         },
       });
     } catch (error) {
+      console.error("GET Error:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
@@ -305,7 +361,7 @@ export default async function handler(req, res) {
       const {
         supplierId,
         category,
-        supplierInvoiceNumber, // vendor ka apna invoice number — Rule 7 duplicate check isi pe
+        supplierInvoiceNumber,
         invoiceDate,
         dueDate,
         amount,
@@ -386,6 +442,7 @@ export default async function handler(req, res) {
         data: bill,
       });
     } catch (error) {
+      console.error("POST Error:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
