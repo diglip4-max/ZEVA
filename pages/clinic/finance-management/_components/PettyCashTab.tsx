@@ -2210,6 +2210,11 @@ const StatsSection: React.FC<StatsSectionProps> = ({
       <StatRow
         stats={[
           {
+            label: "Total All Spent", // 🔥 NAYA CARD
+            value: formatMoney(expenseSummary?.totalAllSpent || 0, currency),
+            tone: "text-orange-600 dark:text-orange-400",
+          },
+          {
             label: "Total Spent (Petty Cash)",
             value: formatMoney(expenseSummary?.totalSpent || 0, currency),
             tone: "text-rose-600 dark:text-rose-400",
@@ -2217,10 +2222,6 @@ const StatsSection: React.FC<StatsSectionProps> = ({
           {
             label: "Informational Entries",
             value: expenseSummary?.infoExpenseCount || 0,
-          },
-          {
-            label: "Average Expense",
-            value: formatMoney(expenseSummary?.averageSpent || 0, currency),
           },
           {
             label: "Unique Vendors",
@@ -2235,21 +2236,26 @@ const StatsSection: React.FC<StatsSectionProps> = ({
   const totalAllocated = allocationSummary?.totalAllocated || 0;
   const totalSpent = expenseSummary?.totalSpent || 0;
   const balance = totalAllocated - totalSpent;
-  const totalVoided =
-    (allocationSummary?.totalVoided || 0) + (expenseSummary?.totalVoided || 0);
+  // const totalVoided =
+  //   (allocationSummary?.totalVoided || 0) + (expenseSummary?.totalVoided || 0);
 
   return (
     <StatRow
       stats={[
         {
+          label: "Total All Spent", // 🔥 NAYA CARD
+          value: formatMoney(expenseSummary?.totalAllSpent || 0, currency),
+          tone: "text-orange-600 dark:text-orange-400",
+        },
+        {
+          label: "Total Spent (Petty Cash)",
+          value: formatMoney(totalSpent, currency),
+          tone: "text-rose-600 dark:text-rose-400",
+        },
+        {
           label: "Total Allocated",
           value: formatMoney(totalAllocated, currency),
           tone: "text-teal-600 dark:text-teal-400",
-        },
-        {
-          label: "Total Spent",
-          value: formatMoney(totalSpent, currency),
-          tone: "text-rose-600 dark:text-rose-400",
         },
         {
           label: "Balance",
@@ -2258,12 +2264,6 @@ const StatsSection: React.FC<StatsSectionProps> = ({
             balance >= 0
               ? "text-teal-600 dark:text-teal-400"
               : "text-rose-600 dark:text-rose-400",
-        },
-        {
-          label: "Voided",
-          value: totalVoided,
-          tone:
-            totalVoided > 0 ? "text-amber-600 dark:text-amber-400" : undefined,
         },
       ]}
     />

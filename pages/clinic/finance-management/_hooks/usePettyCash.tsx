@@ -90,6 +90,7 @@ export interface PettyCashResponse {
       maxAmount: number;
     } | null;
     expense: {
+      totalAllSpent: number; // 🔥 Sabhi expenses
       totalSpent: number;
       totalExpenses: number;
       pettyCashExpenseCount: number;
@@ -170,7 +171,10 @@ export interface UsePettyCashReturn {
   setSearch: React.Dispatch<React.SetStateAction<string>>;
   page: number;
   limit: number;
-  pagination: PettyCashResponse["pagination"] | IncomeResponse["pagination"] | null;
+  pagination:
+    | PettyCashResponse["pagination"]
+    | IncomeResponse["pagination"]
+    | null;
   goToPage: (page: number) => void;
   nextPage: () => void;
   prevPage: () => void;
@@ -202,8 +206,9 @@ const usePettyCash = (): UsePettyCashReturn => {
     React.useState<PettyCashResponse["summaries"]["expense"]>(null);
   const [combinedSummary, setCombinedSummary] =
     React.useState<PettyCashResponse["summaries"]["combined"]>(null);
-  const [incomeSummary, setIncomeSummary] =
-    React.useState<IncomeResponse["summary"] | null>(null);
+  const [incomeSummary, setIncomeSummary] = React.useState<
+    IncomeResponse["summary"] | null
+  >(null);
 
   // Filters
   const [search, setSearch] = React.useState<string>("");
@@ -240,7 +245,7 @@ const usePettyCash = (): UsePettyCashReturn => {
             page,
             limit,
           },
-        }
+        },
       );
 
       if (res.data.success) {
@@ -249,7 +254,7 @@ const usePettyCash = (): UsePettyCashReturn => {
           (alloc) => ({
             ...alloc,
             amount: parseNumber(alloc.amount),
-          })
+          }),
         );
 
         // Transform expenses
@@ -261,7 +266,7 @@ const usePettyCash = (): UsePettyCashReturn => {
               ...item,
               amount: parseNumber(item.amount),
             })),
-          })
+          }),
         );
 
         setAllocations(transformedAllocations);
@@ -271,12 +276,13 @@ const usePettyCash = (): UsePettyCashReturn => {
         if (res.data.summaries?.allocation) {
           setAllocationSummary({
             totalAllocated: parseNumber(
-              res.data.summaries.allocation.totalAllocated
+              res.data.summaries.allocation.totalAllocated,
             ),
-            totalAllocations: res.data.summaries.allocation.totalAllocations || 0,
+            totalAllocations:
+              res.data.summaries.allocation.totalAllocations || 0,
             totalVoided: res.data.summaries.allocation.totalVoided || 0,
             averageAmount: parseNumber(
-              res.data.summaries.allocation.averageAmount
+              res.data.summaries.allocation.averageAmount,
             ),
             minAmount: parseNumber(res.data.summaries.allocation.minAmount),
             maxAmount: parseNumber(res.data.summaries.allocation.maxAmount),
@@ -287,9 +293,13 @@ const usePettyCash = (): UsePettyCashReturn => {
 
         if (res.data.summaries?.expense) {
           setExpenseSummary({
+            totalAllSpent: parseNumber(
+              res.data.summaries.expense.totalAllSpent,
+            ),
             totalSpent: parseNumber(res.data.summaries.expense.totalSpent),
             totalExpenses: res.data.summaries.expense.totalExpenses || 0,
-            pettyCashExpenseCount: res.data.summaries.expense.pettyCashExpenseCount || 0,
+            pettyCashExpenseCount:
+              res.data.summaries.expense.pettyCashExpenseCount || 0,
             infoExpenseCount: res.data.summaries.expense.infoExpenseCount || 0,
             totalVoided: res.data.summaries.expense.totalVoided || 0,
             averageSpent: parseNumber(res.data.summaries.expense.averageSpent),
@@ -304,18 +314,18 @@ const usePettyCash = (): UsePettyCashReturn => {
 
         if (res.data.summaries?.combined) {
           setCombinedSummary({
-            dailyBreakdown: (res.data.summaries.combined.dailyBreakdown || []).map(
-              (day) => ({
-                ...day,
-                totalSpent: parseNumber(day.totalSpent),
-              })
-            ),
+            dailyBreakdown: (
+              res.data.summaries.combined.dailyBreakdown || []
+            ).map((day) => ({
+              ...day,
+              totalSpent: parseNumber(day.totalSpent),
+            })),
             topVendors: (res.data.summaries.combined.topVendors || []).map(
               (vendor) => ({
                 ...vendor,
                 totalSpent: parseNumber(vendor.totalSpent),
                 averageAmount: parseNumber(vendor.averageAmount),
-              })
+              }),
             ),
           });
         } else {
@@ -347,7 +357,7 @@ const usePettyCash = (): UsePettyCashReturn => {
             page,
             limit,
           },
-        }
+        },
       );
 
       if (res.data.success) {
@@ -379,7 +389,7 @@ const usePettyCash = (): UsePettyCashReturn => {
       const target = Math.min(Math.max(1, p), pagination?.totalPages || 1);
       setPage(target);
     },
-    [pagination?.totalPages]
+    [pagination?.totalPages],
   );
 
   const nextPage = React.useCallback(() => {

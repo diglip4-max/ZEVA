@@ -282,7 +282,7 @@ export default async function handler(req, res) {
         },
         mediaUrl,
       };
-      resData = await handleSmsSendMessage(msgData);
+      // resData = await handleSmsSendMessage(msgData);
     } else if (channel === "whatsapp") {
       const accessToken = provider?.secrets?.whatsappAccessToken;
       const phoneNumberId = provider?.phone;

@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     const baseFilter = {
       clinicId,
       ...(me.role === "clinic" ? {} : { staffId }),
-      // ...(showVoided ? {} : { isVoided: { $ne: true } }),
+      ...(showVoided ? {} : { isVoided: { $ne: true } }),
       ...(startDate && {
         date: { $gte: new Date(startDate) },
       }),
@@ -303,6 +303,12 @@ export default async function handler(req, res) {
         {
           $group: {
             _id: null,
+            // 🔥 NAYA: Total spent (sabhi expenses - chahe petty cash ho ya info)
+            totalAllSpent: {
+              $sum: {
+                $cond: [{ $eq: ["$isVoided", false] }, "$spentAmount", 0],
+              },
+            },
             // ONLY count expenses where usedFromPettyCash is true
             totalSpent: {
               $sum: {
@@ -420,7 +426,8 @@ export default async function handler(req, res) {
       expenseSummary =
         expSummary.length > 0
           ? {
-              totalSpent: parseNumber(expSummary[0].totalSpent),
+              totalAllSpent: parseNumber(expSummary[0].totalAllSpent), // 🔥 Sabhi expenses
+              totalSpent: parseNumber(expSummary[0].totalSpent), // Sirf petty cash
               totalExpenses: expSummary[0].totalExpenses || 0,
               pettyCashExpenseCount: expSummary[0].pettyCashExpenseCount || 0,
               infoExpenseCount: expSummary[0].infoExpenseCount || 0,

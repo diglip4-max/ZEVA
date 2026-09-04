@@ -15,6 +15,7 @@ import {
   buildCreatedMatch,
   resolveTransactionIdsForMethod,
 } from "../../../../lib/finance/dashboardFilters";
+import Supplier from "../../../../models/stocks/Supplier";
 import { getPettyCashBreakdown } from "../../../../lib/finance/pettyCash";
 
 export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
@@ -73,7 +74,18 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
   ]);
 
   const [overdueAgg] = await FinanceTransaction.aggregate([
-    { $match: { ...dueMatch(), entryType: "bill", status: "overdue" } },
+    {
+      $match: {
+        ...dueMatch(),
+        entryType: "bill",
+        $expr: {
+          $and: [
+            { $lt: ["$dueDate", new Date()] },
+            { $not: { $in: ["$status", ["paid", "cancelled"]] } },
+          ],
+        },
+      },
+    },
     {
       $group: {
         _id: null,
