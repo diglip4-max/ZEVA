@@ -125,74 +125,74 @@ const DashboardGreeting = ({ clinicInfo, revenueData, opportunityData, revenueAt
   const clinicAddress = clinicInfo?.address || '';
 
   return (
-    <div className="bg-[#FCFBF8] p-8 w-full font-sans">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900 mb-2">
+    <div className="bg-[#FCFBF8] px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 w-full font-sans">
+      <div className="mb-4 sm:mb-6 lg:mb-8">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900 mb-1 sm:mb-2">
           {greeting}, {userName}.
         </h1>
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4 lg:mb-6">
           <input
             type="date"
             value={dateValue}
             onChange={(e) => onDateChange?.(e.target.value)}
-            className="text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1 outline-none focus:border-emerald-600 shadow-sm cursor-pointer"
+            className="text-xs sm:text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1 outline-none focus:border-emerald-600 shadow-sm cursor-pointer"
           />
-          <span className="text-sm text-gray-500">
+          <span className="text-xs sm:text-sm text-gray-500">
             · {currentTimeStr} {clinicAddress ? `· ${clinicAddress}` : ''}
           </span>
         </div>
-        <p className="text-gray-700 text-base max-w-4xl">
+        <p className="text-gray-700 text-xs sm:text-sm lg:text-base max-w-4xl leading-relaxed">
           Your clinic is performing well today. Revenue is <span className="font-semibold text-gray-900">{revenueChangeRate}% above last week</span>, but <span className="font-semibold text-gray-900">{formatCurrency(opportunityData?.totalPotential || 18700)}</span> remains recoverable from appointments, follow-ups and outstanding payments.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         {/* Card 1: Clinic Health */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-44">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] lg:min-h-[176px]">
           <div>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Clinic Health</h3>
+            <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">Clinic Health</h3>
             <div className="flex items-baseline mb-1">
-              <span className="text-3xl font-semibold text-gray-900">82</span>
-              <span className="text-sm text-gray-500 ml-1">/100</span>
+              <span className="text-2xl sm:text-3xl font-semibold text-gray-900">82</span>
+              <span className="text-xs sm:text-sm text-gray-500 ml-1">/100</span>
             </div>
-            <p className="text-sm text-gray-500">Healthy</p>
+            <p className="text-xs sm:text-sm text-gray-500">Healthy</p>
           </div>
           {renderPercentage(3.4)}
         </div>
 
         {/* Card 2: Revenue */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-44">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] lg:min-h-[176px]">
           <div>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Revenue</h3>
+            <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">Revenue</h3>
             <div className="mb-1">
-              <span className="text-2xl font-semibold text-gray-900">{formatCurrency(revenueData?.totalRevenue)}</span>
+              <span className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">{formatCurrency(revenueData?.totalRevenue)}</span>
             </div>
           </div>
           {renderPercentage(revenueChangeRate)}
         </div>
 
         {/* Card 3: Contribution */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-44">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] lg:min-h-[176px]">
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Contribution</h3>
-              <span className="text-[9px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">ESTIMATED</span>
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+              <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider">Contribution</h3>
+              <span className="text-[8px] sm:text-[9px] font-semibold text-gray-400 border border-gray-200 rounded px-1 sm:px-1.5 py-0.5 whitespace-nowrap">ESTIMATED</span>
             </div>
             <div className="mb-1">
-              <span className="text-2xl font-semibold text-gray-900">{formatCurrency(opportunityData?.recoveredSoFar)}</span>
+              <span className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">{formatCurrency(opportunityData?.recoveredSoFar)}</span>
             </div>
           </div>
           {renderPercentage(contributionRate)}
         </div>
 
         {/* Card 4: Revenue At Risk */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-44">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] lg:min-h-[176px]">
           <div>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Revenue At Risk</h3>
+            <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">Revenue At Risk</h3>
             <div className="mb-1">
-              <span className="text-2xl font-semibold text-red-600">{formatCurrency(revenueAtRiskData?.totalAmount || 0)}</span>
+              <span className="text-lg sm:text-xl lg:text-2xl font-semibold text-red-600">{formatCurrency(revenueAtRiskData?.totalAmount || 0)}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-[10px] sm:text-xs text-gray-500 mt-1 leading-snug">
               {revenueAtRiskData?.appointmentCount || 0} appointment{((revenueAtRiskData?.appointmentCount || 0) !== 1) ? 's' : ''} (cancelled, no-show, booked)
             </p>
           </div>
@@ -200,28 +200,28 @@ const DashboardGreeting = ({ clinicInfo, revenueData, opportunityData, revenueAt
         </div>
 
         {/* Card 5: Revenue Opportunity */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-44">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] lg:min-h-[176px]">
           <div>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Revenue Opportunity</h3>
+            <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">Revenue Opportunity</h3>
             <div className="mb-1">
-              <span className="text-2xl font-semibold text-amber-600">{formatCurrency(opportunityData?.totalPotential)}</span>
+              <span className="text-lg sm:text-xl lg:text-2xl font-semibold text-amber-600">{formatCurrency(opportunityData?.totalPotential)}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">Identified by ZEVA</p>
+            <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Identified by ZEVA</p>
             <div className="mt-1">
-              <span className="text-[9px] font-semibold text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">ESTIMATED</span>
+              <span className="text-[8px] sm:text-[9px] font-semibold text-gray-400 border border-gray-200 rounded px-1 sm:px-1.5 py-0.5">ESTIMATED</span>
             </div>
           </div>
           {renderPercentage(opportunityData?.percentChangeVsYesterday, "New today")}
         </div>
 
         {/* Card 6: Cash Collection */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-44">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 lg:p-5 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[140px] sm:min-h-[160px] lg:min-h-[176px]">
           <div>
-            <h3 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Cash Collection</h3>
+            <h3 className="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">Cash Collection</h3>
             <div className="mb-1">
-              <span className="text-2xl font-semibold text-gray-900">{formatCurrency(revenueData?.cashCollection)}</span>
+              <span className="text-lg sm:text-xl lg:text-2xl font-semibold text-gray-900">{formatCurrency(revenueData?.cashCollection)}</span>
             </div>
-            <p className="text-sm text-gray-500 mt-1">Outstanding {formatCurrency(uncollectedAmount)}</p>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">Outstanding {formatCurrency(uncollectedAmount)}</p>
           </div>
           {renderPercentage(collectionRate)}
         </div>

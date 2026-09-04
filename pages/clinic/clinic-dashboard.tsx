@@ -22,7 +22,7 @@ import type { NextPageWithLayout } from "../_app";
 
 const ClinicDashboard: NextPageWithLayout = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const { clinicInfo, revenueData, opportunityData, priorityData, revenueAtRiskData, outstandingBalanceData, winBackData, tomorrowBusinessData, clinicCapacityData, businessIntelligenceData, patientRetentionData, staffIntelligenceData, recentOffers, referralData, revenueLeakageData, packageMembershipData, controlExceptionsData, zevaIntelligenceData, recommendationData } = useClinicDashboard(selectedDate);
+  const { clinicInfo, revenueData, opportunityData, priorityData, revenueAtRiskData, outstandingBalanceData, winBackData, tomorrowBusinessData, clinicCapacityData, liveClinicData, businessIntelligenceData, patientRetentionData, staffIntelligenceData, recentOffers, referralData, revenueLeakageData, packageMembershipData, controlExceptionsData, zevaIntelligenceData, recommendationData } = useClinicDashboard(selectedDate);
 
   return (
     <>
@@ -41,7 +41,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <WhatNeedsYourAttention priorityData={priorityData} outstandingBalanceData={outstandingBalanceData} />
         <DashboardInsights priorityData={priorityData} winBackData={winBackData} tomorrowBusinessData={tomorrowBusinessData} />
         <DashboardRecommendations businessIntelligenceData={businessIntelligenceData} recommendationData={recommendationData} />
-        <ClinicCapacity clinicCapacityData={clinicCapacityData} opportunityData={opportunityData} />
+        <ClinicCapacity clinicCapacityData={clinicCapacityData} opportunityData={opportunityData} liveClinicData={liveClinicData} />
         <BusinessIntelligence businessIntelligenceData={businessIntelligenceData} revenueData={revenueData} />
         <RevenueLeakageAndFunnel revenueLeakageData={revenueLeakageData} />
         <PatientGrowthAndReactivation patientRetentionData={patientRetentionData} />

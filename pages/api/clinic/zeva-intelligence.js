@@ -204,6 +204,46 @@ export default async function handler(req, res) {
     const noShowsChange = getPercentChange(currentNoShows, previousNoShows);
 
     // ════════════════════════════════════════════════════════════════════
+    // 5. APPOINTMENTS BOOKED — % of total appointments that are booked (not cancelled/no-show)
+    // ════════════════════════════════════════════════════════════════════
+    const [currentTotalAppts, previousTotalAppts] = await Promise.all([
+      Appointment.countDocuments({
+        clinicId: clinicObjectId,
+        startDate: { $gte: currentMonday, $lte: currentSunday },
+      }),
+      Appointment.countDocuments({
+        clinicId: clinicObjectId,
+        startDate: { $gte: prevMonday, $lte: prevSunday },
+      }),
+    ]);
+
+    const currentBookedAppts = currentTotalAppts - currentNoShows;
+    const previousBookedAppts = previousTotalAppts - previousNoShows;
+    const currentBookedPercent = currentTotalAppts > 0 ? Math.round((currentBookedAppts / currentTotalAppts) * 100) : 0;
+    const previousBookedPercent = previousTotalAppts > 0 ? Math.round((previousBookedAppts / previousTotalAppts) * 100) : 0;
+    const appointmentBookedChange = getPercentChange(currentBookedPercent, previousBookedPercent);
+
+    // ════════════════════════════════════════════════════════════════════
+    // 6. DEMAND EXCEEDING — % of appointments that were cancelled
+    // ════════════════════════════════════════════════════════════════════
+    const [currentCancelled, previousCancelled] = await Promise.all([
+      Appointment.countDocuments({
+        clinicId: clinicObjectId,
+        startDate: { $gte: currentMonday, $lte: currentSunday },
+        status: "Cancelled",
+      }),
+      Appointment.countDocuments({
+        clinicId: clinicObjectId,
+        startDate: { $gte: prevMonday, $lte: prevSunday },
+        status: "Cancelled",
+      }),
+    ]);
+
+    const currentCancelledPercent = currentTotalAppts > 0 ? Math.round((currentCancelled / currentTotalAppts) * 100) : 0;
+    const previousCancelledPercent = previousTotalAppts > 0 ? Math.round((previousCancelled / previousTotalAppts) * 100) : 0;
+    const demandExceedingChange = getPercentChange(currentCancelledPercent, previousCancelledPercent);
+
+    // ════════════════════════════════════════════════════════════════════
     // ANOMALY 1: No-show rate — compare today vs same day last week
     // ════════════════════════════════════════════════════════════════════
     const dayStart = new Date(
@@ -449,6 +489,16 @@ export default async function handler(req, res) {
           currentWeek: currentNoShows,
           previousWeek: previousNoShows,
           changePercent: noShowsChange,
+        },
+        appointmentBooked: {
+          currentWeek: currentBookedPercent,
+          previousWeek: previousBookedPercent,
+          changePercent: appointmentBookedChange,
+        },
+        demandExceeding: {
+          currentWeek: currentCancelledPercent,
+          previousWeek: previousCancelledPercent,
+          changePercent: demandExceedingChange,
         },
         noShowAnomaly,
         topServiceAnomaly,

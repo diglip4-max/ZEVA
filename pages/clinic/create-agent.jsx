@@ -173,25 +173,11 @@ const ManageAgentsPage = () => {
     setViewPhotoLoadFailed(false);
   }, [viewAgent?.photo, viewProfile?.photo]);
 
-  // Helper function to get user role from token
+  // URL-based role detection — no cross-role token scanning
   const getUserRole = () => {
     if (typeof window === 'undefined') return null;
-    try {
-      for (const key of TOKEN_PRIORITY) {
-        const token = localStorage.getItem(key) || sessionStorage.getItem(key);
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.role || null;
-          } catch (e) {
-            continue;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error getting user role:', error);
-    }
-    return null;
+    // This file is inside /clinic/ — always clinic context
+    return 'clinic';
   };
 
   // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx

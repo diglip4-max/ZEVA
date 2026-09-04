@@ -2,6 +2,9 @@ import dbConnect from "../../../lib/database";
 import Billing from "../../../models/Billing";
 import Clinic from "../../../models/Clinic";
 import Offer from "../../../models/CreateOffer";
+import Users from "../../../models/Users";
+import Service from "../../../models/Service";
+import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -50,7 +53,38 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: "Clinic ID is required" });
     }
 
-    // ── Instant Discount Analytics ──
+    // Parse date range from query params
+    const { startDate, endDate } = req.query;
+    const dateFilter = {};
+    let currentStartDate, currentEndDate;
+    
+    if (startDate && endDate) {
+      currentStartDate = new Date(startDate);
+      currentEndDate = new Date(endDate);
+      dateFilter.invoicedDate = {
+        $gte: currentStartDate,
+        $lte: currentEndDate,
+      };
+    }
+
+    // Calculate previous period (same duration, shifted back)
+    let prevDateFilter = {};
+    if (currentStartDate && currentEndDate) {
+      const durationMs = currentEndDate.getTime() - currentStartDate.getTime();
+      const prevStartDate = new Date(currentStartDate.getTime() - durationMs - 1000); // -1 second to avoid overlap
+      const prevEndDate = new Date(currentStartDate.getTime() - 1000); // Just before current period starts
+      prevDateFilter = {
+        invoicedDate: {
+          $gte: prevStartDate,
+          $lte: prevEndDate,
+        },
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SECTION 1: OFFER BILLING DATA (Instant, Bundle, Cashback)
+    // ═══════════════════════════════════════════════════════
+
     const instantDiscountPipeline = [
       {
         $match: {
@@ -58,6 +92,7 @@ export default async function handler(req, res) {
           offerApplied: true,
           offerType: "instant_discount",
           isAdvanceOnly: { $ne: true },
+          ...dateFilter,
         },
       },
       {
@@ -70,7 +105,6 @@ export default async function handler(req, res) {
       },
     ];
 
-    // ── Bundle Offer Analytics ──
     const bundlePipeline = [
       {
         $match: {
@@ -78,12 +112,14 @@ export default async function handler(req, res) {
           offerApplied: true,
           offerType: "bundle",
           isAdvanceOnly: { $ne: true },
+          ...dateFilter,
         },
       },
       {
         $group: {
           _id: null,
           count: { $sum: 1 },
+          totalRevenue: { $sum: "$amount" },
           totalFreeSessions: {
             $sum: {
               $reduce: {
@@ -106,7 +142,6 @@ export default async function handler(req, res) {
       },
     ];
 
-    // ── Cashback Analytics ──
     const cashbackPipeline = [
       {
         $match: {
@@ -116,6 +151,7 @@ export default async function handler(req, res) {
             { offerApplied: true, offerType: "cashback" },
             { isCashbackApplied: true },
           ],
+          ...dateFilter,
         },
       },
       {
@@ -124,287 +160,72 @@ export default async function handler(req, res) {
           count: { $sum: 1 },
           totalCashbackEarned: { $sum: "$cashbackAmount" },
           totalWalletUsed: { $sum: "$cashbackWalletUsed" },
+          totalRevenue: { $sum: "$amount" },
         },
       },
     ];
 
-    // ── Free Session Redemption Analytics (standalone) ──
-    const freeSessionPipeline = [
-      {
-        $match: {
-          clinicId: clinicId,
-          isAdvanceOnly: { $ne: true },
-          usedFreeSessions: { $exists: true, $not: { $size: 0 } },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          count: { $sum: 1 },
-          totalRedeemed: {
-            $sum: {
-              $reduce: {
-                input: "$usedFreeSessions",
-                initialValue: 0,
-                in: { $add: ["$$value", 1] },
-              },
-            },
-          },
-        },
-      },
-    ];
+    // ═══════════════════════════════════════════════════════
+    // SECTION 2: LIABILITY DATA
+    // ═══════════════════════════════════════════════════════
 
-    // Run all pipelines in parallel
-    const [instantResult, bundleResult, cashbackResult, freeSessionResult] = await Promise.all([
-      Billing.aggregate(instantDiscountPipeline),
-      Billing.aggregate(bundlePipeline),
-      Billing.aggregate(cashbackPipeline),
-      Billing.aggregate(freeSessionPipeline),
-    ]);
-
-    const instant = instantResult[0] || { count: 0, totalDiscount: 0, totalRevenue: 0 };
-    const bundle = bundleResult[0] || { count: 0, totalFreeSessions: 0, totalRedeemed: 0 };
-    const cashback = cashbackResult[0] || { count: 0, totalCashbackEarned: 0, totalWalletUsed: 0 };
-    const freeSession = freeSessionResult[0] || { count: 0, totalRedeemed: 0 };
-
-    // Total offer usage count and revenue (any billing with any offer activity)
-    const offersUsedMatch = {
-      clinicId: clinicId,
-      isAdvanceOnly: { $ne: true },
-      $or: [
-        { offerApplied: true },
-        { isCashbackApplied: true },
-        { usedFreeSessions: { $exists: true, $not: { $size: 0 } } },
-        { cashbackWalletUsed: { $gt: 0 } },
-      ],
-    };
-    const totalOfferBillings = await Billing.countDocuments(offersUsedMatch);
-
-    // Fetch billing details for Total Offers Used modal
-    const PatientRegistration = (await import("../../../models/PatientRegistration")).default;
-    const offersUsedBillings = await Billing.find(offersUsedMatch)
-      .select("invoiceNumber patientId invoicedDate offerName offerType cashbackOfferName isCashbackApplied")
-      .sort({ invoicedDate: -1 })
-      .lean();
-
-    // Get patient names for offers-used billings
-    const offersUsedPatientIds = [...new Set(offersUsedBillings.map((b) => b.patientId?.toString()).filter(Boolean))];
-    const offersUsedPatients = await PatientRegistration.find({ _id: { $in: offersUsedPatientIds } }).select("firstName lastName").lean();
-    const offersUsedPatientMap = {};
-    offersUsedPatients.forEach((p) => {
-      const fullName = [p.firstName, p.lastName].filter(Boolean).join(" ");
-      offersUsedPatientMap[p._id.toString()] = fullName || "Unknown";
-    });
-
-    const offersUsedList = offersUsedBillings.map((b) => {
-      let offerDisplayName = b.offerName || null;
-      if (!offerDisplayName && b.cashbackOfferName) offerDisplayName = b.cashbackOfferName;
-      let resolvedOfferType = b.offerType;
-      if (!resolvedOfferType && b.isCashbackApplied) resolvedOfferType = "cashback";
-      return {
-        invoiceNumber: b.invoiceNumber,
-        patientName: offersUsedPatientMap[b.patientId?.toString()] || "Unknown",
-        invoicedDate: b.invoicedDate,
-        offerName: offerDisplayName,
-        offerType: resolvedOfferType,
-      };
-    });
-
-    // Fetch billing details for Total Discount Applied modal (instant_discount only)
-    const discountBillings = await Billing.find({
-      clinicId: clinicId,
-      offerApplied: true,
-      offerType: "instant_discount",
-      isAdvanceOnly: { $ne: true },
-    })
-      .select("invoiceNumber patientId invoicedDate offerName offerDiscountAmount discountPercent originalAmount amount")
-      .sort({ invoicedDate: -1 })
-      .lean();
-
-    // Get patient names for discount billings
-    const discountPatientIds = [...new Set(discountBillings.map((b) => b.patientId?.toString()).filter(Boolean))];
-    const discountPatients = await PatientRegistration.find({ _id: { $in: discountPatientIds } }).select("firstName lastName").lean();
-    const discountPatientMap = {};
-    discountPatients.forEach((p) => {
-      const fullName = [p.firstName, p.lastName].filter(Boolean).join(" ");
-      discountPatientMap[p._id.toString()] = fullName || "Unknown";
-    });
-
-    const instantDiscountList = discountBillings.map((b) => ({
-      invoiceNumber: b.invoiceNumber,
-      patientName: discountPatientMap[b.patientId?.toString()] || "Unknown",
-      invoicedDate: b.invoicedDate,
-      offerName: b.offerName || "—",
-      discountPercent: b.discountPercent || 0,
-      discountAmount: b.offerDiscountAmount || 0,
-      originalAmount: b.originalAmount || 0,
-      finalAmount: b.amount || 0,
-    }));
-
-    // Total revenue from billings where any offer type is applied
-    const totalRevenueResult = await Billing.aggregate([
+    const liabilityPipeline = [
       {
         $match: {
           clinicId: clinicId,
           isAdvanceOnly: { $ne: true },
           $or: [
-            { offerApplied: true, offerType: { $in: ["instant_discount", "cashback", "bundle"] } },
+            { offerApplied: true, offerType: "bundle" },
+            { offerApplied: true, offerType: "cashback" },
             { isCashbackApplied: true },
           ],
+          ...dateFilter,
         },
       },
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: "$amount" },
+          totalFreeSessions: {
+            $sum: {
+              $cond: [
+                { $eq: ["$offerType", "bundle"] },
+                {
+                  $reduce: {
+                    input: "$offerFreeSession",
+                    initialValue: 0,
+                    in: { $add: ["$$value", 1] },
+                  },
+                },
+                0,
+              ],
+            },
+          },
+          totalRedeemed: {
+            $sum: {
+              $cond: [
+                { $eq: ["$offerType", "bundle"] },
+                {
+                  $reduce: {
+                    input: "$usedFreeSessions",
+                    initialValue: 0,
+                    in: { $add: ["$$value", 1] },
+                  },
+                },
+                0,
+              ],
+            },
+          },
+          totalCashbackEarned: { $sum: "$cashbackAmount" },
+          totalWalletUsed: { $sum: "$cashbackWalletUsed" },
         },
       },
-    ]);
+    ];
 
-    const totalRevenue = totalRevenueResult[0]?.totalRevenue || 0;
+    // ═══════════════════════════════════════════════════════
+    // SECTION 3: PERFORMANCE / FUNNEL DATA
+    // ═══════════════════════════════════════════════════════
 
-    // Fetch billing details for revenue modal (patient name, invoice number, paid amount, offer info)
-    const revenueBillings = await Billing.find({
-      clinicId: clinicId,
-      isAdvanceOnly: { $ne: true },
-      $or: [
-        { offerApplied: true, offerType: { $in: ["instant_discount", "cashback", "bundle"] } },
-        { isCashbackApplied: true },
-      ],
-    })
-    .select("invoiceNumber amount patientId invoicedDate offerName offerType offerDiscountAmount cashbackOfferName cashbackAmount isCashbackApplied")
-    .sort({ invoicedDate: -1 })
-    .lean();
-
-    // Get patient names for the billings
-    const patientIds = [...new Set(revenueBillings.map((b) => b.patientId?.toString()).filter(Boolean))];
-    const patients = await PatientRegistration.find({ _id: { $in: patientIds } }).select("firstName lastName").lean();
-    const patientMap = {};
-    patients.forEach((p) => {
-      const fullName = [p.firstName, p.lastName].filter(Boolean).join(" ");
-      patientMap[p._id.toString()] = fullName || "Unknown";
-    });
-
-    const revenueBillingList = revenueBillings.map((b) => {
-      // Determine the offer display name
-      let offerDisplayName = b.offerName || null;
-      if (!offerDisplayName && b.cashbackOfferName) offerDisplayName = b.cashbackOfferName;
-
-      // Infer offerType for older cashback billings where offerType was null
-      let resolvedOfferType = b.offerType;
-      if (!resolvedOfferType && b.isCashbackApplied) resolvedOfferType = "cashback";
-
-      return {
-        invoiceNumber: b.invoiceNumber,
-        amount: b.amount,
-        patientName: patientMap[b.patientId?.toString()] || "Unknown",
-        invoicedDate: b.invoicedDate,
-        offerName: offerDisplayName,
-        offerType: resolvedOfferType,
-        offerDiscountAmount: b.offerDiscountAmount || 0,
-        cashbackAmount: b.cashbackAmount || 0,
-      };
-    });
-
-    // ── Most Used Offer: group by offerType, find max count, return offer names ──
-    const offerTypeCounts = await Billing.aggregate([
-      {
-        $match: {
-          clinicId: clinicId,
-          isAdvanceOnly: { $ne: true },
-          offerApplied: true,
-          offerType: { $in: ["instant_discount", "cashback", "bundle"] },
-        },
-      },
-      {
-        $group: {
-          _id: "$offerType",
-          count: { $sum: 1 },
-          offerNames: { $addToSet: "$offerName" },
-        },
-      },
-      { $sort: { count: -1 } },
-    ]);
-
-    let mostUsedOffers = [];
-    if (offerTypeCounts.length > 0) {
-      const maxCount = offerTypeCounts[0].count;
-      mostUsedOffers = offerTypeCounts
-        .filter((o) => o.count === maxCount)
-        .map((o) => ({
-          offerType: o._id,
-          count: o.count,
-          offerNames: o.offerNames.filter(Boolean),
-        }));
-    }
-
-    // ── Underperforming Offer: find offer(s) with lowest usage from Billing ──
-    const allOffers = await Offer.find({ clinicId: clinicId }).select("title offerType").lean();
-
-    let underperformingOffers = [];
-    if (allOffers.length > 0) {
-      const offerTitles = allOffers.map((o) => o.title);
-
-      // Count usage from regular offers (offerApplied: true + offerName match)
-      const regularUsageCounts = await Billing.aggregate([
-        {
-          $match: {
-            clinicId: clinicId,
-            isAdvanceOnly: { $ne: true },
-            offerApplied: true,
-            offerName: { $in: offerTitles },
-          },
-        },
-        {
-          $group: {
-            _id: "$offerName",
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      // Count usage from cashback offers (isCashbackApplied: true + cashbackOfferName match)
-      const cashbackUsageCounts = await Billing.aggregate([
-        {
-          $match: {
-            clinicId: clinicId,
-            isAdvanceOnly: { $ne: true },
-            isCashbackApplied: true,
-            cashbackOfferName: { $in: offerTitles },
-          },
-        },
-        {
-          $group: {
-            _id: "$cashbackOfferName",
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      // Merge both usage maps (add counts if same offer name appears in both)
-      const usageMap = {};
-      regularUsageCounts.forEach((u) => { usageMap[u._id] = (usageMap[u._id] || 0) + u.count; });
-      cashbackUsageCounts.forEach((u) => { usageMap[u._id] = (usageMap[u._id] || 0) + u.count; });
-
-      // Attach usage to each offer (default 0 if never used)
-      const offersWithUsage = allOffers.map((o) => ({
-        title: o.title,
-        offerType: o.offerType,
-        usedCount: usageMap[o.title] || 0,
-      }));
-
-      // Return offers used 0 times or just 1 time
-      underperformingOffers = offersWithUsage
-        .filter((o) => o.usedCount <= 1)
-        .map((o) => ({
-          title: o.title,
-          offerType: o.offerType,
-          usedCount: o.usedCount,
-        }));
-    }
-
-    // ── Top 5 Patients by offer usage frequency ──
-    const topPatientsPipeline = [
+    const performancePipeline = [
       {
         $match: {
           clinicId: clinicId,
@@ -413,75 +234,786 @@ export default async function handler(req, res) {
             { offerApplied: true },
             { isCashbackApplied: true },
           ],
+          ...dateFilter,
         },
       },
       {
         $group: {
           _id: "$patientId",
-          count: { $sum: 1 },
-          offers: { $push: { offerName: "$offerName", cashbackOfferName: "$cashbackOfferName", offerType: "$offerType", isCashbackApplied: "$isCashbackApplied" } },
+          offerCount: { $sum: 1 },
+          totalPaid: { $sum: "$amount" },
         },
       },
-      { $sort: { count: -1 } },
-      { $limit: 5 },
     ];
 
-    const topPatientsResult = await Billing.aggregate(topPatientsPipeline);
+    // ═══════════════════════════════════════════════════════
+    // SECTION 3B: REPEAT REVENUE (by offerType)
+    // Groups by patientId + offerType to find repeat usage of same offer type
+    // ═══════════════════════════════════════════════════════
 
-    // Resolve patient names
-    const topPatientIds = topPatientsResult.map((r) => r._id).filter(Boolean);
-    const topPatients = await PatientRegistration.find({ _id: { $in: topPatientIds } }).select("firstName lastName").lean();
-    const topPatientMap = {};
-    topPatients.forEach((p) => {
-      const fullName = [p.firstName, p.lastName].filter(Boolean).join(" ");
-      topPatientMap[p._id.toString()] = fullName || "Unknown";
-    });
+    const repeatRevenuePipeline = [
+      {
+        $match: {
+          clinicId: clinicId,
+          isAdvanceOnly: { $ne: true },
+          $or: [
+            { offerApplied: true, offerType: { $in: ["instant_discount", "cashback", "bundle"] } },
+            { isCashbackApplied: true },
+          ],
+          ...dateFilter,
+        },
+      },
+      {
+        $addFields: {
+          resolvedOfferType: {
+            $cond: [
+              { $and: [{ $eq: ["$offerType", null] }, { $eq: ["$isCashbackApplied", true] }] },
+              "cashback",
+              "$offerType"
+            ],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            patientId: "$patientId",
+            offerType: "$resolvedOfferType",
+          },
+          count: { $sum: 1 },
+          totalPaid: { $sum: "$amount" },
+        },
+      },
+      {
+        $match: {
+          "count": { $gt: 1 },
+        },
+      },
+    ];
 
-    const topPatientsList = topPatientsResult.map((r) => {
-      // Get unique offer names from the billings
-      const offerNamesSet = new Set();
-      (r.offers || []).forEach((o) => {
-        const name = o.offerName || (o.isCashbackApplied ? o.cashbackOfferName : null);
-        if (name) offerNamesSet.add(name);
+    // ═══════════════════════════════════════════════════════
+    // SECTION 4: DISCOUNT CONTROL DATA
+    // ═══════════════════════════════════════════════════════
+
+    const discountControlPipeline = [
+      {
+        $match: {
+          clinicId: clinicId,
+          offerApplied: true,
+          offerType: "instant_discount",
+          isAdvanceOnly: { $ne: true },
+          ...dateFilter,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalDiscount: { $sum: "$offerDiscountAmount" },
+          totalOriginalAmount: { $sum: "$originalAmount" },
+          count: { $sum: 1 },
+          manualOverrides: {
+            $sum: {
+              $cond: [{ $eq: ["$isManualOverride", true] }, 1, 0],
+            },
+          },
+        },
+      },
+    ];
+
+    // ═══════════════════════════════════════════════════════
+    // SECTION 5: SERVICE INTELLIGENCE DATA
+    // ═══════════════════════════════════════════════════════
+
+    const serviceIntelligencePipeline = [
+      {
+        $match: {
+          clinicId: clinicId,
+          isAdvanceOnly: { $ne: true },
+          $or: [
+            { offerApplied: true },
+            { isCashbackApplied: true },
+          ],
+          ...dateFilter,
+        },
+      },
+      {
+        $group: {
+          _id: "$serviceId",
+          offerRevenue: { $sum: "$amount" },
+          offerCount: { $sum: 1 },
+          patientIds: { $addToSet: "$patientId" },
+        },
+      },
+    ];
+
+    // Run all main pipelines in parallel
+    const [
+      instantResult,
+      bundleResult,
+      cashbackResult,
+      liabilityResult,
+      performanceResult,
+      discountControlResult,
+      serviceIntelligenceResult,
+      repeatRevenueResult,
+    ] = await Promise.all([
+      Billing.aggregate(instantDiscountPipeline),
+      Billing.aggregate(bundlePipeline),
+      Billing.aggregate(cashbackPipeline),
+      Billing.aggregate(liabilityPipeline),
+      Billing.aggregate(performancePipeline),
+      Billing.aggregate(discountControlPipeline),
+      Billing.aggregate(serviceIntelligencePipeline),
+      Billing.aggregate(repeatRevenuePipeline),
+    ]);
+
+    const instant = instantResult[0] || { count: 0, totalDiscount: 0, totalRevenue: 0 };
+    const bundle = bundleResult[0] || { count: 0, totalRevenue: 0, totalFreeSessions: 0, totalRedeemed: 0 };
+    const cashback = cashbackResult[0] || { count: 0, totalCashbackEarned: 0, totalWalletUsed: 0, totalRevenue: 0 };
+    const liability = liabilityResult[0] || { totalFreeSessions: 0, totalRedeemed: 0, totalCashbackEarned: 0, totalWalletUsed: 0 };
+    const discountControl = discountControlResult[0] || { totalDiscount: 0, totalOriginalAmount: 0, count: 0, manualOverrides: 0 };
+
+    // ═══════════════════════════════════════════════════════
+    // CALCULATE DERIVED VALUES
+    // ═══════════════════════════════════════════════════════
+
+    // Liability calculations
+    const freeSessionsRemaining = liability.totalFreeSessions - liability.totalRedeemed;
+    const freeSessionLiability = Math.max(0, freeSessionsRemaining * 100);
+    const walletLiability = Math.max(0, liability.totalCashbackEarned - liability.totalWalletUsed);
+    const totalLiability = freeSessionLiability + walletLiability;
+
+    // Performance calculations
+    const totalPatients = await PatientRegistration.countDocuments({ clinicId: clinicId });
+    const repeatPatients = performanceResult.filter((p) => p.offerCount > 1);
+    const repeatVisits = repeatPatients.reduce((sum, p) => sum + (p.offerCount - 1), 0);
+
+    // Repeat Revenue: sum of paid amounts where same offerType was used repeatedly by same patient
+    const repeatRevenue = repeatRevenueResult.reduce((sum, r) => sum + r.totalPaid, 0);
+
+    // Discount control calculations
+    const averageDiscount = discountControl.totalOriginalAmount > 0
+      ? Math.round((discountControl.totalDiscount / discountControl.totalOriginalAmount) * 100)
+      : 0;
+
+    // ═══════════════════════════════════════════════════════
+    // SECTION 6: STAFF USAGE DATA
+    // ═══════════════════════════════════════════════════════
+
+    const staffMembers = await Users.find({
+      clinicId: clinicId,
+      role: { $in: ["staff", "doctorStaff"] },
+    }).select("_id name").lean();
+
+    let staffUsageData = [];
+    if (staffMembers.length > 0) {
+      const staffIds = staffMembers.map((s) => s._id);
+
+      const staffUsagePipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            isAdvanceOnly: { $ne: true },
+            createdBy: { $in: staffIds },
+            $or: [
+              { offerApplied: true },
+              { isCashbackApplied: true },
+            ],
+            ...dateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: "$createdBy",
+            offers: { $sum: 1 },
+            totalBenefit: {
+              $sum: {
+                $add: [
+                  { $ifNull: ["$offerDiscountAmount", 0] },
+                  { $ifNull: ["$cashbackAmount", 0] },
+                ],
+              },
+            },
+            manualOverrides: {
+              $sum: {
+                $cond: [{ $eq: ["$isManualOverride", true] }, 1, 0],
+              },
+            },
+          },
+        },
+      ];
+
+      const staffUsageResult = await Billing.aggregate(staffUsagePipeline);
+
+      const staffMap = {};
+      staffMembers.forEach((s) => {
+        staffMap[s._id.toString()] = {
+          staffId: s._id.toString(),
+          staffName: s.name || "Unknown",
+          offers: 0,
+          avgBenefit: 0,
+          overrides: 0,
+        };
       });
-      return {
-        patientId: r._id,
-        patientName: topPatientMap[r._id?.toString()] || "Unknown",
-        count: r.count,
-        offerNames: [...offerNamesSet],
-      };
+
+      staffUsageResult.forEach((r) => {
+        const staffId = r._id.toString();
+        if (staffMap[staffId]) {
+          staffMap[staffId].offers = r.offers;
+          staffMap[staffId].avgBenefit = r.offers > 0 ? Math.round(r.totalBenefit / r.offers) : 0;
+          staffMap[staffId].overrides = r.manualOverrides;
+        }
+      });
+
+      staffUsageData = Object.values(staffMap).map((s) => ({
+        ...s,
+        status: s.offers === 0 ? "Low" : s.overrides > 0 ? "Needs review" : "Low",
+      }));
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // SECTION 7: SERVICE INTELLIGENCE (with repeat rates)
+    // ═══════════════════════════════════════════════════════
+
+    const serviceIds = serviceIntelligenceResult.map((r) => r._id).filter(Boolean);
+    const services = await Service.find({ _id: { $in: serviceIds } }).select("_id name").lean();
+    const serviceMap = {};
+    services.forEach((s) => {
+      serviceMap[s._id.toString()] = s.name;
     });
+
+    const serviceIntelligenceData = await Promise.all(
+      serviceIntelligenceResult.map(async (r) => {
+        const serviceName = serviceMap[r._id?.toString()] || "Unknown Service";
+        const offerRevenue = r.offerRevenue;
+
+        // Calculate repeat rate for this service
+        const patientVisitCounts = await Billing.aggregate([
+          {
+            $match: {
+              clinicId: clinicId,
+              serviceId: r._id,
+              isAdvanceOnly: { $ne: true },
+              patientId: { $in: r.patientIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$patientId",
+              visitCount: { $sum: 1 },
+            },
+          },
+        ]);
+
+        const repeatPatientsCount = patientVisitCounts.filter((p) => p.visitCount > 1).length;
+        const totalPatientsCount = patientVisitCounts.length;
+        const repeatRate = totalPatientsCount > 0 ? Math.round((repeatPatientsCount / totalPatientsCount) * 100) : 0;
+
+        return {
+          serviceName,
+          offerRevenue,
+          repeatRate,
+        };
+      })
+    );
+
+    serviceIntelligenceData.sort((a, b) => b.offerRevenue - a.offerRevenue);
+
+    // ═══════════════════════════════════════════════════════
+    // SECTION 8: EXPIRY DATA
+    // ═══════════════════════════════════════════════════════
+
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const within7DaysPipeline = [
+      {
+        $match: {
+          clinicId: clinicId,
+          offerApplied: true,
+          offerType: "bundle",
+          isAdvanceOnly: { $ne: true },
+          offerExpiryDate: {
+            $gte: now,
+            $lte: sevenDaysFromNow,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$patientId",
+          benefitAmount: {
+            $sum: {
+              $multiply: [
+                {
+                  $subtract: [
+                    {
+                      $reduce: {
+                        input: "$offerFreeSession",
+                        initialValue: 0,
+                        in: { $add: ["$$value", 1] },
+                      },
+                    },
+                    {
+                      $reduce: {
+                        input: "$usedFreeSessions",
+                        initialValue: 0,
+                        in: { $add: ["$$value", 1] },
+                      },
+                    },
+                  ],
+                },
+                100,
+              ],
+            },
+          },
+        },
+      },
+    ];
+
+    const within30DaysPipeline = [
+      {
+        $match: {
+          clinicId: clinicId,
+          offerApplied: true,
+          offerType: "bundle",
+          isAdvanceOnly: { $ne: true },
+          offerExpiryDate: {
+            $gte: now,
+            $lte: thirtyDaysFromNow,
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$patientId",
+          benefitAmount: {
+            $sum: {
+              $multiply: [
+                {
+                  $subtract: [
+                    {
+                      $reduce: {
+                        input: "$offerFreeSession",
+                        initialValue: 0,
+                        in: { $add: ["$$value", 1] },
+                      },
+                    },
+                    {
+                      $reduce: {
+                        input: "$usedFreeSessions",
+                        initialValue: 0,
+                        in: { $add: ["$$value", 1] },
+                      },
+                    },
+                  ],
+                },
+                100,
+              ],
+            },
+          },
+        },
+      },
+    ];
+
+    const [within7DaysResult, within30DaysResult] = await Promise.all([
+      Billing.aggregate(within7DaysPipeline),
+      Billing.aggregate(within30DaysPipeline),
+    ]);
+
+    const within7Days = {
+      patientCount: within7DaysResult.length,
+      benefitAmount: within7DaysResult.reduce((sum, r) => sum + (r.benefitAmount || 0), 0),
+    };
+
+    const within30Days = {
+      patientCount: within30DaysResult.length,
+      benefitAmount: within30DaysResult.reduce((sum, r) => sum + (r.benefitAmount || 0), 0),
+    };
+
+    const renewalOpportunity = within30Days.benefitAmount * 0.5;
+
+    // ═══════════════════════════════════════════════════════
+    // PREVIOUS PERIOD CALCULATIONS (for percentage changes)
+    // ═══════════════════════════════════════════════════════
+
+    let prevInstant = { count: 0, totalDiscount: 0, totalRevenue: 0 };
+    let prevBundle = { count: 0, totalRevenue: 0, totalFreeSessions: 0, totalRedeemed: 0 };
+    let prevCashback = { count: 0, totalCashbackEarned: 0, totalWalletUsed: 0, totalRevenue: 0 };
+    let prevDiscountControl = { totalDiscount: 0, totalOriginalAmount: 0, count: 0, manualOverrides: 0 };
+    let prevRepeatRevenue = 0;
+    let prevTotalLiability = 0;
+
+    if (Object.keys(prevDateFilter).length > 0) {
+      // Run previous period pipelines
+      const prevInstantPipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            offerApplied: true,
+            offerType: "instant_discount",
+            isAdvanceOnly: { $ne: true },
+            ...prevDateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            totalDiscount: { $sum: "$offerDiscountAmount" },
+            totalRevenue: { $sum: "$amount" },
+          },
+        },
+      ];
+
+      const prevBundlePipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            offerApplied: true,
+            offerType: "bundle",
+            isAdvanceOnly: { $ne: true },
+            ...prevDateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            totalRevenue: { $sum: "$amount" },
+            totalFreeSessions: {
+              $sum: {
+                $reduce: {
+                  input: "$offerFreeSession",
+                  initialValue: 0,
+                  in: { $add: ["$$value", 1] },
+                },
+              },
+            },
+            totalRedeemed: {
+              $sum: {
+                $reduce: {
+                  input: "$usedFreeSessions",
+                  initialValue: 0,
+                  in: { $add: ["$$value", 1] },
+                },
+              },
+            },
+          },
+        },
+      ];
+
+      const prevCashbackPipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            isAdvanceOnly: { $ne: true },
+            $or: [
+              { offerApplied: true, offerType: "cashback" },
+              { isCashbackApplied: true },
+            ],
+            ...prevDateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            count: { $sum: 1 },
+            totalCashbackEarned: { $sum: "$cashbackAmount" },
+            totalWalletUsed: { $sum: "$cashbackWalletUsed" },
+            totalRevenue: { $sum: "$amount" },
+          },
+        },
+      ];
+
+      const prevDiscountPipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            offerApplied: true,
+            offerType: "instant_discount",
+            isAdvanceOnly: { $ne: true },
+            ...prevDateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalDiscount: { $sum: "$offerDiscountAmount" },
+            totalOriginalAmount: { $sum: "$originalAmount" },
+            count: { $sum: 1 },
+            manualOverrides: {
+              $sum: {
+                $cond: [{ $eq: ["$isManualOverride", true] }, 1, 0],
+              },
+            },
+          },
+        },
+      ];
+
+      const prevLiabilityPipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            isAdvanceOnly: { $ne: true },
+            $or: [
+              { offerApplied: true, offerType: "bundle" },
+              { offerApplied: true, offerType: "cashback" },
+              { isCashbackApplied: true },
+            ],
+            ...prevDateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalFreeSessions: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$offerType", "bundle"] },
+                  {
+                    $reduce: {
+                      input: "$offerFreeSession",
+                      initialValue: 0,
+                      in: { $add: ["$$value", 1] },
+                    },
+                  },
+                  0,
+                ],
+              },
+            },
+            totalRedeemed: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$offerType", "bundle"] },
+                  {
+                    $reduce: {
+                      input: "$usedFreeSessions",
+                      initialValue: 0,
+                      in: { $add: ["$$value", 1] },
+                    },
+                  },
+                  0,
+                ],
+              },
+            },
+            totalCashbackEarned: { $sum: "$cashbackAmount" },
+            totalWalletUsed: { $sum: "$cashbackWalletUsed" },
+          },
+        },
+      ];
+
+      const prevPerformancePipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            isAdvanceOnly: { $ne: true },
+            $or: [
+              { offerApplied: true },
+              { isCashbackApplied: true },
+            ],
+            ...prevDateFilter,
+          },
+        },
+        {
+          $group: {
+            _id: "$patientId",
+            offerCount: { $sum: 1 },
+            totalPaid: { $sum: "$amount" },
+          },
+        },
+      ];
+
+      const prevRepeatRevenuePipeline = [
+        {
+          $match: {
+            clinicId: clinicId,
+            isAdvanceOnly: { $ne: true },
+            $or: [
+              { offerApplied: true, offerType: { $in: ["instant_discount", "cashback", "bundle"] } },
+              { isCashbackApplied: true },
+            ],
+            ...prevDateFilter,
+          },
+        },
+        {
+          $addFields: {
+            resolvedOfferType: {
+              $cond: [
+                { $and: [{ $eq: ["$offerType", null] }, { $eq: ["$isCashbackApplied", true] }] },
+                "cashback",
+                "$offerType"
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              patientId: "$patientId",
+              offerType: "$resolvedOfferType",
+            },
+            count: { $sum: 1 },
+            totalPaid: { $sum: "$amount" },
+          },
+        },
+        {
+          $match: {
+            "count": { $gt: 1 },
+          },
+        },
+      ];
+
+      const [
+        prevInstantResult,
+        prevBundleResult,
+        prevCashbackResult,
+        prevDiscountResult,
+        prevLiabilityResult,
+        prevPerformanceResult,
+        prevRepeatRevenueResult,
+      ] = await Promise.all([
+        Billing.aggregate(prevInstantPipeline),
+        Billing.aggregate(prevBundlePipeline),
+        Billing.aggregate(prevCashbackPipeline),
+        Billing.aggregate(prevDiscountPipeline),
+        Billing.aggregate(prevLiabilityPipeline),
+        Billing.aggregate(prevPerformancePipeline),
+        Billing.aggregate(prevRepeatRevenuePipeline),
+      ]);
+
+      prevInstant = prevInstantResult[0] || { count: 0, totalDiscount: 0, totalRevenue: 0 };
+      prevBundle = prevBundleResult[0] || { count: 0, totalRevenue: 0, totalFreeSessions: 0, totalRedeemed: 0 };
+      prevCashback = prevCashbackResult[0] || { count: 0, totalCashbackEarned: 0, totalWalletUsed: 0, totalRevenue: 0 };
+      prevDiscountControl = prevDiscountResult[0] || { totalDiscount: 0, totalOriginalAmount: 0, count: 0, manualOverrides: 0 };
+
+      // Previous liability
+      const prevLiability = prevLiabilityResult[0] || { totalFreeSessions: 0, totalRedeemed: 0, totalCashbackEarned: 0, totalWalletUsed: 0 };
+      const prevFreeSessionsRemaining = prevLiability.totalFreeSessions - prevLiability.totalRedeemed;
+      const prevFreeSessionLiability = Math.max(0, prevFreeSessionsRemaining * 100);
+      const prevWalletLiability = Math.max(0, prevLiability.totalCashbackEarned - prevLiability.totalWalletUsed);
+      prevTotalLiability = prevFreeSessionLiability + prevWalletLiability;
+
+      // Previous repeat revenue (same offerType used repeatedly by same patient)
+      prevRepeatRevenue = prevRepeatRevenueResult.reduce((sum, r) => sum + r.totalPaid, 0);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // CALCULATE PERCENTAGE CHANGES
+    // ═══════════════════════════════════════════════════════
+
+    const totalOfferRevenue = instant.totalRevenue + bundle.totalRevenue + cashback.totalRevenue;
+    const totalOfferCount = instant.count + bundle.count + cashback.count;
+
+    const calcPercentChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    const prevTotalOfferRevenue = prevInstant.totalRevenue + prevBundle.totalRevenue + prevCashback.totalRevenue;
+    const prevTotalBenefit = prevInstant.totalDiscount;
+    const currentTotalBenefit = instant.totalDiscount;
+    const prevAverageDiscount = prevDiscountControl.totalOriginalAmount > 0
+      ? Math.round((prevDiscountControl.totalDiscount / prevDiscountControl.totalOriginalAmount) * 100)
+      : 0;
+
+    const percentChanges = {
+      attributedRevenue: calcPercentChange(totalOfferRevenue, prevTotalOfferRevenue),
+      totalBenefit: calcPercentChange(currentTotalBenefit, prevTotalBenefit),
+      offerUsage: calcPercentChange(totalOfferCount, prevInstant.count + prevBundle.count + prevCashback.count),
+      repeatRevenue: calcPercentChange(repeatRevenue, prevRepeatRevenue),
+      activeLiability: calcPercentChange(totalLiability, prevTotalLiability),
+      marginThreshold: calcPercentChange(averageDiscount, prevAverageDiscount),
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // BUILD RESPONSE
+    // ═══════════════════════════════════════════════════════
 
     res.status(200).json({
       success: true,
-      analytics: {
-        instantDiscount: {
-          count: instant.count,
-          totalDiscount: instant.totalDiscount,
-          totalRevenue: instant.totalRevenue,
-          list: instantDiscountList,
+      data: {
+        // Offer Billing Data
+        offerBilling: {
+          instantDiscount: {
+            count: instant.count,
+            totalRevenue: instant.totalRevenue,
+            totalDiscount: instant.totalDiscount,
+          },
+          bundle: {
+            count: bundle.count,
+            totalRevenue: bundle.totalRevenue,
+            totalFreeSessions: bundle.totalFreeSessions,
+            totalRedeemed: bundle.totalRedeemed,
+          },
+          cashback: {
+            count: cashback.count,
+            totalRevenue: cashback.totalRevenue,
+            totalCashback: cashback.totalCashbackEarned,
+            totalWalletUsed: cashback.totalWalletUsed,
+          },
+          totalOfferRevenue,
+          totalOfferCount,
         },
-        bundle: {
-          count: bundle.count,
-          totalFreeSessions: bundle.totalFreeSessions,
-          totalRedeemed: bundle.totalRedeemed,
+
+        // Liability Data
+        liability: {
+          freeSessionLiability,
+          walletLiability,
+          totalLiability,
+          freeSessionsRemaining: Math.max(0, freeSessionsRemaining),
         },
-        cashback: {
-          count: cashback.count,
-          totalCashbackEarned: cashback.totalCashbackEarned,
-          totalWalletUsed: cashback.totalWalletUsed,
+
+        // Expiry Data
+        expiry: {
+          within7Days,
+          within30Days,
+          renewalOpportunity,
         },
-        freeSessionRedemption: {
-          count: freeSession.count,
-          totalRedeemed: freeSession.totalRedeemed,
+
+        // Performance / Funnel Data
+        performance: {
+          eligiblePatients: totalPatients,
+          offerViews: totalPatients,
+          offerUses: performanceResult.length,
+          completedVisits: performanceResult.length,
+          repeatVisits,
+          repeatRevenue,
         },
-        totalOfferBillings,
-        offersUsedList,
-        totalRevenue,
-        revenueBillingList,
-        mostUsedOffers,
-        underperformingOffers,
-        topPatientsList,
+
+        // Offer Mix Data
+        offerMix: {
+          instantDiscount: {
+            percentage: totalOfferRevenue > 0 ? Math.round((instant.totalRevenue / totalOfferRevenue) * 100) : 0,
+            revenue: instant.totalRevenue,
+          },
+          bundle: {
+            percentage: totalOfferRevenue > 0 ? Math.round((bundle.totalRevenue / totalOfferRevenue) * 100) : 0,
+            revenue: bundle.totalRevenue,
+          },
+          cashback: {
+            percentage: totalOfferRevenue > 0 ? Math.round((cashback.totalRevenue / totalOfferRevenue) * 100) : 0,
+            revenue: cashback.totalRevenue,
+          },
+        },
+
+        // Discount Control Data
+        discountControl: {
+          averageDiscount,
+          allowedMaximum: 10,
+          marginThreshold: 18,
+          manualOverrides: discountControl.manualOverrides,
+        },
+
+        // Staff Usage Data
+        staffUsage: staffUsageData,
+
+        // Service Intelligence Data
+        serviceIntelligence: serviceIntelligenceData,
+
+        // Percentage Changes vs Previous Period
+        percentChanges,
       },
     });
   } catch (err) {

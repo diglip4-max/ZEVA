@@ -53,7 +53,7 @@ const StaffAndResourceIntelligence = ({ staffIntelligenceData }: Props) => {
       {/* Staff & Practitioner Intelligence */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
         <div>
-          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Staff & Practitioner Intelligence</h3>
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Staff & Practitioner Intelligence</h3>
           
           <div className="flex items-center gap-6 mb-8">
             <div>
@@ -110,7 +110,7 @@ const StaffAndResourceIntelligence = ({ staffIntelligenceData }: Props) => {
       {/* Room & Service Utilization */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
         <div>
-          <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Room & Service</h3>
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Room & Service</h3>
           <h2 className="text-lg font-bold text-gray-900 mb-6">Resource Utilization</h2>
           
           <div className="flex flex-col gap-3 mb-4">
@@ -142,7 +142,7 @@ const StaffAndResourceIntelligence = ({ staffIntelligenceData }: Props) => {
             </div>
           )}
           
-          <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Service Performance</h4>
+          <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">Service Performance</h4>
           
           <div className="grid grid-cols-2 gap-4">
             {servicePerformance.length > 0 ? (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
@@ -35,6 +35,8 @@ interface Props {
 const BusinessIntelligence = ({ businessIntelligenceData, revenueData }: Props) => {
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || "AED");
+  const [activeTab, setActiveTab] = useState<'revenue' | 'visits'>('revenue');
+  const [isVisitsModalOpen, setVisitsModalOpen] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return `${currencySymbol} ${(amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
@@ -86,10 +88,11 @@ const BusinessIntelligence = ({ businessIntelligenceData, revenueData }: Props) 
   const getPercent = (val: number) => totalRevenue > 0 ? Math.round((val / totalRevenue) * 100) : 0;
 
   return (
+    <>
     <div className="mx-8 mt-12 mb-12 font-sans">
       {/* Divider */}
       <div className="flex items-center gap-4 mb-8">
-        <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider whitespace-nowrap">Business Intelligence</h3>
+        <h3 className="text-sm font-bold text-amber-700 uppercase tracking-wider whitespace-nowrap">Business Intelligence</h3>
         <div className="h-px bg-gray-200 w-full"></div>
       </div>
 
@@ -97,14 +100,20 @@ const BusinessIntelligence = ({ businessIntelligenceData, revenueData }: Props) 
         {/* Revenue Composition */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Revenue Engine</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Revenue Engine</h3>
             <h2 className="text-xl font-bold text-gray-900 mb-5">Revenue Composition</h2>
             
             <div className="flex items-center gap-2 mb-8">
-              <button className="bg-[#427A5B] text-white text-sm font-semibold px-4 py-1.5 rounded-full">
+              <button
+                className={`${activeTab === 'revenue' ? 'bg-[#427A5B] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'} text-sm font-semibold px-4 py-1.5 rounded-full transition-colors`}
+                onClick={() => setActiveTab('revenue')}
+              >
                 Revenue
               </button>
-              <button className="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold px-4 py-1.5 rounded-full transition-colors">
+              <button
+                className={`${activeTab === 'visits' ? 'bg-[#427A5B] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'} text-sm font-semibold px-4 py-1.5 rounded-full transition-colors`}
+                onClick={() => setVisitsModalOpen(true)}
+              >
                 Visits
               </button>
               {/* <button className="bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-semibold px-4 py-1.5 rounded-full transition-colors">
@@ -219,6 +228,109 @@ const BusinessIntelligence = ({ businessIntelligenceData, revenueData }: Props) 
         </div>
       </div>
     </div>
+
+    {/* Visits Breakdown Modal */}
+    {isVisitsModalOpen && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6">
+        <div className="bg-white rounded-2xl w-full max-w-md shadow-xl p-6 relative max-h-[90vh] flex flex-col">
+          <button
+            onClick={() => setVisitsModalOpen(false)}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Visits Breakdown</h2>
+          <p className="text-sm text-gray-500 mb-6">Visit type composition for this period</p>
+          <div className="overflow-y-auto flex-1 pr-2 space-y-4 custom-scrollbar">
+            {/* New patients */}
+            <div className="border border-gray-100 rounded-xl p-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#427A5B]/10 flex items-center justify-center text-[#427A5B] font-bold text-sm shrink-0">
+                  N
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">New patients</p>
+                  <p className="text-xs text-gray-500">First-time visitors</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900">{newPatientCount}</p>
+                <p className="text-xs font-semibold text-gray-500">{formatCurrency(newPatientRevenue)}</p>
+              </div>
+            </div>
+
+            {/* Returning patients */}
+            <div className="border border-gray-100 rounded-xl p-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#427A5B]/10 flex items-center justify-center text-[#427A5B] font-bold text-sm shrink-0">
+                  R
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Returning patients</p>
+                  <p className="text-xs text-gray-500">Repeat visitors</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900">{returningPatientCount}</p>
+                <p className="text-xs font-semibold text-gray-500">{formatCurrency(returningPatientRevenue)}</p>
+              </div>
+            </div>
+
+            {/* Packages */}
+            <div className="border border-gray-100 rounded-xl p-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#D4A373]/10 flex items-center justify-center text-[#D4A373] font-bold text-sm shrink-0">
+                  P
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Packages</p>
+                  <p className="text-xs text-gray-500">Expiring this week</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900">{expiringPackageCount}</p>
+                <p className="text-xs font-semibold text-gray-500">{formatCurrency(expiringPackageRevenue)}</p>
+              </div>
+            </div>
+
+            {/* Referrals */}
+            <div className="border border-gray-100 rounded-xl p-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#A3A3A3]/10 flex items-center justify-center text-[#A3A3A3] font-bold text-sm shrink-0">
+                  F
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Referrals</p>
+                  <p className="text-xs text-gray-500">Referred patients</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900">{referralCount}</p>
+                <p className="text-xs font-semibold text-gray-500">{formatCurrency(referralRevenue)}</p>
+              </div>
+            </div>
+
+            {/* Existing patient services */}
+            <div className="border border-gray-100 rounded-xl p-4 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#D4A373]/10 flex items-center justify-center text-[#D4A373] font-bold text-sm shrink-0">
+                  E
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Existing patient services</p>
+                  <p className="text-xs text-gray-500">Additional services</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900">{existingServiceCount}</p>
+                <p className="text-xs font-semibold text-gray-500">{formatCurrency(existingServiceRevenue)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

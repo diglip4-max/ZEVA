@@ -49,7 +49,7 @@ const DashboardRecommendations = ({ businessIntelligenceData, recommendationData
   const noShowDirection = noShowsChange >= 0 ? 'above' : 'below';
   return (
     <div className="mx-8 mt-8 mb-12 font-sans">
-      <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-4">Zeva Recommends</h3>
+      <h3 className="text-sm font-bold text-amber-700 uppercase tracking-wider mb-4">Zeva Recommends</h3>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Recommendation 1 */}

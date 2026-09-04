@@ -15,7 +15,7 @@ import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
  *   - inClinic: total doctorStaff + agent count for the clinic
  *   - available: approved (isApproved=true, declined=false) staff
  *   - withPatients: doctorStaff who have appointments booked under them
- *   - capacityAlerts: top 3 doctors with most appointments (all time)
+ *   - capacityAlerts: top 3 doctors with most appointments on selected date
  */
 
 // ─── helpers ────────────────────────────────────────────────────────────
@@ -44,6 +44,57 @@ function getInitials(name) {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const SLOT_INTERVAL_MINUTES = 15;
+
+function convert12HourTo24(t) {
+  if (!t || typeof t !== "string") return "";
+  const parts = t.trim().split(/\s+/);
+  if (parts.length < 2) return "";
+  const [time, period] = parts;
+  const [hStr, mStr] = time.split(":");
+  let h = Number(hStr);
+  const m = Number(mStr);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return "";
+  const p = period.toLowerCase();
+  if (p.startsWith("p") && h < 12) h += 12;
+  if (p.startsWith("a") && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function parseTimingsForDay(timings, dateStr) {
+  if (!Array.isArray(timings) || !dateStr) return null;
+  const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return null;
+  const dayIndex = d.getUTCDay();
+  const dayName = DAYS[dayIndex];
+  const entry = timings.find((t) => t && t.day === dayName);
+  if (!entry || !entry.isOpen) return null;
+  const start = convert12HourTo24(entry.openingTime || "");
+  const end = convert12HourTo24(entry.closingTime || "");
+  if (!start || !end) return null;
+  return { startTime: start, endTime: end };
+}
+
+function timeStringToMinutes(t) {
+  if (!t || typeof t !== "string") return null;
+  const [h, m] = t.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h * 60 + m;
+}
+
+function generateTimeSlots(startTime, endTime) {
+  const startMinutes = timeStringToMinutes(startTime);
+  const endMinutes = timeStringToMinutes(endTime);
+  if (startMinutes == null || endMinutes == null) return [];
+  if (endMinutes <= startMinutes) return [];
+  const slots = [];
+  for (let current = startMinutes; current < endMinutes; current += SLOT_INTERVAL_MINUTES) {
+    slots.push(current);
+  }
+  return slots;
 }
 
 // ─── handler ────────────────────────────────────────────────────────────
@@ -138,34 +189,33 @@ export default async function handler(req, res) {
 
     const withPatientsCount = doctorsWithPatientsToday.size;
 
-    // 7. Capacity Alerts: top 3 doctors with most appointments (all time)
-    const allAppointments = await Appointment.find({
-      clinicId: clinicObjectId,
-      doctorId: { $in: doctorIds },
-    })
-      .select("doctorId")
-      .lean();
-
+    // 7. Capacity Alerts: top 3 doctors with most booked slots on selected date
+    // Reuse appointmentsToday (already filtered by date)
     const doctorAppointmentCount = {};
-    for (const apt of allAppointments) {
+    for (const apt of appointmentsToday) {
       if (apt.doctorId) {
         const did = apt.doctorId.toString();
         doctorAppointmentCount[did] = (doctorAppointmentCount[did] || 0) + 1;
       }
     }
 
-    // Sort doctors by appointment count descending
+    // Get clinic timings to calculate total slots per doctor
+    const dateStr = req.query.date || new Date().toISOString().split("T")[0];
+    const clinicDoc = await Clinic.findById(clinicObjectId).select("timings").lean();
+    const dayTiming = parseTimingsForDay(clinicDoc?.timings, dateStr);
+    const slotsPerDoctor = dayTiming
+      ? generateTimeSlots(dayTiming.startTime, dayTiming.endTime).length
+      : 0;
+
+    // Sort doctors by appointment count descending and take top 3
     const sortedDoctors = Object.entries(doctorAppointmentCount)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3);
 
-    // Calculate utilization percentage for each (booked slots / total possible slots)
-    // For simplicity, use relative percentage based on max
-    const maxAppointments = sortedDoctors.length > 0 ? sortedDoctors[0][1] : 1;
-
+    // Calculate utilization percentage: (booked slots / total available slots per doctor) * 100
     const capacityAlerts = sortedDoctors.map(([doctorId, count]) => {
       const name = doctorNameMap[doctorId] || "Unknown Doctor";
-      const percentage = Math.round((count / maxAppointments) * 100);
+      const percentage = slotsPerDoctor > 0 ? Math.round((count / slotsPerDoctor) * 100) : 0;
       return {
         doctorId,
         name,

@@ -219,6 +219,8 @@ export default async function handler(req, res) {
       freeQty: data.freeQty || 0,
 
       createdBy: user._id,
+      createdByName: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "Unknown",
+      createdByRole: user.role || "",
       updatedBy: user._id,
     });
 

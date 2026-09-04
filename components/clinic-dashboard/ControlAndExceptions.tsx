@@ -68,7 +68,7 @@ const ControlAndExceptions = ({ controlExceptionsData }: Props) => {
     <div className="mx-8 mt-12 mb-12 font-sans">
       {/* Divider */}
       <div className="flex items-center gap-4 mb-8">
-        <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider whitespace-nowrap">Control & Exceptions</h3>
+        <h3 className="text-sm font-bold text-amber-700 uppercase tracking-wider whitespace-nowrap">Control & Exceptions</h3>
         <div className="h-px bg-gray-200 w-full"></div>
       </div>
 
@@ -76,7 +76,7 @@ const ControlAndExceptions = ({ controlExceptionsData }: Props) => {
         {/* Finance & Cash Control */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Finance & Cash Control</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Finance & Cash Control</h3>
             
             <div className="flex flex-col mb-6">
               <div className="flex justify-between items-center py-4 border-b border-gray-100">
@@ -120,7 +120,7 @@ const ControlAndExceptions = ({ controlExceptionsData }: Props) => {
           {/* Inventory Alerts */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
             <div>
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Inventory Alerts</h3>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Inventory Alerts</h3>
               
               <div className="flex flex-col mb-6">
                 <div className="flex justify-between items-center py-4 border-b border-gray-100">
@@ -155,7 +155,7 @@ const ControlAndExceptions = ({ controlExceptionsData }: Props) => {
           {/* Patient Journey Exceptions */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
             <div>
-              <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Patient Journey Exceptions</h3>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Patient Journey Exceptions</h3>
               
               <div className="flex flex-col mb-6">
                 <div className="flex justify-between items-center py-4 border-b border-gray-100">

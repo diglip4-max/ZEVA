@@ -125,6 +125,8 @@ const OfferSchema = new Schema(
      AUDIT
   ============================= */
   createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+  createdByName: { type: String, default: "" },
+  createdByRole: { type: String, default: "" },
   updatedBy: { type: Schema.Types.ObjectId, ref: "User" }
 
 },

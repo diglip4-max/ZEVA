@@ -37,18 +37,18 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+// URL-based role detection — no cross-role token scanning
 const getUserRole = () => {
   if (typeof window === 'undefined') return null;
+  // This file is inside /clinic/ — always clinic context
   try {
-    const token = getStoredToken();
+    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
     if (token) {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.role || null;
+      return payload.role || 'clinic';
     }
-  } catch (error) {
-    console.error('Error getting user role:', error);
-  }
-  return null;
+  } catch (e) { /* ignore */ }
+  return 'clinic';
 };
 
 function InvoicesPage() {

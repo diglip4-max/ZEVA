@@ -253,33 +253,21 @@ function ModernBlogForm() {
 
   const tokenKey = isAgentRoute ? "agentToken" : "clinicToken";
 
-  // Helper function to get user role from token
+  // URL-based role detection — no cross-role token scanning
   const getUserRole = (): string | null => {
     if (typeof window === "undefined") return null;
+    // This file is inside /clinic/ — always clinic context
     try {
-      for (const key of TOKEN_PRIORITY) {
-        const token = localStorage.getItem(key) || sessionStorage.getItem(key);
-        if (token) {
-          try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(
-              atob(base64)
-                .split('')
-                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-            );
-            const decoded = JSON.parse(jsonPayload);
-            return decoded.role || decoded.userRole || null;
-          } catch (e) {
-            continue;
-          }
-        }
+      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+      if (token) {
+        const base64Url = token.split('.')[1];
+        if (!base64Url) return 'clinic';
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = JSON.parse(decodeURIComponent(atob(base64).split('').map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+        return decoded.role || 'clinic';
       }
-    } catch (error) {
-      console.error("Error getting user role:", error);
-    }
-    return null;
+    } catch (e) { /* ignore */ }
+    return 'clinic';
   };
 
   useEffect(() => {

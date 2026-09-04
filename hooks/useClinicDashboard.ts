@@ -80,6 +80,16 @@ interface ClinicCapacityData {
   }[];
 }
 
+interface LiveClinicData {
+  patientsWaiting: number;
+  inTreatment: number;
+  delayedAppointments: number;
+  practitionersAvailable: number;
+  pendingCheckout: number;
+  appointmentsHappeningNow: number;
+  incompletePatientJourneys: number;
+}
+
 interface BusinessIntelligenceData {
   newPatientCount: number;
   returningPatientCount: number;
@@ -313,6 +323,15 @@ export function useClinicDashboard(selectedDate: string) {
     utilized: 0,
     unused: 0,
     primeTime: [],
+  });
+  const [liveClinicData, setLiveClinicData] = useState<LiveClinicData>({
+    patientsWaiting: 0,
+    inTreatment: 0,
+    delayedAppointments: 0,
+    practitionersAvailable: 0,
+    pendingCheckout: 0,
+    appointmentsHappeningNow: 0,
+    incompletePatientJourneys: 0,
   });
   const [businessIntelligenceData, setBusinessIntelligenceData] = useState<BusinessIntelligenceData>({
     newPatientCount: 0,
@@ -588,6 +607,23 @@ export function useClinicDashboard(selectedDate: string) {
         });
       }
 
+      // 9b. Fetch Live Clinic Data
+      const liveClinicRes = await axios.get('/api/clinic/live-clinic', {
+        headers,
+        params: { date: selectedDate },
+      }).catch(() => null);
+      if (liveClinicRes?.data?.success && liveClinicRes.data.data) {
+        setLiveClinicData({
+          patientsWaiting: liveClinicRes.data.data.patientsWaiting || 0,
+          inTreatment: liveClinicRes.data.data.inTreatment || 0,
+          delayedAppointments: liveClinicRes.data.data.delayedAppointments || 0,
+          practitionersAvailable: liveClinicRes.data.data.practitionersAvailable || 0,
+          pendingCheckout: liveClinicRes.data.data.pendingCheckout || 0,
+          appointmentsHappeningNow: liveClinicRes.data.data.appointmentsHappeningNow || 0,
+          incompletePatientJourneys: liveClinicRes.data.data.incompletePatientJourneys || 0,
+        });
+      }
+
       // 10. Fetch Business Intelligence Data (new vs returning patients + revenue)
       const biRes = await axios.get('/api/clinic/business-intelligence', {
         headers,
@@ -800,6 +836,7 @@ export function useClinicDashboard(selectedDate: string) {
     winBackData,
     tomorrowBusinessData,
     clinicCapacityData,
+    liveClinicData,
     businessIntelligenceData,
     patientRetentionData,
     staffIntelligenceData,
