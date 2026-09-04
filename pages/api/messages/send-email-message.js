@@ -265,6 +265,27 @@ export default async function handler(req, res) {
     }
 
     //
+    // find union of provider owners and conv owners
+    const owners = provider.owners || [];
+    const convOwners = conversation.owners || [];
+    const allOwners = new Set([
+      ...(owners?.map((i) => i.toString()) || []),
+      ...(convOwners?.map((i) => i.toString()) || []),
+    ]);
+    conversation.owners = [...allOwners];
+    if (conversation?.owners?.length > 0) {
+      conversation.ownerId = conversation.owners[0];
+    }
+    // if conversation is closed then open it
+    if (
+      conversation?.status === "closed" ||
+      conversation?.status === "archived"
+    ) {
+      conversation.status = "open";
+    }
+    await conversation.save();
+
+    // Conversation assignment completed
 
     const leadId = conversation.leadId;
 
