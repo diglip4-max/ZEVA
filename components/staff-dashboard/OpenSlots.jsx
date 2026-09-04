@@ -41,7 +41,46 @@ export default function OpenSlots({ openSlotsData, modulePermissions }) {
   const { theme } = useClinicTheme();
   const currencySymbol = getCurrencySymbol(currency || "AED");
   const [showModal, setShowModal] = useState(false);
-  const { doctors = [], totalSlots = 0 } = openSlotsData || {};
+
+  // Determine current user role and id (frontend safety net for role-based scoping)
+  const getCurrentUserContext = () => {
+    if (typeof window === "undefined") return { role: null, userId: null };
+    const tokenKeys = ["agentToken", "userToken", "doctorToken", "staffToken"];
+    for (const key of tokenKeys) {
+      const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (!token) continue;
+      try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        return {
+          role: decoded.role || decoded.userRole || null,
+          userId: decoded.userId || decoded.id || null,
+        };
+      } catch (e) {
+        continue;
+      }
+    }
+    return { role: null, userId: null };
+  };
+  const { role: currentRole, userId: currentUserId } = getCurrentUserContext();
+  const isDoctorScoped = currentRole === "doctor" || currentRole === "doctorStaff";
+
+  // Filter doctors based on role: doctor/doctorStaff → only their own slots; others → all
+  const rawDoctors = Array.isArray(openSlotsData?.doctors) ? openSlotsData.doctors : [];
+  const doctors = isDoctorScoped && currentUserId
+    ? rawDoctors.filter((doc) => {
+        const docId = doc.doctorId?.toString();
+        return !docId || docId === currentUserId.toString();
+      })
+    : rawDoctors;
+  const totalSlots = doctors.reduce((sum, d) => sum + (Array.isArray(d.slots) ? d.slots.length : 0), 0);
 
   const perms = modulePermissions || {};
   const appointmentActions = perms["clinic_Appointment"] || perms["Appointment"] || {};

@@ -12,7 +12,7 @@ import { useClinicTheme } from "@/context/ClinicThemeContext";
  *   1. Today's Appointments (treatment, patient, status, time, price)
  *   2. Expired Packages  (patient, package, expired date, price)
  */
-export default function RevenueOpportunityDetailsModal({ isOpen, onClose, selectedDate }) {
+export default function RevenueOpportunityDetailsModal({ isOpen, onClose, selectedDate, token: externalToken = null }) {
   const { currency } = useCurrency();
   const { theme } = useClinicTheme();
   const currencySymbol = getCurrencySymbol(currency || "AED");
@@ -88,15 +88,13 @@ export default function RevenueOpportunityDetailsModal({ isOpen, onClose, select
       setIsLoading(true);
       setError(null);
 
-      const agentToken =
+      const token = externalToken || (
         typeof window !== "undefined"
-          ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
-          : null;
-      const userToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
-          : null;
-      const token = agentToken || userToken;
+          ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") ||
+            localStorage.getItem("userToken") || sessionStorage.getItem("userToken") ||
+            localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken")
+          : null
+      );
 
       if (!token) {
         setError("Not authenticated");
@@ -144,7 +142,7 @@ export default function RevenueOpportunityDetailsModal({ isOpen, onClose, select
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [externalToken, selectedDate]);
 
   useEffect(() => {
     if (isOpen) {

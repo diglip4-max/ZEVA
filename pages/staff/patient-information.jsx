@@ -1529,14 +1529,12 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         setPage(effectivePage);
       }
 
-      // Fetch appointments to calculate active patients
+      // Fetch distinct patient count for "Active Patients" stat
+      // Uses lightweight endpoint that returns only the count (no document fetching)
       try {
-        const { data: aptData } = await axios.get("/api/clinic/all-appointments?limit=100000", { headers });
-        if (aptData.success && aptData.appointments) {
-          const uniquePatients = new Set(
-            aptData.appointments.map(apt => apt.patientId).filter(Boolean)
-          );
-          setActivePatientsCount(uniquePatients.size);
+        const { data: aptData } = await axios.get("/api/clinic/all-appointments?distinctPatients=true", { headers });
+        if (aptData.success) {
+          setActivePatientsCount(aptData.distinctPatientCount || 0);
         } else {
           setActivePatientsCount(0);
         }
@@ -1545,9 +1543,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         setActivePatientsCount(0);
       }
 
-      if (showSuccessToast) {
-        addToast("Data loaded successfully", "success");
-      }
+      // if (showSuccessToast) {
+      //   addToast("Data loaded successfully", "success");
+      // }
     } catch (err) {
       console.error(err);
       setPatients([]);

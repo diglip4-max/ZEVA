@@ -7,6 +7,7 @@ import Opportunity from "../../../models/Opportunity";
 import Lead from "../../../models/Lead";
 import Message from "../../../models/Message";
 import IntentDefinition from "../../../models/IntentDefinition";
+import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
 
 /**
@@ -71,7 +72,23 @@ export default async function handler(req, res) {
 
     await dbConnect();
 
-    const clinicId = user.clinicId;
+    // Resolve clinicId based on role
+    let clinicId = null;
+    if (user.role === "admin") {
+      clinicId =
+        req.query.clinicId && mongoose.Types.ObjectId.isValid(req.query.clinicId)
+          ? new mongoose.Types.ObjectId(req.query.clinicId)
+          : null;
+    } else if (user.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: user._id }).select("_id");
+      if (!clinic) {
+        return res.status(403).json({ success: false, message: "Clinic not found for this user" });
+      }
+      clinicId = new mongoose.Types.ObjectId(clinic._id.toString());
+    } else if (user.clinicId) {
+      clinicId = new mongoose.Types.ObjectId(user.clinicId.toString());
+    }
+
     if (!clinicId) {
       return res.status(400).json({ success: false, message: "No clinic associated" });
     }

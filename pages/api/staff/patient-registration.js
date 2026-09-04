@@ -208,6 +208,40 @@ export default async function handler(req, res) {
       }
 
       const normalizedPatientType = (typeof patientType === "string" && patientType.trim() !== "") ? patientType : undefined;
+
+      // ── Resolve missing packageName from Package master (non-breaking) ──
+      // Background: clients occasionally omit `packageName` in the body, which
+      // previously caused empty names to be persisted in PatientRegistration.packages
+      // and broke the {patientId, packageName} grouping key used by the
+      // Packages Sold vs Active Packages KPIs. We now batch-lookup the Package
+      // master for any input row whose name is blank and fall back to it.
+      // This is purely additive: if the client already provided a valid name,
+      // we use it as-is and never overwrite it. The whole lookup is wrapped in
+      // try/catch so a transient failure here cannot break patient registration.
+      let pkgMasterMap = new Map();
+      if (Array.isArray(packagesArray) && packagesArray.length > 0) {
+        try {
+          const { default: Package } = await import("../../../models/Package");
+          const idsToLookup = packagesArray
+            .map((p) => p && p.packageId)
+            .filter((id) => id && /^[a-fA-F0-9]{24}$/.test(String(id)));
+          if (idsToLookup.length > 0) {
+            const masters = await Package.find({ _id: { $in: idsToLookup } })
+              .select("_id name")
+              .lean();
+            pkgMasterMap = new Map(
+              masters.map((m) => [String(m._id), m]),
+            );
+          }
+        } catch (pkgLookupErr) {
+          // Never block patient registration on a failed package-name lookup.
+          console.warn(
+            "[patient-registration] Package master lookup failed (non-blocking):",
+            pkgLookupErr?.message || pkgLookupErr,
+          );
+        }
+      }
+
       const patient = await PatientRegistration.create({
         invoiceNumber,
         invoicedBy: computedInvoicedBy,
@@ -247,15 +281,27 @@ export default async function handler(req, res) {
                 }]
               : []),
         packages: Array.isArray(packagesArray)
-          ? packagesArray.map((p) => ({
-              packageId: p.packageId,
-              packageName: p.packageName,
-              packageSoldBy: p.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
-              assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
-            }))
+          ? packagesArray.map((p) => {
+              // Preserve client-provided name when present; otherwise resolve from
+              // the Package master that we just batch-fetched above. Final fallback
+              // is an empty string to keep the existing field-shape unchanged.
+              const hasClientName =
+                typeof p?.packageName === "string" && p.packageName.trim().length > 0;
+              const resolvedName = hasClientName
+                ? p.packageName.trim()
+                : p?.packageId
+                  ? pkgMasterMap.get(String(p.packageId))?.name || ""
+                  : "";
+              return {
+                packageId: p.packageId,
+                packageName: resolvedName,
+                packageSoldBy: p.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
+                assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+              };
+            })
           : (pkgToggle === "Yes" && packageId
-              ? [{ 
-                  packageId, 
+              ? [{
+                  packageId,
                   assignedDate: new Date(),
                   packageSoldBy: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown'
                 }]
@@ -351,9 +397,8 @@ export default async function handler(req, res) {
 
     try {
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
-      
-      // Build query based on user role
-      let query = {};
+          // Build query based on user role - CRITICAL: scope to clinicId OR userId in clinicUsers
+      let scopeFilter = {};
       
       // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
       if (user.role === 'clinic') {
@@ -367,9 +412,15 @@ export default async function handler(req, res) {
               { clinicId: clinic._id } // Agents and doctorStaff linked to clinic
             ]
           }).select("_id");
-          query.userId = { $in: clinicUsers.map(u => u._id) };
+          const clinicUserIds = clinicUsers.map(u => u._id);
+          scopeFilter = {
+            $or: [
+              { userId: { $in: clinicUserIds } },
+              { clinicId: clinic._id }
+            ]
+          };
         } else {
-          query.userId = user._id;
+          scopeFilter = { userId: user._id };
         }
       } 
       // For agent/doctorStaff: show all patients belonging to the clinic
@@ -385,30 +436,42 @@ export default async function handler(req, res) {
                 { clinicId: user.clinicId }
               ]
             }).select("_id");
-            query.userId = { $in: clinicUsers.map(u => u._id) };
+            scopeFilter = {
+              $or: [
+                { userId: { $in: clinicUsers.map(u => u._id) } },
+                { clinicId: user.clinicId }
+              ]
+            };
           } else {
-            query.userId = user._id;
+            scopeFilter = { userId: user._id };
           }
         } else {
-          query.userId = user._id;
+          scopeFilter = { userId: user._id };
         }
       }
       // For other roles: show their own patients
       else {
-        query.userId = user._id;
+        scopeFilter = { userId: user._id };
       }
 
-      if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
-      if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
-      if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
-      if (claimStatus) query.advanceClaimStatus = claimStatus;
-      if (applicationStatus) query.status = applicationStatus;
+      // Build overall query using $and to avoid keys/operators collisions
+      const andConditions = [scopeFilter];
+
+      if (emrNumber) andConditions.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
+      if (invoiceNumber) andConditions.push({ invoiceNumber: { $regex: invoiceNumber, $options: "i" } });
+      if (phone) andConditions.push({ mobileNumber: { $regex: phone, $options: "i" } });
+      if (claimStatus) andConditions.push({ advanceClaimStatus: claimStatus });
+      if (applicationStatus) andConditions.push({ status: applicationStatus });
       if (name) {
-        query.$or = [
-          { firstName: { $regex: name, $options: "i" } },
-          { lastName: { $regex: name, $options: "i" } },
-        ];
+        andConditions.push({
+          $or: [
+            { firstName: { $regex: name, $options: "i" } },
+            { lastName: { $regex: name, $options: "i" } },
+          ]
+        });
       }
+
+      const query = { $and: andConditions };
 
       const patients = await PatientRegistration.find(query).sort({ createdAt: -1 });
       return res

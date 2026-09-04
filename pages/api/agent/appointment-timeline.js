@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import dbConnect from "../../../lib/database";
 import Appointment from "../../../models/Appointment";
 import Users from "../../../models/Users";
+import Clinic from "../../../models/Clinic";
 import DoctorDepartment from "../../../models/DoctorDepartment";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
@@ -134,34 +135,42 @@ export default async function handler(req, res) {
     }
 
     // 2. AuthZ — same roles as zeva-recommends
-    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin"];
+    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin", "clinic"];
     if (!allowedRoles.includes(me.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     // 3. Resolve clinic
-    if (me.role !== "admin" && !me.clinicId) {
+    let resolvedClinicId = null;
+    if (me.role === "admin") {
+      resolvedClinicId =
+        req.query.clinicId && mongoose.Types.ObjectId.isValid(req.query.clinicId)
+          ? new mongoose.Types.ObjectId(req.query.clinicId)
+          : null;
+    } else if (me.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
+      if (!clinic) {
+        return res.status(403).json({ success: false, message: "Clinic not found for this user" });
+      }
+      resolvedClinicId = new mongoose.Types.ObjectId(clinic._id.toString());
+    } else if (me.clinicId) {
+      resolvedClinicId = new mongoose.Types.ObjectId(me.clinicId.toString());
+    }
+    if (!resolvedClinicId) {
       return res
         .status(403)
         .json({ success: false, message: "User not linked to a clinic" });
     }
-    const clinicObjectId =
-      me.role === "admin"
-        ? req.query.clinicId && mongoose.Types.ObjectId.isValid(req.query.clinicId)
-          ? new mongoose.Types.ObjectId(req.query.clinicId)
-          : null
-        : new mongoose.Types.ObjectId(me.clinicId.toString());
-    if (!clinicObjectId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Unable to resolve clinicId" });
-    }
+    const clinicObjectId = resolvedClinicId;
 
-    // 4. Resolve date
+    // 4. Resolve date — use exact single-day UTC range (no timezone expansion)
     const requestedDate = parseDateInput(req.query.date);
     const targetDate = requestedDate || new Date();
     const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
-    const { start: safeStart, end: safeEnd } = getTimezoneSafeDayRange(dayStart, dayEnd);
+    // Use the exact UTC day boundaries — do NOT expand with getTimezoneSafeDayRange
+    // as it pulls in appointments from adjacent days (±18h = ~36h window).
+    const safeStart = dayStart;
+    const safeEnd = dayEnd;
 
     // 5. Role scoping
     const doctorScopedRoles = ["doctorStaff", "doctor"];

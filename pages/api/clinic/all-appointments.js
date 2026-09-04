@@ -132,7 +132,48 @@ export default async function handler(req, res) {
         createdBy,
         page = 1,
         limit = 50,
+        distinctPatients,
       } = req.query;
+
+      // ── Lightweight mode: return only the count of distinct patients ─
+      // Used by patient-information page to show "Active Patients" stat
+      // without fetching/populating thousands of appointment documents
+      if (distinctPatients === "true" || distinctPatients === "1") {
+        try {
+          const baseQuery = { clinicId };
+
+          // Apply same filters as the main query (so count stays consistent)
+          if (fromDate || toDate) {
+            const dateFilter = {};
+            if (fromDate) dateFilter.$gte = new Date(fromDate);
+            if (toDate) dateFilter.$lte = new Date(toDate);
+            baseQuery.startDate = dateFilter;
+          }
+          if (doctorId) baseQuery.doctorId = doctorId;
+          if (roomId) baseQuery.roomId = roomId;
+          if (status) baseQuery.status = status;
+          if (followType) baseQuery.followType = followType;
+          if (referral) baseQuery.referral = referral;
+          if (emergency) baseQuery.emergency = emergency;
+
+          // Use MongoDB's distinct() to get unique patientIds directly
+          // This is MUCH faster than fetching all appointments and deduplicating in JS
+          const uniquePatientIds = await Appointment.distinct("patientId", baseQuery);
+          const count = uniquePatientIds.length;
+
+          return res.status(200).json({
+            success: true,
+            distinctPatientCount: count,
+          });
+        } catch (err) {
+          console.error("Error fetching distinct patients:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Error fetching distinct patients",
+            error: err.message,
+          });
+        }
+      }
 
       // If id is provided, return just that single appointment
       if (id) {

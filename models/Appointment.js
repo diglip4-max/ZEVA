@@ -174,6 +174,8 @@ AppointmentSchema.index({ clinicId: 1, startDate: 1, fromTime: 1 });
 AppointmentSchema.index({ doctorId: 1, startDate: 1 });
 AppointmentSchema.index({ roomId: 1, startDate: 1, fromTime: 1 });
 AppointmentSchema.index({ patientId: 1 });
+// Compound index for distinct patient count queries (clinic-scoped)
+AppointmentSchema.index({ clinicId: 1, patientId: 1 });
 
 // Ensure the latest schema definition is used during hot reloads
 if (mongoose.models.Appointment) {

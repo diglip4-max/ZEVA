@@ -156,17 +156,17 @@ export default function AppointmentTimeline({ appointmentData, modulePermissions
 
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-2">
         <div>
-          <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.15em] mb-3">
+          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-[0.15em] mb-2">
             TODAY'S APPOINTMENTS
           </p>
-          <h3 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+          <h3 className="text-lg md:text-xl font-extrabold text-gray-900 dark:text-white tracking-tight">
             Appointment Timeline
           </h3>
         </div>
 
         {canCreateAppointment && (
-          <button className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/15 text-gray-700 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-white/20 shadow-sm transition-all duration-200 text-base flex-shrink-0 self-start">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <button className="inline-flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-white/10 hover:bg-gray-50 dark:hover:bg-white/15 text-gray-700 dark:text-white font-semibold rounded-xl border border-gray-200 dark:border-white/20 shadow-sm transition-all duration-200 text-sm flex-shrink-0 self-start">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             New Booking
@@ -179,16 +179,16 @@ export default function AppointmentTimeline({ appointmentData, modulePermissions
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-6 mt-3">
           {/* Total */}
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-extrabold text-gray-900 dark:text-white">{total}</span>
-            <span className="text-base font-medium text-gray-500 dark:text-gray-400">Total</span>
+            <span className="text-lg font-extrabold text-gray-900 dark:text-white">{total}</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Total</span>
           </div>
           {/* Dynamic status counts */}
           {activeStatuses.map((s) => (
             <div key={s.status} className="flex items-baseline gap-1.5">
-              <span className={`text-2xl font-extrabold ${statColorMap[s.status] || "text-gray-600 dark:text-gray-400"}`}>
+              <span className={`text-lg font-extrabold ${statColorMap[s.status] || "text-gray-600 dark:text-gray-400"}`}>
                 {s.count}
               </span>
-              <span className="text-base font-medium text-gray-500 dark:text-gray-400">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 {s.label}
               </span>
             </div>
@@ -214,26 +214,26 @@ export default function AppointmentTimeline({ appointmentData, modulePermissions
                     : "hover:bg-gray-50 dark:hover:bg-white/5"
                 }`}
               >
-                <span className="text-base md:text-lg font-bold text-gray-500 dark:text-gray-400 w-14 md:w-16 flex-shrink-0 tabular-nums">
+                <span className="text-sm font-bold text-gray-500 dark:text-gray-400 w-12 md:w-14 flex-shrink-0 tabular-nums">
                   {apt.time}
                 </span>
 
-                <div className={`w-10 h-10 md:w-11 md:h-11 rounded-full ${colorForName(apt.patientName)} flex items-center justify-center flex-shrink-0 shadow-sm`}>
-                  <span className="text-white font-bold text-sm">{apt.initials}</span>
+                <div className={`w-8 h-8 md:w-9 md:h-9 rounded-full ${colorForName(apt.patientName)} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                  <span className="text-white font-bold text-xs">{apt.initials}</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-base md:text-lg font-bold text-gray-900 dark:text-white leading-tight truncate">
+                  <h4 className="text-sm md:text-base font-bold text-gray-900 dark:text-white leading-tight truncate">
                     {apt.patientName}
                   </h4>
-                  <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
+                  <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
                     {apt.department}{apt.department && apt.doctorName ? " · " : ""}{apt.doctorName}
                   </p>
                 </div>
 
-                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl ${style.bg} flex-shrink-0`}>
-                  <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-                  <span className={`text-sm font-bold ${style.text}`}>
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl ${style.bg} flex-shrink-0`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                  <span className={`text-xs font-bold ${style.text}`}>
                     {apt.statusLabel}
                   </span>
                 </div>

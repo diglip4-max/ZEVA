@@ -1,0 +1,462 @@
+[2026-08-27T10:41:07.879Z] ==============================================================================
+[2026-08-27T10:41:07.881Z] MODE: DRY-RUN (default)
+[2026-08-27T10:41:07.881Z] CLINIC FILTER: 695611e64beeeb4df4ef0699
+[2026-08-27T10:41:07.881Z] ==============================================================================
+[2026-08-27T10:41:07.929Z] Found 26 patient-package record(s) with empty packageName.
+[2026-08-27T10:41:08.024Z] 
+[2026-08-27T10:41:08.025Z] ─── patient ANNA RUBEE DE GUZMAN SALONGA (6974ca28ddbe8aab32466949) — package index 0 ───
+[2026-08-27T10:41:08.025Z]     packageId      = 69d1fbf62dac578b21817e4e
+[2026-08-27T10:41:08.026Z]     assignedDate   = 2026-04-05T06:19:56.848Z
+[2026-08-27T10:41:08.026Z]     totalPrice     = 2000
+[2026-08-27T10:41:08.026Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.027Z]     ✓ resolved via Package master → "ANNA RUBEE BUY2 Get 2"
+[2026-08-27T10:41:08.375Z]     [DRY-RUN] would set packageName = "ANNA RUBEE BUY2 Get 2"
+[2026-08-27T10:41:08.375Z] 
+[2026-08-27T10:41:08.375Z] ─── patient DIAN SOBARIAH (6974ca2dddbe8aab324669fd) — package index 0 ───
+[2026-08-27T10:41:08.376Z]     packageId      = 6a13ef333a0d55d72ed5d78b
+[2026-08-27T10:41:08.376Z]     assignedDate   = 2026-05-25T06:41:56.450Z
+[2026-08-27T10:41:08.376Z]     totalPrice     = 1592
+[2026-08-27T10:41:08.376Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.377Z]     ✓ resolved via Package master → "Dian package anniv 26"
+[2026-08-27T10:41:08.419Z]     [DRY-RUN] would set packageName = "Dian package anniv 26"
+[2026-08-27T10:41:08.419Z] 
+[2026-08-27T10:41:08.420Z] ─── patient MARY GRACE NAVARRO (6974ca30ddbe8aab32466a8e) — package index 0 ───
+[2026-08-27T10:41:08.420Z]     packageId      = 6a119e7374b3b807055fab6c
+[2026-08-27T10:41:08.420Z]     assignedDate   = 2026-05-23T12:32:52.539Z
+[2026-08-27T10:41:08.421Z]     totalPrice     = 1500
+[2026-08-27T10:41:08.421Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.421Z]     ✓ resolved via Package master → "HIFU THITAN"
+[2026-08-27T10:41:08.464Z]     [DRY-RUN] would set packageName = "HIFU THITAN"
+[2026-08-27T10:41:08.464Z] 
+[2026-08-27T10:41:08.465Z] ─── patient KARA DELA KAHLA (697a3dcab6e885da1e8b0421) — package index 0 ───
+[2026-08-27T10:41:08.465Z]     packageId      = 6a1198ad74b3b807055d5d3b
+[2026-08-27T10:41:08.465Z]     assignedDate   = 2026-05-23T12:08:14.077Z
+[2026-08-27T10:41:08.465Z]     totalPrice     = 5000
+[2026-08-27T10:41:08.465Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.466Z]     ✓ resolved via Package master → "KARA PACKAGE 5k PACKAGE"
+[2026-08-27T10:41:08.507Z]     [DRY-RUN] would set packageName = "KARA PACKAGE 5k PACKAGE"
+[2026-08-27T10:41:08.507Z] 
+[2026-08-27T10:41:08.507Z] ─── patient AKASH SEHGAL YOGESH CHANDRA SEHGAL (69833ed041914e257bd80281) — package index 0 ───
+[2026-08-27T10:41:08.508Z]     packageId      = 6a0d5008979bbf024181c52e
+[2026-08-27T10:41:08.508Z]     assignedDate   = 2026-05-20T06:09:34.726Z
+[2026-08-27T10:41:08.508Z]     totalPrice     = 1990
+[2026-08-27T10:41:08.509Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.509Z]     ✓ resolved via Package master → "Akash Anniv 26 Package"
+[2026-08-27T10:41:08.551Z]     [DRY-RUN] would set packageName = "Akash Anniv 26 Package"
+[2026-08-27T10:41:08.552Z] 
+[2026-08-27T10:41:08.552Z] ─── patient MA KHRISTINE THERESA DACASIN VISPERAS (6983469a41914e257bd80854) — package index 0 ───
+[2026-08-27T10:41:08.552Z]     packageId      = 6a13f07f3a0d55d72ed61d0b
+[2026-08-27T10:41:08.552Z]     assignedDate   = 2026-05-25T06:47:27.712Z
+[2026-08-27T10:41:08.552Z]     totalPrice     = 2000
+[2026-08-27T10:41:08.553Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.553Z]     ✓ resolved via Package master → "Exosom packg  MA KHRISTINE"
+[2026-08-27T10:41:08.595Z]     [DRY-RUN] would set packageName = "Exosom packg  MA KHRISTINE"
+[2026-08-27T10:41:08.595Z] 
+[2026-08-27T10:41:08.596Z] ─── patient Shivani Sehgal (69a1772f8e31f892cfe18832) — package index 0 ───
+[2026-08-27T10:41:08.596Z]     packageId      = 6a13ecc93a0d55d72ed57465
+[2026-08-27T10:41:08.596Z]     assignedDate   = 2026-05-25T06:31:37.756Z
+[2026-08-27T10:41:08.596Z]     totalPrice     = 1600
+[2026-08-27T10:41:08.597Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.597Z]     ✓ resolved via Package master → "8 Sessions of Physio"
+[2026-08-27T10:41:08.639Z]     [DRY-RUN] would set packageName = "8 Sessions of Physio"
+[2026-08-27T10:41:08.639Z] 
+[2026-08-27T10:41:08.640Z] ─── patient MYCAH LEIGH PONCE OCAMPO (69c8c5d580d73636b7058038) — package index 0 ───
+[2026-08-27T10:41:08.640Z]     packageId      = 69fc3affe9d2b6e539eadce5
+[2026-08-27T10:41:08.640Z]     assignedDate   = 2026-05-07T07:10:56.666Z
+[2026-08-27T10:41:08.641Z]     totalPrice     = 3000
+[2026-08-27T10:41:08.641Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.641Z]     ✓ resolved via Package master → "MYCAH Physio Package"
+[2026-08-27T10:41:08.683Z]     [DRY-RUN] would set packageName = "MYCAH Physio Package"
+[2026-08-27T10:41:08.684Z] 
+[2026-08-27T10:41:08.684Z] ─── patient IMRAN SAJID TALIB HUSSAIN (69ca0d5f80d73636b72f62f3) — package index 0 ───
+[2026-08-27T10:41:08.684Z]     packageId      = 6a0d8ba5979bbf0241856201
+[2026-08-27T10:41:08.685Z]     assignedDate   = 2026-05-20T10:23:33.689Z
+[2026-08-27T10:41:08.685Z]     totalPrice     = 600
+[2026-08-27T10:41:08.685Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.685Z]     ✓ resolved via Package master → "IMRAN HAIR PRP PACKAGE"
+[2026-08-27T10:41:08.730Z]     [DRY-RUN] would set packageName = "IMRAN HAIR PRP PACKAGE"
+[2026-08-27T10:41:08.731Z] 
+[2026-08-27T10:41:08.731Z] ─── patient PUTRI IRA SARASWATI RIDHOANTIKA (69cf9e747b942ea12ec4c983) — package index 0 ───
+[2026-08-27T10:41:08.731Z]     packageId      = 69fecdd25b954eed62767564
+[2026-08-27T10:41:08.731Z]     assignedDate   = 2026-05-09T06:01:56.026Z
+[2026-08-27T10:41:08.732Z]     totalPrice     = 597
+[2026-08-27T10:41:08.732Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.732Z]     ✓ resolved via Package master → "Putri Hydrafacial Anniv Offer"
+[2026-08-27T10:41:08.774Z]     [DRY-RUN] would set packageName = "Putri Hydrafacial Anniv Offer"
+[2026-08-27T10:41:08.774Z] 
+[2026-08-27T10:41:08.774Z] ─── patient PUTRI IRA SARASWATI RIDHOANTIKA (69cf9e747b942ea12ec4c983) — package index 1 ───
+[2026-08-27T10:41:08.775Z]     packageId      = 6a13fba03a0d55d72ed818de
+[2026-08-27T10:41:08.775Z]     assignedDate   = 2026-05-25T07:46:29.976Z
+[2026-08-27T10:41:08.775Z]     totalPrice     = 1393
+[2026-08-27T10:41:08.776Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.776Z]     ✓ resolved via Package master → "Putri Physio Anniv Package"
+[2026-08-27T10:41:08.817Z]     [DRY-RUN] would set packageName = "Putri Physio Anniv Package"
+[2026-08-27T10:41:08.817Z] 
+[2026-08-27T10:41:08.817Z] ─── patient D K (69cfe45ddb618372ac987894) — package index 0 ───
+[2026-08-27T10:41:08.818Z]     packageId      = 69b93248e1a43c23853ff381
+[2026-08-27T10:41:08.818Z]     assignedDate   = 2026-04-04T04:52:04.421Z
+[2026-08-27T10:41:08.818Z]     totalPrice     = (none)
+[2026-08-27T10:41:08.818Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.818Z]     ✓ resolved via Package master → "Hair PRP 3"
+[2026-08-27T10:41:08.860Z]     [DRY-RUN] would set packageName = "Hair PRP 3"
+[2026-08-27T10:41:08.861Z] 
+[2026-08-27T10:41:08.861Z] ─── patient D K (69cfe45ddb618372ac987894) — package index 1 ───
+[2026-08-27T10:41:08.861Z]     packageId      = 69cff3f9db618372ac9cf171
+[2026-08-27T10:41:08.861Z]     assignedDate   = 2026-04-04T04:52:18.532Z
+[2026-08-27T10:41:08.862Z]     totalPrice     = (none)
+[2026-08-27T10:41:08.862Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.862Z]     ✓ resolved via Package master → "Half Body Laser Hair Removal"
+[2026-08-27T10:41:08.904Z]     [DRY-RUN] would set packageName = "Half Body Laser Hair Removal"
+[2026-08-27T10:41:08.904Z] 
+[2026-08-27T10:41:08.905Z] ─── patient MARCO RAI DE CARVALHO (69d0d2b0db618372aca0c09e) — package index 0 ───
+[2026-08-27T10:41:08.905Z]     packageId      = 69d22c6c2dac578b21855fdd
+[2026-08-27T10:41:08.905Z]     assignedDate   = 2026-04-05T09:35:24.778Z
+[2026-08-27T10:41:08.906Z]     totalPrice     = 1699
+[2026-08-27T10:41:08.906Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.906Z]     ✓ resolved via Package master → "Marco Rai Buy 2 Get 2"
+[2026-08-27T10:41:08.948Z]     [DRY-RUN] would set packageName = "Marco Rai Buy 2 Get 2"
+[2026-08-27T10:41:08.949Z] 
+[2026-08-27T10:41:08.949Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 0 ───
+[2026-08-27T10:41:08.949Z]     packageId      = 69e9d4b26bcb2e8de9f26aaf
+[2026-08-27T10:41:08.949Z]     assignedDate   = 2026-04-23T08:13:38.795Z
+[2026-08-27T10:41:08.950Z]     totalPrice     = 995
+[2026-08-27T10:41:08.950Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.950Z]     ✓ resolved via Package master → "Red Anniversary 26 offer"
+[2026-08-27T10:41:08.993Z]     [DRY-RUN] would set packageName = "Red Anniversary 26 offer"
+[2026-08-27T10:41:08.993Z] 
+[2026-08-27T10:41:08.994Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 1 ───
+[2026-08-27T10:41:08.994Z]     packageId      = 69b7e7c13ce3415aea41accf
+[2026-08-27T10:41:08.995Z]     assignedDate   = 2026-04-23T08:22:33.964Z
+[2026-08-27T10:41:08.995Z]     totalPrice     = 2300
+[2026-08-27T10:41:08.995Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:08.995Z]     ✓ resolved via Package master → "Silver Package - Kizhi 60mins"
+[2026-08-27T10:41:09.037Z]     [DRY-RUN] would set packageName = "Silver Package - Kizhi 60mins"
+[2026-08-27T10:41:09.037Z] 
+[2026-08-27T10:41:09.038Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 2 ───
+[2026-08-27T10:41:09.038Z]     packageId      = 69fd753f5bbd16635c585c10
+[2026-08-27T10:41:09.038Z]     assignedDate   = 2026-05-08T05:31:46.421Z
+[2026-08-27T10:41:09.039Z]     totalPrice     = 100
+[2026-08-27T10:41:09.039Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.039Z]     ✓ resolved via Package master → "package-7"
+[2026-08-27T10:41:09.082Z]     [DRY-RUN] would set packageName = "package-7"
+[2026-08-27T10:41:09.082Z] 
+[2026-08-27T10:41:09.083Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 3 ───
+[2026-08-27T10:41:09.083Z]     packageId      = 6a15eddccc80415ca324ee98
+[2026-08-27T10:41:09.083Z]     assignedDate   = 2026-05-26T19:00:46.393Z
+[2026-08-27T10:41:09.083Z]     totalPrice     = 12000
+[2026-08-27T10:41:09.084Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.084Z]     ✓ resolved via Package master → "red 20 unit vn"
+[2026-08-27T10:41:09.127Z]     [DRY-RUN] would set packageName = "red 20 unit vn"
+[2026-08-27T10:41:09.127Z] 
+[2026-08-27T10:41:09.127Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 4 ───
+[2026-08-27T10:41:09.127Z]     packageId      = 6a1e9b558666566e89b485f7
+[2026-08-27T10:41:09.128Z]     assignedDate   = 2026-06-02T08:59:01.918Z
+[2026-08-27T10:41:09.128Z]     totalPrice     = 5000
+[2026-08-27T10:41:09.128Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.128Z]     ✓ resolved via Package master → "tESTING"
+[2026-08-27T10:41:09.171Z]     [DRY-RUN] would set packageName = "tESTING"
+[2026-08-27T10:41:09.172Z] 
+[2026-08-27T10:41:09.172Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 5 ───
+[2026-08-27T10:41:09.172Z]     packageId      = 6a2c202d38ee16a9fc7cdce1
+[2026-08-27T10:41:09.172Z]     assignedDate   = 2026-06-12T15:15:25.315Z
+[2026-08-27T10:41:09.172Z]     totalPrice     = 2500
+[2026-08-27T10:41:09.173Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.173Z]     ✓ resolved via Package master → "Hair Bleach Laser by: Q switch"
+[2026-08-27T10:41:09.215Z]     [DRY-RUN] would set packageName = "Hair Bleach Laser by: Q switch"
+[2026-08-27T10:41:09.215Z] 
+[2026-08-27T10:41:09.215Z] ─── patient DUAA ABDELRAZZAQ FADEL DERGHAM (69ef243600309f4fea560b19) — package index 0 ───
+[2026-08-27T10:41:09.215Z]     packageId      = 6a13f8793a0d55d72ed72101
+[2026-08-27T10:41:09.215Z]     assignedDate   = 2026-05-25T07:21:29.949Z
+[2026-08-27T10:41:09.216Z]     totalPrice     = 1000
+[2026-08-27T10:41:09.216Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.216Z]     ✓ resolved via Package master → "4ss Eximia"
+[2026-08-27T10:41:09.257Z]     [DRY-RUN] would set packageName = "4ss Eximia"
+[2026-08-27T10:41:09.258Z] 
+[2026-08-27T10:41:09.258Z] ─── patient Test-patient (69fd709b5bbd16635c584268) — package index 0 ───
+[2026-08-27T10:41:09.258Z]     packageId      = 69fd710e5bbd16635c5848a1
+[2026-08-27T10:41:09.259Z]     assignedDate   = 2026-05-08T05:13:51.885Z
+[2026-08-27T10:41:09.259Z]     totalPrice     = 100
+[2026-08-27T10:41:09.259Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.259Z]     ✓ resolved via Package master → "package-2"
+[2026-08-27T10:41:09.302Z]     [DRY-RUN] would set packageName = "package-2"
+[2026-08-27T10:41:09.302Z] 
+[2026-08-27T10:41:09.303Z] ─── patient Test-patient (69fd709b5bbd16635c584268) — package index 1 ───
+[2026-08-27T10:41:09.303Z]     packageId      = 69fd72e6e9d2b6e539fc717b
+[2026-08-27T10:41:09.303Z]     assignedDate   = 2026-05-08T05:21:42.807Z
+[2026-08-27T10:41:09.304Z]     totalPrice     = 200
+[2026-08-27T10:41:09.304Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.304Z]     ✓ resolved via Package master → "package-3"
+[2026-08-27T10:41:09.345Z]     [DRY-RUN] would set packageName = "package-3"
+[2026-08-27T10:41:09.345Z] 
+[2026-08-27T10:41:09.346Z] ─── patient Test-patient (69fd709b5bbd16635c584268) — package index 2 ───
+[2026-08-27T10:41:09.346Z]     packageId      = 69fd73d95bbd16635c585676
+[2026-08-27T10:41:09.346Z]     assignedDate   = 2026-05-08T05:25:47.081Z
+[2026-08-27T10:41:09.346Z]     totalPrice     = 100
+[2026-08-27T10:41:09.347Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.347Z]     ✓ resolved via Package master → "package-4"
+[2026-08-27T10:41:09.388Z]     [DRY-RUN] would set packageName = "package-4"
+[2026-08-27T10:41:09.389Z] 
+[2026-08-27T10:41:09.389Z] ─── patient PACIFICO EVANGELISTA (6a0b354debf17d2391ad074d) — package index 0 ───
+[2026-08-27T10:41:09.389Z]     packageId      = 69b6d01dd3bdf4d6d7bdbd2f
+[2026-08-27T10:41:09.390Z]     assignedDate   = 2026-06-19T05:01:41.877Z
+[2026-08-27T10:41:09.390Z]     totalPrice     = 1699
+[2026-08-27T10:41:09.390Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.390Z]     ✓ resolved via Package master → "Hydra Glow Facial - Deep Cleansing & Hydration"
+[2026-08-27T10:41:09.431Z]     [DRY-RUN] would set packageName = "Hydra Glow Facial - Deep Cleansing & Hydration"
+[2026-08-27T10:41:09.431Z] 
+[2026-08-27T10:41:09.431Z] ─── patient Sali Mar Noor (6a0ea85b979bbf02418dd2e3) — package index 0 ───
+[2026-08-27T10:41:09.432Z]     packageId      = 6a0dcc70979bbf02418cf2d8
+[2026-08-27T10:41:09.432Z]     assignedDate   = 2026-05-21T06:39:56.840Z
+[2026-08-27T10:41:09.432Z]     totalPrice     = 1199
+[2026-08-27T10:41:09.433Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:09.433Z]     ✓ resolved via Package master → "3SS LASER FULL BODY WITH FRONT AND BACK"
+[2026-08-27T10:41:09.474Z]     [DRY-RUN] would set packageName = "3SS LASER FULL BODY WITH FRONT AND BACK"
+[2026-08-27T10:41:09.475Z] 
+[2026-08-27T10:41:09.475Z] ==============================================================================
+[2026-08-27T10:41:09.475Z] SUMMARY
+[2026-08-27T10:41:09.475Z] ==============================================================================
+[2026-08-27T10:41:09.476Z]   empty packages found       : 26
+[2026-08-27T10:41:09.476Z]   resolved by snapshot        : 0
+[2026-08-27T10:41:09.476Z]   resolved by Package master  : 26
+[2026-08-27T10:41:09.476Z]   resolved by Billing         : 0
+[2026-08-27T10:41:09.476Z]   UNRESOLVABLE (left as is)   : 0
+[2026-08-27T10:41:09.477Z]   already valid (idempotent)  : 0
+[2026-08-27T10:41:09.477Z]   would update              : 0
+[2026-08-27T10:41:09.477Z] 
+[2026-08-27T10:41:09.477Z] Log file:    C:\Users\ADMIN\Documents\zeva360\ZEVA\scratch\fix-empty-package-names.log
+[2026-08-27T10:41:09.477Z] Done.
+[2026-08-27T10:41:25.790Z] ==============================================================================
+[2026-08-27T10:41:25.791Z] MODE: APPLY (--fix)
+[2026-08-27T10:41:25.791Z] CLINIC FILTER: 695611e64beeeb4df4ef0699
+[2026-08-27T10:41:25.792Z] ==============================================================================
+[2026-08-27T10:41:25.842Z] Found 26 patient-package record(s) with empty packageName.
+[2026-08-27T10:41:25.938Z] 
+[2026-08-27T10:41:25.939Z] ─── patient ANNA RUBEE DE GUZMAN SALONGA (6974ca28ddbe8aab32466949) — package index 0 ───
+[2026-08-27T10:41:25.939Z]     packageId      = 69d1fbf62dac578b21817e4e
+[2026-08-27T10:41:25.939Z]     assignedDate   = 2026-04-05T06:19:56.848Z
+[2026-08-27T10:41:25.940Z]     totalPrice     = 2000
+[2026-08-27T10:41:25.940Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:25.940Z]     ✓ resolved via Package master → "ANNA RUBEE BUY2 Get 2"
+[2026-08-27T10:41:26.106Z]     ✓ UPDATED → packageName = "ANNA RUBEE BUY2 Get 2"
+[2026-08-27T10:41:26.107Z] 
+[2026-08-27T10:41:26.107Z] ─── patient DIAN SOBARIAH (6974ca2dddbe8aab324669fd) — package index 0 ───
+[2026-08-27T10:41:26.107Z]     packageId      = 6a13ef333a0d55d72ed5d78b
+[2026-08-27T10:41:26.107Z]     assignedDate   = 2026-05-25T06:41:56.450Z
+[2026-08-27T10:41:26.108Z]     totalPrice     = 1592
+[2026-08-27T10:41:26.108Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.108Z]     ✓ resolved via Package master → "Dian package anniv 26"
+[2026-08-27T10:41:26.186Z]     ✓ UPDATED → packageName = "Dian package anniv 26"
+[2026-08-27T10:41:26.187Z] 
+[2026-08-27T10:41:26.187Z] ─── patient MARY GRACE NAVARRO (6974ca30ddbe8aab32466a8e) — package index 0 ───
+[2026-08-27T10:41:26.187Z]     packageId      = 6a119e7374b3b807055fab6c
+[2026-08-27T10:41:26.187Z]     assignedDate   = 2026-05-23T12:32:52.539Z
+[2026-08-27T10:41:26.187Z]     totalPrice     = 1500
+[2026-08-27T10:41:26.188Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.188Z]     ✓ resolved via Package master → "HIFU THITAN"
+[2026-08-27T10:41:26.266Z]     ✓ UPDATED → packageName = "HIFU THITAN"
+[2026-08-27T10:41:26.266Z] 
+[2026-08-27T10:41:26.267Z] ─── patient KARA DELA KAHLA (697a3dcab6e885da1e8b0421) — package index 0 ───
+[2026-08-27T10:41:26.267Z]     packageId      = 6a1198ad74b3b807055d5d3b
+[2026-08-27T10:41:26.267Z]     assignedDate   = 2026-05-23T12:08:14.077Z
+[2026-08-27T10:41:26.267Z]     totalPrice     = 5000
+[2026-08-27T10:41:26.267Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.268Z]     ✓ resolved via Package master → "KARA PACKAGE 5k PACKAGE"
+[2026-08-27T10:41:26.343Z]     ✓ UPDATED → packageName = "KARA PACKAGE 5k PACKAGE"
+[2026-08-27T10:41:26.344Z] 
+[2026-08-27T10:41:26.344Z] ─── patient AKASH SEHGAL YOGESH CHANDRA SEHGAL (69833ed041914e257bd80281) — package index 0 ───
+[2026-08-27T10:41:26.344Z]     packageId      = 6a0d5008979bbf024181c52e
+[2026-08-27T10:41:26.344Z]     assignedDate   = 2026-05-20T06:09:34.726Z
+[2026-08-27T10:41:26.345Z]     totalPrice     = 1990
+[2026-08-27T10:41:26.345Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.345Z]     ✓ resolved via Package master → "Akash Anniv 26 Package"
+[2026-08-27T10:41:26.423Z]     ✓ UPDATED → packageName = "Akash Anniv 26 Package"
+[2026-08-27T10:41:26.424Z] 
+[2026-08-27T10:41:26.424Z] ─── patient MA KHRISTINE THERESA DACASIN VISPERAS (6983469a41914e257bd80854) — package index 0 ───
+[2026-08-27T10:41:26.424Z]     packageId      = 6a13f07f3a0d55d72ed61d0b
+[2026-08-27T10:41:26.425Z]     assignedDate   = 2026-05-25T06:47:27.712Z
+[2026-08-27T10:41:26.425Z]     totalPrice     = 2000
+[2026-08-27T10:41:26.425Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.425Z]     ✓ resolved via Package master → "Exosom packg  MA KHRISTINE"
+[2026-08-27T10:41:26.504Z]     ✓ UPDATED → packageName = "Exosom packg  MA KHRISTINE"
+[2026-08-27T10:41:26.504Z] 
+[2026-08-27T10:41:26.505Z] ─── patient Shivani Sehgal (69a1772f8e31f892cfe18832) — package index 0 ───
+[2026-08-27T10:41:26.505Z]     packageId      = 6a13ecc93a0d55d72ed57465
+[2026-08-27T10:41:26.505Z]     assignedDate   = 2026-05-25T06:31:37.756Z
+[2026-08-27T10:41:26.505Z]     totalPrice     = 1600
+[2026-08-27T10:41:26.506Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.506Z]     ✓ resolved via Package master → "8 Sessions of Physio"
+[2026-08-27T10:41:26.583Z]     ✓ UPDATED → packageName = "8 Sessions of Physio"
+[2026-08-27T10:41:26.583Z] 
+[2026-08-27T10:41:26.584Z] ─── patient MYCAH LEIGH PONCE OCAMPO (69c8c5d580d73636b7058038) — package index 0 ───
+[2026-08-27T10:41:26.584Z]     packageId      = 69fc3affe9d2b6e539eadce5
+[2026-08-27T10:41:26.584Z]     assignedDate   = 2026-05-07T07:10:56.666Z
+[2026-08-27T10:41:26.584Z]     totalPrice     = 3000
+[2026-08-27T10:41:26.585Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.585Z]     ✓ resolved via Package master → "MYCAH Physio Package"
+[2026-08-27T10:41:26.661Z]     ✓ UPDATED → packageName = "MYCAH Physio Package"
+[2026-08-27T10:41:26.661Z] 
+[2026-08-27T10:41:26.662Z] ─── patient IMRAN SAJID TALIB HUSSAIN (69ca0d5f80d73636b72f62f3) — package index 0 ───
+[2026-08-27T10:41:26.662Z]     packageId      = 6a0d8ba5979bbf0241856201
+[2026-08-27T10:41:26.662Z]     assignedDate   = 2026-05-20T10:23:33.689Z
+[2026-08-27T10:41:26.662Z]     totalPrice     = 600
+[2026-08-27T10:41:26.662Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.663Z]     ✓ resolved via Package master → "IMRAN HAIR PRP PACKAGE"
+[2026-08-27T10:41:26.739Z]     ✓ UPDATED → packageName = "IMRAN HAIR PRP PACKAGE"
+[2026-08-27T10:41:26.739Z] 
+[2026-08-27T10:41:26.739Z] ─── patient PUTRI IRA SARASWATI RIDHOANTIKA (69cf9e747b942ea12ec4c983) — package index 0 ───
+[2026-08-27T10:41:26.739Z]     packageId      = 69fecdd25b954eed62767564
+[2026-08-27T10:41:26.740Z]     assignedDate   = 2026-05-09T06:01:56.026Z
+[2026-08-27T10:41:26.740Z]     totalPrice     = 597
+[2026-08-27T10:41:26.740Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.740Z]     ✓ resolved via Package master → "Putri Hydrafacial Anniv Offer"
+[2026-08-27T10:41:26.817Z]     ✓ UPDATED → packageName = "Putri Hydrafacial Anniv Offer"
+[2026-08-27T10:41:26.818Z] 
+[2026-08-27T10:41:26.818Z] ─── patient PUTRI IRA SARASWATI RIDHOANTIKA (69cf9e747b942ea12ec4c983) — package index 1 ───
+[2026-08-27T10:41:26.818Z]     packageId      = 6a13fba03a0d55d72ed818de
+[2026-08-27T10:41:26.819Z]     assignedDate   = 2026-05-25T07:46:29.976Z
+[2026-08-27T10:41:26.819Z]     totalPrice     = 1393
+[2026-08-27T10:41:26.819Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.819Z]     ✓ resolved via Package master → "Putri Physio Anniv Package"
+[2026-08-27T10:41:26.896Z]     ✓ UPDATED → packageName = "Putri Physio Anniv Package"
+[2026-08-27T10:41:26.896Z] 
+[2026-08-27T10:41:26.897Z] ─── patient D K (69cfe45ddb618372ac987894) — package index 0 ───
+[2026-08-27T10:41:26.897Z]     packageId      = 69b93248e1a43c23853ff381
+[2026-08-27T10:41:26.897Z]     assignedDate   = 2026-04-04T04:52:04.421Z
+[2026-08-27T10:41:26.897Z]     totalPrice     = (none)
+[2026-08-27T10:41:26.898Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.898Z]     ✓ resolved via Package master → "Hair PRP 3"
+[2026-08-27T10:41:26.975Z]     ✓ UPDATED → packageName = "Hair PRP 3"
+[2026-08-27T10:41:26.975Z] 
+[2026-08-27T10:41:26.975Z] ─── patient D K (69cfe45ddb618372ac987894) — package index 1 ───
+[2026-08-27T10:41:26.976Z]     packageId      = 69cff3f9db618372ac9cf171
+[2026-08-27T10:41:26.976Z]     assignedDate   = 2026-04-04T04:52:18.532Z
+[2026-08-27T10:41:26.976Z]     totalPrice     = (none)
+[2026-08-27T10:41:26.976Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:26.977Z]     ✓ resolved via Package master → "Half Body Laser Hair Removal"
+[2026-08-27T10:41:27.054Z]     ✓ UPDATED → packageName = "Half Body Laser Hair Removal"
+[2026-08-27T10:41:27.054Z] 
+[2026-08-27T10:41:27.054Z] ─── patient MARCO RAI DE CARVALHO (69d0d2b0db618372aca0c09e) — package index 0 ───
+[2026-08-27T10:41:27.055Z]     packageId      = 69d22c6c2dac578b21855fdd
+[2026-08-27T10:41:27.055Z]     assignedDate   = 2026-04-05T09:35:24.778Z
+[2026-08-27T10:41:27.055Z]     totalPrice     = 1699
+[2026-08-27T10:41:27.055Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.055Z]     ✓ resolved via Package master → "Marco Rai Buy 2 Get 2"
+[2026-08-27T10:41:27.132Z]     ✓ UPDATED → packageName = "Marco Rai Buy 2 Get 2"
+[2026-08-27T10:41:27.132Z] 
+[2026-08-27T10:41:27.133Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 0 ───
+[2026-08-27T10:41:27.133Z]     packageId      = 69e9d4b26bcb2e8de9f26aaf
+[2026-08-27T10:41:27.133Z]     assignedDate   = 2026-04-23T08:13:38.795Z
+[2026-08-27T10:41:27.134Z]     totalPrice     = 995
+[2026-08-27T10:41:27.134Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.134Z]     ✓ resolved via Package master → "Red Anniversary 26 offer"
+[2026-08-27T10:41:27.211Z]     ✓ UPDATED → packageName = "Red Anniversary 26 offer"
+[2026-08-27T10:41:27.212Z] 
+[2026-08-27T10:41:27.212Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 1 ───
+[2026-08-27T10:41:27.212Z]     packageId      = 69b7e7c13ce3415aea41accf
+[2026-08-27T10:41:27.212Z]     assignedDate   = 2026-04-23T08:22:33.964Z
+[2026-08-27T10:41:27.213Z]     totalPrice     = 2300
+[2026-08-27T10:41:27.213Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.213Z]     ✓ resolved via Package master → "Silver Package - Kizhi 60mins"
+[2026-08-27T10:41:27.293Z]     ✓ UPDATED → packageName = "Silver Package - Kizhi 60mins"
+[2026-08-27T10:41:27.293Z] 
+[2026-08-27T10:41:27.294Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 2 ───
+[2026-08-27T10:41:27.294Z]     packageId      = 69fd753f5bbd16635c585c10
+[2026-08-27T10:41:27.294Z]     assignedDate   = 2026-05-08T05:31:46.421Z
+[2026-08-27T10:41:27.294Z]     totalPrice     = 100
+[2026-08-27T10:41:27.294Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.295Z]     ✓ resolved via Package master → "package-7"
+[2026-08-27T10:41:27.371Z]     ✓ UPDATED → packageName = "package-7"
+[2026-08-27T10:41:27.371Z] 
+[2026-08-27T10:41:27.371Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 3 ───
+[2026-08-27T10:41:27.371Z]     packageId      = 6a15eddccc80415ca324ee98
+[2026-08-27T10:41:27.372Z]     assignedDate   = 2026-05-26T19:00:46.393Z
+[2026-08-27T10:41:27.372Z]     totalPrice     = 12000
+[2026-08-27T10:41:27.372Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.372Z]     ✓ resolved via Package master → "red 20 unit vn"
+[2026-08-27T10:41:27.450Z]     ✓ UPDATED → packageName = "red 20 unit vn"
+[2026-08-27T10:41:27.450Z] 
+[2026-08-27T10:41:27.450Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 4 ───
+[2026-08-27T10:41:27.451Z]     packageId      = 6a1e9b558666566e89b485f7
+[2026-08-27T10:41:27.451Z]     assignedDate   = 2026-06-02T08:59:01.918Z
+[2026-08-27T10:41:27.451Z]     totalPrice     = 5000
+[2026-08-27T10:41:27.451Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.452Z]     ✓ resolved via Package master → "tESTING"
+[2026-08-27T10:41:27.528Z]     ✓ UPDATED → packageName = "tESTING"
+[2026-08-27T10:41:27.529Z] 
+[2026-08-27T10:41:27.529Z] ─── patient Madam Red (69e77e7bc69a7611034637c2) — package index 5 ───
+[2026-08-27T10:41:27.529Z]     packageId      = 6a2c202d38ee16a9fc7cdce1
+[2026-08-27T10:41:27.529Z]     assignedDate   = 2026-06-12T15:15:25.315Z
+[2026-08-27T10:41:27.530Z]     totalPrice     = 2500
+[2026-08-27T10:41:27.530Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.530Z]     ✓ resolved via Package master → "Hair Bleach Laser by: Q switch"
+[2026-08-27T10:41:27.605Z]     ✓ UPDATED → packageName = "Hair Bleach Laser by: Q switch"
+[2026-08-27T10:41:27.605Z] 
+[2026-08-27T10:41:27.605Z] ─── patient DUAA ABDELRAZZAQ FADEL DERGHAM (69ef243600309f4fea560b19) — package index 0 ───
+[2026-08-27T10:41:27.605Z]     packageId      = 6a13f8793a0d55d72ed72101
+[2026-08-27T10:41:27.606Z]     assignedDate   = 2026-05-25T07:21:29.949Z
+[2026-08-27T10:41:27.606Z]     totalPrice     = 1000
+[2026-08-27T10:41:27.606Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.606Z]     ✓ resolved via Package master → "4ss Eximia"
+[2026-08-27T10:41:27.682Z]     ✓ UPDATED → packageName = "4ss Eximia"
+[2026-08-27T10:41:27.682Z] 
+[2026-08-27T10:41:27.682Z] ─── patient Test-patient (69fd709b5bbd16635c584268) — package index 0 ───
+[2026-08-27T10:41:27.683Z]     packageId      = 69fd710e5bbd16635c5848a1
+[2026-08-27T10:41:27.683Z]     assignedDate   = 2026-05-08T05:13:51.885Z
+[2026-08-27T10:41:27.683Z]     totalPrice     = 100
+[2026-08-27T10:41:27.683Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.684Z]     ✓ resolved via Package master → "package-2"
+[2026-08-27T10:41:27.758Z]     ✓ UPDATED → packageName = "package-2"
+[2026-08-27T10:41:27.758Z] 
+[2026-08-27T10:41:27.759Z] ─── patient Test-patient (69fd709b5bbd16635c584268) — package index 1 ───
+[2026-08-27T10:41:27.759Z]     packageId      = 69fd72e6e9d2b6e539fc717b
+[2026-08-27T10:41:27.759Z]     assignedDate   = 2026-05-08T05:21:42.807Z
+[2026-08-27T10:41:27.760Z]     totalPrice     = 200
+[2026-08-27T10:41:27.760Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.760Z]     ✓ resolved via Package master → "package-3"
+[2026-08-27T10:41:27.834Z]     ✓ UPDATED → packageName = "package-3"
+[2026-08-27T10:41:27.834Z] 
+[2026-08-27T10:41:27.835Z] ─── patient Test-patient (69fd709b5bbd16635c584268) — package index 2 ───
+[2026-08-27T10:41:27.835Z]     packageId      = 69fd73d95bbd16635c585676
+[2026-08-27T10:41:27.835Z]     assignedDate   = 2026-05-08T05:25:47.081Z
+[2026-08-27T10:41:27.835Z]     totalPrice     = 100
+[2026-08-27T10:41:27.835Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.836Z]     ✓ resolved via Package master → "package-4"
+[2026-08-27T10:41:27.912Z]     ✓ UPDATED → packageName = "package-4"
+[2026-08-27T10:41:27.913Z] 
+[2026-08-27T10:41:27.913Z] ─── patient PACIFICO EVANGELISTA (6a0b354debf17d2391ad074d) — package index 0 ───
+[2026-08-27T10:41:27.913Z]     packageId      = 69b6d01dd3bdf4d6d7bdbd2f
+[2026-08-27T10:41:27.913Z]     assignedDate   = 2026-06-19T05:01:41.877Z
+[2026-08-27T10:41:27.914Z]     totalPrice     = 1699
+[2026-08-27T10:41:27.914Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.914Z]     ✓ resolved via Package master → "Hydra Glow Facial - Deep Cleansing & Hydration"
+[2026-08-27T10:41:27.988Z]     ✓ UPDATED → packageName = "Hydra Glow Facial - Deep Cleansing & Hydration"
+[2026-08-27T10:41:27.988Z] 
+[2026-08-27T10:41:27.989Z] ─── patient Sali Mar Noor (6a0ea85b979bbf02418dd2e3) — package index 0 ───
+[2026-08-27T10:41:27.989Z]     packageId      = 6a0dcc70979bbf02418cf2d8
+[2026-08-27T10:41:27.989Z]     assignedDate   = 2026-05-21T06:39:56.840Z
+[2026-08-27T10:41:27.989Z]     totalPrice     = 1199
+[2026-08-27T10:41:27.989Z]     snapshot.name  = (empty)
+[2026-08-27T10:41:27.990Z]     ✓ resolved via Package master → "3SS LASER FULL BODY WITH FRONT AND BACK"
+[2026-08-27T10:41:28.065Z]     ✓ UPDATED → packageName = "3SS LASER FULL BODY WITH FRONT AND BACK"
+[2026-08-27T10:41:28.066Z] 
+[2026-08-27T10:41:28.066Z] ==============================================================================
+[2026-08-27T10:41:28.066Z] SUMMARY
+[2026-08-27T10:41:28.066Z] ==============================================================================
+[2026-08-27T10:41:28.067Z]   empty packages found       : 26
+[2026-08-27T10:41:28.067Z]   resolved by snapshot        : 0
+[2026-08-27T10:41:28.067Z]   resolved by Package master  : 26
+[2026-08-27T10:41:28.067Z]   resolved by Billing         : 0
+[2026-08-27T10:41:28.067Z]   UNRESOLVABLE (left as is)   : 0
+[2026-08-27T10:41:28.068Z]   already valid (idempotent)  : 0
+[2026-08-27T10:41:28.068Z]   UPDATED              : 26
+[2026-08-27T10:41:28.068Z] 
+[2026-08-27T10:41:28.068Z] Log file:    C:\Users\ADMIN\Documents\zeva360\ZEVA\scratch\fix-empty-package-names.log
+[2026-08-27T10:41:28.069Z] Rollback file: C:\Users\ADMIN\Documents\zeva360\ZEVA\scratch\fix-empty-package-names.rollback.jsonl
+[2026-08-27T10:41:28.069Z] To undo this run: node scratch/fix-empty-package-names.js --rollback
+[2026-08-27T10:41:28.069Z] Done.
+[2026-08-27T10:43:27.160Z] ==============================================================================
+[2026-08-27T10:43:27.161Z] MODE: DRY-RUN (default)
+[2026-08-27T10:43:27.162Z] CLINIC FILTER: 695611e64beeeb4df4ef0699
+[2026-08-27T10:43:27.162Z] ==============================================================================
+[2026-08-27T10:43:27.203Z] Found 0 patient-package record(s) with empty packageName.
+[2026-08-27T10:43:27.203Z] Nothing to fix. Exiting.

@@ -174,6 +174,29 @@ export default async function handler(req, res) {
 
     const patientPackages = await PatientRegistration.aggregate(pipeline);
 
+    // ── DEBUG: Log query params and raw records ─────────────────────────
+    console.log('[PKG_EXPIRY_DEBUG] Query params:', { startDate, endDate });
+    console.log('[PKG_EXPIRY_DEBUG] Date range:', { startAt, endAt });
+    console.log('[PKG_EXPIRY_DEBUG] Total patientPackages from aggregation:', patientPackages.length);
+    console.log('[PKG_EXPIRY_DEBUG] Today:', today.toISOString(), '| 7 days:', sevenDaysFromToday.toISOString(), '| 30 days:', thirtyDaysFromToday.toISOString());
+    patientPackages.forEach((pkg, idx) => {
+      console.log(`[PKG_EXPIRY_DEBUG] Record #${idx + 1}:`, {
+        patientId: String(pkg.patientId),
+        patientName: `${pkg.firstName || ''} ${pkg.lastName || ''}`.trim(),
+        emrNumber: pkg.emrNumber,
+        packageName: pkg.packageName,
+        totalPrice: pkg.totalPrice,
+        paidAmount: pkg.paidAmount,
+        paymentStatus: pkg.paymentStatus,
+        assignedDate: pkg.assignedDate,
+        effectiveEndDate: pkg.effectiveEndDate,
+        totalSessions: pkg.totalSessions,
+        sessionsUsed: pkg.sessionsUsed,
+        remainingSessions: pkg.remainingSessions,
+        packageSoldBy: pkg.packageSoldBy,
+      });
+    });
+
     // Calculate expiry KPIs
     let activeCount = 0;
     let expiredCount = 0;
@@ -238,6 +261,22 @@ export default async function handler(req, res) {
         activePackages.push(detailItem);
       }
     }
+
+    // ─── DEBUG: Log final KPI counts ─────────────────────────────────────
+    console.log('[PKG_EXPIRY_DEBUG] Final KPI counts:', {
+      activePackages: activeCount,
+      expiredPackages: expiredCount,
+      expiring7Days: expiring7DaysCount,
+      expiring30Days: expiring30DaysCount,
+      renewalOpportunities: expiring7DaysCount + expiring30DaysCount,
+    });
+    console.log('[PKG_EXPIRY_DEBUG] Active packages detail:', activePackages.map(p => ({
+      packageName: p.packageName,
+      patientName: p.patientName,
+      patientId: String(p.patientId),
+      expirationDate: p.expirationDate,
+      assignedDate: p.date,
+    })));
 
     return res.status(200).json({
       success: true,

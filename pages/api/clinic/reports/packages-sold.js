@@ -1280,9 +1280,22 @@ export default async function handler(req, res) {
             totalPending: { $sum: "$totalPending" },
             totalSessions: { $sum: "$totalSessions" },
             totalUsedSessions: { $sum: "$sessionsUsed" },
-            paidPackages: { $sum: { $cond: [{ $lte: ["$totalPending", 0] }, 1, 0] } },
-            partiallyPaid: { $sum: { $cond: [{ $and: [{ $gt: ["$totalPending", 0] }, { $gt: ["$totalPaid", 0] }] }, 1, 0] } },
-            unpaidPackages: { $sum: { $cond: [{ $lte: ["$totalPaid", 0] }, 1, 0] } },
+            // BUG FIX: Conditions were previously not mutually exclusive.
+            //   old paid:   totalPending <= 0   (only checked pending)
+            //   old unpaid: totalPaid    <= 0   (only checked paid)
+            // When totalPaid=0 AND totalPending=0, the same record was counted
+            // in BOTH paid AND unpaid, making paid+partially+unpaid exceed
+            // totalPackagesSold. Now uses the same pattern as the package-performance
+            // combined summary and monthly aggregation:
+            //   paid      = totalPaid    > 0 AND totalPending <= 0
+            //   partially = totalPaid    > 0 AND totalPending  > 0
+            //   unpaid    = totalPaid   <= 0 AND totalPending  > 0
+            // Records where totalPaid=0 AND totalPending=0 (e.g. free/$0 packages
+            // or amounts cleared entirely via advance/claim) are not counted in
+            // any bucket, ensuring paid+partially+unpaid never exceeds sold.
+            paidPackages: { $sum: { $cond: [{ $and: [{ $gt: ["$totalPaid", 0] }, { $lte: ["$totalPending", 0] }] }, 1, 0] } },
+            partiallyPaid: { $sum: { $cond: [{ $and: [{ $gt: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] }, 1, 0] } },
+            unpaidPackages: { $sum: { $cond: [{ $and: [{ $lte: ["$totalPaid", 0] }, { $gt: ["$totalPending", 0] }] }, 1, 0] } },
             activePackages: { $sum: { $cond: [{ $and: [{ $gt: ["$sessionsUsed", 0] }, { $lt: ["$sessionsUsed", "$totalSessions"] }] }, 1, 0] } },
             completedPackages: { $sum: { $cond: [{ $gte: ["$sessionsUsed", "$totalSessions"] }, 1, 0] } },
             unusedPackages: { $sum: { $cond: [{ $lte: ["$sessionsUsed", 0] }, 1, 0] } },
@@ -1300,6 +1313,13 @@ export default async function handler(req, res) {
 
     const summaryAgg = await Billing.aggregate(summaryPipeline);
     const previousSummaryAgg = await Billing.aggregate(previousSummaryPipeline);
+
+    // ── DEBUG: Log query params and summary results ─────────────────────
+    console.log('[PKG_SOLD_DEBUG] Query params:', { startDate, endDate, page, limit, doctorId, departmentId, salesStaffId, paymentMethod });
+    console.log('[PKG_SOLD_DEBUG] Date range:', { startAt, endAt });
+    console.log('[PKG_SOLD_DEBUG] Summary aggregation raw result:', summaryAgg);
+    console.log('[PKG_SOLD_DEBUG] Previous summary aggregation raw result:', previousSummaryAgg);
+
     const summary = summaryAgg?.[0] || {
       totalPackagesSold: 0,
       totalPaid: 0,

@@ -4,20 +4,62 @@ import Clinic from "../../../models/Clinic";
 import Users from "../../../models/Users";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
-// ── Text index for fast search (runs once per process) ──
+// ── Text & compound indexes (run once per process) ──
 let indexesEnsured = false;
-const ensureSearchIndexes = () => {
+const ensureSearchIndexes = async () => {
   if (indexesEnsured) return;
   indexesEnsured = true;
-  // Compound index for sorted paginated queries
-  PatientRegistration.collection.createIndex({ userId: 1, createdAt: -1 }).catch(() => {});
+  // Compound index for the most common query: clinic/userId + sort by createdAt desc
+  PatientRegistration.collection.createIndex(
+    { userId: 1, createdAt: -1 },
+    { name: "userId_createdAt_idx" }
+  ).catch(() => {});
+  // Compound index for status-filtered + sorted queries
+  PatientRegistration.collection.createIndex(
+    { userId: 1, status: 1, createdAt: -1 },
+    { name: "userId_status_createdAt_idx" }
+  ).catch(() => {});
+  // Compound index for advance-claim-filtered + sorted queries
+  PatientRegistration.collection.createIndex(
+    { userId: 1, advanceClaimStatus: 1, createdAt: -1 },
+    { name: "userId_claim_createdAt_idx" }
+  ).catch(() => {});
+  // Compound index for combined status + claim + sort
+  PatientRegistration.collection.createIndex(
+    { userId: 1, status: 1, advanceClaimStatus: 1, createdAt: -1 },
+    { name: "userId_status_claim_createdAt_idx" }
+  ).catch(() => {});
   // Text index for fast full-text search across multiple fields
   PatientRegistration.collection.createIndex(
     { firstName: "text", lastName: "text", email: "text", emrNumber: "text", invoiceNumber: "text" },
     { name: "patient_search_text_idx", default_language: "none" }
   ).catch(() => {});
-  // Individual field indexes for regex fallback (phone search)
+  // Individual field indexes for regex fallback (phone / emr search)
   PatientRegistration.collection.createIndex({ mobileNumber: 1 }).catch(() => {});
+  PatientRegistration.collection.createIndex({ emrNumber: 1 }).catch(() => {});
+  PatientRegistration.collection.createIndex({ invoiceNumber: 1 }).catch(() => {});
+};
+
+// ── Field projection for list view (skip heavy arrays / long strings) ──
+// Critical: returning only fields the list UI uses keeps payload small & fast.
+const LIST_PROJECTION = {
+  _id: 1,
+  firstName: 1,
+  lastName: 1,
+  email: 1,
+  mobileNumber: 1,
+  countryCode: 1,
+  emrNumber: 1,
+  invoiceNumber: 1,
+  doctor: 1,
+  status: 1,
+  advanceClaimStatus: 1,
+  profileImage: 1,
+  gender: 1,
+  dateOfBirth: 1,
+  city: 1,
+  createdAt: 1,
+  updatedAt: 1,
 };
 
 // ── In-memory cache for clinic user IDs (avoids repeated DB lookups) ──
@@ -29,11 +71,19 @@ const getCachedClinicUserIds = async (clinicId, ownerUserId) => {
   if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.ids;
   const clinicUsers = await Users.find({
     $or: [{ _id: ownerUserId }, { clinicId: clinicId }],
-  }).select("_id");
+  }).select("_id").lean();
   const ids = clinicUsers.map((u) => u._id);
   clinicUserCache.set(cacheKey, { ids, ts: Date.now() });
   return ids;
 };
+
+// ── Short-lived count cache for the unfiltered base query ──
+// On a 1000+ row collection, countDocuments() is the slowest part of the request.
+// For the most common case (no search/filter, just pagination), cache the count.
+const countCache = new Map();
+const COUNT_CACHE_TTL = 30 * 1000; // 30 seconds
+const buildCountCacheKey = (userId, query) =>
+  `${userId?.toString?.() || userId}|${JSON.stringify(query)}`;
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -73,7 +123,7 @@ export default async function handler(req, res) {
 
       // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
       if (user.role === "clinic") {
-        const clinic = await Clinic.findOne({ owner: user._id });
+        const clinic = await Clinic.findOne({ owner: user._id }).select("_id").lean();
         if (clinic) {
           // Use cached clinic user IDs to avoid repeated DB lookups
           const clinicUserIds = await getCachedClinicUserIds(clinic._id, user._id);
@@ -86,7 +136,7 @@ export default async function handler(req, res) {
       // For agent/doctorStaff: show all patients belonging to the clinic
       else if (user.role === "agent" || user.role === "doctorStaff") {
         if (user.clinicId) {
-          const clinic = await Clinic.findById(user.clinicId);
+          const clinic = await Clinic.findById(user.clinicId).select("_id owner").lean();
           if (clinic) {
             // Use cached clinic user IDs to avoid repeated DB lookups
             const clinicUserIds = await getCachedClinicUserIds(clinic._id, clinic.owner);
@@ -203,17 +253,57 @@ export default async function handler(req, res) {
       const skip = sizeNum > 0 ? (pageNum - 1) * sizeNum : 0;
       const limit = sizeNum > 0 ? sizeNum : 0;
 
-      // Run count and data fetch in parallel (both evaluate same query)
+      // ── Deep-pagination guard ──
+      // Skipping tens of thousands of docs is slow even with an index.
+      // Clamp the skip to a reasonable max and surface a flag so the client
+      // can warn the user / switch to a search-based fetch.
+      const MAX_SKIP = 5000;
+      let skipClamped = false;
+      let effectiveSkip = skip;
+      if (skip > MAX_SKIP) {
+        effectiveSkip = MAX_SKIP;
+        skipClamped = true;
+      }
+
+      // 🔹 Try to serve the count from cache (only when no extra filters applied
+      // beyond the userId scope, which is the most common case on the list view).
+      const noExtraFilters = andClauses.length === 1; // only { userId: ... }
+      const countCacheKey = buildCountCacheKey(user._id, query);
+      let totalCount = null;
+      if (noExtraFilters) {
+        const cached = countCache.get(countCacheKey);
+        if (cached && Date.now() - cached.ts < COUNT_CACHE_TTL) {
+          totalCount = cached.count;
+        }
+      }
+
+      // Build the data query:
+      //   - select() => small payload (skip heavy fields like selectedTreatments)
+      //   - lean()   => plain JS objects, no Mongoose overhead
+      //   - allowDiskUse() => fallback for sorts that exceed RAM on huge collections
+      //   - sort by createdAt desc (uses the new compound index)
       const patientsQuery = PatientRegistration.find(query)
+        .select(LIST_PROJECTION)
         .sort({ createdAt: -1 })
-        .lean();
-      if (skip > 0) patientsQuery.skip(skip);
+        .lean({ getters: false })
+        .allowDiskUse(true);
+      if (effectiveSkip > 0) patientsQuery.skip(effectiveSkip);
       if (limit > 0) patientsQuery.limit(limit);
 
-      const [totalCount, patients] = await Promise.all([
-        PatientRegistration.countDocuments(query),
-        patientsQuery,
-      ]);
+      // Run count and data fetch in parallel (only fetch count if not cached)
+      const dbCalls = [patientsQuery];
+      if (totalCount === null) {
+        dbCalls.push(PatientRegistration.countDocuments(query).allowDiskUse(true));
+      }
+
+      const results = await Promise.all(dbCalls);
+      const patients = results[0];
+      if (totalCount === null) {
+        totalCount = results[1];
+        if (noExtraFilters) {
+          countCache.set(countCacheKey, { count: totalCount, ts: Date.now() });
+        }
+      }
 
       // 🔹 Map doctor name - handle both ObjectId references and string names
       const patientDetails = patients.map((p) => {
@@ -234,6 +324,14 @@ export default async function handler(req, res) {
 
       const totalPages = sizeNum > 0 ? Math.ceil(totalCount / sizeNum) : 1;
 
+      // 🔹 Short-lived HTTP cache so the browser/CDN can serve repeat page-1 hits
+      // without hitting Node. First page with no filters is the most cacheable.
+      if (noExtraFilters && pageNum === 1) {
+        res.setHeader("Cache-Control", "private, max-age=10");
+      } else {
+        res.setHeader("Cache-Control", "no-store");
+      }
+
       return res.status(200).json({
         success: true,
         count: totalCount,
@@ -246,6 +344,7 @@ export default async function handler(req, res) {
           hasNextPage: sizeNum > 0 ? pageNum < totalPages : false,
           hasPrevPage: sizeNum > 0 ? pageNum > 1 : false,
         },
+        ...(skipClamped ? { skipClamped: true, maxSkip: MAX_SKIP } : {}),
       });
     } catch (err) {
       console.error("GET error:", err);

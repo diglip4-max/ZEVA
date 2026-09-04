@@ -5,6 +5,7 @@ import PatientRegistration from "../../../models/PatientRegistration";
 import Service from "../../../models/Service";
 import User from "../../../models/Users";
 import Billing from "../../../models/Billing";
+import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
 
 /**
@@ -73,6 +74,14 @@ async function resolveClinicId(req, me) {
     }
     return { clinicId: qClinicId };
   }
+  // Clinic role: clinic is found by owner, not by user.clinicId
+  if (me.role === "clinic") {
+    const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
+    if (!clinic) {
+      return { error: { status: 403, message: "Clinic not found for this user" } };
+    }
+    return { clinicId: clinic._id.toString() };
+  }
   if (!me.clinicId) return { error: { status: 403, message: "User not linked to a clinic" } };
   return { clinicId: me.clinicId.toString() };
 }
@@ -93,7 +102,7 @@ export default async function handler(req, res) {
     }
 
     // 2. AuthZ
-    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin"];
+    const allowedRoles = ["agent", "doctorStaff", "doctor", "staff", "admin", "clinic"];
     if (!allowedRoles.includes(me.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }

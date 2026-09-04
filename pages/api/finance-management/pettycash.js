@@ -5,6 +5,7 @@ import PettyCashExpense from "../../../models/PettyCashExpense";
 import PettyCash from "../../../models/PettyCash";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import Users from "../../../models/Users";
 
 // Helper function to safely parse Decimal128 or Number values
 const parseNumber = (value) => {
@@ -133,7 +134,7 @@ export default async function handler(req, res) {
     const baseFilter = {
       clinicId,
       ...(me.role === "clinic" ? {} : { staffId }),
-      ...(showVoided ? {} : { isVoided: { $ne: true } }),
+      // ...(showVoided ? {} : { isVoided: { $ne: true } }),
       ...(startDate && {
         date: { $gte: new Date(startDate) },
       }),
@@ -265,6 +266,14 @@ export default async function handler(req, res) {
 
     if (viewType === "expenses" || viewType === "all") {
       // Fetch expenses
+      const qLength = await PettyCashExpense.countDocuments({ clinicId });
+      console.log({
+        baseFilter,
+        expenseFilter,
+        viewType,
+        expenseQueryLength: qLength,
+        clinicId,
+      });
       let expenseQuery = PettyCashExpense.find(expenseFilter)
         .populate("vendor", "name email phone")
         .populate("createdBy", "name email role")

@@ -1,11 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import PettyCashTab from "./PettyCashTab";
 import BillingTab from "./BillingTab";
 import ProductSaleTab from "./ProductSaleTab";
 import ManualPettyCashTab from "./ManualPettyCashTab";
-import OverviewTab from "./OverviewTab";
-import { useClinicTheme } from "@/context/ClinicThemeContext";
 import useClinic from "@/hooks/useClinic";
 import BillsPayableTab from "./BillsPayableTab";
 import FinancePaymentsTab from "./FinancePaymentsTab";
@@ -17,6 +15,7 @@ import BankAccountsTab from "./BankAccountsTab";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
 import useFinancePermission from "../_hooks/useFinancePermission";
+import DashboardTab from "./DashboardTab";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -29,10 +28,9 @@ export default function FinanceManager() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("view") || "overview";
-  const { theme } = useClinicTheme();
-  const isDark = theme === "dark";
   const { clinic } = useClinic();
   const [activeTab, setActiveTab] = useState<
+    | "dashboard"
     | "overview"
     | "transactions"
     | "invoices"
@@ -97,34 +95,20 @@ export default function FinanceManager() {
     parentModuleKey,
   });
 
+  useEffect(() => {
+    setActiveTab(currentTab as any);
+  }, [currentTab]);
+
   return (
     <div>
-      <div className="zfm-body min-h-screen transition-colors duration-300">
+      <div className="zfm-body min-h-screen bg-[#F8F5EF] dark:bg-[#0b1512] transition-colors duration-300">
         <style>{FONTS}</style>
 
-        {/* Header */}
-        <div className="relative bg-white dark:bg-stone-900 border-b border-stone-100 dark:border-stone-800 overflow-hidden transition-colors duration-300">
-          <div
-            className="absolute -left-20 -top-28 w-80 h-80 rounded-full blur-3xl pointer-events-none"
-            style={{
-              background: `radial-gradient(circle, ${isDark ? "rgba(45,212,191,0.10)" : "#99f6e4"}, transparent 70%)`,
-            }}
-          />
-          <div
-            className="absolute right-0 -top-16 w-72 h-72 rounded-full blur-3xl pointer-events-none"
-            style={{
-              background: `radial-gradient(circle, ${isDark ? "rgba(217,119,6,0.10)" : "#fde68a"}, transparent 70%)`,
-            }}
-          />
-
-          <div className="relative w-full px-6 sm:px-10 pt-8 pb-5 flex items-center justify-between flex-wrap gap-4">
+        {/* Header — flat, solid surface, no gradient blobs */}
+        <div className="bg-white dark:bg-[#111d19] border-b border-[#EDE7DA] dark:border-[#1a2622] transition-colors duration-300">
+          <div className="w-full px-6 sm:px-10 pt-8 pb-5 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-md shrink-0"
-                style={{
-                  backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-                }}
-              >
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-teal-600 dark:bg-teal-500 shrink-0">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -139,25 +123,22 @@ export default function FinanceManager() {
             {/* <div className="flex items-center gap-3">
               <button
                 onClick={exportCSV}
-                className="flex items-center gap-2 rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-5 py-2.5 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700 hover:shadow-sm transition-all duration-200"
+                className="flex items-center gap-2 rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#16231f] px-5 py-2.5 text-sm font-semibold text-stone-600 dark:text-stone-300 hover:bg-[#F8F5EF] dark:hover:bg-[#1c2a25] transition-all duration-200"
               >
                 <Download className="w-4 h-4" />
                 Export
               </button>
               <button
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
-                style={{
-                  backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-                }}
+                className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 shadow-sm hover:shadow transition-all duration-200"
               >
                 <Plus className="w-4 h-4" />
                 New Transaction
               </button>
             </div> */}
           </div>
-          <div className="relative w-full px-6 sm:px-10 pb-4">
-            <div className="inline-flex items-center gap-1 bg-stone-100 dark:bg-gray-900 rounded-full p-1">
+          <div className="w-full px-6 sm:px-10 pb-4">
+            <div className="inline-flex items-center gap-1 bg-[#F8F5EF] dark:bg-[#0d1613] rounded-full p-1">
               {tabs.map((t) => (
                 <button
                   key={t.id}
@@ -174,7 +155,7 @@ export default function FinanceManager() {
                   }}
                   className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 ${
                     activeTab === t.id
-                      ? "bg-white dark:bg-stone-700 text-teal-700 dark:text-teal-300 shadow-sm"
+                      ? "bg-white dark:bg-[#16231f] text-teal-700 dark:text-teal-300 shadow-sm"
                       : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
                   }`}
                 >
@@ -188,12 +169,16 @@ export default function FinanceManager() {
         <div className="w-full px-6 sm:px-10 py-8 sm:py-10">
           <>
             {/* Overview Tab */}
-            {activeTab === "overview" && (
+            {/* {activeTab === "overview" && (
               <OverviewTab
                 isDark={isDark}
                 onTabChange={(tab) => setActiveTab(tab as any)}
                 permissionData={permissionData}
               />
+            )} */}
+            {/* Dashboard Tab */}
+            {activeTab === "overview" && (
+              <DashboardTab permissionData={permissionData} />
             )}
 
             {/* Billing Tab */}
