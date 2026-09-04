@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Schema, model, models, Types } from "mongoose";
+const { Schema, model, models, Types } = mongoose;
 
 // ============================================================
 // NOTIFICATION LOG (Delivery history + audit trail)

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Schema, model, models } from "mongoose";
+const { Schema, model, models } = mongoose;
 
 // ============================================================
 // NOTIFICATION CATALOG (Master list - System defined)

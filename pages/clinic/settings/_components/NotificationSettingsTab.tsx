@@ -240,35 +240,6 @@ function ChannelPill({
   );
 }
 
-function Badge({
-  children,
-  tone = "danger",
-}: {
-  children: React.ReactNode;
-  tone?: "danger" | "default";
-}) {
-  const colors =
-    tone === "danger"
-      ? {
-          c: "var(--danger)",
-          bg: "var(--danger-bg)",
-          b: "var(--danger-border)",
-        }
-      : { c: "var(--text-lo)", bg: "var(--surface-3)", b: "var(--border)" };
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-      style={{
-        color: colors.c,
-        background: colors.bg,
-        border: `1px solid ${colors.b}`,
-      }}
-    >
-      {children}
-    </span>
-  );
-}
-
 function Btn({
   children,
   onClick,
@@ -529,7 +500,7 @@ export default function NotificationSettingsTab() {
     loading,
     saving,
     error,
-    categoryFilter,
+    // categoryFilter,
     setCategoryFilter,
     search,
     setSearch,

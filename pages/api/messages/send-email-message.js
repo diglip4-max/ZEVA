@@ -119,10 +119,18 @@ export default async function handler(req, res) {
         recipientIds.push(lead._id);
       }
 
+      if (!providerId) {
+        return res.status(400).json({
+          success: false,
+          message: "Provider is required",
+        });
+      }
+
       // Find conversation with that lead
       let conversation = await Conversation.findOne({
         clinicId,
         leadId: recipientIds[0],
+        status: { $ne: "trashed" },
       }).select("_id");
 
       if (!conversation) {
@@ -130,6 +138,7 @@ export default async function handler(req, res) {
           leadId: recipientIds[0],
           clinicId,
           ownerId: me._id,
+          owners: [me._id],
         });
         await conversation.save();
       }
@@ -137,12 +146,6 @@ export default async function handler(req, res) {
       conversationId = conversation._id;
     }
 
-    if (!providerId) {
-      return res.status(400).json({
-        success: false,
-        message: "Provider is required",
-      });
-    }
     let lastMessageId = "";
     if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
       return res.status(400).json({
@@ -204,6 +207,7 @@ export default async function handler(req, res) {
       conversation = await Conversation.findOne({
         leadId: req.body.leadId,
         clinicId,
+        status: { $ne: "trashed" },
       }).select("_id leadId");
       conversationId = conversation?._id;
     }
@@ -259,6 +263,9 @@ export default async function handler(req, res) {
         message: "Lead not found",
       });
     }
+
+    //
+
     const leadId = conversation.leadId;
 
     const [leadPayload, systemPayload] = await Promise.all([
