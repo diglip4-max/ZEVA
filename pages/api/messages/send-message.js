@@ -120,6 +120,7 @@ export default async function handler(req, res) {
       conversation = await Conversation.findOne({
         leadId: req.body.leadId,
         clinicId,
+        status: { $ne: "trashed" },
       });
       conversationId = conversation._id;
     }
@@ -133,12 +134,14 @@ export default async function handler(req, res) {
         conversation = await Conversation.findOne({
           leadId: patient.leadId,
           clinicId,
+          status: { $ne: "trashed" },
         });
         if (!conversation) {
           conversation = new Conversation({
             leadId: patient.leadId,
             clinicId,
             ownerId: me._id,
+            owners: [me._id],
           });
           await conversation.save();
         }
@@ -158,12 +161,14 @@ export default async function handler(req, res) {
         conversation = await Conversation.findOne({
           leadId: lead._id,
           clinicId,
+          status: { $ne: "trashed" },
         });
         if (!conversation) {
           conversation = new Conversation({
             leadId: lead._id,
             clinicId,
             ownerId: me._id,
+            owners: [me._id],
           });
           await conversation.save();
         }

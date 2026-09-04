@@ -2207,6 +2207,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
             let conversation = await Conversation.findOne({
               leadId: recipient._id,
               clinicId: campaign.clinicId,
+              status: { $ne: "trashed" },
             });
 
             if (!conversation) {
@@ -2216,6 +2217,23 @@ const scheduleWhatsappCampaignWorker = new Worker(
                 leadId: recipient._id,
               });
             }
+
+            // find union of provider owners and conv owners
+            const owners = provider.owners || [];
+            const convOwners = conversation.owners || [];
+            const allOwners = new Set([
+              ...(owners?.map((i) => i.toString()) || []),
+              ...(convOwners?.map((i) => i.toString()) || []),
+            ]);
+            conversation.owners = [...allOwners];
+            // if conversation is closed then open it
+            if (
+              conversation?.status === "closed" ||
+              conversation?.status === "archived"
+            ) {
+              conversation.status = "open";
+            }
+            await conversation.save();
 
             // if lead has not name then find in patient record then match with exact name
             console.log({ recipientOfCampaign: recipient });
@@ -3420,27 +3438,47 @@ export const notificationWorker = new Worker(
         throw new Error(`Lead with id ${leadId} not found`);
       }
 
+      // Find Provider from providerId
+      let provider = await Provider.findById(providerId);
+      if (!provider) {
+        throw new Error(`Provider with id ${providerId} not found`);
+      }
+
       // Find conversation for leadId
       let conversation = await Conversation.findOne({
         clinicId: clinicId,
         leadId: leadId,
+        status: { $ne: "trashed" },
       });
 
       if (!conversation) {
         // if not found conversation then create new one
         conversation = new Conversation({
           clinicId: clinicId,
-          // ownerId: workflow?.ownerId,
           leadId: leadId,
         });
         await conversation.save();
       }
 
-      // Find Provider from providerId
-      let provider = await Provider.findById(providerId);
-      if (!provider) {
-        throw new Error(`Provider with id ${providerId} not found`);
+      // find union of provider owners and conv owners
+      const owners = provider.owners || [];
+      const convOwners = conversation.owners || [];
+      const allOwners = new Set([
+        ...(owners?.map((i) => i.toString()) || []),
+        ...(convOwners?.map((i) => i.toString()) || []),
+      ]);
+      conversation.owners = [...allOwners];
+      if(conversation?.owners?.length > 0){
+        conversation.ownerId = conversation.owners[0];
       }
+      // if conversation is closed then open it
+      if (
+        conversation?.status === "closed" ||
+        conversation?.status === "archived"
+      ) {
+        conversation.status = "open";
+      }
+      await conversation.save();
 
       // Find Template from templateId
       let template = await Template.findById(templateId);

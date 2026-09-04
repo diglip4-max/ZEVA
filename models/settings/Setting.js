@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { Schema, model, models, Types } from "mongoose";
+const { Schema, model, models, Types } = mongoose;
 
 // ============================================================
 // 1. NOTIFICATION SETTING (per clinic, per notification type)
