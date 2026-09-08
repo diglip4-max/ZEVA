@@ -3,8 +3,7 @@ import { toast } from "react-hot-toast";
 import { Search, ChevronDown, X, Check } from "lucide-react";
 
 interface Props {
-  isOpen: boolean;
-  onClose: () => void;
+  onCancel: () => void;
   onCreated: (offer: any) => void;
   token: string;
   mode?: "create" | "update";
@@ -12,9 +11,8 @@ interface Props {
   actorRole?: "clinic" | "doctor" | "agent" | "admin" | "doctorStaff";
 }
 
-export default function CreateOfferModal({
-  isOpen,
-  onClose,
+export default function CreateOfferWizard({
+  onCancel,
   onCreated,
   token,
   mode = "create",
@@ -209,17 +207,15 @@ export default function CreateOfferModal({
   };
 
   useEffect(() => {
-    if (!isOpen && !token) {
+    if (!token) {
       setResolvedToken("");
       return;
     }
     const nextToken = resolveTokenFromContext();
     setResolvedToken(nextToken);
-  }, [isOpen, token, actorRole]);
+  }, [token, actorRole]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     const authToken = resolvedToken;
     if (!authToken) {
       setClinicId(null);
@@ -318,11 +314,9 @@ export default function CreateOfferModal({
     };
 
     fetchAllData();
-  }, [isOpen, resolvedToken]);
+  }, [resolvedToken]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     if (mode === "create") {
       setForm(getInitialForm());
       setErrors({});
@@ -403,7 +397,7 @@ export default function CreateOfferModal({
       });
       setClinicId(offer.clinicId || null);
     }
-  }, [isOpen, mode, offer]);
+  }, [mode, offer]);
 
   // Calculate service count when departments are selected
   useEffect(() => {
@@ -642,7 +636,7 @@ export default function CreateOfferModal({
         });
         setTimeout(() => {
           setShowSuccessPopup(false);
-          onClose();
+          onCancel && onCancel();
         }, 2000);
       } else {
         toast.error(data.message || "Failed to save offer", {
@@ -736,7 +730,7 @@ export default function CreateOfferModal({
         });
         setTimeout(() => {
           setShowSuccessPopup(false);
-          onClose();
+          if (onCancel) onCancel();
         }, 2000);
       } else {
         toast.error(data.message || "Failed to save offer", {
@@ -767,13 +761,11 @@ export default function CreateOfferModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-[#FAF9F6] rounded-xl shadow-2xl w-full max-w-4xl flex flex-col my-auto max-h-[95vh] overflow-hidden">
+    <div className="bg-[#FAF9F6] w-full flex flex-col">
+      <div className="bg-white shadow-sm rounded-xl overflow-hidden flex flex-col w-full border border-gray-100">
         {/* Header */}
-        <div className="px-6 py-6 border-b border-gray-100 bg-white rounded-t-xl shrink-0">
+        <div className="px-6 py-6 border-b border-gray-100 bg-white shrink-0">
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-xl font-bold text-gray-900">{mode === "create" ? "Create Offer" : "Update Offer"}</h2>
@@ -782,7 +774,7 @@ export default function CreateOfferModal({
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={onCancel}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -917,16 +909,23 @@ export default function CreateOfferModal({
 
             {/* Step 3: Applicability */}
             {currentStep === 3 && (
-              <div className="space-y-4">
-                <label className="block text-[10px] font-medium text-teal-700 mb-2">Apply On:</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              <div className="space-y-5">
+                <label className="block text-[11px] font-semibold text-[#0E856E] mb-2">Apply On:</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                   {[
                     { id: "all_services", label: "All Services" },
                     { id: "selected_services", label: "Selected Services" },
                     { id: "selected_departments", label: "Selected Departments" },
                     { id: "selected_doctors", label: "Selected Doctors" }
                   ].map((opt) => (
-                    <label key={opt.id} className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-all text-[10px] text-center ${form.applyOnType === opt.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white text-teal-700 border-gray-200 hover:bg-gray-50"}`}>
+                    <label
+                      key={opt.id}
+                      className={`flex items-center justify-center py-2.5 px-3 border rounded-xl cursor-pointer transition-all text-xs font-medium text-center ${
+                        form.applyOnType === opt.id
+                          ? "bg-[#0E856E] text-white border-[#0E856E] shadow-sm font-semibold"
+                          : "bg-white text-[#0E856E] border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
                       <input
                         type="radio"
                         name="applyOnType"

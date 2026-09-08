@@ -127,7 +127,9 @@ const OfferSchema = new Schema(
   createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   createdByName: { type: String, default: "" },
   createdByRole: { type: String, default: "" },
-  updatedBy: { type: Schema.Types.ObjectId, ref: "User" }
+  updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+  updatedByName: { type: String, default: "" },
+  updatedByRole: { type: String, default: "" }
 
 },
 { timestamps: true }

@@ -1,6 +1,8 @@
 import dbConnect from "../../../lib/database";
 import Billing from "../../../models/Billing";
 import Clinic from "../../../models/Clinic";
+import Service from "../../../models/Service";
+import Treatment from "../../../models/Treatment";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -59,42 +61,60 @@ export default async function handler(req, res) {
       };
     }
 
-    // Calculate free session liability (bundle offers with unused free sessions)
-    const freeSessionLiabilityPipeline = [
-      {
-        $match: {
-          clinicId: clinicId,
-          offerApplied: true,
-          offerType: "bundle",
-          isAdvanceOnly: { $ne: true },
-          ...dateFilter,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalFreeSessions: {
-            $sum: {
-              $reduce: {
-                input: "$offerFreeSession",
-                initialValue: 0,
-                in: { $add: ["$$value", 1] },
-              },
-            },
-          },
-          totalRedeemed: {
-            $sum: {
-              $reduce: {
-                input: "$usedFreeSessions",
-                initialValue: 0,
-                in: { $add: ["$$value", 1] },
-              },
-            },
-          },
-          totalRevenue: { $sum: "$amount" },
-        },
-      },
-    ];
+    // Build price map from Treatment and Service models
+    const treatmentPriceMap = new Map();
+
+    const servicesList = await Service.find({ clinicId, isDeleted: { $ne: true } }).lean();
+    for (const s of servicesList) {
+      const p = s.clinicPrice ?? s.price ?? 0;
+      if (s.name) treatmentPriceMap.set(s.name.toLowerCase().trim(), p);
+      if (s.serviceSlug) treatmentPriceMap.set(s.serviceSlug.toLowerCase().trim(), p);
+    }
+
+    const treatmentsList = await Treatment.find({}).lean();
+    for (const t of treatmentsList) {
+      if (t.name) treatmentPriceMap.set(t.name.toLowerCase().trim(), t.price || 0);
+      if (t.slug) treatmentPriceMap.set(t.slug.toLowerCase().trim(), t.price || 0);
+      if (Array.isArray(t.subcategories)) {
+        for (const sub of t.subcategories) {
+          const subP = sub.price || 0;
+          if (sub.name) treatmentPriceMap.set(sub.name.toLowerCase().trim(), subP);
+          if (sub.slug) treatmentPriceMap.set(sub.slug.toLowerCase().trim(), subP);
+        }
+      }
+    }
+
+    // Find all billing records with offerFreeSession for this clinic
+    const freeSessionBillings = await Billing.find({
+      clinicId: clinicId,
+      isAdvanceOnly: { $ne: true },
+      offerFreeSession: { $exists: true, $not: { $size: 0 } },
+      ...dateFilter,
+    }).lean();
+
+    let freeSessionLiability = 0;
+    let freeSessionsRemaining = 0;
+
+    for (const b of freeSessionBillings) {
+      const freeSessions = Array.isArray(b.offerFreeSession) ? b.offerFreeSession : [];
+      const usedSessions = Array.isArray(b.usedFreeSessions) ? b.usedFreeSessions : [];
+
+      let remainingSessions = [...freeSessions];
+      for (const used of usedSessions) {
+        const idx = remainingSessions.findIndex(s => String(s).toLowerCase().trim() === String(used).toLowerCase().trim());
+        if (idx !== -1) {
+          remainingSessions.splice(idx, 1);
+        }
+      }
+
+      freeSessionsRemaining += remainingSessions.length;
+
+      for (const item of remainingSessions) {
+        const key = String(item).toLowerCase().trim();
+        const price = treatmentPriceMap.get(key) || 0;
+        freeSessionLiability += price;
+      }
+    }
 
     // Calculate wallet/cashback liability
     const walletLiabilityPipeline = [
@@ -118,17 +138,9 @@ export default async function handler(req, res) {
       },
     ];
 
-    const [freeSessionResult, walletResult] = await Promise.all([
-      Billing.aggregate(freeSessionLiabilityPipeline),
-      Billing.aggregate(walletLiabilityPipeline),
-    ]);
-
-    const freeSessionData = freeSessionResult[0] || { totalFreeSessions: 0, totalRedeemed: 0, totalRevenue: 0 };
+    const walletResult = await Billing.aggregate(walletLiabilityPipeline);
     const walletData = walletResult[0] || { totalCashbackEarned: 0, totalWalletUsed: 0 };
-
-    const freeSessionsRemaining = freeSessionData.totalFreeSessions - freeSessionData.totalRedeemed;
-    const freeSessionLiability = freeSessionsRemaining * 100; // Estimated value per session
-    const walletLiability = walletData.totalCashbackEarned - walletData.totalWalletUsed;
+    const walletLiability = Math.max(0, walletData.totalCashbackEarned - walletData.totalWalletUsed);
 
     res.status(200).json({
       success: true,
@@ -136,6 +148,7 @@ export default async function handler(req, res) {
         freeSessionLiability: Math.max(0, freeSessionLiability),
         walletLiability: Math.max(0, walletLiability),
         freeSessionsRemaining: Math.max(0, freeSessionsRemaining),
+        totalLiability: Math.max(0, walletLiability + freeSessionLiability),
       },
     });
   } catch (err) {

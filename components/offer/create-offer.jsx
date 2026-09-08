@@ -67,7 +67,7 @@ const getUserRole = () => {
   return null;
 };
 
-function OffersPage({ dateFilter = 'Today' }) {
+function OffersPage({ dateFilter = 'Today', setActiveTab }) {
   const router = useRouter();
   const [offers, setOffers] = useState([]);
   const [currency, setCurrency] = useState('INR');
@@ -105,6 +105,7 @@ function OffersPage({ dateFilter = 'Today' }) {
     mostUsedOffers: [],
     underperformingOffers: [],
     topPatientsList: [],
+    allOffersStats: {},
   });
   const [showMostUsedModal, setShowMostUsedModal] = useState(false);
   const [showUnderperformingModal, setShowUnderperformingModal] = useState(false);
@@ -424,8 +425,38 @@ function OffersPage({ dateFilter = 'Today' }) {
         },
       });
       const data = await res.json();
-      if (data.success && data.analytics) {
-        setOfferAnalytics(data.analytics);
+      if (data.success && data.data) {
+        const apiData = data.data;
+        // Transform API response to match expected format
+        const billingRecords = apiData.offerBilling?.billingRecords || [];
+        const transformedData = {
+          instantDiscount: {
+            count: apiData.offerBilling?.instantDiscount?.count || 0,
+            totalDiscount: apiData.offerBilling?.instantDiscount?.totalDiscount || 0,
+            totalRevenue: apiData.offerBilling?.instantDiscount?.totalRevenue || 0,
+            list: billingRecords.filter(r => r.offerType === 'instant_discount'),
+          },
+          bundle: {
+            count: apiData.offerBilling?.bundle?.count || 0,
+            totalFreeSessions: apiData.offerBilling?.bundle?.totalFreeSessions || 0,
+            totalRedeemed: apiData.offerBilling?.bundle?.totalRedeemed || 0,
+          },
+          cashback: {
+            count: apiData.offerBilling?.cashback?.count || 0,
+            totalCashbackEarned: apiData.offerBilling?.cashback?.totalCashback || 0,
+            totalWalletUsed: apiData.offerBilling?.cashback?.totalWalletUsed || 0,
+          },
+          freeSessionRedemption: { count: 0, totalRedeemed: 0 },
+          totalOfferBillings: apiData.offerBilling?.totalOfferCount || 0,
+          offersUsedList: billingRecords,
+          totalRevenue: apiData.offerBilling?.totalOfferRevenue || 0,
+          revenueBillingList: billingRecords,
+          mostUsedOffers: apiData.topPerformingOffers || [],
+          underperformingOffers: apiData.offersRequiringAttention || [],
+          topPatientsList: [],
+          allOffersStats: apiData.allOffersStats || {},
+        };
+        setOfferAnalytics(transformedData);
       }
     } catch (err) {
       console.error("Error fetching offer analytics:", err);
@@ -757,7 +788,7 @@ function OffersPage({ dateFilter = 'Today' }) {
           },
         }}
       />
-      <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+      <div className="min-h-screen bg-[#FDFCFB] p-3 sm:p-4">
         <div className="max-w-9xl mx-auto space-y-3">
           {!permissionsLoaded ? (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
@@ -779,7 +810,7 @@ function OffersPage({ dateFilter = 'Today' }) {
               </div>
             </div>
           ) : !finalCanRead && finalCanCreate ? (
-            <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+            <div className="min-h-screen bg-[#FDFCFB] p-3 sm:p-4">
               <div className="max-w-9xl mx-auto space-y-3">
                 {/* Compact Header Section */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
@@ -792,9 +823,13 @@ function OffersPage({ dateFilter = 'Today' }) {
                       {finalCanCreate === true && (
                         <button
                           onClick={() => {
-                            setEditingOfferId(null);
-                            setEditingOfferData(null);
-                            setModalOpen(true);
+                            if (setActiveTab) {
+                              setActiveTab('Create Offer');
+                            } else {
+                              setEditingOfferId(null);
+                              setEditingOfferData(null);
+                              setModalOpen(true);
+                            }
                           }}
                           className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
                         >
@@ -833,21 +868,25 @@ function OffersPage({ dateFilter = 'Today' }) {
           ) : (
             <>
               {/* Compact Header Section */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+              <div className="bg-white rounded-xl border border-[#E9E3D8] p-3 sm:p-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                   <div>
-                    <h1 className="text-lg sm:text-xl font-bold text-teal-900 dark:text-white mb-0.5">Offers Management</h1>
-                    <p className="text-[10px] sm:text-xs text-teal-600 ">Create and manage promotional offers for your clinic</p>
+                    <h1 className="text-lg sm:text-xl font-bold text-gray-950 mb-0.5">Offers Management</h1>
+                    <p className="text-[10px] sm:text-xs text-gray-500">Create and manage promotional offers for your clinic</p>
                   </div>
                   <div className="flex gap-2">
                     {finalCanCreate === true && (
                       <button
                         onClick={() => {
-                          setEditingOfferId(null);
-                          setEditingOfferData(null);
-                          setModalOpen(true);
+                          if (setActiveTab) {
+                            setActiveTab('Create Offer');
+                          } else {
+                            setEditingOfferId(null);
+                            setEditingOfferData(null);
+                            setModalOpen(true);
+                          }
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                        className="inline-flex items-center justify-center gap-1.5 bg-[#171717] hover:bg-[#303030] text-white px-3 py-2 rounded-lg shadow-sm transition-all duration-200 text-xs sm:text-sm font-medium"
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                         <span>Create New Offer</span>
@@ -1061,12 +1100,12 @@ function OffersPage({ dateFilter = 'Today' }) {
               </div>
 
               {/* Compact Offers Table */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-3 py-2.5 border-b border-gray-200 bg-teal-50">
+              <div className="bg-white rounded-xl border border-[#E9E3D8] overflow-hidden shadow-[0_2px_8px_rgba(30,24,16,0.04)]">
+                <div className="px-3 py-2.5 border-b border-[#E9E3D8] bg-[#FDFCFB]">
                   <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-teal-800 dark:text-white" />
-                    <h2 className="text-sm sm:text-base font-bold text-teal-900 dark:text-white">All Offers</h2>
-                    <span className="ml-auto text-[10px] text-teal-600 bg-teal-100 px-2 py-0.5 rounded-md">
+                    <Package className="h-4 w-4 text-gray-700" />
+                    <h2 className="text-sm sm:text-base font-bold text-gray-950">All Offers</h2>
+                    <span className="ml-auto text-[10px] text-gray-600 bg-[#F5F2EC] px-2 py-0.5 rounded-md">
                       {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
                     </span>
                   </div>
@@ -1087,9 +1126,13 @@ function OffersPage({ dateFilter = 'Today' }) {
                       {finalCanCreate === true && (
                         <button
                           onClick={() => {
-                            setEditingOfferId(null);
-                            setEditingOfferData(null);
-                            setModalOpen(true);
+                            if (setActiveTab) {
+                              setActiveTab('Create Offer');
+                            } else {
+                              setEditingOfferId(null);
+                              setEditingOfferData(null);
+                              setModalOpen(true);
+                            }
                           }}
                           className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
                         >
@@ -1104,36 +1147,42 @@ function OffersPage({ dateFilter = 'Today' }) {
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                        <thead className="bg-[#FDFCFB]">
+                          <tr className="border-b border-[#E9E3D8]">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                               Offer Details
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                               Type
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                               Value
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                               Validity
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                              Revenue
+                            </th>
+                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                              Patients
+                            </th>
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                               Status
                             </th>
-                            <th className="px-2 py-2 text-right text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                               Actions
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-teal-100">
+                        <tbody className="divide-y divide-[#EEE9E1]">
                           {offers.map((offer) => {
                             const isExpiringSoon = offer.endsAt && offer.status === "active" &&
                               new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
                               new Date(offer.endsAt) >= new Date();
 
                             return (
-                              <tr key={offer._id} className="hover:bg-teal-50 transition-colors">
+                              <tr key={offer._id} className="hover:bg-[#FAF8F4] transition-colors">
                                 <td className="px-2 py-2">
                                   <div className="flex items-center gap-2">
                                     <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${offer.offerType === "instant_discount" ? "bg-green-600" :
@@ -1142,14 +1191,14 @@ function OffersPage({ dateFilter = 'Today' }) {
                                       <Package className="h-3 w-3 text-white" />
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="font-bold text-teal-900 dark:text-white text-xs truncate">{offer.title}</p>
-                                      <p className="text-[10px] text-teal-500 dark:text-white">ID: {offer._id.slice(-6)}</p>
+                                      <p className="font-bold text-gray-950 text-xs truncate">{offer.title}</p>
+                                      <p className="text-[10px] text-gray-400">ID: {offer._id.slice(-6)}</p>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="px-2 py-2">
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${offer.offerType === "instant_discount" ? "bg-green-100 text-green-800" :
-                                    offer.offerType === "bundle" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-800"
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${offer.offerType === "instant_discount" ? "bg-[#F1F5F2] text-[#5C7D69]" :
+                                    offer.offerType === "bundle" ? "bg-[#FBF4E8] text-[#A87732]" : "bg-[#EEF4F8] text-[#527892]"
                                     }`}>
                                     {offer.offerType?.replace("_", " ") || "—"}
                                   </span>
@@ -1166,8 +1215,8 @@ function OffersPage({ dateFilter = 'Today' }) {
                                   </span>
                                 </td>
                                 <td className="px-2 py-2">
-                                  <div className="flex items-center gap-1 text-teal-700">
-                                    <Calendar className="h-3 w-3 text-teal-400 flex-shrink-0" />
+                                  <div className="flex items-center gap-1 text-gray-600">
+                                    <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
                                     <span className="text-[10px] sm:text-xs">
                                       {offer.endsAt
                                         ? new Date(offer.endsAt).toLocaleDateString("en-US", {
@@ -1184,15 +1233,27 @@ function OffersPage({ dateFilter = 'Today' }) {
                                     )}
                                   </div>
                                 </td>
+                                <td className="px-2 py-2 text-right">
+                                  <span className="text-xs sm:text-sm font-bold text-emerald-700">
+                                    {offerAnalytics.allOffersStats?.[offer._id]
+                                      ? `${getCurrencySymbol(currency)}${(offerAnalytics.allOffersStats[offer._id].totalPaid ?? 0).toFixed(2)}`
+                                      : '—'}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2 text-right">
+                                  <span className="text-xs sm:text-sm font-bold text-gray-900">
+                                    {offerAnalytics.allOffersStats?.[offer._id]?.patientCount || '—'}
+                                  </span>
+                                </td>
                                 <td className="px-2 py-2">
                                   <span
                                     className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold dark:text-white ${offer.status === "active"
-                                      ? "bg-green-100 text-green-700 dark:text-white"
-                                      : "bg-teal-200 text-teal-700 dark:text-white"
+                                      ? "bg-[#EFF7F1] text-[#48805C] border border-[#CFE2D4]"
+                                      : "bg-[#F5F2EC] text-gray-600 border border-[#E9E3D8]"
                                       }`}
                                   >
                                     <span
-                                      className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active" ? "bg-green-500" : "bg-teal-500"
+                                      className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active" ? "bg-[#65A878]" : "bg-gray-400"
                                         }`}
                                     ></span>
                                     {offer.status}
