@@ -428,7 +428,45 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       if (data.success && data.data) {
         const apiData = data.data;
         // Transform API response to match expected format
-        const billingRecords = apiData.offerBilling?.billingRecords || [];
+        const billingRecords = (apiData.offerBilling?.billingRecords || []).map((r) => {
+          const discountAmount = r.discountAmount ?? r.offerDiscountAmount ?? 0;
+          const originalAmount = r.originalAmount || 0;
+          const discountPercent = r.discountPercent
+            ?? (originalAmount > 0 ? (discountAmount / originalAmount) * 100 : 0);
+          return {
+            ...r,
+            discountAmount,
+            discountPercent: Number(discountPercent) || 0,
+          };
+        });
+
+        const typeStatsMap = {};
+        billingRecords.forEach((r) => {
+          const offerType = r.offerType || (r.isCashbackApplied ? "cashback" : "");
+          if (!offerType) return;
+          if (!typeStatsMap[offerType]) {
+            typeStatsMap[offerType] = { offerType, count: 0, offerNames: new Set() };
+          }
+          typeStatsMap[offerType].count += 1;
+          if (r.offerName) typeStatsMap[offerType].offerNames.add(r.offerName);
+        });
+        const typeStats = Object.values(typeStatsMap).map((item) => ({
+          offerType: item.offerType,
+          count: item.count,
+          offerNames: Array.from(item.offerNames),
+        }));
+        const maxTypeCount = typeStats.reduce((max, item) => Math.max(max, item.count), 0);
+        const mostUsedOffers = maxTypeCount > 0
+          ? typeStats.filter((item) => item.count === maxTypeCount)
+          : [];
+
+        const underperformingOffers = (apiData.offersRequiringAttention || []).map((o) => ({
+          ...o,
+          title: o.title || o.offerName || "Offer",
+          offerType: o.offerType || "",
+          usedCount: o.usedCount ?? o.saleCount ?? 0,
+        }));
+
         const transformedData = {
           instantDiscount: {
             count: apiData.offerBilling?.instantDiscount?.count || 0,
@@ -451,8 +489,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
           offersUsedList: billingRecords,
           totalRevenue: apiData.offerBilling?.totalOfferRevenue || 0,
           revenueBillingList: billingRecords,
-          mostUsedOffers: apiData.topPerformingOffers || [],
-          underperformingOffers: apiData.offersRequiringAttention || [],
+          mostUsedOffers,
+          underperformingOffers,
           topPatientsList: [],
           allOffersStats: apiData.allOffersStats || {},
         };
@@ -1031,7 +1069,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                       <p className="text-[9px] text-purple-400 font-medium mt-0.5">
                         {offerAnalytics.mostUsedOffers.map((o) => {
                           const label = o.offerType === 'instant_discount' ? 'Instant' : o.offerType === 'cashback' ? 'Cashback' : 'Bundle';
-                          return `${label} (${o.count})`;
+                          return `${label} (${o.count ?? o.saleCount ?? 0})`;
                         }).join(', ')}
                       </p>
                       <p className="text-[8px] text-purple-400 mt-1 font-medium">Click to view offers \u2192</p>
@@ -1849,6 +1887,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                   : item.offerType === 'cashback'
                   ? { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100 text-cyan-700' }
                   : { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700' };
+                const offerNames = item.offerNames || (item.offerName ? [item.offerName] : []);
+                const useCount = item.count ?? item.saleCount ?? 0;
 
                 return (
                   <div key={idx} className={`rounded-xl border ${typeColor.border} ${typeColor.bg} p-4`}>
@@ -1859,14 +1899,14 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                         </span>
                       </div>
                       <span className={`text-sm font-extrabold ${typeColor.text}`}>
-                        {item.count} {item.count === 1 ? 'use' : 'uses'}
+                        {useCount} {useCount === 1 ? 'use' : 'uses'}
                       </span>
                     </div>
-                    {item.offerNames.length > 0 ? (
+                    {offerNames.length > 0 ? (
                       <div className="space-y-1.5">
                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Offer Names</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {item.offerNames.map((name, i) => (
+                          {offerNames.map((name, i) => (
                             <span key={i} className="px-2.5 py-1 rounded-lg bg-white text-xs font-semibold text-gray-700 border border-gray-200 shadow-sm">
                               {name}
                             </span>
@@ -2158,7 +2198,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {offerAnalytics.instantDiscount.list.map((billing, idx) => (
+                  {(offerAnalytics.instantDiscount.list || []).map((billing, idx) => (
                     <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
                       <td className="px-4 py-2.5">
                         <p className="text-xs font-semibold text-gray-900">{billing.patientName}</p>
@@ -2171,10 +2211,10 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                         <p className="text-[10px] font-semibold text-gray-800">{billing.offerName}</p>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{billing.discountPercent}%</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{Number(billing.discountPercent || 0).toFixed(0)}%</span>
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <span className="text-xs font-extrabold text-red-600">-{getCurrencySymbol(currency)}{billing.discountAmount.toFixed(2)}</span>
+                        <span className="text-xs font-extrabold text-red-600">-{getCurrencySymbol(currency)}{Number(billing.discountAmount ?? billing.offerDiscountAmount ?? 0).toFixed(2)}</span>
                       </td>
                     </tr>
                   ))}
@@ -2441,7 +2481,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {patient.offerNames.map((name, i) => (
+                      {(patient.offerNames || []).map((name, i) => (
                         <span key={i} className="inline-block px-1.5 py-0.5 rounded bg-white border border-gray-200 text-[9px] font-medium text-gray-600">
                           {name}
                         </span>

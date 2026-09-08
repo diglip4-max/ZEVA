@@ -606,7 +606,7 @@ export default async function handler(req, res) {
       ],
       ...dateFilter,
     })
-      .select('invoiceNumber invoicedDate offerName offerType isCashbackApplied service treatment amount paid offerDiscountAmount cashbackAmount cashbackWalletUsed patientId')
+      .select('invoiceNumber invoicedDate offerName offerType isCashbackApplied service treatment amount paid originalAmount offerDiscountAmount discountPercent cashbackAmount cashbackWalletUsed patientId')
       .sort({ invoicedDate: -1, createdAt: -1 })
       .lean();
 
@@ -676,9 +676,10 @@ export default async function handler(req, res) {
       ...offersRequiringAttentionResult.map((offer) => offer._id),
     ];
     const offersForNames = offerIdsForNames.length > 0
-      ? await Offer.find({ _id: { $in: offerIdsForNames } }).select("title").lean()
+      ? await Offer.find({ _id: { $in: offerIdsForNames } }).select("title offerType").lean()
       : [];
     const offerNameById = new Map(offersForNames.map((offer) => [offer._id.toString(), offer.title]));
+    const offerTypeById = new Map(offersForNames.map((offer) => [offer._id.toString(), offer.offerType]));
     const lowRetentionOfferName = lowRetentionOffer
       ? offerNameById.get(lowRetentionOffer._id.toString())
       : null;
@@ -712,6 +713,7 @@ export default async function handler(req, res) {
     const offersRequiringAttention = offersRequiringAttentionResult.map((offer) => ({
       offerId: offer._id.toString(),
       offerName: offerNameById.get(offer._id.toString()) || "Deleted offer",
+      offerType: offerTypeById.get(offer._id.toString()) || "",
       saleCount: offer.saleCount,
       totalPaid: offer.totalPaid,
       billingRecords: attentionBillingByOfferId.get(offer._id.toString()) || [],
@@ -1976,7 +1978,12 @@ export default async function handler(req, res) {
           grossRevenue,
           netRevenue,
           discountBenefit: instant.totalDiscount,
-          billingRecords: offerBillingRecords.map((billing) => ({
+          billingRecords: offerBillingRecords.map((billing) => {
+            const discountAmount = billing.offerDiscountAmount || 0;
+            const originalAmount = billing.originalAmount || 0;
+            const discountPercent = billing.discountPercent
+              || (originalAmount > 0 ? (discountAmount / originalAmount) * 100 : 0);
+            return {
             invoiceNumber: billing.invoiceNumber,
             invoicedDate: billing.invoicedDate,
             offerName: billing.offerName || 'Offer',
@@ -1985,11 +1992,15 @@ export default async function handler(req, res) {
             treatment: billing.treatment || '',
             amount: billing.amount || 0,
             paid: billing.paid || 0,
-            offerDiscountAmount: billing.offerDiscountAmount || 0,
+            originalAmount,
+            offerDiscountAmount: discountAmount,
+            discountAmount,
+            discountPercent: Number(discountPercent) || 0,
             cashbackAmount: billing.cashbackAmount || 0,
             cashbackWalletUsed: billing.cashbackWalletUsed || 0,
             patientName: billing.patientId ? (patientNameMap.get(billing.patientId.toString()) || 'Unknown patient') : 'Unknown patient',
-          })),
+          };
+          }),
         },
 
         recommendations: {
