@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const QUICK_PERIODS = ['Today', '7 Days', '30 Days', 'This Month'];
+const QUICK_PERIODS = ['Today'];
 
 /**
  * Reusable Date Filter component for Smart Offers dashboard.
