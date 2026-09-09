@@ -46,9 +46,23 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
         try { localStorage.setItem(CURRENCY_CACHE_KEY, newCurrency); } catch { }
         return true;
       }
-    } catch (error) {
-      console.error("Error fetching clinic currency:", error);
-      // Keep current value if anything fails
+    } catch (error: any) {
+      // Auth 401s are expected when tokens are not yet valid / session ended.
+      // They must NOT surface to the UI — only to the Network tab.
+      const status = error?.response?.status;
+      const code = error?.code;
+      const isExpectedAuthError =
+        status === 401 ||
+        status === 403 ||
+        code === "ERR_NETWORK" ||
+        code === "ECONNABORTED";
+
+      if (!isExpectedAuthError && typeof process !== "undefined" && process.env?.NODE_ENV === "development") {
+        // Only non-auth anomalies get a lightweight, message-only log (no error object)
+        // so React error overlays never render the exception stack.
+        console.debug("[CurrencyProvider] fetch anomaly:", error?.message || String(error));
+      }
+      // Keep current value if anything fails — never rethrow
     }
     return false;
   }, []);
@@ -60,13 +74,17 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     const maxRetries = 5;
 
     const attemptFetch = async () => {
-      const success = await fetchCurrency();
-      // If auth headers weren't ready yet (just after login redirect), retry after a short delay
-      if (!success && retryCount < maxRetries) {
-        retryCount++;
-        retryTimer = setTimeout(async () => {
-          await attemptFetch();
-        }, 1500);
+      try {
+        const success = await fetchCurrency();
+        // If auth headers weren't ready yet (just after login redirect), retry after a short delay
+        if (!success && retryCount < maxRetries) {
+          retryCount++;
+          retryTimer = setTimeout(async () => {
+            try { await attemptFetch(); } catch { /* swallow */ }
+          }, 1500);
+        }
+      } catch {
+        // Swallow — never let a promise rejection escape to UI error surfaces
       }
     };
 
@@ -84,7 +102,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
           setCurrencyState(e.newValue);
         } else {
           // A token was stored — re-fetch currency
-          fetchCurrency();
+          try { fetchCurrency(); } catch { /* swallow */ }
         }
       }
     };
@@ -93,7 +111,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
 
     // Also listen for token changes in the SAME tab (e.g., after login)
     const handleTokenChange = () => {
-      fetchCurrency();
+      try { fetchCurrency(); } catch { /* swallow */ }
     };
 
     window.addEventListener("authTokenChanged", handleTokenChange);
@@ -113,11 +131,13 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     // self-clears once the currency is fetched.
     let lastPathname = typeof window !== "undefined" ? window.location.pathname : "";
     const pathCheckInterval = setInterval(() => {
-      const currentPathname = window.location.pathname;
-      if (currentPathname !== lastPathname) {
-        lastPathname = currentPathname;
-        fetchCurrency();
-      }
+      try {
+        const currentPathname = window.location.pathname;
+        if (currentPathname !== lastPathname) {
+          lastPathname = currentPathname;
+          fetchCurrency();
+        }
+      } catch { /* swallow */ }
     }, 1000);
 
     // Clear after 10 seconds — by then the currency should be fetched

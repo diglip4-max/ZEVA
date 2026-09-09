@@ -779,8 +779,18 @@ export function useOfferDashboard(dateFilter: string = 'Today') {
         }
       }
 
-    } catch (err) {
-      console.error('Error fetching offer dashboard data:', err);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const code = err?.code;
+      const isExpected =
+        status === 401 ||
+        status === 403 ||
+        code === 'ERR_NETWORK' ||
+        code === 'ECONNABORTED';
+      if (!isExpected && typeof process !== 'undefined' && (process as any).env?.NODE_ENV === 'development') {
+        // Message-only debug log (no error object) so no React error overlay surfaces it
+        console.debug('[useOfferDashboard] fetch anomaly:', err?.message || String(err));
+      }
     } finally {
       setLoading(false);
     }
