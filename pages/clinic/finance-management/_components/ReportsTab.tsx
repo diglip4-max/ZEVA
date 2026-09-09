@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Loader2,
   Inbox,
@@ -22,6 +22,9 @@ import {
   CheckCircle2,
   Percent,
   DollarSign,
+  Download,
+  X,
+  Eye,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -81,54 +84,54 @@ const PIE_COLORS = [
 
 // ============================================================
 // REPORT METADATA — icon / label / description per report type
-// Drives the picker pills + the premium card header
+// Drives the report card grid + the modal header
 // ============================================================
 const REPORT_META: Record<
   string,
   { description: string; icon: React.ReactNode; accent: string }
 > = {
   expense: {
-    description: "Where money left the clinic, broken down by category",
+    description: "Spending by category, supplier and period.",
     icon: <TrendingDown className="w-3.5 h-3.5" />,
     accent: "rose",
   },
   outstandingBills: {
-    description: "Bills that are still owed to suppliers",
+    description: "Every unpaid bill and its balance.",
     icon: <Clock className="w-3.5 h-3.5" />,
     accent: "amber",
   },
   paidBills: {
-    description: "Bills that have been fully settled",
+    description: "Full payment history across all bills.",
     icon: <CheckCircle2 className="w-3.5 h-3.5" />,
     accent: "teal",
   },
   upcomingBills: {
-    description: "Bills coming due soon",
+    description: "What is due, and when.",
     icon: <CalendarClock className="w-3.5 h-3.5" />,
     accent: "sky",
   },
   paymentHistory: {
-    description: "Every payment made out to suppliers",
+    description: "Every payment transaction, by method and reference.",
     icon: <Receipt className="w-3.5 h-3.5" />,
     accent: "teal",
   },
   pettyCash: {
-    description: "Cash movement in and out of the petty cash box",
+    description: "Daily petty cash ledger and reconciliation.",
     icon: <Wallet className="w-3.5 h-3.5" />,
     accent: "indigo",
   },
   cheques: {
-    description: "Cheques grouped by their current status",
+    description: "Cheque lifecycle and current exposure.",
     icon: <Landmark className="w-3.5 h-3.5" />,
     accent: "violet",
   },
   supplier: {
-    description: "Spend and balance broken down by supplier",
+    description: "Outstanding, overdue and payment history per supplier.",
     icon: <Users className="w-3.5 h-3.5" />,
     accent: "indigo",
   },
   yearlySummary: {
-    description: "Income vs. expense trend across the year",
+    description: "Full-year spending distribution by category.",
     icon: <BarChart3 className="w-3.5 h-3.5" />,
     accent: "violet",
   },
@@ -156,26 +159,13 @@ const METHOD_ICON: Record<string, React.ReactNode> = {
   card: <CreditCard className="w-4 h-4" />,
 };
 
-// ============================================================
-// SHELL / EMPTY STATE (shared, premium styled)
-// ============================================================
-const Shell: React.FC<{
-  header?: React.ReactNode;
-  children: React.ReactNode;
-}> = ({ header, children }) => (
-  <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-    {header}
-    {children}
-  </div>
-);
-
 const EmptyState = ({
   label = "No data for this range.",
 }: {
   label?: string;
 }) => (
   <div className="px-5 py-20 text-center">
-    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-stone-50 dark:bg-stone-800/60 flex items-center justify-center">
+    <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-[#F8F5EF] dark:bg-[#16231f] flex items-center justify-center">
       <Inbox className="w-6 h-6 text-stone-300 dark:text-stone-600" />
     </div>
     <span className="text-sm text-stone-400 dark:text-stone-500">{label}</span>
@@ -183,57 +173,44 @@ const EmptyState = ({
 );
 
 // ============================================================
-// REPORT CARD HEADER — premium hero strip matching the
-// New Bill modal's gradient icon-block treatment
+// REPORT CARD HEADER — flat, solid icon block (no gradient)
+// used at the top of the view modal / export sheet
 // ============================================================
 function ReportCardHeader({ reportType }: { reportType: ReportType }) {
   const meta = REPORT_META[reportType as string] || DEFAULT_META;
   const option = REPORT_OPTIONS.find((r) => r.value === reportType);
   return (
     <div
-      className="relative px-5 sm:px-6 py-5 border-b border-stone-100 dark:border-stone-800 overflow-hidden"
-      style={{
-        backgroundImage:
-          "linear-gradient(135deg, rgba(20,184,166,0.10), rgba(15,118,110,0.03) 60%, rgba(255,255,255,0) 100%)",
-      }}
+      className="flex items-center px-6 sm:px-8 border-b border-[#EDE7DA] dark:border-[#1a2622]"
+      style={{ gap: 16, paddingTop: 24, paddingBottom: 24 }}
     >
       <div
-        className="absolute -right-14 -top-16 w-56 h-56 rounded-full blur-3xl pointer-events-none opacity-70"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(20,184,166,0.18), transparent 65%)",
-        }}
-      />
-      <div className="relative flex items-center gap-3.5">
-        <div className="relative shrink-0">
-          <div
-            className="absolute inset-0 rounded-2xl blur-md opacity-40"
-            style={{
-              backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
-            }}
-          />
-          <div
-            className="relative w-11 h-11 rounded-2xl flex items-center justify-center shadow-md ring-1 ring-white/40"
-            style={{
-              backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)",
-            }}
-          >
-            <span className="text-white">
-              {React.cloneElement(
-                meta.icon as React.ReactElement<{ className?: string }>,
-                { className: "w-5 h-5" },
-              )}
-            </span>
-          </div>
-        </div>
-        <div className="min-w-0">
-          <h3 className="zfm-display text-base font-semibold text-stone-900 dark:text-stone-50 truncate">
-            {option?.label || "Report"}
-          </h3>
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 truncate">
-            {meta.description}
-          </p>
-        </div>
+        className="rounded-2xl flex items-center justify-center bg-teal-600 dark:bg-teal-500 shrink-0"
+        style={{ width: 48, height: 48, minWidth: 48, lineHeight: 0 }}
+      >
+        <span
+          className="text-white"
+          style={{ display: "block", width: 22, height: 22 }}
+        >
+          {React.cloneElement(
+            meta.icon as React.ReactElement<{ className?: string }>,
+            { className: "w-full h-full" },
+          )}
+        </span>
+      </div>
+      <div className="min-w-0" style={{ lineHeight: 1.4 }}>
+        <h3
+          className="zfm-display font-semibold text-stone-900 dark:text-stone-50"
+          style={{ fontSize: 18, margin: 0, lineHeight: 1.3 }}
+        >
+          {option?.label || "Report"}
+        </h3>
+        <p
+          className="text-stone-500 dark:text-stone-400"
+          style={{ fontSize: 12.5, margin: "4px 0 0 0", lineHeight: 1.4 }}
+        >
+          {meta.description}
+        </p>
       </div>
     </div>
   );
@@ -273,18 +250,14 @@ function SettlementBar({
           </span>
         </div>
       </div>
-      <div className="relative w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
+      <div className="relative w-full h-2 rounded-full bg-[#F1ECE0] dark:bg-[#16231f] overflow-hidden">
         <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 ease-out"
-          style={{
-            width: `${paidPct}%`,
-            backgroundImage:
-              "linear-gradient(90deg, #0d9488, #14b8a6, #2dd4bf)",
-          }}
+          className="absolute inset-y-0 left-0 rounded-full bg-teal-500 transition-all duration-500 ease-out"
+          style={{ width: `${paidPct}%` }}
         />
         {balance > 0 && (
           <div
-            className="absolute inset-y-0 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500 ease-out"
+            className="absolute inset-y-0 rounded-full bg-amber-400 transition-all duration-500 ease-out"
             style={{ left: `${paidPct}%`, width: `${balancePct}%` }}
           />
         )}
@@ -320,19 +293,20 @@ function DetailField({
 }) {
   return (
     <div
-      className={`rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br ${
-        accent || "from-stone-50 to-white dark:from-stone-800/40"
+      className={`rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br ${
+        accent ||
+        "from-[#F8F5EF] to-white dark:from-[#16231f]/60 dark:to-[#111d19]"
       } p-3.5`}
     >
       <div className="flex items-center gap-1.5 mb-1.5">
-        <div className="w-5 h-5 rounded-md bg-white dark:bg-stone-800/70 flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
+        <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-stone-500 dark:text-stone-400 shadow-sm">
           {icon}
         </div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 dark:text-stone-500">
           {label}
         </span>
       </div>
-      <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px]">
+      <div className="text-sm font-medium text-stone-700 dark:text-stone-200 pl-[26px] break-words">
         {value}
       </div>
     </div>
@@ -340,9 +314,7 @@ function DetailField({
 }
 
 // ============================================================
-// EXPANDABLE ROW — generic accordion row, same interaction
-// pattern as BillsPayableTab's BillRow (one open at a time,
-// smooth grid-rows expand/collapse)
+// EXPANDABLE ROW — generic accordion row
 // ============================================================
 function ExpandableRow({
   isOpen,
@@ -355,6 +327,7 @@ function ExpandableRow({
   badge,
   trailing,
   children,
+  forceOpen = false,
 }: {
   isOpen: boolean;
   onToggle: () => void;
@@ -366,12 +339,19 @@ function ExpandableRow({
   badge?: React.ReactNode;
   trailing: React.ReactNode;
   children: React.ReactNode;
+  // When true (export mode) the row always renders expanded and isn't
+  // clickable — every section is fully visible in the exported PDF.
+  forceOpen?: boolean;
 }) {
+  const open = forceOpen || isOpen;
+  const Header = forceOpen ? "div" : "button";
   return (
-    <div className="border-b border-stone-100 dark:border-stone-800 last:border-0">
-      <button
-        onClick={onToggle}
-        className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-stone-50 dark:hover:bg-stone-800/50 rounded-xl px-3 transition-colors"
+    <div className="border-b border-[#EDE7DA] dark:border-[#1a2622] last:border-0">
+      <Header
+        onClick={forceOpen ? undefined : onToggle}
+        className={`w-full text-left flex items-center gap-4 py-3.5 rounded-xl px-3 transition-colors ${
+          forceOpen ? "" : "hover:bg-[#F8F5EF] dark:hover:bg-[#16231f]/60"
+        }`}
       >
         <div
           className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center ${iconColor} shrink-0`}
@@ -390,28 +370,36 @@ function ExpandableRow({
         </div>
         {badge}
         <div className="text-right shrink-0 min-w-[108px]">{trailing}</div>
-        <div
-          className={`shrink-0 transition-transform duration-200 ${
-            isOpen ? "rotate-90" : ""
-          }`}
-        >
-          {isOpen ? (
-            <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
-          )}
-        </div>
-      </button>
+        {!forceOpen && (
+          <div
+            className={`shrink-0 transition-transform duration-200 ${
+              open ? "rotate-90" : ""
+            }`}
+          >
+            {open ? (
+              <ChevronDown className="w-4 h-4 text-teal-500 dark:text-teal-400" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-stone-300 dark:text-stone-600" />
+            )}
+          </div>
+        )}
+      </Header>
 
       <div
-        className={`grid transition-all duration-300 ease-in-out ${
-          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-        }`}
+        className={
+          forceOpen
+            ? "grid grid-rows-[1fr] opacity-100"
+            : `grid transition-all duration-300 ease-in-out ${
+                open
+                  ? "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[0fr] opacity-0"
+              }`
+        }
       >
         <div className="overflow-hidden">
           <div className="pt-2 pb-5 pl-13 ml-13 relative">
             <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-teal-200 dark:from-teal-900 to-transparent" />
-            <div className="ml-9 rounded-xl border border-stone-100 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-800/40 p-5">
+            <div className="ml-9 rounded-xl border border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613] p-5">
               {children}
             </div>
           </div>
@@ -422,18 +410,20 @@ function ExpandableRow({
 }
 
 // ============================================================
-// BILL TABLE — outstanding / paid / upcoming, now expandable
+// BILL TABLE — outstanding / paid / upcoming, expandable
 // ============================================================
 function BillRowExpandable({
   bill,
   currency,
   isOpen,
   onToggle,
+  forceOpen,
 }: {
   bill: any;
   currency: string;
   isOpen: boolean;
   onToggle: () => void;
+  forceOpen?: boolean;
 }) {
   const supplierName = bill.supplierId?.name || "—";
   const balance = bill.amount - (bill.paidAmount || 0);
@@ -442,6 +432,7 @@ function BillRowExpandable({
     <ExpandableRow
       isOpen={isOpen}
       onToggle={onToggle}
+      forceOpen={forceOpen}
       icon={<Receipt className="w-4 h-4" />}
       iconBg="bg-teal-50 dark:bg-teal-950/50"
       iconColor="text-teal-600 dark:text-teal-400"
@@ -477,13 +468,13 @@ function BillRowExpandable({
             icon={<CalendarClock className="w-3.5 h-3.5" />}
             label="Invoice date"
             value={formatDate(bill.invoiceDate)}
-            accent="from-sky-50 to-white dark:from-sky-950/40"
+            accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
           />
           <DetailField
             icon={<Clock className="w-3.5 h-3.5" />}
             label="Due date"
             value={formatDate(bill.dueDate)}
-            accent="from-rose-50 to-white dark:from-rose-950/40"
+            accent="from-rose-50 to-white dark:from-rose-950/30 dark:to-[#111d19]"
           />
           {bill.supplierInvoiceNumber && (
             <DetailField
@@ -492,7 +483,7 @@ function BillRowExpandable({
               value={
                 <span className="font-mono">{bill.supplierInvoiceNumber}</span>
               }
-              accent="from-violet-50 to-white dark:from-violet-950/40"
+              accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
             />
           )}
           {bill.status && (
@@ -500,12 +491,12 @@ function BillRowExpandable({
               icon={<Info className="w-3.5 h-3.5" />}
               label="Status"
               value={<span className="capitalize">{bill.status}</span>}
-              accent="from-amber-50 to-white dark:from-amber-950/40"
+              accent="from-amber-50 to-white dark:from-amber-950/30 dark:to-[#111d19]"
             />
           )}
         </div>
         {bill.notes && (
-          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-stone-800/40 p-4">
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-white dark:bg-[#111d19] p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
                 <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
@@ -524,11 +515,19 @@ function BillRowExpandable({
   );
 }
 
-function BillTable({ rows, currency }: { rows: any[]; currency: string }) {
+function BillTable({
+  rows,
+  currency,
+  exportMode,
+}: {
+  rows: any[];
+  currency: string;
+  exportMode?: boolean;
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   if (rows.length === 0) return <EmptyState />;
   return (
-    <div className="divide-y divide-stone-100 dark:divide-stone-800 px-2 py-1">
+    <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622] px-2 py-1">
       {rows.map((b) => {
         const isOpen = expandedId === b._id;
         return (
@@ -538,6 +537,7 @@ function BillTable({ rows, currency }: { rows: any[]; currency: string }) {
             currency={currency}
             isOpen={isOpen}
             onToggle={() => setExpandedId(isOpen ? null : b._id)}
+            forceOpen={exportMode}
           />
         );
       })}
@@ -553,11 +553,13 @@ function PaymentRowExpandable({
   currency,
   isOpen,
   onToggle,
+  forceOpen,
 }: {
   payment: any;
   currency: string;
   isOpen: boolean;
   onToggle: () => void;
+  forceOpen?: boolean;
 }) {
   const p = payment;
   const supplierName = p.supplierId?.name || "—";
@@ -569,10 +571,11 @@ function PaymentRowExpandable({
     <ExpandableRow
       isOpen={isOpen}
       onToggle={onToggle}
+      forceOpen={forceOpen}
       icon={icon}
       iconBg={
         p.reversed
-          ? "bg-stone-100 dark:bg-stone-800"
+          ? "bg-[#F1ECE0] dark:bg-[#16231f]"
           : "bg-teal-50 dark:bg-teal-950/50"
       }
       iconColor={
@@ -592,7 +595,7 @@ function PaymentRowExpandable({
       }
       badge={
         p.reversed && (
-          <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2 py-0.5 rounded-full shrink-0">
+          <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full shrink-0">
             Reversed
           </span>
         )
@@ -615,20 +618,20 @@ function PaymentRowExpandable({
             icon={<CalendarClock className="w-3.5 h-3.5" />}
             label="Date"
             value={formatDate(p.date)}
-            accent="from-sky-50 to-white dark:from-sky-950/40"
+            accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
           />
           <DetailField
             icon={icon}
             label="Method"
             value={<span className="capitalize">{methodLabel}</span>}
-            accent="from-teal-50 to-white dark:from-teal-950/40"
+            accent="from-teal-50 to-white dark:from-teal-950/30 dark:to-[#111d19]"
           />
           {p.chequeNumber && (
             <DetailField
               icon={<FileText className="w-3.5 h-3.5" />}
               label="Cheque #"
               value={<span className="font-mono">{p.chequeNumber}</span>}
-              accent="from-violet-50 to-white dark:from-violet-950/40"
+              accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
             />
           )}
           {p.bankName && (
@@ -636,7 +639,7 @@ function PaymentRowExpandable({
               icon={<Landmark className="w-3.5 h-3.5" />}
               label="Bank"
               value={p.bankName}
-              accent="from-indigo-50 to-white dark:from-indigo-950/40"
+              accent="from-indigo-50 to-white dark:from-indigo-950/30 dark:to-[#111d19]"
             />
           )}
           {p.reference && (
@@ -644,12 +647,12 @@ function PaymentRowExpandable({
               icon={<Info className="w-3.5 h-3.5" />}
               label="Reference"
               value={p.reference}
-              accent="from-amber-50 to-white dark:from-amber-950/40"
+              accent="from-amber-50 to-white dark:from-amber-950/30 dark:to-[#111d19]"
             />
           )}
         </div>
         {p.reversed && (
-          <div className="rounded-xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/30 p-4">
+          <div className="rounded-xl border border-rose-100 dark:border-rose-900/50 bg-rose-50/60 dark:bg-rose-950/20 p-4">
             <div className="flex items-center gap-2 mb-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500 dark:text-rose-400">
@@ -663,7 +666,7 @@ function PaymentRowExpandable({
           </div>
         )}
         {p.notes && (
-          <div className="rounded-xl border border-stone-100 dark:border-stone-700/60 bg-gradient-to-br from-slate-50 to-white dark:from-stone-800/40 p-4">
+          <div className="rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-white dark:bg-[#111d19] p-4">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
                 <FileText className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
@@ -685,14 +688,16 @@ function PaymentRowExpandable({
 function PaymentHistoryTable({
   rows,
   currency,
+  exportMode,
 }: {
   rows: any[];
   currency: string;
+  exportMode?: boolean;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   if (rows.length === 0) return <EmptyState />;
   return (
-    <div className="divide-y divide-stone-100 dark:divide-stone-800 px-2 py-1">
+    <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622] px-2 py-1">
       {rows.map((p) => {
         const isOpen = expandedId === p._id;
         return (
@@ -702,6 +707,7 @@ function PaymentHistoryTable({
             currency={currency}
             isOpen={isOpen}
             onToggle={() => setExpandedId(isOpen ? null : p._id)}
+            forceOpen={exportMode}
           />
         );
       })}
@@ -717,17 +723,20 @@ function SupplierRowExpandable({
   currency,
   isOpen,
   onToggle,
+  forceOpen,
 }: {
   row: any;
   currency: string;
   isOpen: boolean;
   onToggle: () => void;
+  forceOpen?: boolean;
 }) {
   const avg = row.billCount > 0 ? row.totalBilled / row.billCount : 0;
   return (
     <ExpandableRow
       isOpen={isOpen}
       onToggle={onToggle}
+      forceOpen={forceOpen}
       icon={<Users className="w-4 h-4" />}
       iconBg="bg-indigo-50 dark:bg-indigo-950/40"
       iconColor="text-indigo-600 dark:text-indigo-400"
@@ -755,19 +764,19 @@ function SupplierRowExpandable({
             icon={<Receipt className="w-3.5 h-3.5" />}
             label="Total billed"
             value={formatMoney(row.totalBilled, currency)}
-            accent="from-sky-50 to-white dark:from-sky-950/40"
+            accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
           />
           <DetailField
             icon={<CheckCircle2 className="w-3.5 h-3.5" />}
             label="Total paid"
             value={formatMoney(row.totalPaid, currency)}
-            accent="from-teal-50 to-white dark:from-teal-950/40"
+            accent="from-teal-50 to-white dark:from-teal-950/30 dark:to-[#111d19]"
           />
           <DetailField
             icon={<DollarSign className="w-3.5 h-3.5" />}
             label="Average bill"
             value={formatMoney(avg, currency)}
-            accent="from-violet-50 to-white dark:from-violet-950/40"
+            accent="from-violet-50 to-white dark:from-violet-950/30 dark:to-[#111d19]"
           />
         </div>
       </div>
@@ -775,11 +784,19 @@ function SupplierRowExpandable({
   );
 }
 
-function SupplierTable({ rows, currency }: { rows: any[]; currency: string }) {
+function SupplierTable({
+  rows,
+  currency,
+  exportMode,
+}: {
+  rows: any[];
+  currency: string;
+  exportMode?: boolean;
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   if (rows.length === 0) return <EmptyState />;
   return (
-    <div className="divide-y divide-stone-100 dark:divide-stone-800 px-2 py-1">
+    <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622] px-2 py-1">
       {rows.map((s) => {
         const isOpen = expandedId === s.supplierId;
         return (
@@ -789,6 +806,7 @@ function SupplierTable({ rows, currency }: { rows: any[]; currency: string }) {
             currency={currency}
             isOpen={isOpen}
             onToggle={() => setExpandedId(isOpen ? null : s.supplierId)}
+            forceOpen={exportMode}
           />
         );
       })}
@@ -805,12 +823,14 @@ function ExpenseRowExpandable({
   totalAll,
   isOpen,
   onToggle,
+  forceOpen,
 }: {
   row: any;
   currency: string;
   totalAll: number;
   isOpen: boolean;
   onToggle: () => void;
+  forceOpen?: boolean;
 }) {
   const share = totalAll > 0 ? (row.totalSpent / totalAll) * 100 : 0;
   const avg = row.count > 0 ? row.totalSpent / row.count : 0;
@@ -818,6 +838,7 @@ function ExpenseRowExpandable({
     <ExpandableRow
       isOpen={isOpen}
       onToggle={onToggle}
+      forceOpen={forceOpen}
       icon={<TrendingDown className="w-4 h-4" />}
       iconBg="bg-rose-50 dark:bg-rose-950/40"
       iconColor="text-rose-600 dark:text-rose-400"
@@ -834,26 +855,34 @@ function ExpenseRowExpandable({
           icon={<Percent className="w-3.5 h-3.5" />}
           label="Share of spend"
           value={`${share.toFixed(1)}%`}
-          accent="from-amber-50 to-white dark:from-amber-950/40"
+          accent="from-amber-50 to-white dark:from-amber-950/30 dark:to-[#111d19]"
         />
         <DetailField
           icon={<Receipt className="w-3.5 h-3.5" />}
           label="Entries"
           value={row.count}
-          accent="from-sky-50 to-white dark:from-sky-950/40"
+          accent="from-sky-50 to-white dark:from-sky-950/30 dark:to-[#111d19]"
         />
         <DetailField
           icon={<DollarSign className="w-3.5 h-3.5" />}
           label="Average per entry"
           value={formatMoney(avg, currency)}
-          accent="from-teal-50 to-white dark:from-teal-950/40"
+          accent="from-teal-50 to-white dark:from-teal-950/30 dark:to-[#111d19]"
         />
       </div>
     </ExpandableRow>
   );
 }
 
-function ExpenseReport({ rows, currency }: { rows: any[]; currency: string }) {
+function ExpenseReport({
+  rows,
+  currency,
+  exportMode,
+}: {
+  rows: any[];
+  currency: string;
+  exportMode?: boolean;
+}) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   if (rows.length === 0) return <EmptyState />;
   const totalAll = rows.reduce(
@@ -866,7 +895,7 @@ function ExpenseReport({ rows, currency }: { rows: any[]; currency: string }) {
       <div className="p-5">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={rows}>
-            <CartesianGrid stroke="#e7e5e4" vertical={false} />
+            <CartesianGrid stroke="#EDE7DA" vertical={false} />
             <XAxis
               dataKey="category"
               tick={{ fontSize: 11 }}
@@ -888,7 +917,7 @@ function ExpenseReport({ rows, currency }: { rows: any[]; currency: string }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <div className="divide-y divide-stone-100 dark:divide-stone-800 border-t border-stone-100 dark:border-stone-800 px-2 py-1">
+      <div className="divide-y divide-[#EDE7DA] dark:divide-[#1a2622] border-t border-[#EDE7DA] dark:border-[#1a2622] px-2 py-1">
         {rows.map((r: any) => {
           const isOpen = expandedCategory === r.category;
           return (
@@ -899,11 +928,213 @@ function ExpenseReport({ rows, currency }: { rows: any[]; currency: string }) {
               totalAll={totalAll}
               isOpen={isOpen}
               onToggle={() => setExpandedCategory(isOpen ? null : r.category)}
+              forceOpen={exportMode}
             />
           );
         })}
       </div>
     </>
+  );
+}
+
+// ============================================================
+// REPORT CARD — grid tile with View / Export actions
+// ============================================================
+function ReportCard({
+  reportType,
+  label,
+  onView,
+  onExport,
+  exporting,
+}: {
+  reportType: ReportType;
+  label: string;
+  onView: () => void;
+  onExport: () => void;
+  exporting: boolean;
+}) {
+  const meta = REPORT_META[reportType as string] || DEFAULT_META;
+  return (
+    <div className="bg-white dark:bg-[#111d19] rounded-2xl border border-[#EDE7DA] dark:border-[#1a2622] shadow-sm p-5 flex flex-col gap-4">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-stone-400 dark:text-stone-500">
+            {meta.icon}
+          </span>
+          <h3 className="text-sm font-bold text-stone-900 dark:text-stone-50">
+            {label}
+          </h3>
+        </div>
+        <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+          {meta.description}
+        </p>
+      </div>
+      <div className="flex items-center gap-2.5 mt-auto">
+        <button
+          onClick={onView}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold py-2.5 transition-colors"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          View
+        </button>
+        <button
+          onClick={onExport}
+          disabled={exporting}
+          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#E8E3D8] dark:border-[#1f2e29] text-stone-600 dark:text-stone-300 text-sm font-semibold py-2.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        >
+          {exporting ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Download className="w-3.5 h-3.5" />
+          )}
+          Export
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// FILTER BAR — shared between the modal and the export sheet
+// ============================================================
+function ReportFilterBar({
+  reportType,
+  year,
+  setYear,
+  startDate,
+  setStartDate,
+  endDate,
+  setEndDate,
+}: {
+  reportType: ReportType;
+  year: string;
+  setYear: (v: string) => void;
+  startDate: string;
+  setStartDate: (v: string) => void;
+  endDate: string;
+  setEndDate: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 px-5 sm:px-6 py-4 border-b border-[#EDE7DA] dark:border-[#1a2622] bg-[#FBF9F4] dark:bg-[#0d1613]">
+      {reportType === "yearlySummary" ? (
+        <>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center">
+              <CalendarClock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+            </div>
+            <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
+              Year
+            </span>
+          </div>
+          <input
+            type="number"
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2 w-28 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
+          />
+          <button
+            onClick={() => setYear("")}
+            className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline ml-auto"
+          >
+            Clear (show all years)
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-950/40 flex items-center justify-center">
+              <CalendarClock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            </div>
+            <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
+              From
+            </span>
+          </div>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
+          />
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/40 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            </div>
+            <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
+              To
+            </span>
+          </div>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="text-sm rounded-full border border-[#E8E3D8] dark:border-[#1f2e29] bg-white dark:bg-[#0d1613] px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// VIEW MODAL — full report, opened from a card's "View" button
+// ============================================================
+function ReportViewModal({
+  reportType,
+  onClose,
+  onExport,
+  exporting,
+  filterBar,
+  children,
+}: {
+  reportType: ReportType;
+  onClose: () => void;
+  onExport: () => void;
+  exporting: boolean;
+  filterBar: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{
+        backgroundColor: "rgba(19,42,39,0.55)",
+        backdropFilter: "blur(3px)",
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-[#111d19] rounded-3xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl border border-transparent dark:border-[#1f2e29] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <ReportCardHeader reportType={reportType} />
+          </div>
+          <div className="flex items-center gap-2.5 px-6 shrink-0">
+            <button
+              onClick={onExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E8E3D8] dark:border-[#1f2e29] text-stone-600 dark:text-stone-300 text-xs font-semibold px-4 py-2.5 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors disabled:opacity-50"
+            >
+              {exporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              Export
+            </button>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-[#F8F5EF] dark:hover:bg-[#16231f] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        {filterBar}
+        <div className="overflow-y-auto">{children}</div>
+      </div>
+    </div>
   );
 }
 
@@ -932,7 +1163,12 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
     result,
   } = useFinanceReports();
 
-  const renderBody = () => {
+  const [viewModal, setViewModal] = useState<ReportType | null>(null);
+  const [pendingExport, setPendingExport] = useState<ReportType | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  const renderBody = (exportMode = false) => {
     if (loading) {
       return (
         <div className="px-5 py-20 text-center">
@@ -959,16 +1195,32 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
 
     switch (reportType as ReportType) {
       case "expense":
-        return <ExpenseReport rows={result.data || []} currency={currency} />;
+        return (
+          <ExpenseReport
+            rows={result.data || []}
+            currency={currency}
+            exportMode={exportMode}
+          />
+        );
 
       case "outstandingBills":
       case "paidBills":
       case "upcomingBills":
-        return <BillTable rows={result.data || []} currency={currency} />;
+        return (
+          <BillTable
+            rows={result.data || []}
+            currency={currency}
+            exportMode={exportMode}
+          />
+        );
 
       case "paymentHistory":
         return (
-          <PaymentHistoryTable rows={result.data || []} currency={currency} />
+          <PaymentHistoryTable
+            rows={result.data || []}
+            currency={currency}
+            exportMode={exportMode}
+          />
         );
 
       case "pettyCash": {
@@ -1024,7 +1276,7 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
               <div className="px-5 pb-5">
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={daily}>
-                    <CartesianGrid stroke="#e7e5e4" vertical={false} />
+                    <CartesianGrid stroke="#EDE7DA" vertical={false} />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                     <YAxis
                       tick={{ fontSize: 11 }}
@@ -1104,7 +1356,7 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
                 return (
                   <div
                     key={r.status}
-                    className="flex items-center justify-between rounded-xl border border-stone-100 dark:border-stone-700/60 bg-stone-50/60 dark:bg-stone-800/40 px-3.5 py-2.5"
+                    className="flex items-center justify-between rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-[#FBF9F4] dark:bg-[#0d1613] px-3.5 py-2.5"
                   >
                     <span className="flex items-center gap-2 text-sm capitalize text-stone-700 dark:text-stone-200">
                       <span
@@ -1135,7 +1387,13 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
       }
 
       case "supplier":
-        return <SupplierTable rows={result.data || []} currency={currency} />;
+        return (
+          <SupplierTable
+            rows={result.data || []}
+            currency={currency}
+            exportMode={exportMode}
+          />
+        );
 
       case "yearlySummary": {
         const chartData = result.months
@@ -1188,7 +1446,7 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
             )}
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData}>
-                <CartesianGrid stroke="#e7e5e4" vertical={false} />
+                <CartesianGrid stroke="#EDE7DA" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                 <YAxis
                   tick={{ fontSize: 11 }}
@@ -1225,6 +1483,114 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
     }
   };
 
+  // ------------------------------------------------------------
+  // EXPORT — renders the report off-screen, rasterizes it with
+  // html2canvas, and drops it into a jsPDF document that gets
+  // saved to the user's downloads. Requires `html2canvas` and
+  // `jspdf` to be installed in the project.
+  // ------------------------------------------------------------
+  useEffect(() => {
+    if (
+      pendingExport &&
+      reportType === pendingExport &&
+      !loading &&
+      result &&
+      !exporting
+    ) {
+      void runExport(pendingExport);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingExport, reportType, loading, result]);
+
+  const runExport = async (type: ReportType) => {
+    setExporting(true);
+    try {
+      const node = exportRef.current;
+      if (!node) return;
+
+      // Wait for the custom webfonts (Fraunces/Manrope) to finish loading —
+      // capturing before they swap in is what causes the header text to
+      // overlap the icon, since the fallback font has different metrics.
+      if (typeof document !== "undefined" && (document as any).fonts?.ready) {
+        try {
+          await (document as any).fonts.ready;
+        } catch {
+          // ignore — fall through to the fixed delay below
+        }
+      }
+      // Extra settle time for recharts to measure + paint every chart
+      // inside the off-screen container before we rasterize it.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      // Note: html2canvas's `foreignObjectRendering: true` mode (which
+      // renders through an SVG <foreignObject> for correct RTL/ligature
+      // text shaping) was tried here but produces a *blank* canvas in
+      // this app — likely because the external Google Fonts @import in
+      // the page <style> tag gets silently dropped/blocked inside the
+      // foreignObject instead of throwing an error we could catch. A
+      // blank export is worse than a slightly imperfect Arabic currency
+      // symbol, so we use the default (manual glyph) renderer here.
+      const canvas = await html2canvas(node, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: "a4",
+      });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const option = REPORT_OPTIONS.find((r) => r.value === type);
+      const filename = `${(option?.label || "report")
+        .toLowerCase()
+        .replace(
+          /[^a-z0-9]+/g,
+          "-",
+        )}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(filename);
+    } catch (err) {
+      console.error("Failed to export report PDF:", err);
+    } finally {
+      setExporting(false);
+      setPendingExport(null);
+    }
+  };
+
+  const handleView = (type: ReportType) => {
+    setReportType(type);
+    setViewModal(type);
+  };
+
+  const handleExport = (type: ReportType) => {
+    setReportType(type);
+    setPendingExport(type);
+  };
+
   // ----------------------------------------------------------
   //  STEP 2: Early returns — loading aur access denied gates
   //  Important: ye sab hooks ke niche aur return se pehle
@@ -1237,123 +1603,74 @@ const ReportsTab: React.FC<UseFinancePermissionReturn> = ({
     return <AccessDenied />;
   }
 
+  const filterBarNode = (
+    <ReportFilterBar
+      reportType={reportType}
+      year={year}
+      setYear={setYear}
+      startDate={startDate}
+      setStartDate={setStartDate}
+      endDate={endDate}
+      setEndDate={setEndDate}
+    />
+  );
+
   return (
     <div className="space-y-7">
-      <div className="flex items-center gap-3.5">
-        <div
-          className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md ring-1 ring-white/40 shrink-0"
-          style={{ backgroundImage: "linear-gradient(135deg,#14b8a6,#0f766e)" }}
+      <div>
+        <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
+          Reports
+        </h2>
+        <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
+          Quick access to Finance Manager's standard reports.
+        </p>
+      </div>
+
+      {/* Report card grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {REPORT_OPTIONS.map((r) => (
+          <ReportCard
+            key={r.value}
+            reportType={r.value}
+            label={r.label}
+            onView={() => handleView(r.value)}
+            onExport={() => handleExport(r.value)}
+            exporting={exporting && pendingExport === r.value}
+          />
+        ))}
+      </div>
+
+      {/* View modal — opened from a card's "View" button */}
+      {viewModal && (
+        <ReportViewModal
+          reportType={viewModal}
+          onClose={() => setViewModal(null)}
+          onExport={() => handleExport(viewModal)}
+          exporting={exporting && pendingExport === viewModal}
+          filterBar={filterBarNode}
         >
-          <BarChart3 className="w-5 h-5 text-white" />
+          {renderBody()}
+        </ReportViewModal>
+      )}
+
+      {/* Off-screen export sheet — rasterized to PDF, never shown to the user */}
+      {(pendingExport || exporting) && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: "-10000px",
+            width: 860,
+            pointerEvents: "none",
+          }}
+          aria-hidden
+        >
+          <div ref={exportRef} className="bg-white" style={{ width: 860 }}>
+            <ReportCardHeader reportType={reportType} />
+            <div className="bg-white">{renderBody(true)}</div>
+          </div>
         </div>
-        <div>
-          <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
-            Reports
-          </h2>
-          <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
-            Expense, vendor, cheque and payment history reports
-          </p>
-        </div>
-      </div>
-
-      {/* Report picker */}
-      <div className="flex flex-wrap gap-2">
-        {REPORT_OPTIONS.map((r) => {
-          const meta = REPORT_META[r.value as string] || DEFAULT_META;
-          const active = reportType === r.value;
-          return (
-            <button
-              key={r.value}
-              onClick={() => setReportType(r.value)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap border ${
-                active
-                  ? "text-white border-transparent shadow-md"
-                  : "bg-white dark:bg-stone-900 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:bg-stone-50 dark:hover:bg-stone-800"
-              }`}
-              style={
-                active
-                  ? {
-                      backgroundImage:
-                        "linear-gradient(135deg,#14b8a6,#0f766e)",
-                    }
-                  : undefined
-              }
-            >
-              <span
-                className={
-                  active ? "text-white" : "text-stone-400 dark:text-stone-500"
-                }
-              >
-                {meta.icon}
-              </span>
-              {r.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filter bar */}
-      <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm p-4 sm:p-5 flex flex-wrap items-center gap-3">
-        {reportType === "yearlySummary" ? (
-          <>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-900/40 flex items-center justify-center">
-                <CalendarClock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-              </div>
-              <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
-                Year
-              </span>
-            </div>
-            <input
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2 w-28 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
-            />
-            <button
-              onClick={() => setYear("")}
-              className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline ml-auto"
-            >
-              Clear (show all years)
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-sky-50 dark:bg-sky-900/40 flex items-center justify-center">
-                <CalendarClock className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-              </div>
-              <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
-                From
-              </span>
-            </div>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
-            />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-900/40 flex items-center justify-center">
-                <Clock className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-              </div>
-              <span className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-wide">
-                To
-              </span>
-            </div>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="text-sm rounded-full border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-stone-600 dark:text-stone-300 font-medium"
-            />
-          </>
-        )}
-      </div>
-
-      <Shell header={<ReportCardHeader reportType={reportType} />}>
-        {renderBody()}
-      </Shell>
+      )}
     </div>
   );
 };

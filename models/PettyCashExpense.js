@@ -16,7 +16,7 @@ const ExpenseItemSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const PettyCashExpenseSchema = new mongoose.Schema(
@@ -44,7 +44,11 @@ const PettyCashExpenseSchema = new mongoose.Schema(
       default: 0,
     },
 
-    vendor: { type: mongoose.Schema.Types.ObjectId, ref: "Supplier", default: null },
+    vendor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Supplier",
+      default: null,
+    },
     vendorName: { type: String, default: null },
     items: [ExpenseItemSchema],
     receipts: [{ type: String }], // Cloudinary URLs
@@ -52,22 +56,33 @@ const PettyCashExpenseSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now },
 
     // Audit fields - who logged it, and a safe way to reverse it
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     isVoided: { type: Boolean, default: false },
     voidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     voidReason: { type: String },
     voidedAt: { type: Date },
+
+    migratedFromLegacy: { type: Boolean, default: false },
   },
   {
     timestamps: true,
     toJSON: { getters: true },
     toObject: { getters: true },
-  }
+  },
 );
 
 // Indexes matched to real query patterns:
 // "show this staff member's expenses at this clinic, most recent first"
-PettyCashExpenseSchema.index({ clinicId: 1, staffId: 1, date: -1 });
+PettyCashExpenseSchema.index({ clinicId: 1, migratedFromLegacy: 1 });
+PettyCashExpenseSchema.index({
+  clinicId: 1,
+  staffId: 1,
+  date: -1,
+});
 // "show all expenses under a given petty cash record"
 PettyCashExpenseSchema.index({ pettyCashId: 1, date: -1 });
 // "show all expenses for a vendor" (useful for vendor-spend reports)

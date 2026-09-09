@@ -34,21 +34,28 @@ const PettyCashAllocationSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now },
 
     // Audit fields
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     isVoided: { type: Boolean, default: false },
     voidedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     voidReason: { type: String },
     voidedAt: { type: Date },
+
+    migratedFromLegacy: { type: Boolean, default: false },
   },
   {
     timestamps: true,
     toJSON: { getters: true },
     toObject: { getters: true },
-  }
+  },
 );
 
 // Indexes matched to real query patterns:
 // "show this staff member's allocations at this clinic, most recent first"
+PettyCashAllocationSchema.index({ clinicId: 1, migratedFromLegacy: 1 });
 PettyCashAllocationSchema.index({ clinicId: 1, staffId: 1, date: -1 });
 // "show all allocations under a given petty cash record"
 PettyCashAllocationSchema.index({ pettyCashId: 1, date: -1 });

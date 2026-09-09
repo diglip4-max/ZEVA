@@ -17,6 +17,8 @@ import {
   FileText,
   DollarSign,
   Pencil,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import useBankAccounts from "../_hooks/useBankAccounts";
 import useBankAccountPayments from "../_hooks/useBankAccountPayments";
@@ -35,6 +37,25 @@ const formatDate = (d?: string): string =>
       })
     : "—";
 
+const formatDateTime = (d?: string): string =>
+  d
+    ? new Date(d).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+    : "—";
+
+const methodLabel = (method?: string): string =>
+  (method || "")
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w[0].toUpperCase() + w.slice(1))
+    .join(" ") || "—";
+
 const METHOD_ICON: Record<string, React.ElementType> = {
   cash: Banknote,
   bank_transfer: Landmark,
@@ -44,8 +65,39 @@ const METHOD_ICON: Record<string, React.ElementType> = {
   petty_cash: Wallet,
 };
 
+// Label/value row used inside an expanded payment card — same shape
+// as OverviewTab's DetailRow so both sections read identically
+function DetailRow({
+  label,
+  value,
+  mono,
+  bold,
+}: {
+  label: string;
+  value?: React.ReactNode;
+  mono?: boolean;
+  bold?: boolean;
+}) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <div className="flex items-start gap-3 py-1.5">
+      <div className="w-32 shrink-0 text-[11px] font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest pt-1">
+        {label}
+      </div>
+      <div
+        className={`text-sm text-stone-700 dark:text-stone-200 break-words ${
+          mono ? "zfm-mono" : ""
+        } ${bold ? "font-semibold" : ""}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 // ============================================================
-// NEW ACCOUNT MODAL - COMPLETE
+// NEW ACCOUNT MODAL — unchanged from original (not part of the
+// screenshot you shared — ping me if you want this restyled too)
 // ============================================================
 function NewAccountModal({
   onClose,
@@ -395,7 +447,7 @@ function NewAccountModal({
 }
 
 // ============================================================
-// EDIT ACCOUNT MODAL - COMPLETE
+// EDIT ACCOUNT MODAL — unchanged from original
 // ============================================================
 function EditAccountModal({
   account,
@@ -749,7 +801,9 @@ function EditAccountModal({
 }
 
 // ============================================================
-// MAIN TAB - COMPLETE
+// MAIN TAB — header + account grid restyled to match the
+// reference screenshot (muted stone/teal, flat cards, dashed
+// "add" tile instead of a header button)
 // ============================================================
 const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
   permissions,
@@ -771,6 +825,9 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState<BankAccountData | null>(null);
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(
+    null,
+  );
 
   const active =
     bankAccounts.find((a: BankAccountData) => a._id === activeId) ||
@@ -794,138 +851,144 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
 
   return (
     <div className="space-y-7">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="zfm-display text-lg font-semibold text-stone-900 dark:text-stone-50">
-            Bank Accounts
-          </h2>
-          <p className="text-sm text-stone-400 dark:text-stone-500 mt-0.5">
-            Payments made through each bank account
-          </p>
-        </div>
-
-        {permissions.canCreate && (
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:scale-[1.03] active:scale-95 transition-all duration-200"
-            style={{
-              backgroundImage: "linear-gradient(135deg, #14b8a6, #0f766e)",
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            Add Account
-          </button>
-        )}
+      <div>
+        <h2 className="zfm-display text-lg font-bold text-[#20291f] dark:text-[#f3f1e9]">
+          Bank Accounts
+        </h2>
+        <p className="text-sm text-[#767061] dark:text-[#a6a08d] mt-0.5">
+          Payments made through each bank account
+        </p>
       </div>
 
       <StatCard
         label="Total Bank Balance"
         value={formatMoney(totalBalance, currency)}
         icon={<Wallet />}
-        fromColor="#0d9488"
-        toColor="#14b8a6"
+        fromColor="#3f8066"
+        toColor="#5fa688"
         iconColor="text-white"
         trend={`${bankAccounts.length} account${bankAccounts.length === 1 ? "" : "s"}`}
         trendPositive={true}
       />
 
       {loading && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-5 py-16 text-center text-stone-400 dark:text-stone-500">
-          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600 dark:text-teal-400" />
+        <div className="bg-[#f2f0e8] dark:bg-[#1a1e15] rounded-2xl border border-[#e5e2d5] dark:border-[#2a2f22] px-5 py-16 text-center text-[#767061] dark:text-[#a6a08d]">
+          <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[#3f8066] dark:text-[#5fa688]" />
           <span className="text-sm">Loading accounts…</span>
         </div>
       )}
 
       {!loading && error && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-5 py-16 text-center text-rose-500 dark:text-rose-400 text-sm">
+        <div className="bg-[#f2f0e8] dark:bg-[#1a1e15] rounded-2xl border border-[#e5e2d5] dark:border-[#2a2f22] px-5 py-16 text-center text-rose-500 dark:text-rose-400 text-sm">
           {error}
         </div>
       )}
 
-      {!loading && !error && bankAccounts.length === 0 && (
-        <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm px-5 py-16 text-center text-stone-400 dark:text-stone-500">
-          <Building2 className="w-6 h-6 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
-          <span className="text-sm">
-            No bank accounts yet — add your first one.
-          </span>
-        </div>
-      )}
-
-      {!loading && !error && bankAccounts.length > 0 && (
+      {!loading && !error && (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {bankAccounts.map((a: BankAccountData) => (
-              <div
-                key={a._id}
-                onClick={() => setActiveId(a._id)}
-                className="relative p-5 rounded-2xl cursor-pointer transition-all bg-white dark:bg-stone-900 shadow-sm group"
-                style={{
-                  borderWidth: active?._id === a._id ? 1.5 : 1,
-                  borderStyle: "solid",
-                  borderColor: active?._id === a._id ? "#14b8a6" : "#e7e5e4",
-                }}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-900/40">
-                    <Building2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  </div>
-                  <div className="flex items-center gap-2">
+          {bankAccounts.length === 0 && !permissions.canCreate && (
+            <div className="bg-[#f2f0e8] dark:bg-[#1a1e15] rounded-2xl border border-[#e5e2d5] dark:border-[#2a2f22] px-5 py-16 text-center text-[#767061] dark:text-[#a6a08d]">
+              <Building2 className="w-6 h-6 mx-auto mb-2 opacity-60" />
+              <span className="text-sm">No bank accounts yet.</span>
+            </div>
+          )}
+
+          {(bankAccounts.length > 0 || permissions.canCreate) && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {bankAccounts.map((a: BankAccountData) => {
+                const isActive = active?._id === a._id;
+                return (
+                  <div
+                    key={a._id}
+                    onClick={() => setActiveId(a._id)}
+                    className={`group relative p-5 rounded-2xl cursor-pointer border transition-colors ${
+                      isActive
+                        ? "border-[#3f8066]/50 dark:border-[#5fa688]/40 bg-white dark:bg-[#1f2419]"
+                        : "border-[#e5e2d5] dark:border-[#2a2f22] bg-white dark:bg-[#1f2419] hover:border-[#3f8066]/30 dark:hover:border-[#5fa688]/30"
+                    }`}
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-[#e7f0ea] dark:bg-[#29392b] flex items-center justify-center mb-4">
+                      <Building2 className="w-4 h-4 text-[#3f8066] dark:text-[#5fa688]" />
+                    </div>
+
+                    <div className="text-sm font-semibold text-[#20291f] dark:text-[#f3f1e9]">
+                      {a.bankName}
+                    </div>
                     {a.accountNumber && (
-                      <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
+                      <div className="text-xs text-[#767061] dark:text-[#a6a08d] zfm-mono mt-0.5">
                         •••• {a.accountNumber.slice(-4)}
+                      </div>
+                    )}
+
+                    <div className="zfm-display text-xl font-semibold text-[#20291f] dark:text-[#f3f1e9] mt-4">
+                      {formatMoney(a.currentBalance, currency)}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-[#767061] dark:text-[#a6a08d]">
+                        Current Balance
                       </span>
+                      {a.accountName && (
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#efece2] dark:bg-[#232819] text-[#767061] dark:text-[#a6a08d]">
+                          {a.accountName}
+                        </span>
+                      )}
+                    </div>
+
+                    {permissions.canUpdate && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditTarget(a);
+                        }}
+                        className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-[#767061] dark:text-[#a6a08d] hover:bg-[#f2f0e8] dark:hover:bg-[#29392b] hover:text-[#3f8066] dark:hover:text-[#5fa688] transition-all opacity-0 group-hover:opacity-100"
+                        title="Edit account"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
-                </div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-stone-400 dark:text-stone-500">
-                  {a.bankName}
-                </div>
-                <div className="zfm-display text-xl font-semibold mt-1 text-stone-900 dark:text-stone-50">
-                  {formatMoney(a.currentBalance, currency)}
-                </div>
-                {a.accountName && (
-                  <div className="text-xs text-stone-400 dark:text-stone-500 mt-1">
-                    {a.accountName}
-                  </div>
-                )}
+                );
+              })}
 
-                {/* Edit icon button */}
-                {permissions.canUpdate && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditTarget(a);
-                    }}
-                    className="absolute bottom-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-stone-400 dark:text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-teal-600 dark:hover:text-teal-400 transition-all opacity-0 group-hover:opacity-100"
-                    title="Edit account"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+              {permissions.canCreate && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#d8d4c4] dark:border-[#33392a] bg-[#f2f0e8] dark:bg-[#1a1e15] py-10 text-[#767061] dark:text-[#a6a08d] hover:border-[#3f8066]/50 dark:hover:border-[#5fa688]/40 hover:text-[#3f8066] dark:hover:text-[#5fa688] transition-colors hover:bg-[#f2f0e8] dark:hover:bg-[#29392b]"
+                >
+                  <span className="w-9 h-9 rounded-lg bg-white dark:bg-[#232819] flex items-center justify-center">
+                    <Plus className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm font-medium">Add Bank Account</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {active && (
-            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-stone-100 dark:border-stone-800">
-                <h3 className="text-sm font-bold text-stone-700 dark:text-stone-200">
+            <div className="bg-white dark:bg-[#1f2419] rounded-2xl border border-[#e5e2d5] dark:border-[#2a2f22] overflow-hidden">
+              <div className="px-5 py-4 border-b border-[#e5e2d5] dark:border-[#2a2f22] flex items-center justify-between">
+                <h3 className="text-sm font-bold text-[#20291f] dark:text-[#f3f1e9]">
                   Payment history — {active.bankName}
                 </h3>
+                {payments.length > 0 && (
+                  <span className="text-[11px] font-semibold text-[#767061] dark:text-[#a6a08d]">
+                    Click row to expand
+                  </span>
+                )}
               </div>
               {paymentsLoading ? (
-                <div className="px-5 py-10 text-center text-stone-400 dark:text-stone-500 text-sm">
+                <div className="px-5 py-10 text-center text-[#767061] dark:text-[#a6a08d] text-sm">
                   <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
                   Loading…
                 </div>
               ) : payments.length === 0 ? (
-                <div className="px-5 py-10 text-center text-stone-400 dark:text-stone-500 text-sm">
-                  <Inbox className="w-5 h-5 mx-auto mb-2 text-stone-300 dark:text-stone-600" />
+                <div className="px-5 py-10 text-center text-[#767061] dark:text-[#a6a08d] text-sm">
+                  <Inbox className="w-5 h-5 mx-auto mb-2 opacity-60" />
                   No payments recorded through this account yet.
                 </div>
               ) : (
-                <div className="divide-y divide-stone-100 dark:divide-stone-800">
-                  {payments.map((p) => {
+                <div className="divide-y divide-[#e5e2d5] dark:divide-[#2a2f22] px-3 py-1">
+                  {payments.map((p: any) => {
                     const Icon = METHOD_ICON[p.method] || Landmark;
                     const supplierName =
                       typeof p.supplierId === "string"
@@ -935,28 +998,128 @@ const BankAccountsTab: React.FC<UseFinancePermissionReturn> = ({
                       typeof p.transactionId === "string"
                         ? ""
                         : p.transactionId?.invoiceNumber;
+                    const billCategory =
+                      typeof p.transactionId === "string"
+                        ? ""
+                        : p.transactionId?.category;
+                    const isOpen = expandedPaymentId === p._id;
+                    const isReversed = !!p.reversed;
+
                     return (
-                      <div
-                        key={p._id}
-                        className="px-5 py-3 flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Icon className="w-3.5 h-3.5 text-stone-400 dark:text-stone-500" />
-                          <span className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                            {supplierName || "—"}
-                          </span>
-                          {invoiceNumber && (
-                            <span className="text-xs text-stone-400 dark:text-stone-500 zfm-mono">
-                              {invoiceNumber}
-                            </span>
-                          )}
-                          <span className="text-xs text-stone-400 dark:text-stone-500">
-                            {formatDate(p.date)}
-                          </span>
+                      <div key={p._id}>
+                        <button
+                          onClick={() =>
+                            setExpandedPaymentId(isOpen ? null : p._id)
+                          }
+                          className="w-full text-left flex items-center gap-4 py-3.5 hover:bg-[#f2f0e8] dark:hover:bg-[#232819] rounded-xl px-2 transition-colors"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-[#e7f0ea] dark:bg-[#29392b] flex items-center justify-center text-[#3f8066] dark:text-[#5fa688] shrink-0">
+                            <Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-[#20291f] dark:text-[#f3f1e9] truncate">
+                              {supplierName || "—"}
+                            </div>
+                            <div className="text-xs text-[#767061] dark:text-[#a6a08d] zfm-mono truncate">
+                              {p.paymentNumber}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-mono font-semibold text-[#20291f] dark:text-[#f3f1e9] text-sm">
+                              {formatMoney(p.amount, currency)}
+                            </div>
+                            <div className="text-[10px] text-[#767061] dark:text-[#a6a08d]">
+                              {formatDate(p.date)}
+                            </div>
+                          </div>
+                          <div
+                            className={`shrink-0 transition-transform duration-200 ${
+                              isOpen ? "rotate-90" : ""
+                            }`}
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="w-4 h-4 text-[#3f8066] dark:text-[#5fa688]" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-[#767061]/60 dark:text-[#a6a08d]/60" />
+                            )}
+                          </div>
+                        </button>
+                        <div
+                          className={`grid transition-all duration-300 ease-in-out ${
+                            isOpen
+                              ? "grid-rows-[1fr] opacity-100"
+                              : "grid-rows-[0fr] opacity-0"
+                          }`}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="pt-2 pb-5 pl-13 ml-13 relative">
+                              <div className="absolute left-[22px] top-0 bottom-4 w-px bg-gradient-to-b from-[#3f8066]/30 dark:from-[#5fa688]/30 to-transparent" />
+                              <div className="ml-9 rounded-xl border border-[#e5e2d5] dark:border-[#2a2f22] bg-[#f8f7f3] dark:bg-[#171a14] p-5 space-y-0.5">
+                                <DetailRow
+                                  label="Payment #"
+                                  value={p.paymentNumber}
+                                  mono
+                                />
+                                <DetailRow
+                                  label="Supplier"
+                                  value={supplierName || "—"}
+                                />
+                                {invoiceNumber && (
+                                  <DetailRow
+                                    label="Bill Invoice"
+                                    value={invoiceNumber}
+                                    mono
+                                  />
+                                )}
+                                {billCategory && (
+                                  <DetailRow
+                                    label="Bill Category"
+                                    value={billCategory}
+                                  />
+                                )}
+                                <DetailRow
+                                  label="Amount Paid"
+                                  value={formatMoney(p.amount, currency)}
+                                  mono
+                                  bold
+                                />
+                                <DetailRow
+                                  label="Payment Date"
+                                  value={formatDate(p.date)}
+                                />
+                                <DetailRow
+                                  label="Method"
+                                  value={
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold capitalize bg-[#efece2] dark:bg-[#232819] text-[#5c5747] dark:text-[#c9c4b3]">
+                                      {methodLabel(p.method)}
+                                    </span>
+                                  }
+                                />
+                                <DetailRow
+                                  label="Status"
+                                  value={
+                                    isReversed ? (
+                                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400">
+                                        Reversed
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-[#e7f0ea] dark:bg-[#29392b] text-[#3f8066] dark:text-[#5fa688]">
+                                        Completed
+                                      </span>
+                                    )
+                                  }
+                                />
+                                {p.notes && (
+                                  <DetailRow label="Notes" value={p.notes} />
+                                )}
+                                <DetailRow
+                                  label="Created"
+                                  value={formatDateTime(p.createdAt)}
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <span className="font-mono text-sm font-semibold text-stone-800 dark:text-stone-100 shrink-0">
-                          {formatMoney(p.amount, currency)}
-                        </span>
                       </div>
                     );
                   })}

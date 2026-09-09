@@ -5,6 +5,7 @@ import PettyCashExpense from "../../../models/PettyCashExpense";
 import PettyCash from "../../../models/PettyCash";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import Users from "../../../models/Users";
 
 // Helper function to safely parse Decimal128 or Number values
 const parseNumber = (value) => {
@@ -265,6 +266,14 @@ export default async function handler(req, res) {
 
     if (viewType === "expenses" || viewType === "all") {
       // Fetch expenses
+      const qLength = await PettyCashExpense.countDocuments({ clinicId });
+      console.log({
+        baseFilter,
+        expenseFilter,
+        viewType,
+        expenseQueryLength: qLength,
+        clinicId,
+      });
       let expenseQuery = PettyCashExpense.find(expenseFilter)
         .populate("vendor", "name email phone")
         .populate("createdBy", "name email role")
@@ -294,6 +303,12 @@ export default async function handler(req, res) {
         {
           $group: {
             _id: null,
+            // 🔥 NAYA: Total spent (sabhi expenses - chahe petty cash ho ya info)
+            totalAllSpent: {
+              $sum: {
+                $cond: [{ $eq: ["$isVoided", false] }, "$spentAmount", 0],
+              },
+            },
             // ONLY count expenses where usedFromPettyCash is true
             totalSpent: {
               $sum: {
@@ -411,7 +426,8 @@ export default async function handler(req, res) {
       expenseSummary =
         expSummary.length > 0
           ? {
-              totalSpent: parseNumber(expSummary[0].totalSpent),
+              totalAllSpent: parseNumber(expSummary[0].totalAllSpent), // 🔥 Sabhi expenses
+              totalSpent: parseNumber(expSummary[0].totalSpent), // Sirf petty cash
               totalExpenses: expSummary[0].totalExpenses || 0,
               pettyCashExpenseCount: expSummary[0].pettyCashExpenseCount || 0,
               infoExpenseCount: expSummary[0].infoExpenseCount || 0,

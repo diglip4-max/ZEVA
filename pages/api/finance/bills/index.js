@@ -86,7 +86,7 @@ export default async function handler(req, res) {
         category,
         dueDateFrom,
         dueDateTo,
-        search, // matches supplierInvoiceNumber or invoiceNumber
+        search,
         page = 1,
         limit = 20,
       } = req.query;
@@ -125,24 +125,56 @@ export default async function handler(req, res) {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-      const summary = await FinanceTransaction.aggregate([
+      // ------------------------------------------------------------
+      // SUMMARY — DYNAMIC OVERDUE CALCULATION
+      // ------------------------------------------------------------
+      const summaryResult = await FinanceTransaction.aggregate([
         { $match: { clinicId: query.clinicId, entryType: "bill" } },
+        {
+          $addFields: {
+            isActuallyOverdue: {
+              $and: [
+                { $lt: ["$dueDate", now] },
+                {
+                  $not: {
+                    $in: ["$status", ["paid", "cancelled"]],
+                  },
+                },
+              ],
+            },
+            outstandingBalance: {
+              $subtract: ["$amount", { $ifNull: ["$paidAmount", 0] }],
+            },
+          },
+        },
         {
           $group: {
             _id: null,
+
+            // Total outstanding (all non-paid/non-cancelled bills)
             totalOutstanding: {
               $sum: {
                 $cond: [
                   { $in: ["$status", ["paid", "cancelled"]] },
                   0,
-                  { $subtract: ["$amount", "$paidAmount"] },
+                  "$outstandingBalance",
                 ],
               },
             },
+
+            // 🔥 OVERDUE - Dynamic calculation
             overdueCount: {
-              $sum: { $cond: [{ $eq: ["$status", "overdue"] }, 1, 0] },
+              $sum: { $cond: ["$isActuallyOverdue", 1, 0] },
             },
+            overdueAmount: {
+              $sum: {
+                $cond: ["$isActuallyOverdue", "$outstandingBalance", 0],
+              },
+            },
+
+            // Paid this month
             paidThisMonth: {
               $sum: {
                 $cond: [
@@ -152,25 +184,164 @@ export default async function handler(req, res) {
                       { $lt: ["$updatedAt", monthEnd] },
                     ],
                   },
-                  "$paidAmount",
+                  { $ifNull: ["$paidAmount", 0] },
                   0,
                 ],
               },
             },
+
             totalBills: { $sum: 1 },
+
+            // Status-wise amounts (these remain based on actual status field)
+            pendingAmount: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "pending"] },
+                  "$outstandingBalance",
+                  0,
+                ],
+              },
+            },
+            pendingCount: {
+              $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
+            },
+
+            upcomingAmount: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "upcoming"] },
+                  "$outstandingBalance",
+                  0,
+                ],
+              },
+            },
+            upcomingCount: {
+              $sum: { $cond: [{ $eq: ["$status", "upcoming"] }, 1, 0] },
+            },
+
+            partialAmount: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "partial"] },
+                  "$outstandingBalance",
+                  0,
+                ],
+              },
+            },
+            partialCount: {
+              $sum: { $cond: [{ $eq: ["$status", "partial"] }, 1, 0] },
+            },
           },
         },
       ]);
 
+      const summary = summaryResult[0] || {
+        totalOutstanding: 0,
+        overdueCount: 0,
+        overdueAmount: 0,
+        paidThisMonth: 0,
+        totalBills: 0,
+        pendingAmount: 0,
+        pendingCount: 0,
+        upcomingAmount: 0,
+        upcomingCount: 0,
+        partialAmount: 0,
+        partialCount: 0,
+      };
+      delete summary._id;
+
+      // ------------------------------------------------------------
+      // Next 30 days — upcoming/pending/partial bills due soon
+      // ------------------------------------------------------------
+      const upcoming30Docs = await FinanceTransaction.find({
+        clinicId,
+        entryType: "bill",
+        status: { $nin: ["paid", "cancelled"] },
+        dueDate: { $gte: now, $lte: in30Days },
+      })
+        .populate("supplierId", "name")
+        .sort({ dueDate: 1 })
+        .limit(15);
+
+      const upcoming30 = upcoming30Docs.map((b) => ({
+        _id: b._id,
+        supplierName:
+          b.supplierId && typeof b.supplierId === "object"
+            ? b.supplierId.name
+            : "—",
+        invoiceNumber: b.invoiceNumber,
+        dueDate: b.dueDate,
+        balance: b.amount - (b.paidAmount || 0),
+      }));
+
+      const totalUpcoming30 = upcoming30.reduce((sum, b) => sum + b.balance, 0);
+
+      // ------------------------------------------------------------
+      // Overdue aging — DYNAMIC (check dueDate, not status)
+      // ------------------------------------------------------------
+      const overdueDocs = await FinanceTransaction.find({
+        clinicId,
+        entryType: "bill",
+        $expr: {
+          $and: [
+            { $lt: ["$dueDate", now] },
+            {
+              $not: {
+                $in: ["$status", ["paid", "cancelled"]],
+              },
+            },
+          ],
+        },
+      }).populate("supplierId", "name");
+
+      const aging = { d1to7: 0, d8to30: 0, d31plus: 0 };
+      const bySupplier = {};
+
+      for (const b of overdueDocs) {
+        const balance = b.amount - (b.paidAmount || 0);
+        const daysOverdue = b.dueDate
+          ? Math.max(
+              0,
+              Math.floor(
+                (now.getTime() - new Date(b.dueDate).getTime()) / 86400000,
+              ),
+            )
+          : 0;
+
+        if (daysOverdue <= 7) aging.d1to7 += balance;
+        else if (daysOverdue <= 30) aging.d8to30 += balance;
+        else aging.d31plus += balance;
+
+        const supplierName =
+          b.supplierId && typeof b.supplierId === "object"
+            ? b.supplierId.name
+            : "Unknown supplier";
+        bySupplier[supplierName] = (bySupplier[supplierName] || 0) + balance;
+      }
+
+      let highestRiskSupplier = null;
+      for (const [name, amount] of Object.entries(bySupplier)) {
+        if (!highestRiskSupplier || amount > highestRiskSupplier.amount) {
+          highestRiskSupplier = { name, amount };
+        }
+      }
+
+      const overdueAging = {
+        d1to7: aging.d1to7,
+        d8to30: aging.d8to30,
+        d31plus: aging.d31plus,
+        totalAmount: aging.d1to7 + aging.d8to30 + aging.d31plus,
+        totalCount: overdueDocs.length,
+        highestRiskSupplier,
+      };
+
       return res.status(200).json({
         success: true,
         data: bills,
-        summary: summary[0] || {
-          totalOutstanding: 0,
-          overdueCount: 0,
-          paidThisMonth: 0,
-          totalBills: 0,
-        },
+        summary,
+        upcoming30,
+        totalUpcoming30,
+        overdueAging,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -179,6 +350,7 @@ export default async function handler(req, res) {
         },
       });
     } catch (error) {
+      console.error("GET Error:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
@@ -189,7 +361,7 @@ export default async function handler(req, res) {
       const {
         supplierId,
         category,
-        supplierInvoiceNumber, // vendor ka apna invoice number — Rule 7 duplicate check isi pe
+        supplierInvoiceNumber,
         invoiceDate,
         dueDate,
         amount,
@@ -270,6 +442,7 @@ export default async function handler(req, res) {
         data: bill,
       });
     } catch (error) {
+      console.error("POST Error:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
