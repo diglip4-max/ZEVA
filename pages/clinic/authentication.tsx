@@ -687,7 +687,7 @@ function AuthSettingsPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const currentPath = window.location.pathname || "";
-    if (currentPath.startsWith("/agent/")) {
+    if (currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/")) {
       setIsAgentRoute(true);
     } else {
       setIsAgentRoute(false);

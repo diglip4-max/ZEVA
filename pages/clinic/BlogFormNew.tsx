@@ -342,9 +342,9 @@ function ModernBlogForm() {
 
     const agentPath =
 
-      router?.pathname?.startsWith("/agent/") ||
+      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
 
-      window.location.pathname?.startsWith("/agent/");
+      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
 
     setIsAgentRoute(agentPath && hasAgentToken);
 

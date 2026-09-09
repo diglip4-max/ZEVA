@@ -12877,7 +12877,7 @@ function PatientProfileView({
     }
     if (typeof window === "undefined") return;
     const currentPath = window.location.pathname || "";
-    if (currentPath.startsWith("/agent/")) {
+    if (currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/")) {
       setRouteContext("agent");
     } else {
       setRouteContext("clinic");
@@ -12909,9 +12909,8 @@ function PatientProfileView({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const agentPath =
-      router?.pathname?.startsWith("/agent/") ||
-      window.location.pathname?.startsWith("/agent/");
+    const path = window.location.pathname || router?.asPath || router?.pathname || "";
+    const agentPath = path.startsWith("/agent/") || path.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
@@ -13225,8 +13224,14 @@ function PatientProfileView({
     try {
       setLoading(true);
       const headers = getAuthHeaders(routeContext);
-      if (!headers) {
-        router.push('/clinic/login-clinic');
+      if (!headers?.Authorization) {
+        const onAgentPortal =
+          typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/staff/") ||
+            window.location.pathname.startsWith("/agent/"));
+        if (!onAgentPortal) {
+          router.push("/clinic/login-clinic");
+        }
         return;
       }
 

@@ -114,7 +114,8 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     }
     if (typeof window === "undefined") return;
     const isAgentRoute =
-      window.location.pathname?.startsWith("/agent/") ?? false;
+      (window.location.pathname?.startsWith("/agent/") ||
+        window.location.pathname?.startsWith("/staff/")) ?? false;
     setRouteContext(isAgentRoute ? "agent" : "clinic");
   }, [contextOverride]);
   // Helper to get today's date in YYYY-MM-DD format

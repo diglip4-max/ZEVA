@@ -79,7 +79,7 @@ function ReportPage() {
   // Determine if we're on an agent route
   const isAgentRoute =
     typeof window !== "undefined" &&
-    window.location.pathname.startsWith("/agent/");
+    window.location.pathname.startsWith("/agent/") || window.location.pathname.startsWith("/staff/");
 
   // Use agent permissions hook for agent routes
   const agentPermissionsHook: any = useAgentPermissions(

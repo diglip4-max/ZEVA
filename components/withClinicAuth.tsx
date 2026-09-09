@@ -4,19 +4,15 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import { jwtDecode } from 'jwt-decode';
 
-// Helper: decode role from clinicToken only
-// const getClinicTokenRole = (): string | null => {
-//   if (typeof window === 'undefined') return null;
-//   try {
-//     const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-//     if (!token) return null;
-//     const decoded: any = jwtDecode(token);
-//     return decoded?.role || null;
-//   } catch (err) {
-//     console.warn('Unable to decode clinicToken:', err);
-//     return null;
-//   }
-// };
+const getStored = (key: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(key) || sessionStorage.getItem(key);
+};
+
+const isAgentPortalRoute = (pathname?: string | null): boolean => {
+  if (!pathname) return false;
+  return pathname.startsWith('/agent/') || pathname.startsWith('/staff/');
+};
 
 export default function withClinicAuth<P extends Record<string, unknown> = Record<string, unknown>>(WrappedComponent: ComponentType<P>) {
   return function ProtectedClinicPage(props: P) {
@@ -27,17 +23,59 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
     useEffect(() => {
       const checkAuth = async () => {
         try {
-          // Read ONLY clinicToken — no cross-role fallback
-          let token = typeof window !== 'undefined'
-            ? (localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken'))
-            : null;
+          const pathname =
+            (typeof window !== 'undefined' ? window.location.pathname : '') ||
+            router.asPath ||
+            router.pathname;
 
-          let user = typeof window !== 'undefined'
-            ? (localStorage.getItem('clinicUser') || sessionStorage.getItem('clinicUser'))
-            : null;
+          // Agent sidebar loads clinic pages under /staff/* and /agent/*.
+          // Those sessions only have agentToken (or userToken for doctorStaff),
+          // not clinicToken — do not send them to clinic login.
+          if (isAgentPortalRoute(pathname)) {
+            const agentPortalToken =
+              getStored('agentToken') ||
+              getStored('userToken') ||
+              getStored('doctorToken');
+
+            if (!agentPortalToken) {
+              setLoading(false);
+              return;
+            }
+
+            let decoded: { role?: string } | null = null;
+            try {
+              decoded = jwtDecode(agentPortalToken);
+            } catch {
+              decoded = null;
+            }
+
+            let verifyEndpoint = '/api/agent/verify-token';
+            if (decoded?.role === 'doctor' || decoded?.role === 'doctorStaff') {
+              verifyEndpoint = '/api/doctor/verify-token';
+            }
+
+            const res = await fetch(verifyEndpoint, {
+              headers: {
+                Authorization: `Bearer ${agentPortalToken}`,
+              },
+            });
+            const data = await res.json();
+
+            if (res.ok && data.valid) {
+              setIsAuthorized(true);
+            } else {
+              console.error('Agent portal auth error:', data?.message || data);
+            }
+            setLoading(false);
+            return;
+          }
+
+          // Read ONLY clinicToken — no cross-role fallback on real clinic routes
+          let token = getStored('clinicToken');
+
+          let user = getStored('clinicUser');
 
           if (!token) {
-            // No clinicToken — redirect to clinic login
             router.replace('/clinic/login-clinic');
             setLoading(false);
             return;
@@ -96,7 +134,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             return;
           }
 
-          // Verify user role — only clinic role is allowed
+          // Verify user role — only clinic role is allowed on /clinic/* routes
           const userObj = JSON.parse(user);
           const allowedRoles = ['clinic'];
           if (allowedRoles.includes(userObj.role)) {
@@ -107,10 +145,14 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
           }
         } catch (err) {
           console.error('Auth error:', err);
-          // Network error - don't clear tokens, just redirect
-          setTimeout(() => {
-            router.replace('/clinic/login-clinic');
-          }, 3000);
+          const pathname =
+            (typeof window !== 'undefined' ? window.location.pathname : '') ||
+            router.pathname;
+          if (!isAgentPortalRoute(pathname)) {
+            setTimeout(() => {
+              router.replace('/clinic/login-clinic');
+            }, 3000);
+          }
         } finally {
           setLoading(false);
         }
