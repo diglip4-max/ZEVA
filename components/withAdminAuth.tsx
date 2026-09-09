@@ -14,7 +14,8 @@ export default function withAdminAuth<P extends object>(
     useEffect(() => {
       const checkAuth = async () => {
         // Check if we're on an agent route - if so, allow agent tokens
-        const isAgentRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/agent/');
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isAgentRoute = pathname.startsWith('/agent/') || pathname.startsWith('/staff/');
         
         let token = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
         

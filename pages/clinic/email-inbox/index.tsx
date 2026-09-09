@@ -47,7 +47,7 @@ const EmailInboxPage: NextPageWithLayout = () => {
   // Check if on agent route
   const currentPath =
     typeof window !== "undefined" ? window.location.pathname : "";
-  const isAgentRoute = currentPath.startsWith("/agent/");
+  const isAgentRoute = currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/");
 
   // Use agent permissions hook for agent routes
   const agentPermissionsHook: any = useAgentPermissions(

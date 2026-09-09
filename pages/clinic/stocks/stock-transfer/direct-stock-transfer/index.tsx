@@ -159,8 +159,8 @@ const DirectStockTransferPage: NextPageWithLayout = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const agentPath =
-      router?.pathname?.startsWith("/agent/") ||
-      window.location.pathname?.startsWith("/agent/");
+      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
+      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 

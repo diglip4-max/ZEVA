@@ -84,7 +84,7 @@ function ClinicReferralPage() {
   // Determine if this is an agent route
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const agentPath = window.location.pathname?.startsWith("/agent/");
+    const agentPath = window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [hasAgentToken]);
 
