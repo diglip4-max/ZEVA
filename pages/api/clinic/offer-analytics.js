@@ -1139,11 +1139,111 @@ export default async function handler(req, res) {
     const blockedBenefit = Math.min(attemptedBeforePayment, Math.max(9, Math.round(attemptedBeforePayment * 1)));
     const protectionRate = attemptedBeforePayment === 0 ? 100 : Math.round((blockedBenefit / attemptedBeforePayment) * 100);
 
+    const [offersByStatusResult, attemptedPaymentBillings] = await Promise.all([
+      Offer.aggregate([
+        { $match: { clinicId: clinicId, status: { $in: ['draft', 'active', 'paused', 'expired'] } } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      Billing.find({
+        clinicId: clinicId,
+        isAdvanceOnly: { $ne: true },
+        offerType: { $in: ['instant_discount', 'cashback', 'bundle'] },
+        pending: { $gt: 0 },
+        ...dateFilter,
+      })
+        .select('invoiceNumber invoicedDate patientId offerName offerType amount paid pending')
+        .populate({ path: 'patientId', select: 'firstName lastName' })
+        .sort({ invoicedDate: -1, createdAt: -1 })
+        .limit(100)
+        .lean(),
+    ]);
+
+    const offersByStatusMap = new Map();
+    offersByStatusResult.forEach((r) => offersByStatusMap.set(r._id, r.count));
+
+    const draftCount = offersByStatusMap.get('draft') || 0;
+    const activeCount = offersByStatusMap.get('active') || 0;
+    const pausedCount = offersByStatusMap.get('paused') || 0;
+    const expiredCount = offersByStatusMap.get('expired') || 0;
+
+    const offerStatusBreakdown = {
+      draft: draftCount,
+      active: activeCount,
+      paused: pausedCount,
+      expiry: expiredCount,
+    };
+
+    const offersWithStatus = await Offer.find({
+      clinicId: clinicId,
+      status: { $in: ['draft', 'active', 'paused', 'expired'] },
+    })
+      .select('title status offerType startsAt endsAt')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const offersByStatusList = {
+      draft: offersWithStatus.filter((o) => o.status === 'draft').map((o) => ({
+        offerId: o._id.toString(),
+        offerName: o.title,
+        status: o.status,
+        offerType: o.offerType,
+        startsAt: o.startsAt,
+        endsAt: o.endsAt,
+      })),
+      active: offersWithStatus.filter((o) => o.status === 'active').map((o) => ({
+        offerId: o._id.toString(),
+        offerName: o.title,
+        status: o.status,
+        offerType: o.offerType,
+        startsAt: o.startsAt,
+        endsAt: o.endsAt,
+      })),
+      paused: offersWithStatus.filter((o) => o.status === 'paused').map((o) => ({
+        offerId: o._id.toString(),
+        offerName: o.title,
+        status: o.status,
+        offerType: o.offerType,
+        startsAt: o.startsAt,
+        endsAt: o.endsAt,
+      })),
+      expiry: offersWithStatus.filter((o) => o.status === 'expired').map((o) => ({
+        offerId: o._id.toString(),
+        offerName: o.title,
+        status: 'expiry',
+        offerType: o.offerType,
+        startsAt: o.startsAt,
+        endsAt: o.endsAt,
+      })),
+    };
+
+    const attemptedBeforePaymentList = attemptedPaymentBillings.map((b) => {
+      const patient = b.patientId;
+      const patientName = patient && typeof patient === 'object'
+        ? [patient.firstName, patient.lastName].filter(Boolean).join(' ') || 'Unknown patient'
+        : 'Unknown patient';
+      return {
+        invoiceNumber: b.invoiceNumber || '',
+        invoicedDate: b.invoicedDate,
+        patientName,
+        offerName: b.offerName || 'Offer',
+        offerType: b.offerType || '',
+        amount: b.amount || 0,
+        paid: b.paid || 0,
+        pending: b.pending || 0,
+      };
+    });
+
+    const blockedList = attemptedBeforePaymentList.slice(0, blockedBenefit);
+
     const benefitActivation = {
       configuredRule: 'Full payment required',
       attemptedBeforePayment,
       blocked: blockedBenefit,
       protectionRate,
+      offerStatusBreakdown,
+      offersByStatusList,
+      attemptedBeforePaymentList,
+      blockedList,
     };
 
     // ═══════════════════════════════════════════════════════

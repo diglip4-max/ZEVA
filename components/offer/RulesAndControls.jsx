@@ -114,6 +114,41 @@ export default function RulesAndControls({ dateFilter = 'Today' }) {
   const [selectedStaffUsage, setSelectedStaffUsage] = useState(null);
   const [showHighDiscountPatients, setShowHighDiscountPatients] = useState(false);
   const [selectedOverride, setSelectedOverride] = useState(null);
+  const [showAttemptedBeforePaymentList, setShowAttemptedBeforePaymentList] = useState(false);
+  const [showBlockedList, setShowBlockedList] = useState(false);
+  const [selectedOfferStatus, setSelectedOfferStatus] = useState(null);
+
+  const formatShortDate = (dateInput) => {
+    if (!dateInput) return '—';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '—';
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const getStatusBadge = (status) => {
+    const base = 'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full';
+    switch (status) {
+      case 'active':
+        return `${base} bg-emerald-100 text-emerald-700`;
+      case 'paused':
+        return `${base} bg-amber-100 text-amber-700`;
+      case 'expiry':
+      case 'expired':
+        return `${base} bg-rose-100 text-rose-700`;
+      case 'draft':
+        return `${base} bg-gray-100 text-gray-600`;
+      default:
+        return `${base} bg-gray-100 text-gray-600`;
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    const map = { active: 'Active', paused: 'Paused', expiry: 'Expired', draft: 'Draft', expired: 'Expired' };
+    return map[status] || status;
+  };
 
   const formatCurrency = (amount) => {
     return `${currencySymbol} ${(amount || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
@@ -245,12 +280,12 @@ export default function RulesAndControls({ dateFilter = 'Today' }) {
           <svg className="w-4 h-4 text-[#B91C1C] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
-          <p className="text-xs text-gray-700 leading-relaxed">
+          {/* <p className="text-xs text-gray-700 leading-relaxed">
             Discount usage increased <span className="font-bold text-gray-900">21%</span> this week.{' '}
             <span className="font-bold text-gray-900">3 staff members</span> account for 72% of{' '}
             <span className="font-bold text-gray-900">manual overrides</span>.{' '}
             <button className="text-xs font-medium text-[#9B2C2C] hover:underline">Investigate →</button>
-          </p>
+          </p> */}
         </div>
       </div>
 
@@ -503,31 +538,95 @@ export default function RulesAndControls({ dateFilter = 'Today' }) {
         {/* Right: Benefit Activation Rules */}
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] p-6">
           <div className="mb-8">
-            <h3 className="text-lg font-bold text-gray-900">Benefit Activation Rules</h3>
-            <p className="text-sm text-gray-500 mt-1">Benefits only activate after the configured payment condition.</p>
+            <h3 className="text-lg font-bold text-gray-900">Offers Activation Rules</h3>
+            <p className="text-sm text-gray-500 mt-1">Offers only activate after the configured payment condition.</p>
           </div>
 
-          <div className="bg-[#FAFAF7] rounded-xl p-5 mb-10 flex items-center gap-3">
+          {/* <div className="bg-[#FAFAF7] rounded-xl p-5 mb-10 flex items-center gap-3">
             <svg className="w-5 h-5 text-gray-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
             <p className="text-sm text-gray-900 font-semibold">
               Configured rule: {benefitActivationData.configuredRule}
             </p>
-          </div>
+          </div> */}
 
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Attempted before payment</p>
-              <p className="text-2xl font-bold text-gray-900">{benefitActivationData.attemptedBeforePayment}</p>
+          {/* Row 1: Attempted & Blocked - clickable */}
+         
+
+          {/* Protection Rate with status breakdown */}
+          <div className="rounded-xl border border-gray-200 p-4">
+            <div className="flex items-baseline justify-between mb-4">
+              <p className="text-xs text-gray-500">Protection rate</p>
+              {/* <p className="text-2xl font-bold text-[#047857]">{benefitActivationData.protectionRate}%</p> */}
             </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Blocked</p>
-              <p className="text-2xl font-bold text-[#991B1B]">{benefitActivationData.blocked}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Protection rate</p>
-              <p className="text-2xl font-bold text-[#047857]">{benefitActivationData.protectionRate}%</p>
+
+            <p className="text-[10px] font-medium uppercase tracking-wider text-gray-400 mb-3">Offer status overview</p>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Paused */}
+              <div
+                onClick={() => setSelectedOfferStatus('paused')}
+                className="cursor-pointer rounded-lg border border-gray-100 bg-amber-50/40 p-3 hover:border-amber-300 hover:bg-amber-50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`${getStatusBadge('paused')}`}>Paused</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-xl font-bold text-amber-700">{benefitActivationData.offerStatusBreakdown?.paused ?? 0}</p>
+                  <svg className="w-3 h-3 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Expiry */}
+              <div
+                onClick={() => setSelectedOfferStatus('expiry')}
+                className="cursor-pointer rounded-lg border border-gray-100 bg-rose-50/40 p-3 hover:border-rose-300 hover:bg-rose-50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`${getStatusBadge('expiry')}`}>Expiry</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-xl font-bold text-rose-700">{benefitActivationData.offerStatusBreakdown?.expiry ?? 0}</p>
+                  <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Active */}
+              <div
+                onClick={() => setSelectedOfferStatus('active')}
+                className="cursor-pointer rounded-lg border border-gray-100 bg-emerald-50/40 p-3 hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`${getStatusBadge('active')}`}>Active</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-xl font-bold text-emerald-700">{benefitActivationData.offerStatusBreakdown?.active ?? 0}</p>
+                  <svg className="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Draft */}
+              <div
+                onClick={() => setSelectedOfferStatus('draft')}
+                className="cursor-pointer rounded-lg border border-gray-100 bg-gray-50/60 p-3 hover:border-gray-300 hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`${getStatusBadge('draft')}`}>Draft</span>
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-xl font-bold text-gray-700">{benefitActivationData.offerStatusBreakdown?.draft ?? 0}</p>
+                  <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -670,6 +769,166 @@ export default function RulesAndControls({ dateFilter = 'Today' }) {
                   <p className="text-xs font-bold text-gray-900">{selectedOverride.approvedBy}</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attempted Before Payment List Modal */}
+      {showAttemptedBeforePaymentList && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="attempted-payment-title">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-indigo-700">Benefit Activation</p>
+                <h4 id="attempted-payment-title" className="mt-1 text-lg font-bold text-gray-900">
+                  Attempted before payment · {benefitActivationData.attemptedBeforePayment} record{benefitActivationData.attemptedBeforePayment !== 1 ? 's' : ''}
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  Invoices with an offer applied but an outstanding pending balance (partial payment).
+                </p>
+              </div>
+              <button onClick={() => setShowAttemptedBeforePaymentList(false)} aria-label="Close" className="text-xl leading-none text-gray-500 hover:text-gray-900">×</button>
+            </div>
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Patient</th>
+                    <th className="px-4 py-3 font-semibold">Offer</th>
+                    <th className="px-4 py-3 font-semibold">Invoice</th>
+                    <th className="px-4 py-3 text-right font-semibold">Amount</th>
+                    <th className="px-4 py-3 text-right font-semibold">Paid</th>
+                    <th className="px-4 py-3 text-right font-semibold">Pending</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {!benefitActivationData.attemptedBeforePaymentList || benefitActivationData.attemptedBeforePaymentList.length === 0 ? (
+                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-500">No records found.</td></tr>
+                  ) : benefitActivationData.attemptedBeforePaymentList.map((rec, idx) => (
+                    <tr key={`${rec.invoiceNumber}-${idx}`}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{rec.patientName}</td>
+                      <td className="px-4 py-3 text-gray-700">{rec.offerName}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                        {rec.invoiceNumber || '—'}
+                        {rec.invoicedDate && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">{formatShortDate(rec.invoicedDate)}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(rec.amount)}</td>
+                      <td className="px-4 py-3 text-right text-emerald-700 font-medium">{formatCurrency(rec.paid)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-amber-700">{formatCurrency(rec.pending)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blocked List Modal */}
+      {showBlockedList && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="blocked-list-title">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-rose-700">Benefit Activation Blocked</p>
+                <h4 id="blocked-list-title" className="mt-1 text-lg font-bold text-gray-900">
+                  Blocked activations · {benefitActivationData.blocked} record{benefitActivationData.blocked !== 1 ? 's' : ''}
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  Benefit activation blocked because full payment was not received.
+                </p>
+              </div>
+              <button onClick={() => setShowBlockedList(false)} aria-label="Close" className="text-xl leading-none text-gray-500 hover:text-gray-900">×</button>
+            </div>
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Patient</th>
+                    <th className="px-4 py-3 font-semibold">Offer</th>
+                    <th className="px-4 py-3 font-semibold">Invoice</th>
+                    <th className="px-4 py-3 text-right font-semibold">Amount</th>
+                    <th className="px-4 py-3 text-right font-semibold">Paid</th>
+                    <th className="px-4 py-3 text-right font-semibold">Pending</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {!benefitActivationData.blockedList || benefitActivationData.blockedList.length === 0 ? (
+                    <tr><td colSpan="6" className="px-4 py-8 text-center text-gray-500">No records found.</td></tr>
+                  ) : benefitActivationData.blockedList.map((rec, idx) => (
+                    <tr key={`${rec.invoiceNumber}-${idx}`}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{rec.patientName}</td>
+                      <td className="px-4 py-3 text-gray-700">{rec.offerName}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500 font-mono">
+                        {rec.invoiceNumber || '—'}
+                        {rec.invoicedDate && (
+                          <div className="text-[10px] text-gray-400 mt-0.5">{formatShortDate(rec.invoicedDate)}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-700">{formatCurrency(rec.amount)}</td>
+                      <td className="px-4 py-3 text-right text-emerald-700 font-medium">{formatCurrency(rec.paid)}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-amber-700">{formatCurrency(rec.pending)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Offer Status List Modal */}
+      {selectedOfferStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="offer-status-title">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-bold uppercase tracking-wider ${selectedOfferStatus === 'active' ? 'text-emerald-700' : selectedOfferStatus === 'paused' ? 'text-amber-700' : selectedOfferStatus === 'expiry' ? 'text-rose-700' : 'text-gray-600'}`}>
+                  {getStatusLabel(selectedOfferStatus)} offers
+                </p>
+                <h4 id="offer-status-title" className="mt-1 text-lg font-bold text-gray-900">
+                  {getStatusLabel(selectedOfferStatus)} ·&nbsp;
+                  {benefitActivationData.offersByStatusList?.[selectedOfferStatus]?.length ?? 0}
+                  &nbsp;offer{(benefitActivationData.offersByStatusList?.[selectedOfferStatus]?.length ?? 0) !== 1 ? 's' : ''}
+                </h4>
+                <p className="text-xs text-gray-500 mt-1">
+                  All offers with status &quot;{getStatusLabel(selectedOfferStatus)}&quot; across the clinic.
+                </p>
+              </div>
+              <button onClick={() => setSelectedOfferStatus(null)} aria-label="Close" className="text-xl leading-none text-gray-500 hover:text-gray-900">×</button>
+            </div>
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-left text-sm">
+                <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Offer Name</th>
+                    <th className="px-4 py-3 font-semibold">Status</th>
+                    <th className="px-4 py-3 font-semibold">Type</th>
+                    <th className="px-4 py-3 font-semibold">Valid From</th>
+                    <th className="px-4 py-3 font-semibold">Valid Until</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {!benefitActivationData.offersByStatusList?.[selectedOfferStatus] || benefitActivationData.offersByStatusList[selectedOfferStatus].length === 0 ? (
+                    <tr><td colSpan="5" className="px-4 py-8 text-center text-gray-500">No {getStatusLabel(selectedOfferStatus).toLowerCase()} offers found.</td></tr>
+                  ) : benefitActivationData.offersByStatusList[selectedOfferStatus].map((offer) => (
+                    <tr key={offer.offerId}>
+                      <td className="px-4 py-3 font-bold text-gray-900">{offer.offerName}</td>
+                      <td className="px-4 py-3">
+                        <span className={getStatusBadge(offer.status)}>{getStatusLabel(offer.status)}</span>
+                      </td>
+                      <td className="px-4 py-3 capitalize text-gray-600 text-xs">
+                        {(offer.offerType || '').replace(/_/g, ' ') || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{formatShortDate(offer.startsAt)}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{formatShortDate(offer.endsAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

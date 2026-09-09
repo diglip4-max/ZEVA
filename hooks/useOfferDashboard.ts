@@ -189,11 +189,45 @@ interface UsageProtectionData {
   }>;
 }
 
+interface OfferStatusRecord {
+  offerId: string;
+  offerName: string;
+  status: string;
+  offerType: string;
+  startsAt?: string;
+  endsAt?: string;
+}
+
+interface BenefitActivationPaymentRecord {
+  invoiceNumber: string;
+  invoicedDate?: string;
+  patientName: string;
+  offerName: string;
+  offerType: string;
+  amount: number;
+  paid: number;
+  pending: number;
+}
+
 interface BenefitActivationData {
   configuredRule: string;
   attemptedBeforePayment: number;
   blocked: number;
   protectionRate: number;
+  offerStatusBreakdown?: {
+    draft: number;
+    active: number;
+    paused: number;
+    expiry: number;
+  };
+  offersByStatusList?: {
+    draft: OfferStatusRecord[];
+    active: OfferStatusRecord[];
+    paused: OfferStatusRecord[];
+    expiry: OfferStatusRecord[];
+  };
+  attemptedBeforePaymentList?: BenefitActivationPaymentRecord[];
+  blockedList?: BenefitActivationPaymentRecord[];
 }
 
 interface StaffUsageBillingRecord {
@@ -365,6 +399,10 @@ export function useOfferDashboard(dateFilter: string = 'Today') {
     attemptedBeforePayment: 0,
     blocked: 0,
     protectionRate: 100,
+    offerStatusBreakdown: { draft: 0, active: 0, paused: 0, expiry: 0 },
+    offersByStatusList: { draft: [], active: [], paused: [], expiry: [] },
+    attemptedBeforePaymentList: [],
+    blockedList: [],
   });
   const [serviceOfferIntelligenceData, setServiceOfferIntelligenceData] = useState<ServiceOfferIntelligenceData[]>([]);
   const [percentChanges, setPercentChanges] = useState<PercentChangesData>({
@@ -638,11 +676,16 @@ export function useOfferDashboard(dateFilter: string = 'Today') {
 
         // Set benefit activation rules data
         if (data.benefitActivation) {
+          const ba = data.benefitActivation;
           setBenefitActivationData({
-            configuredRule: data.benefitActivation.configuredRule || 'Full payment required',
-            attemptedBeforePayment: data.benefitActivation.attemptedBeforePayment ?? 0,
-            blocked: data.benefitActivation.blocked ?? 0,
-            protectionRate: data.benefitActivation.protectionRate ?? 100,
+            configuredRule: ba.configuredRule || 'Full payment required',
+            attemptedBeforePayment: ba.attemptedBeforePayment ?? 0,
+            blocked: ba.blocked ?? 0,
+            protectionRate: ba.protectionRate ?? 100,
+            offerStatusBreakdown: ba.offerStatusBreakdown || { draft: 0, active: 0, paused: 0, expiry: 0 },
+            offersByStatusList: ba.offersByStatusList || { draft: [], active: [], paused: [], expiry: [] },
+            attemptedBeforePaymentList: Array.isArray(ba.attemptedBeforePaymentList) ? ba.attemptedBeforePaymentList : [],
+            blockedList: Array.isArray(ba.blockedList) ? ba.blockedList : [],
           });
         }
 
