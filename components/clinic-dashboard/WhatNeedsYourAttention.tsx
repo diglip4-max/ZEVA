@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
@@ -21,6 +22,7 @@ interface Props {
 }
 
 const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props) => {
+  const router = useRouter();
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || "AED");
 
@@ -357,9 +359,12 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                      </div>
                   </div>
                   <div className="text-right">
-                    <span className="inline-block bg-blue-50 text-blue-700 rounded-lg px-3 py-1 text-sm font-semibold shadow-sm">
+                    <button
+                      onClick={() => router.push('/clinic/inbox')}
+                      className="inline-block bg-blue-50 text-blue-700 rounded-lg px-3 py-1 text-sm font-semibold shadow-sm hover:bg-blue-100 transition-colors cursor-pointer"
+                    >
                       Waiting for reply
-                    </span>
+                    </button>
                   </div>
                 </div>
               ))}

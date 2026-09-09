@@ -4,7 +4,7 @@ const AcquisitionFunnel = () => {
   return (
     <div className="mx-8 mt-6 font-sans">
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Marketing → Revenue</h3>
+        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-1">Marketing → Revenue</h3>
         <h2 className="text-xl font-bold text-gray-900 mb-8">Acquisition Funnel</h2>
         
         {/* Top Stats Row */}

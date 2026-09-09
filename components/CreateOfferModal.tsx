@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
+import { Search, ChevronDown, X, Check } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
@@ -20,12 +21,12 @@ export default function CreateOfferModal({
   offer,
   actorRole = "clinic",
 }: Props) {
-  const headerClass = "bg-teal-100";
-  const subtitleClass = "text-teal-700";
-  const formBgClass = "bg-white";
-  const footerBgClass = "border-t bg-white";
-  const cancelBtnVariant = "border-gray-300 text-gray-700 hover:bg-gray-100";
-  const submitBtnVariant = "bg-gray-800 hover:bg-gray-900";
+  // const headerClass = "bg-teal-100";
+  // const subtitleClass = "text-teal-700";
+  // const formBgClass = "bg-white";
+  // const footerBgClass = "border-t bg-white";
+  // const cancelBtnVariant = "border-gray-300 text-gray-700 hover:bg-gray-100";
+  // const submitBtnVariant = "bg-gray-800 hover:bg-gray-900";
   const getInitialForm = () => ({
     title: "",
     description: "",
@@ -38,14 +39,14 @@ export default function CreateOfferModal({
     status: "draft" as "draft" | "active" | "paused" | "expired" | "archived",
     enabled: true,
     usesCount: 0,
-    
+
     // Applicability Control
     applyOnType: "all_services" as "all_services" | "selected_services" | "selected_departments" | "selected_doctors",
     applyOnAllServices: true,
     serviceIds: [] as string[],
     departmentIds: [] as string[],
     doctorIds: [] as string[],
-    
+
     // Stacking & Control Rules
     allowCombiningWithOtherOffers: false,
     allowReceptionistDiscount: false,
@@ -54,21 +55,21 @@ export default function CreateOfferModal({
     marginThresholdPercent: 0,
     sameDayReuseBlocked: true,
     partialPaymentAllowed: false,
-    
+
     // Smart Toggles
     autoApplyBestOffer: true,
     allowManualOverride: false,
     requireApprovalForOverride: true,
     blockIfProfitMarginBelowX: true,
-    
+
     // Type 1: Instant Discount
     discountMode: "percentage" as "percentage" | "flat",
     discountValue: 0,
-    
+
     // Type 2: Bundle
     buyQty: 0,
     freeQty: 0,
-    
+
     // Type 3: Cashback
     cashbackAmount: 0,
     cashbackExpiryDays: 0,
@@ -77,12 +78,12 @@ export default function CreateOfferModal({
 
   const [clinicId, setClinicId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   // Data for selections
   const [allServices, setAllServices] = useState<any[]>([]);
   const [allDepartments, setAllDepartments] = useState<any[]>([]);
   const [allDoctors, setAllDoctors] = useState<any[]>([]);
-  
+
   // Track service count for selected departments
   const [departmentServiceCount, setDepartmentServiceCount] = useState<number>(0);
 
@@ -103,6 +104,74 @@ export default function CreateOfferModal({
   const [showLinkedWarning, setShowLinkedWarning] = useState(false);
   const [linkedServicesMessage, setLinkedServicesMessage] = useState("");
   const [pendingSubmit, setPendingSubmit] = useState(false);
+
+  const [currentStep, setCurrentStep] = useState(1);
+  const steps = [
+    { id: 1, title: "Offer Type" },
+    { id: 2, title: "Basic Info" },
+    { id: 3, title: "Applicability" },
+    { id: 4, title: "Type Configuration" },
+    { id: 5, title: "Controls & Protection" },
+  ];
+
+  const handleNextStep = () => {
+    // Basic per-step validation
+    const newErrors: Record<string, string> = {};
+    const errorMessages: string[] = [];
+
+    if (currentStep === 2) {
+      if (!form.title || form.title.trim().length === 0) {
+        newErrors.title = "Offer title is required";
+        errorMessages.push("Please fill in the Offer Name");
+      }
+      if (!form.startsAt) {
+        newErrors.startsAt = "Start date is required";
+        errorMessages.push("Please select a Start Date");
+      }
+      if (!form.endsAt) {
+        newErrors.endsAt = "End date is required";
+        errorMessages.push("Please select an End Date");
+      }
+      if (form.startsAt && form.endsAt && new Date(form.endsAt) <= new Date(form.startsAt)) {
+        newErrors.endsAt = "End date must be after start date";
+        errorMessages.push("End Date must be after Start Date");
+      }
+    } else if (currentStep === 4) {
+      if (form.offerType === "instant_discount" && form.discountValue <= 0) {
+        newErrors.discountValue = "Discount value must be greater than 0";
+        errorMessages.push("Please enter a valid Discount Value greater than 0");
+      }
+      if (form.offerType === "bundle" && (form.buyQty <= 0 || form.freeQty <= 0)) {
+        newErrors.bundle = "Buy and Free quantities must be greater than 0";
+        errorMessages.push("Please enter valid Buy and Free quantities for Bundle offer");
+      }
+      if (form.offerType === "cashback" && form.cashbackAmount <= 0) {
+        newErrors.cashbackAmount = "Cashback amount must be greater than 0";
+        errorMessages.push("Please enter a valid Cashback Amount greater than 0");
+      }
+    }
+
+    if (errorMessages.length > 0) {
+      setErrors(newErrors);
+      errorMessages.forEach((message, index) => {
+        setTimeout(() => {
+          toast.error(message, {
+            duration: 4000,
+            style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', fontSize: '13px', fontWeight: '500' },
+            icon: '⚠️',
+          });
+        }, index * 300);
+      });
+      return;
+    }
+
+    setErrors({});
+    if (currentStep < 5) setCurrentStep(currentStep + 1);
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
 
   const resolveTokenFromContext = () => {
     if (token) return token;
@@ -266,7 +335,7 @@ export default function CreateOfferModal({
       console.log('Offer serviceIds (raw):', offer.serviceIds);
       console.log('Offer departmentIds (raw):', offer.departmentIds);
       console.log('Offer doctorIds (raw):', offer.doctorIds);
-      
+
       // Handle both populated objects and raw IDs
       const extractIds = (items: any[]) => {
         if (!Array.isArray(items)) return [];
@@ -279,15 +348,15 @@ export default function CreateOfferModal({
           return String(item);
         });
       };
-      
+
       const serviceIds = extractIds(offer.serviceIds || []);
       const departmentIds = extractIds(offer.departmentIds || []);
       const doctorIds = extractIds(offer.doctorIds || []);
-      
+
       console.log('Extracted serviceIds:', serviceIds);
       console.log('Extracted departmentIds:', departmentIds);
       console.log('Extracted doctorIds:', doctorIds);
-      
+
       setForm({
         title: offer.title || "",
         description: offer.description || "",
@@ -300,16 +369,16 @@ export default function CreateOfferModal({
         status: offer.status || "draft",
         enabled: offer.enabled ?? true,
         usesCount: offer.usesCount || 0,
-        
-        applyOnType: offer.applyOnAllServices ? "all_services" : 
-                    offer.departmentIds?.length > 0 ? "selected_departments" :
-                    offer.doctorIds?.length > 0 ? "selected_doctors" :
-                    offer.serviceIds?.length > 0 ? "selected_services" : "all_services",
+
+        applyOnType: offer.applyOnAllServices ? "all_services" :
+          offer.departmentIds?.length > 0 ? "selected_departments" :
+            offer.doctorIds?.length > 0 ? "selected_doctors" :
+              offer.serviceIds?.length > 0 ? "selected_services" : "all_services",
         applyOnAllServices: offer.applyOnAllServices ?? true,
         serviceIds: serviceIds,
         departmentIds: departmentIds,
         doctorIds: doctorIds,
-        
+
         allowCombiningWithOtherOffers: offer.allowCombiningWithOtherOffers || false,
         allowReceptionistDiscount: offer.allowReceptionistDiscount || false,
         maxBenefitCap: offer.maxBenefitCap || 0,
@@ -317,18 +386,18 @@ export default function CreateOfferModal({
         marginThresholdPercent: offer.marginThresholdPercent || 0,
         sameDayReuseBlocked: offer.sameDayReuseBlocked ?? true,
         partialPaymentAllowed: offer.partialPaymentAllowed || false,
-        
+
         autoApplyBestOffer: offer.autoApplyBestOffer ?? true,
         allowManualOverride: offer.allowManualOverride || false,
         requireApprovalForOverride: offer.requireApprovalForOverride ?? true,
         blockIfProfitMarginBelowX: offer.blockIfProfitMarginBelowX ?? true,
-        
+
         discountMode: offer.discountMode || "percentage",
         discountValue: offer.discountValue || 0,
-        
+
         buyQty: offer.buyQty || 0,
         freeQty: offer.freeQty || 0,
-        
+
         cashbackAmount: offer.cashbackAmount || 0,
         cashbackExpiryDays: offer.cashbackExpiryDays || 0,
       });
@@ -339,7 +408,7 @@ export default function CreateOfferModal({
   // Calculate service count when departments are selected
   useEffect(() => {
     if (form.departmentIds.length > 0 && allServices.length > 0) {
-      const count = allServices.filter(s => 
+      const count = allServices.filter(s =>
         form.departmentIds.includes(s.departmentId || s._id)
       ).length;
       setDepartmentServiceCount(count);
@@ -418,7 +487,7 @@ export default function CreateOfferModal({
       newErrors.startsAt = "Start date is required";
       errorMessages.push("Please select a Start Date");
     }
-    
+
     if (!form.endsAt) {
       newErrors.endsAt = "End date is required";
       errorMessages.push("Please select an End Date");
@@ -437,7 +506,7 @@ export default function CreateOfferModal({
     }
 
     setErrors(newErrors);
-    
+
     // Show all validation errors in toaster notifications
     if (errorMessages.length > 0) {
       errorMessages.forEach((message, index) => {
@@ -457,7 +526,7 @@ export default function CreateOfferModal({
       });
       return false;
     }
-    
+
     return true;
   };
 
@@ -524,7 +593,7 @@ export default function CreateOfferModal({
       // Final adjustments based on applyOnType
       const finalForm = { ...form };
       finalForm.applyOnAllServices = form.applyOnType === "all_services";
-      
+
       // When applyOnAllServices is true, populate serviceIds with all clinic services
       if (form.applyOnType === "all_services") {
         finalForm.serviceIds = allServices.map(s => s._id);
@@ -549,7 +618,7 @@ export default function CreateOfferModal({
       });
 
       const data = await res.json();
-      
+
       // Check if error is about already linked treatments
       if (!data.success && data.message && data.message.toLowerCase().includes('already linked')) {
         setLinkedServicesMessage(data.message);
@@ -557,7 +626,7 @@ export default function CreateOfferModal({
         setLoading(false);
         return;
       }
-      
+
       if (data.success) {
         onCreated(data.offer);
         setShowSuccessPopup(true);
@@ -615,7 +684,7 @@ export default function CreateOfferModal({
       // Final adjustments based on applyOnType
       const finalForm = { ...form };
       finalForm.applyOnAllServices = form.applyOnType === "all_services";
-      
+
       // When applyOnAllServices is true, populate serviceIds with all clinic services
       if (form.applyOnType === "all_services") {
         finalForm.serviceIds = allServices.map(s => s._id);
@@ -699,117 +768,242 @@ export default function CreateOfferModal({
   };
 
   if (!isOpen) return null;
-  
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
-        {/* Compact Header */}
-        <div className={`${headerClass} px-4 py-3 flex justify-between items-center`}>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-gray-900">
-              {mode === "create" ? "Create New Offer" : "Update Offer"}
-            </h2>
-            <p className={`${subtitleClass} text-[10px] sm:text-xs mt-0.5`}>
-              {mode === "create" 
-                ? "Fill in the details to create a promotional offer" 
-                : !offer ? "Loading offer..." : "Modify the offer details below"}
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-[#FAF9F6] rounded-xl shadow-2xl w-full max-w-4xl flex flex-col my-auto max-h-[95vh] overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-6 border-b border-gray-100 bg-white rounded-t-xl shrink-0">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{mode === "create" ? "Create Offer" : "Update Offer"}</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Every offer is protected by margin rules, stacking limits and usage controls by default.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-teal-700 hover:bg-teal-200 rounded-lg p-1.5 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+
+          {/* Stepper */}
+          <div className="flex items-center text-xs font-medium text-gray-400 overflow-x-auto pb-2 scrollbar-hide">
+            {steps.map((step, index) => (
+              <React.Fragment key={step.id}>
+                <div className={`flex items-center whitespace-nowrap ${currentStep === step.id ? 'text-teal-700' : currentStep > step.id ? 'text-gray-800' : 'text-gray-400'}`}>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mr-2 text-[10px] ${currentStep === step.id ? 'bg-teal-600 text-white' : currentStep > step.id ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    {step.id}
+                  </div>
+                  {step.title}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className="w-8 h-px bg-gray-200 mx-3 shrink-0"></div>
+                )}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
 
-        {/* Compact Form Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className={`${formBgClass} px-4 py-3 space-y-6`}>
-            
-            {/* 1. BASIC SETTINGS */}
-            <section className="space-y-4">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
-                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">1</span>
-                BASIC SETTINGS
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Name *</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.title ? "border-red-500" : "border-gray-200"}`}
-                    placeholder="e.g., Summer Special 2024"
-                    required
-                  />
-                  {errors.title && <p className="text-red-500 text-[10px] mt-1">{errors.title}</p>}
-                </div>
+        {/* Content */}
+        <div className="p-6 bg-[#FAF9F6] flex-1 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
 
-                <div>
-                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Type *</label>
-                  <select
-                    name="offerType"
-                    value={form.offerType}
-                    onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+            {/* Step 1: Offer Type */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-gray-900">Choose the offer type</h3>
+                  <p className="text-sm text-gray-500">Each type follows different rules — ZEVA configures protections automatically.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div
+                    onClick={() => setForm({ ...form, offerType: 'instant_discount' })}
+                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'instant_discount' ? 'border-teal-600 bg-teal-50/30' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
                   >
-                    <option value="instant_discount">🟢 TYPE 1: INSTANT DISCOUNT</option>
-                    <option value="bundle">🟡 TYPE 2: BUNDLE / PACKAGE</option>
-                    <option value="cashback">🔵 TYPE 3: CASHBACK / WALLET</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Start Date *</label>
-                  <input
-                    type="datetime-local"
-                    name="startsAt"
-                    value={form.startsAt}
-                    onChange={handleChange}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.startsAt ? "border-red-500" : "border-gray-200"}`}
-                    required
-                  />
-                  {errors.startsAt && <p className="text-red-500 text-[10px] mt-1">{errors.startsAt}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-teal-700 mb-1">End Date *</label>
-                  <input
-                    type="datetime-local"
-                    name="endsAt"
-                    value={form.endsAt}
-                    onChange={handleChange}
-                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.endsAt ? "border-red-500" : "border-gray-200"}`}
-                    required
-                  />
-                  {errors.endsAt && <p className="text-red-500 text-[10px] mt-1">{errors.endsAt}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-medium text-teal-700 mb-1">Status</label>
-                  <select
-                    name="status"
-                    value={form.status}
-                    onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
+                      <span className="text-gray-600 font-bold">%</span>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Instant Discount</h4>
+                    <p className="text-xs text-gray-500">Applied directly to billing at checkout.</p>
+                  </div>
+                  <div
+                    onClick={() => setForm({ ...form, offerType: 'bundle' })}
+                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'bundle' ? 'border-teal-600 bg-teal-50/30' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
                   >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="expired">Expired</option>
-                    <option value="archived">Archived</option>
-                  </select>
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center mb-4 text-teal-600">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Bundle / Package</h4>
+                    <p className="text-xs text-gray-500">Buy X sessions, receive X + Y free.</p>
+                  </div>
+                  <div
+                    onClick={() => setForm({ ...form, offerType: 'cashback' })}
+                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'cashback' ? 'border-teal-600 bg-teal-50/30' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
+                      <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    </div>
+                    <h4 className="font-bold text-gray-900 mb-1">Cashback / Wallet</h4>
+                    <p className="text-xs text-gray-500">Patient pays full invoice, earns wallet credit.</p>
+                  </div>
                 </div>
               </div>
+            )}
 
-              {/* Type-Specific Fields */}
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            {/* Step 2: Basic Info */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Name *</label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={form.title}
+                      onChange={handleChange}
+                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.title ? "border-red-500" : "border-gray-200"}`}
+                      placeholder="e.g., Summer Special 2024"
+                      required
+                    />
+                    {errors.title && <p className="text-red-500 text-[10px] mt-1">{errors.title}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Start Date *</label>
+                    <input
+                      type="datetime-local"
+                      name="startsAt"
+                      value={form.startsAt}
+                      onChange={handleChange}
+                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.startsAt ? "border-red-500" : "border-gray-200"}`}
+                      required
+                    />
+                    {errors.startsAt && <p className="text-red-500 text-[10px] mt-1">{errors.startsAt}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">End Date *</label>
+                    <input
+                      type="datetime-local"
+                      name="endsAt"
+                      value={form.endsAt}
+                      onChange={handleChange}
+                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.endsAt ? "border-red-500" : "border-gray-200"}`}
+                      required
+                    />
+                    {errors.endsAt && <p className="text-red-500 text-[10px] mt-1">{errors.endsAt}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Status</label>
+                    <select
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="active">Active</option>
+                      <option value="paused">Paused</option>
+                      <option value="expired">Expired</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Applicability */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <label className="block text-[10px] font-medium text-teal-700 mb-2">Apply On:</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                  {[
+                    { id: "all_services", label: "All Services" },
+                    { id: "selected_services", label: "Selected Services" },
+                    { id: "selected_departments", label: "Selected Departments" },
+                    { id: "selected_doctors", label: "Selected Doctors" }
+                  ].map((opt) => (
+                    <label key={opt.id} className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-all text-[10px] text-center ${form.applyOnType === opt.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white text-teal-700 border-gray-200 hover:bg-gray-50"}`}>
+                      <input
+                        type="radio"
+                        name="applyOnType"
+                        value={opt.id}
+                        checked={form.applyOnType === opt.id}
+                        onChange={handleChange}
+                        className="hidden"
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+
+                {form.applyOnType === "selected_services" && (
+                  <ApplicabilityDropdownPicker
+                    title="Select Services"
+                    placeholder="Click to select services..."
+                    searchPlaceholder="Search services by name or slug..."
+                    items={allServices}
+                    selectedIds={form.serviceIds}
+                    onToggle={(id, checked) => toggleSelection("serviceIds", id, checked)}
+                    onSelectAll={() => setForm((prev) => ({ ...prev, serviceIds: allServices.map((s) => String(s._id || s.id)) }))}
+                    onClearAll={() => setForm((prev) => ({ ...prev, serviceIds: [] }))}
+                    getId={(s) => String(s._id || s.id || s.serviceSlug || '')}
+                    getName={(s) => s.name || s.mainTreatment || s.serviceName || 'Unnamed Service'}
+                    getSubLabel={(s) => {
+                      const parts = [];
+                      if (s.serviceSlug) parts.push(s.serviceSlug);
+                      if (s.price) parts.push(`₹${s.price}`);
+                      if (s.departmentId?.name) parts.push(s.departmentId.name);
+                      return parts.join(" • ") || s.description || '';
+                    }}
+                  />
+                )}
+
+                {form.applyOnType === "selected_departments" && (
+                  <ApplicabilityDropdownPicker
+                    title="Select Departments"
+                    placeholder="Click to select departments..."
+                    searchPlaceholder="Search departments..."
+                    items={allDepartments}
+                    selectedIds={form.departmentIds}
+                    onToggle={(id, checked) => toggleSelection("departmentIds", id, checked)}
+                    onSelectAll={() => setForm((prev) => ({ ...prev, departmentIds: allDepartments.map((d) => String(d._id || d.id)) }))}
+                    onClearAll={() => setForm((prev) => ({ ...prev, departmentIds: [] }))}
+                    getId={(d) => String(d._id || d.id || d.departmentSlug || '')}
+                    getName={(d) => d.name || d.title || 'Unnamed Department'}
+                    getSubLabel={(d) => d.description || d.departmentSlug || ''}
+                    summaryText={
+                      form.departmentIds.length > 0
+                        ? `${form.departmentIds.length} department${form.departmentIds.length > 1 ? 's' : ''} selected (${departmentServiceCount} service${departmentServiceCount !== 1 ? 's' : ''} included)`
+                        : undefined
+                    }
+                  />
+                )}
+
+                {form.applyOnType === "selected_doctors" && (
+                  <ApplicabilityDropdownPicker
+                    title="Select Doctors"
+                    placeholder="Click to select doctors..."
+                    searchPlaceholder="Search doctors by name or specialty..."
+                    items={allDoctors}
+                    selectedIds={form.doctorIds}
+                    onToggle={(id, checked) => toggleSelection("doctorIds", id, checked)}
+                    onSelectAll={() => setForm((prev) => ({ ...prev, doctorIds: allDoctors.map((doc) => String(doc._id || doc.id)) }))}
+                    onClearAll={() => setForm((prev) => ({ ...prev, doctorIds: [] }))}
+                    getId={(doc) => String(doc._id || doc.id || '')}
+                    getName={(doc) => doc.name || doc.fullName || doc.doctorName || 'Unnamed Doctor'}
+                    getSubLabel={(doc) => doc.role || doc.specialty || doc.department || ''}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Step 4: Type Configuration */}
+            {currentStep === 4 && (
+              <div className="space-y-4">
                 {form.offerType === "instant_discount" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -893,167 +1087,10 @@ export default function CreateOfferModal({
                   </div>
                 )}
               </div>
-            </section>
+            )}
 
-            {/* 2. APPLICABILITY CONTROL */}
-            <section className="space-y-4">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
-                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">2</span>
-                APPLICABILITY CONTROL
-              </h3>
-              
-              <div className="space-y-3">
-                <label className="block text-[10px] font-medium text-teal-700">Apply On:</label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  {[
-                    { id: "all_services", label: "All Services" },
-                    { id: "selected_services", label: "Selected Services" },
-                    { id: "selected_departments", label: "Selected Departments" },
-                    { id: "selected_doctors", label: "Selected Doctors" }
-                  ].map((opt) => (
-                    <label key={opt.id} className={`flex items-center justify-center p-2 border rounded-lg cursor-pointer transition-all text-[10px] text-center ${form.applyOnType === opt.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white text-teal-700 border-gray-200 hover:bg-gray-50"}`}>
-                      <input
-                        type="radio"
-                        name="applyOnType"
-                        value={opt.id}
-                        checked={form.applyOnType === opt.id}
-                        onChange={handleChange}
-                        className="hidden"
-                      />
-                      {opt.label}
-                    </label>
-                  ))}
-                </div>
-
-                {/* Selection Lists based on type */}
-                {form.applyOnType === "selected_services" && (
-                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
-                    {(() => {
-                      console.log('=== SERVICES CHECKBOX RENDERING ===');
-                      console.log('form.serviceIds:', form.serviceIds);
-                      console.log('allServices count:', allServices.length);
-                      return null;
-                    })()}
-                    {allServices.map((s: any) => {
-                      // Check both _id and serviceSlug
-                      const serviceId = s._id;
-                      const serviceSlug = s.serviceSlug;
-                      const isChecked = form.serviceIds.includes(serviceId) || 
-                                       (serviceSlug && form.serviceIds.includes(serviceSlug));
-                      
-                      if (isChecked) {
-                        console.log(`✓ Service MATCHED: ${s.name}, _id: ${serviceId}, slug: ${serviceSlug}`);
-                      }
-                      
-                      return (
-                      <label key={s._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => toggleSelection("serviceIds", serviceId, e.target.checked)}
-                          className="w-3.5 h-3.5 text-teal-600 rounded"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-xs text-gray-700 font-medium">{s.name || s.mainTreatment || 'Unnamed Service'}</span>
-                          {s.serviceSlug && <span className="text-[10px] text-gray-500">{s.serviceSlug}</span>}
-                        </div>
-                      </label>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {form.applyOnType === "selected_departments" && (
-                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
-                    {(() => {
-                      console.log('=== DEPARTMENTS CHECKBOX RENDERING ===');
-                      console.log('form.departmentIds:', form.departmentIds);
-                      console.log('allDepartments count:', allDepartments.length);
-                      return null;
-                    })()}
-                    {allDepartments.map((d: any) => {
-                      const departmentId = d._id;
-                      const isChecked = form.departmentIds.includes(departmentId);
-                      
-                      if (isChecked) {
-                        console.log(`✓ Department MATCHED: ${d.name}, _id: ${departmentId}`);
-                      }
-                      
-                      return (
-                      <label key={d._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => toggleSelection("departmentIds", departmentId, e.target.checked)}
-                          className="w-3.5 h-3.5 text-teal-600 rounded"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-xs text-gray-700 font-medium">{d.name || 'Unnamed Department'}</span>
-                          {d.description && <span className="text-[10px] text-gray-500">{d.description}</span>}
-                        </div>
-                      </label>
-                      );
-                    })}
-                    
-                    {/* Service count feedback */}
-                    {form.departmentIds.length > 0 && (
-                      <div className="mt-3 p-2 bg-teal-50 border border-teal-200 rounded-md">
-                        <p className="text-xs text-teal-700 font-medium">
-                          {form.departmentIds.length} department{form.departmentIds.length > 1 ? 's' : ''} selected
-                          {departmentServiceCount > 0 && (
-                            <span className="ml-1">
-                              ({departmentServiceCount} service{departmentServiceCount > 1 ? 's' : ''} will be included)
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {form.applyOnType === "selected_doctors" && (
-                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 max-h-48 overflow-y-auto space-y-2">
-                    {(() => {
-                      console.log('=== DOCTORS CHECKBOX RENDERING ===');
-                      console.log('form.doctorIds:', form.doctorIds);
-                      console.log('allDoctors count:', allDoctors.length);
-                      return null;
-                    })()}
-                    {allDoctors.map((doc: any) => {
-                      const doctorId = doc._id;
-                      const isChecked = form.doctorIds.includes(doctorId);
-                      
-                      if (isChecked) {
-                        console.log(`✓ Doctor MATCHED: ${doc.name}, _id: ${doctorId}`);
-                      }
-                      
-                      return (
-                      <label key={doc._id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded transition-colors cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => toggleSelection("doctorIds", doctorId, e.target.checked)}
-                          className="w-3.5 h-3.5 text-teal-600 rounded"
-                        />
-                        <div className="flex flex-col">
-                          <span className="text-xs text-gray-700 font-medium">{doc.name || 'Unnamed Doctor'}</span>
-                          {doc.role && <span className="text-[10px] text-gray-500">{doc.role}</span>}
-                        </div>
-                      </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* 3. STACKING & CONTROL RULES */}
-            <section className="space-y-4">
-              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5 flex items-center gap-2">
-                <span className="bg-teal-100 text-teal-800 px-2 py-0.5 rounded text-[10px]">3</span>
-                STACKING & CONTROL RULES
-              </h3>
-              
+            {/* Step 5: Controls & Protection */}
+            {currentStep === 5 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
@@ -1127,41 +1164,40 @@ export default function CreateOfferModal({
                   </div>
                 </div>
               </div>
-            </section>
-
- 
-
+            )}
           </div>
 
-          {/* Compact Footer Actions */}
-          <div className={`${footerBgClass} px-4 py-3 flex justify-end gap-2`}>
-            <button
-              type="button"
-              onClick={onClose}
-              className={["px-4 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors", cancelBtnVariant].join(" ")}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || (mode === "create" && !permissions.canCreate) || (mode === "update" && !permissions.canUpdate)}
-              className={["px-4 py-2 rounded-lg text-white text-xs sm:text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm", submitBtnVariant].join(" ")}
-              title={
-                mode === "create" && !permissions.canCreate
-                  ? "You do not have permission to create offers"
-                  : mode === "update" && !permissions.canUpdate
-                  ? "You do not have permission to update offers"
-                  : ""
-              }
-            >
-              {loading
-                ? "Saving..."
-                : mode === "create"
-                ? "Create Offer"
-                : "Update Offer"}
-            </button>
+          <div className="flex justify-end mt-6 gap-3 shrink-0">
+            {currentStep > 1 && (
+              <button
+                type="button"
+                onClick={handlePrevStep}
+                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
+              >
+                Previous
+              </button>
+            )}
+            {currentStep < 5 ? (
+              <button
+                type="button"
+                onClick={handleNextStep}
+                className="px-6 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 text-sm font-medium transition-colors shadow-sm flex items-center"
+              >
+                Continue
+                <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading || (mode === "create" && !permissions.canCreate) || (mode === "update" && !permissions.canUpdate)}
+                className="px-6 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {loading ? "Saving..." : mode === "create" ? "Create Offer" : "Update Offer"}
+              </button>
+            )}
           </div>
-        </form>
+        </div>
       </div>
 
       {/* Success Popup */}
@@ -1244,6 +1280,231 @@ export default function CreateOfferModal({
               </div>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApplicabilityDropdownPicker({
+  title,
+  placeholder,
+  searchPlaceholder,
+  items,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+  getId = (item: any) => String(item._id || item.id || ''),
+  getName = (item: any) => item.name || item.mainTreatment || 'Unnamed',
+  getSubLabel = (item: any) => item.serviceSlug || item.description || item.role || item.specialty || '',
+  summaryText,
+}: {
+  title: string;
+  placeholder: string;
+  searchPlaceholder: string;
+  items: any[];
+  selectedIds: string[];
+  onToggle: (id: string, checked: boolean) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  getId?: (item: any) => string;
+  getName?: (item: any) => string;
+  getSubLabel?: (item: any) => string;
+  summaryText?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredItems = items.filter((item) => {
+    const name = getName(item).toLowerCase();
+    const sub = getSubLabel(item).toLowerCase();
+    const q = search.toLowerCase();
+    return name.includes(q) || sub.includes(q);
+  });
+
+  const selectedItems = items.filter((item) => {
+    const id = String(getId(item) || '');
+    return selectedIds.includes(id) || (item.serviceSlug && selectedIds.includes(item.serviceSlug));
+  });
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs font-semibold text-[#0E856E] mb-1.5">
+          {title}
+        </label>
+
+        <div
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full bg-white border rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer transition-all shadow-sm ${
+            isOpen ? "border-[#0E856E] ring-2 ring-teal-500/10" : "border-gray-200/90 hover:border-[#0E856E]"
+          }`}
+        >
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <Search className="w-4 h-4 text-[#0E856E] shrink-0" />
+            <span className={`text-xs font-medium truncate ${selectedIds.length === 0 ? "text-gray-400" : "text-gray-900"}`}>
+              {selectedIds.length === 0
+                ? placeholder
+                : `${selectedIds.length} ${selectedIds.length === 1 ? 'item' : 'items'} selected`}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {selectedIds.length > 0 && (
+              <span className="bg-[#0E856E] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {selectedIds.length}
+              </span>
+            )}
+            <ChevronDown
+              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                isOpen ? "rotate-180 text-[#0E856E]" : ""
+              }`}
+            />
+          </div>
+        </div>
+
+        {isOpen && (
+          <div className="mt-3 w-full bg-white rounded-2xl border border-gray-200/90 shadow-md overflow-hidden transition-all">
+            <div className="p-3 bg-gray-50/80 border-b border-gray-100 flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className="w-full text-xs bg-white border border-gray-200/90 rounded-xl pl-8 pr-8 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#0E856E] focus:ring-1 focus:ring-[#0E856E]"
+                  autoFocus
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={onSelectAll}
+                  className="text-[11px] font-semibold text-[#0E856E] hover:bg-teal-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={onClearAll}
+                  className="text-[11px] font-semibold text-gray-500 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+              {filteredItems.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  {items.length === 0 ? "No records available" : `No matches found for "${search}"`}
+                </div>
+              ) : (
+                filteredItems.map((item) => {
+                  const id = String(getId(item) || '');
+                  const isChecked = selectedIds.includes(id) || (item.serviceSlug && selectedIds.includes(item.serviceSlug));
+                  const name = getName(item);
+                  const sub = getSubLabel(item);
+
+                  return (
+                    <label
+                      key={id || Math.random().toString()}
+                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all border ${
+                        isChecked
+                          ? "bg-teal-50/70 border-teal-200/80 text-teal-950 font-medium"
+                          : "bg-white border-transparent hover:bg-gray-50 text-gray-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => onToggle(id, e.target.checked)}
+                          className="w-4 h-4 text-[#0E856E] border-gray-300 rounded focus:ring-[#0E856E]"
+                        />
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-bold text-gray-900 truncate">
+                            {name}
+                          </span>
+                          {sub && sub !== name && (
+                            <span className="text-[11px] text-gray-400 font-normal truncate">
+                              {sub}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {isChecked && (
+                        <Check className="w-4 h-4 text-[#0E856E] shrink-0" />
+                      )}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+              <span className="font-medium text-gray-600">
+                {selectedIds.length} of {items.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-1.5 bg-[#0E856E] hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedItems.length > 0 && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {selectedItems.map((item) => {
+            const id = String(getId(item) || '');
+            const name = getName(item);
+            return (
+              <span
+                key={id || Math.random().toString()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-medium rounded-xl border border-teal-200/80 shadow-xs"
+              >
+                <span className="max-w-[180px] truncate">{name}</span>
+                <button
+                  type="button"
+                  onClick={() => onToggle(id, false)}
+                  className="text-teal-600 hover:text-teal-950 rounded-full hover:bg-teal-100 p-0.5 transition-colors"
+                  title="Remove"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            );
+          })}
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="text-xs text-red-500 hover:text-red-700 font-semibold px-2 py-1 transition-colors self-center"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {summaryText && (
+        <div className="p-3 bg-teal-50/60 border border-teal-200/70 rounded-xl mt-2">
+          <p className="text-xs text-teal-800 font-medium">{summaryText}</p>
         </div>
       )}
     </div>

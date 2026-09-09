@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
@@ -7,6 +8,7 @@ interface LeakageDetail {
   sublabel?: string;
   amount: number;
   tag?: string;
+  patientId?: string;
 }
 
 interface Props {
@@ -43,6 +45,7 @@ interface Props {
 }
 
 const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
+  const router = useRouter();
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || "AED");
   const [modalOpen, setModalOpen] = useState(false);
@@ -87,6 +90,7 @@ const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
           sublabel: `Status: ${d.status}`,
           amount: d.amount,
           tag: 'Unbilled',
+          patientId: d.patientId,
         }));
       case 'uncollected':
         return (revenueLeakageData?.uncollectedDetails || []).map((d) => ({
@@ -94,12 +98,14 @@ const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
           sublabel: `Billed: ${formatCurrency(d.amount)} | Paid: ${formatCurrency(d.paid)}`,
           amount: d.pending,
           tag: 'Pending',
+          patientId: d.patientId,
         }));
       case 'missed':
         return (revenueLeakageData?.missedRebookingPatients || []).map((pid) => ({
           label: `Patient ID: ${pid.substring(0, 8)}...`,
           amount: missedRebookingCount > 0 ? missedRebookingAmount / missedRebookingCount : 0,
           tag: 'Missed',
+          patientId: pid,
         }));
       case 'package':
         return (revenueLeakageData?.packageLeakageDetails || []).map((d) => ({
@@ -107,6 +113,7 @@ const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
           sublabel: `Package: ${formatCurrency(d.masterPrice)} | Paid: ${formatCurrency(d.paidAmount)}`,
           amount: d.leakage,
           tag: 'Leakage',
+          patientId: d.patientId,
         }));
       default:
         return [];
@@ -126,7 +133,7 @@ const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
         {/* Revenue Leakage */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-4">Revenue Leakage</h3>
+            <h3 className="text-sm font-bold text-amber-700 uppercase tracking-wider mb-4">Revenue Leakage</h3>
             <h2 className="text-4xl font-bold text-amber-700 mb-8">{formatCurrency(totalLeakage)}</h2>
             
             <div className="flex flex-col mb-8">
@@ -240,15 +247,15 @@ const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
             </div>
           </div>
 
-          <div className="bg-[#FAF6EA] rounded-xl p-4 flex gap-3">
+          {/* <div className="bg-[#FAF6EA] rounded-xl p-4 flex gap-3">
             <div className="text-amber-600 shrink-0 mt-0.5">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
             </div>
-            <p className="text-sm text-gray-700 leading-relaxed">
+            {/* <p className="text-sm text-gray-700 leading-relaxed">
               <span className="font-bold text-gray-900">Biggest growth leak: Consultation → Treatment.</span> Conversion fell from 72% to 61% — estimated monthly impact AED 8,400.
-            </p>
-          </div>
-        </div>
+            </p> */}
+          </div> 
+        {/* </div> */}
       </div>
 
       {/* Investigation Modal */}
@@ -321,20 +328,35 @@ const RevenueLeakageAndFunnel = ({ revenueLeakageData }: Props) => {
               {/* Detail list */}
               {getTabDetails().length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {getTabDetails().map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{item.label}</p>
-                        {item.sublabel && <p className="text-xs text-gray-500 mt-0.5">{item.sublabel}</p>}
+                  {getTabDetails().map((item, idx) => {
+                    const patientName = item.label.split(' — ')[0] || item.label;
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {item.patientId ? (
+                              <span
+                                className="cursor-pointer hover:text-emerald-700 transition-colors"
+                                onClick={() => router.push(`/clinic/patient-profile-view?id=${item.patientId}`)}
+                              >
+                                {patientName}
+                              </span>
+                            ) : (
+                              patientName
+                            )}
+                            {item.label.includes(' — ') && <span className="text-gray-500"> — {item.label.split(' — ').slice(1).join(' — ')}</span>}
+                          </p>
+                          {item.sublabel && <p className="text-xs text-gray-500 mt-0.5">{item.sublabel}</p>}
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0 ml-4">
+                          {item.tag && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">{item.tag}</span>
+                          )}
+                          <span className="text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0 ml-4">
-                        {item.tag && (
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">{item.tag}</span>
-                        )}
-                        <span className="text-sm font-bold text-gray-900">{formatCurrency(item.amount)}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12">

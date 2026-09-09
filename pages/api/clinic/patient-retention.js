@@ -124,6 +124,7 @@ export default async function handler(req, res) {
 
     const newPatientsCount = newPatientsList.length;
     const newPatientDetails = newPatientsList.map((p) => ({
+      patientId: p._id.toString(),
       patientName: `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Unknown",
       patientType: p.patientType || "New",
       phone: p.phone || "—",
@@ -196,6 +197,7 @@ export default async function handler(req, res) {
     const inactivePatientDetails = inactivePatientIds.slice(0, 50).map((pid) => {
       const p = allPatientsMap[pid];
       return {
+        patientId: pid,
         patientName: p ? `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Unknown" : "Unknown",
         patientType: p?.patientType || "—",
         phone: p?.phone || "—",
@@ -315,6 +317,7 @@ export default async function handler(req, res) {
     const highValuePatientDetails = highValuePatientIds.slice(0, 50).map((pid) => {
       const p = allPatientsMap[pid];
       return {
+        patientId: pid,
         patientName: p ? `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Unknown" : "Unknown",
         appointmentCount: lifetimeAppointmentCount[pid] || 0,
         totalRevenue: patientRevenue[pid] || 0,

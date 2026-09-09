@@ -4,6 +4,8 @@ import Appointment from "../../../models/Appointment";
 import Lead from "../../../models/Lead";
 import Users from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
+import Service from "../../../models/Service";
+import Billing from "../../../models/Billing";
 import DoctorDepartment from "../../../models/DoctorDepartment";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
@@ -238,6 +240,153 @@ async function fetchFollowUpToday({ clinicObjectId, dayStart, dayEnd, isDoctorSc
   };
 }
 
+/**
+ * Find the service with the highest booking count in the evening
+ * slot (5 PM – 8 PM). Handles all three service reference patterns
+ * on the Appointment model: serviceId, serviceIds[], services[].serviceId.
+ *
+ * Revenue is the actual paid amount from Billing for those appointments.
+ *
+ * Returns { eveningServiceName, eveningServicePrice, eveningBookingCount } or null.
+ */
+async function fetchTopEveningService({ clinicObjectId, isDoctorScoped, me }) {
+  const baseMatch = {
+    clinicId: clinicObjectId,
+    status: { $nin: ["Cancelled", "No Show", "Rejected", "enquiry"] },
+    fromTime: { $gte: "17:00", $lt: "20:00" },
+  };
+  if (isDoctorScoped) baseMatch.doctorId = me._id;
+
+  // Step 1: Unwind all service references into a single serviceId stream
+  const agg = await Appointment.aggregate([
+    { $match: baseMatch },
+    // Extract service IDs from all three patterns into a unified array
+    {
+      $addFields: {
+        allServiceIds: {
+          $concatArrays: [
+            // pattern 1: top-level serviceId
+            { $cond: [{ $ifNull: ["$serviceId", false] }, ["$serviceId"], []] },
+            // pattern 2: serviceIds[]
+            { $ifNull: ["$serviceIds", []] },
+            // pattern 3: services[].serviceId
+            {
+              $map: {
+                input: { $ifNull: ["$services", []] },
+                as: "s",
+                in: "$$s.serviceId",
+              },
+            },
+          ],
+        },
+      },
+    },
+    { $unwind: "$allServiceIds" },
+    {
+      $group: {
+        _id: "$allServiceIds",
+        count: { $sum: 1 },
+        appointmentIds: { $addToSet: "$_id" },
+      },
+    },
+    { $sort: { count: -1 } },
+    { $limit: 1 },
+  ]);
+
+  if (!agg.length || !agg[0]._id) return null;
+
+  const topServiceId = agg[0]._id;
+  const bookingCount = agg[0].count;
+  const eveningAppointmentIds = agg[0].appointmentIds;
+
+  // Step 2: Resolve service name
+  const service = await Service.findById(topServiceId)
+    .select("name price")
+    .lean();
+
+  if (!service) return null;
+
+  // Step 3: Get actual paid revenue from Billing for these appointments
+  const billingAgg = await Billing.aggregate([
+    {
+      $match: {
+        clinicId: clinicObjectId,
+        appointmentId: { $in: eveningAppointmentIds },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalPaid: { $sum: "$paid" },
+      },
+    },
+  ]);
+
+  const eveningRevenue = billingAgg.length > 0 ? billingAgg[0].totalPaid : 0;
+
+  return {
+    eveningServiceName: service.name || "Unknown service",
+    eveningServicePrice: eveningRevenue,
+    eveningBookingCount: bookingCount,
+  };
+}
+
+/**
+ * Count "high-value" patients — those with 2+ appointments up to
+ * the filter date — and sum their total paid amount from Billing.
+ *
+ * Returns { highValuePatientCount, highValuePatientRevenue }.
+ */
+async function fetchHighValuePatients({ clinicObjectId, isDoctorScoped, me, dayEnd }) {
+  const match = {
+    clinicId: clinicObjectId,
+    startDate: { $lte: dayEnd },
+    status: { $nin: ["Cancelled", "No Show", "Rejected", "enquiry"] },
+  };
+  if (isDoctorScoped) match.doctorId = me._id;
+
+  // Group by patient, count visits
+  const patientVisits = await Appointment.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: "$patientId",
+        visitCount: { $sum: 1 },
+      },
+    },
+    { $match: { visitCount: { $gte: 2 } } },
+  ]);
+
+  const highValuePatientCount = patientVisits.length;
+
+  if (highValuePatientCount === 0) {
+    return { highValuePatientCount: 0, highValuePatientRevenue: 0 };
+  }
+
+  // Get the patient IDs with 2+ visits
+  const highValuePatientIds = patientVisits.map((p) => p._id);
+
+  // Sum paid amounts from Billing for these patients
+  const billingAgg = await Billing.aggregate([
+    {
+      $match: {
+        clinicId: clinicObjectId,
+        patientId: { $in: highValuePatientIds },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalPaid: { $sum: "$paid" },
+      },
+    },
+  ]);
+
+  const highValuePatientRevenue = billingAgg.length > 0 ? billingAgg[0].totalPaid : 0;
+
+  return { highValuePatientCount, highValuePatientRevenue };
+}
+
 // ─── handler ────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
@@ -293,11 +442,13 @@ export default async function handler(req, res) {
     const doctorScopedRoles = ["doctorStaff", "doctor"];
     const isDoctorScoped = doctorScopedRoles.includes(me.role);
 
-    // 6. Run all 3 fetches in parallel
-    const [doctorInfo, topPatient, followUpInfo] = await Promise.all([
+    // 6. Run all 5 fetches in parallel
+    const [doctorInfo, topPatient, followUpInfo, eveningService, highValuePatients] = await Promise.all([
       fetchDoctorInfo({ me, isDoctorScoped }),
       fetchTopPatient({ clinicObjectId, isDoctorScoped, me }),
       fetchFollowUpToday({ clinicObjectId, dayStart, dayEnd, isDoctorScoped, me }),
+      fetchTopEveningService({ clinicObjectId, isDoctorScoped, me }),
+      fetchHighValuePatients({ clinicObjectId, isDoctorScoped, me, dayEnd }),
     ]);
 
     return res.status(200).json({
@@ -306,6 +457,8 @@ export default async function handler(req, res) {
         ...doctorInfo,
         topPatient,
         ...followUpInfo,
+        ...eveningService,
+        ...highValuePatients,
       },
     });
   } catch (err) {

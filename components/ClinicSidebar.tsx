@@ -1055,26 +1055,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
   useEffect(() => {
     const fetchNavigationAndPermissions = async () => {
       try {
-        // Use token priority: clinicToken, doctorToken, agentToken, staffToken, userToken, adminToken
-        const TOKEN_PRIORITY = [
-          "clinicToken",
-          "doctorToken",
-          "agentToken",
-          "staffToken",
-          "userToken",
-          "adminToken",
-        ];
-
+        // ClinicSidebar only renders inside clinic-authenticated pages — read clinicToken only
         let token: string | null = null;
         if (typeof window !== "undefined") {
-          for (const key of TOKEN_PRIORITY) {
-            const value =
-              localStorage.getItem(key) || sessionStorage.getItem(key);
-            if (value) {
-              token = value;
-              break;
-            }
-          }
+          token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
         }
 
         if (!token) {

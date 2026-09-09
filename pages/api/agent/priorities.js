@@ -356,190 +356,101 @@ async function fetchAppointmentsSection({ clinicObjectId, period, dayStart, dayE
 }
 
 /**
- * 2. New leads needing response.
+ * 2. New leads needing response (Unanswered Conversations).
  *
- * Per the Message model, `recipientId` is the Lead (regardless of
- * direction — the comment in the schema explicitly says
- * `recipientId` references `Lead` for both incoming and outgoing).
- * So the right unit of "needs a response" is a unique Lead, not a
- * unique conversation: a lead with multiple conversations still
- * counts once.
+ * Uses the same logic as the inbox (/api/conversations):
+ * counts conversations with unread messages for the clinic.
  *
- * Algorithm (single aggregation, no N+1):
- *   1. Pull every message for this clinic with direction
- *      `incoming` or `outgoing`.
- *   2. Sort by `recipientId` then `createdAt` desc, group by
- *      `recipientId`, take `$first` — that's the LATEST message
- *      the lead has sent or received.
- *   3. Keep only rows where that latest message is `incoming`
- *      (i.e. the lead spoke last).
- *   4. For each remaining row, look across the messages collection
- *      for ANY outgoing message to the same `recipientId` with
- *      `createdAt > latest.createdAt`. If none, the clinic hasn't
- *      replied yet — the lead "needs response".
+ * Algorithm:
+ *   1. Find all conversations for this clinic with unread messages
+ *      (unreadMessages array is not empty).
+ *   2. Exclude trashed/blocked conversations.
+ *   3. For each conversation, get the lead details and recent message.
  *
- * Time-period filter: the lead is attributed to the period when
- * the latest incoming message was received (its `createdAt` hour,
- * local time).
- *
- * Date filter: the aggregation also constrains `createdAt` to the
- * target day (today by default, or whatever `date` query the caller
- * passed). This is what makes the section honour the dashboard's
- * date picker — selecting 2026-08-13 will only show leads whose
- * latest message was received on that day, not today.
+ * NO date or period filter: this section shows ALL unread conversations
+ * across the entire database for the clinic. The dashboard date picker
+ * and time period (morning/afternoon/evening) do NOT apply here — the
+ * goal is to surface every lead that is still waiting on a reply,
+ * regardless of when the message was received.
  */
 async function fetchNewLeadsSection({ clinicObjectId, period, dayStart, dayEnd, isDoctorScoped, me }) {
-  // Build a [from, to) range for the latest incoming message.
-  // We re-derive the period into a UTC date range for createdAt.
-  const periodStartMin = toMinutes(period.start);
-  const periodEndMin = toMinutes(period.end);
-  if (periodStartMin == null || periodEndMin == null) {
+  // No date or period filtering — the Unanswered Conversations card
+  // shows ALL unread leads across the entire database. The dashboard
+  // date picker and time period (morning/afternoon/evening) do not
+  // apply to this section.
+
+  // Use the same logic as /api/conversations: count conversations
+  // with unread messages for this clinic.
+
+  // Step 1: Get leads with phone numbers (same as inbox)
+  const leadsWithPhone = await Lead.find({
+    phone: { $ne: null },
+  }).select("_id");
+
+  const leadIdsWithPhone = leadsWithPhone.map((l) => l._id).filter(Boolean);
+
+  // Step 2: Get leads that belong to this clinic (same as inbox)
+  const existingLeadIds = await Lead.find({
+    clinicId: clinicObjectId,
+  }).distinct("_id");
+
+  if (!existingLeadIds || existingLeadIds.length === 0) {
     return { count: 0, list: [] };
   }
 
-  // DEBUG: Log what we're querying
-  // console.log("[DEBUG fetchNewLeadsSection] clinicObjectId:", clinicObjectId?.toString());
-  // console.log("[DEBUG fetchNewLeadsSection] dayStart:", dayStart, "dayEnd:", dayEnd);
-  // console.log("[DEBUG fetchNewLeadsSection] period:", period.start, "-", period.end, "=> mins:", periodStartMin, "-", periodEndMin);
+  // Step 3: Intersect to get final lead IDs (same as inbox)
+  const existingLeadIdStrs = existingLeadIds.map((id) => String(id));
+  const finalLeadIds = leadIdsWithPhone.filter((id) =>
+    existingLeadIdStrs.includes(String(id))
+  );
 
-  // Quick count of messages for this clinic in the date range
-  const totalMsgCount = await Message.countDocuments({
-    clinicId: clinicObjectId,
-    createdAt: { $gte: dayStart, $lte: dayEnd },
-  });
-  // console.log("[DEBUG fetchNewLeadsSection] Total messages for clinic in date range:", totalMsgCount);
+  if (!finalLeadIds || finalLeadIds.length === 0) {
+    return { count: 0, list: [] };
+  }
 
-  // Sample recent messages to check fields
-  const sampleMsgs = await Message.find({
+  // Step 4: Build query (same as inbox unread stats)
+  const baseQuery = {
     clinicId: clinicObjectId,
-    createdAt: { $gte: dayStart, $lte: dayEnd },
-  })
-    .select("direction recipientId channel content createdAt")
-    .sort({ createdAt: -1 })
-    .limit(5)
+    leadId: { $in: finalLeadIds },
+    unreadMessages: { $ne: [] },
+  };
+
+  // For doctor-scoped users, only show their assigned conversations
+  if (isDoctorScoped && me?._id) {
+    baseQuery.owners = me._id;
+  }
+
+  // Get total count of unread conversations
+  const count = await Conversation.countDocuments(baseQuery);
+
+  if (count === 0) {
+    return { count: 0, list: [] };
+  }
+
+  // Fetch unread conversations with lead and recent message details
+  const unreadConversations = await Conversation.find(baseQuery)
+    .populate({
+      path: "leadId",
+      select: "_id firstName lastName name phone email assignedTo",
+      model: "Lead",
+    })
+    .populate({
+      path: "recentMessage",
+      select: "subject channel content mediaType mediaUrl attachments createdAt",
+      model: "Message",
+    })
+    .sort({ updatedAt: -1 })
     .lean();
-  // console.log("[DEBUG fetchNewLeadsSection] Sample recent messages:", JSON.stringify(sampleMsgs.map(m => ({
-  //   direction: m.direction,
-  //   recipientId: m.recipientId?.toString(),
-  //   channel: m.channel,
-  //   content: (m.content || "").slice(0, 50),
-  //   createdAt: m.createdAt,
-  // })), null, 2));
 
-  // 1. Group by `recipientId` (the Lead) and pick the most recent
-  //    message per lead. This is where the "Set" of unique leads
-  //    is materialised — one row per recipientId, never two.
-  const latestPerLead = await Message.aggregate([
-    {
-      $match: {
-        clinicId: clinicObjectId,
-        // Exclude messages with no recipientId — they can't be
-        // attributed to a lead.
-        recipientId: { $ne: null },
-        direction: { $in: ["incoming", "outgoing"] },
-        // Date filter: the lead's LATEST message must fall inside
-        // the target day. This is what makes the section respect
-        // the dashboard's date picker. Without this, switching the
-        // date would still pull in today's messages.
-        createdAt: { $gte: dayStart, $lte: dayEnd },
-      },
-    },
-    { $sort: { recipientId: 1, createdAt: -1 } },
-    {
-      $group: {
-        _id: "$recipientId",
-        latest: { $first: "$$ROOT" },
-      },
-    },
-    { $match: { "latest.direction": "incoming" } },
-    // 2. For each lead, check whether ANY outgoing message was sent
-    //    to that lead AFTER their latest incoming. We don't scope to
-    //    a single conversation — a reply in any thread counts as
-    //    "we already responded to this lead".
-    {
-      $lookup: {
-        from: "messages",
-        let: { leadId: "$_id", latestAt: "$latest.createdAt" },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ["$recipientId", "$$leadId"] },
-                  { $eq: ["$direction", "outgoing"] },
-                  { $gt: ["$createdAt", "$$latestAt"] },
-                ],
-              },
-            },
-          },
-          { $limit: 1 },
-          { $project: { _id: 1 } },
-        ],
-        as: "outgoingAfter",
-      },
-    },
-    { $match: { outgoingAfter: { $size: 0 } } },
-  ]);
-
-  // console.log("[DEBUG fetchNewLeadsSection] Aggregation result (latestPerLead) count:", latestPerLead.length);
-  if (latestPerLead.length > 0) {
-    // console.log("[DEBUG fetchNewLeadsSection] latestPerLead details:", JSON.stringify(latestPerLead.map(r => ({
-    //   recipientId: r._id?.toString(),
-    //   direction: r.latest?.direction,
-    //   createdAt: r.latest?.createdAt,
-    //   hasOutgoingAfter: r.outgoingAfter?.length,
-    // })), null, 2));
-  }
-
-  if (!latestPerLead.length) {
-    return { count: 0, list: [] };
-  }
-
-  // Resolve the lead details for the unique recipientIds.
-  const leadIds = [
-    ...new Set(
-      latestPerLead
-        .map((r) => r._id)
-        .filter(Boolean)
-        .map((id) => new mongoose.Types.ObjectId(id)),
-    ),
-  ];
-
-  const leads = leadIds.length
-    ? await Lead.find({ _id: { $in: leadIds } })
-        .select("firstName lastName name phone email assignedTo")
-        .lean()
-    : [];
-
-  const leadById = new Map();
-  for (const l of leads) leadById.set(l._id.toString(), l);
-
-  // Apply time-period filter on the latest incoming message's createdAt.
-  // The lead is attributed to the period when the lead's latest message
-  // was received. We use UTC methods because createdAt is stored in UTC
-  // and the period boundaries (e.g. "06:00"–"12:00") are interpreted as
-  // UTC hours to stay consistent with the day range (also UTC).
-  const inPeriod = latestPerLead.filter((row) => {
-    const ts = row.latest?.createdAt ? new Date(row.latest.createdAt) : null;
-    if (!ts || Number.isNaN(ts.getTime())) return false;
-    const minutes = ts.getUTCHours() * 60 + ts.getUTCMinutes();
-    return minutes >= periodStartMin && minutes < periodEndMin;
-  });
-
-  if (!inPeriod.length) {
-    return { count: 0, list: [] };
-  }
-
-  // Build the per-lead list. The `conversationId` we return is the
-  // conversation that the lead's latest message belongs to — that's
-  // the thread the agent should be sent to when they click "View".
   const meId = me?._id?.toString() || "";
-  const list = inPeriod
-    .map((row) => {
-      const leadIdStr =
-        typeof row._id === "string" ? row._id : row._id.toString();
-      const lead = leadById.get(leadIdStr);
+
+  // Build the per-lead list
+  const list = unreadConversations
+    .map((conv) => {
+      const lead = conv.leadId;
       if (!lead) return null;
+
+      // For doctor-scoped, check if lead is assigned to this doctor
       if (isDoctorScoped) {
         const assigned = Array.isArray(lead.assignedTo)
           ? lead.assignedTo.some(
@@ -548,23 +459,23 @@ async function fetchNewLeadsSection({ clinicObjectId, period, dayStart, dayEnd, 
           : false;
         if (!assigned) return null;
       }
+
+      const recentMsg = conv.recentMessage;
       return {
         leadId: lead._id.toString(),
-        conversationId: row.latest?.conversationId
-          ? row.latest.conversationId.toString()
-          : "",
+        conversationId: conv._id.toString(),
         name: buildLeadName(lead),
         phone: lead.phone || "",
         email: lead.email || "",
         // Channel-aware display of the lead's latest message.
         // For email the agent cares about the subject first; for
         // sms / whatsapp the body is the message.
-        latestMessageChannel: row.latest?.channel || "",
-        latestMessageSubject: row.latest?.subject || "",
-        latestMessageContent: row.latest?.content || "",
-        latestMessageDisplay: pickLatestMessageDisplay(row.latest),
-        latestMessageAt: row.latest.createdAt,
-        waitingFor: relativeTimeAgo(row.latest.createdAt),
+        latestMessageChannel: recentMsg?.channel || "",
+        latestMessageSubject: recentMsg?.subject || "",
+        latestMessageContent: recentMsg?.content || "",
+        latestMessageDisplay: recentMsg ? pickLatestMessageDisplay(recentMsg) : "",
+        latestMessageAt: recentMsg?.createdAt || conv.updatedAt,
+        waitingFor: recentMsg?.createdAt ? relativeTimeAgo(recentMsg.createdAt) : "",
       };
     })
     .filter(Boolean);
@@ -576,7 +487,7 @@ async function fetchNewLeadsSection({ clinicObjectId, period, dayStart, dayEnd, 
       new Date(a.latestMessageAt).getTime(),
   );
 
-  return { count: list.length, list: list.slice(0, 10) };
+  return { count: list.length, list };
 }
 
 /**

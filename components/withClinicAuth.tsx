@@ -4,6 +4,20 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import { jwtDecode } from 'jwt-decode';
 
+// Helper: decode role from clinicToken only
+// const getClinicTokenRole = (): string | null => {
+//   if (typeof window === 'undefined') return null;
+//   try {
+//     const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+//     if (!token) return null;
+//     const decoded: any = jwtDecode(token);
+//     return decoded?.role || null;
+//   } catch (err) {
+//     console.warn('Unable to decode clinicToken:', err);
+//     return null;
+//   }
+// };
+
 export default function withClinicAuth<P extends Record<string, unknown> = Record<string, unknown>>(WrappedComponent: ComponentType<P>) {
   return function ProtectedClinicPage(props: P) {
     const router = useRouter();
@@ -13,50 +27,18 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
     useEffect(() => {
       const checkAuth = async () => {
         try {
-          // Check for multiple token types in priority order
-          let token = typeof window !== 'undefined' 
-            ? (localStorage.getItem('clinicToken') || 
-               sessionStorage.getItem('clinicToken') ||
-               localStorage.getItem('agentToken') ||
-               sessionStorage.getItem('agentToken') ||
-               localStorage.getItem('userToken') ||
-               sessionStorage.getItem('userToken'))
+          // Read ONLY clinicToken — no cross-role fallback
+          let token = typeof window !== 'undefined'
+            ? (localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken'))
             : null;
-          
-          let user = typeof window !== 'undefined' 
+
+          let user = typeof window !== 'undefined'
             ? (localStorage.getItem('clinicUser') || sessionStorage.getItem('clinicUser'))
             : null;
 
           if (!token) {
-            // No token found - redirect without clearing storage
-            // Check user role to determine redirect destination
-            let role = null;
-            // Check all possible token storage locations for role detection
-            for (const key of ['clinicToken', 'agentToken', 'userToken']) {
-              const storedToken = localStorage.getItem(key) || sessionStorage.getItem(key);
-              if (storedToken) {
-                try {
-                  // Decode JWT token to get role
-                  const base64Url = storedToken.split('.')[1];
-                  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                  const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                  }).join(''));
-                  const decoded = JSON.parse(jsonPayload);
-                  role = decoded?.role || null;
-                  break;
-                } catch (err) {
-                  console.warn('Unable to decode token:', err);
-                }
-              }
-            }
-            
-            // Redirect based on role
-            if (role === 'staff' || role === 'doctorStaff') {
-              router.replace('/staff');
-            } else {
-              router.replace('/clinic/login-clinic');
-            }
+            // No clinicToken — redirect to clinic login
+            router.replace('/clinic/login-clinic');
             setLoading(false);
             return;
           }
@@ -65,7 +47,6 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
           if (!user) {
             try {
               const decoded: any = jwtDecode(token);
-              // Create a user object from decoded token
               user = JSON.stringify({
                 _id: decoded.userId || decoded.id,
                 role: decoded.role,
@@ -74,36 +55,7 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
               });
             } catch (decodeError) {
               console.error('Error decoding token:', decodeError);
-              // Token decode failed - just redirect, don't clear storage
-              
-              // Check user role to determine redirect destination
-              let role = null;
-              // Check all possible token storage locations
-              for (const key of ['clinicToken', 'agentToken', 'userToken']) {
-                const token = localStorage.getItem(key) || sessionStorage.getItem(key);
-                if (token) {
-                  try {
-                    // Decode JWT token to get role
-                    const base64Url = token.split('.')[1];
-                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                    }).join(''));
-                    const decoded = JSON.parse(jsonPayload);
-                    role = decoded?.role || null;
-                    break;
-                  } catch (err) {
-                    console.warn('Unable to decode token:', err);
-                  }
-                }
-              }
-              
-              // Redirect based on role
-              if (role === 'staff' || role === 'doctorStaff') {
-                router.replace('/staff');
-              } else {
-                router.replace('/clinic/login-clinic');
-              }
+              router.replace('/clinic/login-clinic');
               setLoading(false);
               return;
             }
@@ -119,19 +71,12 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
           const data = await res.json();
 
           if (!res.ok || !data.valid) {
-            // Only clear the specific token that was confirmed invalid
-            const clearSpecificToken = () => {
-              try { localStorage.removeItem('clinicToken'); } catch {}
-              try { sessionStorage.removeItem('clinicToken'); } catch {}
-              try { localStorage.removeItem('agentToken'); } catch {}
-              try { sessionStorage.removeItem('agentToken'); } catch {}
-              try { localStorage.removeItem('userToken'); } catch {}
-              try { sessionStorage.removeItem('userToken'); } catch {}
-            };
-            clearSpecificToken();
-            
+            // Only clear clinicToken — no cross-role bleed
+            try { localStorage.removeItem('clinicToken'); } catch { }
+            try { sessionStorage.removeItem('clinicToken'); } catch { }
+
             const errorMessage = data.message || 'Authentication failed';
-            
+
             if (data.trialExpired) {
               toast.error(errorMessage);
               setTimeout(() => {
@@ -151,78 +96,20 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             return;
           }
 
-          // Verify user role - allow clinic, agent, doctor, doctorStaff, and staff roles
+          // Verify user role — only clinic role is allowed
           const userObj = JSON.parse(user);
-          const allowedRoles = ['clinic', 'agent', 'doctor', 'doctorStaff', 'staff', 'admin'];
+          const allowedRoles = ['clinic'];
           if (allowedRoles.includes(userObj.role)) {
             setIsAuthorized(true);
           } else {
             toast.error('Access denied: Invalid user role');
-            // Role not allowed - just redirect, don't clear storage
-            
-            // Check user role to determine redirect destination
-            let role = null;
-            // Check all possible token storage locations
-            for (const key of ['clinicToken', 'agentToken', 'userToken']) {
-              const token = localStorage.getItem(key) || sessionStorage.getItem(key);
-              if (token) {
-                try {
-                  // Decode JWT token to get role
-                  const base64Url = token.split('.')[1];
-                  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                  const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                  }).join(''));
-                  const decoded = JSON.parse(jsonPayload);
-                  role = decoded?.role || null;
-                  break;
-                } catch (err) {
-                  console.warn('Unable to decode token:', err);
-                }
-              }
-            }
-            
-            // Redirect based on role
-            if (role === 'staff' || role === 'doctorStaff') {
-              router.replace('/staff');
-            } else {
-              router.replace('/clinic/login-clinic');
-            }
+            router.replace('/clinic/login-clinic');
           }
         } catch (err) {
           console.error('Auth error:', err);
           // Network error - don't clear tokens, just redirect
-          // The next page load will re-verify the token
-          
-          // Check user role to determine redirect destination
-          let role = null;
-          // Check all possible token storage locations
-          for (const key of ['clinicToken', 'agentToken', 'userToken']) {
-            const storedToken = localStorage.getItem(key) || sessionStorage.getItem(key);
-            if (storedToken) {
-              try {
-                // Decode JWT token to get role
-                const base64Url = storedToken.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                  return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                const decoded = JSON.parse(jsonPayload);
-                role = decoded?.role || null;
-                break;
-              } catch (decodeErr) {
-                console.warn('Unable to decode token:', decodeErr);
-              }
-            }
-          }
-          
           setTimeout(() => {
-            // Redirect based on role
-            if (role === 'staff' || role === 'doctorStaff') {
-              router.replace('/staff');
-            } else {
-              router.replace('/clinic/login-clinic');
-            }
+            router.replace('/clinic/login-clinic');
           }, 3000);
         } finally {
           setLoading(false);

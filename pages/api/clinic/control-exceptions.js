@@ -5,6 +5,10 @@ import Appointment from "../../../models/Appointment";
 import PatientRegistration from "../../../models/PatientRegistration";
 import Service from "../../../models/Service";
 import Clinic from "../../../models/Clinic";
+import CustomStockItem from "../../../models/stocks/CustomStockItem";
+import ProductSale from "../../../models/products/ProductSale";
+import PettyCashExpense from "../../../models/PettyCashExpense";
+import { FinanceTransaction } from "../../../models/finance/FinanceTransaction";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
@@ -192,6 +196,90 @@ export default async function handler(req, res) {
       .map(buildDetail);
     const billingIncomplete = billingIncompleteList.length;
 
+    // ════════════════════════════════════════════════════════════════════
+    // INVENTORY ALERTS (based on date filter)
+    // ════════════════════════════════════════════════════════════════════
+
+    // Critical items: CustomStockItem where expiryDate <= dayEnd (expired by selected date)
+    const criticalItems = await CustomStockItem.countDocuments({
+      clinicId: clinicObjectId,
+      expiryDate: { $ne: null, $lte: dayEnd },
+    });
+
+    // Expired stock details for the inventory modal
+    const expiredStockDetails = await CustomStockItem.find({
+      clinicId: clinicObjectId,
+      expiryDate: { $ne: null, $lte: dayEnd },
+    })
+      .select("name expiryDate quantity")
+      .sort({ expiryDate: 1 })
+      .lean();
+
+    const expiredStockList = expiredStockDetails.map((item) => ({
+      name: item.name || "Unknown",
+      expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString().split("T")[0] : "—",
+      quantity: item.quantity || 0,
+    }));
+
+    // Below reorder level: CustomStockItem expired (status "Expired") by selected date — sum of quantity
+    const expiredItems = await CustomStockItem.aggregate([
+      {
+        $match: {
+          clinicId: clinicObjectId,
+          expiryDate: { $ne: null, $lte: dayEnd },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalQty: { $sum: "$quantity" },
+        },
+      },
+    ]);
+    const belowReorderLevel = expiredItems.length > 0 ? expiredItems[0].totalQty : 0;
+
+    // High-cost items — unusual usage: ProductSale count for the selected date
+    const highCostItems = await ProductSale.countDocuments({
+      clinicId: clinicObjectId,
+      saleDate: { $gte: dayStart, $lte: dayEnd },
+      status: { $ne: "Cancelled" },
+    });
+
+    // ════════════════════════════════════════════════════════════════════
+    // EXPENSES (period) — PettyCashExpense.spentAmount for selected date
+    // ════════════════════════════════════════════════════════════════════
+    const expensesAgg = await PettyCashExpense.aggregate([
+      {
+        $match: {
+          clinicId: clinicObjectId,
+          date: { $gte: dayStart, $lte: dayEnd },
+          isVoided: { $ne: true },
+        },
+      },
+      { $group: { _id: null, totalSpent: { $sum: "$spentAmount" } } },
+    ]);
+    const expensesAmount = expensesAgg.length > 0 ? expensesAgg[0].totalSpent : 0;
+
+    // ════════════════════════════════════════════════════════════════════
+    // PAYABLE WITHIN 7 DAYS — FinanceTransaction.paidAmount for previous 7 days
+    // ════════════════════════════════════════════════════════════════════
+    const sevenDaysAgo = new Date(dayStart);
+    sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+    sevenDaysAgo.setUTCHours(0, 0, 0, 0);
+
+    const payableAgg = await FinanceTransaction.aggregate([
+      {
+        $match: {
+          clinicId: clinicObjectId,
+          entryType: "bill",
+          dueDate: { $gte: sevenDaysAgo, $lte: dayEnd },
+          status: { $in: ["pending", "upcoming", "partial"] },
+        },
+      },
+      { $group: { _id: null, totalPaid: { $sum: "$paidAmount" } } },
+    ]);
+    const payableWithin7Days = payableAgg.length > 0 ? payableAgg[0].totalPaid : 0;
+
     return res.status(200).json({
       success: true,
       data: {
@@ -203,6 +291,12 @@ export default async function handler(req, res) {
         incompleteJourneyDetails: incompleteJourneyList,
         pendingDischargeDetails: pendingDischargeList,
         billingIncompleteDetails: billingIncompleteList,
+        criticalItems,
+        belowReorderLevel,
+        highCostItems,
+        expiredStockDetails: expiredStockList,
+        expensesAmount,
+        payableWithin7Days,
       },
     });
   } catch (err) {

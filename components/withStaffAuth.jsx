@@ -5,37 +5,29 @@ import { useRouter } from 'next/router';
 import { toast, Toaster } from 'react-hot-toast';
 import { jwtDecode } from 'jwt-decode';
 
+// Staff should never authenticate off a clinic-issued token
 const TOKEN_KEYS = [
+  'agentToken',
   'userToken',
   'staffToken',
-  'clinicToken',
   'doctorToken',
-  'agentToken',
   'adminToken',
 ];
 
-const getStoredToken = () => {
-  if (typeof window === 'undefined') return null;
+// Track which key the resolved token came from, so we can clear only that one
+const getStoredTokenWithKey = () => {
+  if (typeof window === 'undefined') return { token: null, key: null };
   for (const key of TOKEN_KEYS) {
     const value =
       localStorage.getItem(key) ||
       sessionStorage.getItem(key);
-    if (value) return value;
+    if (value) return { token: value, key };
   }
-  return null;
-};
-
-const clearStoredTokens = () => {
-  TOKEN_KEYS.forEach((key) => {
-    try { localStorage.removeItem(key); } catch {}
-    try { sessionStorage.removeItem(key); } catch {}
-  });
+  return { token: null, key: null };
 };
 
 const getVerifyEndpoint = (role) => {
   switch (role) {
-    case 'clinic':
-      return '/api/clinics/verify-token';
     case 'doctor':
     case 'doctorStaff':
       return '/api/doctor/verify-token';
@@ -50,6 +42,13 @@ const getVerifyEndpoint = (role) => {
   }
 };
 
+// Clear only the specific key that failed — no cross-role bleed
+const clearTokenByKey = (key) => {
+  if (!key) return;
+  try { localStorage.removeItem(key); } catch {}
+  try { sessionStorage.removeItem(key); } catch {}
+};
+
 export default function withStaffAuth(WrappedComponent) {
   return function WithStaffAuth(props) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -58,11 +57,10 @@ export default function withStaffAuth(WrappedComponent) {
 
     useEffect(() => {
       const checkAuth = async () => {
-        const token = getStoredToken();
+        const { token, key } = getStoredTokenWithKey();
 
         if (!token) {
           toast.error('Please login to continue');
-          clearStoredTokens();
           setTimeout(() => router.replace('/staff'), 3000);
           return;
         }
@@ -94,13 +92,13 @@ export default function withStaffAuth(WrappedComponent) {
                 ? 'Session expired. Logging out…'
                 : data?.message || 'Authentication failed. Logging out…';
             toast.error(message);
-            clearStoredTokens();
+            clearTokenByKey(key);
             setTimeout(() => router.replace('/staff'), 3000);
           }
         } catch (error) {
           console.error('Staff token verification failed:', error);
           toast.error('Something went wrong. Logging out…');
-          clearStoredTokens();
+          clearTokenByKey(key);
           setTimeout(() => router.replace('/staff'), 3000);
         } finally {
           setIsLoading(false);

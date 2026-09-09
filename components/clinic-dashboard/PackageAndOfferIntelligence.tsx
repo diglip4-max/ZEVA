@@ -52,6 +52,9 @@ const PackageAndOfferIntelligence = ({ recentOffers = [], referralData, packageM
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || "AED");
 
+  // Filter to only show active offers
+  const activeOffers = (recentOffers || []).filter((offer) => offer.status === 'active');
+
   const referralPatients = referralData?.referralPatients || 0;
   const referralRevenue = referralData?.referralRevenue || 0;
 
@@ -101,7 +104,7 @@ const PackageAndOfferIntelligence = ({ recentOffers = [], referralData, packageM
         {/* Package & Membership Intelligence */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Package & Membership Intelligence</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Package & Membership Intelligence</h3>
             
             <div className="flex items-center gap-8 mb-8">
               <div>
@@ -140,11 +143,11 @@ const PackageAndOfferIntelligence = ({ recentOffers = [], referralData, packageM
         {/* Offers & Discount Intelligence */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Recent Offers</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Recent Offers</h3>
             
             <div className="grid grid-cols-2 gap-4 mb-6">
-              {recentOffers.length > 0 ? (
-                recentOffers.map((offer, index) => (
+              {activeOffers.length > 0 ? (
+                activeOffers.map((offer, index) => (
                   <div 
                     key={offer.id} 
                     className={`rounded-xl p-5 ${index === 0 ? 'bg-[#EAF1EC]' : 'border border-gray-200'}`}
@@ -184,19 +187,16 @@ const PackageAndOfferIntelligence = ({ recentOffers = [], referralData, packageM
                 ))
               ) : (
                 <div className="col-span-2">
-                  <p className="text-sm text-gray-400 text-center py-6">No offers created yet</p>
+                  <p className="text-sm text-gray-400 text-center py-6">No active offers</p>
                 </div>
               )}
             </div>
           </div>
 
-          {recentOffers.length > 0 && (
+          {activeOffers.length > 0 && (
             <div className="bg-[#F5F4F0] rounded-lg p-4">
               <p className="text-xs text-gray-700">
-                Showing <span className="font-bold">{recentOffers.length}</span> most recent offer{recentOffers.length !== 1 ? 's' : ''}. 
-                {recentOffers.some(o => o.status === 'active') && (
-                  <span className="text-emerald-700 font-bold"> {recentOffers.filter(o => o.status === 'active').length} active</span>
-                )}
+                Showing <span className="font-bold">{activeOffers.length}</span> active offer{activeOffers.length !== 1 ? 's' : ''}.
               </p>
             </div>
           )}
@@ -207,7 +207,7 @@ const PackageAndOfferIntelligence = ({ recentOffers = [], referralData, packageM
         {/* Referral Engine */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Referral Engine</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Referral Engine</h3>
             
             <div className="flex flex-col mb-6">
               <div className="flex justify-between items-center py-4 border-b border-gray-100">
@@ -241,7 +241,7 @@ const PackageAndOfferIntelligence = ({ recentOffers = [], referralData, packageM
         {/* Price & Discount Intelligence */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
           <div>
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-6">Price & Discount Intelligence</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Price & Discount Intelligence</h3>
             
             <div className="mb-6">
               <div className="flex items-baseline gap-2 mb-2">

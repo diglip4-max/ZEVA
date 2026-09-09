@@ -19,6 +19,7 @@ import PayPendingBalanceModal from '@/components/patient/PayPendingBalanceModal'
 import { getCurrencySymbol } from '@/lib/currencyHelper';
 import { useAgentPermissions } from "@/hooks/useAgentPermissions";
 import { useCurrency } from '@/context/CurrencyContext';
+import { jwtDecode } from 'jwt-decode';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -64,38 +65,30 @@ const getAuthHeaders = (routeContext: "clinic" | "agent" = "clinic") => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-const getUserInfo = () => {
+// URL-based role detection — no cross-role token scanning
+const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
-  try {
-    for (const key of TOKEN_PRIORITY) {
-      const token =
-        window.localStorage.getItem(key) ||
-        window.sessionStorage.getItem(key);
+  const pathname = window.location.pathname;
+  // /clinic/ paths are always clinic context
+  if (pathname.startsWith('/clinic/')) {
+    try {
+      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
       if (token) {
-        try {
-          const base64Url = token.split(".")[1];
-          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-          const jsonPayload = decodeURIComponent(
-            atob(base64)
-              .split("")
-              .map(
-                (c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2),
-              )
-              .join(""),
-          );
-          const decoded = JSON.parse(jsonPayload);
-          return {
-            role: decoded.role || decoded.userRole || null,
-            id: decoded.userId || decoded.id || null,
-          };
-        } catch (e) {
-          continue;
-        }
+        const decoded: any = jwtDecode(token);
+        return { role: decoded?.role || 'clinic', id: decoded?.userId || decoded?.id || null };
       }
-    }
-  } catch (error) {
-    console.error("Error getting user info:", error);
+    } catch (e) { /* ignore */ }
+    return { role: 'clinic', id: null };
   }
+  // For /staff/ or /agent/ paths, decode from agent/user token
+  try {
+    const token = localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken') ||
+                  localStorage.getItem('userToken') || sessionStorage.getItem('userToken');
+    if (token) {
+      const decoded: any = jwtDecode(token);
+      return { role: decoded?.role || null, id: decoded?.userId || decoded?.id || null };
+    }
+  } catch (e) { /* ignore */ }
   return { role: null, id: null };
 };
 

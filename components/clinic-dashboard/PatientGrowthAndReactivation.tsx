@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
+import { useRouter } from 'next/router';
 import { useCurrency } from "@/context/CurrencyContext";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 interface PatientDetail {
+  _id?: string;
+  patientId?: string;
   patientName: string;
   patientType?: string;
   phone?: string;
@@ -26,6 +29,7 @@ interface Props {
 }
 
 const PatientGrowthAndReactivation = ({ patientRetentionData }: Props) => {
+  const router = useRouter();
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || "AED");
   const [showReactivationModal, setShowReactivationModal] = useState(false);
@@ -56,7 +60,7 @@ const PatientGrowthAndReactivation = ({ patientRetentionData }: Props) => {
       {/* Patient Retention */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
         <div>
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Patient Growth</h3>
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Patient Growth</h3>
           <h2 className="text-xl font-bold text-gray-900 mb-6">Patient Retention</h2>
           
           <div className="flex items-baseline gap-2 mb-3">
@@ -106,7 +110,7 @@ const PatientGrowthAndReactivation = ({ patientRetentionData }: Props) => {
       {/* Patients Ready to Return */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
         <div>
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Reactivation Engine</h3>
+          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Reactivation Engine</h3>
           <h2 className="text-xl font-bold text-gray-900 mb-6">Patients Ready to Return</h2>
           
           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -221,12 +225,14 @@ const PatientGrowthAndReactivation = ({ patientRetentionData }: Props) => {
                 <PatientTable
                   data={newPatientDetails}
                   emptyMessage="No new patients registered on this date"
+                  router={router}
                 />
               )}
               {activeTab === 'inactive' && (
                 <PatientTable
                   data={inactivePatientDetails}
                   emptyMessage="No inactive patients found"
+                  router={router}
                 />
               )}
               {activeTab === 'highvalue' && (
@@ -234,6 +240,7 @@ const PatientGrowthAndReactivation = ({ patientRetentionData }: Props) => {
                   data={highValuePatientDetails}
                   formatCurrency={formatCurrency}
                   emptyMessage="No high-value patients found"
+                  router={router}
                 />
               )}
             </div>
@@ -248,9 +255,11 @@ const PatientGrowthAndReactivation = ({ patientRetentionData }: Props) => {
 const PatientTable = ({
   data,
   emptyMessage,
+  router,
 }: {
   data: PatientDetail[];
   emptyMessage: string;
+  router: any;
 }) => {
   if (data.length === 0) {
     return (
@@ -273,13 +282,27 @@ const PatientTable = ({
         </tr>
       </thead>
       <tbody>
-        {data.map((item, idx) => (
-          <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-            <td className="py-3 pr-4 text-gray-400 text-xs">{idx + 1}</td>
-            <td className="py-3 pr-4 font-medium text-gray-800">{item.patientName}</td>
-            <td className="py-3 text-gray-600">{item.registeredDate || '—'}</td>
-          </tr>
-        ))}
+        {data.map((item, idx) => {
+          const pid = item._id || item.patientId;
+          return (
+            <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+              <td className="py-3 pr-4 text-gray-400 text-xs">{idx + 1}</td>
+              <td className="py-3 pr-4 font-medium text-gray-800">
+                {pid ? (
+                  <span
+                    className="cursor-pointer hover:text-emerald-700 transition-colors"
+                    onClick={() => router.push(`/clinic/patient-profile-view?id=${pid}`)}
+                  >
+                    {item.patientName}
+                  </span>
+                ) : (
+                  item.patientName
+                )}
+              </td>
+              <td className="py-3 text-gray-600">{item.registeredDate || '—'}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
@@ -290,10 +313,12 @@ const HighValueTable = ({
   data,
   formatCurrency,
   emptyMessage,
+  router,
 }: {
   data: PatientDetail[];
   formatCurrency: (amount: number) => string;
   emptyMessage: string;
+  router: any;
 }) => {
   if (data.length === 0) {
     return (
@@ -317,18 +342,32 @@ const HighValueTable = ({
         </tr>
       </thead>
       <tbody>
-        {data.map((item, idx) => (
-          <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-            <td className="py-3 pr-4 text-gray-400 text-xs">{idx + 1}</td>
-            <td className="py-3 pr-4 font-medium text-gray-800">{item.patientName}</td>
-            <td className="py-3 pr-4 text-center">
-              <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700">
-                {item.appointmentCount || 0}
-              </span>
-            </td>
-            <td className="py-3 text-right font-medium text-green-600">{formatCurrency(item.totalRevenue || 0)}</td>
-          </tr>
-        ))}
+        {data.map((item, idx) => {
+          const pid = item._id || item.patientId;
+          return (
+            <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+              <td className="py-3 pr-4 text-gray-400 text-xs">{idx + 1}</td>
+              <td className="py-3 pr-4 font-medium text-gray-800">
+                {pid ? (
+                  <span
+                    className="cursor-pointer hover:text-emerald-700 transition-colors"
+                    onClick={() => router.push(`/clinic/patient-profile-view?id=${pid}`)}
+                  >
+                    {item.patientName}
+                  </span>
+                ) : (
+                  item.patientName
+                )}
+              </td>
+              <td className="py-3 pr-4 text-center">
+                <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700">
+                  {item.appointmentCount || 0}
+                </span>
+              </td>
+              <td className="py-3 text-right font-medium text-green-600">{formatCurrency(item.totalRevenue || 0)}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

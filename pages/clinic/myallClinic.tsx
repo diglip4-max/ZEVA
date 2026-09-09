@@ -86,39 +86,21 @@ const parsePermissionActions = (actions: Record<string, unknown> = {}) => {
   };
 };
 
-// Helper function to get user info from token
+// URL-based role detection — no cross-role token scanning
 const getUserInfo = (): { role: string | null; id: string | null } => {
   if (typeof window === "undefined") return { role: null, id: null };
+  // This file is inside /clinic/ — always clinic context
   try {
-    for (const key of TOKEN_PRIORITY) {
-      const token =
-        window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
-      if (token) {
-        try {
-          const base64Url = token.split(".")[1];
-          const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-          const jsonPayload = decodeURIComponent(
-            atob(base64)
-              .split("")
-              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-              .join(""),
-          );
-          const decoded = JSON.parse(jsonPayload);
-          console.log("[myallClinic] Decoded user from token:", decoded);
-          return {
-            role: decoded.role || decoded.userRole || null,
-            id: decoded.userId || decoded.id || null,
-          };
-        } catch (e) {
-          console.log("[myallClinic] Error decoding token", key, e);
-          continue;
-        }
-      }
+    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+    if (token) {
+      const base64Url = token.split(".")[1];
+      if (!base64Url) return { role: 'clinic', id: null };
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
     }
-  } catch (error) {
-    console.error("[myallClinic] Error getting user info:", error);
-  }
-  return { role: null, id: null };
+  } catch (e) { /* ignore */ }
+  return { role: 'clinic', id: null };
 };
 
 // Helper function to get user role from token

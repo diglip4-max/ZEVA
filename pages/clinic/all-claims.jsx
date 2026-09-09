@@ -10,37 +10,22 @@ import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 
-// Helper function to get user role from token
-// Priority: when on /clinic/ path, check clinicToken first; otherwise use original priority
+// Helper function to get user role — URL-based, no cross-role token scanning
 const getUserRole = () => {
   if (typeof window === 'undefined') return null;
-  try {
-    // Determine token priority based on current path
-    const isClinicPath = window.location.pathname.startsWith('/clinic/');
-    let tokenKeys;
-    if (isClinicPath) {
-      tokenKeys = ['clinicToken', 'doctorToken', 'agentToken', 'staffToken', 'userToken', 'adminToken'];
-    } else {
-      tokenKeys = ['agentToken', 'doctorToken', 'clinicToken', 'staffToken', 'userToken', 'adminToken'];
-    }
-
-    for (const key of tokenKeys) {
-      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+  const pathname = window.location.pathname;
+  // /clinic/ paths are always clinic context
+  if (pathname.startsWith('/clinic/')) return 'clinic';
+  // /staff/ and /agent/ paths — decode role from agent/user token
+  if (pathname.startsWith('/staff/') || pathname.startsWith('/agent/')) {
+    try {
+      const token = localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken') ||
+                    localStorage.getItem('userToken') || sessionStorage.getItem('userToken');
       if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          const role = payload.role || null;
-
-          if (role && ['agent', 'doctorStaff', 'doctor', 'clinic', 'staff', 'admin'].includes(role)) {
-            return role;
-          }
-        } catch (e) {
-          continue;
-        }
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload?.role || null;
       }
-    }
-  } catch (error) {
-    console.error('Error getting user role:', error);
+    } catch (e) { /* ignore */ }
   }
   return null;
 };
@@ -2394,22 +2379,15 @@ function AllClaimsPage() {
 }
 
 AllClaimsPage.getLayout = function PageLayout(page) {
-  // Always use ClinicLayout on /clinic/ paths
-  const isClinicPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/clinic/');
+  // URL-based layout detection — no token scanning
+  const isStaffOrAgentPath = typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/staff/') || window.location.pathname.startsWith('/agent/'));
 
-  if (isClinicPath) {
-    return <ClinicLayout>{page}</ClinicLayout>;
-  }
-
-  // Check user role and apply appropriate layout for non-clinic paths
-  const role = getUserRole();
-
-  // For agent and doctorStaff roles, use AgentLayout
-  if (role === 'agent' || role === 'doctorStaff' || role === 'doctor') {
+  if (isStaffOrAgentPath) {
     return <AgentLayout>{page}</AgentLayout>;
   }
 
-  // For clinic role, use ClinicLayout
+  // Default: /clinic/ and all other paths use ClinicLayout
   return <ClinicLayout>{page}</ClinicLayout>;
 };
 
@@ -2417,23 +2395,16 @@ AllClaimsPage.getLayout = function PageLayout(page) {
 const ClinicProtectedAllClaimsPage = withClinicAuth(AllClaimsPage);
 const AgentProtectedAllClaimsPage = withAgentAuth(AllClaimsPage);
 
-// Main component that chooses which protected version to use
+// Main component that chooses which protected version to use — URL-based, not token-based
 const ProtectedAllClaimsPage = (props) => {
-  // Always use clinic auth on /clinic/ paths
-  const isClinicPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/clinic/');
+  const isStaffOrAgentPath = typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/staff/') || window.location.pathname.startsWith('/agent/'));
 
-  if (isClinicPath) {
-    return <ClinicProtectedAllClaimsPage {...props} />;
-  }
-
-  const role = getUserRole();
-
-  // For agent and doctorStaff roles, use agent auth
-  if (role === 'agent' || role === 'doctorStaff' || role === 'doctor') {
+  if (isStaffOrAgentPath) {
     return <AgentProtectedAllClaimsPage {...props} />;
   }
 
-  // For clinic role, use clinic auth
+  // /clinic/ and all other paths use clinic auth
   return <ClinicProtectedAllClaimsPage {...props} />;
 };
 
