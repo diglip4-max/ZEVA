@@ -11,6 +11,13 @@ import {
   WORKFLOW_TRIGGER_TYPE,
 } from "../../../../bullmq/workflow";
 
+// Dispatch Package Activate Notifications
+import { dispatchNotifications } from "../../../../services/notification";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "../../../../lib/notifications";
+
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
 export default async function handler(req, res) {
@@ -210,10 +217,14 @@ export default async function handler(req, res) {
         if (pkgToggle === "Yes") {
           invoice.package = "Yes";
           invoice.packageId = packageId || invoice.packageId || null;
-          if (req.body.packageTotalPrice !== undefined) invoice.packageTotalPrice = req.body.packageTotalPrice;
-          if (req.body.packagePaidAmount !== undefined) invoice.packagePaidAmount = req.body.packagePaidAmount;
-          if (req.body.packagePaymentStatus !== undefined) invoice.packagePaymentStatus = req.body.packagePaymentStatus;
-          if (req.body.packagePaymentMethod !== undefined) invoice.packagePaymentMethod = req.body.packagePaymentMethod;
+          if (req.body.packageTotalPrice !== undefined)
+            invoice.packageTotalPrice = req.body.packageTotalPrice;
+          if (req.body.packagePaidAmount !== undefined)
+            invoice.packagePaidAmount = req.body.packagePaidAmount;
+          if (req.body.packagePaymentStatus !== undefined)
+            invoice.packagePaymentStatus = req.body.packagePaymentStatus;
+          if (req.body.packagePaymentMethod !== undefined)
+            invoice.packagePaymentMethod = req.body.packagePaymentMethod;
         } else if (pkgToggle === "No") {
           invoice.package = "No";
           invoice.packageId = null;
@@ -236,7 +247,7 @@ export default async function handler(req, res) {
             }));
           }
         }
-        
+
         // Handle packages array - update or remove based on formData
         if (Array.isArray(packagesArray)) {
           if (packagesArray.length === 0 && pkgToggle === "No") {
@@ -247,7 +258,7 @@ export default async function handler(req, res) {
             // so we never overwrite a previously saved snapshot with empty defaults.
             const existingSnapshotMap = new Map();
             (invoice.packages || []).forEach((ep) => {
-              const idStr = String(ep.packageId || '');
+              const idStr = String(ep.packageId || "");
               if (idStr && ep.packageSnapshot) {
                 existingSnapshotMap.set(idStr, ep.packageSnapshot);
               }
@@ -258,13 +269,19 @@ export default async function handler(req, res) {
             const newPkgIds = packagesArray
               .map((p) => p.packageId)
               .filter((pid) => pid && !existingSnapshotMap.has(String(pid)));
-            const masterDocs = newPkgIds.length > 0
-              ? await Package.find({ _id: { $in: newPkgIds }, clinicId: invoice.clinicId }).lean()
-              : [];
-            const masterMap = new Map(masterDocs.map((d) => [String(d._id), d]));
+            const masterDocs =
+              newPkgIds.length > 0
+                ? await Package.find({
+                    _id: { $in: newPkgIds },
+                    clinicId: invoice.clinicId,
+                  }).lean()
+                : [];
+            const masterMap = new Map(
+              masterDocs.map((d) => [String(d._id), d]),
+            );
 
             invoice.packages = packagesArray.map((p) => {
-              const pkgIdStr = String(p.packageId || '');
+              const pkgIdStr = String(p.packageId || "");
 
               // Determine the best snapshot: existing DB snapshot first, then build from master
               let resolvedSnapshot = existingSnapshotMap.get(pkgIdStr);
@@ -283,8 +300,8 @@ export default async function handler(req, res) {
                     endDate: master.endDate || null,
                     treatments: Array.isArray(master.treatments)
                       ? master.treatments.map((t) => ({
-                          treatmentName: t.treatmentName || '',
-                          treatmentSlug: t.treatmentSlug || '',
+                          treatmentName: t.treatmentName || "",
+                          treatmentSlug: t.treatmentSlug || "",
                           allocatedPrice: t.allocatedPrice || 0,
                           sessions: t.sessions || 1,
                           sessionPrice: t.sessionPrice || 0,
@@ -300,18 +317,26 @@ export default async function handler(req, res) {
 
               return {
                 packageId: p.packageId,
-                packageName: resolvedSnapshot?.name || p.packageName || '',
-                packageSoldBy: p.packageSoldBy || user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown',
-                assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+                packageName: resolvedSnapshot?.name || p.packageName || "",
+                packageSoldBy:
+                  p.packageSoldBy ||
+                  user.name ||
+                  `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+                  "Unknown",
+                assignedDate: p.assignedDate
+                  ? new Date(p.assignedDate)
+                  : undefined,
                 validityInMonths: p.validityInMonths || 0,
                 startDate: p.startDate ? new Date(p.startDate) : undefined,
                 endDate: p.endDate ? new Date(p.endDate) : undefined,
                 totalPrice: p.totalPrice || 0,
                 paidAmount: p.paidAmount || 0,
-                paymentStatus: p.paymentStatus || 'Unpaid',
-                paymentMethod: p.paymentMethod || '',
+                paymentStatus: p.paymentStatus || "Unpaid",
+                paymentMethod: p.paymentMethod || "",
                 // Preserve or build snapshot — never discard it once written
-                ...(resolvedSnapshot ? { packageSnapshot: resolvedSnapshot } : {}),
+                ...(resolvedSnapshot
+                  ? { packageSnapshot: resolvedSnapshot }
+                  : {}),
               };
             });
           }
@@ -368,6 +393,18 @@ export default async function handler(req, res) {
         patientId: invoice._id?.toString(),
         clinicId: invoice.clinicId?.toString(),
       });
+
+      // Dispatch Package Purchased Notifications
+      if (invoice.packageId && invoice.package === "Yes") {
+        // Dispatch Package Purchased Notifications
+        dispatchNotifications({
+          clinicId: invoice.clinicId?.toString(),
+          patientId: invoice._id?.toString(),
+          packageId: invoice.packageId,
+          notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_PURCHASED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
+        });
+      }
 
       return res.status(200).json({
         message: responseMessage || "Patient details updated successfully",

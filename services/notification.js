@@ -1,11 +1,25 @@
 import { notificationQueue } from "../bullmq/queue.js";
+import Lead from "../models/Lead.js";
+import PatientRegistration from "../models/PatientRegistration.js";
 import { Setting } from "../models/settings/Setting";
 
-export const dispatchNotification = async ({
+export const dispatchNotifications = async ({
   clinicId,
+  patientId,
+  packageId,
+  appointmentId,
   notificationTypeKey,
   notificationCategory,
 }) => {
+  console.log("dispatchNotifications", {
+    clinicId,
+    patientId,
+    packageId,
+    // Package ID for package related notifications
+    appointmentId,
+    notificationTypeKey,
+    notificationCategory,
+  });
   if (!clinicId) {
     console.log("clinicId is required for dispatch notification");
     return;
@@ -23,13 +37,14 @@ export const dispatchNotification = async ({
     // Find Setting for the clinic
     const setting = await Setting.findOne({
       clinicId,
-    });
+    }).lean();
     if (!setting) {
       console.log("Setting not found for clinic");
       return;
     }
+
     // Find Notification Setting for the notification type
-    const notificationSetting = setting.notificationSettings.find(
+    const notificationSetting = setting.notificationSetting?.find(
       (item) =>
         item.notificationTypeKey === notificationTypeKey &&
         item.category === notificationCategory,
@@ -47,9 +62,32 @@ export const dispatchNotification = async ({
       console.log("Notification Setting does not have any channels enabled");
       return;
     }
+
+    let patient = await PatientRegistration.findById(patientId);
+
+    let leadId = patient?.leadId || "";
+    let mobileNumber = patient?.mobileNumber || "";
+
+    let lead = null;
+    if (leadId) {
+      lead = await Lead.findById(leadId);
+    }
+    if (!lead && mobileNumber) {
+      lead = await Lead.findOne({
+        clinicId,
+        phone: mobileNumber,
+      });
+      if (!lead) {
+        console.log("Patient does not have mobile number");
+      }
+      console.log({ mobileNumber });
+      console.log("Patient", patient);
+      console.log("Lead", lead);
+      return;
+    }
+
     for (let item of channels) {
       const {
-        clinicId,
         channel,
         isEnabled,
         recipient,
@@ -69,24 +107,40 @@ export const dispatchNotification = async ({
         );
         continue;
       }
+      if (recipient === "patient" && !lead) {
+        continue;
+      }
+      if (recipient === "staff") {
+        // TODO: Currently Staff notification is not implemented
+        continue;
+      }
       console.log(`Dispatching notification to channel: ${item.channel}`);
-      const job = await notificationQueue.add({
-        clinicId,
-        notificationTypeKey,
-        notificationCategory,
-        channel,
-        recipient,
-        // leadId,
-        priority,
-        providerId,
-        templateId,
-        mediaType,
-        mediaUrl,
-        variableMappings,
-        headerVariableMappings,
-        buttonVariableMappings,
-        attachments,
-      });
+      const job = await notificationQueue.add(
+        `dispatchNotification:${channel}`,
+        {
+          // Notification Job Data
+          clinicId,
+          notificationTypeKey,
+          notificationCategory,
+          label: notificationSetting.label,
+          trigger: notificationSetting.trigger,
+          sourceId: appointmentId,
+          channel,
+          recipient,
+          leadId: recipient === "patient" ? lead?.id : "",
+          patientId, // Patient ID for patient related notifications
+          packageId: packageId || null, // Package ID for package related notifications
+          priority,
+          providerId,
+          templateId,
+          mediaType,
+          mediaUrl,
+          variableMappings,
+          headerVariableMappings,
+          buttonVariableMappings,
+          attachments,
+        },
+      );
 
       console.log(`Notification job added with ID: ${job.id}`);
     }

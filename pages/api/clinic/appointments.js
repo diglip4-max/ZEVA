@@ -15,6 +15,13 @@ import {
   WORKFLOW_TRIGGER_TYPE,
 } from "../../../bullmq/workflow";
 
+// Import notification constants and dispatch function
+import {
+  NOTIFICATION_TYPES,
+  NOTIFICATION_CATEGORIES,
+} from "../../../lib/notifications";
+import { dispatchNotifications } from "../../../services/notification";
+
 export default async function handler(req, res) {
   await dbConnect();
 
@@ -29,12 +36,10 @@ export default async function handler(req, res) {
         clinicUser.role,
       )
     ) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Access denied. Clinic role required.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Clinic role required.",
+      });
     }
 
     let { clinicId, error, isAdmin } = await getClinicIdFromUser(clinicUser);
@@ -639,14 +644,21 @@ export default async function handler(req, res) {
 
       // Validate that appointment date/time is not in the past
       const now = new Date();
-      const [year, month, day] = startDate.split('-').map(Number);
-      const [fromHour, fromMinute] = fromTime.split(':').map(Number);
-      const appointmentDateTime = new Date(year, month - 1, day, fromHour, fromMinute);
-      
+      const [year, month, day] = startDate.split("-").map(Number);
+      const [fromHour, fromMinute] = fromTime.split(":").map(Number);
+      const appointmentDateTime = new Date(
+        year,
+        month - 1,
+        day,
+        fromHour,
+        fromMinute,
+      );
+
       if (appointmentDateTime < now) {
         return res.status(400).json({
           success: false,
-          message: "Cannot book an appointment in the past. Please select a future date and time."
+          message:
+            "Cannot book an appointment in the past. Please select a future date and time.",
         });
       }
 
@@ -677,7 +689,8 @@ export default async function handler(req, res) {
         if (blockedAppointment) {
           return res.status(400).json({
             success: false,
-            message: "This time slot is blocked. Cannot book an appointment during a blocked time slot.",
+            message:
+              "This time slot is blocked. Cannot book an appointment during a blocked time slot.",
           });
         }
       }
@@ -700,19 +713,15 @@ export default async function handler(req, res) {
           clinicId,
           isActive: true,
           startDate: { $gte: startOfDay, $lte: endOfDay },
-          $and: [
-            { $or: blockScopeConditions },
-            { $or: timeOverlapConditions },
-          ],
+          $and: [{ $or: blockScopeConditions }, { $or: timeOverlapConditions }],
         });
 
         if (blockedSlotEntry) {
           return res.status(400).json({
             success: false,
-            message:
-              blockedSlotEntry.reason
-                ? `This time slot is blocked (${blockedSlotEntry.reason}). Cannot book an appointment during a blocked time slot.`
-                : "This time slot is blocked. Cannot book an appointment during a blocked time slot.",
+            message: blockedSlotEntry.reason
+              ? `This time slot is blocked (${blockedSlotEntry.reason}). Cannot book an appointment during a blocked time slot.`
+              : "This time slot is blocked. Cannot book an appointment during a blocked time slot.",
           });
         }
       }
@@ -739,15 +748,17 @@ export default async function handler(req, res) {
       let bookedByRole = clinicUser.role;
       let bookedByUserId = clinicUser._id;
       let bookedByName = clinicUser.name || null;
-      
+
       // For clinic role, get clinic name instead of user name
       if (clinicUser.role === "clinic") {
-        const clinic = await Clinic.findOne({ owner: clinicUser._id }).select("name").lean();
+        const clinic = await Clinic.findOne({ owner: clinicUser._id })
+          .select("name")
+          .lean();
         if (clinic) {
           bookedByName = clinic.name || "Clinic Admin";
         }
       }
-      
+
       const appointmentData = {
         clinicId,
         patientId,
@@ -778,12 +789,10 @@ export default async function handler(req, res) {
             .select("_id")
             .lean();
           if (!svc) {
-            return res
-              .status(400)
-              .json({
-                success: false,
-                message: "Selected service not found for this clinic",
-              });
+            return res.status(400).json({
+              success: false,
+              message: "Selected service not found for this clinic",
+            });
           }
           appointmentData.serviceId = req.body.serviceId;
         } catch {
@@ -822,11 +831,12 @@ export default async function handler(req, res) {
 
       // Sync referral to patient's referredBy field
       if (referral !== undefined) {
-        const patientReferralValue = referral === "direct" ? "No" : (referral || "No");
+        const patientReferralValue =
+          referral === "direct" ? "No" : referral || "No";
         await PatientRegistration.findByIdAndUpdate(
           patientId,
           { $set: { referredBy: patientReferralValue } },
-          { new: true }
+          { new: true },
         );
       }
 
@@ -891,6 +901,30 @@ export default async function handler(req, res) {
         appointmentId: appointment._id?.toString(),
         patientId: patientId,
         clinicId: clinicId?.toString(),
+      });
+
+      // Dispatch Patient notifications
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        appointmentId: appointment._id?.toString(),
+        notificationTypeKey:
+          appointment.status === "booked"
+            ? NOTIFICATION_TYPES.APPOINTMENT_BOOKED
+            : appointment.status === "Approved"
+              ? NOTIFICATION_TYPES.APPOINTMENT_CONFIRMED
+              : appointment.status === "Rescheduled"
+                ? NOTIFICATION_TYPES.APPOINTMENT_RESCHEDULED
+                : appointment.status === "Cancelled"
+                  ? NOTIFICATION_TYPES.APPOINTMENT_CANCELLED
+                  : appointment.status === "Completed"
+                    ? NOTIFICATION_TYPES.APPOINTMENT_COMPLETED
+                    : appointment.status === "No Show"
+                      ? NOTIFICATION_TYPES.APPOINTMENT_NO_SHOW
+                      : appointment.status === "Waiting"
+                        ? NOTIFICATION_TYPES.APPOINTMENT_WAITLIST_AVAILABLE
+                        : "",
+        notificationCategory: NOTIFICATION_CATEGORIES.APPOINTMENT,
       });
 
       return res.status(201).json({
@@ -965,12 +999,10 @@ export default async function handler(req, res) {
       .json({ success: false, message: "Method not allowed" });
   } catch (error) {
     console.error("Error in appointments API:", error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error",
-        error: error.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 }

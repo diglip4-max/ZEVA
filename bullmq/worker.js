@@ -3389,6 +3389,7 @@ export const notificationWorker = new Worker(
       channel,
       recipient,
       leadId,
+      patientId,
       priority,
       providerId,
       templateId,
@@ -3468,7 +3469,7 @@ export const notificationWorker = new Worker(
         ...(convOwners?.map((i) => i.toString()) || []),
       ]);
       conversation.owners = [...allOwners];
-      if(conversation?.owners?.length > 0){
+      if (conversation?.owners?.length > 0) {
         conversation.ownerId = conversation.owners[0];
       }
       // if conversation is closed then open it
@@ -3597,8 +3598,8 @@ export const notificationWorker = new Worker(
       let notificationLog = new NotificationLog({
         clinicId,
         patientId,
-        notificationTypeKey,
-        category,
+        notificationTypeKey: notificationTypeKey,
+        category: notificationCategory,
         label,
         trigger,
         sourceId,
@@ -3610,6 +3611,8 @@ export const notificationWorker = new Worker(
           userId: null,
         },
         messageId: newMessage._id,
+        templateId: template._id,
+        providerId: provider._id,
       });
       await notificationLog.save();
 
@@ -3628,6 +3631,7 @@ export const notificationWorker = new Worker(
         conversation.save(),
         notificationLog.save(),
       ]);
+      console.log(`Notification job worker: ${job.id} processed successfully`);
     } catch (err) {
       console.error(`Error processing notification job worker: ${job.id}`, err);
     }
