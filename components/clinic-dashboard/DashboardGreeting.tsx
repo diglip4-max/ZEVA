@@ -125,7 +125,7 @@ const DashboardGreeting = ({ clinicInfo, revenueData, opportunityData, revenueAt
   const clinicAddress = clinicInfo?.address || '';
 
   return (
-    <div className="bg-[#FCFBF8] px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 w-full font-sans">
+    <div className="bg-[#FCFBF8] dark:bg-bg-page px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 w-full font-sans">
       <div className="mb-4 sm:mb-6 lg:mb-8">
         <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-900 mb-1 sm:mb-2">
           {greeting}, {userName}.

@@ -29,7 +29,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       <Head>
         <title>Clinic Dashboard - ZEVA</title>
       </Head>
-      <div className="min-h-screen bg-[#FCFBF8]">
+      <div className="min-h-screen bg-[#FCFBF8] dark:bg-bg-page">
         <DashboardGreeting
           clinicInfo={clinicInfo}
           revenueData={revenueData}

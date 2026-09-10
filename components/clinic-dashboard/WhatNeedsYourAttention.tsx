@@ -49,9 +49,16 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
   const followUpsCount = priorityData?.followUps?.count || 0;
   const topFollowUp = priorityData?.followUps?.list?.[0];
 
+  const rowClass = "bg-[#F5F4F0] dark:bg-bg-hover rounded-xl p-4 flex justify-between items-center group";
+  const actionBtnClass = "flex items-center gap-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400 bg-white dark:bg-bg-surface border border-gray-200 dark:border-border-default px-4 py-2 rounded-full hover:bg-gray-50 dark:hover:bg-bg-input transition-colors shrink-0";
+  const modalOverlayClass = "fixed inset-0 bg-black/50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6";
+  const modalPanelClass = "bg-white dark:bg-bg-surface rounded-2xl w-full shadow-xl p-6 relative max-h-[90vh] flex flex-col";
+  const modalCloseClass = "absolute top-4 right-4 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 bg-gray-100 dark:bg-bg-hover hover:bg-gray-200 dark:hover:bg-bg-input rounded-full p-2 transition-colors";
+  const emptyStateIconClass = "w-16 h-16 bg-gray-100 dark:bg-bg-hover rounded-full flex items-center justify-center mx-auto mb-4";
+
   return (
     <>
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 font-sans mt-8 mx-8">
+      <div className="bg-white dark:bg-bg-surface rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-border-default font-sans mt-8 mx-8">
         {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div>
@@ -66,7 +73,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
       {/* List */}
       <div className="flex flex-col gap-3">
         {/* Item 1 */}
-        <div className="bg-[#F5F4F0] rounded-xl p-4 flex justify-between items-center group">
+        <div className={rowClass}>
           <div className="flex items-start gap-3">
             <div className="w-2 h-2 rounded-full bg-red-600 mt-2 shrink-0"></div>
             <div>
@@ -74,7 +81,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                 <h3 className="text-lg font-semibold text-gray-900">
                   {appointmentsCount} appointment{appointmentsCount === 1 ? "" : "s"} need confirmation
                 </h3>
-                <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded uppercase tracking-wider">Urgent</span>
+                <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded uppercase tracking-wider">Urgent</span>
               </div>
               <p className="text-sm text-gray-600">
                 {topAppointment ? (
@@ -92,7 +99,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
           </div>
           <button 
             onClick={() => setAppointmentsModalOpen(true)}
-            className="flex items-center gap-1 text-sm font-semibold text-emerald-700 bg-white border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors shrink-0"
+            className={actionBtnClass}
           >
             Review appointments
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -100,7 +107,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
         </div>
 
         {/* Item 2 */}
-        <div className="bg-[#F5F4F0] rounded-xl p-4 flex justify-between items-center group">
+        <div className={rowClass}>
           <div className="flex items-start gap-3">
             <div className="w-2 h-2 rounded-full bg-red-600 mt-2 shrink-0"></div>
             <div>
@@ -114,7 +121,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
           </div>
           <button 
             onClick={() => setCollectionsModalOpen(true)}
-            className="flex items-center gap-1 text-sm font-semibold text-emerald-700 bg-white border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors shrink-0"
+            className={actionBtnClass}
           >
             Review collections
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -122,7 +129,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
         </div>
 
         {/* Item 3 */}
-        <div className="bg-[#F5F4F0] rounded-xl p-4 flex justify-between items-center group">
+        <div className={rowClass}>
           <div className="flex items-start gap-3">
             <div className="w-2 h-2 rounded-full bg-amber-600 mt-2 shrink-0"></div>
             <div>
@@ -147,7 +154,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
           </div>
           <button 
             onClick={() => setOpenSlotsModalOpen(true)}
-            className="flex items-center gap-1 text-sm font-semibold text-emerald-700 bg-white border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors shrink-0"
+            className={actionBtnClass}
           >
             Fill capacity
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -158,7 +165,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
         {showMore && (
           <>
             {/* Item 4: Unanswered Conversations (newLeads) */}
-            <div className="bg-[#F5F4F0] rounded-xl p-4 flex justify-between items-center group">
+            <div className={rowClass}>
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-blue-500 mt-2 shrink-0"></div>
                 <div>
@@ -183,7 +190,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
               </div>
               <button 
                 onClick={() => setLeadsModalOpen(true)}
-                className="flex items-center gap-1 text-sm font-semibold text-emerald-700 bg-white border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors shrink-0"
+                className={actionBtnClass}
               >
                 View
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -191,7 +198,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
             </div>
 
             {/* Item 5: Follow-ups */}
-            <div className="bg-[#F5F4F0] rounded-xl p-4 flex justify-between items-center group">
+            <div className={rowClass}>
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 rounded-full bg-purple-500 mt-2 shrink-0"></div>
                 <div>
@@ -216,7 +223,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
               </div>
               <button 
                 onClick={() => setFollowUpsModalOpen(true)}
-                className="flex items-center gap-1 text-sm font-semibold text-emerald-700 bg-white border border-gray-200 px-4 py-2 rounded-full hover:bg-gray-50 transition-colors shrink-0"
+                className={actionBtnClass}
               >
                 Check
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -231,7 +238,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
         <div className="mt-4 pt-4 border-t border-dashed border-gray-200 flex justify-center">
           <button 
             onClick={() => setShowMore(true)}
-            className="text-sm font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
+            className="text-sm font-semibold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 transition-colors"
           >
             Show 2 more
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
@@ -242,21 +249,21 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
 
       {/* Appointments Modal */}
       {isAppointmentsModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-3xl shadow-xl p-6 relative max-h-[90vh] flex flex-col">
+        <div className={modalOverlayClass}>
+          <div className={`${modalPanelClass} max-w-3xl`}>
             <button 
               onClick={() => setAppointmentsModalOpen(false)} 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              className={modalCloseClass}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Appointments Booked Today</h2>
             <div className="overflow-y-auto flex-1 pr-2 space-y-4 custom-scrollbar">
               {priorityData?.appointments?.list?.map((apt: any) => (
-                <div key={apt._id} className="border border-gray-100 rounded-xl p-5 hover:shadow-sm transition-shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div key={apt._id} className="border border-gray-100 dark:border-border-default rounded-xl p-5 hover:shadow-sm transition-shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-sm shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold text-sm shrink-0">
                         {apt.patientName?.charAt(0) || "P"}
                       </div>
                       <div>
@@ -264,22 +271,22 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                         <p className="text-sm text-gray-500 font-medium">{apt.patientMobile || "No mobile"}</p>
                       </div>
                     </div>
-                    <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2 inline-block">
+                    <div className="mt-3 bg-gray-50 dark:bg-bg-hover rounded-lg px-3 py-2 inline-block">
                       <p className="text-sm text-gray-700 font-medium">
                         {apt.treatmentNames?.length > 0 ? apt.treatmentNames.join(", ") : apt.treatmentName || "Consultation"}
                       </p>
                     </div>
                   </div>
-                  <div className="sm:text-right bg-blue-50/50 p-3 rounded-xl min-w-[140px]">
+                  <div className="sm:text-right bg-blue-50/50 dark:bg-blue-950/40 p-3 rounded-xl min-w-[140px]">
                     <p className="text-sm text-gray-500 mb-1">Time & Doctor</p>
                     <p className="font-bold text-gray-900 text-lg">{apt.fromTimeDisplay || apt.fromTime}</p>
-                    <p className="text-sm font-semibold text-emerald-600 mt-1">{apt.doctorName}</p>
+                    <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1">{apt.doctorName}</p>
                   </div>
                 </div>
               ))}
               {(!priorityData?.appointments?.list || priorityData.appointments.list.length === 0) && (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className={emptyStateIconClass}>
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-lg font-medium text-gray-900">All caught up!</p>
@@ -293,20 +300,20 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
 
       {/* Open Slots Modal */}
       {isOpenSlotsModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl p-6 relative max-h-[90vh] flex flex-col">
+        <div className={modalOverlayClass}>
+          <div className={`${modalPanelClass} max-w-2xl`}>
             <button 
               onClick={() => setOpenSlotsModalOpen(false)} 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              className={modalCloseClass}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Unfilled Appointment Slots</h2>
             <div className="overflow-y-auto flex-1 pr-2 space-y-3">
               {priorityData?.openSlots?.list?.map((slot: any, index: number) => (
-                <div key={`${slot.doctorId}-${slot.fromTime}-${index}`} className="border border-gray-100 rounded-xl p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                <div key={`${slot.doctorId}-${slot.fromTime}-${index}`} className="border border-gray-100 dark:border-border-default rounded-xl p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-bg-hover transition-colors">
                   <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-bold shrink-0">
+                     <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-700 dark:text-amber-400 font-bold shrink-0">
                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                      </div>
                      <div>
@@ -315,7 +322,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                      </div>
                   </div>
                   <div className="text-right">
-                    <span className="inline-block bg-white border border-gray-200 rounded-lg px-4 py-2 font-bold text-gray-900 shadow-sm">
+                    <span className="inline-block bg-white dark:bg-bg-page border border-gray-200 dark:border-border-default rounded-lg px-4 py-2 font-bold text-gray-900 shadow-sm">
                       {slot.fromTimeDisplay || slot.fromTime}
                     </span>
                   </div>
@@ -323,7 +330,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
               ))}
               {(!priorityData?.openSlots?.list || priorityData.openSlots.list.length === 0) && (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className={emptyStateIconClass}>
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-lg font-medium text-gray-900">Fully Booked!</p>
@@ -337,20 +344,20 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
 
       {/* Leads Modal */}
       {isLeadsModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl p-6 relative max-h-[90vh] flex flex-col">
+        <div className={modalOverlayClass}>
+          <div className={`${modalPanelClass} max-w-2xl`}>
             <button 
               onClick={() => setLeadsModalOpen(false)} 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              className={modalCloseClass}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Leads Needing Response</h2>
             <div className="overflow-y-auto flex-1 pr-2 space-y-3 custom-scrollbar">
               {priorityData?.newLeads?.list?.map((lead: any, index: number) => (
-                <div key={`${lead.phone}-${index}`} className="border border-gray-100 rounded-xl p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                <div key={`${lead.phone}-${index}`} className="border border-gray-100 dark:border-border-default rounded-xl p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-bg-hover transition-colors">
                   <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold shrink-0">
+                     <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold shrink-0">
                        {lead.name?.charAt(0) || "L"}
                      </div>
                      <div>
@@ -361,7 +368,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                   <div className="text-right">
                     <button
                       onClick={() => router.push('/clinic/inbox')}
-                      className="inline-block bg-blue-50 text-blue-700 rounded-lg px-3 py-1 text-sm font-semibold shadow-sm hover:bg-blue-100 transition-colors cursor-pointer"
+                      className="inline-block bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg px-3 py-1 text-sm font-semibold shadow-sm hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors cursor-pointer"
                     >
                       Waiting for reply
                     </button>
@@ -370,7 +377,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
               ))}
               {(!priorityData?.newLeads?.list || priorityData.newLeads.list.length === 0) && (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className={emptyStateIconClass}>
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-lg font-medium text-gray-900">Inbox Zero!</p>
@@ -384,20 +391,20 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
 
       {/* Follow Ups Modal */}
       {isFollowUpsModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl p-6 relative max-h-[90vh] flex flex-col">
+        <div className={modalOverlayClass}>
+          <div className={`${modalPanelClass} max-w-2xl`}>
             <button 
               onClick={() => setFollowUpsModalOpen(false)} 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              className={modalCloseClass}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Follow-ups Due Today</h2>
             <div className="overflow-y-auto flex-1 pr-2 space-y-3 custom-scrollbar">
               {priorityData?.followUps?.list?.map((fu: any, index: number) => (
-                <div key={`${fu._id}-${index}`} className="border border-gray-100 rounded-xl p-4 flex justify-between items-center hover:bg-gray-50 transition-colors">
+                <div key={`${fu._id}-${index}`} className="border border-gray-100 dark:border-border-default rounded-xl p-4 flex justify-between items-center hover:bg-gray-50 dark:hover:bg-bg-hover transition-colors">
                   <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold shrink-0">
+                     <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-700 dark:text-purple-400 font-bold shrink-0">
                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                      </div>
                      <div>
@@ -406,7 +413,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                      </div>
                   </div>
                   <div className="text-right">
-                    <span className="inline-block bg-purple-50 text-purple-700 rounded-lg px-3 py-1 text-sm font-semibold shadow-sm">
+                    <span className="inline-block bg-purple-50 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-lg px-3 py-1 text-sm font-semibold shadow-sm">
                       {fu.followUpAtDisplay || "Today"}
                     </span>
                   </div>
@@ -414,7 +421,7 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
               ))}
               {(!priorityData?.followUps?.list || priorityData.followUps.list.length === 0) && (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className={emptyStateIconClass}>
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-lg font-medium text-gray-900">All caught up!</p>
@@ -428,24 +435,24 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
 
       {/* Collections Modal */}
       {isCollectionsModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center overflow-y-auto p-4 sm:p-6">
-          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-xl p-6 relative max-h-[90vh] flex flex-col">
+        <div className={modalOverlayClass}>
+          <div className={`${modalPanelClass} max-w-4xl`}>
             <button 
               onClick={() => setCollectionsModalOpen(false)} 
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+              className={modalCloseClass}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Outstanding Collections</h2>
             <p className="text-sm text-gray-500 mb-6">
               {outstandingBalanceData?.patientCount || 0} patient{(outstandingBalanceData?.patientCount || 0) === 1 ? "" : "s"} with unpaid balances totaling{" "}
-              <span className="font-semibold text-red-600">{formatCurrency(outstandingBalanceData?.totalPending || 0)}</span>
+              <span className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(outstandingBalanceData?.totalPending || 0)}</span>
             </p>
             <div className="overflow-y-auto flex-1 pr-2 custom-scrollbar">
               {outstandingBalanceData?.billingList && outstandingBalanceData.billingList.length > 0 ? (
                 <table className="w-full">
-                  <thead className="sticky top-0 bg-white">
-                    <tr className="border-b border-gray-200">
+                  <thead className="sticky top-0 bg-white dark:bg-bg-surface">
+                    <tr className="border-b border-gray-200 dark:border-border-default">
                       <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Patient</th>
                       <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Doctor</th>
                       <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Time</th>
@@ -456,10 +463,10 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                   </thead>
                   <tbody>
                     {outstandingBalanceData.billingList.map((item, index) => (
-                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <tr key={index} className="border-b border-gray-100 dark:border-border-default hover:bg-gray-50 dark:hover:bg-bg-hover transition-colors">
                         <td className="py-3 px-2">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold text-xs shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center text-red-700 dark:text-red-400 font-bold text-xs shrink-0">
                               {item.patientName?.charAt(0) || "P"}
                             </div>
                             <span className="font-medium text-gray-900 text-sm">{item.patientName}</span>
@@ -468,27 +475,27 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                         <td className="py-3 px-2 text-sm text-gray-700">{item.doctorName || "-"}</td>
                         <td className="py-3 px-2 text-sm text-gray-700">{item.appointmentTime || "-"}</td>
                         <td className="py-3 px-2">
-                          <span className="text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">{item.invoiceNumber || "-"}</span>
+                          <span className="text-sm font-mono text-gray-600 bg-gray-100 dark:bg-bg-hover px-2 py-1 rounded">{item.invoiceNumber || "-"}</span>
                         </td>
                         <td className="py-3 px-2 text-sm text-gray-700 max-w-[150px] truncate">{item.treatment || "-"}</td>
                         <td className="py-3 px-2 text-right">
-                          <span className="font-semibold text-red-600 text-sm">{formatCurrency(item.pendingAmount)}</span>
+                          <span className="font-semibold text-red-600 dark:text-red-400 text-sm">{formatCurrency(item.pendingAmount)}</span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="sticky bottom-0 bg-white border-t-2 border-gray-200">
+                  <tfoot className="sticky bottom-0 bg-white dark:bg-bg-surface border-t-2 border-gray-200 dark:border-border-default">
                     <tr>
                       <td colSpan={5} className="py-3 px-2 text-sm font-semibold text-gray-900">Total Outstanding</td>
                       <td className="py-3 px-2 text-right">
-                        <span className="font-bold text-red-600 text-base">{formatCurrency(outstandingBalanceData?.totalPending || 0)}</span>
+                        <span className="font-bold text-red-600 dark:text-red-400 text-base">{formatCurrency(outstandingBalanceData?.totalPending || 0)}</span>
                       </td>
                     </tr>
                   </tfoot>
                 </table>
               ) : (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <div className={emptyStateIconClass}>
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-lg font-medium text-gray-900">All clear!</p>

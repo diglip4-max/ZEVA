@@ -60,6 +60,25 @@
 .dark .bg-neutral-50 {
   background-color: var(--bg-surface) !important;
 }
+
+/* Clinic dashboard cream/hex surfaces (not covered by Tailwind gray/white remaps) */
+.dark .bg-\[\#FCFBF8\] {
+  background-color: var(--bg-page) !important;
+}
+.dark .bg-\[\#F5F4F0\] {
+  background-color: var(--bg-hover) !important;
+}
+.dark .bg-\[\#EAF1EC\],
+.dark .bg-\[\#EBF1ED\] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+.dark .bg-\[\#FAF6EA\],
+.dark .bg-\[\#FFF8E7\] {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+.dark .bg-\[\#FBEBEB\] {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
 .dark .bg-gray-50,
 .dark .bg-slate-100,
 .dark .bg-zinc-100,
