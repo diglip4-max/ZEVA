@@ -26,6 +26,7 @@ const FONTS = `
 
 export default function FinanceManager() {
   const router = useRouter();
+  const pathname = router.asPath;
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("view") || "overview";
   const { clinic } = useClinic();
@@ -137,33 +138,35 @@ export default function FinanceManager() {
               </button>
             </div> */}
           </div>
-          <div className="w-full px-6 sm:px-10 pb-4">
-            <div className="inline-flex items-center gap-1 bg-[#F8F5EF] dark:bg-[#0d1613] rounded-full p-1">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => {
-                    setActiveTab(t.id);
+          {pathname.includes("/clinic/finance-management") && (
+            <div className="w-full px-6 sm:px-10 pb-4">
+              <div className="inline-flex items-center gap-1 bg-[#F8F5EF] dark:bg-[#0d1613] rounded-full p-1">
+                {tabs.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setActiveTab(t.id);
 
-                    router.push(
-                      `/clinic/finance-management?view=${t.id}`,
-                      undefined,
-                      {
-                        shallow: true, // Prevents re-fetching if data is already loaded
-                      },
-                    );
-                  }}
-                  className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 ${
-                    activeTab === t.id
-                      ? "bg-white dark:bg-[#16231f] text-teal-700 dark:text-teal-300 shadow-sm"
-                      : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+                      router.push(
+                        `/clinic/finance-management?view=${t.id}`,
+                        undefined,
+                        {
+                          shallow: true, // Prevents re-fetching if data is already loaded
+                        },
+                      );
+                    }}
+                    className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 ${
+                      activeTab === t.id
+                        ? "bg-white dark:bg-[#16231f] text-teal-700 dark:text-teal-300 shadow-sm"
+                        : "text-stone-500 dark:text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="w-full px-6 sm:px-10 py-8 sm:py-10">
