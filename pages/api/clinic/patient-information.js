@@ -171,57 +171,52 @@ export default async function handler(req, res) {
       const andClauses = [];
       andClauses.push({ userId: query.userId });
 
-      // ── Optimized search logic ──
-      // Uses $text index for alphabetic queries (10-100x faster than $regex)
-      // Falls back to prefix regex for phone numbers and short queries (< 3 chars)
+      // ── Flexible search logic ──
+      // Uses CONTAINS regex for ALL fields (NO $text inside $or — MongoDB forbids that mix)
+      // NO prefix restrictions: searching "1234" matches EMR1234, INV-1234, etc.
+      // Search works across: firstName, lastName, email, emrNumber, invoiceNumber, mobileNumber
       if (name) {
         const trimmed = name.trim();
-        const sanitized = trimmed.replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-        const hasDigits = /\d/.test(trimmed);
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const orClauses = [];
 
-        if (!hasDigits && sanitized.length >= 3) {
-          // ✅ FAST PATH: Use $text index for alphabetic queries (3+ chars)
-          // Text index searches across firstName, lastName, email, emrNumber, invoiceNumber
-          // MongoDB tokenizer splits on whitespace/special chars, so partial tokens match
-          // e.g. "mus" matches "Mushtaq" because text index stores word tokens
-          const textTerms = sanitized.split(/\s+/).filter(Boolean);
-          const textSearch = textTerms.map((t) => `"${t}"`).join(" ");
-          andClauses.push({ $text: { $search: textSearch } });
+        // ALWAYS use CONTAINS regex for all fields (no ^ prefix restriction)
+        // This ensures searching "1234" finds EMR1234, INV1234, etc.
+        orClauses.push(
+          { firstName: { $regex: escRegex, $options: "i" } },
+          { lastName: { $regex: escRegex, $options: "i" } },
+          { email: { $regex: escRegex, $options: "i" } },
+          { emrNumber: { $regex: escRegex, $options: "i" } },
+          { invoiceNumber: { $regex: escRegex, $options: "i" } },
+        );
+
+        // Concatenated full-name match (firstName + " " + lastName) using $expr
+        orClauses.push({
+          $expr: {
+            $regexMatch: {
+              input: { $concat: ["$firstName", " ", "$lastName"] },
+              regex: escRegex,
+              options: "i",
+            },
+          },
+        });
+
+        // Phone number flexible matching (handles +91 98765-43210 etc.)
+        // AND digits-only contains match for mobile, EMR, and invoice fields
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
+          orClauses.push({ mobileNumber: { $regex: flexiblePattern, $options: "i" } });
+          // Extra: match consecutive digits appearing anywhere inside identifier fields
+          // e.g., searching "5432" finds "EMR-AB-5432-01" or "INV/2024/5432"
+          orClauses.push({ emrNumber: { $regex: digitsOnly, $options: "i" } });
+          orClauses.push({ invoiceNumber: { $regex: digitsOnly, $options: "i" } });
         } else {
-          // 🔁 FALLBACK: Regex for phone numbers or short queries (< 3 chars)
-          // Uses prefix regex (^term) which can leverage field indexes
-          const orClauses = [];
-          const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-          if (trimmed.length >= 2) {
-            // Prefix regex for name fields — can use single-field indexes
-            orClauses.push(
-              { firstName: { $regex: `^${escRegex}`, $options: "i" } },
-              { lastName: { $regex: `^${escRegex}`, $options: "i" } },
-              { email: { $regex: `^${escRegex}`, $options: "i" } },
-              { emrNumber: { $regex: `^${escRegex}`, $options: "i" } },
-              { invoiceNumber: { $regex: `^${escRegex}`, $options: "i" } },
-            );
-          } else {
-            // Single char — broader match
-            orClauses.push(
-              { firstName: { $regex: escRegex, $options: "i" } },
-              { lastName: { $regex: escRegex, $options: "i" } },
-              { email: { $regex: escRegex, $options: "i" } },
-              { emrNumber: { $regex: escRegex, $options: "i" } },
-              { invoiceNumber: { $regex: escRegex, $options: "i" } },
-            );
-          }
-
-          // Phone number flexible matching (handles +91 98765-43210 etc.)
-          const digitsOnly = trimmed.replace(/[^\d]/g, "");
-          if (digitsOnly) {
-            const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
-            orClauses.push({ mobileNumber: { $regex: flexiblePattern, $options: "i" } });
-          }
-
-          andClauses.push({ $or: orClauses });
+          // No digits — still do flexible contains match on mobileNumber field
+          orClauses.push({ mobileNumber: { $regex: escRegex, $options: "i" } });
         }
+
+        andClauses.push({ $or: orClauses });
       } else {
         // Dedicated filters when `name` is not used as omnibar
         if (emrNumber)

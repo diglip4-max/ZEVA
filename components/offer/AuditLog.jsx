@@ -2,13 +2,90 @@ import React, { useState, useEffect } from 'react';
 import { Search, ShieldAlert, RefreshCw } from 'lucide-react';
 
 const avatarColors = [
-  'bg-amber-100 text-amber-800 border-amber-200/80',
-  'bg-emerald-100 text-emerald-800 border-emerald-200/80',
-  'bg-sky-100 text-sky-800 border-sky-200/80',
-  'bg-purple-100 text-purple-800 border-purple-200/80',
-  'bg-rose-100 text-rose-800 border-rose-200/80',
-  'bg-indigo-100 text-indigo-800 border-indigo-200/80',
+  'bg-amber-100 text-amber-800 border-amber-200/80 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-800/60',
+  'bg-emerald-100 text-emerald-800 border-emerald-200/80 dark:bg-emerald-900/40 dark:text-emerald-200 dark:border-emerald-800/60',
+  'bg-sky-100 text-sky-800 border-sky-200/80 dark:bg-sky-900/40 dark:text-sky-200 dark:border-sky-800/60',
+  'bg-purple-100 text-purple-800 border-purple-200/80 dark:bg-purple-900/40 dark:text-purple-200 dark:border-purple-800/60',
+  'bg-rose-100 text-rose-800 border-rose-200/80 dark:bg-rose-900/40 dark:text-rose-200 dark:border-rose-800/60',
+  'bg-indigo-100 text-indigo-800 border-indigo-200/80 dark:bg-indigo-900/40 dark:text-indigo-200 dark:border-indigo-800/60',
 ];
+
+const TOKEN_KEYS = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+function resolveTokenAndClinicId() {
+  if (typeof window === "undefined") return { token: null, clinicId: "" };
+  let pickedToken = null;
+  let pickedRole = null;
+  // Role-aware token resolution (match token's decoded role with storage key)
+  try {
+    for (const key of TOKEN_KEYS) {
+      const raw = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const base64Url = raw.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")
+          )
+        );
+        const role = decoded.role;
+        if (!role) continue;
+        const roleMatchesKey =
+          (key === "agentToken" && (role === "agent" || role === "staff" || role === "doctorStaff")) ||
+          (key === "staffToken" && (role === "staff" || role === "doctorStaff" || role === "agent")) ||
+          (key === "clinicToken" && role === "clinic") ||
+          (key === "doctorToken" && (role === "doctor" || role === "doctorStaff")) ||
+          (key === "adminToken" && role === "admin") ||
+          key === "userToken";
+        if (roleMatchesKey) {
+          pickedToken = raw;
+          pickedRole = role;
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // fall through
+  }
+  // Fallback naive priority
+  if (!pickedToken) {
+    for (const key of TOKEN_KEYS) {
+      const v = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (v) { pickedToken = v; break; }
+    }
+  }
+  // Resolve clinicId: first localStorage clinicId, then decode JWT for clinicId field
+  let clinicId = "";
+  try {
+    clinicId = window.localStorage.getItem("clinicId") || window.sessionStorage.getItem("clinicId") || "";
+  } catch { /* ignore */ }
+  if (!clinicId && pickedToken) {
+    try {
+      const base64Url = pickedToken.split(".")[1];
+      if (base64Url) {
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")
+          )
+        );
+        if (decoded.clinicId) clinicId = String(decoded.clinicId);
+      }
+    } catch { /* ignore */ }
+  }
+  return { token: pickedToken, clinicId, role: pickedRole };
+}
 
 function formatAuditTimestamp(dateInput) {
   if (!dateInput) return '';
@@ -39,8 +116,7 @@ export default function AuditLog({ dateFilter = 'Today' }) {
     setLoading(true);
     setError(null);
     try {
-      const token = typeof window !== 'undefined' ? (localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken') || '') : '';
-      const clinicId = typeof window !== 'undefined' ? (localStorage.getItem('clinicId') || sessionStorage.getItem('clinicId') || '') : '';
+      const { token, clinicId } = resolveTokenAndClinicId();
 
       const queryParams = new URLSearchParams();
       if (clinicId) queryParams.append('clinicId', clinicId);
@@ -87,19 +163,19 @@ export default function AuditLog({ dateFilter = 'Today' }) {
   });
 
   return (
-    <div className="bg-[#FAF9F6] min-h-screen p-6 font-sans">
+    <div className="bg-[#FAF9F6] dark:bg-transparent min-h-screen p-6 font-sans">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Title Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Audit Log</h2>
-            <p className="text-sm text-gray-500 font-medium mt-0.5">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Audit Log</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">
               Who, what, when, why — before and after every change.
             </p>
           </div>
           <button
             onClick={fetchAuditLogs}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm transition-colors"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-colors"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -114,12 +190,12 @@ export default function AuditLog({ dateFilter = 'Today' }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search staff or action..."
-            className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-200/90 rounded-xl text-sm font-medium text-gray-800 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/90 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-bold bg-gray-100 rounded-full w-4 h-4 flex items-center justify-center leading-none"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs font-bold bg-gray-100 dark:bg-gray-700 dark:text-gray-200 rounded-full w-4 h-4 flex items-center justify-center leading-none"
               aria-label="Clear search"
             >
               ×
@@ -128,9 +204,9 @@ export default function AuditLog({ dateFilter = 'Today' }) {
         </div>
 
         {/* Audit Log Feed Card */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] p-6 space-y-5">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] p-6 space-y-5">
           {loading && logs.length === 0 ? (
-            <div className="py-16 text-center text-gray-400">
+            <div className="py-16 text-center text-gray-400 dark:text-gray-500">
               <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-600" />
               <p className="text-xs font-medium">Loading audit history...</p>
             </div>
@@ -140,12 +216,12 @@ export default function AuditLog({ dateFilter = 'Today' }) {
               <p className="text-sm font-semibold">{error}</p>
             </div>
           ) : filteredLogs.length === 0 ? (
-            <div className="py-16 text-center text-gray-400">
+            <div className="py-16 text-center text-gray-400 dark:text-gray-500">
               <p className="text-sm font-medium">No audit logs found.</p>
-              <p className="text-xs text-gray-400 mt-1">Try refining your search query or perform offer actions.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Try refining your search query or perform offer actions.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredLogs.map((item, index) => {
                 const colorClass = avatarColors[index % avatarColors.length];
                 const formattedTime = formatAuditTimestamp(item.createdAt || item.timestamp);
@@ -161,20 +237,20 @@ export default function AuditLog({ dateFilter = 'Today' }) {
                       {/* Log details */}
                       <div className="min-w-0">
                         {/* Action Title */}
-                        <h4 className="text-sm font-bold text-gray-900 leading-snug">
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 leading-snug">
                           {item.actionTitle}
                         </h4>
 
                         {/* User & Offer Line */}
-                        <p className="text-xs text-gray-600 mt-0.5 font-medium truncate">
+                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 font-medium truncate">
                           <span>{item.performedBy}</span>
-                          <span className="text-gray-400 mx-1.5">→</span>
-                          <span className="font-bold text-amber-700">{item.offerTitle}</span>
+                          <span className="text-gray-400 dark:text-gray-500 mx-1.5">→</span>
+                          <span className="font-bold text-amber-700 dark:text-amber-400">{item.offerTitle}</span>
                         </p>
 
                         {/* Reason / Subtext */}
                         {item.reason && (
-                          <p className="text-xs text-gray-400 mt-1 font-normal leading-relaxed">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-normal leading-relaxed">
                             {item.reason}
                           </p>
                         )}
@@ -182,7 +258,7 @@ export default function AuditLog({ dateFilter = 'Today' }) {
                     </div>
 
                     {/* Timestamp */}
-                    <div className="text-xs font-medium text-gray-400 shrink-0 pt-0.5">
+                    <div className="text-xs font-medium text-gray-400 dark:text-gray-500 shrink-0 pt-0.5">
                       {formattedTime}
                     </div>
                   </div>

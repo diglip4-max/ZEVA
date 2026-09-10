@@ -33,6 +33,44 @@ const TOKEN_PRIORITY = [
 
 const getStoredToken = () => {
   if (typeof window === "undefined") return null;
+  // First try role-aware resolution: inspect the JWT payload of each token and
+  // pick the one whose role matches the token storage key. This prevents using
+  // a stale clinicToken when the current user is logged in as agent/doctorStaff.
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const raw =
+        window.localStorage.getItem(key) ||
+        window.sessionStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const base64Url = raw.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        const role = decoded.role;
+        if (!role) continue;
+        const roleMatchesKey =
+          (key === "agentToken" && (role === "agent" || role === "staff" || role === "doctorStaff")) ||
+          (key === "staffToken" && (role === "staff" || role === "doctorStaff" || role === "agent")) ||
+          (key === "clinicToken" && role === "clinic") ||
+          (key === "doctorToken" && (role === "doctor" || role === "doctorStaff")) ||
+          (key === "adminToken" && role === "admin") ||
+          key === "userToken";
+        if (roleMatchesKey) return raw;
+      } catch {
+        // ignore decode errors for this token
+      }
+    }
+  } catch {
+    // fall through to naive priority
+  }
+  // Fallback: simple priority order (kept for tokens without decodable payloads)
   for (const key of TOKEN_PRIORITY) {
     const value =
       localStorage.getItem(key) ||
@@ -49,6 +87,33 @@ const getAuthHeaders = () => {
 
 const getUserRole = () => {
   if (typeof window === 'undefined') return null;
+  // Role-aware resolution: decode each token and only accept a token whose
+  // decoded role matches the storage key. This prevents returning "clinic"
+  // for an agent user who happens to have a stale clinicToken in storage.
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (!token) continue;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const role = payload.role || null;
+        if (!role) continue;
+        const roleMatchesKey =
+          (key === "agentToken" && (role === "agent" || role === "staff" || role === "doctorStaff")) ||
+          (key === "staffToken" && (role === "staff" || role === "doctorStaff" || role === "agent")) ||
+          (key === "clinicToken" && role === "clinic") ||
+          (key === "doctorToken" && (role === "doctor" || role === "doctorStaff")) ||
+          (key === "adminToken" && role === "admin") ||
+          key === "userToken";
+        if (roleMatchesKey) return role;
+      } catch (e) {
+        continue;
+      }
+    }
+  } catch (error) {
+    // ignore and fall through
+  }
+  // Fallback: first decodable token
   try {
     for (const key of TOKEN_PRIORITY) {
       const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
@@ -62,12 +127,14 @@ const getUserRole = () => {
       }
     }
   } catch (error) {
-    console.error('Error getting user role:', error);
+    // ignore
   }
   return null;
 };
 
-function OffersPage({ dateFilter = 'Today', setActiveTab }) {
+const MODULE_KEY = "clinic_create_offers";
+
+function OffersPage({ dateFilter = 'Today', setActiveTab, pageLevelPermissions }) {
   const router = useRouter();
   const [offers, setOffers] = useState([]);
   const [currency, setCurrency] = useState('INR');
@@ -128,8 +195,19 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
     return () => window.removeEventListener("storage", syncTokens);
   }, []);
 
-  // Fetch permissions - same pattern as myallClinic.tsx
+  // Use page-level permissions if provided, otherwise fetch self
   useEffect(() => {
+    if (pageLevelPermissions) {
+      setPermissions({
+        canRead: Boolean(pageLevelPermissions.canRead),
+        canCreate: Boolean(pageLevelPermissions.canCreate),
+        canUpdate: Boolean(pageLevelPermissions.canUpdate),
+        canDelete: Boolean(pageLevelPermissions.canDelete),
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
+
     const fetchPermissions = async () => {
       try {
         const authHeaders = getAuthHeaders();
@@ -146,7 +224,17 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
 
         const userRole = getUserRole();
 
-        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === "admin") {
+          setPermissions({
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
         if (userRole === "clinic" || userRole === "doctor") {
           try {
             const res = await axios.get("/api/clinic/sidebar-permissions", {
@@ -154,10 +242,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             });
 
             if (res.data.success) {
-              // Check if permissions array exists and is not null
-              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
               if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
-                // No admin restrictions set yet - default to full access for backward compatibility
                 setPermissions({
                   canCreate: true,
                   canRead: true,
@@ -165,21 +250,19 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                   canDelete: true,
                 });
               } else {
-                // Admin has set permissions - check the clinic_create_offers module
                 const modulePermission = res.data.permissions.find((p) => {
                   if (!p?.module) return false;
-                  // Check for clinic_create_offers module
+                  if (p.module === MODULE_KEY) return true;
                   if (p.module === "clinic_create_offers") return true;
                   if (p.module === "create_offers") return true;
                   if (p.module === "clinic_create_offer") return true;
                   if (p.module === "create_offer") return true;
+                  if (p.module === "Clinic_create_offers") return true;
                   return false;
                 });
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-
-                  // Check if "all" is true, which grants all permissions
                   const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
                   const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
                   const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
@@ -193,17 +276,15 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                     canDelete: moduleAll || moduleDelete,
                   });
                 } else {
-                  // Module permission not found in the permissions array - default to read-only
                   setPermissions({
                     canCreate: false,
-                    canRead: true, // Clinic/doctor can always read their own data
+                    canRead: true,
                     canUpdate: false,
                     canDelete: false,
                   });
                 }
               }
             } else {
-              // API response doesn't have permissions, default to full access (backward compatibility)
               setPermissions({
                 canCreate: true,
                 canRead: true,
@@ -212,8 +293,10 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               });
             }
           } catch (err) {
-            console.error("Error fetching clinic sidebar permissions:", err);
-            // On error, default to full access (backward compatibility)
+            const status = err.response?.status;
+            if (status !== 401 && status !== 403) {
+              console.debug("Clinic sidebar permissions fetch issue:", err.message || String(err));
+            }
             setPermissions({
               canCreate: true,
               canRead: true,
@@ -225,79 +308,57 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
           return;
         }
 
-        // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
         if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
-          let permissionsData = null;
           try {
-            // Get agentId from token
             const token = getStoredToken();
-            if (token) {
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              const agentId = payload.userId || payload.id;
-
-              if (agentId) {
-                const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
-                  headers: authHeaders,
-                });
-
-                if (res.data.success && res.data.data) {
-                  permissionsData = res.data.data;
-                }
-              }
-            }
-          } catch (err) {
-            console.error("Error fetching agent permissions:", err);
-          }
-
-          if (permissionsData && permissionsData.permissions) {
-            const modulePermission = permissionsData.permissions.find((p) => {
-              if (!p?.module) return false;
-              if (p.module === "create_offers") return true;
-              if (p.module === "clinic_create_offers") return true;
-              if (p.module === "clinic_create_offer") return true;
-              if (p.module === "create_offer") return true;
-              if (p.module.startsWith("clinic_") && p.module.slice(7) === "create_offers") {
-                return true;
-              }
-              return false;
+            let res = await axios.get("/api/agent/get-module-permissions", {
+              params: { moduleKey: MODULE_KEY },
+              headers: { Authorization: `Bearer ${token}` },
             });
+            let data = res.data;
 
-            if (modulePermission) {
-              const actions = modulePermission.actions || {};
-
-              // Module-level "all" grants all permissions
-              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
-              const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
-              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
-              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
-              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
-
-              setPermissions({
-                canCreate: moduleAll || moduleCreate,
-                canRead: moduleAll || moduleRead,
-                canUpdate: moduleAll || moduleUpdate,
-                canDelete: moduleAll || moduleDelete,
+            if (!data?.permissions && data?.error?.includes("not found")) {
+              res = await axios.get("/api/agent/get-module-permissions", {
+                params: { moduleKey: "create_offers" },
+                headers: { Authorization: `Bearer ${token}` },
               });
-            } else {
-              // No permissions found for this module, default to false
-              setPermissions({
-                canCreate: false,
-                canRead: false,
-                canUpdate: false,
-                canDelete: false,
-              });
+              data = res.data;
             }
-          } else {
-            // API failed or no permissions data, default to false
+
+            if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+              setPermissionsLoaded(true);
+              return;
+            }
+
+            const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
+            const isTrue = (val) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+
+            const canAll = isTrue(actions.all);
             setPermissions({
-              canCreate: false,
-              canRead: false,
-              canUpdate: false,
-              canDelete: false,
+              canRead: canAll || isTrue(actions.read),
+              canCreate: canAll || isTrue(actions.create),
+              canUpdate: canAll || isTrue(actions.update),
+              canDelete: canAll || isTrue(actions.delete),
+            });
+          } catch (err) {
+            const status = err.response?.status;
+            if (status !== 401 && status !== 403) {
+              console.debug("Agent module permissions fetch issue:", err.message || String(err));
+            }
+            setPermissions({
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
             });
           }
         } else {
-          // Unknown role, default to false
           setPermissions({
             canCreate: false,
             canRead: false,
@@ -307,20 +368,22 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
         }
         setPermissionsLoaded(true);
       } catch (err) {
-        console.error("Error fetching permissions:", err);
-        // On error, default to false (no permissions)
+        const status = err.response?.status;
+        if (status !== 401 && status !== 403) {
+          console.debug("Permissions fetch error:", err.message || String(err));
+        }
         setPermissions({
-          canCreate: false,
-          canRead: false,
-          canUpdate: false,
-          canDelete: false,
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
         });
         setPermissionsLoaded(true);
       }
     };
 
     fetchPermissions();
-  }, []);
+  }, [pageLevelPermissions]);
 
   const userRole = getUserRole();
 
@@ -826,11 +889,11 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
           },
         }}
       />
-      <div className="min-h-screen bg-[#FDFCFB] p-3 sm:p-4">
+      <div className="min-h-screen bg-[#FDFCFB] dark:bg-gray-900 p-3 sm:p-4">
         <div className="max-w-9xl mx-auto space-y-3">
           {!permissionsLoaded ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-              <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
+              <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-300 font-medium">Loading permissions...</p>
             </div>
           ) : !finalCanRead && !finalCanCreate ? (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -848,7 +911,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               </div>
             </div>
           ) : !finalCanRead && finalCanCreate ? (
-            <div className="min-h-screen bg-[#FDFCFB] p-3 sm:p-4">
+            <div className="min-h-screen bg-[#FDFCFB] dark:bg-gray-900 p-3 sm:p-4">
               <div className="max-w-9xl mx-auto space-y-3">
                 {/* Compact Header Section */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
@@ -906,11 +969,11 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
           ) : (
             <>
               {/* Compact Header Section */}
-              <div className="bg-white rounded-xl border border-[#E9E3D8] p-3 sm:p-4">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-[#E9E3D8] dark:border-gray-700 p-3 sm:p-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                   <div>
-                    <h1 className="text-lg sm:text-xl font-bold text-gray-950 mb-0.5">Offers Management</h1>
-                    <p className="text-[10px] sm:text-xs text-gray-500">Create and manage promotional offers for your clinic</p>
+                    <h1 className="text-lg sm:text-xl font-bold text-gray-950 dark:text-gray-100 mb-0.5">Offers Management</h1>
+                    <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">Create and manage promotional offers for your clinic</p>
                   </div>
                   <div className="flex gap-2">
                     {finalCanCreate === true && (
@@ -924,46 +987,39 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                             setModalOpen(true);
                           }
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 bg-[#171717] hover:bg-[#303030] text-white px-3 py-2 rounded-lg shadow-sm transition-all duration-200 text-xs sm:text-sm font-medium"
+                        className="inline-flex items-center justify-center gap-1.5 bg-[#171717] dark:bg-indigo-600 hover:bg-[#303030] dark:hover:bg-indigo-700 text-white px-3 py-2 rounded-lg shadow-sm transition-all duration-200 text-xs sm:text-sm font-medium"
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                         <span>Create New Offer</span>
                       </button>
                     )}
-                    {/* <button
-                    onClick={exportOffersToCSV}
-                    className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    <span>Export</span>
-                  </button> */}
                   </div>
                 </div>
               </div>
 
               {/* Enhanced Stats Cards - Row 1: Overview */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-                <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-gray-800 dark:border-indigo-500 p-2.5 sm:p-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center">
+                    <div className="w-6 h-6 bg-teal-800 dark:bg-teal-700 rounded-lg flex items-center justify-center">
                       <Package className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Total</p>
+                    <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase">Total</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-teal-900">{offers.length}</p>
+                  <p className="text-lg sm:text-xl font-bold text-teal-900 dark:text-gray-100">{offers.length}</p>
                 </div>
 
                 <div
                   onClick={() => activeOffersList.length > 0 && setShowActiveModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3 ${activeOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-green-200 hover:ring-green-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3 ${activeOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-green-200 dark:ring-green-900/60 hover:ring-green-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
                       <TrendingUp className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Active</p>
+                    <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase">Active</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
+                  <p className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400">{activeOffers}</p>
                   <p className="text-[9px] text-green-400 font-medium mt-0.5">
                     {activeOffersList.length > 0 ? 'Click to view all \u2192' : ''}
                   </p>
@@ -971,15 +1027,15 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
 
                 <div
                   onClick={() => inactiveOffersList.length > 0 && setShowInactiveModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3 ${inactiveOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-gray-200 hover:ring-gray-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3 ${inactiveOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-gray-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center">
                       <Package className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Inactive</p>
+                    <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase">Inactive</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-teal-700">{inactiveOffers}</p>
+                  <p className="text-lg sm:text-xl font-bold text-teal-700 dark:text-gray-200">{inactiveOffers}</p>
                   <p className="text-[9px] text-gray-400 font-medium mt-0.5">
                     {inactiveOffersList.length > 0 ? 'Click to view all \u2192' : ''}
                   </p>
@@ -987,32 +1043,32 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
 
                 <div
                   onClick={() => expiringOffersList.length > 0 && setShowExpiringModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3 ${expiringOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-amber-200 hover:ring-amber-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3 ${expiringOffersList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-amber-200 dark:ring-amber-900/60 hover:ring-amber-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
                       <Calendar className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-teal-600 uppercase">Expiring</p>
+                    <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 uppercase">Expiring</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringOffersList.length}</p>
-                  <p className="text-[9px] text-amber-500 font-medium mt-0.5">
+                  <p className="text-lg sm:text-xl font-bold text-amber-600 dark:text-amber-400">{expiringOffersList.length}</p>
+                  <p className="text-[9px] text-amber-500 dark:text-amber-400 font-medium mt-0.5">
                     {expiringOffersList.length > 0 ? `${expiringSoon} in 7 days \u00b7 Click to view all \u2192` : 'next 7 days'}
                   </p>
                 </div>
 
                 <div
                   onClick={() => offerAnalytics.instantDiscount.list.length > 0 && setShowDiscountModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3 ${offerAnalytics.instantDiscount.list.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-blue-200 hover:ring-blue-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3 ${offerAnalytics.instantDiscount.list.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-blue-200 dark:ring-blue-900/60 hover:ring-blue-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
                       <TrendingUp className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-blue-600 uppercase">Total Discount Applied</p>
+                    <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase">Total Discount Applied</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-blue-700">{getCurrencySymbol(currency)}{offerAnalytics.instantDiscount.totalDiscount.toFixed(2)}</p>
-                  <p className="text-[9px] text-blue-500 font-medium mt-0.5">
+                  <p className="text-lg sm:text-xl font-bold text-blue-700 dark:text-blue-400">{getCurrencySymbol(currency)}{offerAnalytics.instantDiscount.totalDiscount.toFixed(2)}</p>
+                  <p className="text-[9px] text-blue-500 dark:text-blue-400 font-medium mt-0.5">
                     {offerAnalytics.instantDiscount.list.length > 0 ? 'Click to view details \u2192' : `${offerAnalytics.instantDiscount.count} invoice${offerAnalytics.instantDiscount.count !== 1 ? 's' : ''}`}
                   </p>
                 </div>
@@ -1022,32 +1078,32 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                 <div
                   onClick={() => offerAnalytics.offersUsedList.length > 0 && setShowOffersUsedModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-orange-500 p-2.5 sm:p-3 ${offerAnalytics.offersUsedList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-orange-200 hover:ring-orange-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-orange-500 p-2.5 sm:p-3 ${offerAnalytics.offersUsedList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-orange-200 dark:ring-orange-900/60 hover:ring-orange-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-orange-500 rounded-lg flex items-center justify-center">
                       <Package className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-orange-600 uppercase">Total Offers Used</p>
+                    <p className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 uppercase">Total Offers Used</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-orange-600">{offerAnalytics.totalOfferBillings}</p>
-                  <p className="text-[9px] text-orange-400 font-medium mt-0.5">
+                  <p className="text-lg sm:text-xl font-bold text-orange-600 dark:text-orange-400">{offerAnalytics.totalOfferBillings}</p>
+                  <p className="text-[9px] text-orange-400 dark:text-orange-400 font-medium mt-0.5">
                     {offerAnalytics.offersUsedList.length > 0 ? 'Click to view details \u2192' : 'instant + cashback + bundle'}
                   </p>
                 </div>
 
                 <div
                   onClick={() => offerAnalytics.revenueBillingList.length > 0 && setShowRevenueModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3 ${offerAnalytics.revenueBillingList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-green-200 hover:ring-green-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3 ${offerAnalytics.revenueBillingList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-green-200 dark:ring-green-900/60 hover:ring-green-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
                       <TrendingUp className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-green-600 uppercase">Total Revenue</p>
+                    <p className="text-[10px] font-semibold text-green-600 dark:text-green-400 uppercase">Total Revenue</p>
                   </div>
-                  <p className="text-lg sm:text-xl font-bold text-green-700">{getCurrencySymbol(currency)}{offerAnalytics.totalRevenue.toFixed(2)}</p>
-                  <p className="text-[9px] text-green-500 font-medium mt-0.5">from offer-applied billings</p>
+                  <p className="text-lg sm:text-xl font-bold text-green-700 dark:text-green-400">{getCurrencySymbol(currency)}{offerAnalytics.totalRevenue.toFixed(2)}</p>
+                  <p className="text-[9px] text-green-500 dark:text-green-400 font-medium mt-0.5">from offer-applied billings</p>
                   {offerAnalytics.revenueBillingList.length > 0 && (
                     <p className="text-[8px] text-green-400 mt-1 font-medium">Click to view billings \u2192</p>
                   )}
@@ -1055,17 +1111,17 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
 
                 <div
                   onClick={() => offerAnalytics.mostUsedOffers.length > 0 && setShowMostUsedModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-purple-500 p-2.5 sm:p-3 ${offerAnalytics.mostUsedOffers.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-purple-200 hover:ring-purple-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-purple-500 p-2.5 sm:p-3 ${offerAnalytics.mostUsedOffers.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-purple-200 dark:ring-purple-900/60 hover:ring-purple-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center">
                       <Gift className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-purple-600 uppercase">Most Used Offer</p>
+                    <p className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase">Most Used Offer</p>
                   </div>
                   {offerAnalytics.mostUsedOffers.length > 0 ? (
                     <>
-                      <p className="text-lg sm:text-xl font-bold text-purple-700">{offerAnalytics.mostUsedOffers.length}</p>
+                      <p className="text-lg sm:text-xl font-bold text-purple-700 dark:text-purple-400">{offerAnalytics.mostUsedOffers.length}</p>
                       <p className="text-[9px] text-purple-400 font-medium mt-0.5">
                         {offerAnalytics.mostUsedOffers.map((o) => {
                           const label = o.offerType === 'instant_discount' ? 'Instant' : o.offerType === 'cashback' ? 'Cashback' : 'Bundle';
@@ -1084,17 +1140,17 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
 
                 <div
                   onClick={() => offerAnalytics.underperformingOffers.length > 0 && setShowUnderperformingModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-red-500 p-2.5 sm:p-3 ${offerAnalytics.underperformingOffers.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-red-200 hover:ring-red-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-red-500 p-2.5 sm:p-3 ${offerAnalytics.underperformingOffers.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-red-200 dark:ring-red-900/60 hover:ring-red-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-red-500 rounded-lg flex items-center justify-center">
                       <AlertTriangle className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-red-600 uppercase">Underperforming Offer</p>
+                    <p className="text-[10px] font-semibold text-red-600 dark:text-red-400 uppercase">Underperforming Offer</p>
                   </div>
                   {offerAnalytics.underperformingOffers.length > 0 ? (
                     <>
-                      <p className="text-lg sm:text-xl font-bold text-red-700">{offerAnalytics.underperformingOffers.length}</p>
+                      <p className="text-lg sm:text-xl font-bold text-red-700 dark:text-red-400">{offerAnalytics.underperformingOffers.length}</p>
                       <p className="text-[9px] text-red-400 font-medium mt-0.5">
                         {offerAnalytics.underperformingOffers.slice(0, 3).map((o) => o.title).join(', ')}
                         {offerAnalytics.underperformingOffers.length > 3 ? ` +${offerAnalytics.underperformingOffers.length - 3} more` : ''}
@@ -1112,17 +1168,17 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                 {/* Top Patients Card */}
                 <div
                   onClick={() => offerAnalytics.topPatientsList.length > 0 && setShowTopPatientsModal(true)}
-                  className={`bg-white rounded-lg shadow-sm border-l-4 border-purple-500 p-2.5 sm:p-3 ${offerAnalytics.topPatientsList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-purple-200 hover:ring-purple-300' : ''}`}
+                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-purple-500 p-2.5 sm:p-3 ${offerAnalytics.topPatientsList.length > 0 ? 'cursor-pointer hover:shadow-md hover:scale-[1.02] transition-all duration-200 ring-1 ring-purple-200 dark:ring-purple-900/60 hover:ring-purple-300' : ''}`}
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-6 h-6 bg-purple-500 rounded-lg flex items-center justify-center">
                       <Crown className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-[10px] font-semibold text-purple-600 uppercase">Top Patients</p>
+                    <p className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 uppercase">Top Patients</p>
                   </div>
                   {offerAnalytics.topPatientsList.length > 0 ? (
                     <>
-                      <p className="text-lg sm:text-xl font-bold text-purple-700">{offerAnalytics.topPatientsList.length}</p>
+                      <p className="text-lg sm:text-xl font-bold text-purple-700 dark:text-purple-400">{offerAnalytics.topPatientsList.length}</p>
                       <p className="text-[9px] text-purple-400 font-medium mt-0.5">
                         top patient{offerAnalytics.topPatientsList.length !== 1 ? 's' : ''}: {offerAnalytics.topPatientsList[0].patientName}
                       </p>
@@ -1138,12 +1194,12 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               </div>
 
               {/* Compact Offers Table */}
-              <div className="bg-white rounded-xl border border-[#E9E3D8] overflow-hidden shadow-[0_2px_8px_rgba(30,24,16,0.04)]">
-                <div className="px-3 py-2.5 border-b border-[#E9E3D8] bg-[#FDFCFB]">
+              <div className="bg-white dark:bg-gray-800 rounded-xl border border-[#E9E3D8] dark:border-gray-700 overflow-hidden shadow-[0_2px_8px_rgba(30,24,16,0.04)]">
+                <div className="px-3 py-2.5 border-b border-[#E9E3D8] dark:border-gray-700 bg-[#FDFCFB] dark:bg-gray-800/90">
                   <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-gray-700" />
-                    <h2 className="text-sm sm:text-base font-bold text-gray-950">All Offers</h2>
-                    <span className="ml-auto text-[10px] text-gray-600 bg-[#F5F2EC] px-2 py-0.5 rounded-md">
+                    <Package className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                    <h2 className="text-sm sm:text-base font-bold text-gray-950 dark:text-gray-100">All Offers</h2>
+                    <span className="ml-auto text-[10px] text-gray-600 dark:text-gray-300 bg-[#F5F2EC] dark:bg-gray-700 px-2 py-0.5 rounded-md">
                       {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
                     </span>
                   </div>
@@ -1152,14 +1208,14 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                 <div className="p-2.5 sm:p-3">
                   {offers.length === 0 ? (
                     <div className="text-center py-8">
-                      <div className="inline-flex items-center justify-center w-10 h-10 bg-teal-100 rounded-lg mb-2">
-                        <Package className="h-5 w-5 text-teal-800" />
+                      <div className="inline-flex items-center justify-center w-10 h-10 bg-teal-100 dark:bg-teal-900/50 rounded-lg mb-2">
+                        <Package className="h-5 w-5 text-teal-800 dark:text-teal-200" />
                       </div>
-                      <h3 className="text-sm font-bold text-teal-900 mb-1">No offers yet</h3>
+                      <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100 mb-1">No offers yet</h3>
                       {finalCanRead === true ? (
-                        <p className="text-teal-600 text-xs mb-3">Get started by creating your first promotional offer</p>
+                        <p className="text-teal-600 dark:text-teal-300 text-xs mb-3">Get started by creating your first promotional offer</p>
                       ) : (
-                        <p className="text-teal-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
+                        <p className="text-teal-600 dark:text-teal-300 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
                       )}
                       {finalCanCreate === true && (
                         <button
@@ -1172,55 +1228,55 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                               setModalOpen(true);
                             }
                           }}
-                          className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
+                          className="inline-flex items-center gap-1.5 bg-teal-600 dark:bg-teal-500 hover:bg-teal-700 dark:hover:bg-teal-600 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
                         >
                           <PlusCircle className="h-3.5 w-3.5" />
                           <span>Create Your First Offer</span>
                         </button>
                       )}
                       {finalCanCreate !== true && (
-                        <p className="text-red-500 text-xs">You do not have permission to create offers</p>
+                        <p className="text-red-500 dark:text-red-400 text-xs">You do not have permission to create offers</p>
                       )}
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-[#FDFCFB]">
-                          <tr className="border-b border-[#E9E3D8]">
-                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                        <thead className="bg-[#FDFCFB] dark:bg-gray-800/80">
+                          <tr className="border-b border-[#E9E3D8] dark:border-gray-700">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Offer Details
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Type
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Value
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Validity
                             </th>
-                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Revenue
                             </th>
-                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Patients
                             </th>
-                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Status
                             </th>
-                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                            <th className="px-2 py-2 text-right text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                               Actions
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#EEE9E1]">
+                        <tbody className="divide-y divide-[#EEE9E1] dark:divide-gray-700">
                           {offers.map((offer) => {
                             const isExpiringSoon = offer.endsAt && offer.status === "active" &&
                               new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
                               new Date(offer.endsAt) >= new Date();
 
                             return (
-                              <tr key={offer._id} className="hover:bg-[#FAF8F4] transition-colors">
+                              <tr key={offer._id} className="hover:bg-[#FAF8F4] dark:hover:bg-gray-700/50 transition-colors">
                                 <td className="px-2 py-2">
                                   <div className="flex items-center gap-2">
                                     <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${offer.offerType === "instant_discount" ? "bg-green-600" :
@@ -1229,20 +1285,20 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                                       <Package className="h-3 w-3 text-white" />
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="font-bold text-gray-950 text-xs truncate">{offer.title}</p>
-                                      <p className="text-[10px] text-gray-400">ID: {offer._id.slice(-6)}</p>
+                                      <p className="font-bold text-gray-950 dark:text-gray-100 text-xs truncate">{offer.title}</p>
+                                      <p className="text-[10px] text-gray-400 dark:text-gray-500">ID: {offer._id.slice(-6)}</p>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="px-2 py-2">
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${offer.offerType === "instant_discount" ? "bg-[#F1F5F2] text-[#5C7D69]" :
-                                    offer.offerType === "bundle" ? "bg-[#FBF4E8] text-[#A87732]" : "bg-[#EEF4F8] text-[#527892]"
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium capitalize ${offer.offerType === "instant_discount" ? "bg-[#F1F5F2] dark:bg-emerald-950/50 text-[#5C7D69] dark:text-emerald-300" :
+                                    offer.offerType === "bundle" ? "bg-[#FBF4E8] dark:bg-amber-950/50 text-[#A87732] dark:text-amber-300" : "bg-[#EEF4F8] dark:bg-sky-950/50 text-[#527892] dark:text-sky-300"
                                     }`}>
                                     {offer.offerType?.replace("_", " ") || "—"}
                                   </span>
                                 </td>
                                 <td className="px-2 py-2">
-                                  <span className="text-xs sm:text-sm font-bold text-teal-900 dark:text-white">
+                                  <span className="text-xs sm:text-sm font-bold text-teal-900 dark:text-gray-100">
                                     {offer.offerType === "instant_discount" ? (
                                       offer.discountMode === "percentage" ? `${offer.discountValue}% OFF` : `${getCurrencySymbol(currency)}${offer.discountValue} OFF`
                                     ) : offer.offerType === "bundle" ? (
@@ -1253,8 +1309,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                                   </span>
                                 </td>
                                 <td className="px-2 py-2">
-                                  <div className="flex items-center gap-1 text-gray-600">
-                                    <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                  <div className="flex items-center gap-1 text-gray-600 dark:text-gray-300">
+                                    <Calendar className="h-3 w-3 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                                     <span className="text-[10px] sm:text-xs">
                                       {offer.endsAt
                                         ? new Date(offer.endsAt).toLocaleDateString("en-US", {
@@ -1265,33 +1321,33 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                                         : "No expiry"}
                                     </span>
                                     {isExpiringSoon && (
-                                      <span className="ml-1 px-1 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-semibold rounded">
+                                      <span className="ml-1 px-1 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-[9px] font-semibold rounded">
                                         Soon
                                       </span>
                                     )}
                                   </div>
                                 </td>
                                 <td className="px-2 py-2 text-right">
-                                  <span className="text-xs sm:text-sm font-bold text-emerald-700">
+                                  <span className="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">
                                     {offerAnalytics.allOffersStats?.[offer._id]
                                       ? `${getCurrencySymbol(currency)}${(offerAnalytics.allOffersStats[offer._id].totalPaid ?? 0).toFixed(2)}`
                                       : '—'}
                                   </span>
                                 </td>
                                 <td className="px-2 py-2 text-right">
-                                  <span className="text-xs sm:text-sm font-bold text-gray-900">
+                                  <span className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100">
                                     {offerAnalytics.allOffersStats?.[offer._id]?.patientCount || '—'}
                                   </span>
                                 </td>
                                 <td className="px-2 py-2">
                                   <span
-                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold dark:text-white ${offer.status === "active"
-                                      ? "bg-[#EFF7F1] text-[#48805C] border border-[#CFE2D4]"
-                                      : "bg-[#F5F2EC] text-gray-600 border border-[#E9E3D8]"
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${offer.status === "active"
+                                      ? "bg-[#EFF7F1] dark:bg-emerald-950/50 text-[#48805C] dark:text-emerald-300 border border-[#CFE2D4] dark:border-emerald-800"
+                                      : "bg-[#F5F2EC] dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-[#E9E3D8] dark:border-gray-600"
                                       }`}
                                   >
                                     <span
-                                      className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active" ? "bg-[#65A878]" : "bg-gray-400"
+                                      className={`w-1.5 h-1.5 rounded-full mr-1 ${offer.status === "active" ? "bg-[#65A878] dark:bg-emerald-400" : "bg-gray-400"
                                         }`}
                                     ></span>
                                     {offer.status}
@@ -1302,7 +1358,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                                     {finalCanRead === true && (
                                       <button
                                         onClick={() => setViewingOffer(offer)}
-                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 hover:bg-teal-200 dark:hover:bg-teal-800 transition-colors"
                                         title="View offer"
                                       >
                                         <Eye className="h-3 w-3" />
@@ -1311,7 +1367,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                                     {finalCanUpdate === true && (
                                       <button
                                         onClick={() => openEditModal(offer._id)}
-                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 hover:bg-teal-200 dark:hover:bg-teal-800 transition-colors"
                                         title="Edit offer"
                                       >
                                         <Edit className="h-3 w-3" />
@@ -1320,7 +1376,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                                     {finalCanDelete === true && (
                                       <button
                                         onClick={() => requestDeleteOffer(offer)}
-                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 dark:bg-red-600 dark:text-red-50 hover:bg-red-100 transition-colors"
+                                        className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/80 transition-colors"
                                         title="Delete offer"
                                       >
                                         <Trash2 className="h-3 w-3" />
@@ -1549,8 +1605,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                               </span>
                             </div>
                             <div>
-                              <p className="text-[10px] font-semibold text-white mb-1.5">Cashback Expiry (Days)</p>
-                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 text-teal-800 rounded-lg text-xs border border-teal-200 font-medium">
+                              <p className="text-[10px] font-semibold text-teal-700 dark:text-teal-300 mb-1.5">Cashback Expiry (Days)</p>
+                              <span className="inline-flex items-center px-3 py-2 bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-200 rounded-lg text-xs border border-teal-200 dark:border-teal-800 font-medium">
                                 {viewingOffer.cashbackExpiryDays ?? "—"}
                               </span>
                             </div>
@@ -1803,17 +1859,17 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
           aria-modal="true"
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full overflow-hidden border border-gray-100 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-red-50">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-red-50 dark:bg-red-950/40">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                  <Trash2 className="w-4 h-4 text-red-600" />
+                <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/60 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-teal-900">Delete Offer</p>
-                  <p className="text-[10px] text-teal-700 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
+                  <p className="text-sm font-bold text-teal-900 dark:text-gray-100">Delete Offer</p>
+                  <p className="text-[10px] text-teal-700 dark:text-gray-300 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
                 </div>
               </div>
               <button
@@ -1821,15 +1877,15 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="p-1 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-teal-500 hover:text-teal-700"
+                className="p-1 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/60 focus:outline-none focus:ring-2 focus:ring-red-500 text-teal-500 hover:text-teal-700 dark:text-gray-400 dark:hover:text-gray-200"
                 aria-label="Close confirmation dialog"
               >
                 ×
               </button>
             </div>
-            <div className="p-4 text-xs sm:text-sm text-teal-700 space-y-1.5">
+            <div className="p-4 text-xs sm:text-sm text-teal-700 dark:text-gray-300 space-y-1.5">
               <p>Are you sure you want to delete this offer? This action cannot be undone.</p>
-              <p className="text-[10px] text-teal-600">All references to this offer will be removed.</p>
+              <p className="text-[10px] text-teal-600 dark:text-gray-400">All references to this offer will be removed.</p>
             </div>
             <div className="flex gap-2 px-4 pb-4">
               <button
@@ -1837,7 +1893,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-teal-700 hover:bg-teal-50 transition-colors"
+                className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-xs sm:text-sm font-medium text-teal-700 dark:text-gray-300 hover:bg-teal-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
@@ -1855,7 +1911,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Most Used Offer Modal ── */}
       {showMostUsedModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowMostUsedModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -1883,10 +1939,10 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               {offerAnalytics.mostUsedOffers.map((item, idx) => {
                 const typeLabel = item.offerType === 'instant_discount' ? 'Instant Discount' : item.offerType === 'cashback' ? 'Cashback' : 'Bundle';
                 const typeColor = item.offerType === 'instant_discount'
-                  ? { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' }
+                  ? { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' }
                   : item.offerType === 'cashback'
-                  ? { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100 text-cyan-700' }
-                  : { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700' };
+                  ? { bg: 'bg-cyan-50 dark:bg-cyan-950/30', border: 'border-cyan-200 dark:border-cyan-800', text: 'text-cyan-700 dark:text-cyan-300', badge: 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300' }
+                  : { bg: 'bg-violet-50 dark:bg-violet-950/30', border: 'border-violet-200 dark:border-violet-800', text: 'text-violet-700 dark:text-violet-300', badge: 'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300' };
                 const offerNames = item.offerNames || (item.offerName ? [item.offerName] : []);
                 const useCount = item.count ?? item.saleCount ?? 0;
 
@@ -1904,17 +1960,17 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                     </div>
                     {offerNames.length > 0 ? (
                       <div className="space-y-1.5">
-                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Offer Names</p>
+                        <p className="text-[9px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Offer Names</p>
                         <div className="flex flex-wrap gap-1.5">
                           {offerNames.map((name, i) => (
-                            <span key={i} className="px-2.5 py-1 rounded-lg bg-white text-xs font-semibold text-gray-700 border border-gray-200 shadow-sm">
+                            <span key={i} className="px-2.5 py-1 rounded-lg bg-white dark:bg-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 shadow-sm">
                               {name}
                             </span>
                           ))}
                         </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 italic">No offer names recorded</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 italic">No offer names recorded</p>
                     )}
                   </div>
                 );
@@ -1922,7 +1978,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
               <button
                 onClick={() => setShowMostUsedModal(false)}
                 className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors"
@@ -1937,7 +1993,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Underperforming Offer Modal ── */}
       {showUnderperformingModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowUnderperformingModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -1963,23 +2019,23 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               {offerAnalytics.underperformingOffers.map((item, idx) => {
                 const typeLabel = item.offerType === 'instant_discount' ? 'Instant Discount' : item.offerType === 'cashback' ? 'Cashback' : 'Bundle';
                 const typeColor = item.offerType === 'instant_discount'
-                  ? { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700' }
+                  ? { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800', badge: 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' }
                   : item.offerType === 'cashback'
-                  ? { bg: 'bg-cyan-50', border: 'border-cyan-200', badge: 'bg-cyan-100 text-cyan-700' }
-                  : { bg: 'bg-violet-50', border: 'border-violet-200', badge: 'bg-violet-100 text-violet-700' };
+                  ? { bg: 'bg-cyan-50 dark:bg-cyan-950/30', border: 'border-cyan-200 dark:border-cyan-800', badge: 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300' }
+                  : { bg: 'bg-violet-50 dark:bg-violet-950/30', border: 'border-violet-200 dark:border-violet-800', badge: 'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300' };
 
                 return (
                   <div key={idx} className={`rounded-xl border ${typeColor.border} ${typeColor.bg} p-4`}>
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 truncate">{item.title}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{item.title}</p>
                         <span className={`inline-block mt-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider ${typeColor.badge}`}>
                           {typeLabel}
                         </span>
                       </div>
                       <div className="text-right ml-3">
-                        <p className="text-lg font-extrabold text-red-600">{item.usedCount}</p>
-                        <p className="text-[9px] text-red-400 font-medium">{item.usedCount === 1 ? 'use' : 'uses'}</p>
+                        <p className="text-lg font-extrabold text-red-600 dark:text-red-400">{item.usedCount}</p>
+                        <p className="text-[9px] text-red-400 dark:text-red-300 font-medium">{item.usedCount === 1 ? 'use' : 'uses'}</p>
                       </div>
                     </div>
                   </div>
@@ -1988,7 +2044,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
               <button
                 onClick={() => setShowUnderperformingModal(false)}
                 className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors"
@@ -2003,7 +2059,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Total Revenue Modal ── */}
       {showRevenueModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRevenueModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2027,36 +2083,36 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             {/* Content */}
             <div className="overflow-y-auto max-h-[60vh]">
               <table className="w-full">
-                <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/80 border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Patient</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Offer Applied</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Paid</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Patient</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Invoice</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Offer Applied</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Paid</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {offerAnalytics.revenueBillingList.map((billing, idx) => {
                     const offerTypeLabel = billing.offerType === 'instant_discount' ? 'Instant' : billing.offerType === 'cashback' ? 'Cashback' : billing.offerType === 'bundle' ? 'Bundle' : '';
                     const offerTypeColor = billing.offerType === 'instant_discount'
-                      ? 'bg-blue-100 text-blue-700'
+                      ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300'
                       : billing.offerType === 'cashback'
-                      ? 'bg-cyan-100 text-cyan-700'
-                      : 'bg-violet-100 text-violet-700';
+                      ? 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300'
+                      : 'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300';
 
                     return (
-                      <tr key={idx} className="hover:bg-green-50/50 transition-colors">
+                      <tr key={idx} className="hover:bg-green-50/50 dark:hover:bg-green-950/20 transition-colors">
                         <td className="px-4 py-2.5">
-                          <p className="text-xs font-semibold text-gray-900">{billing.patientName}</p>
-                          <p className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                          <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">{billing.patientName}</p>
+                          <p className="text-[9px] text-gray-400 dark:text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[10px] font-bold text-gray-700">{billing.invoiceNumber}</span>
+                          <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-300">{billing.invoiceNumber}</span>
                         </td>
                         <td className="px-4 py-2.5">
                           <div className="flex flex-col gap-0.5">
                             {billing.offerName && (
-                              <p className="text-[10px] font-semibold text-gray-800">{billing.offerName}</p>
+                              <p className="text-[10px] font-semibold text-gray-800 dark:text-gray-200">{billing.offerName}</p>
                             )}
                             {offerTypeLabel && (
                               <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider w-fit ${offerTypeColor}`}>
@@ -2066,7 +2122,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                           </div>
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          <span className="text-xs font-extrabold text-green-700">{getCurrencySymbol(currency)}{(billing.amount || 0).toFixed(2)}</span>
+                          <span className="text-xs font-extrabold text-green-700 dark:text-green-400">{getCurrencySymbol(currency)}{(billing.amount || 0).toFixed(2)}</span>
                         </td>
                       </tr>
                     );
@@ -2076,8 +2132,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.revenueBillingList.length} billing{offerAnalytics.revenueBillingList.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{offerAnalytics.revenueBillingList.length} billing{offerAnalytics.revenueBillingList.length !== 1 ? 's' : ''}</p>
               <button
                 onClick={() => setShowRevenueModal(false)}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition-colors"
@@ -2092,7 +2148,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Total Offers Used Modal ── */}
       {showOffersUsedModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowOffersUsedModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2118,12 +2174,12 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               {offerAnalytics.offersUsedList.map((billing, idx) => {
                 const typeLabel = billing.offerType === 'instant_discount' ? 'Instant Discount' : billing.offerType === 'cashback' ? 'Cashback' : billing.offerType === 'bundle' ? 'Bundle' : 'Offer';
                 const typeColor = billing.offerType === 'instant_discount'
-                  ? { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', badge: 'bg-blue-100 text-blue-700' }
+                  ? { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800', text: 'text-blue-700 dark:text-blue-300', badge: 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' }
                   : billing.offerType === 'cashback'
-                  ? { bg: 'bg-cyan-50', border: 'border-cyan-200', text: 'text-cyan-700', badge: 'bg-cyan-100 text-cyan-700' }
+                  ? { bg: 'bg-cyan-50 dark:bg-cyan-950/30', border: 'border-cyan-200 dark:border-cyan-800', text: 'text-cyan-700 dark:text-cyan-300', badge: 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300' }
                   : billing.offerType === 'bundle'
-                  ? { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700' }
-                  : { bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700', badge: 'bg-gray-100 text-gray-700' };
+                  ? { bg: 'bg-violet-50 dark:bg-violet-950/30', border: 'border-violet-200 dark:border-violet-800', text: 'text-violet-700 dark:text-violet-300', badge: 'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300' }
+                  : { bg: 'bg-gray-50 dark:bg-gray-700/40', border: 'border-gray-200 dark:border-gray-700', text: 'text-gray-700 dark:text-gray-300', badge: 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' };
 
                 return (
                   <div key={idx} className={`rounded-xl border ${typeColor.border} ${typeColor.bg} p-3 flex items-center justify-between hover:shadow-sm transition-shadow`}>
@@ -2132,18 +2188,18 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                         <Gift className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-gray-900">{billing.patientName}</p>
-                        <p className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                        <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{billing.patientName}</p>
+                        <p className="text-[9px] text-gray-400 dark:text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-right">
-                        <p className="text-[10px] font-semibold text-gray-800">{billing.offerName || '—'}</p>
+                        <p className="text-[10px] font-semibold text-gray-800 dark:text-gray-200">{billing.offerName || '—'}</p>
                         <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${typeColor.badge}`}>
                           {typeLabel}
                         </span>
                       </div>
-                      <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[9px] font-bold text-gray-600">{billing.invoiceNumber}</span>
+                      <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-[9px] font-bold text-gray-600 dark:text-gray-300">{billing.invoiceNumber}</span>
                     </div>
                   </div>
                 );
@@ -2151,8 +2207,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.offersUsedList.length} billing{offerAnalytics.offersUsedList.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{offerAnalytics.offersUsedList.length} billing{offerAnalytics.offersUsedList.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setShowOffersUsedModal(false)} className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-colors">
                 Close
               </button>
@@ -2164,7 +2220,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Total Discount Applied Modal ── */}
       {showDiscountModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowDiscountModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2188,33 +2244,33 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             {/* Content - Table */}
             <div className="overflow-y-auto max-h-[60vh]">
               <table className="w-full">
-                <thead className="sticky top-0 bg-gray-50 border-b border-gray-200">
+                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700/80 border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Patient</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Offer</th>
-                    <th className="px-4 py-2.5 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Disc %</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase tracking-wider">Disc Amt</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Patient</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Invoice</th>
+                    <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Offer</th>
+                    <th className="px-4 py-2.5 text-center text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Disc %</th>
+                    <th className="px-4 py-2.5 text-right text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Disc Amt</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {(offerAnalytics.instantDiscount.list || []).map((billing, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50/50 transition-colors">
+                    <tr key={idx} className="hover:bg-blue-50/50 dark:hover:bg-blue-950/20 transition-colors">
                       <td className="px-4 py-2.5">
-                        <p className="text-xs font-semibold text-gray-900">{billing.patientName}</p>
-                        <p className="text-[9px] text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
+                        <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">{billing.patientName}</p>
+                        <p className="text-[9px] text-gray-400 dark:text-gray-400">{billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
                       </td>
                       <td className="px-4 py-2.5">
-                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-[10px] font-bold text-gray-700">{billing.invoiceNumber}</span>
+                        <span className="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-700 dark:text-gray-300">{billing.invoiceNumber}</span>
                       </td>
                       <td className="px-4 py-2.5">
-                        <p className="text-[10px] font-semibold text-gray-800">{billing.offerName}</p>
+                        <p className="text-[10px] font-semibold text-gray-800 dark:text-gray-200">{billing.offerName}</p>
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold">{Number(billing.discountPercent || 0).toFixed(0)}%</span>
+                        <span className="inline-block px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-[10px] font-bold">{Number(billing.discountPercent || 0).toFixed(0)}%</span>
                       </td>
                       <td className="px-4 py-2.5 text-right">
-                        <span className="text-xs font-extrabold text-red-600">-{getCurrencySymbol(currency)}{Number(billing.discountAmount ?? billing.offerDiscountAmount ?? 0).toFixed(2)}</span>
+                        <span className="text-xs font-extrabold text-red-600 dark:text-red-400">-{getCurrencySymbol(currency)}{Number(billing.discountAmount ?? billing.offerDiscountAmount ?? 0).toFixed(2)}</span>
                       </td>
                     </tr>
                   ))}
@@ -2223,8 +2279,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.instantDiscount.list.length} invoice{offerAnalytics.instantDiscount.list.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{offerAnalytics.instantDiscount.list.length} invoice{offerAnalytics.instantDiscount.list.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setShowDiscountModal(false)} className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
                 Close
               </button>
@@ -2236,7 +2292,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Expiring Offers Modal ── */}
       {showExpiringModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowExpiringModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2266,16 +2322,16 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
                       <Calendar className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-gray-900">{offer.title}</p>
+                      <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{offer.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                          offer.offerType === 'instant_discount' ? 'bg-blue-100 text-blue-700' :
-                          offer.offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
-                          'bg-violet-100 text-violet-700'
+                          offer.offerType === 'instant_discount' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' :
+                          offer.offerType === 'cashback' ? 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300' :
+                          'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300'
                         }`}>
                           {offer.offerType === 'instant_discount' ? 'Instant' : offer.offerType === 'cashback' ? 'Cashback' : 'Bundle'}
                         </span>
-                        <p className="text-[9px] text-gray-400">
+                        <p className="text-[9px] text-gray-400 dark:text-gray-400">
                           Ends: {new Date(offer.endsAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       </div>
@@ -2291,8 +2347,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{expiringOffersList.length} offer{expiringOffersList.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{expiringOffersList.length} offer{expiringOffersList.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setShowExpiringModal(false)} className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors">
                 Close
               </button>
@@ -2304,7 +2360,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Inactive Offers Modal ── */}
       {showInactiveModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowInactiveModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-gray-600 to-slate-700 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2328,29 +2384,29 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             {/* Content */}
             <div className="p-5 overflow-y-auto max-h-[60vh] space-y-2">
               {inactiveOffersList.map((offer) => (
-                <div key={offer._id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
+                <div key={offer._id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                      <Package className="w-4 h-4 text-gray-500" />
+                    <div className="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-gray-900">{offer.title}</p>
+                      <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{offer.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                          offer.offerType === 'instant_discount' ? 'bg-blue-100 text-blue-700' :
-                          offer.offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
-                          'bg-violet-100 text-violet-700'
+                          offer.offerType === 'instant_discount' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' :
+                          offer.offerType === 'cashback' ? 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300' :
+                          'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300'
                         }`}>
                           {offer.offerType === 'instant_discount' ? 'Instant' : offer.offerType === 'cashback' ? 'Cashback' : 'Bundle'}
                         </span>
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-gray-200 text-[8px] font-bold text-gray-600 uppercase">
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[8px] font-bold text-gray-600 dark:text-gray-300 uppercase">
                           {offer.status || 'inactive'}
                         </span>
                       </div>
                     </div>
                   </div>
                   {offer.endsAt && (
-                    <p className="text-[9px] text-gray-400 flex-shrink-0">
+                    <p className="text-[9px] text-gray-400 dark:text-gray-400 flex-shrink-0">
                       Ended: {new Date(offer.endsAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   )}
@@ -2359,8 +2415,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{inactiveOffersList.length} offer{inactiveOffersList.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{inactiveOffersList.length} offer{inactiveOffersList.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setShowInactiveModal(false)} className="px-4 py-1.5 rounded-lg bg-gray-600 hover:bg-gray-700 text-white text-xs font-bold transition-colors">
                 Close
               </button>
@@ -2372,7 +2428,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Active Offers Modal ── */}
       {showActiveModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowActiveModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2396,29 +2452,29 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             {/* Content */}
             <div className="p-5 overflow-y-auto max-h-[60vh] space-y-2">
               {activeOffersList.map((offer) => (
-                <div key={offer._id} className="rounded-xl border border-green-200 bg-green-50 p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
+                <div key={offer._id} className="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 p-3 flex items-center justify-between hover:shadow-sm transition-shadow">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-                      <TrendingUp className="w-4 h-4 text-green-600" />
+                    <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/60 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-gray-900">{offer.title}</p>
+                      <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{offer.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                          offer.offerType === 'instant_discount' ? 'bg-blue-100 text-blue-700' :
-                          offer.offerType === 'cashback' ? 'bg-cyan-100 text-cyan-700' :
-                          'bg-violet-100 text-violet-700'
+                          offer.offerType === 'instant_discount' ? 'bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300' :
+                          offer.offerType === 'cashback' ? 'bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300' :
+                          'bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300'
                         }`}>
                           {offer.offerType === 'instant_discount' ? 'Instant' : offer.offerType === 'cashback' ? 'Cashback' : 'Bundle'}
                         </span>
-                        <span className="inline-block px-1.5 py-0.5 rounded bg-green-200 text-[8px] font-bold text-green-700 uppercase">
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-green-200 dark:bg-green-900/60 text-green-700 dark:text-green-300 text-[8px] font-bold uppercase">
                           Active
                         </span>
                       </div>
                     </div>
                   </div>
                   {offer.endsAt && (
-                    <p className="text-[9px] text-gray-400 flex-shrink-0">
+                    <p className="text-[9px] text-gray-400 dark:text-gray-400 flex-shrink-0">
                       Ends: {new Date(offer.endsAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
                   )}
@@ -2427,8 +2483,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{activeOffersList.length} offer{activeOffersList.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{activeOffersList.length} offer{activeOffersList.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setShowActiveModal(false)} className="px-4 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors">
                 Close
               </button>
@@ -2440,7 +2496,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
       {/* ── Top Patients Modal ── */}
       {showTopPatientsModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowTopPatientsModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-gray-100 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="bg-gradient-to-r from-purple-600 to-violet-600 px-5 py-4">
               <div className="flex items-center justify-between">
@@ -2466,23 +2522,23 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
               {offerAnalytics.topPatientsList.map((patient, idx) => {
                 const medals = ['🥇', '🥈', '🥉'];
                 return (
-                  <div key={patient.patientId} className={`rounded-xl border p-3 ${idx === 0 ? 'border-purple-300 bg-purple-50' : idx === 1 ? 'border-gray-300 bg-gray-50' : idx === 2 ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'} hover:shadow-sm transition-shadow`}>
+                  <div key={patient.patientId} className={`rounded-xl border p-3 ${idx === 0 ? 'border-purple-300 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30' : idx === 1 ? 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40' : idx === 2 ? 'border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700/20'} hover:shadow-sm transition-shadow`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{medals[idx] || `#${idx + 1}`}</span>
                         <div>
-                          <p className="text-xs font-bold text-gray-900">{patient.patientName}</p>
+                          <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{patient.patientName}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        <span className="inline-block px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700 text-[11px] font-bold">
+                        <span className="inline-block px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-[11px] font-bold">
                           {patient.count} {patient.count === 1 ? 'use' : 'uses'}
                         </span>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {(patient.offerNames || []).map((name, i) => (
-                        <span key={i} className="inline-block px-1.5 py-0.5 rounded bg-white border border-gray-200 text-[9px] font-medium text-gray-600">
+                        <span key={i} className="inline-block px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[9px] font-medium text-gray-600 dark:text-gray-300">
                           {name}
                         </span>
                       ))}
@@ -2493,8 +2549,8 @@ function OffersPage({ dateFilter = 'Today', setActiveTab }) {
             </div>
 
             {/* Footer */}
-            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-[10px] text-gray-500 font-medium">{offerAnalytics.topPatientsList.length} patient{offerAnalytics.topPatientsList.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80 flex items-center justify-between">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{offerAnalytics.topPatientsList.length} patient{offerAnalytics.topPatientsList.length !== 1 ? 's' : ''}</p>
               <button onClick={() => setShowTopPatientsModal(false)} className="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors">
                 Close
               </button>

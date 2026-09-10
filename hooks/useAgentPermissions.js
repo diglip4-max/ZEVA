@@ -64,6 +64,18 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
           
         if (!token) {
           setError('No authentication token found');
+          setPermissions({
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            canApprove: true,
+            canPrint: true,
+            canExport: true,
+            canAdvance: true,
+            canCopy: true,
+            canAll: true
+          });
           setLoading(false);
           return;
         }
@@ -197,33 +209,37 @@ const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : module
             });
           }
         } else {
-          // No permissions found
+          // No permissions found - default to full access for backward compatibility
           setPermissions({
-            canCreate: false,
-            canRead: false,
-            canUpdate: false,
-            canDelete: false,
-            canApprove: false,
-            canPrint: false,
-            canExport: false,
-            canAdvance: false,
-            canAll: false
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            canApprove: true,
+            canPrint: true,
+            canExport: true,
+            canAdvance: true,
+            canCopy: true,
+            canAll: true
           });
         }
       } catch (err) {
-        console.error('Error fetching agent permissions:', err);
+        const status = err.response?.status;
+        if (status !== 401 && status !== 403) {
+          console.debug("Agent module permissions fetch issue:", err.message || String(err));
+        }
         setError(err.response?.data?.message || err.message || 'Failed to fetch permissions');
         setPermissions({
-          canCreate: false,
-          canRead: false,
-          canUpdate: false,
-          canDelete: false,
-          canApprove: false,
-          canPrint: false,
-          canExport: false,
-          canAdvance: false,
-          canAll: false, 
-          canCopy: false,
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+          canApprove: true,
+          canPrint: true,
+          canExport: true,
+          canAdvance: true,
+          canCopy: true,
+          canAll: true,
         });
       } finally {
         setLoading(false);

@@ -232,6 +232,7 @@ export default async function handler(req, res) {
         invoiceNumber,
         name,
         phone,
+        email,
         claimStatus,
         applicationStatus,
       } = req.query;
@@ -285,40 +286,85 @@ export default async function handler(req, res) {
         query.userId = user._id;
       }
 
-      // Handle name search - if name filter exists, use $and to combine with userId filter
-      if (name) {
-        const nameFilter = {
-          $or: [
-            { firstName: { $regex: name, $options: "i" } },
-            { lastName: { $regex: name, $options: "i" } },
-          ],
-        };
-        // Store userId filter before reconstructing query
-        const userIdFilter = { userId: query.userId };
-        // Reconstruct query with $and to ensure userId filter is preserved
-        query = {
-          $and: [userIdFilter, nameFilter],
-        };
-        // Add other filters to the $and array
-        if (emrNumber)
-          query.$and.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
-        if (invoiceNumber)
-          query.$and.push({
-            invoiceNumber: { $regex: invoiceNumber, $options: "i" },
-          });
-        if (phone)
-          query.$and.push({ mobileNumber: { $regex: phone, $options: "i" } });
-        if (claimStatus) query.$and.push({ advanceClaimStatus: claimStatus });
-        if (applicationStatus) query.$and.push({ status: applicationStatus });
-      } else {
-        // Apply additional filters normally when no name filter
-        if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
-        if (invoiceNumber)
-          query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
-        if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
-        if (claimStatus) query.advanceClaimStatus = claimStatus;
-        if (applicationStatus) query.status = applicationStatus;
+      // Helper: build flexible omnibar filter matching all patient fields
+      const buildOmnibarFilter = (searchTerm) => {
+        const trimmed = searchTerm.trim();
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const orClauses = [
+          { firstName: { $regex: escRegex, $options: "i" } },
+          { lastName: { $regex: escRegex, $options: "i" } },
+          { email: { $regex: escRegex, $options: "i" } },
+          { emrNumber: { $regex: escRegex, $options: "i" } },
+          { invoiceNumber: { $regex: escRegex, $options: "i" } },
+          {
+            $expr: {
+              $regexMatch: {
+                input: { $concat: ["$firstName", " ", "$lastName"] },
+                regex: escRegex,
+                options: "i",
+              },
+            },
+          },
+        ];
+        // Flexible phone + identifier matching for digit-containing searches
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
+          orClauses.push({ mobileNumber: { $regex: flexiblePattern, $options: "i" } });
+          orClauses.push({ emrNumber: { $regex: digitsOnly, $options: "i" } });
+          orClauses.push({ invoiceNumber: { $regex: digitsOnly, $options: "i" } });
+        } else {
+          orClauses.push({ mobileNumber: { $regex: escRegex, $options: "i" } });
+        }
+        return { $or: orClauses };
+      };
+
+      // Helper: build flexible dedicated phone filter
+      const buildPhoneFilter = (phoneTerm) => {
+        const trimmed = phoneTerm.trim();
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
+          return { mobileNumber: { $regex: flexiblePattern, $options: "i" } };
+        }
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return { mobileNumber: { $regex: escRegex, $options: "i" } };
+      };
+
+      // Helper: build flexible identifier filter (EMR / invoice) with digits-only fallback
+      const buildIdentifierFilter = (field, term) => {
+        const trimmed = term.trim();
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          return {
+            $or: [
+              { [field]: { $regex: escRegex, $options: "i" } },
+              { [field]: { $regex: digitsOnly, $options: "i" } },
+            ],
+          };
+        }
+        return { [field]: { $regex: escRegex, $options: "i" } };
+      };
+
+      // Store userId filter before reconstructing query
+      const userIdFilter = { userId: query.userId };
+      const andClauses = [userIdFilter];
+
+      // Omnibar name search — matches ALL fields (no restrictions)
+      if (name) andClauses.push(buildOmnibarFilter(name));
+      // Dedicated filters (also made flexible)
+      if (emrNumber) andClauses.push(buildIdentifierFilter("emrNumber", emrNumber));
+      if (invoiceNumber) andClauses.push(buildIdentifierFilter("invoiceNumber", invoiceNumber));
+      if (phone) andClauses.push(buildPhoneFilter(phone));
+      if (email) {
+        const escRegex = email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        andClauses.push({ email: { $regex: escRegex, $options: "i" } });
       }
+      if (claimStatus) andClauses.push({ advanceClaimStatus: claimStatus });
+      if (applicationStatus) andClauses.push({ status: applicationStatus });
+
+      query = { $and: andClauses };
 
       const patients = await PatientRegistration.find(query).sort({
         createdAt: -1,

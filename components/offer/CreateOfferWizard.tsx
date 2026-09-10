@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { toast } from "react-hot-toast";
 import { Search, ChevronDown, X, Check } from "lucide-react";
+
+interface PagePermissions {
+  canRead?: boolean;
+  canCreate?: boolean;
+  canUpdate?: boolean;
+  canDelete?: boolean;
+}
 
 interface Props {
   onCancel: () => void;
@@ -9,7 +17,77 @@ interface Props {
   mode?: "create" | "update";
   offer?: any;
   actorRole?: "clinic" | "doctor" | "agent" | "admin" | "doctorStaff";
+  pageLevelPermissions?: PagePermissions;
 }
+
+const MODULE_KEY = "clinic_create_offers";
+const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+
+function getStoredToken() {
+  if (typeof window === "undefined") return null;
+  // Role-aware resolution: inspect each token's JWT payload to match token-key
+  // with its role. This prevents sending a stale clinicToken for agent users.
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const base64Url = raw.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        const role = decoded.role;
+        if (!role) continue;
+        const roleMatchesKey =
+          (key === "agentToken" && (role === "agent" || role === "staff" || role === "doctorStaff")) ||
+          (key === "staffToken" && (role === "staff" || role === "doctorStaff" || role === "agent")) ||
+          (key === "clinicToken" && role === "clinic") ||
+          (key === "doctorToken" && (role === "doctor" || role === "doctorStaff")) ||
+          (key === "adminToken" && role === "admin") ||
+          key === "userToken";
+        if (roleMatchesKey) return raw;
+      } catch {
+        // ignore decode errors
+      }
+    }
+  } catch {
+    // fall through
+  }
+  // Fallback: naive priority
+  for (const key of TOKEN_PRIORITY) {
+    try {
+      const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (value) return value;
+    } catch { }
+  }
+  return null;
+}
+
+const getUserRole = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.role || null;
+        } catch {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.debug('Error getting user role:', error);
+  }
+  return null;
+};
 
 export default function CreateOfferWizard({
   onCancel,
@@ -18,6 +96,7 @@ export default function CreateOfferWizard({
   mode = "create",
   offer,
   actorRole = "clinic",
+  pageLevelPermissions,
 }: Props) {
   // const headerClass = "bg-teal-100";
   // const subtitleClass = "text-teal-700";
@@ -216,35 +295,43 @@ export default function CreateOfferWizard({
   }, [token, actorRole]);
 
   useEffect(() => {
+    if (pageLevelPermissions) {
+      setPermissions({
+        canRead: Boolean(pageLevelPermissions.canRead),
+        canCreate: Boolean(pageLevelPermissions.canCreate),
+        canUpdate: Boolean(pageLevelPermissions.canUpdate),
+        canDelete: Boolean(pageLevelPermissions.canDelete),
+      });
+    }
+  }, [pageLevelPermissions]);
+
+  useEffect(() => {
     const authToken = resolvedToken;
     if (!authToken) {
       setClinicId(null);
       setAllServices([]);
       setAllDepartments([]);
       setAllDoctors([]);
-      setPermissions({
-        canCreate: false,
-        canUpdate: false,
-        canDelete: false,
-        canRead: false,
-      });
+      if (!pageLevelPermissions) {
+        setPermissions({
+          canCreate: false,
+          canUpdate: false,
+          canDelete: false,
+          canRead: false,
+        });
+      }
       return;
     }
 
     const fetchAllData = async () => {
       try {
-        // Fetch everything in parallel
         const [
           clinicRes,
-          permissionsRes,
           servicesRes,
           departmentsRes,
           doctorsRes
         ] = await Promise.all([
           fetch("/api/lead-ms/get-clinic-treatment", {
-            headers: { Authorization: `Bearer ${authToken}` },
-          }),
-          fetch("/api/clinic/permissions", {
             headers: { Authorization: `Bearer ${authToken}` },
           }),
           fetch("/api/clinic/services", {
@@ -278,43 +365,107 @@ export default function CreateOfferWizard({
           setAllDoctors(doctorsData.agents || doctorsData.data || []);
         }
 
-        // Process permissions
-        const permissionsData = await permissionsRes.json();
-        if (permissionsData.success && permissionsData.data) {
-          const modulePermission = permissionsData.data.permissions?.find((p: any) => {
-            if (!p?.module) return false;
-            if (p.module === "create_offers") return true;
-            if (p.module === "clinic_create_offers") return true;
-            if (p.module.startsWith("clinic_") && p.module.slice(7) === "create_offers") {
-              return true;
-            }
-            return false;
-          });
+        if (!pageLevelPermissions) {
+          const userRole = getUserRole();
+          const isTrue = (val: any) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
 
-          if (modulePermission) {
-            const actions = modulePermission.actions || {};
+          if (userRole === "admin") {
             setPermissions({
-              canCreate: actions.all === true || actions.create === true,
-              canUpdate: actions.all === true || actions.update === true,
-              canDelete: actions.all === true || actions.delete === true,
-              canRead: actions.all === true || actions.read === true,
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
             });
-          } else {
-            setPermissions({
-              canCreate: false,
-              canUpdate: false,
-              canDelete: false,
-              canRead: false,
-            });
+          } else if (userRole === "clinic" || userRole === "doctor") {
+            try {
+              const permRes = await axios.get("/api/clinic/sidebar-permissions", {
+                headers: { Authorization: `Bearer ${authToken}` },
+              });
+              if (permRes.data.success) {
+                if (permRes.data.permissions === null || !Array.isArray(permRes.data.permissions) || permRes.data.permissions.length === 0) {
+                  setPermissions({
+                    canCreate: true, canRead: true, canUpdate: true, canDelete: true,
+                  });
+                } else {
+                  const modulePermission = permRes.data.permissions.find((p: any) => {
+                    if (!p?.module) return false;
+                    return [MODULE_KEY, "clinic_create_offers", "create_offers", "clinic_create_offer", "create_offer", "Clinic_create_offers"].includes(p.module);
+                  });
+                  if (modulePermission) {
+                    const actions = modulePermission.actions || {};
+                    const all = isTrue(actions.all);
+                    setPermissions({
+                      canCreate: all || isTrue(actions.create),
+                      canRead: all || isTrue(actions.read),
+                      canUpdate: all || isTrue(actions.update),
+                      canDelete: all || isTrue(actions.delete),
+                    });
+                  } else {
+                    setPermissions({
+                      canCreate: false, canRead: true, canUpdate: false, canDelete: false,
+                    });
+                  }
+                }
+              } else {
+                setPermissions({
+                  canCreate: true, canRead: true, canUpdate: true, canDelete: true,
+                });
+              }
+            } catch (err: any) {
+              const status = err.response?.status;
+              if (status !== 401 && status !== 403) {
+                console.debug("Wizard clinic permissions fetch issue:", err.message || String(err));
+              }
+              setPermissions({
+                canCreate: true, canRead: true, canUpdate: true, canDelete: true,
+              });
+            }
+          } else if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+            try {
+              const storedTok = getStoredToken() || authToken;
+              let res = await axios.get("/api/agent/get-module-permissions", {
+                params: { moduleKey: MODULE_KEY },
+                headers: { Authorization: `Bearer ${storedTok}` },
+              });
+              let data = res.data;
+              if (!data?.permissions && data?.error?.includes("not found")) {
+                res = await axios.get("/api/agent/get-module-permissions", {
+                  params: { moduleKey: "create_offers" },
+                  headers: { Authorization: `Bearer ${storedTok}` },
+                });
+                data = res.data;
+              }
+              if (!data?.permissions && data?.error?.includes("not found in agent permissions")) {
+                setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
+              } else {
+                const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
+                const all = isTrue(actions.all);
+                setPermissions({
+                  canRead: all || isTrue(actions.read),
+                  canCreate: all || isTrue(actions.create),
+                  canUpdate: all || isTrue(actions.update),
+                  canDelete: all || isTrue(actions.delete),
+                });
+              }
+            } catch (err: any) {
+              const status = err.response?.status;
+              if (status !== 401 && status !== 403) {
+                console.debug("Wizard agent permissions fetch issue:", err.message || String(err));
+              }
+              setPermissions({ canCreate: true, canRead: true, canUpdate: true, canDelete: true });
+            }
           }
         }
-      } catch (err) {
-        console.error("Error fetching data", err);
+      } catch (err: any) {
+        const status = err.response?.status;
+        if (status !== 401 && status !== 403) {
+          console.debug("Error fetching wizard data:", err.message || String(err));
+        }
       }
     };
 
     fetchAllData();
-  }, [resolvedToken]);
+  }, [resolvedToken, pageLevelPermissions]);
 
   useEffect(() => {
     if (mode === "create") {
@@ -762,20 +913,20 @@ export default function CreateOfferWizard({
   };
 
   return (
-    <div className="bg-[#FAF9F6] w-full flex flex-col">
-      <div className="bg-white shadow-sm rounded-xl overflow-hidden flex flex-col w-full border border-gray-100">
+    <div className="bg-[#FAF9F6] dark:bg-transparent w-full flex flex-col">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden flex flex-col w-full border border-gray-100 dark:border-gray-700">
         {/* Header */}
-        <div className="px-6 py-6 border-b border-gray-100 bg-white shrink-0">
+        <div className="px-6 py-6 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 shrink-0">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{mode === "create" ? "Create Offer" : "Update Offer"}</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{mode === "create" ? "Create Offer" : "Update Offer"}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Every offer is protected by margin rules, stacking limits and usage controls by default.
               </p>
             </div>
             <button
               onClick={onCancel}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -784,17 +935,17 @@ export default function CreateOfferWizard({
           </div>
 
           {/* Stepper */}
-          <div className="flex items-center text-xs font-medium text-gray-400 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex items-center text-xs font-medium text-gray-400 dark:text-gray-500 overflow-x-auto pb-2 scrollbar-hide">
             {steps.map((step, index) => (
               <React.Fragment key={step.id}>
-                <div className={`flex items-center whitespace-nowrap ${currentStep === step.id ? 'text-teal-700' : currentStep > step.id ? 'text-gray-800' : 'text-gray-400'}`}>
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mr-2 text-[10px] ${currentStep === step.id ? 'bg-teal-600 text-white' : currentStep > step.id ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                <div className={`flex items-center whitespace-nowrap ${currentStep === step.id ? 'text-teal-700 dark:text-teal-400' : currentStep > step.id ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center mr-2 text-[10px] ${currentStep === step.id ? 'bg-teal-600 text-white' : currentStep > step.id ? 'bg-gray-800 dark:bg-gray-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                     {step.id}
                   </div>
                   {step.title}
                 </div>
                 {index < steps.length - 1 && (
-                  <div className="w-8 h-px bg-gray-200 mx-3 shrink-0"></div>
+                  <div className="w-8 h-px bg-gray-200 dark:bg-gray-700 mx-3 shrink-0"></div>
                 )}
               </React.Fragment>
             ))}
@@ -802,46 +953,46 @@ export default function CreateOfferWizard({
         </div>
 
         {/* Content */}
-        <div className="p-6 bg-[#FAF9F6] flex-1 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="p-6 bg-[#FAF9F6] dark:bg-gray-900/40 flex-1 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
 
             {/* Step 1: Offer Type */}
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div className="mb-6">
-                  <h3 className="text-lg font-bold text-gray-900">Choose the offer type</h3>
-                  <p className="text-sm text-gray-500">Each type follows different rules — ZEVA configures protections automatically.</p>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Choose the offer type</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Each type follows different rules — ZEVA configures protections automatically.</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div
                     onClick={() => setForm({ ...form, offerType: 'instant_discount' })}
-                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'instant_discount' ? 'border-teal-600 bg-teal-50/30' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'instant_discount' ? 'border-teal-600 bg-teal-50/30 dark:bg-teal-900/20' : 'border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
-                      <span className="text-gray-600 font-bold">%</span>
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                      <span className="text-gray-600 dark:text-gray-300 font-bold">%</span>
                     </div>
-                    <h4 className="font-bold text-gray-900 mb-1">Instant Discount</h4>
-                    <p className="text-xs text-gray-500">Applied directly to billing at checkout.</p>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Instant Discount</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Applied directly to billing at checkout.</p>
                   </div>
                   <div
                     onClick={() => setForm({ ...form, offerType: 'bundle' })}
-                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'bundle' ? 'border-teal-600 bg-teal-50/30' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'bundle' ? 'border-teal-600 bg-teal-50/30 dark:bg-teal-900/20' : 'border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center mb-4 text-teal-600">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-900/40 flex items-center justify-center mb-4 text-teal-600 dark:text-teal-400">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg>
                     </div>
-                    <h4 className="font-bold text-gray-900 mb-1">Bundle / Package</h4>
-                    <p className="text-xs text-gray-500">Buy X sessions, receive X + Y free.</p>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Bundle / Package</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Buy X sessions, receive X + Y free.</p>
                   </div>
                   <div
                     onClick={() => setForm({ ...form, offerType: 'cashback' })}
-                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'cashback' ? 'border-teal-600 bg-teal-50/30' : 'border-gray-100 hover:border-gray-200 bg-white'}`}
+                    className={`cursor-pointer rounded-xl p-5 border-2 transition-all ${form.offerType === 'cashback' ? 'border-teal-600 bg-teal-50/30 dark:bg-teal-900/20' : 'border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
-                      <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                      <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                     </div>
-                    <h4 className="font-bold text-gray-900 mb-1">Cashback / Wallet</h4>
-                    <p className="text-xs text-gray-500">Patient pays full invoice, earns wallet credit.</p>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 mb-1">Cashback / Wallet</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Patient pays full invoice, earns wallet credit.</p>
                   </div>
                 </div>
               </div>
@@ -852,49 +1003,49 @@ export default function CreateOfferWizard({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Offer Name *</label>
+                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Offer Name *</label>
                     <input
                       type="text"
                       name="title"
                       value={form.title}
                       onChange={handleChange}
-                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.title ? "border-red-500" : "border-gray-200"}`}
+                      className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.title ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
                       placeholder="e.g., Summer Special 2024"
                       required
                     />
                     {errors.title && <p className="text-red-500 text-[10px] mt-1">{errors.title}</p>}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Start Date *</label>
+                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Start Date *</label>
                     <input
                       type="datetime-local"
                       name="startsAt"
                       value={form.startsAt}
                       onChange={handleChange}
-                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.startsAt ? "border-red-500" : "border-gray-200"}`}
+                      className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm dark:[color-scheme:dark] ${errors.startsAt ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
                       required
                     />
                     {errors.startsAt && <p className="text-red-500 text-[10px] mt-1">{errors.startsAt}</p>}
                   </div>
                   <div>
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">End Date *</label>
+                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">End Date *</label>
                     <input
                       type="datetime-local"
                       name="endsAt"
                       value={form.endsAt}
                       onChange={handleChange}
-                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.endsAt ? "border-red-500" : "border-gray-200"}`}
+                      className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm dark:[color-scheme:dark] ${errors.endsAt ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
                       required
                     />
                     {errors.endsAt && <p className="text-red-500 text-[10px] mt-1">{errors.endsAt}</p>}
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Status</label>
+                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Status</label>
                     <select
                       name="status"
                       value={form.status}
                       onChange={handleChange}
-                      className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                     >
                       <option value="draft">Draft</option>
                       <option value="active">Active</option>
@@ -923,7 +1074,7 @@ export default function CreateOfferWizard({
                       className={`flex items-center justify-center py-2.5 px-3 border rounded-xl cursor-pointer transition-all text-xs font-medium text-center ${
                         form.applyOnType === opt.id
                           ? "bg-[#0E856E] text-white border-[#0E856E] shadow-sm font-semibold"
-                          : "bg-white text-[#0E856E] border-gray-200 hover:bg-gray-50"
+                          : "bg-white dark:bg-gray-800 text-[#0E856E] dark:text-teal-400 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       <input
@@ -1006,25 +1157,25 @@ export default function CreateOfferWizard({
                 {form.offerType === "instant_discount" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Discount Mode</label>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Discount Mode</label>
                       <select
                         name="discountMode"
                         value={form.discountMode}
                         onChange={handleChange}
-                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                        className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                       >
                         <option value="percentage">Percentage (%)</option>
                         <option value="flat">Flat Amount (OFF)</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Discount Value *</label>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Discount Value *</label>
                       <input
                         type="number"
                         name="discountValue"
                         value={form.discountValue}
                         onChange={handleChange}
-                        className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.discountValue ? "border-red-500" : "border-gray-200"}`}
+                        className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.discountValue ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
                         required
                       />
                       {errors.discountValue && <p className="text-red-500 text-[10px] mt-1">{errors.discountValue}</p>}
@@ -1038,23 +1189,23 @@ export default function CreateOfferWizard({
                       {errors.bundle && <p className="text-red-500 text-[10px] mb-2">{errors.bundle}</p>}
                     </div>
                     <div>
-                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Buy Quantity (Paid)</label>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Buy Quantity (Paid)</label>
                       <input
                         type="number"
                         name="buyQty"
                         value={form.buyQty}
                         onChange={handleChange}
-                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                        className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Get Free Quantity</label>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Get Free Quantity</label>
                       <input
                         type="number"
                         name="freeQty"
                         value={form.freeQty}
                         onChange={handleChange}
-                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                        className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                       />
                     </div>
                   </div>
@@ -1063,24 +1214,24 @@ export default function CreateOfferWizard({
                 {form.offerType === "cashback" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Cashback Amount</label>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Cashback Amount</label>
                       <input
                         type="number"
                         name="cashbackAmount"
                         value={form.cashbackAmount}
                         onChange={handleChange}
-                        className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.cashbackAmount ? "border-red-500" : "border-gray-200"}`}
+                        className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.cashbackAmount ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
                       />
                       {errors.cashbackAmount && <p className="text-red-500 text-[10px] mt-1">{errors.cashbackAmount}</p>}
                     </div>
                     <div>
-                      <label className="block text-[10px] font-medium text-teal-700 mb-1">Wallet Credit Expiry (Days)</label>
+                      <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Wallet Credit Expiry (Days)</label>
                       <input
                         type="number"
                         name="cashbackExpiryDays"
                         value={form.cashbackExpiryDays}
                         onChange={handleChange}
-                        className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                        className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                       />
                     </div>
                   </div>
@@ -1092,7 +1243,7 @@ export default function CreateOfferWizard({
             {currentStep === 5 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-3">
-                  <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
                     <input
                       type="checkbox"
                       name="autoApplyBestOffer"
@@ -1101,12 +1252,12 @@ export default function CreateOfferWizard({
                       className="w-4 h-4 text-teal-600 rounded"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-teal-900">Auto Apply Best Offer</span>
+                      <span className="text-xs font-semibold text-teal-900 dark:text-teal-300">Auto Apply Best Offer</span>
                       <span className="text-[10px] text-gray-500">System automatically picks highest benefit</span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
                     <input
                       type="checkbox"
                       name="allowCombiningWithOtherOffers"
@@ -1115,12 +1266,12 @@ export default function CreateOfferWizard({
                       className="w-4 h-4 text-teal-600 rounded"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-teal-900">Allow Stacking</span>
+                      <span className="text-xs font-semibold text-teal-900 dark:text-teal-300">Allow Stacking</span>
                       <span className="text-[10px] text-gray-500">Combine with other active offers</span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
                     <input
                       type="checkbox"
                       name="allowReceptionistDiscount"
@@ -1129,7 +1280,7 @@ export default function CreateOfferWizard({
                       className="w-4 h-4 text-teal-600 rounded"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-semibold text-teal-900">Allow Receptionist Discount</span>
+                      <span className="text-xs font-semibold text-teal-900 dark:text-teal-300">Allow Receptionist Discount</span>
                       <span className="text-[10px] text-gray-500">Can be combined with manual discounts</span>
                     </div>
                   </label>
@@ -1137,13 +1288,13 @@ export default function CreateOfferWizard({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Max Total Benefit Cap *</label>
+                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Max Total Benefit Cap *</label>
                     <input
                       type="number"
                       name="maxBenefitCap"
                       value={form.maxBenefitCap}
                       onChange={handleChange}
-                      className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.maxBenefitCap ? "border-red-500" : "border-gray-200"}`}
+                      className={`text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border rounded-lg px-2.5 py-2 text-xs sm:text-sm ${errors.maxBenefitCap ? "border-red-500" : "border-gray-200 dark:border-gray-600"}`}
                       placeholder="e.g., 30"
                       required
                     />
@@ -1151,13 +1302,13 @@ export default function CreateOfferWizard({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-medium text-teal-700 mb-1">Minimum Billing Amount (Optional)</label>
+                    <label className="block text-[10px] font-medium text-teal-700 dark:text-teal-400 mb-1">Minimum Billing Amount (Optional)</label>
                     <input
                       type="number"
                       name="minimumBillAmount"
                       value={form.minimumBillAmount}
                       onChange={handleChange}
-                      className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
+                      className="text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 w-full border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm"
                       placeholder="e.g., 1000"
                     />
                   </div>
@@ -1171,7 +1322,7 @@ export default function CreateOfferWizard({
               <button
                 type="button"
                 onClick={handlePrevStep}
-                className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
+                className="px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
               >
                 Previous
               </button>
@@ -1180,7 +1331,7 @@ export default function CreateOfferWizard({
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="px-6 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 text-sm font-medium transition-colors shadow-sm flex items-center"
+                className="px-6 py-2 rounded-lg bg-gray-900 dark:bg-indigo-600 text-white hover:bg-gray-800 dark:hover:bg-indigo-500 text-sm font-medium transition-colors shadow-sm flex items-center"
               >
                 Continue
                 <svg className="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -1190,7 +1341,7 @@ export default function CreateOfferWizard({
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading || (mode === "create" && !permissions.canCreate) || (mode === "update" && !permissions.canUpdate)}
-                className="px-6 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-800 text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                className="px-6 py-2 rounded-lg bg-gray-900 dark:bg-indigo-600 text-white hover:bg-gray-800 dark:hover:bg-indigo-500 text-sm font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
                 {loading ? "Saving..." : mode === "create" ? "Create Offer" : "Update Offer"}
               </button>
@@ -1202,9 +1353,9 @@ export default function CreateOfferWizard({
       {/* Success Popup */}
       {showSuccessPopup && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/40 mb-4">
                 <svg
                   className="h-8 w-8 text-green-600"
                   fill="none"
@@ -1219,8 +1370,8 @@ export default function CreateOfferWizard({
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Offer Submitted!</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Offer Submitted!</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 Your offer has been {mode === "create" ? "created" : "updated"} successfully.
               </p>
             </div>
@@ -1231,9 +1382,9 @@ export default function CreateOfferWizard({
       {/* Linked Services Warning Popup */}
       {showLinkedWarning && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 transform transition-all">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl p-6 max-w-lg w-full mx-4 transform transition-all">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 mb-4">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100 dark:bg-amber-900/40 mb-4">
                 <svg
                   className="h-8 w-8 text-amber-600"
                   fill="none"
@@ -1248,11 +1399,11 @@ export default function CreateOfferWizard({
                   />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Treatment Already Linked</h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Treatment Already Linked</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                 {linkedServicesMessage}
               </p>
-              <p className="text-xs text-gray-500 mb-6">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
                 Do you want to proceed anyway? This will update the treatment linkage.
               </p>
               <div className="flex gap-3 justify-center">
@@ -1261,7 +1412,7 @@ export default function CreateOfferWizard({
                     setShowLinkedWarning(false);
                     setLinkedServicesMessage("");
                   }}
-                  className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors font-medium text-sm"
+                  className="px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium text-sm"
                 >
                   Cancel
                 </button>
@@ -1330,19 +1481,19 @@ function ApplicabilityDropdownPicker({
   return (
     <div className="space-y-3">
       <div>
-        <label className="block text-xs font-semibold text-[#0E856E] mb-1.5">
+        <label className="block text-xs font-semibold text-[#0E856E] dark:text-teal-400 mb-1.5">
           {title}
         </label>
 
         <div
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-full bg-white border rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer transition-all shadow-sm ${
-            isOpen ? "border-[#0E856E] ring-2 ring-teal-500/10" : "border-gray-200/90 hover:border-[#0E856E]"
+          className={`w-full bg-white dark:bg-gray-900 border rounded-xl px-4 py-3 flex items-center justify-between cursor-pointer transition-all shadow-sm ${
+            isOpen ? "border-[#0E856E] ring-2 ring-teal-500/10" : "border-gray-200/90 dark:border-gray-600 hover:border-[#0E856E]"
           }`}
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
             <Search className="w-4 h-4 text-[#0E856E] shrink-0" />
-            <span className={`text-xs font-medium truncate ${selectedIds.length === 0 ? "text-gray-400" : "text-gray-900"}`}>
+            <span className={`text-xs font-medium truncate ${selectedIds.length === 0 ? "text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-gray-100"}`}>
               {selectedIds.length === 0
                 ? placeholder
                 : `${selectedIds.length} ${selectedIds.length === 1 ? 'item' : 'items'} selected`}
@@ -1364,8 +1515,8 @@ function ApplicabilityDropdownPicker({
         </div>
 
         {isOpen && (
-          <div className="mt-3 w-full bg-white rounded-2xl border border-gray-200/90 shadow-md overflow-hidden transition-all">
-            <div className="p-3 bg-gray-50/80 border-b border-gray-100 flex items-center gap-2">
+          <div className="mt-3 w-full bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/90 dark:border-gray-700 shadow-md overflow-hidden transition-all">
+            <div className="p-3 bg-gray-50/80 dark:bg-gray-900/60 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -1373,14 +1524,14 @@ function ApplicabilityDropdownPicker({
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full text-xs bg-white border border-gray-200/90 rounded-xl pl-8 pr-8 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#0E856E] focus:ring-1 focus:ring-[#0E856E]"
+                  className="w-full text-xs bg-white dark:bg-gray-900 border border-gray-200/90 dark:border-gray-600 rounded-xl pl-8 pr-8 py-2 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#0E856E] focus:ring-1 focus:ring-[#0E856E]"
                   autoFocus
                 />
                 {search && (
                   <button
                     type="button"
                     onClick={() => setSearch("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -1391,14 +1542,14 @@ function ApplicabilityDropdownPicker({
                 <button
                   type="button"
                   onClick={onSelectAll}
-                  className="text-[11px] font-semibold text-[#0E856E] hover:bg-teal-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                  className="text-[11px] font-semibold text-[#0E856E] dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 px-2.5 py-1.5 rounded-lg transition-colors"
                 >
                   Select All
                 </button>
                 <button
                   type="button"
                   onClick={onClearAll}
-                  className="text-[11px] font-semibold text-gray-500 hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors"
+                  className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 px-2.5 py-1.5 rounded-lg transition-colors"
                 >
                   Clear
                 </button>
@@ -1422,8 +1573,8 @@ function ApplicabilityDropdownPicker({
                       key={id || Math.random().toString()}
                       className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all border ${
                         isChecked
-                          ? "bg-teal-50/70 border-teal-200/80 text-teal-950 font-medium"
-                          : "bg-white border-transparent hover:bg-gray-50 text-gray-700"
+                          ? "bg-teal-50/70 dark:bg-teal-900/30 border-teal-200/80 dark:border-teal-800 text-teal-950 dark:text-teal-100 font-medium"
+                          : "bg-white dark:bg-gray-800 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -1431,10 +1582,10 @@ function ApplicabilityDropdownPicker({
                           type="checkbox"
                           checked={isChecked}
                           onChange={(e) => onToggle(id, e.target.checked)}
-                          className="w-4 h-4 text-[#0E856E] border-gray-300 rounded focus:ring-[#0E856E]"
+                          className="w-4 h-4 text-[#0E856E] border-gray-300 dark:border-gray-600 rounded focus:ring-[#0E856E]"
                         />
                         <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-bold text-gray-900 truncate">
+                          <span className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
                             {name}
                           </span>
                           {sub && sub !== name && (
@@ -1453,8 +1604,8 @@ function ApplicabilityDropdownPicker({
               )}
             </div>
 
-            <div className="px-4 py-2.5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-              <span className="font-medium text-gray-600">
+            <div className="px-4 py-2.5 bg-gray-50/80 dark:bg-gray-900/60 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span className="font-medium text-gray-600 dark:text-gray-300">
                 {selectedIds.length} of {items.length} selected
               </span>
               <button
@@ -1477,13 +1628,13 @@ function ApplicabilityDropdownPicker({
             return (
               <span
                 key={id || Math.random().toString()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-medium rounded-xl border border-teal-200/80 shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 text-xs font-medium rounded-xl border border-teal-200/80 dark:border-teal-800 shadow-xs"
               >
                 <span className="max-w-[180px] truncate">{name}</span>
                 <button
                   type="button"
                   onClick={() => onToggle(id, false)}
-                  className="text-teal-600 hover:text-teal-950 rounded-full hover:bg-teal-100 p-0.5 transition-colors"
+                  className="text-teal-600 dark:text-teal-400 hover:text-teal-950 dark:hover:text-teal-100 rounded-full hover:bg-teal-100 dark:hover:bg-teal-800/50 p-0.5 transition-colors"
                   title="Remove"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -1502,8 +1653,8 @@ function ApplicabilityDropdownPicker({
       )}
 
       {summaryText && (
-        <div className="p-3 bg-teal-50/60 border border-teal-200/70 rounded-xl mt-2">
-          <p className="text-xs text-teal-800 font-medium">{summaryText}</p>
+        <div className="p-3 bg-teal-50/60 dark:bg-teal-900/20 border border-teal-200/70 dark:border-teal-800 rounded-xl mt-2">
+          <p className="text-xs text-teal-800 dark:text-teal-200 font-medium">{summaryText}</p>
         </div>
       )}
     </div>

@@ -84,7 +84,7 @@ export default function Overview({ dateFilter = 'Today' }) {
     return (
       <div className={`flex items-center text-xs font-medium ${colorClass}`}>
         <Icon className={`w-3 h-3 mr-1 ${iconColor}`} />
-        {absValue}% <span className="text-gray-400 font-normal ml-1">vs prev. period</span>
+        {absValue}% <span className="text-gray-400 dark:text-gray-500 font-normal ml-1">vs prev. period</span>
       </div>
     );
   };
@@ -116,19 +116,19 @@ export default function Overview({ dateFilter = 'Today' }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="text-gray-500">Loading offer data...</div>
+        <div className="text-gray-500 dark:text-gray-400">Loading offer data...</div>
       </div>
     );
   }
   return (
     <div className="space-y-6">
       {/* Insights Banner */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4">
-        <div className="bg-emerald-50 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-emerald-100/50">
-          <Zap className="w-5 h-5 text-emerald-600" />
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex items-start gap-4">
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-emerald-100/50 dark:border-emerald-800/50">
+          <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <p className="text-gray-700 text-sm leading-relaxed mt-0.5">
-          Smart Offers are generating <span className="font-bold text-gray-900">{formatCurrency(offerBillingData.totalOfferRevenue)}</span> in attributed revenue across all branches {getDateDisplayText()}. Bundle performance is improving repeat visits, while discount usage increased <span className="font-bold text-gray-900">{discountControlData.averageDiscount}%</span> this period. ZEVA identified <span className="font-bold text-red-500">{formatCurrency(offerBillingData.instantDiscount.totalDiscount)}</span> in potential margin leakage.
+        <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed mt-0.5">
+          Smart Offers are generating <span className="font-bold text-gray-900 dark:text-gray-100">{formatCurrency(offerBillingData.totalOfferRevenue)}</span> in attributed revenue across all branches {getDateDisplayText()}. Bundle performance is improving repeat visits, while discount usage increased <span className="font-bold text-gray-900 dark:text-gray-100">{discountControlData.averageDiscount}%</span> this period. ZEVA identified <span className="font-bold text-red-500 dark:text-red-400">{formatCurrency(offerBillingData.instantDiscount.totalDiscount)}</span> in potential margin leakage.
         </p>
       </div>
 

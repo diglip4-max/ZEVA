@@ -1,6 +1,61 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
+const TOKEN_KEYS: string[] = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+function resolveRoleAwareToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (const key of TOKEN_KEYS) {
+      const raw =
+        window.localStorage.getItem(key) ||
+        window.sessionStorage.getItem(key);
+      if (!raw) continue;
+      try {
+        const base64Url = raw.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        const role = decoded.role;
+        if (!role) continue;
+        const roleMatchesKey =
+          (key === "agentToken" && (role === "agent" || role === "staff" || role === "doctorStaff")) ||
+          (key === "staffToken" && (role === "staff" || role === "doctorStaff" || role === "agent")) ||
+          (key === "clinicToken" && role === "clinic") ||
+          (key === "doctorToken" && (role === "doctor" || role === "doctorStaff")) ||
+          (key === "adminToken" && role === "admin") ||
+          key === "userToken";
+        if (roleMatchesKey) return raw;
+      } catch {
+        // ignore decode errors
+      }
+    }
+  } catch {
+    // fall through
+  }
+  // Fallback naive priority order
+  for (const key of TOKEN_KEYS) {
+    const v =
+      window.localStorage.getItem(key) ||
+      window.sessionStorage.getItem(key);
+    if (v) return v;
+  }
+  return null;
+}
+
 interface OfferBillingRecord {
   invoiceNumber: string;
   invoicedDate: string;
@@ -525,7 +580,7 @@ export function useOfferDashboard(dateFilter: string = 'Today') {
 
   const fetchOfferData = useCallback(async () => {
     const token = typeof window !== 'undefined'
-      ? localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken') || localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken')
+      ? resolveRoleAwareToken()
       : null;
 
     if (!token) return;
