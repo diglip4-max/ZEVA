@@ -247,9 +247,9 @@ export const getTokenByPath = () => {
 
   const pathname = window.location.pathname;
 
-  if (pathname?.includes("/clinic")) {
+  if (pathname?.includes("/clinic/")) {
     return localStorage.getItem("clinicToken");
-  } else if (pathname?.includes("/staff")) {
+  } else if (pathname?.includes("/staff/")) {
     return localStorage.getItem("agentToken");
   } else {
     return localStorage.getItem("token");
@@ -318,16 +318,24 @@ export const getAuthHeaders = () => {
   let token = null;
 
   if (pathname?.includes("/clinic")) {
-    token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
+    token =
+      localStorage.getItem("clinicToken") ||
+      sessionStorage.getItem("clinicToken");
   } else if (pathname?.includes("/staff") || pathname?.includes("/agent")) {
     token =
-      localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken") ||
-      localStorage.getItem("staffToken") || sessionStorage.getItem("staffToken") ||
-      localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      localStorage.getItem("staffToken") ||
+      sessionStorage.getItem("staffToken") ||
+      localStorage.getItem("userToken") ||
+      sessionStorage.getItem("userToken");
   } else if (pathname?.includes("/doctor")) {
-    token = localStorage.getItem("doctorToken") || sessionStorage.getItem("doctorToken");
+    token =
+      localStorage.getItem("doctorToken") ||
+      sessionStorage.getItem("doctorToken");
   } else {
-    token = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+    token =
+      localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
   }
 
   if (!token) {
