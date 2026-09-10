@@ -80,7 +80,7 @@ const useInbox = () => {
   );
   const { templates } = useTemplate();
   const { agents, loading: agentFetchLoading } = useAgents({
-    role: "agent",
+    role: "",
   })?.state;
   const { agents: doctors, loading: doctorFetchLoading } = useAgents({
     role: "doctorStaff",
