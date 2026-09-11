@@ -311,6 +311,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
 import { Mail, Lock, LogIn, Shield, Eye, EyeOff } from "lucide-react";
+import { clearAllAuthBeforeLogin } from "@/lib/helper";
 
 export default function StaffDoctorLogin() {
   const router = useRouter();
@@ -373,6 +374,7 @@ export default function StaffDoctorLogin() {
       const { token, user, tokenKey } = res.data;
 
       if (tokenKey === "agentToken") {
+        clearAllAuthBeforeLogin();
         localStorage.setItem("agentToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("userToken");
@@ -380,6 +382,7 @@ export default function StaffDoctorLogin() {
         setForm({ email: "", password: "" });
         router.push("/staff/dashboard");
       } else {
+        clearAllAuthBeforeLogin();
         localStorage.setItem("userToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("agentToken");
@@ -409,11 +412,13 @@ export default function StaffDoctorLogin() {
       
       const { token, user, tokenKey } = res.data;
       if (tokenKey === "agentToken") {
+        clearAllAuthBeforeLogin();
         localStorage.setItem("agentToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("userToken");
         window.dispatchEvent(new Event("authTokenChanged"));
       } else {
+        clearAllAuthBeforeLogin();
         localStorage.setItem("userToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user));
         localStorage.removeItem("agentToken");

@@ -29,31 +29,21 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+// URL-based role detection — no cross-role token scanning
 const getUserInfo = () => {
   if (typeof window === "undefined") return { role: null, id: null };
+  // This file is inside /clinic/ — always clinic context
   try {
-    for (const key of TOKEN_PRIORITY) {
-      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
-      if (!token) continue;
-      try {
-        const base64Url = token.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
-        const decoded = JSON.parse(jsonPayload);
-        return { role: decoded.role || decoded.userRole || null, id: decoded.userId || decoded.id || null };
-      } catch {
-        continue;
-      }
+    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+    if (token) {
+      const base64Url = token.split(".")[1];
+      if (!base64Url) return { role: 'clinic', id: null };
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
     }
-  } catch (error) {
-    console.error("Error getting user info:", error);
-  }
-  return { role: null, id: null };
+  } catch (e) { /* ignore */ }
+  return { role: 'clinic', id: null };
 };
 
 const getUserRole = () => getUserInfo().role;

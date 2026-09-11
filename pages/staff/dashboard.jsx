@@ -57,6 +57,11 @@ const AgentDashboard = () => {
     topPatient: null,
     hasFollowUpToday: false,
     followUpLeads: [],
+    eveningServiceName: null,
+    eveningServicePrice: 0,
+    eveningBookingCount: 0,
+    highValuePatientCount: 0,
+    highValuePatientRevenue: 0,
   });
 
   // APPOINTMENT TIMELINE — fetched from /api/agent/appointment-timeline

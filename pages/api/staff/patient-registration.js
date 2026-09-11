@@ -396,7 +396,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
+      const { emrNumber, invoiceNumber, name, phone, email, claimStatus, applicationStatus } = req.query;
           // Build query based on user role - CRITICAL: scope to clinicId OR userId in clinicUsers
       let scopeFilter = {};
       
@@ -454,22 +454,77 @@ export default async function handler(req, res) {
         scopeFilter = { userId: user._id };
       }
 
+      // Helper: build flexible omnibar filter matching all patient fields
+      const buildOmnibarFilter = (searchTerm) => {
+        const trimmed = searchTerm.trim();
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const orClauses = [
+          { firstName: { $regex: escRegex, $options: "i" } },
+          { lastName: { $regex: escRegex, $options: "i" } },
+          { email: { $regex: escRegex, $options: "i" } },
+          { emrNumber: { $regex: escRegex, $options: "i" } },
+          { invoiceNumber: { $regex: escRegex, $options: "i" } },
+          {
+            $expr: {
+              $regexMatch: {
+                input: { $concat: ["$firstName", " ", "$lastName"] },
+                regex: escRegex,
+                options: "i",
+              },
+            },
+          },
+        ];
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
+          orClauses.push({ mobileNumber: { $regex: flexiblePattern, $options: "i" } });
+          orClauses.push({ emrNumber: { $regex: digitsOnly, $options: "i" } });
+          orClauses.push({ invoiceNumber: { $regex: digitsOnly, $options: "i" } });
+        } else {
+          orClauses.push({ mobileNumber: { $regex: escRegex, $options: "i" } });
+        }
+        return { $or: orClauses };
+      };
+
+      const buildPhoneFilter = (phoneTerm) => {
+        const trimmed = phoneTerm.trim();
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
+          return { mobileNumber: { $regex: flexiblePattern, $options: "i" } };
+        }
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        return { mobileNumber: { $regex: escRegex, $options: "i" } };
+      };
+
+      const buildIdentifierFilter = (field, term) => {
+        const trimmed = term.trim();
+        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const digitsOnly = trimmed.replace(/[^\d]/g, "");
+        if (digitsOnly) {
+          return {
+            $or: [
+              { [field]: { $regex: escRegex, $options: "i" } },
+              { [field]: { $regex: digitsOnly, $options: "i" } },
+            ],
+          };
+        }
+        return { [field]: { $regex: escRegex, $options: "i" } };
+      };
+
       // Build overall query using $and to avoid keys/operators collisions
       const andConditions = [scopeFilter];
 
-      if (emrNumber) andConditions.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
-      if (invoiceNumber) andConditions.push({ invoiceNumber: { $regex: invoiceNumber, $options: "i" } });
-      if (phone) andConditions.push({ mobileNumber: { $regex: phone, $options: "i" } });
+      if (name) andConditions.push(buildOmnibarFilter(name));
+      if (emrNumber) andConditions.push(buildIdentifierFilter("emrNumber", emrNumber));
+      if (invoiceNumber) andConditions.push(buildIdentifierFilter("invoiceNumber", invoiceNumber));
+      if (phone) andConditions.push(buildPhoneFilter(phone));
+      if (email) {
+        const escRegex = email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        andConditions.push({ email: { $regex: escRegex, $options: "i" } });
+      }
       if (claimStatus) andConditions.push({ advanceClaimStatus: claimStatus });
       if (applicationStatus) andConditions.push({ status: applicationStatus });
-      if (name) {
-        andConditions.push({
-          $or: [
-            { firstName: { $regex: name, $options: "i" } },
-            { lastName: { $regex: name, $options: "i" } },
-          ]
-        });
-      }
 
       const query = { $and: andConditions };
 

@@ -35,6 +35,7 @@ import { formatMoney, getCurrencySymbol } from "@/lib/currencyHelper";
 // import useBankAccounts from "@/hooks/useBankAccounts";
 import { handleUpload } from "@/lib/helper";
 import { UseFinancePermissionReturn } from "../_hooks/useFinancePermission";
+import useBankAccounts from "../_hooks/useBankAccounts";
 
 const formatDate = (d?: string): string =>
   d
@@ -430,12 +431,10 @@ function NewExpenseModal({
 }) {
   const { currency } = useCurrency();
   const symbol = getCurrencySymbol(currency);
-  //   const { bankAccounts, loading: banksLoading } = useBankAccounts() as {
-  //     bankAccounts: { _id: string; bankName: string; accountNumber?: string }[];
-  //     loading: boolean;
-  //   };
-  const bankAccounts: any[] = [];
-  const banksLoading = false;
+  const { bankAccounts, loading: banksLoading } = useBankAccounts() as {
+    bankAccounts: { _id: string; bankName: string; accountNumber?: string }[];
+    loading: boolean;
+  };
 
   const [form, setForm] = useState({
     category: categories.find((c) => c !== "All") || "Office",

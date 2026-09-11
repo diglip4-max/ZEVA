@@ -42,7 +42,7 @@ export default async function handler(req, res) {
           clinicId = me.clinicId;
         }
       }
-      let query = { role: { $in: roles } };
+      let query = { role: { $in: roles }, isApproved: true };
       if (clinicId) {
         query = { ...query, clinicId };
       }

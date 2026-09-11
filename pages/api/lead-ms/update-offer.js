@@ -244,6 +244,8 @@ export default async function handler(req, res) {
       offer.freeQty = data.freeQty !== undefined ? Number(data.freeQty) : offer.freeQty;
 
       offer.updatedBy = user._id;
+      offer.updatedByName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "Unknown User";
+      offer.updatedByRole = user.role || "";
       offer.updatedAt = new Date();
 
       await offer.save();

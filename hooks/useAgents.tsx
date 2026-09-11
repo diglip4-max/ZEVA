@@ -2,7 +2,7 @@ import { getTokenByPath } from "@/lib/helper";
 import { User } from "@/types/users";
 import React from "react";
 
-type UserRole = "agent" | "doctorStaff";
+type UserRole = "agent" | "doctorStaff" | "";
 
 const useAgents = ({ role }: { role: UserRole }) => {
   const [agents, setAgents] = React.useState<User[]>([]);
@@ -12,7 +12,7 @@ const useAgents = ({ role }: { role: UserRole }) => {
     setLoading(true);
     try {
       const token = getTokenByPath();
-      if (!token || !role) return;
+      if (!token) return;
 
       const response = await fetch(
         `/api/lead-ms/get-agents-options?role=${role}`,

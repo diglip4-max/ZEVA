@@ -18,7 +18,9 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
       return;
     }
     if (typeof window === "undefined") return;
-    const isAgentRoute = window.location.pathname?.startsWith("/agent/") ?? false;
+    const isAgentRoute =
+      (window.location.pathname?.startsWith("/agent/") ||
+        window.location.pathname?.startsWith("/staff/")) ?? false;
     setRouteContext(isAgentRoute ? "agent" : "clinic");
   }, [contextOverride]);
 

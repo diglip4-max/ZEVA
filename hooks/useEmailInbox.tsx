@@ -118,7 +118,7 @@ export type Attachment = {
 export default function useEmailInbox() {
   const token = getTokenByPath();
   const { emailProviders } = useProvider();
-  const { state: agentsState } = useAgents({ role: "agent" });
+  const { state: agentsState } = useAgents({ role: "" });
   const { agents, loading: agentFetchLoading } = agentsState;
 
   // Conversation assignment

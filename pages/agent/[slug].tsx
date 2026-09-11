@@ -264,27 +264,11 @@ const AgentDynamicPage = () => {
           userInfo,
         });
 
-        // Temporarily set tokens in localStorage for components that check them
-        // This allows components to work without modification
-        // Note: agentToken may be userToken if agentToken was not found
-        if (routeInfo.type === "clinic" && typeof window !== "undefined") {
-          const originalClinicToken = localStorage.getItem("clinicToken");
-          localStorage.setItem("clinicToken", agentToken);
-          // Store original to restore later if needed
-          if (originalClinicToken) {
-            sessionStorage.setItem("_originalClinicToken", originalClinicToken);
-          }
-        } else if (
-          routeInfo.type === "doctor" &&
-          typeof window !== "undefined"
-        ) {
-          const originalDoctorToken = localStorage.getItem("doctorToken");
-          localStorage.setItem("doctorToken", agentToken);
-          // Store original to restore later if needed
-          if (originalDoctorToken) {
-            sessionStorage.setItem("_originalDoctorToken", originalDoctorToken);
-          }
-        }
+        // NOTE: Do NOT overwrite clinicToken/doctorToken in localStorage here.
+        // localStorage is shared across browser tabs - overwriting would corrupt
+        // the clinic/doctor tab's token and cause cross-tab auth failures.
+        // Sub-pages that need the agent's token should use agentToken directly
+        // or consume the TokenContext via useTokenContext().
 
         const pageLoader = routeMap[slug];
         if (!pageLoader) {
@@ -316,41 +300,9 @@ const AgentDynamicPage = () => {
 
     loadPage();
 
-    // Cleanup: restore original tokens when component unmounts
-    return () => {
-      if (typeof window !== "undefined") {
-        const originalClinicToken = sessionStorage.getItem(
-          "_originalClinicToken",
-        );
-        const originalDoctorToken = sessionStorage.getItem(
-          "_originalDoctorToken",
-        );
-
-        if (originalClinicToken) {
-          localStorage.setItem("clinicToken", originalClinicToken);
-          sessionStorage.removeItem("_originalClinicToken");
-        } else if (
-          slug &&
-          typeof slug === "string" &&
-          getRouteInfo(slug).type === "clinic"
-        ) {
-          // Only remove if we set it (not if it was already there)
-          localStorage.removeItem("clinicToken");
-        }
-
-        if (originalDoctorToken) {
-          localStorage.setItem("doctorToken", originalDoctorToken);
-          sessionStorage.removeItem("_originalDoctorToken");
-        } else if (
-          slug &&
-          typeof slug === "string" &&
-          getRouteInfo(slug).type === "doctor"
-        ) {
-          // Only remove if we set it (not if it was already there)
-          localStorage.removeItem("doctorToken");
-        }
-      }
-    };
+    // NOTE: No cleanup needed - we no longer overwrite localStorage tokens.
+    // This prevents the bug where navigating away from a clinic/doctor sub-page
+    // would remove or corrupt the real clinicToken/doctorToken.
   }, [slug]);
 
   if (loading) {

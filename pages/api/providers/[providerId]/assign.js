@@ -47,7 +47,8 @@ export default async function handler(req, res) {
     const users = await User.find({
       _id: { $in: userIds },
       clinicId: clinic._id,
-      role: "agent",
+      role: { $in: ["agent", "doctorStaff"] },
+      isApproved: true,
     });
     if (users.length !== userIds.length) {
       return res.status(400).json({

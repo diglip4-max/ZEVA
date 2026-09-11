@@ -24,7 +24,8 @@ export default function withDoctorAuth<P extends object>(
 
       const checkAuth = async () => {
         // Check if we're on an agent route - if so, allow agent tokens
-        const isAgentRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/agent/');
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isAgentRoute = pathname.startsWith('/agent/') || pathname.startsWith('/staff/');
         
         let token = typeof window !== 'undefined'
           ? (localStorage.getItem('doctorToken') || sessionStorage.getItem('doctorToken') || localStorage.getItem('token') || sessionStorage.getItem('token'))

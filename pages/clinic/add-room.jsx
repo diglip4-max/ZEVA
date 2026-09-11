@@ -140,8 +140,8 @@ function AddRoomPage({ contextOverride = null }) {
     }
     if (typeof window === "undefined") return;
     const agentPath =
-      router?.pathname?.startsWith("/agent/") ||
-      window.location.pathname?.startsWith("/agent/");
+      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
+      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(Boolean(agentPath && hasAgentToken));
   }, [contextOverride, router.pathname, hasAgentToken]);
 
