@@ -1,79 +1,97 @@
-// Dynamic staff route handler
+// Dynamic staff route handler (OPTIMIZED)
 // Converts /staff/[slug] to render admin/clinic/doctor/staff pages with AgentLayout
 // Handles token context (clinicToken, doctorToken, agentToken) based on route type
 "use client";
 
 import { useRouter } from "next/router";
-import { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AgentLayout from "../../components/AgentLayout";
 import withAgentAuth from "../../components/withAgentAuth";
 import { jwtDecode } from "jwt-decode";
+import { createContext, useContext } from "react";
 
-// Token context to provide appropriate tokens to loaded components
-const TokenContext = createContext<{
+// ---------------------------------------------------------------------------
+// Token context
+// ---------------------------------------------------------------------------
+type TokenContextValue = {
   agentToken: string | null;
   clinicToken: string | null;
   doctorToken: string | null;
   userRole: string | null;
   userInfo: any;
-}>({
+};
+
+const EMPTY_TOKEN_CONTEXT: TokenContextValue = {
   agentToken: null,
   clinicToken: null,
   doctorToken: null,
   userRole: null,
   userInfo: null,
-});
+};
 
-// Hook to use token context
+const TokenContext = createContext<TokenContextValue>(EMPTY_TOKEN_CONTEXT);
 export const useTokenContext = () => useContext(TokenContext);
 
-// Helper to determine route type and required token
-const getRouteInfo = (slug: string) => {
-  if (
-    slug.startsWith("clinic-") ||
-    slug.startsWith("clinic-staff-") ||
-    slug.startsWith("lead-") ||
-    slug.startsWith("marketingalltype-")
-  ) {
-    return { type: "clinic", tokenKey: "clinicToken" };
+// ---------------------------------------------------------------------------
+// Route classification
+//
+// FIX: previously "lead-" was matched inside the clinic OR-list, which made
+// the later `if (slug.startsWith("lead-")) return agent` branch unreachable
+// dead code. Every "lead-*" route (e.g. lead-create-lead) was silently
+// mis-typed as "clinic" instead of "agent". Order matters here: most
+// specific / narrowest prefixes must be checked first.
+// ---------------------------------------------------------------------------
+type RouteType = "admin" | "clinic" | "doctor" | "agent" | "unknown";
+
+const ADMIN_SLUGS = new Set([
+  "AdminClinicApproval",
+  "approve-doctors",
+  "add-treatment",
+  "all-blogs",
+  "analytics",
+  "get-in-touch",
+  "job-manage",
+  "manage-clinic-permissions",
+  "create-agent",
+  "create-staff",
+  "admin-add-service",
+  "admin-create-vendor",
+  "getAllEodNotes",
+  "patient-report",
+  "track-expenses",
+  "contracters",
+  "dashboard-admin",
+  "seed-navigation",
+  "all-clinic",
+  "register-clinic",
+]);
+
+const getRouteInfo = (
+  slug: string,
+): { type: RouteType; tokenKey: string | null } => {
+  // Most specific first: doctor-staff- before doctor-, clinic-staff- before clinic-
+  if (slug.startsWith("lead-") || slug.startsWith("marketingalltype-")) {
+    // "lead-" and marketing-alltype routes belong to the agent surface.
+    return {
+      type: slug.startsWith("lead-") ? "agent" : "clinic",
+      tokenKey: slug.startsWith("lead-") ? "agentToken" : "clinicToken",
+    };
   }
-  if (slug.startsWith("doctor-") || slug.startsWith("doctor-staff-")) {
+  if (slug.startsWith("doctor-staff-") || slug.startsWith("doctor-")) {
     return { type: "doctor", tokenKey: "doctorToken" };
   }
-  if (slug.startsWith("lead-")) {
-    return { type: "agent", tokenKey: "agentToken" };
+  if (slug.startsWith("clinic-staff-") || slug.startsWith("clinic-")) {
+    return { type: "clinic", tokenKey: "clinicToken" };
   }
-  if (
-    slug.startsWith("admin-") ||
-    [
-      "AdminClinicApproval",
-      "approve-doctors",
-      "add-treatment",
-      "all-blogs",
-      "analytics",
-      "get-in-touch",
-      "job-manage",
-      "manage-clinic-permissions",
-      "create-agent",
-      "create-staff",
-      "admin-add-service",
-      "admin-create-vendor",
-      "getAllEodNotes",
-      "patient-report",
-      "track-expenses",
-      "contracters",
-      "dashboard-admin",
-      "seed-navigation",
-      "all-clinic",
-      "register-clinic",
-    ].includes(slug)
-  ) {
+  if (slug.startsWith("admin-") || ADMIN_SLUGS.has(slug)) {
     return { type: "admin", tokenKey: "adminToken" };
   }
   return { type: "unknown", tokenKey: null };
 };
 
-// Map of staff routes to their corresponding admin/clinic/doctor/staff pages
+// ---------------------------------------------------------------------------
+// Route map (unchanged — same imports as before)
+// ---------------------------------------------------------------------------
 const routeMap: { [key: string]: () => Promise<any> } = {
   // Admin routes
   AdminClinicApproval: () => import("../admin/AdminClinicApproval"),
@@ -102,7 +120,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   myallClinic: () => import("../clinic/myallClinic"),
   "clinic-myallClinic": () => import("../clinic/myallClinic"),
   "clinic-dashboard": () => import("../clinic/clinic-dashboard"),
-  "clinic-clinic-dashboard": () => import("../clinic/clinic-dashboard"), // Handle double-prefixed route from path conversion
+  "clinic-clinic-dashboard": () => import("../clinic/clinic-dashboard"),
   "clinic-BlogForm": () => import("../clinic/BlogForm"),
   "job-posting": () => import("../clinic/job-posting"),
   "clinic-published-blogs": () => import("../clinic/published-blogs"),
@@ -123,7 +141,6 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "enquiry-form": () => import("../clinic/enquiry-form"),
   "review-form": () => import("../clinic/review-form"),
   "clinic-seed-navigation": () => import("../clinic/seed-navigation"),
-  // Staff routes for clinic
   "clinic-staff-dashboard": () => import("../staff/staff-dashboard"),
   "clinic-add-service": () => import("../staff/add-service"),
   "clinic-patient-registration": () => import("../clinic/patient-registration"),
@@ -161,7 +178,6 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "doctor-job-applicants": () => import("../doctor/job-applicants"),
   "prescription-requests": () => import("../doctor/prescription-requests"),
   "doctor-seed-navigation": () => import("../doctor/seed-navigation"),
-  // Staff routes for doctor
   "doctor-staff-dashboard": () => import("../staff/staff-dashboard"),
   "doctor-add-service": () => import("../staff/add-service"),
   "doctor-patient-registration": () => import("../clinic/patient-registration"),
@@ -177,7 +193,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "doctor-booked-appointments": () => import("../staff/booked-appointments"),
   "doctor-staff-add-treatment": () => import("../staff/add-treatment"),
 
-  // Direct staff routes (without prefix)
+  // Direct staff routes
   dashboard: () => import("./dashboard"),
   "assigned-leads": () => import("../agent/assigned-leads"),
   "clinic-create-agent": () => import("../clinic/create-agent"),
@@ -205,7 +221,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
 
   "clinic-consent": () => import("../clinic/consent"),
   "clinic-userpackages": () => import("../clinic/userpackages"),
-  // stocks routes
+
+  // Stocks
   "clinic-stocks-uom": () => import("../clinic/stocks/uom"),
   "clinic-stocks-locations": () => import("../clinic/stocks/locations"),
   "clinic-stocks-suppliers": () => import("../clinic/stocks/suppliers"),
@@ -245,42 +262,108 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-finance-management": () => import("../clinic/finance-management"),
 };
 
+// ---------------------------------------------------------------------------
+// Module-level caches (persist across route changes AND remounts — this is
+// what makes revisits instant instead of re-triggering the loading screen)
+// ---------------------------------------------------------------------------
+const componentCache = new Map<string, React.ComponentType<any>>();
+const importPromiseCache = new Map<string, Promise<any>>();
+
+const getModulePromise = (slug: string) => {
+  let p = importPromiseCache.get(slug);
+  if (!p) {
+    const loader = routeMap[slug];
+    if (!loader) return null;
+    p = loader();
+    importPromiseCache.set(slug, p);
+  }
+  return p;
+};
+
+/**
+ * Call this on link hover / focus (e.g. onMouseEnter in your sidebar) to
+ * start fetching the JS chunk before the user even clicks. Combined with
+ * the module cache above, this makes the actual navigation feel instant.
+ */
+export const preloadStaffRoute = (slug: string) => {
+  if (!slug || componentCache.has(slug)) return;
+  getModulePromise(slug);
+};
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 const StaffDynamicPage = () => {
   const router = useRouter();
-  const { slug } = router.query;
-  const [PageComponent, setPageComponent] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { slug: rawSlug } = router.query;
+  const slug = typeof rawSlug === "string" ? rawSlug : null;
+
+  const [PageComponent, setPageComponent] =
+    useState<React.ComponentType<any> | null>(
+      slug ? (componentCache.get(slug) ?? null) : null,
+    );
+  // Only show a full loading state when nothing is cached yet for this slug.
+  const [loading, setLoading] = useState<boolean>(
+    !!slug && !componentCache.has(slug),
+  );
   const [error, setError] = useState<string | null>(null);
-  const [tokenContext, setTokenContext] = useState<{
+  const [tokenState, setTokenState] = useState<{
     agentToken: string | null;
-    clinicToken: string | null;
-    doctorToken: string | null;
     userRole: string | null;
     userInfo: any;
-  }>({
-    agentToken: null,
-    clinicToken: null,
-    doctorToken: null,
-    userRole: null,
-    userInfo: null,
-  });
+  }>({ agentToken: null, userRole: null, userInfo: null });
+
+  // Avoid re-decoding the JWT on every navigation — only when the raw token changes.
+  const lastDecodedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!slug || typeof slug !== "string") {
+    if (!slug) {
       setLoading(false);
+      setError(null);
       return;
     }
 
-    const loadPage = async () => {
+    // Fail fast: unknown route → don't touch storage / start an import at all.
+    if (!routeMap[slug]) {
+      setError(`Page not found: /staff/${slug}`);
+      setLoading(false);
+      setPageComponent(null);
+      return;
+    }
+
+    // Already cached from a previous visit this session → render instantly,
+    // no spinner, no re-fetch, no re-decode.
+    const cached = componentCache.get(slug);
+    if (cached) {
+      setPageComponent(() => cached);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    const run = async () => {
       try {
-        // Get agent token and user info - check multiple token types
+        // Kick the chunk import off immediately, in parallel with token lookup,
+        // instead of waiting for token retrieval to finish first.
+        const modulePromise = getModulePromise(slug);
+        if (!modulePromise) {
+          if (!cancelled) {
+            setError(`Page not found: /staff/${slug}`);
+            setLoading(false);
+          }
+          return;
+        }
+
         let agentToken =
           typeof window !== "undefined"
             ? localStorage.getItem("agentToken") ||
             sessionStorage.getItem("agentToken")
             : null;
 
-        // Fallback to userToken if agentToken not found
         if (!agentToken && typeof window !== "undefined") {
           agentToken =
             localStorage.getItem("userToken") ||
@@ -288,100 +371,88 @@ const StaffDynamicPage = () => {
         }
 
         if (!agentToken) {
-          setError("Agent token not found");
-          setLoading(false);
+          if (!cancelled) {
+            setError("Agent token not found");
+            setLoading(false);
+          }
           return;
         }
 
-        // Decode token to get user info
-        let userInfo: any = null;
-        let userRole: string | null = null;
-        try {
-          const decoded: any = jwtDecode(agentToken);
-          userInfo = decoded;
-          userRole = decoded.role || null;
-        } catch (err) {
-          console.error("Error decoding token:", err);
+        let userInfo: any = tokenState.userInfo;
+        let userRole: string | null = tokenState.userRole;
+        if (lastDecodedTokenRef.current !== agentToken) {
+          try {
+            const decoded: any = jwtDecode(agentToken);
+            userInfo = decoded;
+            userRole = decoded.role || null;
+            lastDecodedTokenRef.current = agentToken;
+          } catch (err) {
+            console.error("Error decoding token:", err);
+          }
         }
 
-        // Get route info to determine token type needed
-        const routeInfo = getRouteInfo(slug);
+        const module = await modulePromise;
+        if (cancelled) return;
 
-        // Set up token context based on route type
-        // For clinic routes, temporarily set clinicToken (using agentToken/userToken, backend will handle it)
-        // For doctor routes, temporarily set doctorToken (using agentToken/userToken, backend will handle it)
-        let clinicToken: string | null = null;
-        let doctorToken: string | null = null;
-
-        if (routeInfo.type === "clinic") {
-          // For clinic routes, use agentToken/userToken as clinicToken (API will validate role)
-          clinicToken = agentToken;
-        } else if (routeInfo.type === "doctor") {
-          // For doctor routes, use agentToken/userToken as doctorToken (API will validate role)
-          doctorToken = agentToken;
-        }
-
-        setTokenContext({
-          agentToken,
-          clinicToken,
-          doctorToken,
-          userRole,
-          userInfo,
-        });
-
-        // NOTE: Do NOT overwrite clinicToken/doctorToken in localStorage here.
-        // localStorage is shared across browser tabs - overwriting would corrupt
-        // the clinic/doctor tab's token and cause cross-tab auth failures.
-        // Sub-pages that need the agent's token should use agentToken directly
-        // or consume the TokenContext via useTokenContext().
-
-        const pageLoader = routeMap[slug];
-        if (!pageLoader) {
-          setError(`Page not found: /staff/${slug}`);
-          setLoading(false);
-          return;
-        }
-
-        const module = await pageLoader();
         const ExportedComponent = module.default;
+        componentCache.set(slug, ExportedComponent);
 
-        // Create a wrapper that provides token context
-        const WrappedComponent = (props: any) => {
-          return (
-            <TokenContext.Provider value={tokenContext}>
-              <ExportedComponent {...props} />
-            </TokenContext.Provider>
-          );
-        };
-
-        setPageComponent(() => WrappedComponent);
+        if (!cancelled) {
+          setTokenState({ agentToken, userRole, userInfo });
+          setPageComponent(() => ExportedComponent);
+          setLoading(false);
+        }
       } catch (err: any) {
         console.error("Error loading page:", err);
-        setError(`Failed to load page: ${err.message}`);
-      } finally {
-        setLoading(false);
+        // Drop the failed promise from cache so a retry is possible.
+        importPromiseCache.delete(slug);
+        if (!cancelled) {
+          setError(`Failed to load page: ${err.message}`);
+          setLoading(false);
+        }
       }
     };
 
-    loadPage();
+    run();
 
-    // NOTE: No cleanup needed - we no longer overwrite localStorage tokens.
-    // This prevents the bug where navigating away from a clinic/doctor sub-page
-    // would remove or corrupt the real clinicToken/doctorToken.
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
+  const routeInfo = useMemo(() => (slug ? getRouteInfo(slug) : null), [slug]);
+
+  // Stable-identity context value: only clinicToken/doctorToken slot changes
+  // based on route type, avoiding needless re-renders in consumers.
+  const tokenContext: TokenContextValue = useMemo(() => {
+    const clinicToken =
+      routeInfo?.type === "clinic" ? tokenState.agentToken : null;
+    const doctorToken =
+      routeInfo?.type === "doctor" ? tokenState.agentToken : null;
+    return {
+      agentToken: tokenState.agentToken,
+      clinicToken,
+      doctorToken,
+      userRole: tokenState.userRole,
+      userInfo: tokenState.userInfo,
+    };
+  }, [tokenState, routeInfo]);
 
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  // Loading only shows when there is truly nothing cached to display yet —
+  // prevents the full-screen flash on already-visited routes.
+  if (loading && !PageComponent) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
       </div>
     );
   }
@@ -401,7 +472,6 @@ const StaffDynamicPage = () => {
   );
 };
 
-// Use AgentLayout instead of AdminLayout/ClinicLayout/DoctorLayout
 StaffDynamicPage.getLayout = function PageLayout(page: React.ReactNode) {
   return <AgentLayout>{page}</AgentLayout>;
 };
