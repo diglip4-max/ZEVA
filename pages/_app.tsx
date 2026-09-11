@@ -1,5 +1,5 @@
 import type { AppProps } from "next/app";
-import { ClinicThemeProvider } from '../context/ClinicThemeContext';
+import { ClinicThemeProvider } from "../context/ClinicThemeContext";
 import { useEffect, useState, useRef } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { useRouter } from "next/router";
@@ -70,7 +70,8 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     router.pathname.startsWith("/admin") ||
     router.pathname.startsWith("/clinic") ||
     router.pathname.startsWith("/doctor") ||
-    router.pathname.startsWith("/agent");
+    router.pathname.startsWith("/agent") ||
+    router.pathname.startsWith("/staff");
 
   // For agent routes, ALWAYS use AgentLayout to ensure consistent sidebar
   // This overrides any getLayout defined on the component (like AdminLayout)
@@ -78,7 +79,12 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     Component.getLayout || ((page: ReactNode) => <Layout>{page}</Layout>);
 
   // Check if current route should have no layout
-  const noLayoutRoutes = ["/consent-success", "/clinic-management-software-india", "/clinic/billing-history", "/demo-thank-you"];
+  const noLayoutRoutes = [
+    "/consent-success",
+    "/clinic-management-software-india",
+    "/clinic/billing-history",
+    "/demo-thank-you",
+  ];
   if (noLayoutRoutes.includes(router.pathname)) {
     getLayout = (page: ReactNode) => <>{page}</>;
   }
@@ -564,24 +570,24 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#363636',
-            color: '#fff',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            maxWidth: '500px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            background: "#363636",
+            color: "#fff",
+            padding: "12px 16px",
+            borderRadius: "8px",
+            fontSize: "14px",
+            maxWidth: "500px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
           },
           success: {
             iconTheme: {
-              primary: '#10b981',
-              secondary: '#fff',
+              primary: "#10b981",
+              secondary: "#fff",
             },
           },
           error: {
             iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
+              primary: "#ef4444",
+              secondary: "#fff",
             },
           },
         }}
@@ -592,20 +598,20 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       <AuthProvider>
         <SearchProvider>
           <CurrencyProvider>
-          <Head>
-            <meta
-              name="viewport"
-              content="initial-scale=1.0, width=device-width"
-            />
-            <link rel="icon" href="/favicon1.png" />
-          </Head>
-          <DefaultSeo {...SEO} />
-          <LoadScript
-            googleMapsApiKey={GOOGLE_MAPS_API_KEY || ""}
-            loadingElement={<Loader />}
-          >
-            {getLayout(<Component {...pageProps} />)}
-          </LoadScript>
+            <Head>
+              <meta
+                name="viewport"
+                content="initial-scale=1.0, width=device-width"
+              />
+              <link rel="icon" href="/favicon1.png" />
+            </Head>
+            <DefaultSeo {...SEO} />
+            <LoadScript
+              googleMapsApiKey={GOOGLE_MAPS_API_KEY || ""}
+              loadingElement={<Loader />}
+            >
+              {getLayout(<Component {...pageProps} />)}
+            </LoadScript>
           </CurrencyProvider>
         </SearchProvider>
       </AuthProvider>
