@@ -592,20 +592,20 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       <AuthProvider>
         <SearchProvider>
           <CurrencyProvider>
-          <Head>
-            <meta
-              name="viewport"
-              content="initial-scale=1.0, width=device-width"
-            />
-            <link rel="icon" href="/favicon1.png" />
-          </Head>
-          <DefaultSeo {...SEO} />
-          <LoadScript
-            googleMapsApiKey={GOOGLE_MAPS_API_KEY || ""}
-            loadingElement={<Loader />}
-          >
-            {getLayout(<Component {...pageProps} />)}
-          </LoadScript>
+            <Head>
+              <meta
+                name="viewport"
+                content="initial-scale=1.0, width=device-width"
+              />
+              <link rel="icon" href="/favicon1.png" />
+            </Head>
+            <DefaultSeo {...SEO} />
+            <LoadScript
+              googleMapsApiKey={GOOGLE_MAPS_API_KEY || ""}
+              loadingElement={<Loader />}
+            >
+              {getLayout(<Component {...pageProps} />)}
+            </LoadScript>
           </CurrencyProvider>
         </SearchProvider>
       </AuthProvider>

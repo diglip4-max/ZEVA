@@ -62,11 +62,11 @@ export default async function handler(req, res) {
     // If user is clinic/doctor/admin, return their navigation items directly
     if (['clinic', 'doctor', 'admin'].includes(me.role)) {
       const navigationRole = me.role;
-      
+
       // Get navigation items for the user's role
-      const navigationItems = await ClinicNavigationItem.find({ 
-        role: navigationRole, 
-        isActive: true 
+      const navigationItems = await ClinicNavigationItem.find({
+        role: navigationRole,
+        isActive: true
       }).sort({ order: 1 });
 
       // Convert paths to staff routes
@@ -102,11 +102,11 @@ export default async function handler(req, res) {
 
     // Get agent permissions
     const agentPermission = await AgentPermission.findOne({ agentId: me._id });
-    
+
     // Determine which role's navigation items to show based on who created the agent
     // Priority: 1. Check who created the agent, 2. Default to 'clinic'
     let navigationRole = 'clinic'; // default
-    
+
     if (me.createdBy) {
       const creator = await User.findById(me.createdBy).select('role');
       if (creator) {
@@ -121,9 +121,9 @@ export default async function handler(req, res) {
     }
 
     // Get navigation items for the determined role (these are the modules from creator's dashboard)
-    const navigationItems = await ClinicNavigationItem.find({ 
-      role: navigationRole, 
-      isActive: true 
+    const navigationItems = await ClinicNavigationItem.find({
+      role: navigationRole,
+      isActive: true
     }).sort({ order: 1 });
 
     // If no permissions exist, return empty array (agent sees nothing until permissions are granted)
@@ -144,17 +144,17 @@ export default async function handler(req, res) {
       // Remove role prefix if present (e.g., "admin_dashboard" -> "dashboard")
       const moduleKeyWithoutPrefix = moduleKey.replace(/^(admin|clinic|doctor)_/, '');
       const moduleKeyWithPrefix = `${navigationRole}_${moduleKeyWithoutPrefix}`;
-      
+
       const permissionData = {
         moduleActions: perm.actions,
         subModules: {}
       };
-      
+
       // Store with both keys for flexible lookup
       permissionMap[moduleKey] = permissionData;
       permissionMap[moduleKeyWithoutPrefix] = permissionData;
       permissionMap[moduleKeyWithPrefix] = permissionData;
-      
+
       if (perm.subModules && perm.subModules.length > 0) {
         perm.subModules.forEach(subModule => {
           permissionData.subModules[subModule.name] = subModule.actions;
@@ -171,12 +171,12 @@ export default async function handler(req, res) {
         // item.moduleKey from DB is like "clinic_marketing", permission might be stored as "marketing" or "clinic_marketing"
         const moduleKeyWithoutRole = item.moduleKey.replace(/^(admin|clinic|doctor)_/, '');
         const moduleKeyWithRole = `${navigationRole}_${moduleKeyWithoutRole}`;
-        
-        const modulePerm = permissionMap[item.moduleKey] || 
-                          permissionMap[moduleKeyWithoutRole] ||
-                          permissionMap[moduleKeyWithRole] ||
-                          permissionMap[item.moduleKey.replace(`${navigationRole}_`, '')];
-        
+
+        const modulePerm = permissionMap[item.moduleKey] ||
+          permissionMap[moduleKeyWithoutRole] ||
+          permissionMap[moduleKeyWithRole] ||
+          permissionMap[item.moduleKey.replace(`${navigationRole}_`, '')];
+
         // Check if module has ANY permission at module level
         const hasModulePermission = modulePerm && (
           modulePerm.moduleActions.all === true ||
@@ -207,12 +207,12 @@ export default async function handler(req, res) {
               // Get submodule name (handle both plain objects and Mongoose documents)
               const subModuleName = subModule.name || subModule._doc?.name;
               if (!subModuleName) return false;
-              
+
               // ✅ CRITICAL FIX: If module-level "all" is true, show ALL submodules
               if (moduleAllEnabled) {
                 return true; // Show all submodules when module-level "all" is enabled
               }
-              
+
               // Otherwise, check if submodule has ANY permission
               const subModulePerm = modulePerm?.subModules[subModuleName];
               return subModulePerm && (
@@ -249,7 +249,7 @@ export default async function handler(req, res) {
           const subModuleName = subModule.name || subModule._doc?.name || '';
           const subModuleIcon = subModule.icon || subModule._doc?.icon || '';
           const subModuleOrder = subModule.order || subModule._doc?.order || 0;
-          
+
           return {
             name: subModuleName,
             path: subModulePath ? convertPathToStaff(subModulePath, navigationRole) : '',
@@ -291,10 +291,10 @@ export default async function handler(req, res) {
 
   } catch (error) {
     // console.error('Error fetching agent sidebar permissions:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Internal server error', 
-      error: error.message 
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
     });
   }
 }

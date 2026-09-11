@@ -277,7 +277,7 @@ const StaffDynamicPage = () => {
         let agentToken =
           typeof window !== "undefined"
             ? localStorage.getItem("agentToken") ||
-              sessionStorage.getItem("agentToken")
+            sessionStorage.getItem("agentToken")
             : null;
 
         // Fallback to userToken if agentToken not found

@@ -68,8 +68,8 @@ export default function withAgentAuth<P extends object>(
             keys.forEach((k) => {
               const stored = localStorage.getItem(k) || sessionStorage.getItem(k);
               if (stored === tokenToRemove) {
-                try { localStorage.removeItem(k); } catch {}
-                try { sessionStorage.removeItem(k); } catch {}
+                try { localStorage.removeItem(k); } catch { }
+                try { sessionStorage.removeItem(k); } catch { }
               }
             });
           };
@@ -110,7 +110,7 @@ export default function withAgentAuth<P extends object>(
     return (
       <>
         {/* MODIFIED: Set position to top-right with proper toast options to match other pages */}
-        <Toaster 
+        <Toaster
           position="top-right"
           toastOptions={{
             duration: 3000,
