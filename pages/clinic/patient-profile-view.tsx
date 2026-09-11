@@ -53,13 +53,22 @@ const getAuthHeaders = (routeContext: "clinic" | "agent" = "clinic") => {
   } else {
     token =
       localStorage.getItem("clinicToken") ||
-      sessionStorage.getItem("clinicToken");
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("doctorToken") ||
+      sessionStorage.getItem("doctorToken");
   }
 
   if (!token) {
     token =
       localStorage.getItem("userToken") ||
       sessionStorage.getItem("userToken");
+  }
+
+  if (!token) {
+    for (const key of TOKEN_PRIORITY) {
+      token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) break;
+    }
   }
 
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -1028,7 +1037,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
   // Track invoice numbers that have been paid but billing history hasn't updated yet
   // Persisted in sessionStorage to survive page refreshes
   const [manuallyPaidInvoices, setManuallyPaidInvoices] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && patientData?._id) {
       try {
         const stored = sessionStorage.getItem(`manuallyPaidInvoices_${patientData._id}`);
         if (stored) {
@@ -1045,7 +1054,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
   // Track package billing IDs that have already been billed in current session (prevent duplicates)
   const [billedPackageIds, setBilledPackageIds] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && patientData?._id) {
       try {
         const stored = sessionStorage.getItem(`billedPackageIds_${patientData._id}`);
         if (stored) {
@@ -1092,7 +1101,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
   // Persist manually paid invoices to sessionStorage
   useEffect(() => {
-    if (typeof window !== 'undefined' && patientData._id) {
+    if (typeof window !== 'undefined' && patientData?._id) {
       try {
         sessionStorage.setItem(
           `manuallyPaidInvoices_${patientData._id}`,
@@ -1103,11 +1112,11 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
         console.error('Error saving manually paid invoices:', e);
       }
     }
-  }, [manuallyPaidInvoices, patientData._id]);
+  }, [manuallyPaidInvoices, patientData?._id]);
 
   // Persist billed package IDs to sessionStorage
   useEffect(() => {
-    if (typeof window !== 'undefined' && patientData._id) {
+    if (typeof window !== 'undefined' && patientData?._id) {
       try {
         sessionStorage.setItem(
           `billedPackageIds_${patientData._id}`,
@@ -1118,7 +1127,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
         console.error('Error saving billed package IDs:', e);
       }
     }
-  }, [billedPackageIds, patientData._id]);
+  }, [billedPackageIds, patientData?._id]);
 
   // Fetch all clinic services
   const fetchAllServices = async () => {
@@ -1292,10 +1301,11 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
   useEffect(() => {
     const fetchAvailable = async () => {
       try {
-        const headers = getAuthHeaders() || {};
+        const headers = getAuthHeaders();
+        if (!headers) return;
         const [mRes, pRes] = await Promise.all([
-          axios.get('/api/clinic/memberships', { headers }),
-          axios.get('/api/clinic/packages', { headers }),
+          axios.get('/api/clinic/memberships', { headers }).catch(() => ({ data: { success: false, memberships: [] } })),
+          axios.get('/api/clinic/packages', { headers }).catch(() => ({ data: { success: false, packages: [] } })),
         ]);
         if (mRes.data.success) setAllAvailableMemberships(mRes.data.memberships || []);
         if (pRes.data.success) {
@@ -2545,9 +2555,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
       // Fetch all clinic packages and memberships first, plus billing history!
       const [mRes, pRes, billingRes] = await Promise.all([
-        axios.get('/api/clinic/memberships', { headers }),
-        axios.get('/api/clinic/packages', { headers }),
-        axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers })
+        axios.get('/api/clinic/memberships', { headers }).catch(() => ({ data: { memberships: [] } })),
+        axios.get('/api/clinic/packages', { headers }).catch(() => ({ data: { packages: [] } })),
+        axios.get(`/api/clinic/billing-history/${patientData._id}`, { headers }).catch(() => ({ data: { success: false, billings: [] } }))
       ]);
 
       const allMemberships = mRes.data?.memberships || [];
@@ -3204,7 +3214,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
         axios.get(
           `/api/clinic/all-appointments?page=1&limit=1000&fromDate=${oneYearAgo.toISOString().split('T')[0]}&toDate=${today}`,
           { headers }
-        ),
+        ).catch(() => ({ data: { success: false, appointments: [] } })),
         axios.get(`/api/clinic/package-usage/${patientData._id}`, { headers }).catch(() => ({ data: { success: false } })),
         fetchBillingHistory(), // Use the unified function here
         axios.get(`/api/clinic/insurance-claims?patientId=${patientData._id}`, { headers }).catch(() => ({ data: { success: false } }))
@@ -13237,7 +13247,18 @@ function PatientProfileView({
 
       // Fetch patient data and balance in parallel for first render speed
       const [patientRes, balanceRes] = await Promise.all([
-        axios.get(`/api/clinic/patient-registration?id=${id}`, { headers }),
+        axios.get(`/api/clinic/patient-registration?id=${id}`, { headers }).catch((err) => {
+          if (err?.response?.status === 401) {
+            const onAgentPortal =
+              typeof window !== "undefined" &&
+              (window.location.pathname.startsWith("/staff/") ||
+                window.location.pathname.startsWith("/agent/"));
+            if (!onAgentPortal) {
+              router.push("/clinic/login-clinic");
+            }
+          }
+          return { data: { success: false, patient: null } };
+        }),
         axios.get(`/api/clinic/patient-balance/${id}`, { headers }).catch(() => ({ data: { balances: {} } }))
       ]);
 

@@ -349,6 +349,85 @@ export const getAuthHeaders = () => {
   };
 };
 
+// ============================================================
+// Login Session Sanitization Helpers
+// Use these IMMEDIATELY before writing fresh tokens on login success.
+// Guarantees: no stale tokens/metadata from previous logins cause data mismatch.
+// ============================================================
+
+/**
+ * Complete list of auth-related storage keys used across the application.
+ * Add new token / user keys to this list.
+ */
+const ALL_AUTH_STORAGE_KEYS = [
+  // Token keys (sorted by role priority for readability)
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+  "leadToken",
+  // User-object keys
+  "clinicUser",
+  "agentUser",
+  "leadUser",
+  // Scalar metadata keys shared across logins
+  "ownerId",
+  "clinicId",
+  "role",
+];
+
+const ALL_AUTH_SESSION_ONLY_KEYS = [
+  "clinicTrialInfo",
+];
+
+/**
+ * Clears ALL known auth tokens, user objects, and metadata from BOTH
+ * localStorage AND sessionStorage.
+ *
+ * Call this ONCE on login success — *BEFORE* you write the new login's keys.
+ *
+ * Why this exists:
+ *  - If a previous clinic logged in on this window: `clinicToken`, `clinicUser`,
+ *    `ownerId`, `clinicId` belong to that clinic. When a NEW clinic logs in,
+ *    `localStorage.setItem("clinicToken", newToken)` correctly replaces just the
+ *    token, but `ownerId` / `clinicId` / other role tokens (e.g. `userToken`,
+ *    `agentToken`) from the PREVIOUS session remain.
+ *  - This causes "data mismatch": page permissions read one role's token while
+ *    sidebar/clinic ID reads another role's metadata from a stale key.
+ *
+ * Existing functionality preserved:
+ *  - This does NOT remove / replace any of the subsequent `setItem` calls in
+ *    login flows. Those still run exactly as before — they just start from a
+ *    known-empty auth slate.
+ *  - localStorage.setItem("sameKey", ...) still behaves identically for the
+ *    key being written — this just ensures NO OTHER keys from prior sessions
+ *    continue to exist alongside it.
+ *
+ * Usage:
+ *    clearAllAuthBeforeLogin();
+ *    localStorage.setItem("clinicToken", data.token);   // now runs on clean slate
+ *    localStorage.setItem("clinicUser", ...);
+ *    ...
+ */
+export const clearAllAuthBeforeLogin = (): void => {
+  if (typeof window === "undefined") return;
+  const doClear = (store: Storage | null, keys: readonly string[]) => {
+    if (!store) return;
+    for (const key of keys) {
+      try {
+        store.removeItem(key);
+      } catch {
+        /* localStorage access can throw under strict privacy settings — ignore */
+      }
+    }
+  };
+  doClear(window.localStorage, ALL_AUTH_STORAGE_KEYS);
+  doClear(window.sessionStorage, ALL_AUTH_STORAGE_KEYS);
+  doClear(window.sessionStorage, ALL_AUTH_SESSION_ONLY_KEYS);
+};
+
 // Get user role from current context
 export const getUserRole = () => {
   if (typeof window === "undefined") return null;

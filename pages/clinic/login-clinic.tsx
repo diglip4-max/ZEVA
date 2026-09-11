@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { clearAllAuthBeforeLogin } from "@/lib/helper";
 
 export default function ClinicLogin() {
   interface ClinicLoginForm {
@@ -81,6 +82,10 @@ export default function ClinicLogin() {
       console.log("Full login response data:", JSON.stringify(data, null, 2)); // Log with indentation
       console.log("data.user:", data.user);
       console.log("data.clinic:", data.clinic);
+      // Clear all previous auth tokens/user data from BOTH localStorage and sessionStorage
+      // to ensure no stale keys from a different clinic / role remain alongside the new login.
+      // setItem("clinicToken", ...) already overwrites the same key; this ensures OTHER keys clean.
+      clearAllAuthBeforeLogin();
       localStorage.setItem("clinicToken", data.token);
       window.dispatchEvent(new Event("authTokenChanged"));
       
@@ -245,9 +250,8 @@ return (
               <button
                 onClick={() => {
                   setShowTrialPopup(false);
-                  // Clear token and redirect to home
-                  localStorage.removeItem("clinicToken");
-                  localStorage.removeItem("clinicUser");
+                  // Fully clear all auth state and redirect to home
+                  clearAllAuthBeforeLogin();
                   router.push("/");
                 }}
                 className="w-full bg-white hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg border border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
