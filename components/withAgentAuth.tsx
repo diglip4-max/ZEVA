@@ -48,7 +48,7 @@ export default function withAgentAuth<P extends object>(
             console.error('Error decoding token:', e);
           }
 
-          // Use appropriate verify-token API based on role
+          // Use appropriate verify-token API based on role (agent vs doctor/doctorStaff)
           let verifyEndpoint = '/api/agent/verify-token';
           if (decoded?.role === 'doctor' || decoded?.role === 'doctorStaff') {
             verifyEndpoint = '/api/doctor/verify-token';

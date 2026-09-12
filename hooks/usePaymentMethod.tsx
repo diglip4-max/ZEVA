@@ -49,7 +49,8 @@ const usePaymentMethod = () => {
 
       const authHeaders = getAuthHeaders();
       if (!authHeaders) {
-        throw new Error("Not authenticated");
+        setPaymentMethods([]);
+        return;
       }
 
       // Fetch with limit 500 as requested

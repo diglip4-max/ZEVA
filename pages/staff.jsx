@@ -344,6 +344,44 @@ export default function StaffDoctorLogin() {
     return () => clearInterval(interval);
   }, [otpTimer]);
 
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Prevent logged-in staff/agent from accessing /staff login page if valid agentToken or userToken exists
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (typeof window !== "undefined") {
+      const existingToken =
+        localStorage.getItem("agentToken") ||
+        sessionStorage.getItem("agentToken") ||
+        localStorage.getItem("userToken") ||
+        sessionStorage.getItem("userToken");
+
+      if (existingToken) {
+        try {
+          const base64Url = existingToken.split('.')[1];
+          if (base64Url) {
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              window.atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const decoded = JSON.parse(jsonPayload);
+            const isUnexpired = !decoded.exp || decoded.exp * 1000 > Date.now();
+            if (isUnexpired) {
+              router.replace("/staff/dashboard");
+              return;
+            }
+          }
+        } catch (e) {
+          // Token is invalid/corrupt, permit login
+        }
+      }
+    }
+    setCheckingAuth(false);
+  }, [router.isReady]);
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -468,6 +506,17 @@ export default function StaffDoctorLogin() {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium text-sm">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
