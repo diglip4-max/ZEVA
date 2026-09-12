@@ -109,11 +109,16 @@ export const handleError = (error: any) => {
   }
 };
 
-export const getMediaTypeFromMime = (mimetype: string) => {
+export const getMediaTypeFromMime = (mimetype: string): string => {
+  if (!mimetype) return "document";
+
   if (mimetype.startsWith("image/")) return "image";
   if (mimetype.startsWith("video/")) return "video";
   if (mimetype.startsWith("audio/")) return "audio";
-  return "file";
+
+  // WhatsApp-supported document types (PDF, docs, spreadsheets, etc.)
+  // Everything that isn't image/video/audio is treated as a document.
+  return "document";
 };
 
 export const formatFileSize = (bytes: number) => {

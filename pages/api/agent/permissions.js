@@ -73,21 +73,23 @@ export default async function handler(req, res) {
             return res.status(403).json({ success: false, message: 'Access denied' });
           }
         }
-      } else if (me.role === 'staff' || me.role === 'doctorStaff') {
-        // Staff and doctorStaff can view agents from their clinic or agents they created
-        if (me.clinicId) {
-          if (agent.clinicId?.toString() !== me.clinicId.toString() && 
-              agent.createdBy?.toString() !== me._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
-          }
-        } else {
-          if (agent.createdBy?.toString() !== me._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
-          }
-        }
-      } else if (me.role === 'agent') {
-        // Agents can view only their own permissions
-        if (agent._id.toString() !== me._id.toString()) {
+      } else if (me.role === 'staff' || me.role === 'doctorStaff' || me.role === 'agent') {
+        // Staff, doctorStaff, and agents can view permissions if agent is self, from same clinic, created by me, or shares creator context
+        const meClinicId = me.clinicId?.toString();
+        const meCreatedBy = me.createdBy?.toString();
+        const agentClinicId = agent.clinicId?.toString();
+        const agentCreatedBy = agent.createdBy?.toString();
+        const meId = me._id.toString();
+        const agentIdStr = agent._id.toString();
+
+        const isAuthorized =
+          agentIdStr === meId ||
+          (meClinicId && agentClinicId && meClinicId === agentClinicId) ||
+          (agentCreatedBy && agentCreatedBy === meId) ||
+          (meCreatedBy && agentCreatedBy && meCreatedBy === agentCreatedBy) ||
+          (meCreatedBy && agentClinicId && meCreatedBy === agentClinicId);
+
+        if (!isAuthorized) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }
@@ -235,21 +237,23 @@ export default async function handler(req, res) {
             return res.status(403).json({ success: false, message: 'Access denied' });
           }
         }
-      } else if (me.role === 'staff' || me.role === 'doctorStaff') {
-        // Staff and doctorStaff can modify agents from their clinic or agents they created
-        if (me.clinicId) {
-          if (agent.clinicId?.toString() !== me.clinicId.toString() && 
-              agent.createdBy?.toString() !== me._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
-          }
-        } else {
-          if (agent.createdBy?.toString() !== me._id.toString()) {
-            return res.status(403).json({ success: false, message: 'Access denied' });
-          }
-        }
-      } else if (me.role === 'agent') {
-        // Agents cannot modify other agents; allow only self-update
-        if (agent._id.toString() !== me._id.toString()) {
+      } else if (me.role === 'staff' || me.role === 'doctorStaff' || me.role === 'agent') {
+        // Staff, doctorStaff, and agents can modify permissions if agent is self, from same clinic, created by me, or shares creator context
+        const meClinicId = me.clinicId?.toString();
+        const meCreatedBy = me.createdBy?.toString();
+        const agentClinicId = agent.clinicId?.toString();
+        const agentCreatedBy = agent.createdBy?.toString();
+        const meId = me._id.toString();
+        const agentIdStr = agent._id.toString();
+
+        const isAuthorized =
+          agentIdStr === meId ||
+          (meClinicId && agentClinicId && meClinicId === agentClinicId) ||
+          (agentCreatedBy && agentCreatedBy === meId) ||
+          (meCreatedBy && agentCreatedBy && meCreatedBy === agentCreatedBy) ||
+          (meCreatedBy && agentClinicId && meCreatedBy === agentClinicId);
+
+        if (!isAuthorized) {
           return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }
