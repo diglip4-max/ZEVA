@@ -75,8 +75,9 @@ export const tags = ["Important", "Follow-up", "Urgent", "Review", "Personal"];
 const useInbox = () => {
   const { user } = useAuth();
   const { providers: providersData } = useProvider();
-  const providers = (providersData || []).filter(
-    (p) => !p.type.includes("email"),
+  const providers = React.useMemo(
+    () => (providersData || []).filter((p) => !p.type.includes("email")),
+    [providersData],
   );
   const { templates } = useTemplate();
   const { agents, loading: agentFetchLoading } = useAgents({
@@ -1040,8 +1041,9 @@ const useInbox = () => {
 
   const checkWhatsappAvailabilityWindow = useCallback(async () => {
     try {
+      if (!selectedConversation || !selectedProvider) return;
       const { data } = await axios.get(
-        `/api/conversations/whatsapp-window/${selectedConversation?._id}`,
+        `/api/conversations/whatsapp-window/${selectedConversation?._id}?providerId=${selectedProvider?._id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1054,7 +1056,7 @@ const useInbox = () => {
     } catch (error) {
       handleError(error);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, selectedProvider]);
 
   const handleDeleteConversation = async (conversationId: string) => {
     if (!token) return;
@@ -1485,7 +1487,7 @@ const useInbox = () => {
 
   useEffect(() => {
     if (providers.length === 0) return;
-    setSelectedProvider(providers[0]);
+    setSelectedProvider((prev) => prev ?? providers[0]);
   }, [providers]);
 
   useEffect(() => {
@@ -1511,9 +1513,9 @@ const useInbox = () => {
   }, [messages, currentMsgPage]);
 
   useEffect(() => {
-    if (!selectedConversation) return;
+    if (!selectedConversation || !selectedProvider) return;
     checkWhatsappAvailabilityWindow();
-  }, [selectedConversation]);
+  }, [selectedConversation, selectedProvider]);
 
   useEffect(() => {
     if (
