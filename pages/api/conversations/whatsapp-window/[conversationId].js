@@ -73,13 +73,14 @@ export default async function handler(req, res) {
     }
 
     try {
-      const { conversationId } = req.query;
+      const { conversationId, providerId } = req.query;
 
       // Find the latest incoming WhatsApp message
       const latestIncomingMessage = await Message.findOne({
         clinicId: clinic._id,
         conversationId,
         channel: "whatsapp",
+        provider: providerId,
         direction: "incoming",
       })
         .sort({ createdAt: -1 }) // Get the latest message
@@ -101,14 +102,14 @@ export default async function handler(req, res) {
 
       const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60)); // Convert to hours
       const remainingMinutes = Math.floor(
-        (remainingMs % (1000 * 60 * 60)) / (1000 * 60)
+        (remainingMs % (1000 * 60 * 60)) / (1000 * 60),
       ); // Get minutes
 
       res.status(200).json({
         success: true,
         canSendMessage: remainingMs > 0,
         remainingTime: `${String(remainingHours).padStart(2, "0")}:${String(
-          remainingMinutes
+          remainingMinutes,
         ).padStart(2, "0")}`, // Proper HH:MM format
         message:
           remainingMs > 0
