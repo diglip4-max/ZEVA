@@ -89,8 +89,11 @@ function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     getLayout = (page: ReactNode) => <>{page}</>;
   }
 
-  // Force AgentLayout for all /agent/* routes to ensure sidebar consistency
-  if (router.pathname.startsWith("/agent/")) {
+  // Force AgentLayout for all /agent/* and /staff/* sub-routes (except staff login /staff itself)
+  if (
+    (router.pathname.startsWith("/agent") || router.pathname.startsWith("/staff")) &&
+    router.pathname !== "/staff"
+  ) {
     getLayout = (page: ReactNode) => <AgentLayout>{page}</AgentLayout>;
   }
 

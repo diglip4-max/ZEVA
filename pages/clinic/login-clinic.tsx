@@ -28,8 +28,12 @@ export default function ClinicLogin() {
     accountCreatedAt: string;
   } | null>(null);
 
-  // Check if redirected due to trial expiration
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check if redirected due to trial expiration or if active valid clinicToken exists
   useEffect(() => {
+    if (!router.isReady) return;
+
     if (router.query.trialExpired === 'true') {
       setShowTrialPopup(true);
       // Set trial info for the popup
@@ -39,8 +43,40 @@ export default function ClinicLogin() {
         trialEndDate: new Date().toISOString(),
         accountCreatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
       });
+      setCheckingAuth(false);
+      return;
     }
-  }, [router.query.trialExpired]);
+
+    if (typeof window !== "undefined") {
+      const existingToken =
+        localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken");
+
+      if (existingToken) {
+        try {
+          const base64Url = existingToken.split('.')[1];
+          if (base64Url) {
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              window.atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const decoded = JSON.parse(jsonPayload);
+            const isUnexpired = !decoded.exp || decoded.exp * 1000 > Date.now();
+            if (isUnexpired) {
+              router.replace("/clinic/clinic-dashboard");
+              return;
+            }
+          }
+        } catch (e) {
+          // Token is invalid/corrupt, permit login
+        }
+      }
+    }
+    setCheckingAuth(false);
+  }, [router.isReady, router.query.trialExpired]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,7 +216,18 @@ export default function ClinicLogin() {
     }
   };
 
-return (
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-[#2D9AA5] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium text-sm">Verifying session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <>
       {/* Toast Notification */}
       {showToast && (

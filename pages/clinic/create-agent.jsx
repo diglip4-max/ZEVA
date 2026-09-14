@@ -1604,7 +1604,7 @@ const ManageAgentsPage = () => {
           agentId={permissionAgent._id}
           agentName={permissionAgent.name}
           token={token || null}
-          userRole={clinicToken ? 'clinic' : doctorToken ? 'doctor' : 'admin'}
+          userRole={clinicToken ? 'clinic' : doctorToken ? 'doctor' : 'clinic'}
         />
       )}
 

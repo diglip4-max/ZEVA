@@ -109,11 +109,16 @@ export const handleError = (error: any) => {
   }
 };
 
-export const getMediaTypeFromMime = (mimetype: string) => {
+export const getMediaTypeFromMime = (mimetype: string): string => {
+  if (!mimetype) return "document";
+
   if (mimetype.startsWith("image/")) return "image";
   if (mimetype.startsWith("video/")) return "video";
   if (mimetype.startsWith("audio/")) return "audio";
-  return "file";
+
+  // WhatsApp-supported document types (PDF, docs, spreadsheets, etc.)
+  // Everything that isn't image/video/audio is treated as a document.
+  return "document";
 };
 
 export const formatFileSize = (bytes: number) => {
@@ -310,32 +315,47 @@ export const maskEmail = (email: string): string => {
   return `${maskedLocal}@${maskedDomain}.${tld}`;
 };
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getTokenFromStorage = (key: string): string | null => {
+  if (typeof window === "undefined") return null;
+  return (
+    localStorage.getItem(key) || sessionStorage.getItem(key) || null
+  );
+};
+
 // Get authentication headers based on current user context
 export const getAuthHeaders = () => {
   if (typeof window === "undefined") return null;
 
   const pathname = window.location.pathname;
-  let token = null;
+  let token: string | null = null;
 
   if (pathname?.includes("/clinic")) {
-    token =
-      localStorage.getItem("clinicToken") ||
-      sessionStorage.getItem("clinicToken");
+    token = getTokenFromStorage("clinicToken");
   } else if (pathname?.includes("/staff") || pathname?.includes("/agent")) {
     token =
-      localStorage.getItem("agentToken") ||
-      sessionStorage.getItem("agentToken") ||
-      localStorage.getItem("staffToken") ||
-      sessionStorage.getItem("staffToken") ||
-      localStorage.getItem("userToken") ||
-      sessionStorage.getItem("userToken");
+      getTokenFromStorage("agentToken") ||
+      getTokenFromStorage("staffToken") ||
+      getTokenFromStorage("userToken");
   } else if (pathname?.includes("/doctor")) {
-    token =
-      localStorage.getItem("doctorToken") ||
-      sessionStorage.getItem("doctorToken");
+    token = getTokenFromStorage("doctorToken");
   } else {
-    token =
-      localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+    token = getTokenFromStorage("userToken");
+  }
+
+  if (!token) {
+    for (const key of TOKEN_PRIORITY) {
+      token = getTokenFromStorage(key);
+      if (token) break;
+    }
   }
 
   if (!token) {
@@ -344,8 +364,6 @@ export const getAuthHeaders = () => {
 
   return {
     Authorization: `Bearer ${token}`,
-    // Don't set Content-Type here - let axios/browser set it automatically for FormData
-    // "Content-Type": "application/json",  // Removed to avoid conflicts with FormData
   };
 };
 

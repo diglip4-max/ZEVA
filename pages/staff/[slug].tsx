@@ -361,7 +361,7 @@ const StaffDynamicPage = () => {
         let agentToken =
           typeof window !== "undefined"
             ? localStorage.getItem("agentToken") ||
-              sessionStorage.getItem("agentToken")
+            sessionStorage.getItem("agentToken")
             : null;
 
         if (!agentToken && typeof window !== "undefined") {

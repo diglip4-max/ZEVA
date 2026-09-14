@@ -17,8 +17,8 @@ import {
   handleUpload,
 } from "@/lib/helper";
 import debounce from "lodash.debounce";
-import { io, Socket } from "socket.io-client";
-import { jwtDecode } from "jwt-decode";
+// import { io, Socket } from "socket.io-client";
+// import { jwtDecode } from "jwt-decode";
 import useAgents from "./useAgents";
 import { User } from "@/types/users";
 import { Template } from "@/types/templates";
@@ -40,10 +40,10 @@ interface IState {
   };
 }
 
-interface DecodedToken {
-  userId: string;
-  [key: string]: unknown;
-}
+// interface DecodedToken {
+//   userId: string;
+//   [key: string]: unknown;
+// }
 
 export const TAG_COLORS = [
   "bg-blue-900/50 text-blue-300 border-blue-700",
@@ -70,13 +70,14 @@ export const getTagColor = (tag: string) => {
 
 export const tags = ["Important", "Follow-up", "Urgent", "Review", "Personal"];
 
-let socket: Socket | null = null;
+// let socket: Socket | null = null;
 
 const useInbox = () => {
   const { user } = useAuth();
   const { providers: providersData } = useProvider();
-  const providers = (providersData || []).filter(
-    (p) => !p.type.includes("email"),
+  const providers = React.useMemo(
+    () => (providersData || []).filter((p) => !p.type.includes("email")),
+    [providersData],
   );
   const { templates } = useTemplate();
   const { agents, loading: agentFetchLoading } = useAgents({
@@ -87,7 +88,7 @@ const useInbox = () => {
   })?.state;
   const { rooms, loading: roomFetchLoading } = useRooms();
 
-  const [userId, setUserId] = useState<string | null>(null);
+  // const [userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [fetchMsgsLoading, setFetchMsgsLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<IState["conversations"]>(
@@ -1040,8 +1041,9 @@ const useInbox = () => {
 
   const checkWhatsappAvailabilityWindow = useCallback(async () => {
     try {
+      if (!selectedConversation || !selectedProvider) return;
       const { data } = await axios.get(
-        `/api/conversations/whatsapp-window/${selectedConversation?._id}`,
+        `/api/conversations/whatsapp-window/${selectedConversation?._id}?providerId=${selectedProvider?._id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1054,7 +1056,7 @@ const useInbox = () => {
     } catch (error) {
       handleError(error);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, selectedProvider]);
 
   const handleDeleteConversation = async (conversationId: string) => {
     if (!token) return;
@@ -1317,119 +1319,119 @@ const useInbox = () => {
   }, []);
 
   // Socket connection
-  useEffect(() => {
-    if (!token && !userId) return;
+  // useEffect(() => {
+  //   if (!token && !userId) return;
 
-    const decoded = jwtDecode(token || "{}") as DecodedToken;
-    const currentUserId = userId || decoded?.userId;
-    setUserId(currentUserId);
-    try {
-      // Create socket if it doesn't exist or is disconnected
-      socket = io({
-        path: "/api/messages/socketio",
-        query: { userId: currentUserId },
-      });
+  //   const decoded = jwtDecode(token || "{}") as DecodedToken;
+  //   const currentUserId = userId || decoded?.userId;
+  //   setUserId(currentUserId);
+  //   try {
+  //     // Create socket if it doesn't exist or is disconnected
+  //     socket = io({
+  //       path: "/api/messages/socketio",
+  //       query: { userId: currentUserId },
+  //     });
 
-      // Log socket events for debugging
-      socket.on("connect", () => {
-        console.log("Socket connected with ID:", socket?.id);
-      });
+  //     // Log socket events for debugging
+  //     socket.on("connect", () => {
+  //       console.log("Socket connected with ID:", socket?.id);
+  //     });
 
-      socket.on("connect_error", (error) => {
-        console.error("Socket connection error:", error);
-      });
+  //     socket.on("connect_error", (error) => {
+  //       console.error("Socket connection error:", error);
+  //     });
 
-      socket.on("disconnect", (reason) => {
-        console.log("Socket disconnected:", reason);
-      });
+  //     socket.on("disconnect", (reason) => {
+  //       console.log("Socket disconnected:", reason);
+  //     });
 
-      socket.emit("register", currentUserId);
+  //     socket.emit("register", currentUserId);
 
-      // Set up message listeners
-      socket.on("incomingMessage", (message: MessageType) => {
-        console.log("Incoming message via socket:", message);
+  //     // Set up message listeners
+  //     socket.on("incomingMessage", (message: MessageType) => {
+  //       console.log("Incoming message via socket:", message);
 
-        // Update conversations list
-        setConversations((prevConversations) => {
-          let convExists = false;
-          const updatedConversations = prevConversations.map((conv) => {
-            if (conv._id === message.conversationId) {
-              convExists = true;
-              return {
-                ...conv,
-                recentMessage: message,
-                unreadMessages: [...(conv.unreadMessages || []), message._id],
-              };
-            }
-            return conv;
-          });
+  //       // Update conversations list
+  //       setConversations((prevConversations) => {
+  //         let convExists = false;
+  //         const updatedConversations = prevConversations.map((conv) => {
+  //           if (conv._id === message.conversationId) {
+  //             convExists = true;
+  //             return {
+  //               ...conv,
+  //               recentMessage: message,
+  //               unreadMessages: [...(conv.unreadMessages || []), message._id],
+  //             };
+  //           }
+  //           return conv;
+  //         });
 
-          if (!convExists) {
-            return prevConversations;
-          }
+  //         if (!convExists) {
+  //           return prevConversations;
+  //         }
 
-          // Move the updated conversation to the front
-          updatedConversations.sort((a, b) =>
-            a._id === message.conversationId
-              ? -1
-              : b._id === message.conversationId
-                ? 1
-                : 0,
-          );
-          return updatedConversations;
-        });
+  //         // Move the updated conversation to the front
+  //         updatedConversations.sort((a, b) =>
+  //           a._id === message.conversationId
+  //             ? -1
+  //             : b._id === message.conversationId
+  //               ? 1
+  //               : 0,
+  //         );
+  //         return updatedConversations;
+  //       });
 
-        // Update messages if it belongs to the selected conversation
-        if (message.conversationId === selectedConversation?._id) {
-          setMessages((prevMessages) => {
-            const lastGroup = prevMessages[prevMessages.length - 1];
-            const today = new Date().toISOString().split("T")[0];
+  //       // Update messages if it belongs to the selected conversation
+  //       if (message.conversationId === selectedConversation?._id) {
+  //         setMessages((prevMessages) => {
+  //           const lastGroup = prevMessages[prevMessages.length - 1];
+  //           const today = new Date().toISOString().split("T")[0];
 
-            if (lastGroup && lastGroup.date === today) {
-              // Add to existing today's group
-              return prevMessages.map((group, index) =>
-                index === prevMessages.length - 1
-                  ? { ...group, messages: [...group.messages, message] }
-                  : group,
-              );
-            } else {
-              // Create new group for today
-              return [...prevMessages, { date: today, messages: [message] }];
-            }
-          });
-        }
-      });
-      socket.on("messageStatusUpdate", (message: MessageType) => {
-        console.log("Message status update:", message);
+  //           if (lastGroup && lastGroup.date === today) {
+  //             // Add to existing today's group
+  //             return prevMessages.map((group, index) =>
+  //               index === prevMessages.length - 1
+  //                 ? { ...group, messages: [...group.messages, message] }
+  //                 : group,
+  //             );
+  //           } else {
+  //             // Create new group for today
+  //             return [...prevMessages, { date: today, messages: [message] }];
+  //           }
+  //         });
+  //       }
+  //     });
+  //     socket.on("messageStatusUpdate", (message: MessageType) => {
+  //       console.log("Message status update:", message);
 
-        if (message.conversationId === selectedConversation?._id) {
-          setMessages((prevMessages) =>
-            prevMessages.map((group) => {
-              const updatedMessages = group.messages.map((msg) =>
-                msg._id === message._id ? message : msg,
-              );
+  //       if (message.conversationId === selectedConversation?._id) {
+  //         setMessages((prevMessages) =>
+  //           prevMessages.map((group) => {
+  //             const updatedMessages = group.messages.map((msg) =>
+  //               msg._id === message._id ? message : msg,
+  //             );
 
-              // Check if any message was actually updated
-              const hasChange = updatedMessages.some(
-                (msg, index) => msg._id !== group.messages[index]?._id,
-              );
+  //             // Check if any message was actually updated
+  //             const hasChange = updatedMessages.some(
+  //               (msg, index) => msg._id !== group.messages[index]?._id,
+  //             );
 
-              return hasChange
-                ? { ...group, messages: updatedMessages }
-                : group;
-            }),
-          );
-        }
-      });
-    } catch (error) {
-      console.log("Error: ", error);
-    }
+  //             return hasChange
+  //               ? { ...group, messages: updatedMessages }
+  //               : group;
+  //           }),
+  //         );
+  //       }
+  //     });
+  //   } catch (error) {
+  //     console.log("Error: ", error);
+  //   }
 
-    // Cleanup function
-    return () => {
-      socket?.disconnect();
-    };
-  }, []); // Remove messages from dependencies
+  //   // Cleanup function
+  //   return () => {
+  //     socket?.disconnect();
+  //   };
+  // }, []); // Remove messages from dependencies
 
   // status filter dropdown click outside handler
   // Close dropdown on outside click or Escape
@@ -1485,7 +1487,7 @@ const useInbox = () => {
 
   useEffect(() => {
     if (providers.length === 0) return;
-    setSelectedProvider(providers[0]);
+    setSelectedProvider((prev) => prev ?? providers[0]);
   }, [providers]);
 
   useEffect(() => {
@@ -1511,9 +1513,9 @@ const useInbox = () => {
   }, [messages, currentMsgPage]);
 
   useEffect(() => {
-    if (!selectedConversation) return;
+    if (!selectedConversation || !selectedProvider) return;
     checkWhatsappAvailabilityWindow();
-  }, [selectedConversation]);
+  }, [selectedConversation, selectedProvider]);
 
   useEffect(() => {
     if (
