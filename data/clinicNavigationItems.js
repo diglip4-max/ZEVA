@@ -176,18 +176,26 @@ export const clinicNavigationItems = [
     order: 14,
     children: [
       {
+        label: "Create Claim",
+        path: "/clinic/create-claim",
+        icon: "plus",
+        description: "Create claim",
+        order: 1,
+        moduleKey: "create_claim",
+      },
+      {
         label: "Pass By Doctor",
         path: "/clinic/pass-claims",
         icon: "check-circle",
         description: "Pass claims by doctor",
-        order: 1,
+        order: 2,
       },
       {
         label: "Release Requested",
         path: "/clinic/release-requested-claims",
         icon: "truck",
         description: "Release requested claims",
-        order: 2,
+        order: 3,
       },
     ],
   },

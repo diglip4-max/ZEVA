@@ -83,12 +83,12 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
         const agentToken =
           typeof window !== "undefined"
             ? localStorage.getItem("agentToken") ||
-              sessionStorage.getItem("agentToken")
+            sessionStorage.getItem("agentToken")
             : null;
         const userToken =
           typeof window !== "undefined"
             ? localStorage.getItem("userToken") ||
-              sessionStorage.getItem("userToken")
+            sessionStorage.getItem("userToken")
             : null;
         const token = agentToken || userToken;
 
@@ -137,7 +137,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                     onClick:
                       // @ts-ignore
                       subModule?.moduleKey === "clinic_team_chat" ||
-                      subModule?.name === "Team Chat"
+                        subModule?.name === "Team Chat"
                         ? handleZevaConnect
                         : undefined,
                   }),
@@ -317,7 +317,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               </div> */}
               <div>
                 <span className="font-semibold text-sm text-slate-900 dark:text-slate-100 block">
-                 Team Workspace
+                  Team Workspace
                 </span>
               </div>
             </div>

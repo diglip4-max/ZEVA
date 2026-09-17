@@ -79,11 +79,11 @@ export default async function handler(req, res) {
         return res.status(403).json({ success: false, message: "Access denied" });
       }
 
-      // Only allow edit if status is "Under Review" or "Rejected"
-      if (!["Under Review", "Rejected"].includes(claim.status)) {
+      // Only allow edit if status is "Under Review", "Rejected", or "Ready" (for create-plan flow)
+      if (!["Under Review", "Rejected", "Ready"].includes(claim.status)) {
         return res.status(400).json({
           success: false,
-          message: `Cannot edit claim with status "${claim.status}". Only claims with "Under Review" or "Rejected" status can be edited.`,
+          message: `Cannot edit claim with status "${claim.status}". Only claims with "Under Review", "Rejected", or "Ready" status can be edited.`,
         });
       }
 
@@ -108,6 +108,12 @@ export default async function handler(req, res) {
         treatmentPlan,
         documentFiles,
         advanceStatus,
+        doctorAddedClaimAmount,
+        doctorAddedClaimNotes,
+        emirNumber,
+        paymentMethod,
+        diagnosis,
+        invoiceNumber: newInvoiceNumber,
       } = req.body;
 
       // Update fields if provided
@@ -144,6 +150,52 @@ export default async function handler(req, res) {
       if (notes !== undefined) claim.notes = notes;
       if (treatmentPlan !== undefined) claim.treatmentPlan = treatmentPlan;
       if (documentFiles !== undefined) claim.documentFiles = documentFiles;
+
+      // Create-plan flow fields (EMIR, invoice, payment method, diagnosis)
+      if (emirNumber !== undefined) claim.emirNumber = String(emirNumber).trim();
+      if (paymentMethod !== undefined) claim.paymentMethod = paymentMethod;
+      if (diagnosis !== undefined) claim.diagnosis = String(diagnosis).trim();
+      if (newInvoiceNumber !== undefined) {
+        const trimmed = String(newInvoiceNumber).trim();
+        if (trimmed) {
+          // Check uniqueness — no other claim should have this invoice number
+          const existing = await InsuranceClaim.findOne({ invoiceNumber: trimmed, _id: { $ne: claim._id } });
+          if (existing) {
+            return res.status(400).json({ success: false, message: "Invoice number already exists on another claim" });
+          }
+          claim.invoiceNumber = trimmed;
+        }
+      }
+
+      // Doctor added claim amount adjustment (Same Amount / Add Extra from all-claims review)
+      if (doctorAddedClaimAmount !== undefined || doctorAddedClaimNotes !== undefined) {
+        const hasExtraAmount =
+          doctorAddedClaimAmount !== null &&
+          doctorAddedClaimAmount !== "" &&
+          doctorAddedClaimAmount !== undefined;
+
+        if (hasExtraAmount) {
+          const parsedAmount = parseFloat(doctorAddedClaimAmount);
+          if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            return res.status(400).json({
+              success: false,
+              message: "Doctor added claim amount must be a number greater than 0",
+            });
+          }
+          if (!doctorAddedClaimNotes || !String(doctorAddedClaimNotes).trim()) {
+            return res.status(400).json({
+              success: false,
+              message: "Doctor added claim notes are required when an extra claim amount is added",
+            });
+          }
+          claim.doctorAddedClaimAmount = parsedAmount;
+          claim.doctorAddedClaimNotes = String(doctorAddedClaimNotes).trim();
+        } else {
+          // "Same Amount" selection — clear any previously stored adjustment
+          claim.doctorAddedClaimAmount = null;
+          claim.doctorAddedClaimNotes = "";
+        }
+      }
 
       // Handle advance-specific fields
       if (claim.claimType === "Advance" || claim.claimType === "Paid") {

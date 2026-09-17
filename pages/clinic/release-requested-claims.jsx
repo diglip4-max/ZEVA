@@ -4,7 +4,7 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import Loader from "../../components/Loader";
-import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Calendar, Send } from "lucide-react";
+import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Calendar, Send, Wallet, CalendarClock, BadgeCheck, History } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
@@ -147,12 +147,17 @@ function ReleaseRequestedClaimsPage() {
   const [showTracking, setShowTracking] = useState(false);
   const [claimDetails, setClaimDetails] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // Previous claims of the patient (for the View modal history section)
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [patientHistoryLoading, setPatientHistoryLoading] = useState(false);
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectionNote, setRejectionNote] = useState("");
   const [releaseModal, setReleaseModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [previewFile, setPreviewFile] = useState(null);
+  // Full-text popup for card diagnosis / treatment plan links
+  const [textPreview, setTextPreview] = useState(null);
   const [requestNotifications, setRequestNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   // Release verification data
@@ -378,10 +383,31 @@ function ReleaseRequestedClaimsPage() {
     }
   };
 
+  // Fetch all claims belonging to a patient, excluding the currently viewed one
+  const fetchPatientHistory = async (patientId, excludeId) => {
+    setPatientHistoryLoading(true);
+    setPatientHistory([]);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get(`/api/clinic/insurance-claims?patientId=${patientId}`, { headers });
+      if (res.data.success) {
+        setPatientHistory((res.data.data || []).filter((c) => c._id !== excludeId));
+      }
+    } catch (err) {
+      console.error("Error fetching patient claim history:", err);
+      setPatientHistory([]);
+    } finally {
+      setPatientHistoryLoading(false);
+    }
+  };
+
   const handleViewClaim = (claim) => {
     setViewModal(claim);
     setShowTracking(false);
+    // Reset stale detail/history so values from a previously opened claim never bleed through
+    setClaimDetails(null);
     fetchClaimDetails(claim._id);
+    if (claim.patientId) fetchPatientHistory(claim.patientId, claim._id);
   };
 
   // Fetch verification data for release modal
@@ -521,6 +547,28 @@ function ReleaseRequestedClaimsPage() {
       Rejected: "bg-red-100 text-red-800 border-red-300",
     };
     return styles[displayStatus] || "bg-gray-100 text-gray-800 border-gray-300";
+  };
+
+  // Expected release date tag — SLA state machine rendered as a standard
+  // outlined tag (colored border + text, no heavy background) on every card.
+  const getExpectedReleaseTag = (claim) => {
+    if (!claim.expectedReleaseDate) return null;
+    const isReleased =
+      claim.status === "Released" ||
+      claim.status === "Completed" ||
+      !!claim.releasedAt;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expected = new Date(claim.expectedReleaseDate);
+    expected.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((expected - today) / 86400000);
+    const dateStr = expected.toLocaleDateString();
+    if (isReleased) return { label: `Achieved Expected Release · ${dateStr}`, cls: "border-green-300 text-green-700", Icon: CheckCircle };
+    if (diffDays < 0) return { label: `Overdue Expected Release · ${dateStr}`, cls: "border-red-300 text-red-600", Icon: CalendarClock };
+    if (diffDays === 0) return { label: "Expected Release Today", cls: "border-orange-300 text-orange-600", Icon: CalendarClock };
+    if (diffDays === 1) return { label: "Expected Release Tomorrow", cls: "border-red-300 text-red-600", Icon: CalendarClock };
+    if (diffDays <= 5) return { label: `Expected in ${diffDays} Days · ${dateStr}`, cls: "border-amber-300 text-amber-700", Icon: CalendarClock };
+    return { label: `Ongoing Release · ${dateStr}`, cls: "border-blue-300 text-blue-600", Icon: CalendarClock };
   };
 
   const getDisplayStatus = (claim) => {
@@ -726,6 +774,18 @@ function ReleaseRequestedClaimsPage() {
 
                     {/* Card Body */}
                     <div className="p-3 sm:p-4 space-y-3 flex-1">
+                      {/* Expected Release Tag — top of card, above patient name */}
+                      {(() => {
+                        const tag = getExpectedReleaseTag(claim);
+                        if (!tag) return null;
+                        const TagIcon = tag.Icon;
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-white self-start ${tag.cls}`}>
+                            <TagIcon className="w-3 h-3 shrink-0" />
+                            {tag.label}
+                          </span>
+                        );
+                      })()}
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
                           <span className="text-gray-600 font-bold text-sm">{claim.patientFirstName?.[0]}{claim.patientLastName?.[0]}</span>
@@ -733,8 +793,19 @@ function ReleaseRequestedClaimsPage() {
                         <div className="min-w-0">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Patient</p>
                           <p className="text-sm font-bold text-gray-900 truncate">{claim.patientFirstName} {claim.patientLastName}</p>
+                          {claim.patientEmrNumber && (
+                            <p className="text-[10px] font-mono text-teal-600 font-semibold truncate mt-0.5">{claim.patientEmrNumber}</p>
+                          )}
                         </div>
                       </div>
+
+                      {/* EMIR + Invoice reference */}
+                      {(claim.emirNumber || claim.invoiceNumber) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] font-mono text-gray-400">
+                          {claim.emirNumber && <span className="truncate">EMIR: {claim.emirNumber}</span>}
+                          {claim.invoiceNumber && <span className="truncate">INV: {claim.invoiceNumber}</span>}
+                        </div>
+                      )}
 
                       <div className="space-y-3">
                         <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
@@ -770,6 +841,16 @@ function ReleaseRequestedClaimsPage() {
                             <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
                         </div>
+
+                        {/* Doctor Added Extra Amount */}
+                        {claim.doctorAddedClaimAmount != null && (
+                          <div className="flex items-center gap-2 bg-white border border-teal-200 rounded-lg px-3 py-2">
+                            <Wallet className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                            <p className="text-xs font-semibold text-teal-800">
+                              Extra Amount Added: {getCurrencySymbol(currency)}{claim.doctorAddedClaimAmount?.toLocaleString()}
+                            </p>
+                          </div>
+                        )}
 
                         <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight mb-1">Services</p>
@@ -1042,7 +1123,7 @@ function ReleaseRequestedClaimsPage() {
                   {showTracking ? "View Details" : "Track Claim"}
                 </button>
               </div>
-              <button onClick={() => { setViewModal(null); setClaimDetails(null); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
+              <button onClick={() => { setViewModal(null); setClaimDetails(null); setTextPreview(null); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1160,6 +1241,18 @@ function ReleaseRequestedClaimsPage() {
                               : (viewModal.patientMobileNumber || "-")}
                           </span>
                         </div>
+                        {(claimDetails?.emirNumber || viewModal.emirNumber) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-500 flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-teal-500" /> EMIR #:</span>
+                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.emirNumber || viewModal.emirNumber}</span>
+                          </div>
+                        )}
+                        {(claimDetails?.patientEmrNumber || viewModal.patientEmrNumber) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-500 flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-indigo-500" /> Patient EMR #:</span>
+                            <span className="font-semibold font-mono text-indigo-700">{claimDetails?.patientEmrNumber || viewModal.patientEmrNumber}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -1179,12 +1272,77 @@ function ReleaseRequestedClaimsPage() {
                           <span className="text-gray-500">Expiry Date:</span>
                           <span className="font-medium text-gray-900">{viewModal.expiryDate ? new Date(viewModal.expiryDate).toLocaleDateString() : "-"}</span>
                         </div>
+                        {(claimDetails?.invoiceNumber || viewModal.invoiceNumber) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-500 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-teal-500" /> Invoice #:</span>
+                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.invoiceNumber || viewModal.invoiceNumber}</span>
+                          </div>
+                        )}
+                        {(claimDetails?.transactionId || viewModal.transactionId) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-500 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-teal-500" /> Transaction ID:</span>
+                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.transactionId || viewModal.transactionId}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
+                  {/* Previous Claims — all prior claims belonging to this patient */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4 text-teal-500" /> Previous Claims
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        {patientHistoryLoading ? "Loading…" : `${patientHistory.length} previous claim${patientHistory.length === 1 ? "" : "s"} found for this patient`}
+                      </span>
+                    </h3>
+                    {patientHistoryLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-teal-600" />
+                      </div>
+                    ) : patientHistory.length === 0 ? (
+                      <div className="flex items-center gap-3 py-0.5">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-600 leading-tight">No previous claims</p>
+                          <p className="text-[11px] text-gray-400 leading-snug">This is the first claim for this patient</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                        {patientHistory.map((prev) => (
+                          <div key={prev._id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              prev.status === "Approved" ? "bg-green-500" :
+                              prev.status === "Rejected" || (prev.status === "Under Review" && prev.rejectedFromReleaseRequested) ? "bg-red-500" :
+                              prev.status === "Released" ? "bg-blue-500" :
+                              prev.status === "Ready" ? "bg-indigo-500" :
+                              prev.status === "Completed" ? "bg-purple-500" :
+                              "bg-yellow-400"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusBadge(prev.status, prev.rejectedFromReleaseRequested)}`}>
+                                  {getDisplayStatus(prev)}
+                                </span>
+                                <span className="text-[10px] font-medium text-gray-400 uppercase">{prev.claimType}</span>
+                              </div>
+                              <p className="text-xs font-medium text-gray-700 mt-0.5 truncate">{prev.insuranceProvider || "—"}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                                {prev.doctorName || "—"} · {prev.departmentName || "—"} · {getCurrencySymbol(currency)}{prev.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <p className="text-[11px] text-gray-400 shrink-0">{new Date(prev.createdAt).toLocaleDateString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Insurance Files */}
-                  {(viewModal.insuranceCardFile || viewModal.tableOfBenefitsFile) && (
+                  {(viewModal.insuranceCardFile || viewModal.tableOfBenefitsFile || viewModal.emriFrontPhoto || viewModal.emriBackPhoto || viewModal.attachment) && (
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <Paperclip className="w-4 h-4 text-purple-500" /> Insurance Files
@@ -1220,6 +1378,51 @@ function ReleaseRequestedClaimsPage() {
                             </div>
                           </div>
                         )}
+                        {viewModal.emriFrontPhoto && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-gray-500">EMIR Front Photo</p>
+                            <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
+                              {viewModal.emriFrontPhoto.toLowerCase().endsWith(".pdf") ? (
+                                <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
+                              ) : (
+                                <img src={viewModal.emriFrontPhoto} alt="EMIR Front" className="w-full h-full object-contain" />
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button onClick={() => setPreviewFile({ url: viewModal.emriFrontPhoto, name: "EMIR Front Photo" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {viewModal.emriBackPhoto && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-gray-500">EMIR Back Photo</p>
+                            <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
+                              {viewModal.emriBackPhoto.toLowerCase().endsWith(".pdf") ? (
+                                <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
+                              ) : (
+                                <img src={viewModal.emriBackPhoto} alt="EMIR Back" className="w-full h-full object-contain" />
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button onClick={() => setPreviewFile({ url: viewModal.emriBackPhoto, name: "EMIR Back Photo" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {viewModal.attachment && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-gray-500">Attachment</p>
+                            <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
+                              {viewModal.attachment.toLowerCase().endsWith(".pdf") ? (
+                                <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
+                              ) : (
+                                <img src={viewModal.attachment} alt="Attachment" className="w-full h-full object-contain" />
+                              )}
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <button onClick={() => setPreviewFile({ url: viewModal.attachment, name: "Attachment" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1233,6 +1436,20 @@ function ReleaseRequestedClaimsPage() {
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">Claim Type</p>
                         <p className="text-sm font-semibold text-gray-900">{viewModal.claimType}</p>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Urgency</p>
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-50 text-red-700" :
+                          (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-50 text-amber-700" :
+                          "bg-teal-50 text-teal-700"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-500" :
+                            (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-500" : "bg-teal-500"
+                          }`} />
+                          {claimDetails?.urgency || viewModal.urgency || "Normal"}
+                        </span>
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">Claim Amount</p>
@@ -1262,6 +1479,24 @@ function ReleaseRequestedClaimsPage() {
                         <p className="text-xs text-gray-500">Co-Pay %</p>
                         <p className="text-sm font-semibold text-gray-900">{viewModal.coPayPercent}%</p>
                       </div>
+                      {(claimDetails?.coPayType || viewModal.coPayType) && (
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Co-Pay Type</p>
+                          <p className="text-sm font-semibold text-gray-900">{claimDetails?.coPayType || viewModal.coPayType}</p>
+                        </div>
+                      )}
+                      {(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) && (
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Final Claim Amount</p>
+                          <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount)?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      )}
+                      {(claimDetails?.paymentMethod || viewModal.paymentMethod) && (
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-xs text-gray-500">Payment Method</p>
+                          <p className="text-sm font-semibold text-gray-900">{claimDetails?.paymentMethod || viewModal.paymentMethod}</p>
+                        </div>
+                      )}
                       {(viewModal.claimType === "Advance" || viewModal.claimType === "Paid") && (
                         <>
                           <div className="bg-gray-50 rounded-lg p-3">
@@ -1287,6 +1522,46 @@ function ReleaseRequestedClaimsPage() {
                         </span>
                       </div>
                     </div>
+                    {/* Diagnosis / Treatment Plan — clickable links opening the full-text popup */}
+                    {(claimDetails?.diagnosis || viewModal.diagnosis || claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {(claimDetails?.diagnosis || viewModal.diagnosis) && (
+                          <button
+                            onClick={() => setTextPreview({ title: "Diagnosis", text: claimDetails?.diagnosis || viewModal.diagnosis })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> View Diagnosis
+                          </button>
+                        )}
+                        {(claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
+                          <button
+                            onClick={() => setTextPreview({ title: "Treatment Plan", text: claimDetails?.treatmentPlan || viewModal.treatmentPlan })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
+                          >
+                            <Activity className="w-3.5 h-3.5" /> View Treatment Plan
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {/* Doctor Added Extra Amount + Notes — fresh detail data takes precedence over the cached list object */}
+                    {(claimDetails?.doctorAddedClaimAmount != null || viewModal.doctorAddedClaimAmount != null) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Wallet className="w-4 h-4 text-teal-600" />
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Doctor Added Claim Amount</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Extra Amount Added</p>
+                            <p className="text-sm font-semibold text-teal-700 mt-1">{getCurrencySymbol(currency)}{(claimDetails?.doctorAddedClaimAmount ?? viewModal.doctorAddedClaimAmount)?.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Doctor Added Claim Notes</p>
+                            <p className="text-sm text-gray-800 mt-1 leading-relaxed">{claimDetails?.doctorAddedClaimNotes || viewModal.doctorAddedClaimNotes || "—"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Review Tracking */}
@@ -1331,12 +1606,12 @@ function ReleaseRequestedClaimsPage() {
                   {/* Treatment Plan & Notes */}
                   {(viewModal.treatmentPlan || viewModal.notes || viewModal.reviewNotes) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(viewModal.treatmentPlan || claimDetails?.treatmentPlan) && (
+                      {/* {(viewModal.treatmentPlan || claimDetails?.treatmentPlan) && (
                         <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
                           <h3 className="text-sm font-semibold text-purple-800 mb-2">Treatment Plan</h3>
                           <p className="text-sm text-purple-900 whitespace-pre-wrap leading-relaxed">{claimDetails?.treatmentPlan || viewModal.treatmentPlan}</p>
                         </div>
-                      )}
+                      )} */}
                       {(viewModal.notes || viewModal.reviewNotes) && (
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-3">
                           {viewModal.notes && (
@@ -1384,12 +1659,36 @@ function ReleaseRequestedClaimsPage() {
                     <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">Administrative Details</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-[10px]">
                       <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Claim ID:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal._id}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
                         <span className="text-gray-500">Patient Name:</span>
                         <span className="font-semibold text-gray-700">{viewModal.patientFirstName} {viewModal.patientLastName}</span>
                       </div>
                       <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Patient ID:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal.patientId || "-"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Patient EMR #:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal.patientEmrNumber || "-"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
                         <span className="text-gray-500">Doctor Name:</span>
                         <span className="font-semibold text-gray-700">{viewModal.doctorName || "-"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Doctor ID:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal.doctorId || "-"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Department:</span>
+                        <span className="font-semibold text-gray-700">{viewModal.departmentName || "-"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Department ID:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal.departmentId || "-"}</span>
                       </div>
                       <div className="flex justify-between border-b border-gray-200 pb-1">
                         <span className="text-gray-500">Insurance Provider:</span>
@@ -1398,6 +1697,18 @@ function ReleaseRequestedClaimsPage() {
                       <div className="flex justify-between border-b border-gray-200 pb-1">
                         <span className="text-gray-500">Claim Type:</span>
                         <span className="font-semibold text-gray-700">{viewModal.claimType}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Created By:</span>
+                        <span className="font-semibold text-gray-700">{viewModal.createdByName || "-"} ({viewModal.createdByRole || "-"})</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Created By ID:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal.createdBy || "-"}</span>
+                      </div>
+                      <div className="flex justify-between border-b border-gray-200 pb-1">
+                        <span className="text-gray-500">Clinic ID:</span>
+                        <span className="font-semibold text-gray-700 font-mono">{viewModal.clinicId || "-"}</span>
                       </div>
                       <div className="flex justify-between border-b border-gray-200 pb-1">
                         <span className="text-gray-500">Created At:</span>
@@ -1439,6 +1750,26 @@ function ReleaseRequestedClaimsPage() {
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-between items-center">
               <p className="text-[10px] text-gray-400 font-medium">Claim ID: {viewModal?._id}</p>
               <a href={previewFile.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-teal-600 hover:text-teal-700">Open in New Tab</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Text Preview Modal — full diagnosis / treatment plan text from card links */}
+      {textPreview && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">{textPreview.title}</h2>
+                <p className="text-xs text-gray-500">Claim Text Preview</p>
+              </div>
+              <button onClick={() => setTextPreview(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{textPreview.text || "—"}</p>
             </div>
           </div>
         </div>

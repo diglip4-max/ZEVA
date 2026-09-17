@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { claimId, action, rejectionReason, reviewNotes } = req.body;
+    const { claimId, action, rejectionReason, reviewNotes, expectedReleaseDate } = req.body;
 
     if (!claimId || !action) {
       return res.status(400).json({ success: false, message: "claimId and action are required" });
@@ -39,6 +39,16 @@ export default async function handler(req, res) {
 
     if (action === "reject" && (!rejectionReason || !rejectionReason.trim())) {
       return res.status(400).json({ success: false, message: "Rejection reason is required when rejecting a claim" });
+    }
+
+    // Expected release date is compulsory when approving a claim
+    if (action === "approve") {
+      if (!expectedReleaseDate || isNaN(new Date(expectedReleaseDate).getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Expected release date is required when approving a claim",
+        });
+      }
     }
 
     const claim = await InsuranceClaim.findById(claimId);
@@ -77,6 +87,8 @@ export default async function handler(req, res) {
       claim.approvedByName = user.name || user.firstName || "";
       claim.approvedByRole = user.role;
       claim.approvedAt = new Date();
+      // Expected release date chosen by the doctor at approval time
+      claim.expectedReleaseDate = new Date(expectedReleaseDate);
       // Clear rejection fields if reverting from Rejected to Approved
       claim.rejectedBy = null;
       claim.rejectedByName = "";
@@ -95,6 +107,8 @@ export default async function handler(req, res) {
       claim.approvedByName = "";
       claim.approvedByRole = "";
       claim.approvedAt = null;
+      // Release date is no longer applicable once the claim is rejected
+      claim.expectedReleaseDate = null;
     }
 
     claim.reviewedBy = user._id;

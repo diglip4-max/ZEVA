@@ -116,65 +116,72 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
               const subActions = subModule.actions || {};
               // customActions at module and submodule levels
               const subCustomActions = subModule.customActions || {};
+              // Helper function to check if a value is truthy (handles boolean true, string "true", etc.)
+              const isTrue = (val) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
               // Module-level "all" grants all submodule permissions
-              const moduleAll = moduleActions.all === true;
+              const moduleAll = isTrue(moduleActions.all);
               // If advance is explicitly set in customActions, it overrides "all"
               const hasModuleAdvance = 'advance' in moduleCustomActions;
               const hasSubAdvance = 'advance' in subCustomActions;
               const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : moduleAll;
-              const subAdvanceVal = hasSubAdvance ? subCustomActions.advance === true : (moduleAll || subActions.all === true);
+              const subAdvanceVal = hasSubAdvance ? subCustomActions.advance === true : (moduleAll || isTrue(subActions.all));
               const hasModuleCopy = 'copy' in moduleCustomActions;
               const hasSubCopy = 'copy' in subCustomActions;
               const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : moduleAll;
-              const subCopyVal = hasSubCopy ? subCustomActions.copy === true : (moduleAll || subActions.all === true);
+              const subCopyVal = hasSubCopy ? subCustomActions.copy === true : (moduleAll || isTrue(subActions.all));
               
               setPermissions({
-                canCreate: moduleAll || moduleActions.create === true || subActions.create === true || subActions.all === true,
-                canRead: moduleAll || moduleActions.read === true || subActions.read === true || subActions.all === true,
-                canUpdate: moduleAll || moduleActions.update === true || subActions.update === true || subActions.all === true,
-                canDelete: moduleAll || moduleActions.delete === true || subActions.delete === true || subActions.all === true,
-                canApprove: moduleAll || moduleActions.approve === true || subActions.approve === true || subActions.all === true,
-                canPrint: moduleAll || moduleActions.print === true || subActions.print === true || subActions.all === true,
-                canExport: moduleAll || moduleActions.export === true || subActions.export === true || subActions.all === true,
+                canCreate: moduleAll || isTrue(moduleActions.create) || isTrue(subActions.create) || isTrue(subActions.all),
+                canRead: moduleAll || isTrue(moduleActions.read) || isTrue(subActions.read) || isTrue(subActions.all),
+                canUpdate: moduleAll || isTrue(moduleActions.update) || isTrue(subActions.update) || isTrue(subActions.all),
+                canDelete: moduleAll || isTrue(moduleActions.delete) || isTrue(subActions.delete) || isTrue(subActions.all),
+                canApprove: moduleAll || isTrue(moduleActions.approve) || isTrue(subActions.approve) || isTrue(subActions.all),
+                canPrint: moduleAll || isTrue(moduleActions.print) || isTrue(subActions.print) || isTrue(subActions.all),
+                canExport: moduleAll || isTrue(moduleActions.export) || isTrue(subActions.export) || isTrue(subActions.all),
                 canAdvance: hasSubAdvance ? subAdvanceVal : moduleAdvanceVal,
-                canAll: moduleAll || subActions.all === true,
+                canAll: moduleAll || isTrue(subActions.all),
                 canCopy: hasSubCopy ? subCopyVal : moduleCopyVal,
               });
             } else {
               // Submodule not found, use module-level permissions
+              // Helper function to check if a value is truthy (handles boolean true, string "true", etc.)
+              const isTrue = (val) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
               // If advance is explicitly set in customActions, it overrides "all"
               const hasModuleAdvance = 'advance' in moduleCustomActions;
-              const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : moduleActions.all === true;
+              const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : isTrue(moduleActions.all);
               const hasModuleCopy = 'copy' in moduleCustomActions;
-const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : moduleActions.all === true;
+              const moduleCopyVal = hasModuleCopy ? moduleCustomActions.copy === true : isTrue(moduleActions.all);
               setPermissions({
-                canCreate: moduleActions.all === true || moduleActions.create === true,
-                canRead: moduleActions.all === true || moduleActions.read === true,
-                canUpdate: moduleActions.all === true || moduleActions.update === true,
-                canDelete: moduleActions.all === true || moduleActions.delete === true,
-                canApprove: moduleActions.all === true || moduleActions.approve === true,
-                canPrint: moduleActions.all === true || moduleActions.print === true,
-                canExport: moduleActions.all === true || moduleActions.export === true,
+                canCreate: isTrue(moduleActions.all) || isTrue(moduleActions.create),
+                canRead: isTrue(moduleActions.all) || isTrue(moduleActions.read),
+                canUpdate: isTrue(moduleActions.all) || isTrue(moduleActions.update),
+                canDelete: isTrue(moduleActions.all) || isTrue(moduleActions.delete),
+                canApprove: isTrue(moduleActions.all) || isTrue(moduleActions.approve),
+                canPrint: isTrue(moduleActions.all) || isTrue(moduleActions.print),
+                canExport: isTrue(moduleActions.all) || isTrue(moduleActions.export),
                 canAdvance: moduleAdvanceVal,
                 canCopy: moduleCopyVal,
-                canAll: moduleActions.all === true
+                canAll: isTrue(moduleActions.all)
               });
             }
           } else {
             // Module-level permissions only
+            // Helper function to check if a value is truthy (handles boolean true, string "true", etc.)
+            const isTrue = (val) => val === true || val === "true" || String(val || "").toLowerCase() === "true";
+            
             // If advance is explicitly set in customActions, it overrides "all"
             const hasModuleAdvance = 'advance' in moduleCustomActions;
-            const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : moduleActions.all === true;
+            const moduleAdvanceVal = hasModuleAdvance ? moduleCustomActions.advance === true : isTrue(moduleActions.all);
             const parsedPermissions = {
-              canCreate: moduleActions.all === true || moduleActions.create === true,
-              canRead: moduleActions.all === true || moduleActions.read === true,
-              canUpdate: moduleActions.all === true || moduleActions.update === true,
-              canDelete: moduleActions.all === true || moduleActions.delete === true,
-              canApprove: moduleActions.all === true || moduleActions.approve === true,
-              canPrint: moduleActions.all === true || moduleActions.print === true,
-              canExport: moduleActions.all === true || moduleActions.export === true,
+              canCreate: isTrue(moduleActions.all) || isTrue(moduleActions.create),
+              canRead: isTrue(moduleActions.all) || isTrue(moduleActions.read),
+              canUpdate: isTrue(moduleActions.all) || isTrue(moduleActions.update),
+              canDelete: isTrue(moduleActions.all) || isTrue(moduleActions.delete),
+              canApprove: isTrue(moduleActions.all) || isTrue(moduleActions.approve),
+              canPrint: isTrue(moduleActions.all) || isTrue(moduleActions.print),
+              canExport: isTrue(moduleActions.all) || isTrue(moduleActions.export),
               canAdvance: moduleAdvanceVal,
-              canAll: moduleActions.all === true
+              canAll: isTrue(moduleActions.all)
             };
             
             // Ensure all values are proper booleans (not undefined)

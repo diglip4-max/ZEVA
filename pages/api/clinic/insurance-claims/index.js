@@ -59,6 +59,15 @@ export default async function handler(req, res) {
         .sort({ createdAt: -1 })
         .lean();
 
+      // Enrich with patient EMR numbers for card display (display-only denormalization)
+      const patientIds = [...new Set(claims.map((c) => c.patientId).filter(Boolean).map(String))];
+      if (patientIds.length > 0) {
+        const patients = await PatientRegistration.find({ _id: { $in: patientIds } }).select("_id emrNumber").lean();
+        const emrMap = {};
+        for (const p of patients) emrMap[String(p._id)] = p.emrNumber || "";
+        for (const c of claims) c.patientEmrNumber = emrMap[String(c.patientId)] || "";
+      }
+
       return res.status(200).json({ success: true, data: claims });
     } catch (error) {
       console.error("Error fetching insurance claims:", error);
@@ -88,6 +97,9 @@ export default async function handler(req, res) {
         expiryDate,
         insuranceCardFile,
         tableOfBenefitsFile,
+        emriFrontPhoto,
+        emriBackPhoto,
+        urgency,
         departmentId,
         departmentName,
         serviceId,
@@ -105,6 +117,11 @@ export default async function handler(req, res) {
         advanceStatus,
         advanceAmount: frontendAdvanceAmount,
         pendingClaim: frontendPendingClaim,
+        transactionId,
+        attachment,
+        paymentMethod,
+        emirNumber,
+        diagnosis,
       } = req.body;
 
       // Validate required fields
@@ -174,6 +191,10 @@ export default async function handler(req, res) {
         expiryDate: new Date(expiryDate),
         insuranceCardFile: insuranceCardFile || "",
         tableOfBenefitsFile: tableOfBenefitsFile || "",
+        emriFrontPhoto: emriFrontPhoto || "",
+        emriBackPhoto: emriBackPhoto || "",
+        urgency: urgency || "Normal",
+        invoiceNumber: "",
         departmentId: departmentId || null,
         departmentName: departmentName || "",
         services: servicesArray,
@@ -189,6 +210,11 @@ export default async function handler(req, res) {
         advanceStatus: advanceStatus || "Full Pay",
         advanceAmount,
         pendingClaim,
+        transactionId: transactionId || "",
+        attachment: attachment || "",
+        paymentMethod: paymentMethod || "",
+        emirNumber: emirNumber || "",
+        diagnosis: diagnosis || "",
         status: "Under Review",
         patientFirstName: patient.firstName || "",
         patientLastName: patient.lastName || "",

@@ -255,7 +255,9 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-authentication": () => import("../clinic/authentication"),
   "clinic-release-requested-claims": () =>
     import("../clinic/release-requested-claims"),
+  "clinic-create-claim": () => import("../clinic/create-claim"),
   "all-claims": () => import("../clinic/all-claims"),
+
   "clinic-invoices": () => import("../clinic/invoices"),
 
   // Finance routes

@@ -35,7 +35,10 @@ const upload = multer({ storage });
 const uploadMiddleware = upload.fields([
   { name: "insuranceCard", maxCount: 1 },
   { name: "tableOfBenefits", maxCount: 1 },
+  { name: "emriFront", maxCount: 1 },
+  { name: "emriBack", maxCount: 1 },
   { name: "documents", maxCount: 5 },
+  { name: "attachment", maxCount: 1 },
 ]);
 
 const runMiddleware = (req, res, fn) => {
@@ -73,7 +76,10 @@ export default async function handler(req, res) {
     const result = {
       insuranceCardFile: "",
       tableOfBenefitsFile: "",
+      emriFrontPhoto: "",
+      emriBackPhoto: "",
       documentFiles: [],
+      attachment: "",
     };
 
     if (files.insuranceCard && files.insuranceCard.length > 0) {
@@ -88,6 +94,18 @@ export default async function handler(req, res) {
       result.documentFiles = files.documents.map(
         (f) => `/uploads/insurance/${f.filename}`
       );
+    }
+
+    if (files.emriFront && files.emriFront.length > 0) {
+      result.emriFrontPhoto = `/uploads/insurance/${files.emriFront[0].filename}`;
+    }
+
+    if (files.emriBack && files.emriBack.length > 0) {
+      result.emriBackPhoto = `/uploads/insurance/${files.emriBack[0].filename}`;
+    }
+
+    if (files.attachment && files.attachment.length > 0) {
+      result.attachment = `/uploads/insurance/${files.attachment[0].filename}`;
     }
 
     return res.status(200).json({
