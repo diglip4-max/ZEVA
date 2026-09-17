@@ -20,7 +20,7 @@ class SocketService {
       });
 
       this.setupEventHandlers();
-      console.log("Socket.IO server initialized");
+      // console.log("Socket.IO server initialized");
 
       // Make io globally available for backward compatibility
       global.socketIo = this.io;
@@ -31,12 +31,6 @@ class SocketService {
   setupEventHandlers() {
     this.io.on("connection", async (socket) => {
       const userId = socket.handshake.query.userId;
-      console.log("User connected:", socket.id);
-      console.log({
-        userId,
-        socketId: socket.id,
-        key: `socket:user:${userId}`,
-      });
 
       if (userId) {
         await this.storeSocketId(userId, socket.id);
@@ -46,7 +40,7 @@ class SocketService {
       socket.on("register", async (userId) => {
         socket.join(userId);
         await this.storeSocketId(userId, socket.id);
-        console.log(`User ${userId} joined their room`);
+        // console.log(`User ${userId} joined their room`);
       });
 
       socket.on("disconnect", async () => {
@@ -54,7 +48,7 @@ class SocketService {
         if (userId) {
           await this.removeSocketId(userId);
         }
-        console.log("User disconnected:", socket.id);
+        // console.log("User disconnected:", socket.id);
       });
     });
   }
