@@ -123,6 +123,8 @@ function CreateClaimPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [prefilledFromClaim, setPrefilledFromClaim] = useState<any>(null);
+  const [prefillLoading, setPrefillLoading] = useState(false);
 
   // Insurance details (Step 2)
   const [insuranceForm, setInsuranceForm] = useState<any>({
@@ -439,6 +441,34 @@ function CreateClaimPage() {
     }
   };
 
+  // Fetch the patient's most recent claim and prefill insurance fields
+  const prefillFromPreviousClaim = async (patientId: string) => {
+    setPrefilledFromClaim(null);
+    if (!patientId) return;
+    setPrefillLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const res = await axios.get(`/api/clinic/insurance-claims?patientId=${patientId}`, { headers });
+      if (res.data.success && res.data.data && res.data.data.length > 0) {
+        // Take the most recent claim (last in array = most recent createdAt)
+        const latest = res.data.data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        setInsuranceForm((prev: any) => ({
+          ...prev,
+          insuranceProvider: latest.insuranceProvider || prev.insuranceProvider,
+          policyNumber: latest.policyNumber || prev.policyNumber,
+          expiryDate: latest.expiryDate ? latest.expiryDate.split('T')[0] : prev.expiryDate,
+          insuranceCardFile: latest.insuranceCardFile || prev.insuranceCardFile,
+          tableOfBenefitsFile: latest.tableOfBenefitsFile || prev.tableOfBenefitsFile,
+          emriFrontPhoto: latest.emriFrontPhoto || prev.emriFrontPhoto,
+          emriBackPhoto: latest.emriBackPhoto || prev.emriBackPhoto,
+        }));
+        setPrefilledFromClaim(latest);
+      }
+    } catch (err) { console.error("Error fetching previous claim:", err); }
+    finally { setPrefillLoading(false); }
+  };
+
   // Fetch claims
   const fetchInsuranceClaims = async () => {
     setClaimsLoading(true);
@@ -603,6 +633,12 @@ function CreateClaimPage() {
       updated.totalClaimAmount = calc.totalClaimAmount;
       updated.pendingClaimAmount = calc.pendingClaimAmount;
       updated.coPayAmount = calc.coPayAmount;
+      // Auto-prefill Paid Amount with Co-Pay Total when Paid + Full Pay
+      const curClaimType = name === "claimType" ? value : updated.claimType;
+      const curAdvStatus = name === "advanceStatus" ? value : updated.advanceStatus;
+      if (curClaimType === "Paid" && curAdvStatus === "Full Pay") {
+        updated.advanceAmount = calc.totalClaimAmount;
+      }
       return updated;
     });
   };
@@ -634,6 +670,10 @@ function CreateClaimPage() {
   // Submit claim
   const submitClaim = async () => {
     if (balance.pendingClaim > 0) { alert(`Cannot create claim. Patient has pending claim of ${formatAED(balance.pendingClaim)}.`); return; }
+    if (paymentForm.claimType === "Paid") {
+      if (!paymentForm.transactionId?.trim()) { alert("Transaction ID is required for Paid claims."); return; }
+      if (!paymentForm.attachment) { alert("Payment Attachment is required for Paid claims."); return; }
+    }
     try {
       setSubmitting(true);
       const headers = getAuthHeaders();
@@ -688,6 +728,7 @@ function CreateClaimPage() {
   const resetForm = () => {
     setCurrentStep(1);
     setSelectedPatient(null);
+    setPrefilledFromClaim(null);
     setSearchQuery("");
     setSearchResults([]);
     setInsuranceForm({ insuranceProvider: "", policyNumber: "", expiryDate: "", insuranceCardFile: "", tableOfBenefitsFile: "", emriFrontPhoto: "", emriBackPhoto: "", urgency: "Normal", emirNumber: "", diagnosis: "" });
@@ -869,7 +910,14 @@ function CreateClaimPage() {
   const canProceedStep1 = !!selectedPatient;
   const canProceedStep2 = insuranceForm.insuranceProvider && insuranceForm.policyNumber && insuranceForm.expiryDate;
   const canProceedStep4 = claimSourceForm.doctorId && claimSourceForm.departmentId;
-  const canProceedStep5 = paymentForm.claimAmount && parseFloat(paymentForm.claimAmount) > 0;
+  const canProceedStep5 = (() => {
+    if (!paymentForm.claimAmount || parseFloat(paymentForm.claimAmount) <= 0) return false;
+    if (paymentForm.claimType === "Paid") {
+      if (!paymentForm.transactionId?.trim()) return false;
+      if (!paymentForm.attachment) return false;
+    }
+    return true;
+  })();
 
   const deleteClaim = async (claimId: string) => {
     if (!confirm("Delete this claim?")) return;
@@ -1041,7 +1089,7 @@ function CreateClaimPage() {
                         const initials = `${p.firstName?.[0] || ''}${p.lastName?.[0] || ''}`.toUpperCase();
                         const isSelected = selectedPatient?._id === p._id;
                         return (
-                          <button key={p._id} onClick={() => setSelectedPatient(p)} className={`w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between ${isSelected ? 'border-teal-500 bg-teal-50 ring-1 ring-teal-500' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                          <button key={p._id} onClick={() => { setSelectedPatient(p); prefillFromPreviousClaim(p._id); }} className={`w-full text-left px-4 py-3 rounded-lg border transition-all flex items-center justify-between ${isSelected ? 'border-teal-500 bg-teal-50 ring-1 ring-teal-500' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-gray-800 text-white flex items-center justify-center text-sm font-bold">{initials}</div>
                               <div>
@@ -1075,6 +1123,27 @@ function CreateClaimPage() {
                     <h3 className="text-lg font-bold text-gray-900 mb-1">Insurance Details</h3>
                     <p className="text-sm text-gray-500">Enter the patient's insurance information.</p>
                   </div>
+                  {/* Prefilled from previous claim banner */}
+                  {prefilledFromClaim && (
+                    <div className="flex items-start gap-3 bg-teal-50 border border-teal-200 rounded-lg p-3">
+                      <CheckCircle className="w-5 h-5 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-teal-800">Insurance details prefilled from previous claim</p>
+                        <p className="text-xs text-teal-700 mt-0.5">
+                          Provider: <span className="font-semibold">{prefilledFromClaim.insuranceProvider}</span>
+                          {prefilledFromClaim.policyNumber && <> · Policy: <span className="font-semibold">{prefilledFromClaim.policyNumber}</span></>}
+                          {prefilledFromClaim.createdAt && <> · Created: <span className="font-semibold">{new Date(prefilledFromClaim.createdAt).toLocaleDateString()}</span></>}
+                        </p>
+                        <p className="text-[11px] text-teal-600 mt-1">You can edit any field below if the information has changed.</p>
+                      </div>
+                      <button onClick={() => setPrefilledFromClaim(null)} className="text-teal-500 hover:text-teal-700 flex-shrink-0"><X className="w-4 h-4" /></button>
+                    </div>
+                  )}
+                  {prefillLoading && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking for previous claims...
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
@@ -1156,38 +1225,114 @@ function CreateClaimPage() {
                     <h3 className="text-lg font-bold text-gray-900 mb-1">Confirmation</h3>
                     <p className="text-sm text-gray-500">Review patient and insurance details before proceeding.</p>
                   </div>
-                  {/* Patient Info Card */}
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                    <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2"><User className="w-4 h-4" /> Patient Information</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Name</p><p className="text-sm font-semibold text-blue-900">{selectedPatient?.firstName} {selectedPatient?.lastName}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Gender</p><p className="text-sm font-semibold text-blue-900">{selectedPatient?.gender || 'N/A'}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Phone</p><p className="text-sm font-semibold text-blue-900">{selectedPatient?.mobileNumber || selectedPatient?.phone || 'N/A'}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Email</p><p className="text-sm font-semibold text-blue-900">{selectedPatient?.email || 'N/A'}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">EMR Number</p><p className="text-sm font-semibold text-blue-900">{selectedPatient?.emrNumber || 'N/A'}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Insurance</p><p className="text-sm font-semibold text-blue-900">{selectedPatient?.insurance === 'Yes' ? 'Yes' : 'No'}</p></div>
+
+                  {/* Single document-style card */}
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    {/* Document header */}
+                    <div className="bg-gray-50 border-b border-gray-200 px-5 py-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                          {((selectedPatient?.firstName?.[0] || '') + (selectedPatient?.lastName?.[0] || '')).toUpperCase() || '—'}
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-gray-900 leading-tight">{selectedPatient?.firstName} {selectedPatient?.lastName}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                            {selectedPatient?.emrNumber && <span className="font-mono">EMR: {selectedPatient.emrNumber}</span>}
+                            {selectedPatient?.gender && <span>· {selectedPatient.gender}</span>}
+                            {(selectedPatient?.mobileNumber || selectedPatient?.phone) && <span>· {selectedPatient.mobileNumber || selectedPatient.phone}</span>}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Submitted</p>
+                        <p className="text-xs font-medium text-gray-700">{new Date().toLocaleDateString()}</p>
+                      </div>
                     </div>
-                    {/* EMRI Photos */}
-                    {(insuranceForm.emriFrontPhoto || insuranceForm.emriBackPhoto) && (
-                      <div className="mt-3 flex gap-3">
-                        {insuranceForm.emriFrontPhoto && <button onClick={() => setDocViewerUrl(insuranceForm.emriFrontPhoto)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-50"><FileText className="w-3.5 h-3.5" /> EMRI Front</button>}
-                        {insuranceForm.emriBackPhoto && <button onClick={() => setDocViewerUrl(insuranceForm.emriBackPhoto)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-xs font-medium text-blue-700 hover:bg-blue-50"><FileText className="w-3.5 h-3.5" /> EMRI Back</button>}
+
+                    {/* Patient details rows */}
+                    <div className="px-5 py-3 border-b border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Patient Information</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-6">
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Full Name</span>
+                          <span className="text-sm font-medium text-gray-900">{selectedPatient?.firstName} {selectedPatient?.lastName}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Gender</span>
+                          <span className="text-sm font-medium text-gray-900">{selectedPatient?.gender || '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Phone</span>
+                          <span className="text-sm font-medium text-gray-900">{selectedPatient?.mobileNumber || selectedPatient?.phone || '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Email</span>
+                          <span className="text-sm font-medium text-gray-900">{selectedPatient?.email || '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">EMR Number</span>
+                          <span className="text-sm font-medium font-mono text-gray-900">{selectedPatient?.emrNumber || '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Insurance</span>
+                          <span className={`text-sm font-medium ${selectedPatient?.insurance === 'Yes' ? 'text-gray-900' : 'text-gray-400'}`}>{selectedPatient?.insurance === 'Yes' ? 'Yes' : 'No'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Insurance details rows */}
+                    <div className="px-5 py-3 border-b border-gray-100">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Insurance Details</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-6">
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Provider</span>
+                          <span className="text-sm font-medium text-gray-900">{insuranceForm.insuranceProvider || '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Policy Number</span>
+                          <span className="text-sm font-medium font-mono text-gray-900">{insuranceForm.policyNumber || '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Expiry Date</span>
+                          <span className="text-sm font-medium text-gray-900">{insuranceForm.expiryDate ? new Date(insuranceForm.expiryDate).toLocaleDateString() : '—'}</span>
+                        </div>
+                        <div className="flex justify-between sm:flex-col sm:gap-0.5">
+                          <span className="text-[11px] text-gray-400">Urgency</span>
+                          <span className={`text-sm font-medium ${insuranceForm.urgency === 'High' ? 'text-amber-700' : insuranceForm.urgency === 'Priority' ? 'text-amber-600' : 'text-gray-900'}`}>
+                            {insuranceForm.urgency === 'High' && '⚠ '}{insuranceForm.urgency || 'Normal'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Attached files */}
+                    {(insuranceForm.insuranceCardFile || insuranceForm.tableOfBenefitsFile || insuranceForm.emriFrontPhoto || insuranceForm.emriBackPhoto) && (
+                      <div className="px-5 py-3 bg-gray-50/50">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Attached Documents</p>
+                        <div className="flex flex-wrap gap-2">
+                          {insuranceForm.insuranceCardFile && (
+                            <button onClick={() => setDocViewerUrl(insuranceForm.insuranceCardFile)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                              <Shield className="w-3.5 h-3.5" /> Insurance Card
+                            </button>
+                          )}
+                          {insuranceForm.tableOfBenefitsFile && (
+                            <button onClick={() => setDocViewerUrl(insuranceForm.tableOfBenefitsFile)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                              <FileText className="w-3.5 h-3.5" /> Benefits Table
+                            </button>
+                          )}
+                          {insuranceForm.emriFrontPhoto && (
+                            <button onClick={() => setDocViewerUrl(insuranceForm.emriFrontPhoto)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                              <FileText className="w-3.5 h-3.5" /> EMRI Front
+                            </button>
+                          )}
+                          {insuranceForm.emriBackPhoto && (
+                            <button onClick={() => setDocViewerUrl(insuranceForm.emriBackPhoto)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                              <FileText className="w-3.5 h-3.5" /> EMRI Back
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
-                  </div>
-                  {/* Insurance Info Card */}
-                  <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                    <h4 className="text-sm font-semibold text-green-800 mb-3 flex items-center gap-2"><Shield className="w-4 h-4" /> Insurance Details</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Provider</p><p className="text-sm font-semibold text-green-900">{insuranceForm.insuranceProvider}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Policy Number</p><p className="text-sm font-semibold text-green-900">{insuranceForm.policyNumber}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Expiry Date</p><p className="text-sm font-semibold text-green-900">{insuranceForm.expiryDate ? new Date(insuranceForm.expiryDate).toLocaleDateString() : '-'}</p></div>
-                      <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Urgency</p><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-bold ${insuranceForm.urgency === 'High' ? 'bg-red-100 text-red-700' : insuranceForm.urgency === 'Priority' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{insuranceForm.urgency}</span></div>
-                    </div>
-                    <div className="mt-3 flex gap-3">
-                      {insuranceForm.insuranceCardFile && <button onClick={() => setDocViewerUrl(insuranceForm.insuranceCardFile)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-200 rounded-lg text-xs font-medium text-green-700 hover:bg-green-50"><Shield className="w-3.5 h-3.5" /> Insurance Card</button>}
-                      {insuranceForm.tableOfBenefitsFile && <button onClick={() => setDocViewerUrl(insuranceForm.tableOfBenefitsFile)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-green-200 rounded-lg text-xs font-medium text-green-700 hover:bg-green-50"><FileText className="w-3.5 h-3.5" /> Benefits Table</button>}
-                    </div>
                   </div>
                 </div>
               )}
@@ -1215,7 +1360,7 @@ function CreateClaimPage() {
                       </select>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Services</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Services <span className="text-gray-400 font-normal">(Optional)</span></label>
                       <div className="relative w-full flex items-center p-0.5 border border-gray-300 rounded-lg bg-white shadow-sm focus-within:ring-2 focus-within:ring-teal-500 min-h-[38px]">
                         <div className="flex flex-wrap items-center gap-1 flex-1 px-1 py-0.5">
                           {claimSourceForm.services.map((svc: any, idx: number) => (
@@ -1244,7 +1389,7 @@ function CreateClaimPage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Amount <span className="text-red-500">*</span></label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Claim Amount <span className="text-red-500">*</span></label>
                       <input type="number" name="claimAmount" value={paymentForm.claimAmount} onChange={handlePaymentChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900" placeholder="0" min="0" step="0.01" />
                     </div>
                     <div>
@@ -1321,14 +1466,14 @@ function CreateClaimPage() {
                           <input type="number" name="advanceAmount" value={paymentForm.advanceAmount} onChange={handlePaymentChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold" placeholder="0.00" min="0" step="0.01" />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Transaction ID</label>
-                          <input type="text" value={paymentForm.transactionId} onChange={(e) => setPaymentForm((p: any) => ({ ...p, transactionId: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900" placeholder="Enter transaction ID" />
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Transaction ID <span className="text-red-500">*</span></label>
+                          <input type="text" value={paymentForm.transactionId} onChange={(e) => setPaymentForm((p: any) => ({ ...p, transactionId: e.target.value }))} className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 ${!paymentForm.transactionId?.trim() ? 'border-red-300 bg-red-50/40' : 'border-gray-300'}`} placeholder="Enter transaction ID" />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Payment Attachment</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Payment Attachment <span className="text-red-500">*</span></label>
                           <div className="relative">
                             <input id="payment-attach" type="file" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, 'attachment')} className="hidden" disabled={uploadingFiles} />
-                            <label htmlFor="payment-attach" className={`w-full flex items-center gap-2 px-3 py-2 text-xs border border-gray-300 rounded-lg cursor-pointer transition-all ${paymentForm.attachment ? 'bg-purple-50 border-purple-400' : 'bg-white hover:border-purple-400'}`}>
+                            <label htmlFor="payment-attach" className={`w-full flex items-center gap-2 px-3 py-2 text-xs border rounded-lg cursor-pointer transition-all ${paymentForm.attachment ? 'bg-purple-50 border-purple-400' : !paymentForm.attachment ? 'border-red-300 bg-red-50/40 hover:border-red-400' : 'border-gray-300 bg-white hover:border-purple-400'}`}>
                               {paymentForm.attachment ? <FileText className="w-4 h-4 text-purple-600" /> : <Upload className="w-4 h-4 text-gray-400" />}
                               <span className={`truncate flex-1 ${paymentForm.attachment ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>{paymentForm.attachment ? 'File attached' : 'Upload receipt'}</span>
                               {paymentForm.attachment && <button type="button" onClick={(e) => { e.preventDefault(); setPaymentForm((p: any) => ({ ...p, attachment: "" })); }} className="text-purple-600"><X className="w-3 h-3" /></button>}

@@ -5,7 +5,7 @@ import ClinicLayout from "../../components/ClinicLayout";
 import AgentLayout from "../../components/AgentLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import withAgentAuth from "../../components/withAgentAuth";
-import { Search, Filter, CheckCircle, XCircle, Eye, FileText, Upload, X, AlertCircle, Clock, Shield, Calendar, Clock as ClockIcon, CheckSquare, Square, Activity, User, Stethoscope, Wallet, Paperclip, ClipboardList, CalendarClock, BadgeCheck, Building2, PlusCircle, Phone } from "lucide-react";
+import { Search, Filter, CheckCircle, XCircle, Eye, FileText, Upload, X, AlertCircle, Clock, Shield, Calendar, Clock as ClockIcon, CheckSquare, Square, Activity, User, Stethoscope, Wallet, Paperclip, ClipboardList, CalendarClock, BadgeCheck, Building2, PlusCircle, Phone, ArrowRight } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
@@ -701,9 +701,10 @@ function AllClaimsPage() {
     try {
       const token = getAccessLevelToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : null;
+      const baseClaimAmount = Number(viewModal.claimAmount || 0);
       const payload = isExtra
-        ? { doctorAddedClaimAmount: parsedAmount, doctorAddedClaimNotes: doctorAddedNotes.trim() }
-        : { doctorAddedClaimAmount: null, doctorAddedClaimNotes: "" };
+        ? { doctorAddedClaimAmount: parsedAmount, doctorAddedClaimNotes: doctorAddedNotes.trim(), finalClaimAmount: Math.round((baseClaimAmount + parsedAmount) * 100) / 100 }
+        : { doctorAddedClaimAmount: null, doctorAddedClaimNotes: "", finalClaimAmount: baseClaimAmount };
       const res = await axios.patch(`/api/clinic/insurance-claims/${viewModal._id}`, payload, { headers });
       if (res.data.success) {
         setViewModal((prev) => ({ ...prev, ...payload }));
@@ -1329,11 +1330,22 @@ function AllClaimsPage() {
                     </div>
                   </div>
 
-                  {/* Claim Amount */}
+                  {/* Claim Amount & Final Amount */}
                   <div className="flex items-center justify-between gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
-                    <div>
-                      <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wider leading-none">Claim Amount</p>
-                      <p className="text-lg font-bold text-teal-900 mt-0.5">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString()}</p>
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wider leading-none">Claim Amount</p>
+                        <p className="text-lg font-bold text-teal-900 mt-0.5">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString()}</p>
+                      </div>
+                      {claim.finalClaimAmount != null && claim.finalClaimAmount !== claim.claimAmount && (
+                        <>
+                          <ArrowRight className="w-4 h-4 text-amber-600 shrink-0" />
+                          <div>
+                            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider leading-none">Final Amount</p>
+                            <p className="text-lg font-bold text-amber-900 mt-0.5">{getCurrencySymbol(currency)}{claim.finalClaimAmount?.toLocaleString()}</p>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${claim.claimType === "Advance" ? "bg-orange-100 text-orange-800" : "bg-teal-100 text-teal-800"}`}>
                       {claim.claimType}
@@ -2015,7 +2027,7 @@ function AllClaimsPage() {
                         <InfoTile label="Claim Amount" value={`${getCurrencySymbol(currency)}${viewModal.claimAmount?.toLocaleString()}`} />
                         {(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) && (
                           <InfoTile
-                            label="Final Amount"
+                            label="Final Claim Amount"
                             value={
                               <span className="text-teal-700 font-bold">
                                 {getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount)?.toLocaleString()}
@@ -2080,7 +2092,23 @@ function AllClaimsPage() {
                             {(claimDetails?.transactionId || viewModal.transactionId) && (
                               <InfoTile
                                 label="Transaction ID"
-                                value={<span className="font-mono text-[11px]">{claimDetails?.transactionId || viewModal.transactionId}</span>}
+                                value={
+                                  <div className="space-y-1">
+                                    <span className="font-mono text-[11px]">{claimDetails?.transactionId || viewModal.transactionId}</span>
+                                    {(claimDetails?.attachment || viewModal.attachment) ? (
+                                      <button
+                                        onClick={() => setPreviewFile({ url: claimDetails?.attachment || viewModal.attachment, name: "Payment Attachment", field: "attachment" })}
+                                        className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700 hover:underline transition-colors"
+                                      >
+                                        <Paperclip className="w-3 h-3" /> Payment Attachment
+                                      </button>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[11px] text-gray-400">
+                                        <Paperclip className="w-3 h-3" /> No attachment
+                                      </span>
+                                    )}
+                                  </div>
+                                }
                               />
                             )}
                             {viewModal.pendingClaim > 0 && (
@@ -2255,22 +2283,14 @@ function AllClaimsPage() {
                       </ModalSection>
                     )}
 
-                    {/* Claim Documents & Payment Attachment */}
-                    {(viewModal.attachment || (viewModal.documentFiles && viewModal.documentFiles.length > 0)) && (
+                    {/* Claim Documents */}
+                    {(viewModal.documentFiles && viewModal.documentFiles.length > 0) && (
                       <ModalSection
                         icon={<Paperclip className="w-4 h-4 text-teal-600" />}
                         title="Claim Documents"
-                        subtitle={`${(viewModal.documentFiles?.length || 0) + (viewModal.attachment ? 1 : 0)} document${(viewModal.documentFiles?.length || 0) + (viewModal.attachment ? 1 : 0) > 1 ? "s" : ""} attached to this claim`}
+                        subtitle={`${viewModal.documentFiles.length} document${viewModal.documentFiles.length > 1 ? "s" : ""} attached to this claim`}
                       >
                         <div className="flex flex-wrap gap-2">
-                          {viewModal.attachment && (
-                            <button
-                              onClick={() => setPreviewFile({ url: viewModal.attachment, name: "Payment Attachment", field: "attachment" })}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 rounded-lg text-xs font-medium text-teal-700 hover:bg-teal-100 transition-colors"
-                            >
-                              <Paperclip className="w-3.5 h-3.5" /> Payment Attachment
-                            </button>
-                          )}
                           {viewModal.documentFiles.map((file, idx) => (
                             <button
                               key={idx}

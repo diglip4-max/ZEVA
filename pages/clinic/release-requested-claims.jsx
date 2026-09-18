@@ -4,7 +4,7 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import Loader from "../../components/Loader";
-import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Calendar, Send, Wallet, CalendarClock, BadgeCheck, History } from "lucide-react";
+import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Calendar, Send, Wallet, CalendarClock, BadgeCheck, History, ArrowRight } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
@@ -833,8 +833,21 @@ function ReleaseRequestedClaimsPage() {
 
                         <div className="grid grid-cols-2 gap-2">
                           <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Amount</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Amount</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                              </div>
+                              {claim.finalClaimAmount != null && claim.finalClaimAmount !== claim.claimAmount && (
+                                <>
+                                  <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  <div>
+                                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tighter">Final</p>
+                                    <p className="text-sm font-bold text-amber-700">{getCurrencySymbol(currency)}{claim.finalClaimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
                             <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Department</p>
@@ -1452,8 +1465,21 @@ function ReleaseRequestedClaimsPage() {
                         </span>
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Claim Amount</p>
-                        <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="text-xs text-gray-500">Claim Amount</p>
+                            <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                          </div>
+                          {(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) && (claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) !== viewModal.claimAmount && (
+                            <>
+                              <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <div>
+                                <p className="text-xs text-amber-600">Final Amount</p>
+                                <p className="text-sm font-semibold text-amber-700 font-bold">{getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount)?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">Doctor</p>

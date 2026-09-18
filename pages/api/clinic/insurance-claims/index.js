@@ -146,6 +146,14 @@ export default async function handler(req, res) {
       if (!claimType) {
         return res.status(400).json({ success: false, message: "Claim Type is required" });
       }
+      if (claimType === "Paid") {
+        if (!transactionId || !transactionId.trim()) {
+          return res.status(400).json({ success: false, message: "Transaction ID is required for Paid claims" });
+        }
+        if (!attachment) {
+          return res.status(400).json({ success: false, message: "Payment Attachment is required for Paid claims" });
+        }
+      }
 
       // Validate doctor exists and is doctorStaff role
       const doctor = await User.findById(doctorId);
