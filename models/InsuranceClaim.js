@@ -190,6 +190,13 @@ const InsuranceClaimSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Notes added during the create-plan confirmation step
+    planNotes: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     // Advance-specific fields
     advanceStatus: {
       type: String,

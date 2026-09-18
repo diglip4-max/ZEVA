@@ -1016,7 +1016,12 @@ function CreateClaimPage() {
                   {insuranceClaims.map((claim: any) => (
                     <tr key={claim._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-500">{claim.invoiceNumber || '-'}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.patientFirstName} {claim.patientLastName}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {claim.patientFirstName} {claim.patientLastName}
+                        {claim.patientGenderAge && (
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-semibold">{claim.patientGenderAge}</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-teal-700">{claim.patientEmrNumber || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{claim.insuranceProvider || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${claim.claimType === 'Advance' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{claim.claimType}</span></td>

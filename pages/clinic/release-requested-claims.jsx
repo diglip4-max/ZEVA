@@ -84,7 +84,7 @@ const maskMobileNumber = (mobile) => {
 };
 
 const ITEMS_PER_PAGE = 12;
-const isRequestStatus = (status) => status === "Ready" || status === "Completed";
+const isRequestStatus = (status) => status === "Completed";
 const isRequestClaim = (claim) => isRequestStatus(claim?.status);
 
 const getClaimStatusDate = (claim) => {
@@ -792,7 +792,12 @@ function ReleaseRequestedClaimsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Patient</p>
-                          <p className="text-sm font-bold text-gray-900 truncate">{claim.patientFirstName} {claim.patientLastName}</p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 truncate">{claim.patientFirstName} {claim.patientLastName}</p>
+                            {claim.patientGenderAge && (
+                              <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[9px] font-bold">{claim.patientGenderAge}</span>
+                            )}
+                          </div>
                           {claim.patientEmrNumber && (
                             <p className="text-[10px] font-mono text-teal-600 font-semibold truncate mt-0.5">{claim.patientEmrNumber}</p>
                           )}
@@ -1246,13 +1251,21 @@ function ReleaseRequestedClaimsPage() {
                           <span className="text-gray-500">Last Name:</span>
                           <span className="font-medium text-gray-900">{viewModal.patientLastName || "-"}</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex justify-between border-b border-gray-50 pb-1">
                           <span className="text-gray-500">Mobile:</span>
                           <span className="font-medium text-gray-900">
                             {userRole === "doctorStaff"
                               ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-")
                               : (viewModal.patientMobileNumber || "-")}
                           </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Gender / Age:</span>
+                          {viewModal.patientGenderAge ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-bold">{viewModal.patientGenderAge}</span>
+                          ) : (
+                            <span className="font-medium text-gray-900">-</span>
+                          )}
                         </div>
                         {(claimDetails?.emirNumber || viewModal.emirNumber) && (
                           <div className="flex justify-between items-center">
@@ -1630,7 +1643,7 @@ function ReleaseRequestedClaimsPage() {
                   )}
 
                   {/* Treatment Plan & Notes */}
-                  {(viewModal.treatmentPlan || viewModal.notes || viewModal.reviewNotes) && (
+                  {(viewModal.treatmentPlan || viewModal.notes || viewModal.reviewNotes || claimDetails?.planNotes || viewModal.planNotes) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* {(viewModal.treatmentPlan || claimDetails?.treatmentPlan) && (
                         <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
@@ -1638,7 +1651,7 @@ function ReleaseRequestedClaimsPage() {
                           <p className="text-sm text-purple-900 whitespace-pre-wrap leading-relaxed">{claimDetails?.treatmentPlan || viewModal.treatmentPlan}</p>
                         </div>
                       )} */}
-                      {(viewModal.notes || viewModal.reviewNotes) && (
+                      {(viewModal.notes || viewModal.reviewNotes || claimDetails?.planNotes || viewModal.planNotes) && (
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-3">
                           {viewModal.notes && (
                             <div>
@@ -1650,6 +1663,12 @@ function ReleaseRequestedClaimsPage() {
                             <div>
                               <h3 className="text-sm font-semibold text-blue-800 mb-1">Reviewer Notes</h3>
                               <p className="text-sm text-blue-900 leading-relaxed">{viewModal.reviewNotes}</p>
+                            </div>
+                          )}
+                          {(claimDetails?.planNotes || viewModal.planNotes) && (
+                            <div>
+                              <h3 className="text-sm font-semibold text-blue-800 mb-1">Doctor Notes</h3>
+                              <p className="text-sm text-blue-900 leading-relaxed">{claimDetails?.planNotes || viewModal.planNotes}</p>
                             </div>
                           )}
                         </div>

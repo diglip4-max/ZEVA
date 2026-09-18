@@ -5,6 +5,18 @@ import User from "../../../../models/Users";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
+// Compute age in full years from a date of birth (null when missing/invalid)
+function getPatientAge(dob) {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+  return age >= 0 && age < 150 ? age : null;
+}
+
 export default async function handler(req, res) {
   await dbConnect();
 
@@ -59,13 +71,28 @@ export default async function handler(req, res) {
         .sort({ createdAt: -1 })
         .lean();
 
-      // Enrich with patient EMR numbers for card display (display-only denormalization)
+      // Enrich with patient EMR numbers and gender/age for card display (display-only denormalization)
       const patientIds = [...new Set(claims.map((c) => c.patientId).filter(Boolean).map(String))];
       if (patientIds.length > 0) {
-        const patients = await PatientRegistration.find({ _id: { $in: patientIds } }).select("_id emrNumber").lean();
-        const emrMap = {};
-        for (const p of patients) emrMap[String(p._id)] = p.emrNumber || "";
-        for (const c of claims) c.patientEmrNumber = emrMap[String(c.patientId)] || "";
+        const patients = await PatientRegistration.find({ _id: { $in: patientIds } }).select("_id emrNumber gender dateOfBirth").lean();
+        const patientMap = {};
+        for (const p of patients) {
+          const genderLetter = p.gender ? String(p.gender).charAt(0).toUpperCase() : "";
+          const age = getPatientAge(p.dateOfBirth);
+          patientMap[String(p._id)] = {
+            emrNumber: p.emrNumber || "",
+            gender: p.gender || "",
+            age,
+            genderAge: genderLetter && age !== null ? `${genderLetter}-${age}` : genderLetter,
+          };
+        }
+        for (const c of claims) {
+          const info = patientMap[String(c.patientId)];
+          c.patientEmrNumber = info?.emrNumber || "";
+          c.patientGender = info?.gender || "";
+          c.patientAge = info ? info.age : null;
+          c.patientGenderAge = info?.genderAge || "";
+        }
       }
 
       return res.status(200).json({ success: true, data: claims });

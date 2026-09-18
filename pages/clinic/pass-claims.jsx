@@ -795,9 +795,14 @@ function PassClaimsPage() {
                         </div>
                         <div className="min-w-0">
                           <p className="text-[9px] text-gray-500 uppercase font-bold tracking-tight">Patient</p>
-                          <p className="text-xs font-bold text-gray-900 truncate">
-                            {claim.patientFirstName} {claim.patientLastName}
-                          </p>
+                          <div className="flex items-center gap-1 min-w-0">
+                            <p className="text-xs font-bold text-gray-900 truncate">
+                              {claim.patientFirstName} {claim.patientLastName}
+                            </p>
+                            {claim.patientGenderAge && (
+                              <span className="flex-shrink-0 inline-flex items-center px-1 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[8px] font-bold">{claim.patientGenderAge}</span>
+                            )}
+                          </div>
                           {claim.patientEmrNumber && (
                             <p className="text-[9px] font-mono text-teal-600 font-semibold truncate mt-0.5">{claim.patientEmrNumber}</p>
                           )}
@@ -1431,6 +1436,30 @@ function PassClaimsPage() {
                             <p className="text-xs text-gray-500">Paid Amount</p>
                             <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.advanceAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                           </div>
+                          {(claimDetails?.paymentMethod || viewModal.paymentMethod) && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <p className="text-xs text-gray-500">Payment Method</p>
+                              <p className="text-sm font-semibold text-gray-900">{claimDetails?.paymentMethod || viewModal.paymentMethod}</p>
+                            </div>
+                          )}
+                          {(claimDetails?.transactionId || viewModal.transactionId) && (
+                            <div className="bg-gray-50 rounded-lg p-3">
+                              <p className="text-xs text-gray-500">Transaction ID</p>
+                              <p className="text-sm font-semibold font-mono text-gray-900">{claimDetails?.transactionId || viewModal.transactionId}</p>
+                              {(claimDetails?.attachment || viewModal.attachment) ? (
+                                <button
+                                  onClick={() => setPreviewFile({ url: claimDetails?.attachment || viewModal.attachment, name: "Payment Attachment", field: "attachment" })}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700 hover:underline transition-colors mt-1"
+                                >
+                                  <Paperclip className="w-3 h-3" /> Payment Attachment
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 mt-1">
+                                  <Paperclip className="w-3 h-3" /> No attachment
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
                       {viewModal.pendingClaim > 0 && (

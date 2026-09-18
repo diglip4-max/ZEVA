@@ -110,6 +110,7 @@ export default async function handler(req, res) {
         advanceStatus,
         doctorAddedClaimAmount,
         doctorAddedClaimNotes,
+        planNotes,
         emirNumber,
         paymentMethod,
         diagnosis,
@@ -199,6 +200,11 @@ export default async function handler(req, res) {
           claim.doctorAddedClaimNotes = "";
           claim.finalClaimAmount = claim.claimAmount || 0;
         }
+      }
+
+      // Handle plan notes from confirmation step
+      if (planNotes !== undefined) {
+        claim.planNotes = String(planNotes).trim();
       }
 
       // Handle advance-specific fields

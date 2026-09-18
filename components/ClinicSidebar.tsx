@@ -107,6 +107,7 @@ interface NavItemChild {
 interface NavItem extends NavItemChild {
   moduleKey?: string;
   children?: NavItemChild[];
+  headerPath?: string;
 }
 
 interface NavigationItemFromAPI {
@@ -1602,12 +1603,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               order: 120,
             },
             {
-              label: "Claims",
-              icon: "file-text",
+              label: "Clinic Management",
+              icon: "🏥",
+              headerPath: "/clinic/claim-management",
               children: nonNull(
-                pickTop("Clinic Management"),
-                pickChild("Clinic Management"),
-                createItem("Clinic Management", "/clinic/claim-management", "🏥"),
                 pickTop("Create Claim"),
                 pickChild("Create Claim"),
                 createItem("Create Claim", "/clinic/create-claim", "➕"),
@@ -1830,12 +1829,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             const groupLabelDuplicate = usedGroupLabels.has(toKey(i.label));
             const isStockGeneric = toKey(i.label) === "stock";
             const isPolicyCompliance = toKey(i.label) === "policy & compliance";
+            // Legacy "Claims" parent record (pre-rename) must not render as a
+            // duplicate section next to the static "Clinic Management" group
+            const isLegacyClaimsParent =
+              toKey(i.label) === "claims" &&
+              !!(i.children && i.children.length > 0);
             return !(
               labelUsed ||
               pathUsed ||
               groupLabelDuplicate ||
               isStockGeneric ||
-              isPolicyCompliance
+              isPolicyCompliance ||
+              isLegacyClaimsParent
             );
           });
 
@@ -2067,7 +2072,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   const isSection = !!item.children && !item.path;
                   const isActive = selectedItem
                     ? selectedItem === item.label
-                    : router.pathname === item.path;
+                    : router.pathname === item.path ||
+                      router.pathname === item.headerPath;
 
                   const handleItemClick = () => {
                     setSelectedItem(item.label);
@@ -2087,7 +2093,28 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     return (
                       <div key={item.label} className="mt-4">
                         <div className="px-2 text-xs font-medium uppercase tracking-wider text-[#64748B] inter-font flex items-center">
-                          <span className="flex-1">{item.label}</span>
+                          <span className="flex-1">
+                            {item.headerPath ? (
+                              <Link
+                                href={item.headerPath}
+                                onClick={() => {
+                                  setSelectedItem(item.label);
+                                  if (
+                                    onExternalToggleMobile &&
+                                    externalIsMobileOpen
+                                  ) {
+                                    onExternalToggleMobile();
+                                  } else {
+                                    setInternalIsMobileOpen(false);
+                                  }
+                                }}
+                              >
+                                {item.label}
+                              </Link>
+                            ) : (
+                              item.label
+                            )}
+                          </span>
                         </div>
                         <div className="mt-2 space-y-1">
                           {item.children.map((child, childIdx) => {
@@ -2401,7 +2428,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                   // Otherwise, use router pathname to determine active state
                   const isActive = selectedItem
                     ? selectedItem === item.label
-                    : router.pathname === item.path;
+                    : router.pathname === item.path ||
+                      router.pathname === item.headerPath;
 
                   // Section header - collapsible on desktop
                   if (isSection && item.children) {
@@ -2431,14 +2459,27 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         >
                           <span className="flex items-center gap-2">
                             {renderIcon(item.icon, isActive)}
-                            <span
-                              className={clsx(
-                                "inter-font text-xs font-medium uppercase tracking-wider",
-                                { "text-white": isActive },
-                              )}
-                            >
-                              {item.label}
-                            </span>
+                            {item.headerPath ? (
+                              <Link
+                                href={item.headerPath}
+                                onClick={(e) => e.stopPropagation()}
+                                className={clsx(
+                                  "inter-font text-xs font-medium uppercase tracking-wider hover:underline",
+                                  { "text-white": isActive },
+                                )}
+                              >
+                                {item.label}
+                              </Link>
+                            ) : (
+                              <span
+                                className={clsx(
+                                  "inter-font text-xs font-medium uppercase tracking-wider",
+                                  { "text-white": isActive },
+                                )}
+                              >
+                                {item.label}
+                              </span>
+                            )}
                           </span>
                           <ChevronDown
                             className={clsx(

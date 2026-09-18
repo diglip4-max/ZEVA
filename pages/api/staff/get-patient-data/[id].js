@@ -155,6 +155,7 @@ export default async function handler(req, res) {
           firstName,
           lastName,
           gender,
+          dateOfBirth,
           email,
           mobileNumber,
           city,
@@ -187,6 +188,7 @@ export default async function handler(req, res) {
         invoice.firstName = firstName;
         invoice.lastName = lastName || "";
         if (gender !== undefined) invoice.gender = gender;
+        if (dateOfBirth !== undefined) invoice.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
         if (email !== undefined) invoice.email = email;
         if (mobileNumber !== undefined) invoice.mobileNumber = mobileNumber;
         if (city !== undefined) invoice.city = city;

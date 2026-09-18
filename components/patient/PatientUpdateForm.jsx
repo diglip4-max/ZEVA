@@ -226,6 +226,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
         setFormData({
           ...data,
           invoicedDate: data.invoicedDate ? data.invoicedDate.slice(0, 16) : "",
+          dateOfBirth: data.dateOfBirth ? data.dateOfBirth.slice(0, 10) : "",
         });
       } catch (err) {
         console.error(err);
@@ -903,6 +904,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       firstName: formData.firstName,
       lastName: formData.lastName,
       gender: formData.gender,
+      dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null,
       email: formData.email,
       mobileNumber: formData.mobileNumber,
       city: formData.city,
@@ -946,6 +948,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
         setFormData({
           ...updated,
           invoicedDate: updated.invoicedDate ? updated.invoicedDate.slice(0, 16) : "",
+          dateOfBirth: updated.dateOfBirth ? updated.dateOfBirth.slice(0, 10) : "",
         });
 
         // Reset flags after state updates are processed with longer timeout to prevent useEffects from running
@@ -1296,6 +1299,13 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         onChange={handleFieldChange}
                         options={genderOptions}
                         placeholder="Select Gender"
+                      />
+                      <EditableField
+                        label="Date of Birth"
+                        name="dateOfBirth"
+                        type="date"
+                        value={formData.dateOfBirth}
+                        onChange={handleFieldChange}
                       />
                       <EditableField
                         label="City"

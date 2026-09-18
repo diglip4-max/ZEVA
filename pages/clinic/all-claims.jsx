@@ -214,8 +214,9 @@ function AllClaimsPage() {
   const [planInvoiceNumber, setPlanInvoiceNumber] = useState("");
   const [planPaymentMethod, setPlanPaymentMethod] = useState("");
   const [planDiagnosis, setPlanDiagnosis] = useState("");
+  const [planNotes, setPlanNotes] = useState("");
   const [planSaving, setPlanSaving] = useState(false);
-    const [confirmChecklist, setConfirmChecklist] = useState({ appointment: false, treatmentPlan: false, consentForm: false, progressNotes: false });
+    const [confirmChecklist, setConfirmChecklist] = useState({ appointment: false, treatmentPlan: false, consentForm: false, progressNotes: false, patientDetails: false, gender: false, invoice: false, paymentMethod: false, diagnosis: false, vitalSign: false });
 
   // Set user role on mount
   useEffect(() => {
@@ -759,12 +760,13 @@ function AllClaimsPage() {
     setConsentStatus(null);
     setAddTreatmentPlan(false);
     setTreatmentPlanText("");
-    setConfirmChecklist({ appointment: false, treatmentPlan: false, consentForm: false, progressNotes: false });
+    setConfirmChecklist({ appointment: false, treatmentPlan: false, consentForm: false, progressNotes: false, patientDetails: false, gender: false, invoice: false, paymentMethod: false, diagnosis: false, vitalSign: false });
     // Reset create-plan flow fields
     setPlanEmirNumber(approvalModal?.emirNumber || claim?.emirNumber || "");
     setPlanInvoiceNumber(approvalModal?.invoiceNumber || claim?.invoiceNumber || "");
     setPlanPaymentMethod(approvalModal?.paymentMethod || claim?.paymentMethod || "");
     setPlanDiagnosis(approvalModal?.diagnosis || claim?.diagnosis || "");
+    setPlanNotes("");
     setPlanSaving(false);
 
     // Fetch existing appointments for this patient
@@ -941,6 +943,7 @@ function AllClaimsPage() {
       if (planInvoiceNumber.trim()) planPayload.invoiceNumber = planInvoiceNumber.trim();
       if (planPaymentMethod) planPayload.paymentMethod = planPaymentMethod;
       if (planDiagnosis.trim()) planPayload.diagnosis = planDiagnosis.trim();
+      if (planNotes.trim()) planPayload.planNotes = planNotes.trim();
       if (Object.keys(planPayload).length > 0) {
         try {
           await axios.patch(
@@ -1298,9 +1301,14 @@ function AllClaimsPage() {
                       {getInitials(claim.patientFirstName, claim.patientLastName)}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {claim.patientFirstName} {claim.patientLastName}
-                      </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {claim.patientFirstName} {claim.patientLastName}
+                        </p>
+                        {claim.patientGenderAge && (
+                          <span className="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[9px] font-bold">{claim.patientGenderAge}</span>
+                        )}
+                      </div>
                       {claim.patientEmrNumber && (
                         <p className="text-[10px] font-mono text-teal-600 font-semibold truncate mt-0.5">{claim.patientEmrNumber}</p>
                       )}
@@ -1640,6 +1648,9 @@ function AllClaimsPage() {
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getStatusBadge(viewModal.status)}`}>
                         {viewModal.status}
                       </span>
+                      {viewModal.patientGenderAge && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-bold">{viewModal.patientGenderAge}</span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                       <span>Claim #{viewModal._id?.slice(-8)}</span>
@@ -2273,13 +2284,26 @@ function AllClaimsPage() {
                     </ModalSection>
 
                     {/* Notes */}
-                    {viewModal.notes && (
+                    {(viewModal.notes || claimDetails?.planNotes || viewModal.planNotes) && (
                       <ModalSection
                         icon={<ClipboardList className="w-4 h-4 text-teal-600" />}
                         title="Notes"
                         subtitle="Additional notes recorded with the claim"
                       >
-                        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">{viewModal.notes}</p>
+                        <div className="space-y-3">
+                          {viewModal.notes && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Claim Notes</p>
+                              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">{viewModal.notes}</p>
+                            </div>
+                          )}
+                          {(claimDetails?.planNotes || viewModal.planNotes) && (
+                            <div>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Doctor Notes</p>
+                              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 leading-relaxed">{claimDetails?.planNotes || viewModal.planNotes}</p>
+                            </div>
+                          )}
+                        </div>
                       </ModalSection>
                     )}
 
@@ -2586,6 +2610,10 @@ function AllClaimsPage() {
                           <option value="Cheque">Cheque</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">Final Claim Amount</label>
+                        <input type="text" value={approvalModal?.finalClaimAmount ? `${getCurrencySymbol(currency)}${approvalModal.finalClaimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : `${getCurrencySymbol(currency)}${(approvalModal?.claimAmount || 0)?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`} readOnly className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-700 cursor-not-allowed" />
+                      </div>
                     </div>
                     <div className="flex justify-between pt-2">
                       <button onClick={() => setApprovalStep(1)} className="px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">← Back</button>
@@ -2639,6 +2667,12 @@ function AllClaimsPage() {
                         { key: "treatmentPlan", label: "Treatment Plan", icon: FileText },
                         { key: "consentForm", label: "Consent Form", icon: Shield },
                         { key: "progressNotes", label: "Progress Notes", icon: Activity },
+                        { key: "patientDetails", label: "Patient Details", icon: User },
+                        { key: "gender", label: "Gender", icon: User },
+                        { key: "invoice", label: "Invoice", icon: FileText },
+                        { key: "paymentMethod", label: "Payment Method", icon: Wallet },
+                        { key: "diagnosis", label: "Diagnosis", icon: Stethoscope },
+                        { key: "vitalSign", label: "Vital Signs", icon: Activity },
                       ].map(({ key, label, icon: Icon }) => (
                         <button
                           key={key}
@@ -2662,6 +2696,12 @@ function AllClaimsPage() {
                           {confirmChecklist[key] && <span className="ml-auto text-[10px] font-bold text-teal-600 uppercase tracking-wider">Done</span>}
                         </button>
                       ))}
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1.5">Notes</label>
+                      <textarea value={planNotes} onChange={(e) => setPlanNotes(e.target.value)} rows={3} placeholder="Add any notes here..." className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none" />
                     </div>
 
                     {/* Optional navigation to appointment / progress / consent steps */}

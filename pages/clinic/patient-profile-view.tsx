@@ -4461,6 +4461,11 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <span className="text-gray-500 font-medium flex-shrink-0">Gender:</span>
                     <span className="text-gray-800">{patientData.gender || 'N/A'}</span>
                   </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500 font-medium flex-shrink-0">Date of Birth:</span>
+                    <span className="text-gray-800">{patientData.dateOfBirth ? new Date(patientData.dateOfBirth).toLocaleDateString() : 'N/A'}</span>
+                  </div>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
                     <span className="text-gray-500 font-medium flex-shrink-0">City:</span>
