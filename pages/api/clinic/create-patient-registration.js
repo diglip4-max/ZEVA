@@ -253,16 +253,16 @@ export default async function handler(req, res) {
       service = "Package";
     }
 
-    console.log({ bmModify: req.body });
-    console.log("multiplePayments from req.body:", multiplePayments);
-    console.log('[BundleAPI] Extracted offerFreeSession:', offerFreeSession);
-    console.log('[BundleAPI] Extracted freeOfferSessionCount:', freeOfferSessionCount);
+    // console.log({ bmModify: req.body });
+    // console.log("multiplePayments from req.body:", multiplePayments);
+    // console.log('[BundleAPI] Extracted offerFreeSession:', offerFreeSession);
+    // console.log('[BundleAPI] Extracted freeOfferSessionCount:', freeOfferSessionCount);
 
     // Calculate total unpaid packages amount
     const totalUnpaidPackagesAmount = Array.isArray(unpaidPackagesPaid)
       ? unpaidPackagesPaid.reduce((sum, pkg) => sum + (parseFloat(pkg.amount) || 0), 0)
       : 0;
-    console.log("totalUnpaidPackagesAmount:", totalUnpaidPackagesAmount);
+    // console.log("totalUnpaidPackagesAmount:", totalUnpaidPackagesAmount);
 
     // Validate required fields
     if (
@@ -284,7 +284,7 @@ export default async function handler(req, res) {
       Array.isArray(multiplePayments) && multiplePayments.length > 0
         ? multiplePayments
         : [];
-    console.log("multiPayArr created as:", multiPayArr);
+    // console.log("multiPayArr created as:", multiPayArr);
 
     if (multiPayArr.length === 0 && !paymentMethod) {
       return res.status(400).json({
@@ -319,15 +319,15 @@ export default async function handler(req, res) {
 
     // Validate appointment exists
     const appointment = await Appointment.findById(appointmentId);
-    console.log("===========================================");
-    console.log("========== BILLING DEBUG START ===========");
-    console.log("===========================================");
-    console.log("Appointment ID:", appointmentId);
-    console.log("Full Appointment Object:", JSON.stringify(appointment, null, 2));
-    console.log("Full req.body:", JSON.stringify(req.body, null, 2));
-    console.log("req.body.treatment:", treatment);
-    console.log("req.body.service:", service);
-    console.log("req.body.package:", packageName);
+    // console.log("===========================================");
+    // console.log("========== BILLING DEBUG START ===========");
+    // console.log("===========================================");
+    // console.log("Appointment ID:", appointmentId);
+    // console.log("Full Appointment Object:", JSON.stringify(appointment, null, 2));
+    // console.log("Full req.body:", JSON.stringify(req.body, null, 2));
+    // console.log("req.body.treatment:", treatment);
+    // console.log("req.body.service:", service);
+    // console.log("req.body.package:", packageName);
     if (!appointment) {
       return res.status(404).json({
         success: false,

@@ -911,35 +911,57 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
   const [claimDepartments, setClaimDepartments] = useState<any[]>([]);
   const [claimServices, setClaimServices] = useState<any[]>([]);
   const [claimDoctors, setClaimDoctors] = useState<any[]>([]);
-  // New claim form state
-  const [showNewClaimForm, setShowNewClaimForm] = useState(false);
-  const [newClaimSubmitting, setNewClaimSubmitting] = useState(false);
-  const [newClaimUploadingFiles, setNewClaimUploadingFiles] = useState(false);
-  const [newClaimData, setNewClaimData] = useState<any>({
-    insuranceProvider: "",
-    policyNumber: "",
-    expiryDate: "",
-    insuranceCardFile: "",
-    tableOfBenefitsFile: "",
-    departmentId: "",
-    departmentName: "",
-    serviceId: "",
-    serviceName: "",
-    services: [], // Array to store multiple services
-    doctorId: "",
-    doctorName: "",
-    claimAmount: "",
-    claimType: "Paid",
-    coPayPercent: "",
-    coPayType: "Patient Pays",
-    notes: "",
-    documentFiles: [],
-    advanceStatus: "Full Pay",
-    advanceAmount: 0,
-  });
-  const [newClaimDepartments, setNewClaimDepartments] = useState<any[]>([]);
-  const [newClaimServices, setNewClaimServices] = useState<any[]>([]);
-  const [newClaimDoctors, setNewClaimDoctors] = useState<any[]>([]);
+  // New claim form state - Commented Out
+  // const [showNewClaimForm, setShowNewClaimForm] = useState(false);
+  // const [newClaimSubmitting, setNewClaimSubmitting] = useState(false);
+  // const [newClaimUploadingFiles, setNewClaimUploadingFiles] = useState(false);
+  // const [newClaimData, setNewClaimData] = useState<any>({
+  //   insuranceProvider: "",
+  //   policyNumber: "",
+  //   expiryDate: "",
+  //   insuranceCardFile: "",
+  //   tableOfBenefitsFile: "",
+  //   departmentId: "",
+  //   departmentName: "",
+  //   serviceId: "",
+  //   serviceName: "",
+  //   services: [], // Array to store multiple services
+  //   doctorId: "",
+  //   doctorName: "",
+  //   claimAmount: "",
+  //   claimType: "Paid",
+  //   coPayPercent: "",
+  //   coPayType: "Patient Pays",
+  //   notes: "",
+  //   documentFiles: [],
+  //   advanceStatus: "Full Pay",
+  //   advanceAmount: 0,
+  // });
+  // const [newClaimDepartments, setNewClaimDepartments] = useState<any[]>([]);
+  // const [newClaimServices, setNewClaimServices] = useState<any[]>([]);
+  // const [newClaimDoctors, setNewClaimDoctors] = useState<any[]>([]);
+
+  // Dummy declarations for disabled New Claim form (prevents TS errors)
+  const showNewClaimForm = false;
+  const setShowNewClaimForm = (..._args: any[]) => {};
+  const newClaimSubmitting = false;
+  const newClaimUploadingFiles = false;
+  const newClaimData: any = {};
+  const setNewClaimData = (..._args: any[]) => {};
+  const newClaimDepartments: any[] = [];
+  const newClaimServices: any[] = [];
+  const newClaimDoctors: any[] = [];
+  const handleNewClaimChange = () => {};
+  const handleNewClaimFileUpload = (..._args: any[]) => {};
+  // const handleNewClaimDocumentUpload = (..._args: any[]) => {};
+  const handleNewClaimDocumentsUpload = (..._args: any[]) => {};
+  // const removeNewClaimDocument = () => {};
+  const handleNewClaimDepartmentChange = () => {};
+  const handleNewClaimServiceChange = () => {};
+  // const handleNewClaimRemoveService = () => {};
+  const handleNewClaimDoctorChange = () => {};
+  const submitNewClaim = () => {};
+  // const fetchNewClaimDropdowns = () => {};
 
   // Package payment balance tracking
   const [pkgAvailableBalance, setPkgAvailableBalance] = useState({
@@ -3896,7 +3918,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     fetchClaimDropdowns();
   };
 
-  // Fetch dropdowns for new claim form
+  // New claim handlers - Commented Out (state variables disabled)
+  /*
   const fetchNewClaimDropdowns = async () => {
     try {
       const headers = getAuthHeaders();
@@ -3913,6 +3936,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       console.error("Error fetching new claim dropdowns:", err);
     }
   };
+  */
 
   // Calculate co-pay adjusted amounts for insurance claims
   const calculateCoPayAmounts = (claimAmount: number, coPayPercent: number, coPayType: string, advanceStatus: string, paidOrAdvanceAmount: number) => {
@@ -3940,6 +3964,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     };
   };
 
+  /*
   // Handle new claim field changes
   const handleNewClaimChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -4097,6 +4122,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       setNewClaimUploadingFiles(false);
     }
   };
+  */
 
   const handleClaimEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
     const file = e.target.files?.[0];
@@ -4152,6 +4178,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
     }
   };
 
+  /*
   const submitNewClaim = async () => {
     if (!patientData?._id) return;
 
@@ -4219,6 +4246,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
       setNewClaimSubmitting(false);
     }
   };
+  */
 
   // Commented out - not currently used in the UI
   /* const handleUploadBalance = async () => {
@@ -8101,7 +8129,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 ) : (
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Not Enrolled</span>
                 )}
-                {permissions.canCreate && (
+                {/* New Claim button commented out */}
+                {/* {permissions.canCreate && (
                   <button
                     onClick={() => {
                       const opening = !showNewClaimForm;
@@ -8168,11 +8197,11 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <Plus className="w-3.5 h-3.5" />
                     New Claim
                   </button>
-                )}
+                )} */}
               </div>
 
-              {/* New Claim Form */}
-              {showNewClaimForm && (
+              {/* New Claim Form - Disabled */}
+              {false && showNewClaimForm && (
                 <div className="border-b border-gray-200 bg-gray-50 p-4">
                   <div className="text-sm font-semibold text-gray-900 mb-3">Create New Insurance Claim</div>
 
@@ -8599,7 +8628,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   {/* Insurance Info */}
                   {insuranceClaims.length > 0 && (
                     <div className="mb-6">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
                         <div className="bg-blue-50 rounded-lg p-3">
                           <p className="text-xs text-blue-600">Provider</p>
                           <p className="text-sm font-semibold text-blue-900">{insuranceClaims[0]?.insuranceProvider || patientData?.insuranceType || '-'}</p>
@@ -8615,6 +8644,10 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         <div className="bg-orange-50 rounded-lg p-3">
                           <p className="text-xs text-orange-600">Total Claims</p>
                           <p className="text-sm font-semibold text-orange-900">{insuranceClaims.length}</p>
+                        </div>
+                        <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                          <p className="text-xs text-teal-600">Available Claim Balance</p>
+                          <p className="text-sm font-bold text-teal-900">{getCurrencySymbol(currency)} {Number(balance.claimAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                         </div>
                       </div>
                     </div>

@@ -1603,7 +1603,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               order: 120,
             },
             {
-              label: "Clinic Management",
+              label: "Claim Management",
               icon: "🏥",
               headerPath: "/clinic/claim-management",
               children: nonNull(
@@ -1829,10 +1829,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             const groupLabelDuplicate = usedGroupLabels.has(toKey(i.label));
             const isStockGeneric = toKey(i.label) === "stock";
             const isPolicyCompliance = toKey(i.label) === "policy & compliance";
-            // Legacy "Claims" parent record (pre-rename) must not render as a
-            // duplicate section next to the static "Clinic Management" group
-            const isLegacyClaimsParent =
-              toKey(i.label) === "claims" &&
+            // Legacy "Claims" / "Clinic Management" parent records (pre-rename)
+            // must not render as duplicate sections next to the static
+            // "Claim Management" group
+            const isLegacyClaimsGroup =
+              (toKey(i.label) === "claims" ||
+                toKey(i.label) === "clinic management") &&
               !!(i.children && i.children.length > 0);
             return !(
               labelUsed ||
@@ -1840,7 +1842,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               groupLabelDuplicate ||
               isStockGeneric ||
               isPolicyCompliance ||
-              isLegacyClaimsParent
+              isLegacyClaimsGroup
             );
           });
 
