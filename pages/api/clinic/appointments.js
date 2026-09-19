@@ -927,6 +927,26 @@ export default async function handler(req, res) {
         notificationCategory: NOTIFICATION_CATEGORIES.APPOINTMENT,
       });
 
+      if (appointment.status === "booked") {
+        // Dispatch Appointment reminder notifications
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          appointmentId: appointment._id?.toString(),
+          notificationTypeKey: NOTIFICATION_TYPES.APPOINTMENT_REMINDER,
+          notificationCategory: NOTIFICATION_CATEGORIES.APPOINTMENT,
+        });
+      }
+
+      // Dispatch Appointment reminder notifications
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        appointmentId: appointment._id?.toString(),
+        notificationTypeKey: NOTIFICATION_TYPES.APPOINTMENT_REMINDER,
+        notificationCategory: NOTIFICATION_CATEGORIES.APPOINTMENT,
+      });
+
       return res.status(201).json({
         success: true,
         message: "Appointment created successfully",

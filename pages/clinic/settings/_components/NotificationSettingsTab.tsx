@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import useNotificationSetting from "../_hooks/useNotificationSetting";
+import useNotificationSetting, {
+  comingSoonNotifications,
+} from "../_hooks/useNotificationSetting";
 import { notificationData as notifData } from "../../../../lib/notifications/index";
-import { CheckCircle2, ChevronLeft, Clock, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronLeft,
+  Clock,
+  Logs,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
 import {
   MessageCircle,
   MessageSquare,
@@ -24,6 +33,8 @@ import {
 } from "lucide-react";
 import NotificationEditDrawer from "./NotificationEditDrawer";
 import { Attachment } from "@/types/campaigns";
+import { useRouter } from "next/router";
+import { UseSettingPermissionReturn } from "../_hooks/useSettingPermission";
 
 export type ChannelId = "whatsapp" | "sms" | "email" | "app_push";
 export type TimingMode = "immediate" | "before_event" | "after_event";
@@ -357,10 +368,20 @@ function NotifCard({
   n,
   onToggle,
   onEdit,
+  comingSoon = false,
+  comingSoonLabel = "Coming Soon",
 }: {
   n: Notification;
   onToggle: (id: string) => void;
   onEdit: (id: string) => void;
+  /**
+   * When true, the card is rendered as a "coming soon" teaser:
+   * all interactions are disabled and a beautiful badge/overlay is shown.
+   * Intended for marketing/preview purposes. Defaults to `false`.
+   */
+  comingSoon?: boolean;
+  /** Optional custom label for the coming-soon badge. */
+  comingSoonLabel?: string;
 }) {
   const cat = catMeta(n.category);
   const CatIcon = cat.icon;
@@ -392,13 +413,21 @@ function NotifCard({
 
   return (
     <div
-      className="group relative rounded-2xl border overflow-hidden transition-colors cursor-pointer hover:border-primary/50"
+      className={`group relative rounded-2xl border overflow-hidden transition-colors ${
+        comingSoon
+          ? "cursor-not-allowed"
+          : "cursor-pointer hover:border-primary/50"
+      }`}
       style={{
         background: "var(--surface)",
         borderColor: "var(--border)",
         opacity: n.isEnabled ? 1 : 0.65,
       }}
-      onClick={() => onEdit(n.id)}
+      onClick={() => {
+        if (comingSoon) return;
+        onEdit(n.id);
+      }}
+      aria-disabled={comingSoon}
     >
       {/* Category-colored accent — parent's overflow-hidden + rounded-xl
         clips this into the exact same corner curve as the card, so no
@@ -407,6 +436,30 @@ function NotifCard({
         className="absolute left-0 top-0 bottom-0 w-1"
         style={{ background: cat.color, opacity: 0.85 }}
       />
+
+      {/* ── Coming soon overlay (informational, marketing) ─────────── */}
+      {comingSoon && (
+        <>
+          {/* Soft gradient scrim — dims the content beneath, doesn't hide it */}
+          <span
+            className="pointer-events-none absolute inset-0 z-10"
+            style={{
+              background:
+                "linear-gradient(90deg, transparent 0%, var(--surface) 55%, var(--surface) 100%)",
+              opacity: 0.55,
+            }}
+          />
+
+          {/* Right-aligned "Coming soon" pill — replaces the status area visually */}
+          <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 z-20 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-surface-2/95 px-2.5 py-1 shadow-md backdrop-blur-sm">
+            <Sparkles size={11} className="text-primary" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+              {comingSoonLabel}
+            </span>
+          </span>
+        </>
+      )}
+
       <div className="flex items-center gap-3.5 pl-5 pr-3.5 py-3.5">
         <span
           className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border"
@@ -463,7 +516,12 @@ function NotifCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 flex-shrink-0">
+        {/* Right cluster — hidden when coming soon so the pill takes the stage */}
+        <div
+          className={`flex items-center gap-3 flex-shrink-0 ${
+            comingSoon ? "invisible" : ""
+          }`}
+        >
           <span
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider"
             style={{
@@ -485,14 +543,23 @@ function NotifCard({
 
         <ChevronRight
           size={15}
-          className="text-text-lo flex-shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+          className={`text-text-lo flex-shrink-0 transition-transform duration-200 ${
+            comingSoon ? "opacity-0" : "group-hover:translate-x-0.5"
+          }`}
         />
       </div>
     </div>
   );
 }
 
-export default function NotificationSettingsTab() {
+const NotificationSettingsTab: React.FC<UseSettingPermissionReturn> = ({
+  // permissions,
+  permissionsLoaded,
+  AccessDenied,
+  PermissionLoading,
+  canAccessPage,
+}) => {
+  const router = useRouter();
   const {
     settings,
     analytics,
@@ -651,6 +718,18 @@ export default function NotificationSettingsTab() {
     return range;
   }, [page, totalPages]);
 
+  // ----------------------------------------------------------
+  //  STEP 2: Early returns — loading aur access denied gates
+  //  Important: ye sab hooks ke niche aur return se pehle
+  // ----------------------------------------------------------
+  if (!permissionsLoaded) {
+    return <PermissionLoading />;
+  }
+
+  if (!canAccessPage) {
+    return <AccessDenied />;
+  }
+
   return (
     <div className="min-h-full font-body text-text-hi relative overflow-hidden">
       <style>{`
@@ -741,48 +820,79 @@ export default function NotificationSettingsTab() {
         )}
 
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5 mb-8">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider mb-2 text-primary">
-              Zeva · Communications
+        <div className="mb-8">
+          {/* Header card */}
+          <div className="rounded-2xl border border-border bg-surface-1/60 backdrop-blur-sm p-5 sm:p-6 lg:p-7">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+              {/* Left: Title block */}
+              <div className="min-w-0 lg:max-w-xl">
+                <div className="inline-flex items-center gap-2 mb-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+                    Zeva · Communications
+                  </span>
+                </div>
+                <h2 className="m-0 font-display text-[clamp(24px,3vw,32px)] font-semibold tracking-tight text-text-hi leading-tight">
+                  Notification Settings
+                </h2>
+                <p className="m-0 mt-2 text-sm leading-relaxed text-text-lo">
+                  Control what gets sent, to whom, and when — across every
+                  patient touchpoint.
+                </p>
+              </div>
+
+              {/* Right: Controls — all in one row on lg */}
+              <div className="flex flex-col gap-3 w-full lg:w-auto">
+                {/* Analytics pills row */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-border text-[11px] font-semibold text-text-md">
+                    <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                    {analytics.enabled} ON
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-2 border border-border text-[11px] font-semibold text-text-md">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    {analytics.disabled} OFF
+                  </div>
+                </div>
+
+                {/* Search + Buttons — one row */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1 sm:flex-initial sm:w-[240px] lg:w-[260px]">
+                    <Search
+                      size={15}
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-lo pointer-events-none"
+                    />
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="Search notifications"
+                      className="text-sm rounded-xl pl-9 pr-3.5 py-2.5 w-full h-10 bg-surface-2 border border-border text-text-hi placeholder:text-text-lo focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <Btn
+                      icon={meta.isPaused ? Play : Pause}
+                      variant={meta.isPaused ? "primary" : "default"}
+                      onClick={handlePause}
+                      className="h-10 whitespace-nowrap"
+                    >
+                      {meta.isPaused ? "Resume" : "Pause all"}
+                    </Btn>
+                    <Btn
+                      icon={Logs}
+                      variant="primary"
+                      className="h-10 whitespace-nowrap"
+                      onClick={() => {
+                        router.push(`/clinic/notifications/log`);
+                      }}
+                    >
+                      View Logs
+                    </Btn>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h2 className="m-0 font-display text-[clamp(26px,3.2vw,34px)] font-semibold tracking-tight text-text-hi">
-              Notification Settings
-            </h2>
-            <p className="m-0 mt-2 text-sm text-text-lo">
-              Control what gets sent, to whom, and when — across every patient
-              touchpoint.
-            </p>
-          </div>
-          <div className="flex gap-2.5 flex-wrap">
-            {/* Analytics pills */}
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs font-semibold text-text-md">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              {analytics.enabled} ON
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-2 border border-border text-xs font-semibold text-text-md">
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
-              {analytics.disabled} OFF
-            </div>
-            <div className="relative flex-1 sm:flex-initial min-w-[220px]">
-              <Search
-                size={15}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-lo"
-              />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search notifications"
-                className="text-sm rounded-xl pl-9 pr-3.5 py-2.5 w-full bg-surface-2 border border-border text-text-hi placeholder:text-text-lo focus:outline-none focus:ring-2 focus:ring-primary/30 transition-shadow"
-              />
-            </div>
-            <Btn
-              icon={meta.isPaused ? Play : Pause}
-              variant={meta.isPaused ? "primary" : "default"}
-              onClick={handlePause}
-            >
-              {meta.isPaused ? "Resume" : "Pause all"}
-            </Btn>
           </div>
         </div>
 
@@ -845,14 +955,22 @@ export default function NotificationSettingsTab() {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 mb-8">
-              {settings.map((s) => (
-                <NotifCard
-                  key={s.notificationTypeKey}
-                  n={toNotif(s)}
-                  onToggle={toggleNotif}
-                  onEdit={openEdit}
-                />
-              ))}
+              {settings.map((s) => {
+                const isComingSoon = comingSoonNotifications.some(
+                  (n) =>
+                    n.notificationTypeKey === s.notificationTypeKey &&
+                    n.category === s.category,
+                );
+                return (
+                  <NotifCard
+                    key={s.notificationTypeKey}
+                    n={toNotif(s)}
+                    onToggle={toggleNotif}
+                    onEdit={openEdit}
+                    comingSoon={isComingSoon}
+                  />
+                );
+              })}
             </div>
 
             {/* Pagination */}
@@ -983,4 +1101,6 @@ export default function NotificationSettingsTab() {
       </div>
     </div>
   );
-}
+};
+
+export default NotificationSettingsTab;

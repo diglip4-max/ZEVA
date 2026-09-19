@@ -437,12 +437,69 @@ export default async function handler(req, res) {
                 ? NOTIFICATION_TYPES.APPOINTMENT_CANCELLED
                 : updatedAppointment.status === "Completed"
                   ? NOTIFICATION_TYPES.APPOINTMENT_COMPLETED
-                  : updatedAppointment.status === "No Show"
-                    ? NOTIFICATION_TYPES.APPOINTMENT_NO_SHOW
-                    : updatedAppointment.status === "Waiting"
-                      ? NOTIFICATION_TYPES.APPOINTMENT_WAITLIST_AVAILABLE
-                      : "",
+                  : updatedAppointment.status === "Arrived"
+                    ? NOTIFICATION_TYPES.APPOINTMENT_PATIENT_CHECKED_IN
+                    : updatedAppointment.status === "No Show"
+                      ? NOTIFICATION_TYPES.APPOINTMENT_NO_SHOW
+                      : updatedAppointment.status === "Waiting"
+                        ? NOTIFICATION_TYPES.APPOINTMENT_WAITLIST_AVAILABLE
+                        : "",
       notificationCategory: NOTIFICATION_CATEGORIES.APPOINTMENT,
+    });
+    // Dispatch Patient notifications Followup Treatment Completed
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Discharge"
+          ? NOTIFICATION_TYPES.TREATMENT_COMPLETED
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+    // Dispatch Patient notifications Followup Post-Treatment Message
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Completed"
+          ? NOTIFICATION_TYPES.POST_TREATMENT_MESSAGE
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+    // Dispatch Patient notifications Followup Due and Overdue
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Discharge"
+          ? NOTIFICATION_TYPES.FOLLOWUP_DUE
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Discharge"
+          ? NOTIFICATION_TYPES.FOLLOWUP_OVERDUE
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+
+    // Dispatch Patient notifications Feedback Request
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Completed"
+          ? NOTIFICATION_TYPES.FEEDBACK_REQUEST
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FEEDBACK,
     });
 
     return res.status(200).json({

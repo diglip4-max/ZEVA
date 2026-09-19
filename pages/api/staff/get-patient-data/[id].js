@@ -11,13 +11,6 @@ import {
   WORKFLOW_TRIGGER_TYPE,
 } from "../../../../bullmq/workflow";
 
-// Dispatch Package Activate Notifications
-import { dispatchNotifications } from "../../../../services/notification";
-import {
-  NOTIFICATION_CATEGORIES,
-  NOTIFICATION_TYPES,
-} from "../../../../lib/notifications";
-
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
 export default async function handler(req, res) {
@@ -393,18 +386,6 @@ export default async function handler(req, res) {
         patientId: invoice._id?.toString(),
         clinicId: invoice.clinicId?.toString(),
       });
-
-      // Dispatch Package Purchased Notifications
-      if (invoice.packageId && invoice.package === "Yes") {
-        // Dispatch Package Purchased Notifications
-        dispatchNotifications({
-          clinicId: invoice.clinicId?.toString(),
-          patientId: invoice._id?.toString(),
-          packageId: invoice.packageId,
-          notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_PURCHASED,
-          notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
-        });
-      }
 
       return res.status(200).json({
         message: responseMessage || "Patient details updated successfully",

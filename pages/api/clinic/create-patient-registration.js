@@ -13,10 +13,19 @@ import StaffTip from "../../../models/StaffTip";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
-import { calculateCommissionForStaff, calculateBankDeduction } from "../../../lib/commissionCalculator";
+import {
+  calculateCommissionForStaff,
+  calculateBankDeduction,
+} from "../../../lib/commissionCalculator";
+
+// Dispatch Notifications for Payment Full Paid or Partial Paid
+import { dispatchNotifications } from "../../../services/notification";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "../../../lib/notifications";
 
 export default async function handler(req, res) {
-
   await dbConnect();
 
   if (req.method !== "POST") {
@@ -249,18 +258,29 @@ export default async function handler(req, res) {
     } = req.body;
 
     let service = initialService;
-    if (Array.isArray(unpaidPackagesPaid) && unpaidPackagesPaid.length > 0 && !treatment && (!selectedTreatments || selectedTreatments.length === 0)) {
+    if (
+      Array.isArray(unpaidPackagesPaid) &&
+      unpaidPackagesPaid.length > 0 &&
+      !treatment &&
+      (!selectedTreatments || selectedTreatments.length === 0)
+    ) {
       service = "Package";
     }
 
     console.log({ bmModify: req.body });
     console.log("multiplePayments from req.body:", multiplePayments);
-    console.log('[BundleAPI] Extracted offerFreeSession:', offerFreeSession);
-    console.log('[BundleAPI] Extracted freeOfferSessionCount:', freeOfferSessionCount);
+    console.log("[BundleAPI] Extracted offerFreeSession:", offerFreeSession);
+    console.log(
+      "[BundleAPI] Extracted freeOfferSessionCount:",
+      freeOfferSessionCount,
+    );
 
     // Calculate total unpaid packages amount
     const totalUnpaidPackagesAmount = Array.isArray(unpaidPackagesPaid)
-      ? unpaidPackagesPaid.reduce((sum, pkg) => sum + (parseFloat(pkg.amount) || 0), 0)
+      ? unpaidPackagesPaid.reduce(
+          (sum, pkg) => sum + (parseFloat(pkg.amount) || 0),
+          0,
+        )
       : 0;
     console.log("totalUnpaidPackagesAmount:", totalUnpaidPackagesAmount);
 
@@ -295,24 +315,26 @@ export default async function handler(req, res) {
 
     if (multiPayArr.length > 0) {
       // Check that at least one payment has an amount > 0
-      const hasValidPayment = multiPayArr.some(mp =>
-        mp.paymentMethod && parseFloat(mp.amount) > 0
+      const hasValidPayment = multiPayArr.some(
+        (mp) => mp.paymentMethod && parseFloat(mp.amount) > 0,
       );
       if (!hasValidPayment) {
         return res.status(400).json({
           success: false,
-          message: "Please provide at least one payment method with a positive amount",
+          message:
+            "Please provide at least one payment method with a positive amount",
         });
       }
 
       // Check that all payments with amount >0 have a payment method
-      const hasInvalidPayment = multiPayArr.some(mp =>
-        parseFloat(mp.amount) > 0 && !mp.paymentMethod
+      const hasInvalidPayment = multiPayArr.some(
+        (mp) => parseFloat(mp.amount) > 0 && !mp.paymentMethod,
       );
       if (hasInvalidPayment) {
         return res.status(400).json({
           success: false,
-          message: "All payments with an amount must have a payment method selected",
+          message:
+            "All payments with an amount must have a payment method selected",
         });
       }
     }
@@ -323,7 +345,10 @@ export default async function handler(req, res) {
     console.log("========== BILLING DEBUG START ===========");
     console.log("===========================================");
     console.log("Appointment ID:", appointmentId);
-    console.log("Full Appointment Object:", JSON.stringify(appointment, null, 2));
+    console.log(
+      "Full Appointment Object:",
+      JSON.stringify(appointment, null, 2),
+    );
     console.log("Full req.body:", JSON.stringify(req.body, null, 2));
     console.log("req.body.treatment:", treatment);
     console.log("req.body.service:", service);
@@ -389,9 +414,12 @@ export default async function handler(req, res) {
     // console.log("patientPackageId:", patientPackageId);
     // console.log("PatientRegistration ID (userId):", userId);
 
-    const hasPendingAmount = (pendingUsed && parseFloat(pendingUsed) > 0) ||
+    const hasPendingAmount =
+      (pendingUsed && parseFloat(pendingUsed) > 0) ||
       (pendingClaimUsed && parseFloat(pendingClaimUsed) > 0) ||
-      (unpaidPackagesPaid && Array.isArray(unpaidPackagesPaid) && unpaidPackagesPaid.length > 0);
+      (unpaidPackagesPaid &&
+        Array.isArray(unpaidPackagesPaid) &&
+        unpaidPackagesPaid.length > 0);
 
     // NOTE: Treatments and a Package can now be billed in the same invoice.
     // Run package validation whenever a packageName is present.
@@ -402,7 +430,7 @@ export default async function handler(req, res) {
     // Declare package-related variables outside the block so they are accessible later
     let pkgDoc = null;
     let packageSoldByUserId = null;
-    let packagePaymentStatus = 'Unpaid';
+    let packagePaymentStatus = "Unpaid";
     let packagePaidAmount = 0;
     let packageTotalPrice = 0;
     let totalPackageSessionValue = 0;
@@ -413,7 +441,12 @@ export default async function handler(req, res) {
       const UserPackage = (await import("../../../models/UserPackage")).default;
 
       if (isUserPackage && (patientPackageId || patientPackageSubId)) {
-        console.log("Looking up UserPackage with primary ID:", patientPackageId, "or sub-ID:", patientPackageSubId);
+        console.log(
+          "Looking up UserPackage with primary ID:",
+          patientPackageId,
+          "or sub-ID:",
+          patientPackageSubId,
+        );
 
         // Try looking up by primary ID first (actual UserPackage document ID)
         if (patientPackageId) {
@@ -423,18 +456,27 @@ export default async function handler(req, res) {
         // console.log("Initial UserPackage lookup result:", pkgDoc ? "Found" : "NOT FOUND");
 
         // If not found, try looking into patientRegistration.userPackages
-        if (!pkgDoc && patientRegistration && patientRegistration.userPackages) {
+        if (
+          !pkgDoc &&
+          patientRegistration &&
+          patientRegistration.userPackages
+        ) {
           // console.log("Checking PatientRegistration.userPackages for match...");
           const matchInPatient = patientRegistration.userPackages.find(
-            up => (patientPackageId && String(up.packageId) === String(patientPackageId)) ||
-              (patientPackageSubId && String(up._id) === String(patientPackageSubId)) ||
-              (patientPackageId && String(up._id) === String(patientPackageId))
+            (up) =>
+              (patientPackageId &&
+                String(up.packageId) === String(patientPackageId)) ||
+              (patientPackageSubId &&
+                String(up._id) === String(patientPackageSubId)) ||
+              (patientPackageId && String(up._id) === String(patientPackageId)),
           );
 
           if (matchInPatient) {
             // console.log("Found match in PatientRegistration.userPackages:", matchInPatient);
             // Re-try using the actual packageId from the sub-document
-            pkgDoc = await UserPackage.findById(matchInPatient.packageId).lean();
+            pkgDoc = await UserPackage.findById(
+              matchInPatient.packageId,
+            ).lean();
             // console.log("Retry UserPackage lookup with matchInPatient.packageId:", pkgDoc ? "Found" : "NOT FOUND");
           }
         }
@@ -454,10 +496,15 @@ export default async function handler(req, res) {
         // patient's packages sub-document. This preserves full billing capability for patients
         // who already hold the package.
         const patientPkgEntry = (patientRegistration.packages || []).find(
-          (p) => (p.packageName === packageName) ||
-            (p.packageSnapshot && p.packageSnapshot.name === packageName)
+          (p) =>
+            p.packageName === packageName ||
+            (p.packageSnapshot && p.packageSnapshot.name === packageName),
         );
-        if (patientPkgEntry && patientPkgEntry.packageSnapshot && patientPkgEntry.packageSnapshot.name) {
+        if (
+          patientPkgEntry &&
+          patientPkgEntry.packageSnapshot &&
+          patientPkgEntry.packageSnapshot.name
+        ) {
           const snap = patientPkgEntry.packageSnapshot;
           pkgDoc = {
             _id: patientPkgEntry.packageId,
@@ -465,11 +512,14 @@ export default async function handler(req, res) {
             totalPrice: snap.totalPrice || patientPkgEntry.totalPrice || 0,
             totalSessions: snap.totalSessions || 0,
             sessionPrice: snap.sessionPrice || 0,
-            validityInMonths: snap.validityInMonths || patientPkgEntry.validityInMonths || 0,
+            validityInMonths:
+              snap.validityInMonths || patientPkgEntry.validityInMonths || 0,
             treatments: Array.isArray(snap.treatments) ? snap.treatments : [],
             isDeletedMaster: true,
           };
-          console.log(`[PKG_BILLING] Deleted-master package "${packageName}" reconstructed from snapshot for patient ${patientRegistration._id}`);
+          console.log(
+            `[PKG_BILLING] Deleted-master package "${packageName}" reconstructed from snapshot for patient ${patientRegistration._id}`,
+          );
         }
       }
 
@@ -485,11 +535,15 @@ export default async function handler(req, res) {
         // Find packageSoldByUserId from patientRegistration
         if (isUserPackage && patientPackageSubId) {
           // Find in userPackages
-          const userPkgInPatient = patientRegistration.userPackages?.find(up => String(up._id) === String(patientPackageSubId));
+          const userPkgInPatient = patientRegistration.userPackages?.find(
+            (up) => String(up._id) === String(patientPackageSubId),
+          );
           if (userPkgInPatient) {
             packageSoldByUserId = userPkgInPatient.packageSoldByUserId;
             // If userPackage has payment status, we need to get it from UserPackage model
-            const userPackage = await UserPackage.findById(userPkgInPatient.packageId);
+            const userPackage = await UserPackage.findById(
+              userPkgInPatient.packageId,
+            );
             if (userPackage) {
               packagePaymentStatus = userPackage.paymentStatus;
               packagePaidAmount = userPackage.paidAmount || 0;
@@ -498,7 +552,10 @@ export default async function handler(req, res) {
 
             // If packageSoldByUserId is not available, try to find user by name
             if (!packageSoldByUserId && userPkgInPatient.packageSoldBy) {
-              console.log("Trying to find user by packageSoldBy name (userPackage):", userPkgInPatient.packageSoldBy);
+              console.log(
+                "Trying to find user by packageSoldBy name (userPackage):",
+                userPkgInPatient.packageSoldBy,
+              );
 
               // Find user by name (try both `name` and `firstName + lastName`)
               const name = userPkgInPatient.packageSoldBy.trim();
@@ -506,24 +563,39 @@ export default async function handler(req, res) {
                 clinicId: clinic._id,
                 $or: [
                   { name: name },
-                  { $expr: { $eq: [{ $concat: ['$firstName', ' ', '$lastName'] }, name] } }
-                ]
+                  {
+                    $expr: {
+                      $eq: [
+                        { $concat: ["$firstName", " ", "$lastName"] },
+                        name,
+                      ],
+                    },
+                  },
+                ],
               });
 
               console.log("Found user by name (userPackage):", foundUser);
               if (foundUser) {
                 packageSoldByUserId = foundUser._id;
-                console.log("Set packageSoldByUserId to found user's ID (userPackage):", packageSoldByUserId);
+                console.log(
+                  "Set packageSoldByUserId to found user's ID (userPackage):",
+                  packageSoldByUserId,
+                );
               }
             }
           }
         } else {
           // Find in packages
           console.log("=== Looking in patientRegistration.packages ===");
-          console.log("patientRegistration.packages:", patientRegistration.packages);
+          console.log(
+            "patientRegistration.packages:",
+            patientRegistration.packages,
+          );
           console.log("pkgDoc._id:", pkgDoc._id);
 
-          const regularPkgInPatient = patientRegistration.packages?.find(p => String(p.packageId) === String(pkgDoc._id));
+          const regularPkgInPatient = patientRegistration.packages?.find(
+            (p) => String(p.packageId) === String(pkgDoc._id),
+          );
           console.log("regularPkgInPatient found:", regularPkgInPatient);
 
           if (regularPkgInPatient) {
@@ -532,11 +604,17 @@ export default async function handler(req, res) {
             packagePaidAmount = regularPkgInPatient.paidAmount || 0;
             packageTotalPrice = regularPkgInPatient.totalPrice || 0;
 
-            console.log("regularPkgInPatient.packageSoldByUserId:", regularPkgInPatient.packageSoldByUserId);
+            console.log(
+              "regularPkgInPatient.packageSoldByUserId:",
+              regularPkgInPatient.packageSoldByUserId,
+            );
 
             // If packageSoldByUserId is not available, try to find user by name
             if (!packageSoldByUserId && regularPkgInPatient.packageSoldBy) {
-              console.log("Trying to find user by packageSoldBy name:", regularPkgInPatient.packageSoldBy);
+              console.log(
+                "Trying to find user by packageSoldBy name:",
+                regularPkgInPatient.packageSoldBy,
+              );
 
               // Find user by name (try both `name` and `firstName + lastName`)
               const name = regularPkgInPatient.packageSoldBy.trim();
@@ -544,14 +622,24 @@ export default async function handler(req, res) {
                 clinicId: clinic._id,
                 $or: [
                   { name: name },
-                  { $expr: { $eq: [{ $concat: ['$firstName', ' ', '$lastName'] }, name] } }
-                ]
+                  {
+                    $expr: {
+                      $eq: [
+                        { $concat: ["$firstName", " ", "$lastName"] },
+                        name,
+                      ],
+                    },
+                  },
+                ],
               });
 
               console.log("Found user by name:", foundUser);
               if (foundUser) {
                 packageSoldByUserId = foundUser._id;
-                console.log("Set packageSoldByUserId to found user's ID:", packageSoldByUserId);
+                console.log(
+                  "Set packageSoldByUserId to found user's ID:",
+                  packageSoldByUserId,
+                );
               }
             }
           }
@@ -562,25 +650,36 @@ export default async function handler(req, res) {
         console.log("selectedPackageTreatments:", selectedPackageTreatments);
         console.log("pkgDoc.treatments:", pkgDoc.treatments);
 
-        selectedPackageTreatments.forEach(t => {
+        selectedPackageTreatments.forEach((t) => {
           const sessions = parseInt(t.sessions) || 0;
 
           // Get session price from t if available, otherwise get from pkgDoc.treatments
           let sessionPrice = parseFloat(t.sessionPrice) || 0;
 
           if (!sessionPrice && pkgDoc && pkgDoc.treatments) {
-            const pkgTreatment = pkgDoc.treatments.find(treat => treat.treatmentSlug === t.treatmentSlug);
+            const pkgTreatment = pkgDoc.treatments.find(
+              (treat) => treat.treatmentSlug === t.treatmentSlug,
+            );
             if (pkgTreatment) {
               // Calculate session price from allocatedPrice and sessions if available
               if (pkgTreatment.sessionPrice) {
                 sessionPrice = parseFloat(pkgTreatment.sessionPrice);
               } else if (pkgTreatment.allocatedPrice && pkgTreatment.sessions) {
-                sessionPrice = parseFloat(pkgTreatment.allocatedPrice) / parseInt(pkgTreatment.sessions);
+                sessionPrice =
+                  parseFloat(pkgTreatment.allocatedPrice) /
+                  parseInt(pkgTreatment.sessions);
               }
             }
           }
 
-          console.log("Treatment:", t.treatmentName, "sessions:", sessions, "sessionPrice:", sessionPrice);
+          console.log(
+            "Treatment:",
+            t.treatmentName,
+            "sessions:",
+            sessions,
+            "sessionPrice:",
+            sessionPrice,
+          );
           totalPackageSessionValue += sessions * sessionPrice;
         });
 
@@ -591,7 +690,9 @@ export default async function handler(req, res) {
         // Only run the validation if !hasPendingAmount
         // For NEW packages being purchased (without consuming sessions), selectedPackageTreatments can be empty
         // For EXISTING packages, at least one treatment must be selected
-        const hasSelectedTreatments = Array.isArray(selectedPackageTreatments) && selectedPackageTreatments.length > 0;
+        const hasSelectedTreatments =
+          Array.isArray(selectedPackageTreatments) &&
+          selectedPackageTreatments.length > 0;
 
         if (!packageName) {
           return res.status(400).json({
@@ -604,9 +705,10 @@ export default async function handler(req, res) {
         if (!hasSelectedTreatments) {
           // Check if package already exists in patient's profile (existing package)
           const existingPkgCheck = (patientRegistration.packages || []).find(
-            (p) => String(p.packageId) === String(pkgDoc._id)
+            (p) => String(p.packageId) === String(pkgDoc._id),
           );
-          const isMainPkgCheck = String(patientRegistration.packageId) === String(pkgDoc._id);
+          const isMainPkgCheck =
+            String(patientRegistration.packageId) === String(pkgDoc._id);
 
           // If package exists in patient profile, require treatment selection
           if (existingPkgCheck || isMainPkgCheck) {
@@ -624,37 +726,67 @@ export default async function handler(req, res) {
             maxSessionsMap.set(t.treatmentSlug, parseInt(t.sessions) || 0);
           }
         });
-        console.log(`[BILLING_DEBUG] Step 1 - maxSessionsMap from pkgDef:`, Object.fromEntries(maxSessionsMap));
+        console.log(
+          `[BILLING_DEBUG] Step 1 - maxSessionsMap from pkgDef:`,
+          Object.fromEntries(maxSessionsMap),
+        );
 
         // For transferred packages, scale down max sessions proportionally to the transferred amount.
-        const transferredInRecord = (patientRegistration.packageTransfers || []).find(
-          (t) => t.type === "in" && t.packageName === packageName
+        const transferredInRecord = (
+          patientRegistration.packageTransfers || []
+        ).find((t) => t.type === "in" && t.packageName === packageName);
+        console.log(
+          `[BILLING_DEBUG] Step 2 - transferredInRecord:`,
+          transferredInRecord
+            ? {
+                packageName: transferredInRecord.packageName,
+                transferredSessions: transferredInRecord.transferredSessions,
+                type: transferredInRecord.type,
+              }
+            : "NOT FOUND",
         );
-        console.log(`[BILLING_DEBUG] Step 2 - transferredInRecord:`, transferredInRecord ? { packageName: transferredInRecord.packageName, transferredSessions: transferredInRecord.transferredSessions, type: transferredInRecord.type } : 'NOT FOUND');
         if (transferredInRecord) {
           const totalPkgSessions = (pkgDoc.treatments || []).reduce(
-            (sum, t) => sum + (parseInt(t.sessions) || 0), 0
+            (sum, t) => sum + (parseInt(t.sessions) || 0),
+            0,
           );
-          const transferredSessions = transferredInRecord.transferredSessions || 0;
-          console.log(`[BILLING_DEBUG] Step 2b - totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}`);
+          const transferredSessions =
+            transferredInRecord.transferredSessions || 0;
+          console.log(
+            `[BILLING_DEBUG] Step 2b - totalPkgSessions=${totalPkgSessions}, transferredSessions=${transferredSessions}`,
+          );
           if (totalPkgSessions > 0 && transferredSessions < totalPkgSessions) {
             const scale = transferredSessions / totalPkgSessions;
-            console.log(`[BILLING_DEBUG] Step 2c - Scaling by factor ${scale.toFixed(4)}`);
+            console.log(
+              `[BILLING_DEBUG] Step 2c - Scaling by factor ${scale.toFixed(4)}`,
+            );
             maxSessionsMap.forEach((sessions, slug) => {
               const scaled = Math.max(0, Math.round(sessions * scale));
-              console.log(`[BILLING_DEBUG]   treatment ${slug}: ${sessions} -> ${scaled}`);
+              console.log(
+                `[BILLING_DEBUG]   treatment ${slug}: ${sessions} -> ${scaled}`,
+              );
               maxSessionsMap.set(slug, scaled);
             });
-          } else if (totalPkgSessions > 0 && transferredSessions >= totalPkgSessions) {
-            console.log(`[BILLING_DEBUG] Step 2c - transferredSessions >= totalPkgSessions, no scaling needed`);
+          } else if (
+            totalPkgSessions > 0 &&
+            transferredSessions >= totalPkgSessions
+          ) {
+            console.log(
+              `[BILLING_DEBUG] Step 2c - transferredSessions >= totalPkgSessions, no scaling needed`,
+            );
           } else if (totalPkgSessions === 0) {
-            console.log(`[BILLING_DEBUG] Step 2c - totalPkgSessions=0, setting each treatment to ${transferredSessions}`);
+            console.log(
+              `[BILLING_DEBUG] Step 2c - totalPkgSessions=0, setting each treatment to ${transferredSessions}`,
+            );
             maxSessionsMap.forEach((_, slug) => {
               maxSessionsMap.set(slug, transferredSessions);
             });
           }
         }
-        console.log(`[BILLING_DEBUG] Step 3 - Final maxSessionsMap:`, Object.fromEntries(maxSessionsMap));
+        console.log(
+          `[BILLING_DEBUG] Step 3 - Final maxSessionsMap:`,
+          Object.fromEntries(maxSessionsMap),
+        );
 
         // Previous billings that consumed this package's sessions.
         // Treatments and a Package can now coexist on a single billing, so we no longer
@@ -667,7 +799,7 @@ export default async function handler(req, res) {
         if (isUserPackage && (patientPackageId || patientPackageSubId)) {
           previousBillingsQuery.$or = [
             { patientPackageId: patientPackageId },
-            { patientPackageSubId: patientPackageSubId }
+            { patientPackageSubId: patientPackageSubId },
           ];
         } else {
           previousBillingsQuery.package = packageName;
@@ -687,13 +819,25 @@ export default async function handler(req, res) {
             );
           });
         });
-        console.log(`[BILLING_DEBUG] Step 4 - previousBillings count: ${previousBillings.length}, previouslyUsedMap:`, Object.fromEntries(previouslyUsedMap));
-        console.log(`[BILLING_DEBUG] Step 5 - selectedPackageTreatments:`, selectedPackageTreatments.map(t => ({ name: t.treatmentName, slug: t.treatmentSlug, sessions: t.sessions })));
+        console.log(
+          `[BILLING_DEBUG] Step 4 - previousBillings count: ${previousBillings.length}, previouslyUsedMap:`,
+          Object.fromEntries(previouslyUsedMap),
+        );
+        console.log(
+          `[BILLING_DEBUG] Step 5 - selectedPackageTreatments:`,
+          selectedPackageTreatments.map((t) => ({
+            name: t.treatmentName,
+            slug: t.treatmentSlug,
+            sessions: t.sessions,
+          })),
+        );
         for (const t of selectedPackageTreatments) {
           const slug = t.treatmentSlug;
           const newSessions = parseInt(t.sessions) || 0;
           const maxSessions = maxSessionsMap.get(slug);
-          console.log(`[BILLING_DEBUG] Step 5b - Validating "${t.treatmentName}": maxSessions=${maxSessions}, previouslyUsed=${previouslyUsedMap.get(slug) || 0}, newSessions=${newSessions}`);
+          console.log(
+            `[BILLING_DEBUG] Step 5b - Validating "${t.treatmentName}": maxSessions=${maxSessions}, previouslyUsed=${previouslyUsedMap.get(slug) || 0}, newSessions=${newSessions}`,
+          );
           if (maxSessions === undefined) {
             return res.status(400).json({
               success: false,
@@ -734,11 +878,22 @@ export default async function handler(req, res) {
         // For transferred packages, also enforce a total sessions cap across all treatments.
         // Per-treatment scaling with rounding could allow more total sessions than transferred.
         if (transferredInRecord) {
-          const transferredSessions = transferredInRecord.transferredSessions || 0;
-          const totalPreviouslyUsed = Array.from(previouslyUsedMap.values()).reduce((sum, v) => sum + v, 0);
-          const totalRequested = selectedPackageTreatments.reduce((sum, it) => sum + (parseInt(it.sessions) || 0), 0);
-          const totalRemaining = Math.max(0, transferredSessions - totalPreviouslyUsed);
-          console.log(`[BILLING_DEBUG] Step 6 - Total cap check: transferredSessions=${transferredSessions}, totalPreviouslyUsed=${totalPreviouslyUsed}, totalRequested=${totalRequested}, totalRemaining=${totalRemaining}`);
+          const transferredSessions =
+            transferredInRecord.transferredSessions || 0;
+          const totalPreviouslyUsed = Array.from(
+            previouslyUsedMap.values(),
+          ).reduce((sum, v) => sum + v, 0);
+          const totalRequested = selectedPackageTreatments.reduce(
+            (sum, it) => sum + (parseInt(it.sessions) || 0),
+            0,
+          );
+          const totalRemaining = Math.max(
+            0,
+            transferredSessions - totalPreviouslyUsed,
+          );
+          console.log(
+            `[BILLING_DEBUG] Step 6 - Total cap check: transferredSessions=${transferredSessions}, totalPreviouslyUsed=${totalPreviouslyUsed}, totalRequested=${totalRequested}, totalRemaining=${totalRemaining}`,
+          );
           if (totalRemaining <= 0) {
             return res.status(400).json({
               success: false,
@@ -761,13 +916,14 @@ export default async function handler(req, res) {
       }
     }
 
-
     // Calculate pending and advance (use provided values or calculate)
     const amountNum = parseFloat(amount) || 0;
     const advanceUsedNum =
       advanceUsed !== undefined ? Math.max(0, parseFloat(advanceUsed) || 0) : 0;
     const claimAmountUsedNum =
-      claimAmountUsed !== undefined ? Math.max(0, parseFloat(claimAmountUsed) || 0) : 0;
+      claimAmountUsed !== undefined
+        ? Math.max(0, parseFloat(claimAmountUsed) || 0)
+        : 0;
     const pastAdvanceUsedNum =
       pastAdvanceUsed !== undefined
         ? Math.max(0, parseFloat(pastAdvanceUsed) || 0)
@@ -792,7 +948,9 @@ export default async function handler(req, res) {
     const pendingUsedNum =
       pendingUsed !== undefined ? Math.max(0, parseFloat(pendingUsed) || 0) : 0;
     const pendingClaimUsedNum =
-      pendingClaimUsed !== undefined ? Math.max(0, parseFloat(pendingClaimUsed) || 0) : 0;
+      pendingClaimUsed !== undefined
+        ? Math.max(0, parseFloat(pendingClaimUsed) || 0)
+        : 0;
     const pendingNum = pending !== undefined ? parseFloat(pending) || 0 : 0;
     const advanceNum = advance !== undefined ? parseFloat(advance) || 0 : 0;
     const pastAdvanceNum =
@@ -820,7 +978,7 @@ export default async function handler(req, res) {
     // 4. Final Pending = Net Due - Paid (if Net Due > Paid)
     // 5. Final Advance = Paid - Net Due (if Paid > Net Due)
 
-    console.log('[AdvanceDebug] Input values:', {
+    console.log("[AdvanceDebug] Input values:", {
       amountNum,
       paidNum,
       advanceUsedNum,
@@ -828,7 +986,7 @@ export default async function handler(req, res) {
       totalPastAdvanceUsed,
       pendingUsedNum,
       totalUnpaidPackagesAmount,
-      frontendAdvance: parseFloat(advance) || 0
+      frontendAdvance: parseFloat(advance) || 0,
     });
 
     // Adjust for unpaid packages: only subtract the actual paid (not unpaid packages amount)
@@ -837,15 +995,14 @@ export default async function handler(req, res) {
       amountNum - advanceUsedNum - claimAmountUsedNum - totalPastAdvanceUsed,
     );
 
-
     // If unpaid packages are present, then pending should be netDue - paidNum (excluding unpaid packages)
     if (totalUnpaidPackagesAmount > 0) {
       finalPending = netDue - paidNum;
       finalAdvance = 0;
-      console.log('[AdvanceDebug] Using unpaid packages adjustment:', {
+      console.log("[AdvanceDebug] Using unpaid packages adjustment:", {
         finalPending,
         finalAdvance,
-        paidNum
+        paidNum,
       });
     } else {
       // Original logic for no unpaid packages
@@ -856,8 +1013,6 @@ export default async function handler(req, res) {
         finalPending = netDue - paidNum;
         finalAdvance = 0;
       }
-
-
     }
 
     // Use the calculated final values for storage
@@ -869,9 +1024,11 @@ export default async function handler(req, res) {
     let cashbackEndDate = null;
     if (isCashbackApplied && cashbackAmount && cashbackAmount > 0) {
       // Use dynamic import for ES6 modules
-      const CreateOfferModule = await import('../../../models/CreateOffer');
+      const CreateOfferModule = await import("../../../models/CreateOffer");
       const CreateOffer = CreateOfferModule.default;
-      const cashbackOffer = cashbackOfferId ? await CreateOffer.findById(cashbackOfferId).lean() : null;
+      const cashbackOffer = cashbackOfferId
+        ? await CreateOffer.findById(cashbackOfferId).lean()
+        : null;
       const cashbackExpiryDays = cashbackOffer?.cashbackExpiryDays || 365; // Default to 1 year if not set
 
       cashbackStartDate = new Date(invoicedDate);
@@ -882,98 +1039,128 @@ export default async function handler(req, res) {
       // Strictly X days from the purchase date
       cashbackEndDate.setDate(cashbackEndDate.getDate() + cashbackExpiryDays);
 
-      console.log('[CashbackAPI] Cashback validity period:', {
+      console.log("[CashbackAPI] Cashback validity period:", {
         invoicedDate,
         cashbackStartDate: cashbackStartDate.toISOString(),
         cashbackExpiryDays,
         cashbackEndDate: cashbackEndDate.toISOString(),
-        calculation: `Start Date + ${cashbackExpiryDays} days = End Date`
+        calculation: `Start Date + ${cashbackExpiryDays} days = End Date`,
       });
     }
 
     // Get invoicedByRate from AgentProfile if available
     let invoicedByRate = 0;
     try {
-      const agentProfile = await AgentProfile.findOne({ userId: clinicUser._id }).lean();
+      const agentProfile = await AgentProfile.findOne({
+        userId: clinicUser._id,
+      }).lean();
       if (agentProfile && agentProfile.commissionPercentage) {
         invoicedByRate = agentProfile.commissionPercentage;
       }
     } catch (profileError) {
-      console.error("[CreatePatientRegistration] Error fetching agent profile for rate:", profileError);
+      console.error(
+        "[CreatePatientRegistration] Error fetching agent profile for rate:",
+        profileError,
+      );
     }
 
     // Build multiplePayments array: include user-provided payments plus advance, claim, pending (adjusted for unpaid packages), cashback usage
     // For pendingUsed: subtract totalUnpaidPackagesAmount first, because that's for unpaid packages (separate)
-    const adjustedPendingUsed = Math.max(0, pendingUsedNum - totalUnpaidPackagesAmount);
+    const adjustedPendingUsed = Math.max(
+      0,
+      pendingUsedNum - totalUnpaidPackagesAmount,
+    );
     const finalMultiPayArr = [
       ...multiPayArr.map((mp) => ({
         paymentMethod: mp.paymentMethod,
         amount: parseFloat(mp.amount) || 0,
         paidAt: new Date(),
         paidBy: clinicUser._id,
-        transactionType: "PAYMENT"
+        transactionType: "PAYMENT",
       })),
-      ...(advanceUsedNum > 0 ? [{
-        paymentMethod: "Advance Balance",
-        amount: advanceUsedNum,
-        paidAt: new Date(),
-        paidBy: clinicUser._id,
-        transactionType: "ADVANCE_USAGE"
-      }] : []),
-      ...(claimAmountUsedNum > 0 ? [{
-        paymentMethod: "Insurance Claim",
-        amount: claimAmountUsedNum,
-        paidAt: new Date(),
-        paidBy: clinicUser._id,
-        transactionType: "CLAIM_USAGE"
-      }] : []),
-      ...(adjustedPendingUsed > 0 ? [{
-        paymentMethod: paymentMethod || "Cash",
-        amount: adjustedPendingUsed,
-        paidAt: new Date(),
-        paidBy: clinicUser._id,
-        transactionType: "PENDING_CLEARANCE"
-      }] : []),
-      ...(cashbackWalletUsed > 0 ? [{
-        paymentMethod: "Cashback Wallet",
-        amount: cashbackWalletUsed,
-        paidAt: new Date(),
-        paidBy: clinicUser._id,
-        transactionType: "CASHBACK_USAGE"
-      }] : [])
+      ...(advanceUsedNum > 0
+        ? [
+            {
+              paymentMethod: "Advance Balance",
+              amount: advanceUsedNum,
+              paidAt: new Date(),
+              paidBy: clinicUser._id,
+              transactionType: "ADVANCE_USAGE",
+            },
+          ]
+        : []),
+      ...(claimAmountUsedNum > 0
+        ? [
+            {
+              paymentMethod: "Insurance Claim",
+              amount: claimAmountUsedNum,
+              paidAt: new Date(),
+              paidBy: clinicUser._id,
+              transactionType: "CLAIM_USAGE",
+            },
+          ]
+        : []),
+      ...(adjustedPendingUsed > 0
+        ? [
+            {
+              paymentMethod: paymentMethod || "Cash",
+              amount: adjustedPendingUsed,
+              paidAt: new Date(),
+              paidBy: clinicUser._id,
+              transactionType: "PENDING_CLEARANCE",
+            },
+          ]
+        : []),
+      ...(cashbackWalletUsed > 0
+        ? [
+            {
+              paymentMethod: "Cashback Wallet",
+              amount: cashbackWalletUsed,
+              paidAt: new Date(),
+              paidBy: clinicUser._id,
+              transactionType: "CASHBACK_USAGE",
+            },
+          ]
+        : []),
     ];
-    
+
     // Compute directBilling flag: true = billing is NOT linked to appointment treatment (direct/walk-in)
     // false = billing treatment matches appointment's treatment (appointment-based)
     let directBilling = true; // default to true
     if (appointment) {
       const hasTreatment = treatment && treatment.trim();
-      const hasSelectedTreatments = Array.isArray(selectedTreatments) && selectedTreatments.length > 0;
-          
+      const hasSelectedTreatments =
+        Array.isArray(selectedTreatments) && selectedTreatments.length > 0;
+
       if (hasSelectedTreatments) {
         // Mixed billing or multiple treatments: check if any treatment matches appointment services
         const appointmentServiceIds = new Set();
-        if (appointment.serviceId) appointmentServiceIds.add(String(appointment.serviceId));
+        if (appointment.serviceId)
+          appointmentServiceIds.add(String(appointment.serviceId));
         if (appointment.serviceIds) {
-          appointment.serviceIds.forEach(id => appointmentServiceIds.add(String(id)));
+          appointment.serviceIds.forEach((id) =>
+            appointmentServiceIds.add(String(id)),
+          );
         }
-            
+
         // If ANY treatment matches appointment, it's appointment-based (directBilling = false)
-        const hasMatchingTreatment = selectedTreatments.some(t => {
-          const tServiceId = String(t.treatmentServiceId || t.treatmentSlug || "");
+        const hasMatchingTreatment = selectedTreatments.some((t) => {
+          const tServiceId = String(
+            t.treatmentServiceId || t.treatmentSlug || "",
+          );
           return tServiceId && appointmentServiceIds.has(tServiceId);
         });
-            
+
         directBilling = !hasMatchingTreatment;
       } else if (hasTreatment) {
         // Single treatment: compare treatment name with appointment.treatment
-        directBilling = (treatment.trim() !== appointment.treatment?.trim());
+        directBilling = treatment.trim() !== appointment.treatment?.trim();
       } else {
         // Package-only or no treatment: direct billing
         directBilling = true;
       }
     }
-    
+
     // Create billing record
     const billingData = {
       clinicId: clinic._id,
@@ -992,8 +1179,10 @@ export default async function handler(req, res) {
       // Treatments AND a Package can now be billed in the same invoice. Preserve whatever the frontend sends.
       treatment: treatment || "",
       package: packageName || "",
-      patientPackageId: isUserPackage && patientPackageId ? patientPackageId : null,
-      patientPackageSubId: isUserPackage && patientPackageSubId ? patientPackageSubId : null,
+      patientPackageId:
+        isUserPackage && patientPackageId ? patientPackageId : null,
+      patientPackageSubId:
+        isUserPackage && patientPackageSubId ? patientPackageSubId : null,
       quantity: parseInt(quantity) || (treatment || packageName ? 1 : 0),
       sessions: parseInt(sessions) || 0,
       selectedPackageTreatments: Array.isArray(selectedPackageTreatments)
@@ -1077,8 +1266,6 @@ export default async function handler(req, res) {
       billingData.paymentHistory[0].paymentMethod = paymentMethod;
     }
 
-
-
     const billing = await Billing.create(billingData);
 
     // Handle staff tips
@@ -1098,15 +1285,15 @@ export default async function handler(req, res) {
             paymentMethod: tip.paymentMethod,
             notes: tip.notes || "",
             createdBy: clinicUser._id,
-            createdByName: clinicUser.name || `${clinicUser.firstName || ''} ${clinicUser.lastName || ''}`.trim() || 'Unknown',
+            createdByName:
+              clinicUser.name ||
+              `${clinicUser.firstName || ""} ${clinicUser.lastName || ""}`.trim() ||
+              "Unknown",
           });
           createdStaffTips.push(createdTip);
-        } catch (tipError) {
-
-        }
+        } catch (tipError) {}
       }
     }
-
 
     // ============================================================
     // Enterprise Pending Ledger: whenever a billing is created with
@@ -1116,20 +1303,17 @@ export default async function handler(req, res) {
     // Billing.pending scalar becomes a cached aggregate.
     // ============================================================
     try {
-
-
       if (finalPending > 0) {
-
         try {
-
-          const pendingLedgerModule = await import("../../../lib/pendingLedger");
-
+          const pendingLedgerModule =
+            await import("../../../lib/pendingLedger");
 
           const { createLedgerEntry } = pendingLedgerModule;
           if (!createLedgerEntry) {
-            throw new Error("createLedgerEntry not found in pendingLedger module");
+            throw new Error(
+              "createLedgerEntry not found in pendingLedger module",
+            );
           }
-
 
           const entry = await createLedgerEntry({
             clinicId: clinic._id,
@@ -1145,9 +1329,7 @@ export default async function handler(req, res) {
             packageId: hasPackagePayload && pkgDoc ? pkgDoc._id : null,
             packageName: packageName || null,
             serviceId:
-              treatment && appointment.serviceId
-                ? appointment.serviceId
-                : null,
+              treatment && appointment.serviceId ? appointment.serviceId : null,
             patientPackageId:
               hasPackagePayload && isUserPackage ? patientPackageId : null,
             patientPackageSubId:
@@ -1155,18 +1337,14 @@ export default async function handler(req, res) {
             amount: finalPending,
             createdBy: clinicUser._id,
           });
-
         } catch (importErr) {
-
           throw importErr;
         }
       } else {
-
       }
     } catch (ledgerErr) {
       // Never fail the billing because the ledger write failed;
       // log and continue. A backfill migration can repair this.
-
     }
 
     // ============================================================
@@ -1180,16 +1358,17 @@ export default async function handler(req, res) {
       if (hasPackagePayload && pkgDoc && !isUserPackage) {
         // Check if this package is already assigned to the patient
         const existingPkgInPatient = (patientRegistration.packages || []).find(
-          (p) => String(p.packageId) === String(pkgDoc._id)
+          (p) => String(p.packageId) === String(pkgDoc._id),
         );
 
         if (!existingPkgInPatient) {
-
-
           // Calculate paid amount for the package portion.
           // When billing treatments + package together, use totalPackageSessionValue
           // as the package's total; otherwise use pkgDoc.totalPrice.
-          const pkgTotalForAssignment = totalPackageSessionValue > 0 ? totalPackageSessionValue : (pkgDoc.totalPrice || 0);
+          const pkgTotalForAssignment =
+            totalPackageSessionValue > 0
+              ? totalPackageSessionValue
+              : pkgDoc.totalPrice || 0;
 
           // Determine how much of the total paid amount applies to the package.
           // Proportional split: if total billing = 100 and package = 40, then 40% of paid goes to package.
@@ -1201,7 +1380,10 @@ export default async function handler(req, res) {
 
           // Determine payment status for the package assignment
           let pkgAssignPaymentStatus = "Unpaid";
-          if (pkgPaidAmount >= pkgTotalForAssignment && pkgTotalForAssignment > 0) {
+          if (
+            pkgPaidAmount >= pkgTotalForAssignment &&
+            pkgTotalForAssignment > 0
+          ) {
             pkgAssignPaymentStatus = "Full";
           } else if (pkgPaidAmount > 0) {
             pkgAssignPaymentStatus = "Partial";
@@ -1213,13 +1395,15 @@ export default async function handler(req, res) {
           const snapshotTotalSessions = pkgDoc.totalSessions || 0;
           const snapshotSessionPrice = pkgDoc.sessionPrice || 0;
           const snapshotValidity = pkgDoc.validityInMonths || 0;
-          const snapshotTreatments = Array.isArray(pkgDoc.treatments) ? pkgDoc.treatments.map((t) => ({
-            treatmentName: t.treatmentName || '',
-            treatmentSlug: t.treatmentSlug || '',
-            allocatedPrice: t.allocatedPrice || 0,
-            sessions: t.sessions || 1,
-            sessionPrice: t.sessionPrice || 0,
-          })) : [];
+          const snapshotTreatments = Array.isArray(pkgDoc.treatments)
+            ? pkgDoc.treatments.map((t) => ({
+                treatmentName: t.treatmentName || "",
+                treatmentSlug: t.treatmentSlug || "",
+                allocatedPrice: t.allocatedPrice || 0,
+                sessions: t.sessions || 1,
+                sessionPrice: t.sessionPrice || 0,
+              }))
+            : [];
 
           const packageSnapshot = {
             name: snapshotName,
@@ -1227,7 +1411,9 @@ export default async function handler(req, res) {
             totalSessions: snapshotTotalSessions,
             sessionPrice: snapshotSessionPrice,
             validityInMonths: snapshotValidity,
-            startDate: pkgDoc.startDate ? new Date(pkgDoc.startDate) : new Date(),
+            startDate: pkgDoc.startDate
+              ? new Date(pkgDoc.startDate)
+              : new Date(),
             endDate: pkgDoc.endDate ? new Date(pkgDoc.endDate) : null,
             treatments: snapshotTreatments,
             snapshotCreatedAt: new Date(),
@@ -1236,38 +1422,46 @@ export default async function handler(req, res) {
           const newPackageEntry = {
             packageId: pkgDoc._id,
             packageName: snapshotName,
-            packageSoldBy: clinicUser.name || `${clinicUser.firstName || ''} ${clinicUser.lastName || ''}`.trim() || 'Unknown',
+            packageSoldBy:
+              clinicUser.name ||
+              `${clinicUser.firstName || ""} ${clinicUser.lastName || ""}`.trim() ||
+              "Unknown",
             packageSoldByUserId: clinicUser._id,
             assignedDate: new Date(),
             validityInMonths: pkgDoc.validityInMonths || 0,
-            startDate: pkgDoc.startDate ? new Date(pkgDoc.startDate) : new Date(),
+            startDate: pkgDoc.startDate
+              ? new Date(pkgDoc.startDate)
+              : new Date(),
             endDate: pkgDoc.endDate ? new Date(pkgDoc.endDate) : null,
             totalPrice: pkgTotalForAssignment,
             paidAmount: pkgPaidAmount,
             paymentStatus: pkgAssignPaymentStatus,
-            paymentMethod: multiPayArr.length > 0 ? "Multiple Payments" : (paymentMethod || "Cash"),
+            paymentMethod:
+              multiPayArr.length > 0
+                ? "Multiple Payments"
+                : paymentMethod || "Cash",
             advanceBalanceUsed: advanceUsedNum,
             claimAmountUsed: claimAmountUsedNum,
             packageSnapshot,
           };
 
-          await PatientRegistration.findByIdAndUpdate(
-            patientRegistration._id,
-            {
-              $push: { packages: newPackageEntry },
-              $set: { package: "Yes" },
-            }
-          );
-
-
+          await PatientRegistration.findByIdAndUpdate(patientRegistration._id, {
+            $push: { packages: newPackageEntry },
+            $set: { package: "Yes" },
+          });
         } else {
-          console.log(`[NewPackageAssign] Package "${packageName}" already in patient packages — skipping assignment.`);
+          console.log(
+            `[NewPackageAssign] Package "${packageName}" already in patient packages — skipping assignment.`,
+          );
         }
       }
     } catch (pkgAssignErr) {
       // Never fail the billing because the package assignment failed;
       // log and continue. The billing record is already created.
-      console.error("[NewPackageAssign] ✗ Failed to assign new package to patient:", pkgAssignErr.message);
+      console.error(
+        "[NewPackageAssign] ✗ Failed to assign new package to patient:",
+        pkgAssignErr.message,
+      );
     }
 
     // Calculate cash amount (handle single and multiple payments)
@@ -1275,7 +1469,7 @@ export default async function handler(req, res) {
     if (multiPayArr.length > 0) {
       // Multiple payments: sum all Cash payments
       cashAmount = multiPayArr
-        .filter(mp => mp.paymentMethod === "Cash")
+        .filter((mp) => mp.paymentMethod === "Cash")
         .reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0);
     } else if (paymentMethod === "Cash") {
       // Single payment: use paidNum
@@ -1290,7 +1484,8 @@ export default async function handler(req, res) {
           staffId: clinicUser._id,
           staffName: clinicUser.name || "Staff",
           patientId: patientRegistration._id,
-          patientName: `${patientRegistration.firstName || ''} ${patientRegistration.lastName || ''}`.trim(),
+          patientName:
+            `${patientRegistration.firstName || ""} ${patientRegistration.lastName || ""}`.trim(),
           patientFirstName: patientRegistration.firstName || "",
           patientLastName: patientRegistration.lastName || "",
           patientMobileNumber: patientRegistration.mobileNumber || "",
@@ -1302,19 +1497,28 @@ export default async function handler(req, res) {
           // Both treatment and package fields may be present when billed together.
           treatment: treatment || "",
           package: packageName || "",
-          selectedPackageTreatments: Array.isArray(selectedPackageTreatments) ? selectedPackageTreatments : [],
+          selectedPackageTreatments: Array.isArray(selectedPackageTreatments)
+            ? selectedPackageTreatments
+            : [],
           amount: amountNum,
           paid: paidNum,
           cashAmount: cashAmount,
-          paymentMethod: multiPayArr.length > 0 ? "Multiple Payments" : paymentMethod,
-          multiplePayments: multiPayArr.length > 0 ? multiPayArr : []
+          paymentMethod:
+            multiPayArr.length > 0 ? "Multiple Payments" : paymentMethod,
+          multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
         });
 
         await pettyCashEntry.save();
-        await PettyCash.updateGlobalTotalAmount(clinic._id, cashAmount, 'add');
-        console.log('[CreatePatientRegistration] Added to PettyCash:', pettyCashEntry._id);
+        await PettyCash.updateGlobalTotalAmount(clinic._id, cashAmount, "add");
+        console.log(
+          "[CreatePatientRegistration] Added to PettyCash:",
+          pettyCashEntry._id,
+        );
       } catch (pettyCashError) {
-        console.error('[CreatePatientRegistration] Error adding to PettyCash:', pettyCashError);
+        console.error(
+          "[CreatePatientRegistration] Error adding to PettyCash:",
+          pettyCashError,
+        );
         // Don't fail the billing if petty cash fails
       }
     }
@@ -1322,15 +1526,19 @@ export default async function handler(req, res) {
     // Explicitly verify the cashback fields were saved
     const savedBilling = await Billing.findById(billing._id).lean();
 
-    if (usedFreeSessions && Array.isArray(usedFreeSessions) && usedFreeSessions.length > 0) {
+    if (
+      usedFreeSessions &&
+      Array.isArray(usedFreeSessions) &&
+      usedFreeSessions.length > 0
+    ) {
       // console.log('[BundleAPI] Consuming free sessions:', usedFreeSessions);
 
       // Find all previous billings for this patient with free sessions
       const previousBillings = await Billing.find({
-        patientId: userId,  // Use userId from request body
-        offerType: 'bundle',
+        patientId: userId, // Use userId from request body
+        offerType: "bundle",
         freeOfferSessionCount: { $gt: 0 },
-        _id: { $ne: billing._id } // Exclude current billing
+        _id: { $ne: billing._id }, // Exclude current billing
       }).sort({ createdAt: 1 }); // Oldest first (FIFO)
 
       // console.log('[BundleAPI] Found', previousBillings.length, 'previous billings with free sessions');
@@ -1347,7 +1555,7 @@ export default async function handler(req, res) {
 
         for (const session of currentFreeSessions) {
           const sessionIndex = sessionsToConsume.findIndex(
-            (s) => s.toLowerCase() === session.toLowerCase()
+            (s) => s.toLowerCase() === session.toLowerCase(),
           );
 
           if (sessionIndex !== -1) {
@@ -1365,8 +1573,8 @@ export default async function handler(req, res) {
           await Billing.findByIdAndUpdate(prevBilling._id, {
             $set: {
               offerFreeSession: updatedSessions,
-              freeOfferSessionCount: updatedSessions.length
-            }
+              freeOfferSessionCount: updatedSessions.length,
+            },
           });
           // console.log(`[BundleAPI] Updated billing ${prevBilling.invoiceNumber}: ${consumedFromThisBilling} sessions consumed, ${updatedSessions.length} remaining`);
         }
@@ -1381,10 +1589,8 @@ export default async function handler(req, res) {
 
     // If patient is using cashback from wallet, deduct it
     if (cashbackWalletUsed && cashbackWalletUsed > 0) {
-
-
       try {
-        const PatientRegistration = require('../../../models/PatientRegistration');
+        const PatientRegistration = require("../../../models/PatientRegistration");
 
         // Find the patient
         const patient = await PatientRegistration.findById(userId);
@@ -1393,27 +1599,29 @@ export default async function handler(req, res) {
 
           // Check if patient has enough balance
           if (currentWalletBalance < cashbackWalletUsed) {
-
           } else {
             // Deduct from wallet balance
-            const newWalletBalance = Math.max(0, currentWalletBalance - cashbackWalletUsed);
+            const newWalletBalance = Math.max(
+              0,
+              currentWalletBalance - cashbackWalletUsed,
+            );
 
             await PatientRegistration.findByIdAndUpdate(userId, {
               $set: {
                 walletBalance: newWalletBalance,
-                updatedAt: new Date()
+                updatedAt: new Date(),
               },
               $push: {
                 walletTransactions: {
                   amount: cashbackWalletUsed,
-                  type: 'debit',
-                  source: 'cashback_usage',
+                  type: "debit",
+                  source: "cashback_usage",
                   billingId: billing._id,
                   invoiceNumber: invoiceNumber,
                   description: `Cashback used for billing ${invoiceNumber}`,
-                  createdAt: new Date()
-                }
-              }
+                  createdAt: new Date(),
+                },
+              },
             });
 
             // console.log('[CashbackWalletAPI] Wallet debited successfully. New balance:', newWalletBalance);
@@ -1422,8 +1630,8 @@ export default async function handler(req, res) {
             if (newWalletBalance === 0) {
               await PatientRegistration.findByIdAndUpdate(userId, {
                 $set: {
-                  walletCreditExpiry: null
-                }
+                  walletCreditExpiry: null,
+                },
               });
               // console.log('[CashbackWalletAPI] Wallet balance is 0, cleared expiry date');
             }
@@ -1431,9 +1639,7 @@ export default async function handler(req, res) {
         } else {
           // console.warn('[CashbackWalletAPI] Patient not found:', userId);
         }
-      } catch (walletError) {
-
-      }
+      } catch (walletError) {}
     }
 
     // If cashback is applied, credit the patient's wallet
@@ -1442,14 +1648,15 @@ export default async function handler(req, res) {
 
       try {
         // Fetch the offer to get cashbackExpiryDays
-        const CreateOfferModule = await import('../../../models/CreateOffer');
+        const CreateOfferModule = await import("../../../models/CreateOffer");
         const CreateOffer = CreateOfferModule.default;
-        const cashbackOffer = cashbackOfferId ? await CreateOffer.findById(cashbackOfferId).lean() : null;
+        const cashbackOffer = cashbackOfferId
+          ? await CreateOffer.findById(cashbackOfferId).lean()
+          : null;
         const cashbackExpiryDays = cashbackOffer?.cashbackExpiryDays || 365; // Default to 1 year if not set
 
-
         // Update PatientRegistration with wallet credit
-        const PatientRegistration = require('../../../models/PatientRegistration');
+        const PatientRegistration = require("../../../models/PatientRegistration");
 
         // Find the patient
         const patient = await PatientRegistration.findById(userId);
@@ -1465,25 +1672,23 @@ export default async function handler(req, res) {
             $set: {
               walletBalance: newWalletBalance,
               walletCreditExpiry: walletCreditExpiry,
-              updatedAt: new Date()
+              updatedAt: new Date(),
             },
             $push: {
               walletTransactions: {
                 amount: cashbackAmount,
-                type: 'credit',
-                source: 'cashback',
+                type: "credit",
+                source: "cashback",
                 offerId: cashbackOfferId,
                 offerName: cashbackOfferName,
                 billingId: billing._id,
                 invoiceNumber: billing.invoiceNumber,
-                description: `Cashback earned from ${cashbackOfferName || 'offer'}`,
+                description: `Cashback earned from ${cashbackOfferName || "offer"}`,
                 expiryDate: walletCreditExpiry,
-                createdAt: new Date()
-              }
-            }
+                createdAt: new Date(),
+              },
+            },
           });
-
-
         } else {
           // console.warn('[CashbackAPI] Patient not found:', userId);
         }
@@ -1496,11 +1701,11 @@ export default async function handler(req, res) {
     // Helper to map payment method names to bankDetails keys
     const getBankPaymentDetails = (paymentMethodName) => {
       const methodMap = {
-        "Card": "card",
+        Card: "card",
         "Bank Transfer": "bankTransfer",
-        "BT": "bankTransfer",
-        "Tabby": "tabby",
-        "Tamara": "tamara"
+        BT: "bankTransfer",
+        Tabby: "tabby",
+        Tamara: "tamara",
       };
       const key = methodMap[paymentMethodName];
       if (key && clinic.bankDetails && clinic.bankDetails[key]) {
@@ -1525,9 +1730,7 @@ export default async function handler(req, res) {
         }
       }
     } else if (paymentMethod) {
-
       selectedBankPaymentDetails = getBankPaymentDetails(paymentMethod);
-
     }
 
     // console.log("[CreatePatientRegistration] Selected bank payment details (clinic-level):", selectedBankPaymentDetails);
@@ -1536,15 +1739,17 @@ export default async function handler(req, res) {
     if (appointment?.doctorId && selectedBankPaymentDetails.enabled) {
       // console.log("[CreatePatientRegistration] Checking agent/doctor bank permissions for doctorId:", appointment.doctorId);
       try {
-        const agentProfile = await AgentProfile.findOne({ userId: appointment.doctorId });
+        const agentProfile = await AgentProfile.findOne({
+          userId: appointment.doctorId,
+        });
         // console.log("[CreatePatientRegistration] Fetched agent profile:", agentProfile);
         if (agentProfile && agentProfile.bankPermissions) {
           const methodMap = {
-            "Card": "card",
+            Card: "card",
             "Bank Transfer": "bankTransfer",
-            "BT": "bankTransfer",
-            "Tabby": "tabby",
-            "Tamara": "tamara"
+            BT: "bankTransfer",
+            Tabby: "tabby",
+            Tamara: "tamara",
           };
 
           let allPermissionsEnabled = true;
@@ -1577,10 +1782,9 @@ export default async function handler(req, res) {
     //console.log("[CreatePatientRegistration] Final selected bank payment details:", selectedBankPaymentDetails);
     const earnedAmountForCommission = amountNum; // Amount before any deductions
 
-   
-
     // Calculate package and service parts
-    const hasPackageTreatments = hasPackagePayload && selectedPackageTreatments.length > 0;
+    const hasPackageTreatments =
+      hasPackagePayload && selectedPackageTreatments.length > 0;
 
     // For NEW package purchases without treatments (package-only billing):
     // - totalPackageSessionValue = 0 (no treatments consumed)
@@ -1597,7 +1801,10 @@ export default async function handler(req, res) {
       // Package present but no sessions consumed (new package purchase or billing treatment + package together)
       // Calculate service amount from selectedTreatments prices; rest is for the package
       const selectedTreatmentsTotal = Array.isArray(selectedTreatments)
-        ? selectedTreatments.reduce((sum, t) => sum + ((t.price || 0) * (t.quantity || 1)), 0)
+        ? selectedTreatments.reduce(
+            (sum, t) => sum + (t.price || 0) * (t.quantity || 1),
+            0,
+          )
         : 0;
       if (selectedTreatmentsTotal > 0) {
         // Billing treatment + package together: treatment price is service, rest is package
@@ -1614,47 +1821,55 @@ export default async function handler(req, res) {
       packageAmount = 0;
     }
 
-    
-
     // Calculate commissionable amounts:
-    let commissionablePaidAmount = Math.max(0, paidNum - adjustedPendingUsed - pendingClaimUsedNum);
+    let commissionablePaidAmount = Math.max(
+      0,
+      paidNum - adjustedPendingUsed - pendingClaimUsedNum,
+    );
     commissionablePaidAmount = Math.min(commissionablePaidAmount, amountNum);
 
     // When unpaidPackagesPaid is present without a new package purchase (!hasPackagePayload),
     // the paid amount includes payment for previously unpaid packages. This portion should NOT
     // be part of treatment/service commission. Subtract it so only the treatment price gets commission.
     // When hasPackagePayload is true, packageAmount already captures the package portion.
-    const unpaidPackagePaymentInPaid = !hasPackagePayload ? totalUnpaidPackagesAmount : 0;
+    const unpaidPackagePaymentInPaid = !hasPackagePayload
+      ? totalUnpaidPackagesAmount
+      : 0;
 
     // Subtract package portion so service/treatment commission excludes the package amount.
     // The package commission is handled separately by the Package Sold By Person commission block.
-    const serviceCommissionablePaidAmount = Math.max(0, commissionablePaidAmount - packageAmount - unpaidPackagePaymentInPaid);
-
+    const serviceCommissionablePaidAmount = Math.max(
+      0,
+      commissionablePaidAmount - packageAmount - unpaidPackagePaymentInPaid,
+    );
 
     // Split service amount into appointment treatments and direct treatments
     let appointmentTreatmentsAmount = 0;
     let directTreatmentsAmount = 0;
     const appointmentServiceIds = new Set();
-    if (appointment?.serviceId) appointmentServiceIds.add(String(appointment.serviceId));
+    if (appointment?.serviceId)
+      appointmentServiceIds.add(String(appointment.serviceId));
     if (appointment?.serviceIds) {
-      appointment.serviceIds.forEach(id => appointmentServiceIds.add(String(id)));
+      appointment.serviceIds.forEach((id) =>
+        appointmentServiceIds.add(String(id)),
+      );
     }
 
     if (selectedTreatments && selectedTreatments.length > 0) {
-      selectedTreatments.forEach(t => {
-        const tServiceId = String(t.treatmentServiceId || t.treatmentSlug || "");
-        const isFromAppointment = tServiceId && appointmentServiceIds.has(tServiceId);
+      selectedTreatments.forEach((t) => {
+        const tServiceId = String(
+          t.treatmentServiceId || t.treatmentSlug || "",
+        );
+        const isFromAppointment =
+          tServiceId && appointmentServiceIds.has(tServiceId);
         const originalQty = t.originalAppointmentQuantity || 0;
         const currentQty = t.quantity || 1;
         const unitPrice = t.price || 0;
-
-        
 
         if (isFromAppointment) {
           // If it's from appointment, split the quantity
           const appointmentQty = Math.min(currentQty, originalQty);
           const directQty = Math.max(0, currentQty - originalQty);
-
 
           appointmentTreatmentsAmount += unitPrice * appointmentQty;
           directTreatmentsAmount += unitPrice * directQty;
@@ -1668,25 +1883,24 @@ export default async function handler(req, res) {
       appointmentTreatmentsAmount = serviceAmount;
     }
 
-    
-
     // Split service commissionable paid amount proportionally between appointment and direct treatments
     // Uses serviceCommissionablePaidAmount (excludes package) so treatment commission doesn't include package portion
-    const totalServiceAmount = appointmentTreatmentsAmount + directTreatmentsAmount;
+    const totalServiceAmount =
+      appointmentTreatmentsAmount + directTreatmentsAmount;
     let appointmentCommissionablePaidAmount = 0;
     let directCommissionablePaidAmount = 0;
 
     if (totalServiceAmount > 0) {
       const appointmentRatio = appointmentTreatmentsAmount / totalServiceAmount;
       const directRatio = directTreatmentsAmount / totalServiceAmount;
-      appointmentCommissionablePaidAmount = serviceCommissionablePaidAmount * appointmentRatio;
-      directCommissionablePaidAmount = serviceCommissionablePaidAmount * directRatio;
+      appointmentCommissionablePaidAmount =
+        serviceCommissionablePaidAmount * appointmentRatio;
+      directCommissionablePaidAmount =
+        serviceCommissionablePaidAmount * directRatio;
     } else {
       appointmentCommissionablePaidAmount = 0;
       directCommissionablePaidAmount = 0;
     }
-
-
 
     if (multiPayArr.length > 0) {
     }
@@ -1708,8 +1922,6 @@ export default async function handler(req, res) {
       const paidNumForReferralCommission = commissionablePaidAmount;
       const referredByStr = String(referredBy || "").trim();
 
-      
-
       if (
         paidNumForReferralCommission > 0 &&
         referredByStr &&
@@ -1724,16 +1936,22 @@ export default async function handler(req, res) {
             `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`
               .trim()
               .toLowerCase();
-          console.log("Checking referral:", full, "vs", referredByStr.toLowerCase());
+          console.log(
+            "Checking referral:",
+            full,
+            "vs",
+            referredByStr.toLowerCase(),
+          );
           return full && full === referredByStr.toLowerCase();
         });
-
 
         if (match) {
           const commissionPercent = Number(match.referralPercent || 0);
           if (commissionPercent > 0) {
             // Check if we need to apply bank deduction before or after commission
-            const applyDeductionAfterCommission = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "earned";
+            const applyDeductionAfterCommission =
+              selectedBankPaymentDetails.enabled &&
+              selectedBankPaymentDetails.applyOn === "earned";
             // console.log("[CreatePatientRegistration] Referral: applyDeductionAfterCommission:", applyDeductionAfterCommission);
 
             let adjustedAmount = paidNumForReferralCommission;
@@ -1745,16 +1963,19 @@ export default async function handler(req, res) {
               deductionAmount: 0,
               finalEarnedAmount: earnedAmountForCommission,
               finalPaidAmount: paidNumForReferralCommission,
-              deductionApplied: false
+              deductionApplied: false,
             };
 
-            if (selectedBankPaymentDetails.enabled && !applyDeductionAfterCommission) {
+            if (
+              selectedBankPaymentDetails.enabled &&
+              !applyDeductionAfterCommission
+            ) {
               // Apply bank deduction first (applyOn: paid)
               // console.log("[CreatePatientRegistration] Calculating referral commission with bank deductions BEFORE commission");
               bankDeductionResult = calculateBankDeduction({
                 earnedAmount: earnedAmountForCommission,
                 paidAmount: paidNumForReferralCommission,
-                bankPaymentDetails: selectedBankPaymentDetails
+                bankPaymentDetails: selectedBankPaymentDetails,
               });
               // console.log("[CreatePatientRegistration] Referral bank deduction result:", bankDeductionResult);
               adjustedAmount = bankDeductionResult.finalPaidAmount;
@@ -1764,7 +1985,7 @@ export default async function handler(req, res) {
 
             // Calculate referral commission (based on full paid amount)
             let commissionAmount = Number(
-              ((adjustedAmount * commissionPercent) / 100).toFixed(2)
+              ((adjustedAmount * commissionPercent) / 100).toFixed(2),
             );
             // console.log("[CreatePatientRegistration] Original referral commission amount before deduction:", commissionAmount);
 
@@ -1782,12 +2003,18 @@ export default async function handler(req, res) {
                 deductionAmount = Number(selectedBankPaymentDetails.value);
                 // console.log(`[CreatePatientRegistration] Applying flat deduction: ${deductionAmount}`);
               } else if (selectedBankPaymentDetails.type === "percentage") {
-                deductionAmount = (commissionAmount * Number(selectedBankPaymentDetails.value)) / 100;
+                deductionAmount =
+                  (commissionAmount *
+                    Number(selectedBankPaymentDetails.value)) /
+                  100;
                 // console.log(`[CreatePatientRegistration] Applying percentage deduction: ${selectedBankPaymentDetails.value}% of ${commissionAmount} = ${deductionAmount}`);
               }
 
               // Apply deduction
-              commissionAmount = Math.max(0, commissionAmount - deductionAmount);
+              commissionAmount = Math.max(
+                0,
+                commissionAmount - deductionAmount,
+              );
               commissionAmount = Number(commissionAmount.toFixed(2));
 
               bankDeductionResult = {
@@ -1798,10 +2025,8 @@ export default async function handler(req, res) {
                 deductionAmount: Number(deductionAmount.toFixed(2)),
                 finalEarnedAmount: earnedAmountForCommission,
                 finalPaidAmount: paidNumForReferralCommission,
-                deductionApplied: true
+                deductionApplied: true,
               };
-
-            
             }
 
             // console.log("[CreatePatientRegistration] Final referral commission amount:", commissionAmount);
@@ -1810,11 +2035,16 @@ export default async function handler(req, res) {
             referralCommissionAmount = Number(commissionAmount);
 
             // Split referral commission into appointment and direct shares
-            const totalServiceCommissionable = appointmentCommissionablePaidAmount + directCommissionablePaidAmount || 1;
-            referralShareForAppointment = (appointmentCommissionablePaidAmount / totalServiceCommissionable) * referralCommissionAmount;
-            referralShareForDirect = (directCommissionablePaidAmount / totalServiceCommissionable) * referralCommissionAmount;
-
-            
+            const totalServiceCommissionable =
+              appointmentCommissionablePaidAmount +
+                directCommissionablePaidAmount || 1;
+            referralShareForAppointment =
+              (appointmentCommissionablePaidAmount /
+                totalServiceCommissionable) *
+              referralCommissionAmount;
+            referralShareForDirect =
+              (directCommissionablePaidAmount / totalServiceCommissionable) *
+              referralCommissionAmount;
 
             // Optionally try to map to a staff user via email or phone
             let staffId = null;
@@ -1833,7 +2063,11 @@ export default async function handler(req, res) {
               }
             }
             // Set commission base amount: use capped commissionable amount regardless of applyOn
-            const referralCommissionBase = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "paid" ? adjustedAmount : paidNumForReferralCommission;
+            const referralCommissionBase =
+              selectedBankPaymentDetails.enabled &&
+              selectedBankPaymentDetails.applyOn === "paid"
+                ? adjustedAmount
+                : paidNumForReferralCommission;
             await Commission.create({
               clinicId: clinic._id,
               source: "referral",
@@ -1859,8 +2093,8 @@ export default async function handler(req, res) {
                 type: selectedBankPaymentDetails.type,
                 value: selectedBankPaymentDetails.value,
                 applyOn: selectedBankPaymentDetails.applyOn,
-                deductionAmount: bankDeductionResult.deductionAmount
-              }
+                deductionAmount: bankDeductionResult.deductionAmount,
+              },
             });
           }
         }
@@ -1874,7 +2108,11 @@ export default async function handler(req, res) {
     }
 
     // Update package payment status if unpaid packages are being paid
-    if (unpaidPackagesPaid && Array.isArray(unpaidPackagesPaid) && unpaidPackagesPaid.length > 0) {
+    if (
+      unpaidPackagesPaid &&
+      Array.isArray(unpaidPackagesPaid) &&
+      unpaidPackagesPaid.length > 0
+    ) {
       // console.log('[PackagePaymentAPI] Updating package payment status for:', unpaidPackagesPaid);
 
       try {
@@ -1882,7 +2120,10 @@ export default async function handler(req, res) {
           const { packageId, packageSubId, amount, packageName } = pkgPayment;
 
           if (!packageId || !packageSubId) {
-            console.warn('[PackagePaymentAPI] Skipping package with missing IDs:', pkgPayment);
+            console.warn(
+              "[PackagePaymentAPI] Skipping package with missing IDs:",
+              pkgPayment,
+            );
             continue;
           }
 
@@ -1891,28 +2132,30 @@ export default async function handler(req, res) {
 
           if (patient && patient.packages && patient.packages.length > 0) {
             const packageIndex = patient.packages.findIndex(
-              (pkg) => String(pkg._id) === String(packageSubId) && String(pkg.packageId) === String(packageId)
+              (pkg) =>
+                String(pkg._id) === String(packageSubId) &&
+                String(pkg.packageId) === String(packageId),
             );
 
             if (packageIndex !== -1) {
               // Update the package payment status - ADD the amount to existing paidAmount
-              const currentPaid = patient.packages[packageIndex].paidAmount || 0;
+              const currentPaid =
+                patient.packages[packageIndex].paidAmount || 0;
               const newPaidAmount = currentPaid + (amount || 0);
               const totalPrice = patient.packages[packageIndex].totalPrice || 0;
 
               patient.packages[packageIndex].paidAmount = newPaidAmount;
-              patient.packages[packageIndex].paymentMethod = paymentMethod || 'Cash';
+              patient.packages[packageIndex].paymentMethod =
+                paymentMethod || "Cash";
 
               // Update payment status based on new paid amount
               if (newPaidAmount >= totalPrice) {
-                patient.packages[packageIndex].paymentStatus = 'Full';
+                patient.packages[packageIndex].paymentStatus = "Full";
               } else if (newPaidAmount > 0) {
-                patient.packages[packageIndex].paymentStatus = 'Partial';
+                patient.packages[packageIndex].paymentStatus = "Partial";
               } else {
-                patient.packages[packageIndex].paymentStatus = 'Unpaid';
+                patient.packages[packageIndex].paymentStatus = "Unpaid";
               }
-
-
 
               await patient.save();
             } else {
@@ -1926,9 +2169,8 @@ export default async function handler(req, res) {
 
         // Now clear pending ledger entries for these unpaid packages!
         try {
-          const { default: PatientPendingLedger } = await import(
-            "../../../models/PatientPendingLedger"
-          );
+          const { default: PatientPendingLedger } =
+            await import("../../../models/PatientPendingLedger");
           const { applyClearance } = await import("../../../lib/pendingLedger");
 
           // First find all Open/Partial ledgers for these unpaid packages
@@ -1936,19 +2178,29 @@ export default async function handler(req, res) {
             patientId: patientRegistration._id,
             clinicId: clinic._id,
             status: { $in: ["Open", "Partial"] },
-            packageId: { $in: unpaidPackagesPaid.map(p => p.packageId) } // filter packages we are paying
-          }).sort({ createdAt: 1 }).lean();
+            packageId: { $in: unpaidPackagesPaid.map((p) => p.packageId) }, // filter packages we are paying
+          })
+            .sort({ createdAt: 1 })
+            .lean();
 
           if (openPackageLedgers.length > 0) {
-            let remainingUnpaidAmount = unpaidPackagesPaid.reduce((sum, p) => sum + (Number(p.amount || 0)), 0);
+            let remainingUnpaidAmount = unpaidPackagesPaid.reduce(
+              (sum, p) => sum + Number(p.amount || 0),
+              0,
+            );
             let packageAllocations = [];
 
             for (let l of openPackageLedgers) {
               if (remainingUnpaidAmount <= 0) break;
-              const take = Math.min(remainingUnpaidAmount, Number(l.remainingAmount || 0));
+              const take = Math.min(
+                remainingUnpaidAmount,
+                Number(l.remainingAmount || 0),
+              );
               if (take > 0) {
                 packageAllocations.push({ ledgerId: l.ledgerId, amount: take });
-                remainingUnpaidAmount = Number((remainingUnpaidAmount - take).toFixed(2));
+                remainingUnpaidAmount = Number(
+                  (remainingUnpaidAmount - take).toFixed(2),
+                );
               }
             }
 
@@ -1962,13 +2214,21 @@ export default async function handler(req, res) {
                 paidByName: clinicUser.name || "Clinic Staff",
                 transactionType: "PENDING_CLEARANCE",
                 notes: `Cleared unpaid package via invoice ${invoiceNumber}`,
-                useTransaction: false
+                useTransaction: false,
               });
 
-              if (clearanceResult && clearanceResult.breakdown && clearanceResult.breakdown.length > 0) {
+              if (
+                clearanceResult &&
+                clearanceResult.breakdown &&
+                clearanceResult.breakdown.length > 0
+              ) {
                 // Add to billing's pendingClearedBreakdown
                 await Billing.findByIdAndUpdate(billing._id, {
-                  $push: { pendingClearedBreakdown: { $each: clearanceResult.breakdown } }
+                  $push: {
+                    pendingClearedBreakdown: {
+                      $each: clearanceResult.breakdown,
+                    },
+                  },
                 });
 
                 // Now update the original invoices!
@@ -1981,14 +2241,25 @@ export default async function handler(req, res) {
 
                 for (const [invNum, items] of breakdownByInvoice) {
                   try {
-                    const invoice = await Billing.findOne({ invoiceNumber: invNum, clinicId: clinic._id });
+                    const invoice = await Billing.findOne({
+                      invoiceNumber: invNum,
+                      clinicId: clinic._id,
+                    });
                     if (invoice) {
-                      const totalForInvoice = items.reduce((sum, b) => sum + (Number(b.amountCleared) || 0), 0);
+                      const totalForInvoice = items.reduce(
+                        (sum, b) => sum + (Number(b.amountCleared) || 0),
+                        0,
+                      );
 
                       // Update invoice fields
-                      invoice.paid = (Number(invoice.paid) || 0) + totalForInvoice;
-                      invoice.pending = Math.max(0, (Number(invoice.pending) || 0) - totalForInvoice);
-                      invoice.pendingUsed = (Number(invoice.pendingUsed) || 0) + totalForInvoice;
+                      invoice.paid =
+                        (Number(invoice.paid) || 0) + totalForInvoice;
+                      invoice.pending = Math.max(
+                        0,
+                        (Number(invoice.pending) || 0) - totalForInvoice,
+                      );
+                      invoice.pendingUsed =
+                        (Number(invoice.pendingUsed) || 0) + totalForInvoice;
 
                       await invoice.save();
 
@@ -1998,8 +2269,9 @@ export default async function handler(req, res) {
                         amount: totalForInvoice,
                         paidAt: new Date(),
                         paidBy: clinicUser._id,
-                        paidByName: clinicUser.name || clinicUser.firstName || "Staff",
-                        transactionType: "PENDING_CLEARANCE"
+                        paidByName:
+                          clinicUser.name || clinicUser.firstName || "Staff",
+                        transactionType: "PENDING_CLEARANCE",
                       };
 
                       await Billing.findByIdAndUpdate(invoice._id, {
@@ -2011,14 +2283,15 @@ export default async function handler(req, res) {
                             pending: invoice.pending,
                             paymentMethod: paymentMethod || "Cash",
                             multiplePayments: [paymentEntry],
-                            status: invoice.pending <= 0 ? "Completed" : "Active",
+                            status:
+                              invoice.pending <= 0 ? "Completed" : "Active",
                             updatedAt: new Date(),
                             amountPaid: totalForInvoice,
                             advanceAmountUsed: 0,
-                            remainingPending: invoice.pending
+                            remainingPending: invoice.pending,
                           },
                           pendingClearedBreakdown: {
-                            $each: items.map(b => ({
+                            $each: items.map((b) => ({
                               ledgerId: b.ledgerId,
                               invoiceNumber: b.invoiceNumber,
                               service: b.service,
@@ -2029,23 +2302,30 @@ export default async function handler(req, res) {
                               amountCleared: b.amountCleared,
                               newStatus: b.newStatus,
                               newRemaining: b.newRemaining,
-                              paymentMethod: b.paymentMethod || paymentMethod || null
-                            }))
-                          }
-                        }
+                              paymentMethod:
+                                b.paymentMethod || paymentMethod || null,
+                            })),
+                          },
+                        },
                       });
                     }
                   } catch (origUpdateErr) {
-                    console.error('[CreatePatientRegistration] Failed to update original invoice', invNum, origUpdateErr.message);
+                    console.error(
+                      "[CreatePatientRegistration] Failed to update original invoice",
+                      invNum,
+                      origUpdateErr.message,
+                    );
                   }
                 }
               }
             }
           }
         } catch (ledgerErr) {
-          console.error('[CreatePatientRegistration] Error clearing unpaid package ledgers:', ledgerErr);
+          console.error(
+            "[CreatePatientRegistration] Error clearing unpaid package ledgers:",
+            ledgerErr,
+          );
         }
-
       } catch (packageUpdateError) {
         // console.error('[PackagePaymentAPI] Error updating package payment status:', packageUpdateError);
         // Don't fail the billing if package update fails
@@ -2054,14 +2334,17 @@ export default async function handler(req, res) {
 
     // Update existing pending invoices if adjustedPendingUsed > 0
     if (adjustedPendingUsed > 0) {
-      console.log('[CreatePatientRegistration] Updating pending invoices with adjustedPendingUsed:', adjustedPendingUsed);
+      console.log(
+        "[CreatePatientRegistration] Updating pending invoices with adjustedPendingUsed:",
+        adjustedPendingUsed,
+      );
 
       // Fetch all pending invoices (oldest first)
       const pendingInvoices = await Billing.find({
         clinicId: clinic._id,
         patientId: patientRegistration._id,
         pending: { $gt: 0 },
-        isAdvanceOnly: { $ne: true }
+        isAdvanceOnly: { $ne: true },
       }).sort({ invoicedDate: 1, createdAt: 1 });
 
       let remainingPendingUsed = adjustedPendingUsed;
@@ -2069,7 +2352,10 @@ export default async function handler(req, res) {
       for (const invoice of pendingInvoices) {
         if (remainingPendingUsed <= 0) break;
 
-        const paymentForInvoice = Math.min(remainingPendingUsed, invoice.pending);
+        const paymentForInvoice = Math.min(
+          remainingPendingUsed,
+          invoice.pending,
+        );
 
         invoice.paid = (invoice.paid || 0) + paymentForInvoice;
         invoice.pending = invoice.pending - paymentForInvoice;
@@ -2119,11 +2405,9 @@ export default async function handler(req, res) {
         remainingPendingUsed -= paymentForInvoice;
       }
 
-
       try {
-        const { default: PatientPendingLedger } = await import(
-          "../../../models/PatientPendingLedger"
-        );
+        const { default: PatientPendingLedger } =
+          await import("../../../models/PatientPendingLedger");
         const { applyClearance } = await import("../../../lib/pendingLedger");
 
         // Build FIFO allocations against Open/Partial ledger rows
@@ -2229,16 +2513,14 @@ export default async function handler(req, res) {
                 );
               }
             }
-
-           
           }
         } else {
           console.warn(
             "[PendingLedger] pendingUsed=" +
-            pendingUsedNum +
-            " but no Open/Partial ledger rows found for patient " +
-            String(patientRegistration._id) +
-            ". Legacy Billing.pending was still updated. Run scripts/migrate-pending-ledger.js to backfill historical billings.",
+              pendingUsedNum +
+              " but no Open/Partial ledger rows found for patient " +
+              String(patientRegistration._id) +
+              ". Legacy Billing.pending was still updated. Run scripts/migrate-pending-ledger.js to backfill historical billings.",
           );
         }
       } catch (ledgerClearErr) {
@@ -2262,7 +2544,7 @@ export default async function handler(req, res) {
           clinicId: clinic._id,
           patientId: patientRegistration._id,
           status: "Released",
-          pendingClaim: { $gt: 0 }
+          pendingClaim: { $gt: 0 },
         }).sort({ createdAt: 1 });
 
         let remainingPendingClaimUsed = pendingClaimUsedNum;
@@ -2271,7 +2553,10 @@ export default async function handler(req, res) {
           if (remainingPendingClaimUsed <= 0) break;
 
           const currentPending = Number(claim.pendingClaim || 0);
-          const paymentForClaim = Math.min(remainingPendingClaimUsed, currentPending);
+          const paymentForClaim = Math.min(
+            remainingPendingClaimUsed,
+            currentPending,
+          );
           const newPendingClaim = Math.max(0, currentPending - paymentForClaim);
 
           claim.pendingClaim = newPendingClaim;
@@ -2283,7 +2568,9 @@ export default async function handler(req, res) {
             // For "Paid" type claims, manually set advanceAmount to finalClaimAmount
             // (pre-save hook only handles "Advance" type automatically)
             if (claim.claimType === "Paid") {
-              claim.advanceAmount = Number(claim.finalClaimAmount || claim.claimAmount || 0);
+              claim.advanceAmount = Number(
+                claim.finalClaimAmount || claim.claimAmount || 0,
+              );
             }
             // For "Advance" type, the pre-save hook sets advanceAmount = claimAmount
           }
@@ -2292,7 +2579,10 @@ export default async function handler(req, res) {
           remainingPendingClaimUsed -= paymentForClaim;
         }
       } catch (claimUpdateError) {
-        console.error('[CreatePatientRegistration] Error updating insurance claim pendingClaim:', claimUpdateError.message);
+        console.error(
+          "[CreatePatientRegistration] Error updating insurance claim pendingClaim:",
+          claimUpdateError.message,
+        );
         // Don't fail the billing if claim update fails
       }
     }
@@ -2302,8 +2592,11 @@ export default async function handler(req, res) {
     // Handles: Doctor, Billed Person, Package Sold By, and Pending Clearance commissions
     // ============================================================
     try {
-      console.log(">>> COMMISSION HELPER: About to import and call processBillingCommissions");
-      const { processBillingCommissions } = await import("../../../lib/billingCommissionHelper");
+      console.log(
+        ">>> COMMISSION HELPER: About to import and call processBillingCommissions",
+      );
+      const { processBillingCommissions } =
+        await import("../../../lib/billingCommissionHelper");
 
       const commissionResult = await processBillingCommissions({
         billing,
@@ -2339,13 +2632,18 @@ export default async function handler(req, res) {
       });
 
       if (commissionResult.commissionRecords?.length > 0) {
-        console.log(`✅ Total commission records created: ${commissionResult.commissionRecords.length}`);
+        console.log(
+          `✅ Total commission records created: ${commissionResult.commissionRecords.length}`,
+        );
       } else {
         console.log("⚠️ Commission helper returned 0 records");
       }
     } catch (commissionHelperErr) {
       console.error("❌ Commission helper error:", commissionHelperErr.message);
-      console.error("❌ Commission helper error stack:", commissionHelperErr.stack);
+      console.error(
+        "❌ Commission helper error stack:",
+        commissionHelperErr.stack,
+      );
       // Do not fail the billing creation if commission creation fails
     }
 
@@ -2357,613 +2655,747 @@ export default async function handler(req, res) {
     // - Package Sold By Person Commission
     // They are now handled by the processBillingCommissions() call above.
     // Keeping this marker for reference. Original code was ~616 lines.
-    if (false) { try {
-      // Fetch the billing from DB to get the complete pendingClearedBreakdown
-      // (written by the pending clearance flows above via $push/$set)
-      const billingForPendingClearance = await Billing.findById(billing._id).lean();
-      const pendingClearanceBreakdown = billingForPendingClearance?.pendingClearedBreakdown || [];
+    if (false) {
+      try {
+        // Fetch the billing from DB to get the complete pendingClearedBreakdown
+        // (written by the pending clearance flows above via $push/$set)
+        const billingForPendingClearance = await Billing.findById(
+          billing._id,
+        ).lean();
+        const pendingClearanceBreakdown =
+          billingForPendingClearance?.pendingClearedBreakdown || [];
 
-      if (pendingClearanceBreakdown.length > 0) {
-        // Group breakdown entries by original invoice number
-        const breakdownByOriginalInvoice = new Map();
-        for (const entry of pendingClearanceBreakdown) {
-          const invNum = entry.invoiceNumber;
-          if (!invNum) continue;
-          if (!breakdownByOriginalInvoice.has(invNum)) {
-            breakdownByOriginalInvoice.set(invNum, []);
+        if (pendingClearanceBreakdown.length > 0) {
+          // Group breakdown entries by original invoice number
+          const breakdownByOriginalInvoice = new Map();
+          for (const entry of pendingClearanceBreakdown) {
+            const invNum = entry.invoiceNumber;
+            if (!invNum) continue;
+            if (!breakdownByOriginalInvoice.has(invNum)) {
+              breakdownByOriginalInvoice.set(invNum, []);
+            }
+            breakdownByOriginalInvoice.get(invNum).push(entry);
           }
-          breakdownByOriginalInvoice.get(invNum).push(entry);
-        }
 
-        // Process commission for each original invoice that had pending cleared
-        for (const [originalInvoiceNumber, entries] of breakdownByOriginalInvoice) {
-          try {
-            const totalAmountCleared = entries.reduce((sum, e) => sum + (Number(e.amountCleared) || 0), 0);
-            if (totalAmountCleared <= 0) continue;
+          // Process commission for each original invoice that had pending cleared
+          for (const [
+            originalInvoiceNumber,
+            entries,
+          ] of breakdownByOriginalInvoice) {
+            try {
+              const totalAmountCleared = entries.reduce(
+                (sum, e) => sum + (Number(e.amountCleared) || 0),
+                0,
+              );
+              if (totalAmountCleared <= 0) continue;
 
-            // Fetch the original billing to get directBilling flag and staff IDs
-            const originalBilling = await Billing.findOne({
-              invoiceNumber: originalInvoiceNumber,
-              clinicId: clinic._id,
-            }).lean();
-
-            if (!originalBilling) {
-              console.warn("[PendingClearanceCommission] Original billing not found for invoice:", originalInvoiceNumber);
-              continue;
-            }
-
-            const origDirectBilling = originalBilling.directBilling !== false; // default true
-            let commissionStaffId = null;
-            let commissionSource = "";
-
-            // Check if any entry is for a package (has packageId)
-            const packageEntry = entries.find(e => e.packageId);
-
-            if (packageEntry) {
-              // Package pending clearance: resolve packageSoldBy name to userId
-              const freshPatient = await PatientRegistration.findById(patientRegistration._id).lean();
-              const patientPackage = freshPatient?.packages?.find(p => String(p.packageId) === String(packageEntry.packageId));
-
-              if (patientPackage?.packageSoldBy) {
-                const packageSoldByName = patientPackage.packageSoldBy;
-                // Resolve name to user ID from the User model
-                const packageSoldByUser = await User.findOne({
-                  clinicId: clinic._id,
-                  name: { $regex: new RegExp(`^${packageSoldByName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}$`, 'i') }
-                }).lean();
-
-                if (packageSoldByUser) {
-                  commissionStaffId = packageSoldByUser._id;
-                  commissionSource = `Package sold by ${packageSoldByName} (pending clearance)`;
-                }
-              }
-            } else if (!origDirectBilling && originalBilling.doctorId) {
-              // Appointment-based: commission for the doctor from original billing
-              commissionStaffId = originalBilling.doctorId;
-              commissionSource = "Doctor (pending clearance)";
-            } else if (origDirectBilling && originalBilling.invoicedById) {
-              // Direct billing: commission for the invoicedBy person from original billing
-              commissionStaffId = originalBilling.invoicedById;
-              commissionSource = "InvoicedBy (pending clearance)";
-            }
-
-            if (!commissionStaffId) continue;
-
-            // Calculate commission using the same calculator (all conditions remain same)
-            const commissionResult = await calculateCommissionForStaff({
-              staffId: commissionStaffId,
-              clinicId: clinic._id,
-              paidAmount: totalAmountCleared,
-              earnedAmount: totalAmountCleared,
-              patientId: patientRegistration._id,
-              appointmentId: originalBilling.appointmentId,
-              currentBillingId: billing._id,
-              bankPaymentDetails: selectedBankPaymentDetails,
-            });
-
-            if (commissionResult.shouldCreateCommission) {
-              const commissionType = commissionResult.commissionType;
-
-              // Determine commission base amount (same logic as existing blocks)
-              let commissionBaseAmount;
-              if (commissionResult.bankDeduction.deductionApplied && selectedBankPaymentDetails.applyOn === "paid") {
-                commissionBaseAmount = commissionResult.bankDeduction.finalPaidAmount || totalAmountCleared;
-              } else {
-                commissionBaseAmount = totalAmountCleared;
-              }
-
-              if (commissionType === "target_based") {
-                commissionBaseAmount = commissionResult.amountAboveTarget || 0;
-              } else if (commissionType === "after_deduction") {
-                commissionBaseAmount = commissionResult.netAmount || 0;
-              } else if (commissionType === "target_plus_expense") {
-                commissionBaseAmount = commissionResult.netCommissionableAmount || 0;
-              }
-
-              const commissionData = {
+              // Fetch the original billing to get directBilling flag and staff IDs
+              const originalBilling = await Billing.findOne({
+                invoiceNumber: originalInvoiceNumber,
                 clinicId: clinic._id,
-                source: "staff",
+              }).lean();
+
+              if (!originalBilling) {
+                console.warn(
+                  "[PendingClearanceCommission] Original billing not found for invoice:",
+                  originalInvoiceNumber,
+                );
+                continue;
+              }
+
+              const origDirectBilling = originalBilling.directBilling !== false; // default true
+              let commissionStaffId = null;
+              let commissionSource = "";
+
+              // Check if any entry is for a package (has packageId)
+              const packageEntry = entries.find((e) => e.packageId);
+
+              if (packageEntry) {
+                // Package pending clearance: resolve packageSoldBy name to userId
+                const freshPatient = await PatientRegistration.findById(
+                  patientRegistration._id,
+                ).lean();
+                const patientPackage = freshPatient?.packages?.find(
+                  (p) => String(p.packageId) === String(packageEntry.packageId),
+                );
+
+                if (patientPackage?.packageSoldBy) {
+                  const packageSoldByName = patientPackage.packageSoldBy;
+                  // Resolve name to user ID from the User model
+                  const packageSoldByUser = await User.findOne({
+                    clinicId: clinic._id,
+                    name: {
+                      $regex: new RegExp(
+                        `^${packageSoldByName.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}$`,
+                        "i",
+                      ),
+                    },
+                  }).lean();
+
+                  if (packageSoldByUser) {
+                    commissionStaffId = packageSoldByUser._id;
+                    commissionSource = `Package sold by ${packageSoldByName} (pending clearance)`;
+                  }
+                }
+              } else if (!origDirectBilling && originalBilling.doctorId) {
+                // Appointment-based: commission for the doctor from original billing
+                commissionStaffId = originalBilling.doctorId;
+                commissionSource = "Doctor (pending clearance)";
+              } else if (origDirectBilling && originalBilling.invoicedById) {
+                // Direct billing: commission for the invoicedBy person from original billing
+                commissionStaffId = originalBilling.invoicedById;
+                commissionSource = "InvoicedBy (pending clearance)";
+              }
+
+              if (!commissionStaffId) continue;
+
+              // Calculate commission using the same calculator (all conditions remain same)
+              const commissionResult = await calculateCommissionForStaff({
                 staffId: commissionStaffId,
-                commissionType: commissionResult.commissionType,
-                appointmentId: originalBilling.appointmentId || null,
+                clinicId: clinic._id,
+                paidAmount: totalAmountCleared,
+                earnedAmount: totalAmountCleared,
                 patientId: patientRegistration._id,
-                billingId: billing._id,
-                commissionPercent: commissionResult.commissionPercentage,
-                amountPaid: totalAmountCleared,
-                commissionAmount: commissionResult.commissionAmount,
-                invoicedDate: new Date(invoicedDate),
-                notes: `${commissionSource} - cleared pending for invoice ${originalInvoiceNumber}`,
-                createdBy: clinicUser._id,
-                paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
-                multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
-                bankDeduction: {
-                  enabled: commissionResult.bankDeduction?.enabled || false,
-                  type: commissionResult.bankDeduction?.type,
-                  value: commissionResult.bankDeduction?.value,
-                  applyOn: commissionResult.bankDeduction?.applyOn,
-                  deductionAmount: commissionResult.bankDeduction?.deductionAmount,
-                },
-                referralCommissionDeducted: 0,
-                commissionBaseAmount,
-                finalCommissionAmount: commissionResult.commissionAmount || 0,
-                isPendingClearanceCommission: true,
+                appointmentId: originalBilling.appointmentId,
+                currentBillingId: billing._id,
+                bankPaymentDetails: selectedBankPaymentDetails,
+              });
+
+              if (commissionResult.shouldCreateCommission) {
+                const commissionType = commissionResult.commissionType;
+
+                // Determine commission base amount (same logic as existing blocks)
+                let commissionBaseAmount;
+                if (
+                  commissionResult.bankDeduction.deductionApplied &&
+                  selectedBankPaymentDetails.applyOn === "paid"
+                ) {
+                  commissionBaseAmount =
+                    commissionResult.bankDeduction.finalPaidAmount ||
+                    totalAmountCleared;
+                } else {
+                  commissionBaseAmount = totalAmountCleared;
+                }
+
+                if (commissionType === "target_based") {
+                  commissionBaseAmount =
+                    commissionResult.amountAboveTarget || 0;
+                } else if (commissionType === "after_deduction") {
+                  commissionBaseAmount = commissionResult.netAmount || 0;
+                } else if (commissionType === "target_plus_expense") {
+                  commissionBaseAmount =
+                    commissionResult.netCommissionableAmount || 0;
+                }
+
+                const commissionData = {
+                  clinicId: clinic._id,
+                  source: "staff",
+                  staffId: commissionStaffId,
+                  commissionType: commissionResult.commissionType,
+                  appointmentId: originalBilling.appointmentId || null,
+                  patientId: patientRegistration._id,
+                  billingId: billing._id,
+                  commissionPercent: commissionResult.commissionPercentage,
+                  amountPaid: totalAmountCleared,
+                  commissionAmount: commissionResult.commissionAmount,
+                  invoicedDate: new Date(invoicedDate),
+                  notes: `${commissionSource} - cleared pending for invoice ${originalInvoiceNumber}`,
+                  createdBy: clinicUser._id,
+                  paymentMethod:
+                    multiPayArr.length > 0 ? undefined : paymentMethod,
+                  multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
+                  bankDeduction: {
+                    enabled: commissionResult.bankDeduction?.enabled || false,
+                    type: commissionResult.bankDeduction?.type,
+                    value: commissionResult.bankDeduction?.value,
+                    applyOn: commissionResult.bankDeduction?.applyOn,
+                    deductionAmount:
+                      commissionResult.bankDeduction?.deductionAmount,
+                  },
+                  referralCommissionDeducted: 0,
+                  commissionBaseAmount,
+                  finalCommissionAmount: commissionResult.commissionAmount || 0,
+                  isPendingClearanceCommission: true,
+                  originalInvoiceNumber,
+                  originalDirectBilling: origDirectBilling,
+                };
+
+                // Add target-based specific fields if applicable
+                if (commissionType === "target_based") {
+                  commissionData.targetAmount =
+                    commissionResult.targetAmount || 0;
+                  commissionData.cumulativeAchieved =
+                    commissionResult.cumulativeAchieved || 0;
+                  commissionData.isAboveTarget =
+                    commissionResult.isAboveTarget || false;
+                }
+
+                // Add after_deduction specific fields if applicable
+                if (commissionType === "after_deduction") {
+                  commissionData.totalExpenses =
+                    commissionResult.totalExpenses || 0;
+                  commissionData.netAmount = commissionResult.netAmount || 0;
+                  commissionData.expenseBreakdown =
+                    commissionResult.expenseBreakdown || [];
+                  commissionData.complaintsCount =
+                    commissionResult.complaintsCount || 0;
+                  commissionData.lastBillingDate =
+                    commissionResult.lastBillingDate || null;
+                  commissionData.lastBillingInvoice =
+                    commissionResult.lastBillingInvoice || null;
+                  commissionData.isFirstBilling =
+                    commissionResult.isFirstBilling || false;
+                }
+
+                // Add target_plus_expense specific fields if applicable
+                if (commissionType === "target_plus_expense") {
+                  commissionData.targetAmount =
+                    commissionResult.targetAmount || 0;
+                  commissionData.cumulativeAchieved =
+                    commissionResult.cumulativeAchieved || 0;
+                  commissionData.isAboveTarget =
+                    commissionResult.isAboveTarget || false;
+                  commissionData.amountAboveTarget =
+                    commissionResult.amountAboveTarget || 0;
+                  commissionData.totalExpenses =
+                    commissionResult.totalExpenses || 0;
+                  commissionData.netCommissionableAmount =
+                    commissionResult.netCommissionableAmount || 0;
+                  commissionData.expenseBreakdown =
+                    commissionResult.expenseBreakdown || [];
+                  commissionData.complaintsCount =
+                    commissionResult.complaintsCount || 0;
+                }
+
+                await Commission.create(commissionData);
+                console.log(
+                  `✅ Pending clearance commission created for ${commissionSource}, invoice ${originalInvoiceNumber}, amount: ${totalAmountCleared}`,
+                );
+              }
+            } catch (entryErr) {
+              console.error(
+                "[PendingClearanceCommission] Error processing commission for invoice:",
                 originalInvoiceNumber,
-                originalDirectBilling: origDirectBilling,
-              };
-
-              // Add target-based specific fields if applicable
-              if (commissionType === "target_based") {
-                commissionData.targetAmount = commissionResult.targetAmount || 0;
-                commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
-                commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
-              }
-
-              // Add after_deduction specific fields if applicable
-              if (commissionType === "after_deduction") {
-                commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-                commissionData.netAmount = commissionResult.netAmount || 0;
-                commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
-                commissionData.complaintsCount = commissionResult.complaintsCount || 0;
-                commissionData.lastBillingDate = commissionResult.lastBillingDate || null;
-                commissionData.lastBillingInvoice = commissionResult.lastBillingInvoice || null;
-                commissionData.isFirstBilling = commissionResult.isFirstBilling || false;
-              }
-
-              // Add target_plus_expense specific fields if applicable
-              if (commissionType === "target_plus_expense") {
-                commissionData.targetAmount = commissionResult.targetAmount || 0;
-                commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
-                commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
-                commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
-                commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-                commissionData.netCommissionableAmount = commissionResult.netCommissionableAmount || 0;
-                commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
-                commissionData.complaintsCount = commissionResult.complaintsCount || 0;
-              }
-
-              await Commission.create(commissionData);
-              console.log(`✅ Pending clearance commission created for ${commissionSource}, invoice ${originalInvoiceNumber}, amount: ${totalAmountCleared}`);
+                entryErr.message,
+              );
+              // Continue with next invoice - don't fail the entire billing
             }
-          } catch (entryErr) {
-            console.error("[PendingClearanceCommission] Error processing commission for invoice:", originalInvoiceNumber, entryErr.message);
-            // Continue with next invoice - don't fail the entire billing
           }
         }
-      }
-    } catch (pendingClearanceCommissionErr) {
-      console.error("❌ Pending clearance commission error:", pendingClearanceCommissionErr.message);
-      // Do not fail the billing creation if commission creation fails
-    }
-
-    // Doctor/Staff commission based on AgentProfile (supports flat, target-based, and after_deduction)
-    // directBilling layer: When directBilling is false (appointment-based treatment),
-    // commission is calculated for the doctor on the appointment treatment share.
-    // When directBilling is true (direct/walk-in billing), doctor commission is skipped.
-    // Note: Package portion is handled separately by the Package Sold By Person commission block.
-    try {
-     
-      // Calculate adjusted paid amount for doctor/staff: if referral commission was given, subtract it from the paid amount
-      // Doctor gets commission on appointmentCommissionablePaidAmount (treatment share only, excluding package)
-      const doctorCommissionablePaidAmount = appointmentCommissionablePaidAmount;
-      const adjustedDoctorStaffPaidAmount = Math.max(0, doctorCommissionablePaidAmount - referralShareForAppointment);
-
-      if (!directBilling && doctorCommissionablePaidAmount > 0 && appointment?.doctorId) {
-
-        // console.log("[CreatePatientRegistration] Doctor/Staff commission calculation:");
-        // console.log("[CreatePatientRegistration]   - Original paid amount:", commissionablePaidAmount);
-        // console.log("[CreatePatientRegistration]   - Referral commission amount:", referralCommissionAmount);
-        // console.log("[CreatePatientRegistration]   - Adjusted paid amount for doctor/staff:", adjustedDoctorStaffPaidAmount);
-
-        // Use the commission calculator to determine commission
-        // console.log("Calling calculateCommissionForStaff with:", {
-        //   staffId: appointment.doctorId,
-        //   clinicId: clinic._id,
-        //   paidAmount: adjustedDoctorStaffPaidAmount,
-        //   earnedAmount: earnedAmountForCommission,
-        //   patientId: patientRegistration._id,
-        //   appointmentId: appointment._id,
-        //   currentBillingId: billing._id,
-        //   bankPaymentDetails: selectedBankPaymentDetails
-        // });
-        const commissionResult = await calculateCommissionForStaff({
-          staffId: appointment.doctorId,
-          clinicId: clinic._id,
-          paidAmount: adjustedDoctorStaffPaidAmount, // Use adjusted amount instead of full amount
-          earnedAmount: earnedAmountForCommission,
-          patientId: patientRegistration._id,
-          appointmentId: appointment._id,
-          currentBillingId: billing._id, // Pass the billing ID to exclude it from "last billing" query
-          bankPaymentDetails: selectedBankPaymentDetails,
-        });
-
-
-        if (commissionResult.shouldCreateCommission) {
-          const commissionData = {
-            clinicId: clinic._id,
-            source: "staff",
-            staffId: appointment.doctorId,
-            commissionType: commissionResult.commissionType,
-            appointmentId: appointment._id,
-            patientId: patientRegistration._id,
-            billingId: billing._id,
-            commissionPercent: commissionResult.commissionPercentage,
-            amountPaid: doctorCommissionablePaidAmount, // Appointment treatment share (excludes package)
-            commissionAmount: commissionResult.commissionAmount,
-            invoicedDate: new Date(invoicedDate),
-            notes: notes || "",
-            createdBy: clinicUser._id,
-            paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
-            multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
-            bankDeduction: {
-              enabled: commissionResult.bankDeduction?.enabled || false,
-              type: commissionResult.bankDeduction?.type,
-              value: commissionResult.bankDeduction?.value,
-              applyOn: commissionResult.bankDeduction?.applyOn,
-              deductionAmount: commissionResult.bankDeduction?.deductionAmount
-            },
-            referralCommissionDeducted: referralShareForAppointment // Store referral commission deducted
-          };
-
-          // Add target-based specific fields if applicable
-          if (commissionResult.commissionType === "target_based") {
-            commissionData.targetAmount = commissionResult.targetAmount || 0;
-            commissionData.cumulativeAchieved =
-              commissionResult.cumulativeAchieved || 0;
-            commissionData.isAboveTarget =
-              commissionResult.isAboveTarget || false;
-          }
-
-          // Add after_deduction specific fields if applicable
-          if (commissionResult.commissionType === "after_deduction") {
-            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-            commissionData.netAmount = commissionResult.netAmount || 0;
-            commissionData.expenseBreakdown =
-              commissionResult.expenseBreakdown || [];
-            commissionData.complaintsCount =
-              commissionResult.complaintsCount || 0;
-            commissionData.lastBillingDate =
-              commissionResult.lastBillingDate || null;
-            commissionData.lastBillingInvoice =
-              commissionResult.lastBillingInvoice || null;
-            commissionData.isFirstBilling =
-              commissionResult.isFirstBilling || false;
-          }
-
-          // Add target_plus_expense specific fields if applicable
-          if (commissionResult.commissionType === "target_plus_expense") {
-            commissionData.targetAmount = commissionResult.targetAmount || 0;
-            commissionData.cumulativeAchieved =
-              commissionResult.cumulativeAchieved || 0;
-            commissionData.isAboveTarget =
-              commissionResult.isAboveTarget || false;
-            commissionData.amountAboveTarget =
-              commissionResult.amountAboveTarget || 0;
-            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-            commissionData.netCommissionableAmount =
-              commissionResult.netCommissionableAmount || 0;
-            commissionData.expenseBreakdown =
-              commissionResult.expenseBreakdown || [];
-            commissionData.complaintsCount =
-              commissionResult.complaintsCount || 0;
-          }
-
-          // Store commission base amount (the amount used as basis for commission calculation)
-          // and set initial finalCommissionAmount equal to the computed commissionAmount.
-          // This base is used later if post-commission expenses are added on the commission page.
-          const commissionType = commissionResult.commissionType;
-          // If applyOn is paid, use finalPaidAmount as base; if applyOn is earned, use adjusted amount (after referral deducted) as base
-          let commissionBaseAmount;
-          if (commissionResult.bankDeduction.deductionApplied && selectedBankPaymentDetails.applyOn === "paid") {
-            commissionBaseAmount = commissionResult.bankDeduction.finalPaidAmount || adjustedDoctorStaffPaidAmount;
-          } else {
-            commissionBaseAmount = adjustedDoctorStaffPaidAmount; // Use adjusted amount (after referral deducted)
-          }
-
-          if (commissionType === "target_based") {
-            // Base = only the amount above target (commission is earned only on excess)
-            commissionBaseAmount = commissionResult.amountAboveTarget || 0;
-          } else if (commissionType === "after_deduction") {
-            // netAmount = paidAmount - billingExpenses (already computed by calculator from adjusted amount)
-            commissionBaseAmount = commissionResult.netAmount || 0;
-          } else if (commissionType === "target_plus_expense") {
-            // netCommissionableAmount = amountAboveTarget - expenses (already computed by calculator from adjusted amount)
-            commissionBaseAmount =
-              commissionResult.netCommissionableAmount || 0;
-          }
-          commissionData.commissionBaseAmount = commissionBaseAmount;
-          commissionData.finalCommissionAmount =
-            commissionResult.commissionAmount || 0;
-
-
-          const createdCommission = await Commission.create(commissionData);
-          console.log("✅ Doctor/staff commission created successfully:", createdCommission._id);
-
-          // console.log(
-          //   `Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`,
-          // );
-        }
-      }
-    } catch (staffCommissionErr) {
-      console.error("❌ Commission calculation/store error (staff):", staffCommissionErr);
-      // Do not fail the billing creation if commission creation fails
-    }
-
-    // Billed person (clinicUser) commission for directly added services
-    // directBilling layer: When directBilling is true (direct/walk-in billing),
-    // commission is calculated for the invoicedBy person on the direct treatment share.
-    // When directBilling is false (appointment-based treatment), billed person commission is skipped.
-    // Note: Package portion is handled separately by the Package Sold By Person commission block.
-    try {
-     
-
-      // When directBilling is true, invoicedBy person gets commission on directCommissionablePaidAmount (direct treatment share only, excluding package)
-      const billedPersonCommissionablePaidAmount = directCommissionablePaidAmount;
-      const billedPersonReferralShare = referralShareForDirect;
-
-      // Check if we should calculate commission for the billed person
-      if (directBilling && billedPersonCommissionablePaidAmount > 0) {
-
-        // Calculate adjusted paid amount: subtract referral commission share
-        const adjustedBilledPersonPaidAmount = Math.max(0, billedPersonCommissionablePaidAmount - billedPersonReferralShare);
-
-        // Use the same commission calculator for consistency
-        const commissionResult = await calculateCommissionForStaff({
-          staffId: clinicUser._id,
-          clinicId: clinic._id,
-          paidAmount: adjustedBilledPersonPaidAmount,
-          earnedAmount: earnedAmountForCommission,
-          patientId: patientRegistration._id,
-          appointmentId: appointment?._id, // Use appointment if exists, otherwise undefined
-          currentBillingId: billing._id,
-          bankPaymentDetails: selectedBankPaymentDetails,
-        });
-
-
-        if (commissionResult.shouldCreateCommission) {
-
-          const commissionType = commissionResult.commissionType;
-
-          // Determine commission base amount (same as existing logic)
-          let commissionBaseAmount;
-          if (commissionResult.bankDeduction.deductionApplied && selectedBankPaymentDetails.applyOn === "paid") {
-            commissionBaseAmount = commissionResult.bankDeduction.finalPaidAmount || adjustedBilledPersonPaidAmount;
-          } else {
-            commissionBaseAmount = adjustedBilledPersonPaidAmount;
-          }
-
-          if (commissionType === "target_based") {
-            commissionBaseAmount = commissionResult.amountAboveTarget || 0;
-          } else if (commissionType === "after_deduction") {
-            commissionBaseAmount = commissionResult.netAmount || 0;
-          } else if (commissionType === "target_plus_expense") {
-            commissionBaseAmount = commissionResult.netCommissionableAmount || 0;
-          }
-
-          const commissionData = {
-            clinicId: clinic._id,
-            source: "staff",
-            staffId: clinicUser._id,
-            commissionType: commissionResult.commissionType,
-            appointmentId: appointment?._id || null,
-            patientId: patientRegistration._id,
-            billingId: billing._id,
-            commissionPercent: commissionResult.commissionPercentage,
-            amountPaid: billedPersonCommissionablePaidAmount, // Direct treatment share (excludes package)
-            commissionAmount: commissionResult.commissionAmount,
-            invoicedDate: new Date(invoicedDate),
-            notes: "Billed person commission",
-            createdBy: clinicUser._id,
-            paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
-            multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
-            bankDeduction: {
-              enabled: commissionResult.bankDeduction?.enabled || false,
-              type: commissionResult.bankDeduction?.type,
-              value: commissionResult.bankDeduction?.value,
-              applyOn: commissionResult.bankDeduction?.applyOn,
-              deductionAmount: commissionResult.bankDeduction?.deductionAmount
-            },
-            referralCommissionDeducted: referralShareForDirect,
-            commissionBaseAmount,
-            finalCommissionAmount: commissionResult.commissionAmount || 0
-          };
-
-          // Add target-based specific fields if applicable
-          if (commissionType === "target_based") {
-            commissionData.targetAmount = commissionResult.targetAmount || 0;
-            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
-            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
-          }
-
-          // Add after_deduction specific fields if applicable
-          if (commissionType === "after_deduction") {
-            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-            commissionData.netAmount = commissionResult.netAmount || 0;
-            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
-            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
-            commissionData.lastBillingDate = commissionResult.lastBillingDate || null;
-            commissionData.lastBillingInvoice = commissionResult.lastBillingInvoice || null;
-            commissionData.isFirstBilling = commissionResult.isFirstBilling || false;
-          }
-
-          // Add target_plus_expense specific fields if applicable
-          if (commissionType === "target_plus_expense") {
-            commissionData.targetAmount = commissionResult.targetAmount || 0;
-            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
-            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
-            commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
-            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
-            commissionData.netCommissionableAmount = commissionResult.netCommissionableAmount || 0;
-            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
-            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
-          }
-
-          await Commission.create(commissionData);
-        } else {
-        }
-      } else {
-        if (!(directCommissionablePaidAmount > 0)) {
-        }
-      }
-    } catch (billedPersonCommissionErr) {
-      // Do not fail the billing creation if commission creation fails
-    }
-
-    // Package Sold By Person commission
-    try {
-      
-      // Fallback: if packageSoldByUserId is still null but there's a package amount,
-      // resolve from the patient's profile (package may have been newly assigned during this billing)
-      if (!packageSoldByUserId && hasPackagePayload && packageAmount > 0) {
-        const freshPatientForPkg = await PatientRegistration.findById(patientRegistration._id).lean();
-        const matchedPkg = freshPatientForPkg?.packages?.find(p =>
-          String(p.packageId) === String(pkgDoc?._id) || p.packageName === packageName
+      } catch (pendingClearanceCommissionErr) {
+        console.error(
+          "❌ Pending clearance commission error:",
+          pendingClearanceCommissionErr.message,
         );
-        if (matchedPkg) {
-          if (matchedPkg.packageSoldByUserId) {
-            packageSoldByUserId = matchedPkg.packageSoldByUserId;
-          } else if (matchedPkg.packageSoldBy) {
-            // Resolve name to userId
-            const pkgSoldByName = matchedPkg.packageSoldBy.trim();
-            const foundPkgUser = await User.findOne({
-              clinicId: clinic._id,
-              $or: [
-                { name: pkgSoldByName },
-                { $expr: { $eq: [{ $concat: ['$firstName', ' ', '$lastName'] }, pkgSoldByName] } }
-              ]
-            }).lean();
-            if (foundPkgUser) {
-              packageSoldByUserId = foundPkgUser._id;
-            }
-          }
-          // Also update payment status from the newly assigned package
-          if (matchedPkg.paymentStatus) {
-            packagePaymentStatus = matchedPkg.paymentStatus;
-          }
-        }
-        // If still not resolved, use clinicUser (the person who created this billing/package)
-        if (!packageSoldByUserId) {
-          packageSoldByUserId = clinicUser._id;
-        }
+        // Do not fail the billing creation if commission creation fails
       }
 
-      // For package sold by person commission:
-      // - hasPackageTreatments: billing sessions from existing package (totalPackageSessionValue > 0)
-      // - hasPackagePayload && !hasPackageTreatments: new package purchase without consuming sessions (packageAmount > 0)
-      const shouldCalculatePackageCommission = (hasPackageTreatments || (hasPackagePayload && packageAmount > 0)) && packageSoldByUserId && (packagePaymentStatus === 'Full' || packagePaymentStatus === 'Partial' || packagePaymentStatus === 'paid');
+      // Doctor/Staff commission based on AgentProfile (supports flat, target-based, and after_deduction)
+      // directBilling layer: When directBilling is false (appointment-based treatment),
+      // commission is calculated for the doctor on the appointment treatment share.
+      // When directBilling is true (direct/walk-in billing), doctor commission is skipped.
+      // Note: Package portion is handled separately by the Package Sold By Person commission block.
+      try {
+        // Calculate adjusted paid amount for doctor/staff: if referral commission was given, subtract it from the paid amount
+        // Doctor gets commission on appointmentCommissionablePaidAmount (treatment share only, excluding package)
+        const doctorCommissionablePaidAmount =
+          appointmentCommissionablePaidAmount;
+        const adjustedDoctorStaffPaidAmount = Math.max(
+          0,
+          doctorCommissionablePaidAmount - referralShareForAppointment,
+        );
 
-      if (shouldCalculatePackageCommission) {
-        // Check if packageSoldByUser has commission configured
-        const soldByAgentProfile = await AgentProfile.findOne({ userId: packageSoldByUserId });
-      
+        if (
+          !directBilling &&
+          doctorCommissionablePaidAmount > 0 &&
+          appointment?.doctorId
+        ) {
+          // console.log("[CreatePatientRegistration] Doctor/Staff commission calculation:");
+          // console.log("[CreatePatientRegistration]   - Original paid amount:", commissionablePaidAmount);
+          // console.log("[CreatePatientRegistration]   - Referral commission amount:", referralCommissionAmount);
+          // console.log("[CreatePatientRegistration]   - Adjusted paid amount for doctor/staff:", adjustedDoctorStaffPaidAmount);
 
-        if (soldByAgentProfile && soldByAgentProfile.commissionPercentage && soldByAgentProfile.commissionPercentage > 0) {
-          // Calculate commission for sold by person
-          const commissionPercent = Number(soldByAgentProfile.commissionPercentage);
+          // Use the commission calculator to determine commission
+          // console.log("Calling calculateCommissionForStaff with:", {
+          //   staffId: appointment.doctorId,
+          //   clinicId: clinic._id,
+          //   paidAmount: adjustedDoctorStaffPaidAmount,
+          //   earnedAmount: earnedAmountForCommission,
+          //   patientId: patientRegistration._id,
+          //   appointmentId: appointment._id,
+          //   currentBillingId: billing._id,
+          //   bankPaymentDetails: selectedBankPaymentDetails
+          // });
+          const commissionResult = await calculateCommissionForStaff({
+            staffId: appointment.doctorId,
+            clinicId: clinic._id,
+            paidAmount: adjustedDoctorStaffPaidAmount, // Use adjusted amount instead of full amount
+            earnedAmount: earnedAmountForCommission,
+            patientId: patientRegistration._id,
+            appointmentId: appointment._id,
+            currentBillingId: billing._id, // Pass the billing ID to exclude it from "last billing" query
+            bankPaymentDetails: selectedBankPaymentDetails,
+          });
 
-          // Check if we need to apply bank deduction before or after commission
-          const applyDeductionAfterCommission = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "earned";
+          if (commissionResult.shouldCreateCommission) {
+            const commissionData = {
+              clinicId: clinic._id,
+              source: "staff",
+              staffId: appointment.doctorId,
+              commissionType: commissionResult.commissionType,
+              appointmentId: appointment._id,
+              patientId: patientRegistration._id,
+              billingId: billing._id,
+              commissionPercent: commissionResult.commissionPercentage,
+              amountPaid: doctorCommissionablePaidAmount, // Appointment treatment share (excludes package)
+              commissionAmount: commissionResult.commissionAmount,
+              invoicedDate: new Date(invoicedDate),
+              notes: notes || "",
+              createdBy: clinicUser._id,
+              paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
+              multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
+              bankDeduction: {
+                enabled: commissionResult.bankDeduction?.enabled || false,
+                type: commissionResult.bankDeduction?.type,
+                value: commissionResult.bankDeduction?.value,
+                applyOn: commissionResult.bankDeduction?.applyOn,
+                deductionAmount:
+                  commissionResult.bankDeduction?.deductionAmount,
+              },
+              referralCommissionDeducted: referralShareForAppointment, // Store referral commission deducted
+            };
 
-          // For package commission base amount:
-          // - If hasPackageTreatments: use totalPackageSessionValue (session-based billing)
-          // - If new package purchase: use packageAmount (full package price)
-          const commissionBaseAmount = hasPackageTreatments ? totalPackageSessionValue : packageAmount;
-        
+            // Add target-based specific fields if applicable
+            if (commissionResult.commissionType === "target_based") {
+              commissionData.targetAmount = commissionResult.targetAmount || 0;
+              commissionData.cumulativeAchieved =
+                commissionResult.cumulativeAchieved || 0;
+              commissionData.isAboveTarget =
+                commissionResult.isAboveTarget || false;
+            }
 
-          let baseAmount = commissionBaseAmount;
-          let adjustedAmount = baseAmount;
-          let bankDeductionResult = {
-            enabled: false,
-            type: null,
-            value: null,
-            applyOn: null,
-            deductionAmount: 0,
-            finalEarnedAmount: commissionBaseAmount,
-            finalPaidAmount: commissionBaseAmount,
-            deductionApplied: false
-          };
+            // Add after_deduction specific fields if applicable
+            if (commissionResult.commissionType === "after_deduction") {
+              commissionData.totalExpenses =
+                commissionResult.totalExpenses || 0;
+              commissionData.netAmount = commissionResult.netAmount || 0;
+              commissionData.expenseBreakdown =
+                commissionResult.expenseBreakdown || [];
+              commissionData.complaintsCount =
+                commissionResult.complaintsCount || 0;
+              commissionData.lastBillingDate =
+                commissionResult.lastBillingDate || null;
+              commissionData.lastBillingInvoice =
+                commissionResult.lastBillingInvoice || null;
+              commissionData.isFirstBilling =
+                commissionResult.isFirstBilling || false;
+            }
 
-        
+            // Add target_plus_expense specific fields if applicable
+            if (commissionResult.commissionType === "target_plus_expense") {
+              commissionData.targetAmount = commissionResult.targetAmount || 0;
+              commissionData.cumulativeAchieved =
+                commissionResult.cumulativeAchieved || 0;
+              commissionData.isAboveTarget =
+                commissionResult.isAboveTarget || false;
+              commissionData.amountAboveTarget =
+                commissionResult.amountAboveTarget || 0;
+              commissionData.totalExpenses =
+                commissionResult.totalExpenses || 0;
+              commissionData.netCommissionableAmount =
+                commissionResult.netCommissionableAmount || 0;
+              commissionData.expenseBreakdown =
+                commissionResult.expenseBreakdown || [];
+              commissionData.complaintsCount =
+                commissionResult.complaintsCount || 0;
+            }
 
-          if (selectedBankPaymentDetails.enabled && !applyDeductionAfterCommission) {
-            // Apply bank deduction first (applyOn: paid)
-            bankDeductionResult = calculateBankDeduction({
-              earnedAmount: commissionBaseAmount,
-              paidAmount: baseAmount,
-              bankPaymentDetails: selectedBankPaymentDetails
-            });
-            adjustedAmount = bankDeductionResult.finalPaidAmount;
-          
+            // Store commission base amount (the amount used as basis for commission calculation)
+            // and set initial finalCommissionAmount equal to the computed commissionAmount.
+            // This base is used later if post-commission expenses are added on the commission page.
+            const commissionType = commissionResult.commissionType;
+            // If applyOn is paid, use finalPaidAmount as base; if applyOn is earned, use adjusted amount (after referral deducted) as base
+            let commissionBaseAmount;
+            if (
+              commissionResult.bankDeduction.deductionApplied &&
+              selectedBankPaymentDetails.applyOn === "paid"
+            ) {
+              commissionBaseAmount =
+                commissionResult.bankDeduction.finalPaidAmount ||
+                adjustedDoctorStaffPaidAmount;
+            } else {
+              commissionBaseAmount = adjustedDoctorStaffPaidAmount; // Use adjusted amount (after referral deducted)
+            }
+
+            if (commissionType === "target_based") {
+              // Base = only the amount above target (commission is earned only on excess)
+              commissionBaseAmount = commissionResult.amountAboveTarget || 0;
+            } else if (commissionType === "after_deduction") {
+              // netAmount = paidAmount - billingExpenses (already computed by calculator from adjusted amount)
+              commissionBaseAmount = commissionResult.netAmount || 0;
+            } else if (commissionType === "target_plus_expense") {
+              // netCommissionableAmount = amountAboveTarget - expenses (already computed by calculator from adjusted amount)
+              commissionBaseAmount =
+                commissionResult.netCommissionableAmount || 0;
+            }
+            commissionData.commissionBaseAmount = commissionBaseAmount;
+            commissionData.finalCommissionAmount =
+              commissionResult.commissionAmount || 0;
+
+            const createdCommission = await Commission.create(commissionData);
+            console.log(
+              "✅ Doctor/staff commission created successfully:",
+              createdCommission._id,
+            );
+
+            // console.log(
+            //   `Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`,
+            // );
           }
+        }
+      } catch (staffCommissionErr) {
+        console.error(
+          "❌ Commission calculation/store error (staff):",
+          staffCommissionErr,
+        );
+        // Do not fail the billing creation if commission creation fails
+      }
 
-          // Calculate commission
-          let commissionAmount = Number(
-            ((adjustedAmount * commissionPercent) / 100).toFixed(2)
+      // Billed person (clinicUser) commission for directly added services
+      // directBilling layer: When directBilling is true (direct/walk-in billing),
+      // commission is calculated for the invoicedBy person on the direct treatment share.
+      // When directBilling is false (appointment-based treatment), billed person commission is skipped.
+      // Note: Package portion is handled separately by the Package Sold By Person commission block.
+      try {
+        // When directBilling is true, invoicedBy person gets commission on directCommissionablePaidAmount (direct treatment share only, excluding package)
+        const billedPersonCommissionablePaidAmount =
+          directCommissionablePaidAmount;
+        const billedPersonReferralShare = referralShareForDirect;
+
+        // Check if we should calculate commission for the billed person
+        if (directBilling && billedPersonCommissionablePaidAmount > 0) {
+          // Calculate adjusted paid amount: subtract referral commission share
+          const adjustedBilledPersonPaidAmount = Math.max(
+            0,
+            billedPersonCommissionablePaidAmount - billedPersonReferralShare,
           );
 
-          // Now apply bank deduction to commission amount if applyOn is "earned"
-          if (applyDeductionAfterCommission) {
-            let deductionAmount = 0;
-
-            if (selectedBankPaymentDetails.type === "flat") {
-              deductionAmount = Number(selectedBankPaymentDetails.value);
-            } else if (selectedBankPaymentDetails.type === "percentage") {
-              deductionAmount = (commissionAmount * Number(selectedBankPaymentDetails.value)) / 100;
-            }
-
-            // Apply deduction
-            commissionAmount = Math.max(0, commissionAmount - deductionAmount);
-            commissionAmount = Number(commissionAmount.toFixed(2));
-
-            bankDeductionResult = {
-              enabled: true,
-              type: selectedBankPaymentDetails.type,
-              value: selectedBankPaymentDetails.value,
-              applyOn: selectedBankPaymentDetails.applyOn,
-              deductionAmount: Number(deductionAmount.toFixed(2)),
-              finalEarnedAmount: commissionBaseAmount,
-              finalPaidAmount: baseAmount,
-              deductionApplied: true
-            };
-          }
-
-          // Set commission base amount (for logging purposes, already defined above)
-          const finalCommissionBaseAmount = selectedBankPaymentDetails.enabled && selectedBankPaymentDetails.applyOn === "paid" ? adjustedAmount : baseAmount;
-
-          // Create commission entry
-          await Commission.create({
+          // Use the same commission calculator for consistency
+          const commissionResult = await calculateCommissionForStaff({
+            staffId: clinicUser._id,
             clinicId: clinic._id,
-            source: "staff",
-            staffId: packageSoldByUserId,
-            commissionType: "flat",
-            appointmentId: appointment._id,
+            paidAmount: adjustedBilledPersonPaidAmount,
+            earnedAmount: earnedAmountForCommission,
             patientId: patientRegistration._id,
-            billingId: billing._id,
-            commissionPercent,
-            amountPaid: baseAmount, // Store the base session value
-            commissionAmount,
-            commissionBaseAmount,
-            finalCommissionAmount: commissionAmount,
-            invoicedDate: new Date(invoicedDate),
-            notes: "Package sold by person commission",
-            createdBy: clinicUser._id,
-            paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
-            multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
-            bankDeduction: {
-              enabled: bankDeductionResult.enabled,
-              type: bankDeductionResult.type,
-              value: bankDeductionResult.value,
-              applyOn: bankDeductionResult.applyOn,
-              deductionAmount: bankDeductionResult.deductionAmount
-            }
+            appointmentId: appointment?._id, // Use appointment if exists, otherwise undefined
+            currentBillingId: billing._id,
+            bankPaymentDetails: selectedBankPaymentDetails,
           });
+
+          if (commissionResult.shouldCreateCommission) {
+            const commissionType = commissionResult.commissionType;
+
+            // Determine commission base amount (same as existing logic)
+            let commissionBaseAmount;
+            if (
+              commissionResult.bankDeduction.deductionApplied &&
+              selectedBankPaymentDetails.applyOn === "paid"
+            ) {
+              commissionBaseAmount =
+                commissionResult.bankDeduction.finalPaidAmount ||
+                adjustedBilledPersonPaidAmount;
+            } else {
+              commissionBaseAmount = adjustedBilledPersonPaidAmount;
+            }
+
+            if (commissionType === "target_based") {
+              commissionBaseAmount = commissionResult.amountAboveTarget || 0;
+            } else if (commissionType === "after_deduction") {
+              commissionBaseAmount = commissionResult.netAmount || 0;
+            } else if (commissionType === "target_plus_expense") {
+              commissionBaseAmount =
+                commissionResult.netCommissionableAmount || 0;
+            }
+
+            const commissionData = {
+              clinicId: clinic._id,
+              source: "staff",
+              staffId: clinicUser._id,
+              commissionType: commissionResult.commissionType,
+              appointmentId: appointment?._id || null,
+              patientId: patientRegistration._id,
+              billingId: billing._id,
+              commissionPercent: commissionResult.commissionPercentage,
+              amountPaid: billedPersonCommissionablePaidAmount, // Direct treatment share (excludes package)
+              commissionAmount: commissionResult.commissionAmount,
+              invoicedDate: new Date(invoicedDate),
+              notes: "Billed person commission",
+              createdBy: clinicUser._id,
+              paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
+              multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
+              bankDeduction: {
+                enabled: commissionResult.bankDeduction?.enabled || false,
+                type: commissionResult.bankDeduction?.type,
+                value: commissionResult.bankDeduction?.value,
+                applyOn: commissionResult.bankDeduction?.applyOn,
+                deductionAmount:
+                  commissionResult.bankDeduction?.deductionAmount,
+              },
+              referralCommissionDeducted: referralShareForDirect,
+              commissionBaseAmount,
+              finalCommissionAmount: commissionResult.commissionAmount || 0,
+            };
+
+            // Add target-based specific fields if applicable
+            if (commissionType === "target_based") {
+              commissionData.targetAmount = commissionResult.targetAmount || 0;
+              commissionData.cumulativeAchieved =
+                commissionResult.cumulativeAchieved || 0;
+              commissionData.isAboveTarget =
+                commissionResult.isAboveTarget || false;
+            }
+
+            // Add after_deduction specific fields if applicable
+            if (commissionType === "after_deduction") {
+              commissionData.totalExpenses =
+                commissionResult.totalExpenses || 0;
+              commissionData.netAmount = commissionResult.netAmount || 0;
+              commissionData.expenseBreakdown =
+                commissionResult.expenseBreakdown || [];
+              commissionData.complaintsCount =
+                commissionResult.complaintsCount || 0;
+              commissionData.lastBillingDate =
+                commissionResult.lastBillingDate || null;
+              commissionData.lastBillingInvoice =
+                commissionResult.lastBillingInvoice || null;
+              commissionData.isFirstBilling =
+                commissionResult.isFirstBilling || false;
+            }
+
+            // Add target_plus_expense specific fields if applicable
+            if (commissionType === "target_plus_expense") {
+              commissionData.targetAmount = commissionResult.targetAmount || 0;
+              commissionData.cumulativeAchieved =
+                commissionResult.cumulativeAchieved || 0;
+              commissionData.isAboveTarget =
+                commissionResult.isAboveTarget || false;
+              commissionData.amountAboveTarget =
+                commissionResult.amountAboveTarget || 0;
+              commissionData.totalExpenses =
+                commissionResult.totalExpenses || 0;
+              commissionData.netCommissionableAmount =
+                commissionResult.netCommissionableAmount || 0;
+              commissionData.expenseBreakdown =
+                commissionResult.expenseBreakdown || [];
+              commissionData.complaintsCount =
+                commissionResult.complaintsCount || 0;
+            }
+
+            await Commission.create(commissionData);
+          } else {
+          }
+        } else {
+          if (!(directCommissionablePaidAmount > 0)) {
+          }
+        }
+      } catch (billedPersonCommissionErr) {
+        // Do not fail the billing creation if commission creation fails
+      }
+
+      // Package Sold By Person commission
+      try {
+        // Fallback: if packageSoldByUserId is still null but there's a package amount,
+        // resolve from the patient's profile (package may have been newly assigned during this billing)
+        if (!packageSoldByUserId && hasPackagePayload && packageAmount > 0) {
+          const freshPatientForPkg = await PatientRegistration.findById(
+            patientRegistration._id,
+          ).lean();
+          const matchedPkg = freshPatientForPkg?.packages?.find(
+            (p) =>
+              String(p.packageId) === String(pkgDoc?._id) ||
+              p.packageName === packageName,
+          );
+          if (matchedPkg) {
+            if (matchedPkg.packageSoldByUserId) {
+              packageSoldByUserId = matchedPkg.packageSoldByUserId;
+            } else if (matchedPkg.packageSoldBy) {
+              // Resolve name to userId
+              const pkgSoldByName = matchedPkg.packageSoldBy.trim();
+              const foundPkgUser = await User.findOne({
+                clinicId: clinic._id,
+                $or: [
+                  { name: pkgSoldByName },
+                  {
+                    $expr: {
+                      $eq: [
+                        { $concat: ["$firstName", " ", "$lastName"] },
+                        pkgSoldByName,
+                      ],
+                    },
+                  },
+                ],
+              }).lean();
+              if (foundPkgUser) {
+                packageSoldByUserId = foundPkgUser._id;
+              }
+            }
+            // Also update payment status from the newly assigned package
+            if (matchedPkg.paymentStatus) {
+              packagePaymentStatus = matchedPkg.paymentStatus;
+            }
+          }
+          // If still not resolved, use clinicUser (the person who created this billing/package)
+          if (!packageSoldByUserId) {
+            packageSoldByUserId = clinicUser._id;
+          }
+        }
+
+        // For package sold by person commission:
+        // - hasPackageTreatments: billing sessions from existing package (totalPackageSessionValue > 0)
+        // - hasPackagePayload && !hasPackageTreatments: new package purchase without consuming sessions (packageAmount > 0)
+        const shouldCalculatePackageCommission =
+          (hasPackageTreatments || (hasPackagePayload && packageAmount > 0)) &&
+          packageSoldByUserId &&
+          (packagePaymentStatus === "Full" ||
+            packagePaymentStatus === "Partial" ||
+            packagePaymentStatus === "paid");
+
+        if (shouldCalculatePackageCommission) {
+          // Check if packageSoldByUser has commission configured
+          const soldByAgentProfile = await AgentProfile.findOne({
+            userId: packageSoldByUserId,
+          });
+
+          if (
+            soldByAgentProfile &&
+            soldByAgentProfile.commissionPercentage &&
+            soldByAgentProfile.commissionPercentage > 0
+          ) {
+            // Calculate commission for sold by person
+            const commissionPercent = Number(
+              soldByAgentProfile.commissionPercentage,
+            );
+
+            // Check if we need to apply bank deduction before or after commission
+            const applyDeductionAfterCommission =
+              selectedBankPaymentDetails.enabled &&
+              selectedBankPaymentDetails.applyOn === "earned";
+
+            // For package commission base amount:
+            // - If hasPackageTreatments: use totalPackageSessionValue (session-based billing)
+            // - If new package purchase: use packageAmount (full package price)
+            const commissionBaseAmount = hasPackageTreatments
+              ? totalPackageSessionValue
+              : packageAmount;
+
+            let baseAmount = commissionBaseAmount;
+            let adjustedAmount = baseAmount;
+            let bankDeductionResult = {
+              enabled: false,
+              type: null,
+              value: null,
+              applyOn: null,
+              deductionAmount: 0,
+              finalEarnedAmount: commissionBaseAmount,
+              finalPaidAmount: commissionBaseAmount,
+              deductionApplied: false,
+            };
+
+            if (
+              selectedBankPaymentDetails.enabled &&
+              !applyDeductionAfterCommission
+            ) {
+              // Apply bank deduction first (applyOn: paid)
+              bankDeductionResult = calculateBankDeduction({
+                earnedAmount: commissionBaseAmount,
+                paidAmount: baseAmount,
+                bankPaymentDetails: selectedBankPaymentDetails,
+              });
+              adjustedAmount = bankDeductionResult.finalPaidAmount;
+            }
+
+            // Calculate commission
+            let commissionAmount = Number(
+              ((adjustedAmount * commissionPercent) / 100).toFixed(2),
+            );
+
+            // Now apply bank deduction to commission amount if applyOn is "earned"
+            if (applyDeductionAfterCommission) {
+              let deductionAmount = 0;
+
+              if (selectedBankPaymentDetails.type === "flat") {
+                deductionAmount = Number(selectedBankPaymentDetails.value);
+              } else if (selectedBankPaymentDetails.type === "percentage") {
+                deductionAmount =
+                  (commissionAmount *
+                    Number(selectedBankPaymentDetails.value)) /
+                  100;
+              }
+
+              // Apply deduction
+              commissionAmount = Math.max(
+                0,
+                commissionAmount - deductionAmount,
+              );
+              commissionAmount = Number(commissionAmount.toFixed(2));
+
+              bankDeductionResult = {
+                enabled: true,
+                type: selectedBankPaymentDetails.type,
+                value: selectedBankPaymentDetails.value,
+                applyOn: selectedBankPaymentDetails.applyOn,
+                deductionAmount: Number(deductionAmount.toFixed(2)),
+                finalEarnedAmount: commissionBaseAmount,
+                finalPaidAmount: baseAmount,
+                deductionApplied: true,
+              };
+            }
+
+            // Set commission base amount (for logging purposes, already defined above)
+            const finalCommissionBaseAmount =
+              selectedBankPaymentDetails.enabled &&
+              selectedBankPaymentDetails.applyOn === "paid"
+                ? adjustedAmount
+                : baseAmount;
+
+            // Create commission entry
+            await Commission.create({
+              clinicId: clinic._id,
+              source: "staff",
+              staffId: packageSoldByUserId,
+              commissionType: "flat",
+              appointmentId: appointment._id,
+              patientId: patientRegistration._id,
+              billingId: billing._id,
+              commissionPercent,
+              amountPaid: baseAmount, // Store the base session value
+              commissionAmount,
+              commissionBaseAmount,
+              finalCommissionAmount: commissionAmount,
+              invoicedDate: new Date(invoicedDate),
+              notes: "Package sold by person commission",
+              createdBy: clinicUser._id,
+              paymentMethod: multiPayArr.length > 0 ? undefined : paymentMethod,
+              multiplePayments: multiPayArr.length > 0 ? multiPayArr : [],
+              bankDeduction: {
+                enabled: bankDeductionResult.enabled,
+                type: bankDeductionResult.type,
+                value: bankDeductionResult.value,
+                applyOn: bankDeductionResult.applyOn,
+                deductionAmount: bankDeductionResult.deductionAmount,
+              },
+            });
+          } else {
+          }
         } else {
         }
-      } else {
+      } catch (packageCommissionErr) {
+        console.error(
+          "❌ Commission calculation/store error (package):",
+          packageCommissionErr,
+        );
+        // Do not fail the billing creation if commission creation fails
       }
-    } catch (packageCommissionErr) {
-      console.error("❌ Commission calculation/store error (package):", packageCommissionErr);
-      // Do not fail the billing creation if commission creation fails
-    }
     } /* end if(false) */
 
     // ============================================================
@@ -2979,24 +3411,102 @@ export default async function handler(req, res) {
     try {
       // Quick verification: check if ledger row was actually created
       try {
-        const { default: PatientPendingLedger } = await import(
-          "../../../models/PatientPendingLedger"
-        );
+        const { default: PatientPendingLedger } =
+          await import("../../../models/PatientPendingLedger");
         const ledgerCount = await PatientPendingLedger.countDocuments({
           parentBillingId: billing._id,
         });
-
       } catch (verifyErr) {
-        console.warn("[PendingLedger] Verification query failed:", verifyErr.message);
+        console.warn(
+          "[PendingLedger] Verification query failed:",
+          verifyErr.message,
+        );
       }
 
       const refreshed = await Billing.findById(billing._id).lean();
       if (refreshed) {
-
         billingForResponse = refreshed;
       }
-    } catch (refreshErr) {
+    } catch (refreshErr) {}
 
+    // ============================================================
+    // Dispatch notifications for payment
+    // ============================================================
+    if (billing) {
+      // For Full Payment
+      if (billing.pending <= 0) {
+        dispatchNotifications({
+          clinicId: billing.clinicId?.toString(),
+          patientId: billing.patientId?.toString(),
+          packageId: billing.packageId?.toString(),
+          billingId: billing._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+
+        if (billing.advance > 0) {
+          dispatchNotifications({
+            clinicId: billing.clinicId?.toString(),
+            patientId: billing.patientId?.toString(),
+            packageId: billing.packageId?.toString(),
+            billingId: billing._id,
+            notificationTypeKey: NOTIFICATION_TYPES.BALANCE_PENDING,
+            notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+          });
+        }
+      }
+
+      // ========================================
+      // For Partial Payment
+      // ========================================
+      if (billing.pending > 0) {
+        dispatchNotifications({
+          clinicId: billing.clinicId?.toString(),
+          patientId: billing.patientId?.toString(),
+          packageId: billing.packageId?.toString(),
+          billingId: billing._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PARTIAL_PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+        dispatchNotifications({
+          clinicId: billing.clinicId?.toString(),
+          patientId: billing.patientId?.toString(),
+          packageId: billing.packageId?.toString(),
+          billingId: billing._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_DUE,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      }
+
+      // ========================================
+      // For Offer Redemed
+      // ========================================
+
+      if (usedFreeSessions?.length > 0 || cashbackWalletUsed > 0) {
+        dispatchNotifications({
+          clinicId: billing.clinicId?.toString(),
+          patientId: billing.patientId?.toString(),
+          packageId: billing.packageId?.toString(),
+          billingId: billing._id,
+          notificationTypeKey: NOTIFICATION_TYPES.OFFER_REDEEMED,
+          notificationCategory: NOTIFICATION_CATEGORIES.OFFER,
+        });
+      }
+
+      // ========================================
+      // For
+      // ========================================
+
+      if (billing.selectedPackageTreatments?.length > 0) {
+        dispatchNotifications({
+          clinicId: billing.clinicId?.toString(),
+          patientId: billing.patientId?.toString(),
+          packageId: billing.packageId?.toString(),
+          billingId: billing._id,
+          notificationTypeKey: NOTIFICATION_TYPES.SESSION_USED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
+        });
+      }
     }
 
     return res.status(201).json({
@@ -3013,7 +3523,6 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to create billing",

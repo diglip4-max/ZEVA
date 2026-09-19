@@ -4,6 +4,13 @@ import Clinic from "../../../../../models/Clinic";
 import PatientRegistration from "../../../../../models/PatientRegistration";
 import { getUserFromReq } from "../../../lead-ms/auth";
 
+// Dispatch Payment Received Notifications
+import { dispatchNotifications } from "../../../../../services/notification";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "../../../../../lib/notifications";
+
 export default async function handler(req, res) {
   await dbConnect();
 
@@ -120,6 +127,17 @@ export default async function handler(req, res) {
     });
 
     await billing.save();
+
+    // Dispatch payment received notification
+    if (amount > 0) {
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        billingId: billing._id,
+        notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+        notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+      });
+    }
 
     return res.status(200).json({
       success: true,

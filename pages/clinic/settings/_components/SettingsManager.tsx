@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/router";
 import useClinic from "@/hooks/useClinic";
 import NotificationSettingsTab from "./NotificationSettingsTab";
+import useSettingPermission from "../_hooks/useSettingPermission";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,450;9..144,560;9..144,650&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -14,6 +15,7 @@ const FONTS = `
 
 export default function SettingsManager() {
   const router = useRouter();
+  const pathname = router.asPath;
   const searchParams = useSearchParams();
   const currentTab = searchParams.get("view") || "notifications";
   const { clinic } = useClinic();
@@ -27,6 +29,23 @@ export default function SettingsManager() {
     label: string;
     icon: React.ComponentType<{ size?: number; className?: string }>;
   }[] = [{ id: "notifications", label: "Notifications", icon: Bell }];
+
+  const parentModuleKey = "clinic_settings";
+  const moduleKey = React.useMemo(() => {
+    if (activeTab === "notifications") {
+      return "clinic_notification_settings";
+    }
+
+    return `clinic_settings_${activeTab}`;
+  }, [activeTab]);
+  const permissionData = useSettingPermission({
+    moduleKey,
+    parentModuleKey,
+  });
+
+  React.useEffect(() => {
+    setActiveTab(currentTab as any);
+  }, [currentTab]);
 
   return (
     <div>
@@ -51,34 +70,43 @@ export default function SettingsManager() {
           </div>
           <div className="relative w-full px-6 sm:px-10 pb-4">
             <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 rounded-full p-1">
-              {tabs.map((t) => {
-                const TabIcon = t.icon;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setActiveTab(t.id);
-                      router.push(`/clinic/settings?view=${t.id}`, undefined, {
-                        shallow: true,
-                      });
-                    }}
-                    className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 flex items-center gap-2 ${
-                      activeTab === t.id
-                        ? "bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-sm border border-slate-200/80 dark:border-slate-600/50"
-                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
-                    }`}
-                  >
-                    <TabIcon size={16} />
-                    {t.label}
-                  </button>
-                );
-              })}
+              {pathname.includes("/clinic/settings") &&
+                tabs.map((t) => {
+                  const TabIcon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setActiveTab(t.id);
+                        router.push(
+                          `/clinic/settings?view=${t.id}`,
+                          undefined,
+                          {
+                            shallow: true,
+                          },
+                        );
+                      }}
+                      className={`px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 flex items-center gap-2 ${
+                        activeTab === t.id
+                          ? "bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-sm border border-slate-200/80 dark:border-slate-600/50"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                      }`}
+                    >
+                      <TabIcon size={16} />
+                      {t.label}
+                    </button>
+                  );
+                })}
             </div>
           </div>
         </div>
 
         <div className="w-full px-6 sm:px-12 py-8 sm:py-12">
-          <>{activeTab === "notifications" && <NotificationSettingsTab />}</>
+          <>
+            {activeTab === "notifications" && (
+              <NotificationSettingsTab {...permissionData} />
+            )}
+          </>
         </div>
       </div>
     </div>

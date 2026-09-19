@@ -36,6 +36,7 @@ import {
   Loader2,
   Reply,
   Link2,
+  ArrowLeft,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import useNotificationLogs, {
@@ -44,6 +45,7 @@ import useNotificationLogs, {
   NotificationStatus,
 } from "../_hooks/useNotificationLogs";
 import { FaWhatsapp } from "react-icons/fa";
+import { useRouter } from "next/router";
 
 // ============================================================
 // CHANNEL & CATEGORY META
@@ -1289,6 +1291,7 @@ const FilterDropdown: React.FC<{
 // ============================================================
 
 const NotificationLogs: React.FC = () => {
+  const router = useRouter();
   const {
     logs,
     analytics,
@@ -1350,35 +1353,65 @@ const NotificationLogs: React.FC = () => {
       `}</style>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
-        <div>
-          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-[#C9A86C] mb-2.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#C9A86C]" />
-            Zeva · Communications
+      <div className="mb-8">
+        {/* Row 1: Back + eyebrow */}
+        <button
+          onClick={() => router.back()}
+          className="group inline-flex items-center gap-1.5 text-[12px] font-medium text-[#94A3B8] dark:text-[#64748B] hover:text-[#1A1A2E] dark:hover:text-[#E8E8F0] transition-colors mb-5"
+        >
+          <ArrowLeft
+            size={14}
+            className="transition-transform group-hover:-translate-x-0.5"
+          />
+          Back
+        </button>
+
+        {/* Row 2: Title + description (left) — Action button (right) */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#C9A86C] mb-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C9A86C]" />
+              Zeva · Communications
+            </div>
+            <h2 className="m-0 font-display text-[clamp(26px,3.5vw,36px)] font-semibold tracking-tight text-[#1A1A2E] dark:text-[#E8E8F0] leading-tight">
+              Notification Logs
+            </h2>
+            <p className="m-0 mt-1.5 text-sm text-[#94A3B8] dark:text-[#64748B]">
+              Complete delivery history and patient engagement metrics.
+            </p>
           </div>
-          <h2 className="m-0 font-display text-[clamp(28px,3.5vw,38px)] font-semibold tracking-tight text-[#1A1A2E] dark:text-[#E8E8F0]">
-            Notification Logs
-          </h2>
-          <p className="m-0 mt-2 text-sm text-[#94A3B8] dark:text-[#64748B]">
-            Complete delivery history and patient engagement metrics.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1a1f2e] border border-[#E8E3D8] dark:border-[#2a2f3e] text-[11px] font-semibold text-[#475569] dark:text-[#CBD5E1] shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            {loading ? "..." : analytics.delivered} delivered
-          </div>
-          <div className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-[#1a1f2e] border border-[#E8E3D8] dark:border-[#2a2f3e] text-[11px] font-semibold text-[#475569] dark:text-[#CBD5E1] shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            {loading ? "..." : analytics.failed} failed
-          </div>
+
           <button
             onClick={refetch}
-            className="p-2 rounded-xl bg-white dark:bg-[#1a1f2e] border border-[#E8E3D8] dark:border-[#2a2f3e] text-[#94A3B8] hover:text-[#1A1A2E] dark:hover:text-[#E8E8F0] transition-colors shadow-sm"
-            title="Refresh"
+            disabled={loading}
+            className="shrink-0 inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-white dark:bg-[#1a1f2e] border border-[#E8E3D8] dark:border-[#2a2f3e] text-sm font-medium text-[#475569] dark:text-[#CBD5E1] hover:border-[#C9A86C]/50 hover:text-[#1A1A2E] dark:hover:text-[#E8E8F0] transition-colors shadow-sm disabled:opacity-60"
           >
-            <Loader2 size={16} className={loading ? "animate-spin" : ""} />
+            <Loader2 size={15} className={loading ? "animate-spin" : ""} />
+            Refresh
           </button>
+        </div>
+
+        {/* Row 3: Stats strip */}
+        <div className="mt-6 flex items-center gap-6 px-5 py-4 rounded-2xl bg-white dark:bg-[#1a1f2e] border border-[#E8E3D8] dark:border-[#2a2f3e] shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            <span className="text-[13px] text-[#94A3B8] dark:text-[#64748B]">
+              Delivered
+            </span>
+            <span className="text-[15px] font-semibold text-[#1A1A2E] dark:text-[#E8E8F0] tabular-nums">
+              {loading ? "—" : analytics.delivered}
+            </span>
+          </div>
+          <div className="w-px h-5 bg-[#E8E3D8] dark:bg-[#2a2f3e]" />
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+            <span className="text-[13px] text-[#94A3B8] dark:text-[#64748B]">
+              Failed
+            </span>
+            <span className="text-[15px] font-semibold text-[#1A1A2E] dark:text-[#E8E8F0] tabular-nums">
+              {loading ? "—" : analytics.failed}
+            </span>
+          </div>
         </div>
       </div>
 

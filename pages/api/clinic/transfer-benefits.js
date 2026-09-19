@@ -710,20 +710,18 @@ export default async function handler(req, res) {
       // Dispatch Package Transfer Notifications
       dispatchNotifications({
         clinicId: clinicId?.toString(),
-        patientId: target._id,
+        patientId: source._id,
+        toPatientId: target._id,
         packageId,
         notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_TRANSFERRED,
         notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
-        // packageName,
-        // isUserPackage,
-        // transferredSessions: sessionsToTransfer,
-        // paymentStatus: actualPaymentStatus,
-        // paidAmount:
-        //   actualPaymentStatus === "Full" ? pkg.totalPrice || 0 : paidAmount,
-        // paymentMethod,
-        // transferDate: new Date(),
-        // transferredByName: user.name || "",
-        // transferredByRole: user.role || "",
+      });
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: target._id,
+        packageId,
+        notificationTypeKey: NOTIFICATION_TYPES.SESSION_RECEIVED,
+        notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
       });
 
       return res.status(200).json({

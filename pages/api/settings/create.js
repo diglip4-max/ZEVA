@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
   try {
     const notificationSettingsData = notificationData.map((item) => ({
-      clinicId,
+      clinicId: clinicId,
       notificationTypeKey: item.notificationTypeKey,
       category: item.category,
       label: item.label,
@@ -75,6 +75,8 @@ export default async function handler(req, res) {
       respectMarketingPreference: item.respectMarketingPreference,
       preventDuplicateForSameEvent: item.preventDuplicateForSameEvent,
     }));
+
+    console.log("data: ", notificationSettingsData[0]);
 
     const setting = await Setting.findOne({ clinicId });
 

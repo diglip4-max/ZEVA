@@ -447,14 +447,59 @@ export default async function handler(req, res) {
       );
     }
 
-    // Dispatch Package Purchased Notifications
-    dispatchNotifications({
-      clinicId: clinicId?.toString(),
-      patientId: patientId,
-      packageId: packageId || null,
-      notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_PURCHASED,
-      notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
-    });
+    if (packageId) {
+      // Dispatch Package Purchased Notifications
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        packageId: packageId,
+        notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_PURCHASED,
+        notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
+      });
+
+      // Dispatch Package Purchased Notifications
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        packageId: packageId,
+        notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_ACTIVATED,
+        notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
+      });
+    }
+
+    // Dispatch Payment Received Full and Partial Notifications
+    if (
+      packageId &&
+      (actualPaymentStatus === "Full" || actualPaymentStatus === "Partial")
+    ) {
+      if (actualPaymentStatus === "Full") {
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          packageId: packageId,
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      } else if (actualPaymentStatus === "Partial") {
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          packageId: packageId,
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PARTIAL_PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          packageId: packageId,
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_DUE,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      }
+    }
 
     return res.status(201).json({
       success: true,

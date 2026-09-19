@@ -32,8 +32,11 @@ import Message from "../models/Message.js";
 import Workflow from "../models/workflows/Workflow.js";
 import {
   getAppointmentDetails,
+  getBillingDetails,
   getLeadDetails,
   getMessageDetails,
+  getOfferDetails,
+  getPackageDetails,
   getPatientByLeadId,
   getPatientDetails,
   getSystemDetails,
@@ -2110,7 +2113,7 @@ const scheduleWhatsappCampaignWorker = new Worker(
 
     try {
       const campaign = await Campaign.findById(campaignId).select(
-        "name recipients status userId clinicId sender type template content mediaType mediaUrl lastProcessedBatch totalMessages sentMessages failedMessages headerParameters bodyParameters source headerVariableMappings buttonVariableMappings variableMappings",
+        "name recipients status userId clinicId sender type template content mediaType mediaUrl lastProcessedBatch totalMessages sentMessages failedMessages headerParameters bodyParameters source headerVariableMappings buttonVariableMappings variableMappings offerId",
       );
       if (!campaign) {
         console.log("Campaign not found for campaignId: ", campaignId);
@@ -2315,6 +2318,24 @@ const scheduleWhatsappCampaignWorker = new Worker(
               systemPayload,
             );
             content = replaceVariableInString(content, "", variableMappings);
+
+            const offerPayload = await getOfferDetails(campaign.offerId);
+            variableMappings = replaceVariableInObject(
+              variableMappings,
+              "offer",
+              offerPayload,
+            );
+            headerVariableMappings = replaceVariableInObject(
+              headerVariableMappings,
+              "offer",
+              offerPayload,
+            );
+            buttonVariableMappings = replaceVariableInObject(
+              buttonVariableMappings,
+              "offer",
+              offerPayload,
+            );
+            content = replaceVariableInString(content, "offer", offerPayload);
 
             // Make an array of header, button and body parameters for whatsapp message
             let headerParameters = [];
@@ -3379,7 +3400,7 @@ const listImapIncomingEmailWorker = new Worker(
 export const notificationWorker = new Worker(
   "notificationQueue",
   async (job) => {
-    const {
+    let {
       clinicId,
       notificationTypeKey,
       notificationCategory,
@@ -3389,13 +3410,18 @@ export const notificationWorker = new Worker(
       channel,
       recipient,
       leadId,
+      // Optional fields
       patientId,
+      appointmentId,
+      packageId,
+      billingId,
+      offerId,
       priority,
       providerId,
       templateId,
       mediaType,
       mediaUrl,
-      variableMappings,
+      variableMappings = {},
       headerVariableMappings = {},
       buttonVariableMappings = {},
       attachments,
@@ -3404,6 +3430,96 @@ export const notificationWorker = new Worker(
     console.log(`Dispatching notification to channel: ${channel}`);
 
     try {
+      // Get details for optional fields
+      const patientPayload = await getPatientDetails(patientId);
+      const appointmentPayload = await getAppointmentDetails(appointmentId);
+      const packagePayload = await getPackageDetails(packageId);
+      const billingPayload = await getBillingDetails(billingId);
+      const offerPayload = await getOfferDetails(offerId);
+
+      // Replace header, button and body variables with patient details
+      // TODO: Add more fields as needed
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "patient",
+        patientPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "patient",
+        patientPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "patient",
+        patientPayload,
+      );
+
+      // Replace appointment details
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "appointment",
+        appointmentPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "appointment",
+        appointmentPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "appointment",
+        appointmentPayload,
+      );
+      // Replace package details
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "package",
+        packagePayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "package",
+        packagePayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "package",
+        packagePayload,
+      );
+      // Replace billing details
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "billing",
+        billingPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "billing",
+        billingPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "billing",
+        billingPayload,
+      );
+      // Replace offer details
+      headerVariableMappings = replaceVariableInObject(
+        headerVariableMappings,
+        "offer",
+        offerPayload,
+      );
+      buttonVariableMappings = replaceVariableInObject(
+        buttonVariableMappings,
+        "offer",
+        offerPayload,
+      );
+      variableMappings = replaceVariableInObject(
+        variableMappings,
+        "offer",
+        offerPayload,
+      );
+
       // Make an array of header, button and body parameters for whatsapp message
       let headerParameters = [];
       if (headerVariableMappings) {
@@ -3488,6 +3604,17 @@ export const notificationWorker = new Worker(
       }
 
       let content = template.content;
+
+      // Replace content with actual values
+      content = replaceVariableInString(content, "patient", patientPayload);
+      content = replaceVariableInString(
+        content,
+        "appointment",
+        appointmentPayload,
+      );
+      content = replaceVariableInString(content, "package", packagePayload);
+      content = replaceVariableInString(content, "billing", billingPayload);
+      content = replaceVariableInString(content, "offer", offerPayload);
 
       // Create message
       const newMessage = new Message({

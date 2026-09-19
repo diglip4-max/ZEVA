@@ -6,25 +6,32 @@ import { notificationData } from "../../../lib/notifications/index";
 
 export default async function handler(req, res) {
   if (!["GET", "PATCH"].includes(req.method)) {
-    return res.status(405).json({ success: false, message: "Method Not Allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method Not Allowed" });
   }
 
   try {
     await dbConnect();
   } catch (error) {
     console.error("DB connect error:", error);
-    return res.status(500).json({ success: false, message: "Internal Server Error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal Server Error" });
   }
 
   const me = await getUserFromReq(req);
   if (!me) {
-    return res.status(401).json({ success: false, message: "Not authenticated" });
+    return res
+      .status(401)
+      .json({ success: false, message: "Not authenticated" });
   }
 
   if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])) {
     return res.status(403).json({
       success: false,
-      message: "Access denied. Only clinic staff can manage notification settings.",
+      message:
+        "Access denied. Only clinic staff can manage notification settings.",
     });
   }
 
@@ -32,13 +39,22 @@ export default async function handler(req, res) {
   let clinicId;
   if (me.role === "clinic") {
     const clinic = await Clinic.findOne({ owner: me._id });
-    if (!clinic) return res.status(400).json({ success: false, message: "Clinic not found" });
+    if (!clinic)
+      return res
+        .status(400)
+        .json({ success: false, message: "Clinic not found" });
     clinicId = clinic._id;
   } else if (me.role === "admin") {
     clinicId = req.query.clinicId || req.body?.clinicId;
-    if (!clinicId) return res.status(400).json({ success: false, message: "clinicId required for admin" });
+    if (!clinicId)
+      return res
+        .status(400)
+        .json({ success: false, message: "clinicId required for admin" });
   } else {
-    if (!me.clinicId) return res.status(400).json({ success: false, message: "Not tied to a clinic" });
+    if (!me.clinicId)
+      return res
+        .status(400)
+        .json({ success: false, message: "Not tied to a clinic" });
     clinicId = me.clinicId;
   }
 
@@ -62,19 +78,28 @@ export default async function handler(req, res) {
         settingDoc = await Setting.create({
           clinicId,
           notificationSetting: notificationData.map((n) => ({
+            clinicId,
             notificationTypeKey: n.notificationTypeKey,
             category: n.category,
             label: n.label,
-            isEnabled: n.isEnabled,
+            isEnabled: false,
             isProtected: n.isProtected,
-            trigger: { event: n.trigger.event, conditions: n.trigger.conditions || {} },
-            channels: n.channels.map((ch) => ({
+            trigger: {
+              event: n.trigger.event,
+              conditions: n.trigger.conditions || {},
+            },
+            channels: n.channels.map((ch, index) => ({
               channel: ch.channel,
               recipient: ch.recipient,
-              isEnabled: ch.isEnabled,
-              priority: ch.priority,
+              isEnabled: false,
+              providerId: null,
+              templateId: null,
+              priority: ch.priority || index + 1,
             })),
-            timing: { mode: n.timing.mode, offsetMinutes: n.timing.offsetMinutes },
+            timing: {
+              mode: n.timing.mode,
+              offsetMinutes: n.timing.offsetMinutes,
+            },
             bypassQuietHours: n.bypassQuietHours,
             respectMarketingPreference: n.respectMarketingPreference,
             preventDuplicateForSameEvent: n.preventDuplicateForSameEvent,
@@ -102,14 +127,17 @@ export default async function handler(req, res) {
           (s) =>
             s.label.toLowerCase().includes(q) ||
             s.category.toLowerCase().includes(q) ||
-            (s.trigger?.event || "").toLowerCase().includes(q)
+            (s.trigger?.event || "").toLowerCase().includes(q),
         );
       }
 
       const total = settings.length;
       const pageNum = Math.max(1, parseInt(page));
       const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-      const paginated = settings.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+      const paginated = settings.slice(
+        (pageNum - 1) * limitNum,
+        pageNum * limitNum,
+      );
 
       // Analytics over ALL settings (not filtered)
       const all = settingDoc.notificationSetting || [];
@@ -159,11 +187,20 @@ export default async function handler(req, res) {
   // -----------------------------------------------
   if (req.method === "PATCH") {
     try {
-      const { notificationTypeKey, updates, isPaused, quietHours, marketingRules } = req.body;
+      const {
+        notificationTypeKey,
+        updates,
+        isPaused,
+        quietHours,
+        marketingRules,
+      } = req.body;
 
       const settingDoc = await Setting.findOne({ clinicId });
       if (!settingDoc) {
-        return res.status(404).json({ success: false, message: "Settings not found. Perform GET first to initialize." });
+        return res.status(404).json({
+          success: false,
+          message: "Settings not found. Perform GET first to initialize.",
+        });
       }
 
       // Global pause toggle
@@ -182,31 +219,43 @@ export default async function handler(req, res) {
           settingDoc.marketingRules.maxPerWeek = marketingRules.maxPerWeek;
         }
         if (Array.isArray(marketingRules.appliesToCategories)) {
-          settingDoc.marketingRules.appliesToCategories = marketingRules.appliesToCategories;
+          settingDoc.marketingRules.appliesToCategories =
+            marketingRules.appliesToCategories;
         }
       }
 
       // Per-notification update
       if (notificationTypeKey && updates) {
         const idx = settingDoc.notificationSetting.findIndex(
-          (s) => s.notificationTypeKey === notificationTypeKey
+          (s) => s.notificationTypeKey === notificationTypeKey,
         );
 
         if (idx === -1) {
-          return res.status(404).json({ success: false, message: `Notification type "${notificationTypeKey}" not found` });
+          return res.status(404).json({
+            success: false,
+            message: `Notification type "${notificationTypeKey}" not found`,
+          });
         }
 
         const existing = settingDoc.notificationSetting[idx];
 
-        if (typeof updates.isEnabled === "boolean") existing.isEnabled = updates.isEnabled;
-        if (typeof updates.isProtected === "boolean") existing.isProtected = updates.isProtected;
-        if (typeof updates.bypassQuietHours === "boolean") existing.bypassQuietHours = updates.bypassQuietHours;
-        if (typeof updates.respectMarketingPreference === "boolean") existing.respectMarketingPreference = updates.respectMarketingPreference;
-        if (typeof updates.preventDuplicateForSameEvent === "boolean") existing.preventDuplicateForSameEvent = updates.preventDuplicateForSameEvent;
+        if (typeof updates.isEnabled === "boolean")
+          existing.isEnabled = updates.isEnabled;
+        if (typeof updates.isProtected === "boolean")
+          existing.isProtected = updates.isProtected;
+        if (typeof updates.bypassQuietHours === "boolean")
+          existing.bypassQuietHours = updates.bypassQuietHours;
+        if (typeof updates.respectMarketingPreference === "boolean")
+          existing.respectMarketingPreference =
+            updates.respectMarketingPreference;
+        if (typeof updates.preventDuplicateForSameEvent === "boolean")
+          existing.preventDuplicateForSameEvent =
+            updates.preventDuplicateForSameEvent;
 
         if (updates.timing) {
           if (updates.timing.mode) existing.timing.mode = updates.timing.mode;
-          if (typeof updates.timing.offsetMinutes === "number") existing.timing.offsetMinutes = updates.timing.offsetMinutes;
+          if (typeof updates.timing.offsetMinutes === "number")
+            existing.timing.offsetMinutes = updates.timing.offsetMinutes;
         }
 
         if (Array.isArray(updates.channels)) {
@@ -223,7 +272,9 @@ export default async function handler(req, res) {
         success: true,
         message: "Settings updated successfully",
         data: notificationTypeKey
-          ? settingDoc.notificationSetting.find((s) => s.notificationTypeKey === notificationTypeKey)
+          ? settingDoc.notificationSetting.find(
+              (s) => s.notificationTypeKey === notificationTypeKey,
+            )
           : null,
         meta: {
           isPaused: settingDoc.isPaused,
@@ -232,6 +283,7 @@ export default async function handler(req, res) {
         },
       });
     } catch (error) {
+      console.error("Error updating settings:", error);
       return res.status(500).json({ success: false, message: error.message });
     }
   }
