@@ -83,6 +83,12 @@ const maskMobileNumber = (mobile) => {
   return `${firstTwo}${'*'.repeat(middleLength)}${lastTwo}`;
 };
 
+const getInitials = (first, last) => {
+  const f = (first || "").charAt(0).toUpperCase();
+  const l = (last || "").charAt(0).toUpperCase();
+  return f + l || "?";
+};
+
 const ITEMS_PER_PAGE = 12;
 const isRequestStatus = (status) => status === "Completed";
 const isRequestClaim = (claim) => isRequestStatus(claim?.status);
@@ -150,6 +156,7 @@ function ReleaseRequestedClaimsPage() {
   // Previous claims of the patient (for the View modal history section)
   const [patientHistory, setPatientHistory] = useState([]);
   const [patientHistoryLoading, setPatientHistoryLoading] = useState(false);
+  const [activeViewTab, setActiveViewTab] = useState('overview');
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectionNote, setRejectionNote] = useState("");
   const [releaseModal, setReleaseModal] = useState(null);
@@ -836,25 +843,25 @@ function ReleaseRequestedClaimsPage() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <div className="flex items-center gap-2">
-                              <div>
+                        <div className="grid grid-cols-5 gap-2">
+                          <div className="col-span-3 bg-emerald-50 rounded-lg p-2 border border-emerald-100">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <div className="min-w-0">
                                 <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Amount</p>
-                                <p className="text-sm font-bold text-gray-900 dark:text-gray-200">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                                <p className="text-xs font-bold text-gray-900 dark:text-gray-200 whitespace-nowrap">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                               </div>
                               {claim.finalClaimAmount != null && claim.finalClaimAmount !== claim.claimAmount && (
                                 <>
-                                  <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                  <div>
+                                  <ArrowRight className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <div className="min-w-0">
                                     <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tighter">Final</p>
-                                    <p className="text-sm font-bold text-amber-700">{getCurrencySymbol(currency)}{claim.finalClaimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                                    <p className="text-xs font-bold text-amber-700 whitespace-nowrap">{getCurrencySymbol(currency)}{claim.finalClaimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                                   </div>
                                 </>
                               )}
                             </div>
                           </div>
-                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
+                          <div className="col-span-2 bg-emerald-50 rounded-lg p-2 border border-emerald-100">
                             <p className="text-[10px] text-emerald-600 dark:text-emerald-200 font-bold uppercase tracking-tighter">Department</p>
                             <p className="text-xs font-semibold text-gray-900 dark:text-gray-200 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
@@ -1127,217 +1134,121 @@ function ReleaseRequestedClaimsPage() {
       {/* View Modal */}
       {viewModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-2 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto border border-gray-200">
-            <div className={`px-4 sm:px-6 py-3 sm:py-4 border-b sticky top-0 bg-white z-10 flex items-center justify-between ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <h2 className="text-base sm:text-lg font-bold text-black">
-                  {getClaimModalTitle(viewModal)}
-                </h2>
-                <button
-                  onClick={() => setShowTracking(!showTracking)}
-                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all ${showTracking ? "bg-gray-900 text-white shadow-lg" : "bg-white/50 text-gray-700 hover:bg-white/80"}`}
-                >
-                  <Activity className="w-3 h-3" />
-                  {showTracking ? "View Details" : "Track Claim"}
-                </button>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-gray-200">
+            {/* Header */}
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b flex-shrink-0 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-teal-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  {getInitials(viewModal.patientFirstName, viewModal.patientLastName)}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base sm:text-lg font-bold text-black">
+                      {viewModal.patientFirstName} {viewModal.patientLastName}
+                    </h2>
+                    <span className="text-xs font-mono text-gray-400">#{(viewModal._id || "").slice(-6)}</span>
+                    {viewModal.patientGenderAge && <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-bold">{viewModal.patientGenderAge}</span>}
+                    {viewModal.insuranceProvider && <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{viewModal.insuranceProvider}</span>}
+                  </div>
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
+                    {getDisplayStatus(viewModal)}
+                  </span>
+                </div>
               </div>
-              <button onClick={() => { setViewModal(null); setClaimDetails(null); setTextPreview(null); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
+              <button onClick={() => { setViewModal(null); setClaimDetails(null); setTextPreview(null); setActiveViewTab('overview'); }} className="p-2 hover:bg-black/5 rounded-xl transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-              {showTracking ? (
-                <div className="space-y-6 sm:space-y-8 py-2 sm:py-4">
-                  {detailLoading ? (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mb-4"></div>
-                      <p className="text-sm text-gray-500 font-medium">Fetching tracking data...</p>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gray-100"></div>
-
-                      {(() => {
-                        const cd = claimDetails || {};
-                        const vm = viewModal || {};
-                        const allSteps = [];
-                        if (cd.createdAt || vm.createdAt) allSteps.push({ type: "created", date: cd.createdAt || vm.createdAt, title: "Claim Created", name: cd.createdByName || vm.createdByName || "N/A", role: cd.createdByRole || vm.createdByRole || "Staff", label: "Created By" });
-                        if (cd.approvedAt || vm.approvedAt) allSteps.push({ type: "approved", date: cd.approvedAt || vm.approvedAt, title: "Claim Approved by Doctor", name: cd.approvedByName || vm.approvedByName || vm.doctorName, role: cd.approvedByRole || vm.approvedByRole || "Doctor", label: "Reviewer" });
-                        if (cd.rejectedAt || vm.rejectedAt) allSteps.push({ type: "rejected", date: cd.rejectedAt || vm.rejectedAt, title: "Claim Rejected", name: cd.rejectedByName || vm.rejectedByName || vm.doctorName, role: cd.rejectedByRole || vm.rejectedByRole || "Doctor", label: "Reviewer", reason: cd.rejectionReason || vm.rejectionReason });
-                        if (cd.rejectedFromPassClaims) allSteps.push({ type: "rejectPass", date: cd.rejectedFromPassClaimsAt, title: "Rejected from Pass Claims", name: cd.rejectedFromPassClaimsByName, role: cd.rejectedFromPassClaimsByRole || "Clinic Admin", label: "Reviewer" });
-                        if (cd.rejectedFromReleaseRequested) allSteps.push({ type: "rejectRelease", date: cd.rejectedFromReleaseRequestedAt, title: "Rejected from Release", name: cd.rejectedFromReleaseRequestedByName, role: cd.rejectedFromReleaseRequestedByRole || "Clinic Admin", label: "Reviewer" });
-                        if (cd.readyAt || vm.readyAt) allSteps.push({ type: "ready", date: cd.readyAt || vm.readyAt, title: "Claim Checked by Financial Department", subtitle: "Ready", name: cd.readyByName || vm.readyByName, role: cd.readyByRole || vm.readyByRole || "Clinic Admin", label: "Checked By" });
-                        if (cd.releasedAt || vm.releasedAt) allSteps.push({ type: "released", date: cd.releasedAt || vm.releasedAt, title: "Claim Released", name: cd.releasedByName || vm.releasedByName, role: cd.releasedByRole || vm.releasedByRole || "Clinic Admin", label: "Released By" });
-                        if (cd.completedAt || vm.completedAt) allSteps.push({ type: "completed", date: cd.completedAt || vm.completedAt, title: "Claim Completed with Treatment Plan by Doctor", name: cd.completedByName || vm.completedByName, role: cd.completedByRole || vm.completedByRole || "Staff", label: "Completed By" });
-                        allSteps.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                        const iconMap = { created: <FileText className="w-4 h-4 text-purple-600" />, approved: <CheckCircle className="w-4 h-4 text-green-600" />, rejected: <XCircle className="w-4 h-4 text-red-600" />, rejectPass: <AlertCircle className="w-4 h-4 text-orange-600" />, rejectRelease: <AlertCircle className="w-4 h-4 text-orange-600" />, ready: <CheckCircle className="w-4 h-4 text-indigo-600" />, released: <CheckCircle className="w-4 h-4 text-blue-600" />, completed: <CheckCircle className="w-4 h-4 text-purple-600" /> };
-                        const bgMap = { created: "bg-purple-100", approved: "bg-green-100", rejected: "bg-red-100", rejectPass: "bg-orange-100", rejectRelease: "bg-orange-100", ready: "bg-indigo-100", released: "bg-blue-100", completed: "bg-purple-100" };
-                        const badgeColorMap = { created: "text-purple-600 bg-purple-50", approved: "text-green-600 bg-green-50", rejected: "text-red-600 bg-red-50", rejectPass: "text-orange-600 bg-orange-50", rejectRelease: "text-orange-600 bg-orange-50", ready: "text-indigo-600 bg-indigo-50", released: "text-blue-600 bg-blue-50", completed: "text-purple-600 bg-purple-50" };
-
-                        return allSteps.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Activity className="w-12 h-12 text-gray-200 mb-4" />
-                            <p className="text-gray-500 font-medium">No tracking history available for this claim</p>
-                          </div>
-                        ) : (
-                          allSteps.map((step, idx) => (
-                            <div key={step.type} className="flex gap-4 group">
-                              <div className={`relative z-10 w-8 h-8 rounded-full ${bgMap[step.type]} border-4 border-white flex items-center justify-center shadow-sm`}>
-                                {iconMap[step.type]}
-                              </div>
-                              <div className="flex-1 pt-0.5">
-                                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm group-hover:shadow-md transition-shadow">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div>
-                                      <h4 className="text-sm font-bold text-gray-900">{step.title}</h4>
-                                      {step.subtitle && <p className="text-[10px] font-semibold text-indigo-600 mt-0.5">Status: {step.subtitle}</p>}
-                                    </div>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${badgeColorMap[step.type]}`}>Step {idx + 1}</span>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><User className="w-3.5 h-3.5 text-gray-400" /></div>
-                                      <div>
-                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{step.label}</p>
-                                        <p className="text-xs font-semibold text-gray-700">{step.name || "N/A"}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-gray-400" /></div>
-                                      <div>
-                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Role</p>
-                                        <p className="text-xs font-semibold text-gray-700 capitalize">{step.role}</p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 col-span-full">
-                                      <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Clock className="w-3.5 h-3.5 text-gray-400" /></div>
-                                      <div>
-                                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Date & Time</p>
-                                        <p className="text-xs font-semibold text-gray-700">{new Date(step.date).toLocaleString()}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  {step.reason && (
-                                    <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
-                                      <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Reason</p>
-                                      <p className="text-xs text-red-800 leading-relaxed italic">"{step.reason}"</p>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        );
-                      })()}
-                    </div>
-                  )}
+            {/* Summary Row */}
+            <div className="px-4 sm:px-6 py-3 border-b border-gray-100 flex-shrink-0">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Final Amount</p>
+                  <p className="text-sm font-bold text-teal-700">{getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount || viewModal.claimAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
                 </div>
-              ) : (
-                <>
-                  {/* Patient & Insurance Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <User className="w-4 h-4 text-blue-500" /> Patient Information
-                      </h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between border-b border-gray-50 pb-1">
-                          <span className="text-gray-500">First Name:</span>
-                          <span className="font-medium text-gray-900">{viewModal.patientFirstName || "-"}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-50 pb-1">
-                          <span className="text-gray-500">Last Name:</span>
-                          <span className="font-medium text-gray-900">{viewModal.patientLastName || "-"}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-50 pb-1">
-                          <span className="text-gray-500">Mobile:</span>
-                          <span className="font-medium text-gray-900">
-                            {userRole === "doctorStaff"
-                              ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "-")
-                              : (viewModal.patientMobileNumber || "-")}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Gender / Age:</span>
-                          {viewModal.patientGenderAge ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[11px] font-bold">{viewModal.patientGenderAge}</span>
-                          ) : (
-                            <span className="font-medium text-gray-900">-</span>
-                          )}
-                        </div>
-                        {(claimDetails?.emirNumber || viewModal.emirNumber) && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-500 flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-teal-500" /> EMIR #:</span>
-                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.emirNumber || viewModal.emirNumber}</span>
-                          </div>
-                        )}
-                        {(claimDetails?.patientEmrNumber || viewModal.patientEmrNumber) && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-500 flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-indigo-500" /> Patient EMR #:</span>
-                            <span className="font-semibold font-mono text-indigo-700">{claimDetails?.patientEmrNumber || viewModal.patientEmrNumber}</span>
-                          </div>
-                        )}
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Claim Amount</p>
+                  <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)}{(viewModal.claimAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Co-Pay</p>
+                  <p className="text-sm font-bold text-gray-900">{viewModal.coPayPercent || 0}%</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Paid By</p>
+                  <p className="text-sm font-bold text-gray-900">{viewModal.claimType || "—"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-4 sm:px-6 border-b border-gray-100 flex-shrink-0">
+              <div className="flex gap-1">
+                {['overview', 'payment', 'files', 'activity'].map(tab => (
+                  <button key={tab} onClick={() => setActiveViewTab(tab)} className={`px-3 py-2 text-xs font-bold rounded-t-lg transition-colors ${activeViewTab === tab ? 'bg-gray-50 text-teal-700 border-b-2 border-teal-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto flex-1">
+              {activeViewTab === 'overview' && (
+                <div className="p-6 space-y-6">
+                  {/* Patient and insurance */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Patient and insurance</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Patient</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.patientFirstName} {viewModal.patientLastName}{viewModal.patientEmrNumber ? `, ${viewModal.patientEmrNumber}` : ''}</p>
                       </div>
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-green-500" /> Insurance Details
-                      </h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between border-b border-gray-50 pb-1">
-                          <span className="text-gray-500">Provider:</span>
-                          <span className="font-medium text-gray-900">{viewModal.insuranceProvider || "-"}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-gray-50 pb-1">
-                          <span className="text-gray-500">Policy #:</span>
-                          <span className="font-medium text-gray-900">{viewModal.policyNumber || "-"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Expiry Date:</span>
-                          <span className="font-medium text-gray-900">{viewModal.expiryDate ? new Date(viewModal.expiryDate).toLocaleDateString() : "-"}</span>
-                        </div>
-                        {(claimDetails?.invoiceNumber || viewModal.invoiceNumber) && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-500 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-teal-500" /> Invoice #:</span>
-                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.invoiceNumber || viewModal.invoiceNumber}</span>
-                          </div>
-                        )}
-                        {(claimDetails?.transactionId || viewModal.transactionId) && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-500 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-teal-500" /> Transaction ID:</span>
-                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.transactionId || viewModal.transactionId}</span>
-                          </div>
-                        )}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Mobile</p>
+                        <p className="text-sm font-semibold text-gray-900">{userRole === "doctorStaff" ? (viewModal.patientMobileNumber ? maskMobileNumber(viewModal.patientMobileNumber) : "—") : (viewModal.patientMobileNumber || "—")}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Gender / Age</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.patientGenderAge || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Doctor</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.doctorName || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Provider</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.insuranceProvider || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Policy</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.policyNumber || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Valid to</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.expiryDate ? new Date(viewModal.expiryDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : "—"}</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Previous Claims — all prior claims belonging to this patient */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                      <History className="w-4 h-4 text-teal-500" /> Previous Claims
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                        {patientHistoryLoading ? "Loading…" : `${patientHistory.length} previous claim${patientHistory.length === 1 ? "" : "s"} found for this patient`}
-                      </span>
-                    </h3>
+                  {/* Previous Claims */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Previous Claims</h3>
                     {patientHistoryLoading ? (
                       <div className="flex items-center justify-center py-6">
                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-teal-600" />
                       </div>
                     ) : patientHistory.length === 0 ? (
-                      <div className="flex items-center gap-3 py-0.5">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                          <FileText className="w-3.5 h-3.5 text-gray-400" />
-                        </div>
+                      <div className="flex items-center gap-3 py-2">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-3.5 h-3.5 text-gray-400" /></div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-600 leading-tight">No previous claims</p>
                           <p className="text-[11px] text-gray-400 leading-snug">This is the first claim for this patient</p>
                         </div>
                       </div>
                     ) : (
-                      <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                      <div className="divide-y divide-gray-100 max-h-[130px] overflow-y-auto scrollbar-thin">
                         {patientHistory.map((prev) => (
                           <div key={prev._id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${
@@ -1367,12 +1278,224 @@ function ReleaseRequestedClaimsPage() {
                     )}
                   </div>
 
-                  {/* Insurance Files */}
+                  {/* Note from clinic */}
+                  {(viewModal.notes || viewModal.reviewNotes || claimDetails?.planNotes || viewModal.planNotes) && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Notes</h3>
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-3">
+                        {viewModal.notes && (
+                          <div>
+                            <p className="text-xs font-bold text-blue-600 uppercase mb-1">Claim Notes</p>
+                            <p className="text-sm text-blue-900 leading-relaxed">{viewModal.notes}</p>
+                          </div>
+                        )}
+                        {viewModal.reviewNotes && (
+                          <div>
+                            <p className="text-xs font-bold text-blue-600 uppercase mb-1">Reviewer Notes</p>
+                            <p className="text-sm text-blue-900 leading-relaxed">{viewModal.reviewNotes}</p>
+                          </div>
+                        )}
+                        {(claimDetails?.planNotes || viewModal.planNotes) && (
+                          <div>
+                            <p className="text-xs font-bold text-blue-600 uppercase mb-1">Doctor Notes</p>
+                            <p className="text-sm text-blue-900 leading-relaxed">{claimDetails?.planNotes || viewModal.planNotes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {activeViewTab === 'payment' && (
+                <div className="p-6 space-y-6">
+                  {/* Claim Details */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Claim Details</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Claim Amount</p>
+                        <p className="text-sm font-semibold text-teal-600">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      {(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Final Claim Amount</p>
+                          <p className="text-sm font-semibold text-teal-600">{getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount)?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Co-Pay %</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.coPayPercent}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Claim Type</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.claimType}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Urgency</p>
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-50 text-red-700" :
+                          (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-50 text-amber-700" :
+                          "bg-teal-50 text-teal-700"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-500" :
+                            (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-500" : "bg-teal-500"
+                          }`} />
+                          {claimDetails?.urgency || viewModal.urgency || "Normal"}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Department</p>
+                        <p className="text-sm font-semibold text-gray-900">{viewModal.departmentName || "-"}</p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-xs text-gray-500 mb-1">Services</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {viewModal.services && viewModal.services.length > 0 ? (
+                            viewModal.services.map((svc, idx) => (
+                              <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-bold whitespace-nowrap">{svc.serviceName}</span>
+                            ))
+                          ) : (
+                            <p className="text-sm font-semibold text-gray-900">{viewModal.serviceName || "-"}</p>
+                          )}
+                        </div>
+                      </div>
+                      {(claimDetails?.coPayType || viewModal.coPayType) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Co-Pay Type</p>
+                          <p className="text-sm font-semibold text-gray-900">{claimDetails?.coPayType || viewModal.coPayType}</p>
+                        </div>
+                      )}
+                      {(claimDetails?.emirNumber || viewModal.emirNumber) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">EMIR Number</p>
+                          <p className="text-sm font-semibold font-mono text-gray-900">{claimDetails?.emirNumber || viewModal.emirNumber}</p>
+                        </div>
+                      )}
+                      {(claimDetails?.invoiceNumber || viewModal.invoiceNumber) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Invoice Number</p>
+                          <p className="text-sm font-semibold font-mono text-gray-900">{claimDetails?.invoiceNumber || viewModal.invoiceNumber}</p>
+                        </div>
+                      )}
+                      {(claimDetails?.paymentMethod || viewModal.paymentMethod) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Payment Method</p>
+                          <p className="text-sm font-semibold text-gray-900">{claimDetails?.paymentMethod || viewModal.paymentMethod}</p>
+                        </div>
+                      )}
+                      {(viewModal.claimType === "Advance" || viewModal.claimType === "Paid") && (
+                        <>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">{viewModal.claimType} Status</p>
+                            <p className="text-sm font-semibold text-gray-900">{viewModal.advanceStatus || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Paid Amount</p>
+                            <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.advanceAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                          </div>
+                        </>
+                      )}
+                      {viewModal.pendingClaim > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Pending Claim</p>
+                          <p className="text-sm font-semibold text-orange-600">{getCurrencySymbol(currency)}{viewModal.pendingClaim?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Status</p>
+                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
+                          {getDisplayStatus(viewModal)}
+                        </span>
+                      </div>
+                      {(claimDetails?.transactionId || viewModal.transactionId) && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Transaction ID</p>
+                          <p className="text-sm font-semibold font-mono text-gray-900">{claimDetails?.transactionId || viewModal.transactionId}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Doctor Added Amount */}
+                  {(claimDetails?.doctorAddedClaimAmount != null || viewModal.doctorAddedClaimAmount != null) && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Doctor Added Claim Amount</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Extra Amount Added</p>
+                          <p className="text-sm font-semibold text-teal-700 mt-1">{getCurrencySymbol(currency)}{(claimDetails?.doctorAddedClaimAmount ?? viewModal.doctorAddedClaimAmount)?.toLocaleString()}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-3">
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Doctor Notes</p>
+                          <p className="text-sm text-gray-800 mt-1 leading-relaxed">{claimDetails?.doctorAddedClaimNotes || viewModal.doctorAddedClaimNotes || "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Diagnosis / Treatment Plan */}
+                  {(claimDetails?.diagnosis || viewModal.diagnosis || claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Diagnosis & Treatment</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(claimDetails?.diagnosis || viewModal.diagnosis) && (
+                          <button onClick={() => setTextPreview({ title: "Diagnosis", text: claimDetails?.diagnosis || viewModal.diagnosis })} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors">
+                            <FileText className="w-3.5 h-3.5" /> View Diagnosis
+                          </button>
+                        )}
+                        {(claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
+                          <button onClick={() => setTextPreview({ title: "Treatment Plan", text: claimDetails?.treatmentPlan || viewModal.treatmentPlan })} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors">
+                            <Activity className="w-3.5 h-3.5" /> View Treatment Plan
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Review Tracking */}
+                  {(viewModal.readyByName || viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Review Tracking</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {viewModal.readyByName && (
+                          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                            <p className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Ready By</p>
+                            <p className="text-sm font-bold text-gray-900">{viewModal.readyByName}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.readyAt)}</p>
+                          </div>
+                        )}
+                        {viewModal.completedByName && (
+                          <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+                            <p className="text-[10px] font-bold text-purple-600 uppercase mb-1">Completed By</p>
+                            <p className="text-sm font-bold text-gray-900">{viewModal.completedByName}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.completedAt)}</p>
+                          </div>
+                        )}
+                        {viewModal.rejectedFromReleaseRequestedByName && (
+                          <div className="bg-red-50 rounded-lg p-3 border border-red-100">
+                            <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Rejected By</p>
+                            <p className="text-sm font-bold text-gray-900">{viewModal.rejectedFromReleaseRequestedByName}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.rejectedFromReleaseRequestedAt)}</p>
+                          </div>
+                        )}
+                        {viewModal.releasedByName && (
+                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                            <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Released By</p>
+                            <p className="text-sm font-bold text-gray-900">{viewModal.releasedByName}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.releasedAt)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {activeViewTab === 'files' && (
+                <div className="p-6 space-y-6">
                   {(viewModal.insuranceCardFile || viewModal.tableOfBenefitsFile || viewModal.emriFrontPhoto || viewModal.emriBackPhoto || viewModal.attachment) && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <Paperclip className="w-4 h-4 text-purple-500" /> Insurance Files
-                      </h3>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Insurance Files</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {viewModal.insuranceCardFile && (
                           <div className="space-y-2">
@@ -1406,30 +1529,30 @@ function ReleaseRequestedClaimsPage() {
                         )}
                         {viewModal.emriFrontPhoto && (
                           <div className="space-y-2">
-                            <p className="text-xs font-medium text-gray-500">EMIR Front Photo</p>
+                            <p className="text-xs font-medium text-gray-500">EMRI Front</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
                               {viewModal.emriFrontPhoto.toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.emriFrontPhoto} alt="EMIR Front" className="w-full h-full object-contain" />
+                                <img src={viewModal.emriFrontPhoto} alt="EMRI Front" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.emriFrontPhoto, name: "EMIR Front Photo" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: viewModal.emriFrontPhoto, name: "EMRI Front" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
                         )}
                         {viewModal.emriBackPhoto && (
                           <div className="space-y-2">
-                            <p className="text-xs font-medium text-gray-500">EMIR Back Photo</p>
+                            <p className="text-xs font-medium text-gray-500">EMRI Back</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
                               {viewModal.emriBackPhoto.toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.emriBackPhoto} alt="EMIR Back" className="w-full h-full object-contain" />
+                                <img src={viewModal.emriBackPhoto} alt="EMRI Back" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.emriBackPhoto, name: "EMIR Back Photo" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: viewModal.emriBackPhoto, name: "EMRI Back" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
@@ -1452,236 +1575,9 @@ function ReleaseRequestedClaimsPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Claim Details */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                      <Activity className="w-4 h-4 text-orange-500" /> Claim Details
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Claim Type</p>
-                        <p className="text-sm font-semibold text-gray-900">{viewModal.claimType}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Urgency</p>
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-50 text-red-700" :
-                          (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-50 text-amber-700" :
-                          "bg-teal-50 text-teal-700"
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-500" :
-                            (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-500" : "bg-teal-500"
-                          }`} />
-                          {claimDetails?.urgency || viewModal.urgency || "Normal"}
-                        </span>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <div className="flex items-center gap-2">
-                          <div>
-                            <p className="text-xs text-gray-500">Claim Amount</p>
-                            <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                          </div>
-                          {(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) && (claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) !== viewModal.claimAmount && (
-                            <>
-                              <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                              <div>
-                                <p className="text-xs text-amber-600">Final Amount</p>
-                                <p className="text-sm font-semibold text-amber-700 font-bold">{getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount)?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Doctor</p>
-                        <p className="text-sm font-semibold text-gray-900">{viewModal.doctorName || "-"}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Department</p>
-                        <p className="text-sm font-semibold text-gray-900">{viewModal.departmentName || "-"}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3 col-span-2 sm:col-span-1">
-                        <p className="text-xs text-gray-500 mb-1">Services</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {viewModal.services && viewModal.services.length > 0 ? (
-                            viewModal.services.map((svc, idx) => (
-                              <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-bold whitespace-nowrap shadow-sm">{svc.serviceName}</span>
-                            ))
-                          ) : (
-                            <p className="text-sm font-semibold text-gray-900">{viewModal.serviceName || "-"}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Co-Pay %</p>
-                        <p className="text-sm font-semibold text-gray-900">{viewModal.coPayPercent}%</p>
-                      </div>
-                      {(claimDetails?.coPayType || viewModal.coPayType) && (
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500">Co-Pay Type</p>
-                          <p className="text-sm font-semibold text-gray-900">{claimDetails?.coPayType || viewModal.coPayType}</p>
-                        </div>
-                      )}
-                      {(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount) && (
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500">Final Claim Amount</p>
-                          <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{(claimDetails?.finalClaimAmount || viewModal.finalClaimAmount)?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                        </div>
-                      )}
-                      {(claimDetails?.paymentMethod || viewModal.paymentMethod) && (
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500">Payment Method</p>
-                          <p className="text-sm font-semibold text-gray-900">{claimDetails?.paymentMethod || viewModal.paymentMethod}</p>
-                        </div>
-                      )}
-                      {(viewModal.claimType === "Advance" || viewModal.claimType === "Paid") && (
-                        <>
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500">{viewModal.claimType} Status</p>
-                            <p className="text-sm font-semibold text-gray-900">{viewModal.advanceStatus || "-"}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-xs text-gray-500">Paid Amount</p>
-                            <p className="text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)}{viewModal.advanceAmount?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                          </div>
-                        </>
-                      )}
-                      {viewModal.pendingClaim > 0 && (
-                        <div className="bg-gray-50 rounded-lg p-3">
-                          <p className="text-xs text-gray-500">Pending Claim</p>
-                          <p className="text-sm font-semibold text-orange-600 font-bold">{getCurrencySymbol(currency)}{viewModal.pendingClaim?.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
-                        </div>
-                      )}
-                      <div className="bg-gray-50 rounded-lg p-3">
-                        <p className="text-xs text-gray-500">Status</p>
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${getStatusBadge(viewModal.status, viewModal.rejectedFromReleaseRequested)}`}>
-                          {getDisplayStatus(viewModal)}
-                        </span>
-                      </div>
-                    </div>
-                    {/* Diagnosis / Treatment Plan — clickable links opening the full-text popup */}
-                    {(claimDetails?.diagnosis || viewModal.diagnosis || claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {(claimDetails?.diagnosis || viewModal.diagnosis) && (
-                          <button
-                            onClick={() => setTextPreview({ title: "Diagnosis", text: claimDetails?.diagnosis || viewModal.diagnosis })}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors"
-                          >
-                            <FileText className="w-3.5 h-3.5" /> View Diagnosis
-                          </button>
-                        )}
-                        {(claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
-                          <button
-                            onClick={() => setTextPreview({ title: "Treatment Plan", text: claimDetails?.treatmentPlan || viewModal.treatmentPlan })}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
-                          >
-                            <Activity className="w-3.5 h-3.5" /> View Treatment Plan
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {/* Doctor Added Extra Amount + Notes — fresh detail data takes precedence over the cached list object */}
-                    {(claimDetails?.doctorAddedClaimAmount != null || viewModal.doctorAddedClaimAmount != null) && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Wallet className="w-4 h-4 text-teal-600" />
-                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Doctor Added Claim Amount</h4>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Extra Amount Added</p>
-                            <p className="text-sm font-semibold text-teal-700 mt-1">{getCurrencySymbol(currency)}{(claimDetails?.doctorAddedClaimAmount ?? viewModal.doctorAddedClaimAmount)?.toLocaleString()}</p>
-                          </div>
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Doctor Added Claim Notes</p>
-                            <p className="text-sm text-gray-800 mt-1 leading-relaxed">{claimDetails?.doctorAddedClaimNotes || viewModal.doctorAddedClaimNotes || "—"}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Review Tracking */}
-                  {(viewModal.readyByName || viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-teal-500" /> Review Tracking
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {viewModal.readyByName && (
-                          <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                            <p className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Ready By</p>
-                            <p className="text-sm font-bold text-gray-900">{viewModal.readyByName}</p>
-                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.readyAt)}</p>
-                          </div>
-                        )}
-                        {viewModal.completedByName && (
-                          <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
-                            <p className="text-[10px] font-bold text-purple-600 uppercase mb-1">Completed By</p>
-                            <p className="text-sm font-bold text-gray-900">{viewModal.completedByName}</p>
-                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.completedAt)}</p>
-                          </div>
-                        )}
-                        {viewModal.rejectedFromReleaseRequestedByName && (
-                          <div className="bg-red-50 rounded-lg p-3 border border-red-100">
-                            <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Rejected By</p>
-                            <p className="text-sm font-bold text-gray-900">{viewModal.rejectedFromReleaseRequestedByName}</p>
-                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.rejectedFromReleaseRequestedAt)}</p>
-                          </div>
-                        )}
-                        {viewModal.releasedByName && (
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
-                            <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Released By</p>
-                            <p className="text-sm font-bold text-gray-900">{viewModal.releasedByName}</p>
-                            <p className="text-[10px] text-gray-500 mt-1">{formatDate(viewModal.releasedAt)}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Treatment Plan & Notes */}
-                  {(viewModal.treatmentPlan || viewModal.notes || viewModal.reviewNotes || claimDetails?.planNotes || viewModal.planNotes) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* {(viewModal.treatmentPlan || claimDetails?.treatmentPlan) && (
-                        <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
-                          <h3 className="text-sm font-semibold text-purple-800 mb-2">Treatment Plan</h3>
-                          <p className="text-sm text-purple-900 whitespace-pre-wrap leading-relaxed">{claimDetails?.treatmentPlan || viewModal.treatmentPlan}</p>
-                        </div>
-                      )} */}
-                      {(viewModal.notes || viewModal.reviewNotes || claimDetails?.planNotes || viewModal.planNotes) && (
-                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-3">
-                          {viewModal.notes && (
-                            <div>
-                              <h3 className="text-sm font-semibold text-blue-800 mb-1">Claim Notes</h3>
-                              <p className="text-sm text-blue-900 leading-relaxed">{viewModal.notes}</p>
-                            </div>
-                          )}
-                          {viewModal.reviewNotes && (
-                            <div>
-                              <h3 className="text-sm font-semibold text-blue-800 mb-1">Reviewer Notes</h3>
-                              <p className="text-sm text-blue-900 leading-relaxed">{viewModal.reviewNotes}</p>
-                            </div>
-                          )}
-                          {(claimDetails?.planNotes || viewModal.planNotes) && (
-                            <div>
-                              <h3 className="text-sm font-semibold text-blue-800 mb-1">Doctor Notes</h3>
-                              <p className="text-sm text-blue-900 leading-relaxed">{claimDetails?.planNotes || viewModal.planNotes}</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Documents */}
                   {viewModal.documentFiles && viewModal.documentFiles.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-purple-500" /> Supporting Documents
-                      </h3>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-4">Supporting Documents</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {viewModal.documentFiles.map((file, idx) => (
                           <div key={idx} className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-24 group">
@@ -1698,75 +1594,113 @@ function ReleaseRequestedClaimsPage() {
                       </div>
                     </div>
                   )}
-
-                  {/* Administrative Details */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-[10px] font-bold text-gray-400 uppercase mb-3 tracking-widest">Administrative Details</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-[10px]">
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Claim ID:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal._id}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Patient Name:</span>
-                        <span className="font-semibold text-gray-700">{viewModal.patientFirstName} {viewModal.patientLastName}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Patient ID:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal.patientId || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Patient EMR #:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal.patientEmrNumber || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Doctor Name:</span>
-                        <span className="font-semibold text-gray-700">{viewModal.doctorName || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Doctor ID:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal.doctorId || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Department:</span>
-                        <span className="font-semibold text-gray-700">{viewModal.departmentName || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Department ID:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal.departmentId || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Insurance Provider:</span>
-                        <span className="font-semibold text-gray-700">{viewModal.insuranceProvider}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Claim Type:</span>
-                        <span className="font-semibold text-gray-700">{viewModal.claimType}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Created By:</span>
-                        <span className="font-semibold text-gray-700">{viewModal.createdByName || "-"} ({viewModal.createdByRole || "-"})</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Created By ID:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal.createdBy || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Clinic ID:</span>
-                        <span className="font-semibold text-gray-700 font-mono">{viewModal.clinicId || "-"}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Created At:</span>
-                        <span className="text-gray-700">{formatDate(viewModal.createdAt)}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-gray-200 pb-1">
-                        <span className="text-gray-500">Last Updated:</span>
-                        <span className="text-gray-700">{formatDate(viewModal.updatedAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
+
+              {activeViewTab === 'activity' && (
+                <div className="p-6 space-y-6">
+                  {/* Claim Timeline */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-4">Claim Timeline</h3>
+                    {detailLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mb-4"></div>
+                        <p className="text-sm text-gray-500 font-medium">Fetching tracking data...</p>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gray-100"></div>
+                        {(() => {
+                          const cd = claimDetails || {};
+                          const vm = viewModal || {};
+                          const allSteps = [];
+                          if (cd.createdAt || vm.createdAt) allSteps.push({ type: "created", date: cd.createdAt || vm.createdAt, title: "Claim Created", name: cd.createdByName || vm.createdByName || "N/A", role: cd.createdByRole || vm.createdByRole || "Staff", label: "Created By" });
+                          if (cd.approvedAt || vm.approvedAt) allSteps.push({ type: "approved", date: cd.approvedAt || vm.approvedAt, title: "Claim Approved by Doctor", name: cd.approvedByName || vm.approvedByName || vm.doctorName, role: cd.approvedByRole || vm.approvedByRole || "Doctor", label: "Reviewer" });
+                          if (cd.rejectedAt || vm.rejectedAt) allSteps.push({ type: "rejected", date: cd.rejectedAt || vm.rejectedAt, title: "Claim Rejected", name: cd.rejectedByName || vm.rejectedByName || vm.doctorName, role: cd.rejectedByRole || vm.rejectedByRole || "Doctor", label: "Reviewer", reason: cd.rejectionReason || vm.rejectionReason });
+                          if (cd.rejectedFromPassClaims) allSteps.push({ type: "rejectPass", date: cd.rejectedFromPassClaimsAt, title: "Rejected from Pass Claims", name: cd.rejectedFromPassClaimsByName, role: cd.rejectedFromPassClaimsByRole || "Clinic Admin", label: "Reviewer" });
+                          if (cd.rejectedFromReleaseRequested) allSteps.push({ type: "rejectRelease", date: cd.rejectedFromReleaseRequestedAt, title: "Rejected from Release", name: cd.rejectedFromReleaseRequestedByName, role: cd.rejectedFromReleaseRequestedByRole || "Clinic Admin", label: "Reviewer" });
+                          if (cd.readyAt || vm.readyAt) allSteps.push({ type: "ready", date: cd.readyAt || vm.readyAt, title: "Claim Checked by Financial Department", subtitle: "Ready", name: cd.readyByName || vm.readyByName, role: cd.readyByRole || vm.readyByRole || "Clinic Admin", label: "Checked By" });
+                          if (cd.releasedAt || vm.releasedAt) allSteps.push({ type: "released", date: cd.releasedAt || vm.releasedAt, title: "Claim Released", name: cd.releasedByName || vm.releasedByName, role: cd.releasedByRole || vm.releasedByRole || "Clinic Admin", label: "Released By" });
+                          if (cd.completedAt || vm.completedAt) allSteps.push({ type: "completed", date: cd.completedAt || vm.completedAt, title: "Claim Completed with Treatment Plan by Doctor", name: cd.completedByName || vm.completedByName, role: cd.completedByRole || vm.completedByRole || "Staff", label: "Completed By" });
+                          allSteps.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                          const iconMap = { created: <FileText className="w-4 h-4 text-purple-600" />, approved: <CheckCircle className="w-4 h-4 text-green-600" />, rejected: <XCircle className="w-4 h-4 text-red-600" />, rejectPass: <AlertCircle className="w-4 h-4 text-orange-600" />, rejectRelease: <AlertCircle className="w-4 h-4 text-orange-600" />, ready: <CheckCircle className="w-4 h-4 text-indigo-600" />, released: <CheckCircle className="w-4 h-4 text-blue-600" />, completed: <CheckCircle className="w-4 h-4 text-purple-600" /> };
+                          const bgMap = { created: "bg-purple-100", approved: "bg-green-100", rejected: "bg-red-100", rejectPass: "bg-orange-100", rejectRelease: "bg-orange-100", ready: "bg-indigo-100", released: "bg-blue-100", completed: "bg-purple-100" };
+                          const badgeColorMap = { created: "text-purple-600 bg-purple-50", approved: "text-green-600 bg-green-50", rejected: "text-red-600 bg-red-50", rejectPass: "text-orange-600 bg-orange-50", rejectRelease: "text-orange-600 bg-orange-50", ready: "text-indigo-600 bg-indigo-50", released: "text-blue-600 bg-blue-50", completed: "text-purple-600 bg-purple-50" };
+
+                          return allSteps.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                              <Activity className="w-12 h-12 text-gray-200 mb-4" />
+                              <p className="text-gray-500 font-medium">No tracking history available for this claim</p>
+                            </div>
+                          ) : (
+                            allSteps.map((step, idx) => (
+                              <div key={step.type} className="flex gap-4 group">
+                                <div className={`relative z-10 w-8 h-8 rounded-full ${bgMap[step.type]} border-4 border-white flex items-center justify-center shadow-sm`}>
+                                  {iconMap[step.type]}
+                                </div>
+                                <div className="flex-1 pt-0.5">
+                                  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm group-hover:shadow-md transition-shadow">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <div>
+                                        <h4 className="text-sm font-bold text-gray-900">{step.title}</h4>
+                                        {step.subtitle && <p className="text-[10px] font-semibold text-indigo-600 mt-0.5">Status: {step.subtitle}</p>}
+                                      </div>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${badgeColorMap[step.type]}`}>Step {idx + 1}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><User className="w-3.5 h-3.5 text-gray-400" /></div>
+                                        <div>
+                                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{step.label}</p>
+                                          <p className="text-xs font-semibold text-gray-700">{step.name || "N/A"}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Shield className="w-3.5 h-3.5 text-gray-400" /></div>
+                                        <div>
+                                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Role</p>
+                                          <p className="text-xs font-semibold text-gray-700 capitalize">{step.role}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 col-span-full">
+                                        <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center"><Clock className="w-3.5 h-3.5 text-gray-400" /></div>
+                                        <div>
+                                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Date & Time</p>
+                                          <p className="text-xs font-semibold text-gray-700">{new Date(step.date).toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {step.reason && (
+                                      <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg">
+                                        <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Reason</p>
+                                        <p className="text-xs text-red-800 leading-relaxed italic">"{step.reason}"</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Rejection Reason */}
+                  {viewModal.rejectedFromReleaseRequestedByName && (
+                    <div className="bg-red-50 border border-red-100 rounded-lg p-4">
+                      <p className="text-[10px] font-bold text-red-600 uppercase mb-1">Rejection Reason</p>
+                      <p className="text-sm text-red-800">{viewModal.rejectedFromReleaseRequestedByName}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 sm:px-6 py-3 border-t border-gray-100 flex-shrink-0 bg-gray-50">
+              <p className="text-[10px] text-gray-400">Last updated: {formatDate(viewModal.updatedAt)}</p>
             </div>
           </div>
         </div>
