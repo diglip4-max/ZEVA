@@ -366,6 +366,18 @@ const CampaignSchema = new mongoose.Schema(
       type: String,
     },
 
+    // for tracking leads analytics
+    offerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Offer",
+      default: null,
+    },
+    purpose: {
+      type: String,
+      enum: ["create_offer", "expire_offer", "other"],
+      default: "other",
+    },
+
     variableMappings: { type: Object, default: {} },
     headerVariableMappings: { type: Object, default: {} },
     buttonVariableMappings: { type: Object, default: {} },

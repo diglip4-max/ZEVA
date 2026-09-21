@@ -3,12 +3,12 @@ import axios from "axios";
 import {
   Check,
   CheckCircle2,
-  ChevronDown,
+  // ChevronDown,
   Clock,
   Lock,
   //   MessageSquareText,
   Package,
-  Plus,
+  // Plus,
   Radio,
   SlidersHorizontal,
   Target,
@@ -19,13 +19,24 @@ import useProvider from "@/hooks/useProvider"; // adjust to your actual hook pat
 import NotificationChannelCard, {
   NotificationChannel,
 } from "./NotificationChannelCard";
-import { CH_META, Toggle } from "./NotificationSettingsTab"; // adjust: wherever CH_META currently lives
+import {
+  //  CH_META,
+  Toggle,
+} from "./NotificationSettingsTab"; // adjust: wherever CH_META currently lives
 import { catMeta } from "./NotificationSettingsTab"; // adjust to your actual helper paths
 import type {
   Notification,
-  ChannelId,
+  // ChannelId,
   TimingMode,
 } from "./NotificationSettingsTab"; // adjust to your actual types file
+import { NOTIFICATION_CATEGORIES } from "@/lib/notifications";
+import {
+  appointmentVariables,
+  billingVariables,
+  offerVariables,
+  packageVariables,
+  patientVariables,
+} from "@/lib/variables";
 
 interface TemplateLite {
   _id: string;
@@ -112,32 +123,32 @@ function NotificationEditDrawer({
       return { ...d, channels };
     });
 
-  const addChannel = () => {
-    if (!draft) return;
-    const existing = new Set(draft.channels.map((c) => c.channel));
-    const next = Object.keys(CH_META).find(
-      (k) => !existing.has(k as ChannelId),
-    ) as ChannelId | undefined;
-    if (!next) return;
-    setDraft((d: any) => {
-      if (!d) return null;
-      const newChannel: NotificationChannel = {
-        channel: next,
-        isEnabled: false,
-        recipient: "patient",
-        priority: d.channels.length + 1,
-        templateId: null,
-        providerId: null,
-        attachments: [],
-        mediaUrl: null,
-        mediaType: null,
-        variableMappings: {},
-        headerVariableMappings: {},
-        buttonVariableMappings: {},
-      };
-      return { ...d, channels: [...d.channels, newChannel] };
-    });
-  };
+  // const addChannel = () => {
+  //   if (!draft) return;
+  //   const existing = new Set(draft.channels.map((c) => c.channel));
+  //   const next = Object.keys(CH_META).find(
+  //     (k) => !existing.has(k as ChannelId),
+  //   ) as ChannelId | undefined;
+  //   if (!next) return;
+  //   setDraft((d: any) => {
+  //     if (!d) return null;
+  //     const newChannel: NotificationChannel = {
+  //       channel: next,
+  //       isEnabled: false,
+  //       recipient: "patient",
+  //       priority: d.channels.length + 1,
+  //       templateId: null,
+  //       providerId: null,
+  //       attachments: [],
+  //       mediaUrl: null,
+  //       mediaType: null,
+  //       variableMappings: {},
+  //       headerVariableMappings: {},
+  //       buttonVariableMappings: {},
+  //     };
+  //     return { ...d, channels: [...d.channels, newChannel] };
+  //   });
+  // };
 
   const removeChannel = (idx: number) =>
     setDraft((d) => {
@@ -287,7 +298,7 @@ function NotificationEditDrawer({
                     ref={timingModeRef}
                   >
                     <div
-                      onClick={() => setIsTimingModeOpen(!isTimingModeOpen)}
+                      // onClick={() => setIsTimingModeOpen(!isTimingModeOpen)}
                       className={fieldSelectClass}
                     >
                       <span className="truncate">
@@ -297,10 +308,10 @@ function NotificationEditDrawer({
                             ? "Before event"
                             : "After event"}
                       </span>
-                      <ChevronDown
+                      {/* <ChevronDown
                         size={13}
                         className={`flex-shrink-0 transition-transform ${isTimingModeOpen ? "rotate-180" : ""}`}
-                      />
+                      /> */}
                     </div>
 
                     {isTimingModeOpen && (
@@ -357,7 +368,7 @@ function NotificationEditDrawer({
                         onChange={(e) =>
                           set({ offsetMinutes: Number(e.target.value) })
                         }
-                        className="rounded-xl px-3.5 py-2.5 text-sm font-medium w-[95px] bg-surface-2 border border-border text-text-hi focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+                        className="rounded-lg px-3.5 py-1.5 text-sm font-medium w-[95px] bg-surface-2 border border-border text-text-hi focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
                       />
                       <span className="text-xs font-semibold text-text-lo">
                         minutes
@@ -373,7 +384,7 @@ function NotificationEditDrawer({
                   <div className="flex items-center gap-2 text-sm font-bold">
                     <Radio size={15} /> Channels
                   </div>
-                  {draft.channels.length < Object.keys(CH_META).length && (
+                  {/* {draft.channels.length < Object.keys(CH_META).length && (
                     <button
                       type="button"
                       onClick={addChannel}
@@ -381,25 +392,52 @@ function NotificationEditDrawer({
                     >
                       <Plus size={13} /> Add channel
                     </button>
-                  )}
+                  )} */}
                 </div>
                 <div className="grid grid-cols-1 gap-3.5">
-                  {draft.channels.map((ch, idx) => (
-                    <NotificationChannelCard
-                      key={ch.channel}
-                      ch={ch as any}
-                      index={idx}
-                      total={draft.channels.length}
-                      providers={allProviders}
-                      templates={templates}
-                      sample={draft.sample}
-                      fallbackTemplate={draft.template}
-                      onChange={(patch) => setChannel(idx, patch)}
-                      onRemove={() => removeChannel(idx)}
-                      onMoveUp={() => moveChannel(idx, -1)}
-                      onMoveDown={() => moveChannel(idx, 1)}
-                    />
-                  ))}
+                  {draft.channels.map((ch, idx) => {
+                    const notificationVariables =
+                      notif?.category === NOTIFICATION_CATEGORIES.PAYMENT
+                        ? [...patientVariables, ...billingVariables]
+                        : notif?.category ===
+                            NOTIFICATION_CATEGORIES.APPOINTMENT
+                          ? [...patientVariables, ...appointmentVariables]
+                          : notif?.category === NOTIFICATION_CATEGORIES.PACKAGE
+                            ? [...patientVariables, ...packageVariables]
+                            : notif?.category === NOTIFICATION_CATEGORIES.OFFER
+                              ? [...patientVariables, ...offerVariables]
+                              : notif?.category ===
+                                  NOTIFICATION_CATEGORIES.FOLLOWUP
+                                ? [...patientVariables, ...appointmentVariables]
+                                : notif?.category ===
+                                    NOTIFICATION_CATEGORIES.FEEDBACK
+                                  ? [
+                                      ...patientVariables,
+                                      ...appointmentVariables,
+                                    ]
+                                  : notif?.category ===
+                                      NOTIFICATION_CATEGORIES.ENGAGEMENT
+                                    ? [...patientVariables]
+                                    : [];
+
+                    return (
+                      <NotificationChannelCard
+                        key={ch.channel}
+                        notificationVariables={notificationVariables}
+                        ch={ch as any}
+                        index={idx}
+                        total={draft.channels.length}
+                        providers={allProviders}
+                        templates={templates}
+                        sample={draft.sample}
+                        fallbackTemplate={draft.template}
+                        onChange={(patch) => setChannel(idx, patch)}
+                        onRemove={() => removeChannel(idx)}
+                        onMoveUp={() => moveChannel(idx, -1)}
+                        onMoveDown={() => moveChannel(idx, 1)}
+                      />
+                    );
+                  })}
                 </div>
               </div>
 

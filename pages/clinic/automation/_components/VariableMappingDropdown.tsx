@@ -448,6 +448,7 @@ interface VariableMappingDropdownProps {
   triggerButton?: React.ReactNode;
   textAreaRef?: React.RefObject<HTMLTextAreaElement>;
   inputRef?: React.RefObject<HTMLInputElement>;
+  notificationVariables?: Variable[];
 }
 
 const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
@@ -458,6 +459,7 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
   triggerButton,
   textAreaRef,
   inputRef,
+  notificationVariables,
 }) => {
   const router = useRouter();
   const { workflowId } = router.query;
@@ -490,76 +492,92 @@ const VariableMappingDropdown: React.FC<VariableMappingDropdownProps> = ({
   // Use textAreaRef or inputRef (prefer textAreaRef)
   const activeInputRef = textAreaRef || inputRef;
 
-  const filteredVariables = [
-    ...webhookVariables,
-    ...restApiVariables,
-    ...aiComposerVariables,
-    ...appointmentVariables,
-    ...variables,
-  ]
-    ?.filter((v) => {
-      switch (entity) {
-        case "Lead":
-          return (
-            v.category === "Lead" ||
-            v.category === "System" ||
-            (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API") ||
-            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
-          );
-        case "Patient":
-          return (
-            v.category === "Patient" ||
-            v.category === "System" ||
-            (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API") ||
-            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
-          );
-        case "Clinic":
-          return (
-            v.category === "Clinic" ||
-            v.category === "System" ||
-            (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API") ||
-            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
-          );
-        case "Webhook":
-          return (
-            v.category === "Webhook" ||
-            v.category === "System" ||
-            (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API") ||
-            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
-          );
-        case "Message":
-          return (
-            v.category === "Incoming Message" ||
-            v.category === "Lead" ||
-            v.category === "System" ||
-            (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API") ||
-            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
-          );
-        case "Appointment":
-          return (
-            v.category === "Appointment" ||
-            v.category === "System" ||
-            (Object.entries(restApiVariables).length > 0 &&
-              v.category === "Rest API") ||
-            (aiComposerVariables?.length > 0 && v.category === "AI Composer")
-          );
-        case "System":
-          return v.category === "System";
-        default:
-          return true;
-      }
-    })
-    .filter(
-      (v) =>
-        v.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.value.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+  const filteredVariables = (
+    entity === "Notification"
+      ? notificationVariables || []
+      : [
+          ...webhookVariables,
+          ...restApiVariables,
+          ...aiComposerVariables,
+          ...appointmentVariables,
+          ...variables,
+        ]
+          ?.filter((v) => {
+            switch (entity) {
+              case "Lead":
+                return (
+                  v.category === "Lead" ||
+                  v.category === "System" ||
+                  (Object.entries(restApiVariables).length > 0 &&
+                    v.category === "Rest API") ||
+                  (aiComposerVariables?.length > 0 &&
+                    v.category === "AI Composer")
+                );
+              case "Patient":
+                return (
+                  v.category === "Patient" ||
+                  v.category === "System" ||
+                  (Object.entries(restApiVariables).length > 0 &&
+                    v.category === "Rest API") ||
+                  (aiComposerVariables?.length > 0 &&
+                    v.category === "AI Composer")
+                );
+              case "Clinic":
+                return (
+                  v.category === "Clinic" ||
+                  v.category === "System" ||
+                  (Object.entries(restApiVariables).length > 0 &&
+                    v.category === "Rest API") ||
+                  (aiComposerVariables?.length > 0 &&
+                    v.category === "AI Composer")
+                );
+              case "Webhook":
+                return (
+                  v.category === "Webhook" ||
+                  v.category === "System" ||
+                  (Object.entries(restApiVariables).length > 0 &&
+                    v.category === "Rest API") ||
+                  (aiComposerVariables?.length > 0 &&
+                    v.category === "AI Composer")
+                );
+              case "Message":
+                return (
+                  v.category === "Incoming Message" ||
+                  v.category === "Lead" ||
+                  v.category === "System" ||
+                  (Object.entries(restApiVariables).length > 0 &&
+                    v.category === "Rest API") ||
+                  (aiComposerVariables?.length > 0 &&
+                    v.category === "AI Composer")
+                );
+              case "Appointment":
+                return (
+                  v.category === "Appointment" ||
+                  v.category === "System" ||
+                  (Object.entries(restApiVariables).length > 0 &&
+                    v.category === "Rest API") ||
+                  (aiComposerVariables?.length > 0 &&
+                    v.category === "AI Composer")
+                );
+              case "System":
+                return v.category === "System";
+
+              default:
+                return true;
+            }
+          })
+          .filter(
+            (v) =>
+              v.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              v.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              v.value.toLowerCase().includes(searchTerm.toLowerCase()),
+          )
+  ).filter(
+    (v) =>
+      v.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.value.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
   const categories = Array.from(
     new Set(filteredVariables.map((v) => v.category)),

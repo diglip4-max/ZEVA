@@ -1,7 +1,148 @@
 import { getTokenByPath } from "@/lib/helper";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "@/lib/notifications";
 import { Attachment } from "@/types/campaigns";
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+// Coming Soon Notification
+export const comingSoonNotifications = [
+  // billing
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_FAILED,
+    category: NOTIFICATION_CATEGORIES.PAYMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REFUND_INITIATED,
+    category: NOTIFICATION_CATEGORIES.PAYMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REFUND_COMPLETED,
+    category: NOTIFICATION_CATEGORIES.PAYMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.INVOICE_GENERATED,
+    category: NOTIFICATION_CATEGORIES.PAYMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.RECEIPT_GENERATED,
+    category: NOTIFICATION_CATEGORIES.PAYMENT,
+  },
+
+  // package
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.SESSIONS_REMAINING,
+    category: NOTIFICATION_CATEGORIES.PACKAGE,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.LAST_SESSION_REMAINING,
+    category: NOTIFICATION_CATEGORIES.PACKAGE,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_RENEWED,
+    category: NOTIFICATION_CATEGORIES.PACKAGE,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.MEMBERSHIP_RENEWAL,
+    category: NOTIFICATION_CATEGORIES.PACKAGE,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.MEMBERSHIP_EXPIRY,
+    category: NOTIFICATION_CATEGORIES.PACKAGE,
+  },
+
+  // followup
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.PREPARATION_REMINDER,
+    category: NOTIFICATION_CATEGORIES.FOLLOWUP,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REPORT_AVAILABLE,
+    category: NOTIFICATION_CATEGORIES.FOLLOWUP,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.DOCUMENT_AVAILABLE,
+    category: NOTIFICATION_CATEGORIES.FOLLOWUP,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.PRESCRIPTION_AVAILABLE,
+    category: NOTIFICATION_CATEGORIES.FOLLOWUP,
+  },
+
+  // patient engagement
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.BIRTHDAY_GREETING,
+    category: NOTIFICATION_CATEGORIES.ENGAGEMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.BIRTHDAY_OFFER,
+    category: NOTIFICATION_CATEGORIES.ENGAGEMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.PATIENT_INACTIVE,
+    category: NOTIFICATION_CATEGORIES.ENGAGEMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.PATIENT_REACTIVATION,
+    category: NOTIFICATION_CATEGORIES.ENGAGEMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.ANNIVERSARY,
+    category: NOTIFICATION_CATEGORIES.ENGAGEMENT,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.LOYALTY_REWARD,
+    category: NOTIFICATION_CATEGORIES.ENGAGEMENT,
+  },
+
+  // Offer and Referal
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REFERRAL_CREATED,
+    category: NOTIFICATION_CATEGORIES.OFFER,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REFERRAL_COMPLETED,
+    category: NOTIFICATION_CATEGORIES.OFFER,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REFERRAL_REWARD_EARNED,
+    category: NOTIFICATION_CATEGORIES.OFFER,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.REFERRAL_REWARD_USED,
+    category: NOTIFICATION_CATEGORIES.OFFER,
+  },
+
+  // Feedback
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.FEEDBACK_REQUEST,
+    category: NOTIFICATION_CATEGORIES.FEEDBACK,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.NEGATIVE_FEEDBACK_ALERT,
+    category: NOTIFICATION_CATEGORIES.FEEDBACK,
+  },
+
+  // Security
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.NEW_LOGIN,
+    category: NOTIFICATION_CATEGORIES.SECURITY,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.ACCOUNT_CHANGED,
+    category: NOTIFICATION_CATEGORIES.SECURITY,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.CONSENT_CHANGED,
+    category: NOTIFICATION_CATEGORIES.SECURITY,
+  },
+  {
+    notificationTypeKey: NOTIFICATION_TYPES.IMPORTANT_SECURITY_EVENT,
+    category: NOTIFICATION_CATEGORIES.SECURITY,
+  },
+];
 
 // ============================================================
 // Types

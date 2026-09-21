@@ -262,6 +262,10 @@ const routeMap: { [key: string]: () => Promise<any> } = {
 
   // Finance routes
   "clinic-finance-management": () => import("../clinic/finance-management"),
+
+  // Notifications
+  "clinic-settings": () => import("../clinic/settings"),
+  "clinic-notifications-log": () => import("../clinic/notifications/log"),
 };
 
 // ---------------------------------------------------------------------------
@@ -363,7 +367,7 @@ const StaffDynamicPage = () => {
         let agentToken =
           typeof window !== "undefined"
             ? localStorage.getItem("agentToken") ||
-            sessionStorage.getItem("agentToken")
+              sessionStorage.getItem("agentToken")
             : null;
 
         if (!agentToken && typeof window !== "undefined") {

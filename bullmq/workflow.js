@@ -25,6 +25,9 @@ import { generateEmrNumber } from "../lib/generateEmrNumber.js";
 import Appointment from "../models/Appointment.js";
 import Room from "../models/Room.js";
 import Users from "../models/Users.js";
+import Package from "../models/Package.js";
+import Offer from "../models/CreateOffer.js";
+import Billing from "../models/Billing.js";
 
 export const WORKFLOW_ENTITY_TYPE = {
   LEAD: "Lead",
@@ -1422,6 +1425,7 @@ export const getPatientDetails = async (patientId) => {
 
       // Patient Details
       emrNumber: patient.emrNumber,
+      fullName: `${patient.firstName} ${patient.lastName}`.trim(),
       firstName: patient.firstName,
       lastName: patient.lastName,
       name: `${patient.firstName} ${patient.lastName}`.trim(), // Full name for compatibility
@@ -1572,6 +1576,7 @@ export const getPatientByLeadId = async (leadId) => {
 // Get booked appointment details
 export const getAppointmentDetails = async (appointmentId) => {
   let appointmentData = {};
+  if (!appointmentId) return appointmentData;
   try {
     const appointment = await Appointment.findById(appointmentId)
       .populate("patientId")
@@ -1579,41 +1584,42 @@ export const getAppointmentDetails = async (appointmentId) => {
       .populate("roomId")
       .exec();
     appointmentData = {
-      patientId: appointment.patientId?.toString(),
-      doctorId: appointment.doctorId?.toString(),
-      roomId: appointment.roomId?.toString(),
+      patientId: appointment?.patientId?.toString(),
+      doctorId: appointment?.doctorId?.toString(),
+      roomId: appointment?.roomId?.toString(),
       patientName:
-        `${appointment.patientId?.firstName || ""} ${appointment.patientId?.lastName || ""}`?.trim() ||
+        `${appointment?.patientId?.firstName || ""} ${appointment?.patientId?.lastName || ""}`?.trim() ||
         "",
       patientFirstName:
-        `${appointment.patientId?.firstName || "" || ""}`?.trim() || "",
+        `${appointment?.patientId?.firstName || "" || ""}`?.trim() || "",
       patientLastName:
-        `${appointment.patientId?.lastName || "" || ""}`?.trim() || "",
+        `${appointment?.patientId?.lastName || "" || ""}`?.trim() || "",
       patientGender:
-        `${appointment.patientId?.gender || "" || ""}`?.trim() || "",
-      patientEmail: `${appointment.patientId?.email || "" || ""}`?.trim() || "",
+        `${appointment?.patientId?.gender || "" || ""}`?.trim() || "",
+      patientEmail:
+        `${appointment?.patientId?.email || "" || ""}`?.trim() || "",
       patientPhone:
-        `${appointment.patientId?.mobileNumber || "" || ""}`?.trim() || "",
+        `${appointment?.patientId?.mobileNumber || "" || ""}`?.trim() || "",
       patientMobileNumber:
-        `${appointment.patientId?.mobileNumber || "" || ""}`?.trim() || "",
+        `${appointment?.patientId?.mobileNumber || "" || ""}`?.trim() || "",
       patientType:
-        `${appointment.patientId?.patientType || "" || ""}`?.trim() || "",
-      doctorName: appointment.doctorId?.name || "",
-      doctorEmail: appointment.doctorId?.email || "",
-      doctorPhone: appointment.doctorId?.phone || "",
-      doctorGender: appointment.doctorId?.gender || "",
-      doctorAge: appointment.doctorId?.age || "",
-      doctorDob: appointment.doctorId?.dateOfBirth || "",
-      roomName: appointment.roomId?.name || "",
-      id: appointment._id?.toString(),
-      date: appointment.startDate?.toISOString()?.split("T")[0],
-      time: `${appointment.fromTime || ""} - ${appointment.toTime || ""}` || "",
-      followType: appointment.appointmentFollowType,
-      status: appointment.status,
-      cancellationReason: appointment.cancellationReason,
-      referral: appointment.referral,
-      notes: appointment.notes,
-      treatment: appointment.treatment,
+        `${appointment?.patientId?.patientType || "" || ""}`?.trim() || "",
+      doctorName: appointment?.doctorId?.name || "",
+      doctorEmail: appointment?.doctorId?.email || "",
+      doctorPhone: appointment?.doctorId?.phone || "",
+      doctorGender: appointment?.doctorId?.gender || "",
+      doctorAge: appointment?.doctorId?.age || "",
+      doctorDob: appointment?.doctorId?.dateOfBirth || "",
+      roomName: appointment?.roomId?.name || "",
+      id: appointment?._id?.toString(),
+      date: appointment?.startDate?.toISOString()?.split("T")[0],
+      time:
+        `${appointment?.fromTime || ""} - ${appointment?.toTime || ""}` || "",
+      followType: appointment?.appointmentFollowType || "",
+      status: appointment?.status || "",
+      cancellationReason: appointment?.cancellationReason || "",
+      referral: appointment?.referral || "",
+      notes: appointment?.notes || "",
     };
     if (!appointmentData) return null;
     return appointmentData;
@@ -1630,4 +1636,206 @@ export const getSystemDetails = () => {
     time: new Date().toISOString()?.split("T")[1]?.split("Z")[0],
     user: "System",
   };
+};
+
+export const getPackageDetails = async (packageId) => {
+  let packageData = {};
+  if (!packageId) return packageData;
+  try {
+    const pkg = await Package.findById(packageId).lean();
+
+    if (!pkg) return {};
+
+    packageData = {
+      id: pkg._id?.toString() || "",
+      name: pkg.name || "",
+      totalPrice: pkg.totalPrice ?? 0,
+      totalSessions: pkg.totalSessions ?? 0,
+      sessionPrice: pkg.sessionPrice ?? 0,
+      treatments: (pkg.treatments || []).map((t) => ({
+        treatmentName: t.treatmentName || "",
+        treatmentSlug: t.treatmentSlug || "",
+        allocatedPrice: t.allocatedPrice ?? 0,
+        sessions: t.sessions ?? 0,
+        sessionPrice: t.sessionPrice ?? 0,
+      })),
+      clinicId: pkg.clinicId?.toString() || "",
+      createdBy: pkg.createdBy?.toString() || "",
+      createdByName: pkg.createdByName || "",
+      createdByRole: pkg.createdByRole || "",
+      validityInMonths: pkg.validityInMonths ?? 0,
+      startDate: pkg.startDate ? pkg.startDate.toISOString().split("T")[0] : "",
+      endDate: pkg.endDate ? pkg.endDate.toISOString().split("T")[0] : "",
+      isDeleted: pkg.isDeleted ?? false,
+      createdAt: pkg.createdAt ? pkg.createdAt.toISOString().split("T")[0] : "",
+      updatedAt: pkg.updatedAt ? pkg.updatedAt.toISOString().split("T")[0] : "",
+    };
+
+    return packageData;
+  } catch (error) {
+    console.error("Error in getPackageDetails:", error);
+    return packageData;
+  }
+};
+
+export const getOfferDetails = async (offerId) => {
+  let offerData = {};
+  if (!offerId) return offerData;
+  try {
+    const offer = await Offer.findById(offerId).lean();
+
+    if (!offer) return {};
+
+    // Build a human-readable "discount" string based on discountMode
+    let discount = "";
+    if (offer.offerType === "instant_discount") {
+      if (offer.discountMode === "percentage") {
+        discount = `${offer.discountValue ?? 0}%`;
+      } else if (offer.discountMode === "flat") {
+        discount = `₹${offer.discountValue ?? 0}`;
+      }
+    }
+
+    offerData = {
+      id: offer._id?.toString() || "",
+      clinicId: offer.clinicId?.toString() || "",
+
+      title: offer.title || "",
+      description: offer.description || "",
+
+      offerType: offer.offerType || "",
+
+      code: offer.code || "",
+      slug: offer.slug || "",
+
+      startsAt: offer.startsAt
+        ? offer.startsAt.toISOString().split("T")[0]
+        : "",
+      endsAt: offer.endsAt ? offer.endsAt.toISOString().split("T")[0] : "",
+
+      timezone: offer.timezone || "Asia/Kolkata",
+      status: offer.status || "draft",
+      enabled: offer.enabled ?? true,
+
+      // Usage
+      maxUses: offer.maxUses ?? 0,
+      usesCount: offer.usesCount ?? 0,
+      perUserLimit: offer.perUserLimit ?? 1,
+
+      // Applicability
+      applyOnAllServices: offer.applyOnAllServices ?? true,
+      serviceIds: (offer.serviceIds || []).map((id) => id.toString()),
+      doctorIds: (offer.doctorIds || []).map((id) => id.toString()),
+      departmentIds: (offer.departmentIds || []).map((id) => id.toString()),
+
+      // These are the ones referenced by {{offer.serviceNames}} / {{offer.departmentNames}}
+      serviceNames: offer.serviceNames || [],
+      departmentNames: offer.departmentNames || [],
+
+      // Billing rules
+      minimumBillAmount: offer.minimumBillAmount ?? 0,
+      allowStacking: offer.allowStacking ?? false,
+      allowCombiningWithOtherOffers:
+        offer.allowCombiningWithOtherOffers ?? false,
+      allowReceptionistDiscount: offer.allowReceptionistDiscount ?? false,
+      maxBenefitCap: offer.maxBenefitCap ?? 0,
+      marginThresholdPercent: offer.marginThresholdPercent ?? 0,
+      sameDayReuseBlocked: offer.sameDayReuseBlocked ?? true,
+      partialPaymentAllowed: offer.partialPaymentAllowed ?? false,
+
+      // Instant discount
+      discountMode: offer.discountMode || "",
+      discountValue: offer.discountValue ?? 0,
+      discount, // formatted string like "20%" or "₹500"
+
+      // Cashback
+      cashbackAmount: offer.cashbackAmount ?? 0,
+      cashbackExpiryDays: offer.cashbackExpiryDays ?? 0,
+
+      // Bundle
+      buyQty: offer.buyQty ?? 0,
+      freeQty: offer.freeQty ?? 0,
+
+      // Smart toggles
+      autoApplyBestOffer: offer.autoApplyBestOffer ?? true,
+      allowManualOverride: offer.allowManualOverride ?? false,
+      requireApprovalForOverride: offer.requireApprovalForOverride ?? true,
+      blockIfProfitMarginBelowX: offer.blockIfProfitMarginBelowX ?? true,
+
+      // Audit
+      createdBy: offer.createdBy?.toString() || "",
+      createdByName: offer.createdByName || "",
+      createdByRole: offer.createdByRole || "",
+      updatedBy: offer.updatedBy?.toString() || "",
+      updatedByName: offer.updatedByName || "",
+      updatedByRole: offer.updatedByRole || "",
+
+      createdAt: offer.createdAt
+        ? offer.createdAt.toISOString().split("T")[0]
+        : "",
+      updatedAt: offer.updatedAt
+        ? offer.updatedAt.toISOString().split("T")[0]
+        : "",
+    };
+
+    return offerData;
+  } catch (error) {
+    console.error("Error in getOfferDetails:", error);
+    return offerData;
+  }
+};
+
+export const getBillingDetails = async (billingId) => {
+  let billingData = {};
+  if (!billingId) return billingData;
+  try {
+    const billing = await Billing.findById(billingId).lean();
+
+    if (!billing) return {};
+
+    // Resolve patient name (schema stores patientId, but template needs patientName)
+    let patientName = "";
+    if (billing.patientId) {
+      const patient = await PatientRegistration.findById(billing.patientId)
+        .select("name firstName lastName fullName")
+        .lean();
+      if (patient) {
+        patientName =
+          patient.name ||
+          patient.fullName ||
+          [patient.firstName, patient.lastName].filter(Boolean).join(" ") ||
+          "";
+      }
+    }
+
+    billingData = {
+      // Patient
+      patientName,
+
+      // Invoice
+      invoiceNumber: billing.invoiceNumber || "",
+      invoicedDate: billing.invoicedDate
+        ? billing.invoicedDate.toISOString().split("T")[0]
+        : "",
+
+      // Amounts
+      amount: billing.amount ?? 0,
+      paid: billing.paid ?? 0,
+      pending: billing.pending ?? 0,
+      advance: billing.advance ?? 0,
+
+      // Payment
+      paymentMethod: billing.paymentMethod || "",
+
+      // Service context
+      service: billing.service || "",
+      treatment: billing.treatment || "",
+      package: billing.package || "",
+    };
+
+    return billingData;
+  } catch (error) {
+    console.error("Error in getBillingDetails:", error);
+    return billingData;
+  }
 };

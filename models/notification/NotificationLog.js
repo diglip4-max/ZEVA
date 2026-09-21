@@ -65,6 +65,8 @@ const NotificationLogSchema = new Schema(
 
     // Message info
     messageId: { type: Types.ObjectId, ref: "Message" },
+    templateId: { type: Types.ObjectId, ref: "Template" },
+    providerId: { type: Types.ObjectId, ref: "Provider" },
   },
   { timestamps: true },
 );

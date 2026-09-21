@@ -8,6 +8,13 @@ import BlockedSlot from "../../../../models/BlockedSlot";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
+// Import notification constants and dispatch function
+import { dispatchNotifications } from "../../../../services/notification";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "../../../../lib/notifications";
+
 export default async function handler(req, res) {
   await dbConnect();
 
@@ -28,12 +35,10 @@ export default async function handler(req, res) {
         clinicUser.role,
       )
     ) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Access denied. Clinic role required.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Clinic role required.",
+      });
     }
 
     let { clinicId, error, isAdmin } = await getClinicIdFromUser(clinicUser);
@@ -131,12 +136,10 @@ export default async function handler(req, res) {
     }
 
     if (appointment.clinicId.toString() !== clinicId.toString()) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Access denied. Appointment does not belong to your clinic.",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Appointment does not belong to your clinic.",
+      });
     }
 
     // Get update data from request body
@@ -220,12 +223,10 @@ export default async function handler(req, res) {
       doctor.role !== "doctorStaff" ||
       doctor.clinicId?.toString() !== clinicId.toString()
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid doctor. Doctor must belong to your clinic.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid doctor. Doctor must belong to your clinic.",
+      });
     }
 
     // Validate room belongs to clinic
@@ -310,8 +311,28 @@ export default async function handler(req, res) {
     // Skip this check if the appointment itself is the one being updated to Block
     if (status !== "Block") {
       const updateDate = new Date(startDate);
-      const startOfDay = new Date(Date.UTC(updateDate.getUTCFullYear(), updateDate.getUTCMonth(), updateDate.getUTCDate(), 0, 0, 0, 0));
-      const endOfDay = new Date(Date.UTC(updateDate.getUTCFullYear(), updateDate.getUTCMonth(), updateDate.getUTCDate(), 23, 59, 59, 999));
+      const startOfDay = new Date(
+        Date.UTC(
+          updateDate.getUTCFullYear(),
+          updateDate.getUTCMonth(),
+          updateDate.getUTCDate(),
+          0,
+          0,
+          0,
+          0,
+        ),
+      );
+      const endOfDay = new Date(
+        Date.UTC(
+          updateDate.getUTCFullYear(),
+          updateDate.getUTCMonth(),
+          updateDate.getUTCDate(),
+          23,
+          59,
+          59,
+          999,
+        ),
+      );
 
       const blockScopeConditions = [];
       if (doctorId) blockScopeConditions.push({ doctorId });
@@ -339,7 +360,8 @@ export default async function handler(req, res) {
         if (blockedAppointment) {
           return res.status(400).json({
             success: false,
-            message: "This time slot is blocked. Cannot move an appointment to a blocked time slot.",
+            message:
+              "This time slot is blocked. Cannot move an appointment to a blocked time slot.",
           });
         }
       }
@@ -362,19 +384,15 @@ export default async function handler(req, res) {
           clinicId,
           isActive: true,
           startDate: { $gte: startOfDay, $lte: endOfDay },
-          $and: [
-            { $or: blockScopeConditions },
-            { $or: timeOverlapConditions },
-          ],
+          $and: [{ $or: blockScopeConditions }, { $or: timeOverlapConditions }],
         });
 
         if (blockedSlotEntry) {
           return res.status(400).json({
             success: false,
-            message:
-              blockedSlotEntry.reason
-                ? `This time slot is blocked (${blockedSlotEntry.reason}). Cannot move an appointment to a blocked time slot.`
-                : "This time slot is blocked. Cannot move an appointment to a blocked time slot.",
+            message: blockedSlotEntry.reason
+              ? `This time slot is blocked (${blockedSlotEntry.reason}). Cannot move an appointment to a blocked time slot.`
+              : "This time slot is blocked. Cannot move an appointment to a blocked time slot.",
           });
         }
       }
@@ -398,9 +416,91 @@ export default async function handler(req, res) {
       await PatientRegistration.findByIdAndUpdate(
         patientId,
         { $set: { referredBy: patientReferralValue } },
-        { new: true }
+        { new: true },
       );
     }
+
+    console.log("updatedAppointment.status:", updatedAppointment.status);
+    // Dispatch Patient notifications
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "booked"
+          ? NOTIFICATION_TYPES.APPOINTMENT_BOOKED
+          : updatedAppointment.status === "Approved"
+            ? NOTIFICATION_TYPES.APPOINTMENT_CONFIRMED
+            : updatedAppointment.status === "Rescheduled"
+              ? NOTIFICATION_TYPES.APPOINTMENT_RESCHEDULED
+              : updatedAppointment.status === "Cancelled"
+                ? NOTIFICATION_TYPES.APPOINTMENT_CANCELLED
+                : updatedAppointment.status === "Completed"
+                  ? NOTIFICATION_TYPES.APPOINTMENT_COMPLETED
+                  : updatedAppointment.status === "Arrived"
+                    ? NOTIFICATION_TYPES.APPOINTMENT_PATIENT_CHECKED_IN
+                    : updatedAppointment.status === "No Show"
+                      ? NOTIFICATION_TYPES.APPOINTMENT_NO_SHOW
+                      : updatedAppointment.status === "Waiting"
+                        ? NOTIFICATION_TYPES.APPOINTMENT_WAITLIST_AVAILABLE
+                        : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.APPOINTMENT,
+    });
+    // Dispatch Patient notifications Followup Treatment Completed
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Discharge"
+          ? NOTIFICATION_TYPES.TREATMENT_COMPLETED
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+    // Dispatch Patient notifications Followup Post-Treatment Message
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Completed"
+          ? NOTIFICATION_TYPES.POST_TREATMENT_MESSAGE
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+    // Dispatch Patient notifications Followup Due and Overdue
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Discharge"
+          ? NOTIFICATION_TYPES.FOLLOWUP_DUE
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Discharge"
+          ? NOTIFICATION_TYPES.FOLLOWUP_OVERDUE
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FOLLOWUP,
+    });
+
+    // Dispatch Patient notifications Feedback Request
+    dispatchNotifications({
+      clinicId: clinicId?.toString(),
+      patientId: patientId,
+      appointmentId: updatedAppointment._id?.toString(),
+      notificationTypeKey:
+        updatedAppointment.status === "Completed"
+          ? NOTIFICATION_TYPES.FEEDBACK_REQUEST
+          : "",
+      notificationCategory: NOTIFICATION_CATEGORIES.FEEDBACK,
+    });
 
     return res.status(200).json({
       success: true,

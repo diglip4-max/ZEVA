@@ -91,6 +91,7 @@ interface TemplateLite {
 
 interface NotificationChannelCardProps {
   ch: NotificationChannel;
+  notificationVariables: any[];
   index: number;
   total: number;
   providers: ProviderLite[];
@@ -110,6 +111,7 @@ const RECIPIENT_OPTIONS: { value: Recipient; label: string }[] = [
 
 export default function NotificationChannelCard({
   ch,
+  notificationVariables,
   index,
   total,
   providers,
@@ -429,7 +431,7 @@ export default function NotificationChannelCard({
           className={fieldSelectClass}
         />
         <VariableMappingDropdown
-          entity="Lead"
+          entity="Notification"
           onSelect={(value: string) =>
             isHeader
               ? handleHeaderVarChange(key, value)
@@ -437,6 +439,7 @@ export default function NotificationChannelCard({
           }
           nodeId={""}
           align="right"
+          notificationVariables={notificationVariables}
         />
       </div>
     </div>

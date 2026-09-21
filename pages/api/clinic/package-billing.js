@@ -5,9 +5,18 @@ import PettyCash from "../../../models/PettyCash";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
+// Dispatch Package Purchased Notifications
+import { dispatchNotifications } from "../../../services/notification";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "../../../lib/notifications";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
 
   await dbConnect();
@@ -15,8 +24,13 @@ export default async function handler(req, res) {
   let user;
   try {
     user = await getUserFromReq(req);
-    if (!user) return res.status(401).json({ success: false, message: "Unauthorized" });
-    if (!["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(user.role)) {
+    if (!user)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    if (
+      !["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(
+        user.role,
+      )
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
   } catch {
@@ -25,7 +39,10 @@ export default async function handler(req, res) {
 
   const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
   if (clinicError || !clinicId) {
-    return res.status(403).json({ success: false, message: clinicError || "Unable to determine clinic" });
+    return res.status(403).json({
+      success: false,
+      message: clinicError || "Unable to determine clinic",
+    });
   }
 
   try {
@@ -44,14 +61,28 @@ export default async function handler(req, res) {
     } = req.body;
 
     // Validate required fields
-    if (!patientId || !packageName || totalAmount === undefined || totalAmount === null) {
-      return res.status(400).json({ success: false, message: "patientId, packageName, and totalAmount are required" });
+    if (
+      !patientId ||
+      !packageName ||
+      totalAmount === undefined ||
+      totalAmount === null
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "patientId, packageName, and totalAmount are required",
+      });
     }
 
     // Verify patient belongs to this clinic
-    const patient = await PatientRegistration.findOne({ _id: patientId, clinicId });
+    const patient = await PatientRegistration.findOne({
+      _id: patientId,
+      clinicId,
+    });
     if (!patient) {
-      return res.status(404).json({ success: false, message: "Patient not found or does not belong to this clinic" });
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found or does not belong to this clinic",
+      });
     }
 
     // Check if billing already exists for this package (enhanced duplicate prevention)
@@ -63,11 +94,13 @@ export default async function handler(req, res) {
       package: packageName,
       amount: totalAmount,
       paid: paidAmount,
-      invoicedDate: { $gte: tenMinutesAgo }
+      invoicedDate: { $gte: tenMinutesAgo },
     });
-    
+
     if (exactDuplicate) {
-      console.log(`[Package Billing] Skipping exact duplicate billing for patient ${patientId}, package ${packageName}`);
+      console.log(
+        `[Package Billing] Skipping exact duplicate billing for patient ${patientId}, package ${packageName}`,
+      );
       return res.status(200).json({
         success: true,
         message: "Package billing already exists (duplicate skipped)",
@@ -84,18 +117,21 @@ export default async function handler(req, res) {
       package: packageName,
       service: "Package",
       // Only check if the package name matches and it's not a refund/reversal
-      pending: { $gte: 0 }
+      pending: { $gte: 0 },
     }).sort({ createdAt: -1 }); // Get the most recent one
-    
+
     if (existingPackageBilling) {
       // Calculate time difference
-      const timeDiff = Date.now() - new Date(existingPackageBilling.createdAt).getTime();
+      const timeDiff =
+        Date.now() - new Date(existingPackageBilling.createdAt).getTime();
       const hoursDiff = timeDiff / (1000 * 60 * 60);
-      
+
       // If the same package was billed within last 24 hours with same amount, skip
       // This prevents accidental duplicate billings while allowing legitimate re-billing after a day
       if (hoursDiff < 24 && existingPackageBilling.amount === totalAmount) {
-        console.log(`[Package Billing] Skipping duplicate - package ${packageName} already billed ${hoursDiff.toFixed(1)} hours ago for patient ${patientId}`);
+        console.log(
+          `[Package Billing] Skipping duplicate - package ${packageName} already billed ${hoursDiff.toFixed(1)} hours ago for patient ${patientId}`,
+        );
         return res.status(200).json({
           success: true,
           message: `Package '${packageName}' was already billed ${hoursDiff.toFixed(1)} hours ago. Skipping duplicate.`,
@@ -118,12 +154,12 @@ export default async function handler(req, res) {
           patientId,
           packageId,
           service: "Package",
-          pending: { $gte: 0 }
+          pending: { $gte: 0 },
         }).sort({ createdAt: -1 });
 
         if (ledgerDuplicate) {
           console.log(
-            `[Package Billing] Ledger check: packageId ${packageId} already billed for patient ${patientId} (invoice ${ledgerDuplicate.invoiceNumber}). Skipping duplicate.`
+            `[Package Billing] Ledger check: packageId ${packageId} already billed for patient ${patientId} (invoice ${ledgerDuplicate.invoiceNumber}). Skipping duplicate.`,
           );
           return res.status(200).json({
             success: true,
@@ -134,14 +170,18 @@ export default async function handler(req, res) {
         }
       } catch (ledgerCheckErr) {
         // Never block billing on a failed ledger check — just log and continue.
-        console.warn('[Package Billing] Ledger duplicate check failed (non-blocking):', ledgerCheckErr.message);
+        console.warn(
+          "[Package Billing] Ledger duplicate check failed (non-blocking):",
+          ledgerCheckErr.message,
+        );
       }
     }
 
     // Calculate pending amount
     // paidAmount is the cash/card payment (custom amount entered by user)
     // advanceBalanceUsed and claimAmountUsed are deducted from the amount user wants to pay
-    const totalDeductions = (advanceBalanceUsed || 0) + (claimAmountUsed || 0) + (paidAmount || 0);
+    const totalDeductions =
+      (advanceBalanceUsed || 0) + (claimAmountUsed || 0) + (paidAmount || 0);
     const pendingAmount = Math.max(0, totalAmount - totalDeductions);
 
     // Determine actual payment status
@@ -155,7 +195,12 @@ export default async function handler(req, res) {
       actualPaymentStatus = "Full";
     } else {
       // Auto-calculate if not specified
-      actualPaymentStatus = totalDeductions >= totalAmount ? "Full" : (totalDeductions > 0 ? "Partial" : "Unpaid");
+      actualPaymentStatus =
+        totalDeductions >= totalAmount
+          ? "Full"
+          : totalDeductions > 0
+            ? "Partial"
+            : "Unpaid";
     }
 
     // Generate invoice number if not provided
@@ -167,11 +212,13 @@ export default async function handler(req, res) {
 
     // Prepare treatments array - store treatment info without session counts for package purchase
     // Sessions should only be counted when treatments are actually consumed, not when package is purchased
-    const treatmentsForBilling = treatments ? treatments.map(t => ({
-      treatmentName: t.treatmentName,
-      treatmentSlug: t.treatmentSlug,
-      sessions: 0, // Set to 0 - sessions not consumed yet
-    })) : [];
+    const treatmentsForBilling = treatments
+      ? treatments.map((t) => ({
+          treatmentName: t.treatmentName,
+          treatmentSlug: t.treatmentSlug,
+          sessions: 0, // Set to 0 - sessions not consumed yet
+        }))
+      : [];
 
     // Create billing record
     const billingRecord = new Billing({
@@ -201,35 +248,99 @@ export default async function handler(req, res) {
       notes: `Package billing - ${actualPaymentStatus} payment. Total: ${totalAmount}, Cash/Card: ${paidAmount || 0}, Advance used: ${advanceBalanceUsed || 0}, Claim used: ${claimAmountUsed || 0}`,
       // Initialize multiplePayments for enterprise-grade ledger
       multiplePayments: [
-        ...(paidAmount > 0 ? [{ paymentMethod: paymentMethod || "Cash", amount: paidAmount, paidAt: new Date(), paidBy: user._id, transactionType: "PAYMENT" }] : []),
-        ...(advanceBalanceUsed > 0 ? [{ paymentMethod: "Advance Balance", amount: advanceBalanceUsed, paidAt: new Date(), paidBy: user._id, transactionType: "ADVANCE_USAGE" }] : []),
-        ...(claimAmountUsed > 0 ? [{ paymentMethod: "Insurance Claim", amount: claimAmountUsed, paidAt: new Date(), paidBy: user._id, transactionType: "CLAIM_USAGE" }] : [])
+        ...(paidAmount > 0
+          ? [
+              {
+                paymentMethod: paymentMethod || "Cash",
+                amount: paidAmount,
+                paidAt: new Date(),
+                paidBy: user._id,
+                transactionType: "PAYMENT",
+              },
+            ]
+          : []),
+        ...(advanceBalanceUsed > 0
+          ? [
+              {
+                paymentMethod: "Advance Balance",
+                amount: advanceBalanceUsed,
+                paidAt: new Date(),
+                paidBy: user._id,
+                transactionType: "ADVANCE_USAGE",
+              },
+            ]
+          : []),
+        ...(claimAmountUsed > 0
+          ? [
+              {
+                paymentMethod: "Insurance Claim",
+                amount: claimAmountUsed,
+                paidAt: new Date(),
+                paidBy: user._id,
+                transactionType: "CLAIM_USAGE",
+              },
+            ]
+          : []),
       ],
       // Initialize paymentHistory for UI audit trail
-      paymentHistory: [{
-        amount: totalAmount,
-        paid: (paidAmount || 0) + (advanceBalanceUsed || 0) + (claimAmountUsed || 0),
-        pending: pendingAmount,
-        paymentMethod: paymentMethod || "Cash",
-        status: actualPaymentStatus === "Full" ? "Completed" : "Active",
-        updatedAt: new Date(),
-        transactionType: actualPaymentStatus === "Full" ? "FULL_PAYMENT" : "PARTIAL_PAYMENT",
-        amountPaid: paidAmount || 0,
-        advanceAmountUsed: advanceBalanceUsed || 0,
-        paidBy: user._id,
-        paidByName: user.name || user.email || "System",
-        remainingPending: pendingAmount,
-        multiplePayments: [
-          ...(paidAmount > 0 ? [{ paymentMethod: paymentMethod || "Cash", amount: paidAmount, transactionType: "PAYMENT" }] : []),
-          ...(advanceBalanceUsed > 0 ? [{ paymentMethod: "Advance Balance", amount: advanceBalanceUsed, transactionType: "ADVANCE_USAGE" }] : []),
-          ...(claimAmountUsed > 0 ? [{ paymentMethod: "Insurance Claim", amount: claimAmountUsed, transactionType: "CLAIM_USAGE" }] : [])
-        ]
-      }]
+      paymentHistory: [
+        {
+          amount: totalAmount,
+          paid:
+            (paidAmount || 0) +
+            (advanceBalanceUsed || 0) +
+            (claimAmountUsed || 0),
+          pending: pendingAmount,
+          paymentMethod: paymentMethod || "Cash",
+          status: actualPaymentStatus === "Full" ? "Completed" : "Active",
+          updatedAt: new Date(),
+          transactionType:
+            actualPaymentStatus === "Full" ? "FULL_PAYMENT" : "PARTIAL_PAYMENT",
+          amountPaid: paidAmount || 0,
+          advanceAmountUsed: advanceBalanceUsed || 0,
+          paidBy: user._id,
+          paidByName: user.name || user.email || "System",
+          remainingPending: pendingAmount,
+          multiplePayments: [
+            ...(paidAmount > 0
+              ? [
+                  {
+                    paymentMethod: paymentMethod || "Cash",
+                    amount: paidAmount,
+                    transactionType: "PAYMENT",
+                  },
+                ]
+              : []),
+            ...(advanceBalanceUsed > 0
+              ? [
+                  {
+                    paymentMethod: "Advance Balance",
+                    amount: advanceBalanceUsed,
+                    transactionType: "ADVANCE_USAGE",
+                  },
+                ]
+              : []),
+            ...(claimAmountUsed > 0
+              ? [
+                  {
+                    paymentMethod: "Insurance Claim",
+                    amount: claimAmountUsed,
+                    transactionType: "CLAIM_USAGE",
+                  },
+                ]
+              : []),
+          ],
+        },
+      ],
     });
 
     await billingRecord.save();
-    console.log(`[Package Billing] Created billing record for patient ${patientId}, package ${packageName}`);
-    console.log(`[Package Billing] Total: ${totalAmount}, Paid: ${paidAmount || 0}, Advance Used: ${advanceBalanceUsed || 0}, Claim Used: ${claimAmountUsed || 0}, Pending: ${pendingAmount}`);
+    console.log(
+      `[Package Billing] Created billing record for patient ${patientId}, package ${packageName}`,
+    );
+    console.log(
+      `[Package Billing] Total: ${totalAmount}, Paid: ${paidAmount || 0}, Advance Used: ${advanceBalanceUsed || 0}, Claim Used: ${claimAmountUsed || 0}, Pending: ${pendingAmount}`,
+    );
 
     // ============================================================
     // Enterprise Pending Ledger: if package has pending > 0, create
@@ -237,10 +348,19 @@ export default async function handler(req, res) {
     // is traceable to a specific package.
     // ============================================================
     try {
-      console.log("[PackageBilling] Checking if ledger entry needed: pendingAmount =", pendingAmount);
+      console.log(
+        "[PackageBilling] Checking if ledger entry needed: pendingAmount =",
+        pendingAmount,
+      );
       if (pendingAmount > 0) {
-        const { createLedgerEntry } = await import("../../../lib/pendingLedger");
-        console.log("[PackageBilling] Creating ledger entry for billing", billingRecord._id, "pending:", pendingAmount);
+        const { createLedgerEntry } =
+          await import("../../../lib/pendingLedger");
+        console.log(
+          "[PackageBilling] Creating ledger entry for billing",
+          billingRecord._id,
+          "pending:",
+          pendingAmount,
+        );
         const entry = await createLedgerEntry({
           clinicId,
           branchId: null,
@@ -260,10 +380,15 @@ export default async function handler(req, res) {
           createdBy: user._id,
         });
         console.log(
-          "[PackageBilling] ✓ Created ledger entry", entry?.ledgerId, "for billing", billingRecord._id,
+          "[PackageBilling] ✓ Created ledger entry",
+          entry?.ledgerId,
+          "for billing",
+          billingRecord._id,
         );
       } else {
-        console.log("[PackageBilling] No ledger entry needed (pendingAmount = 0)");
+        console.log(
+          "[PackageBilling] No ledger entry needed (pendingAmount = 0)",
+        );
       }
     } catch (ledgerErr) {
       console.error(
@@ -277,21 +402,27 @@ export default async function handler(req, res) {
         const pettyCashRecord = await PettyCash.create({
           clinicId,
           staffId: user._id,
-          patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
-          patientEmail: patient.email || '',
-          patientPhone: patient.mobileNumber || '',
+          patientName:
+            `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+          patientEmail: patient.email || "",
+          patientPhone: patient.mobileNumber || "",
           note: `Auto-added from package payment - Package: ${packageName}, Invoice: ${finalInvoiceNumber}`,
-          allocatedAmounts: [{
-            amount: paidAmount,
-            receipts: [],
-            date: new Date()
-          }],
-          expenses: []
+          allocatedAmounts: [
+            {
+              amount: paidAmount,
+              receipts: [],
+              date: new Date(),
+            },
+          ],
+          expenses: [],
         });
 
-        await PettyCash.updateGlobalTotalAmount(clinicId, paidAmount, 'add');
+        await PettyCash.updateGlobalTotalAmount(clinicId, paidAmount, "add");
       } catch (pettyCashError) {
-        console.error('[Package Billing] Error adding to Petty Cash:', pettyCashError);
+        console.error(
+          "[Package Billing] Error adding to Petty Cash:",
+          pettyCashError,
+        );
         // Swallow petty cash errors to avoid breaking package billing
       }
     }
@@ -310,7 +441,64 @@ export default async function handler(req, res) {
         billingForResponse = refreshed;
       }
     } catch (refreshErr) {
-      console.warn("[PackageBilling] Billing refresh failed:", refreshErr.message);
+      console.warn(
+        "[PackageBilling] Billing refresh failed:",
+        refreshErr.message,
+      );
+    }
+
+    if (packageId) {
+      // Dispatch Package Purchased Notifications
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        packageId: packageId,
+        notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_PURCHASED,
+        notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
+      });
+
+      // Dispatch Package Purchased Notifications
+      dispatchNotifications({
+        clinicId: clinicId?.toString(),
+        patientId: patientId,
+        packageId: packageId,
+        notificationTypeKey: NOTIFICATION_TYPES.PACKAGE_ACTIVATED,
+        notificationCategory: NOTIFICATION_CATEGORIES.PACKAGE,
+      });
+    }
+
+    // Dispatch Payment Received Full and Partial Notifications
+    if (
+      packageId &&
+      (actualPaymentStatus === "Full" || actualPaymentStatus === "Partial")
+    ) {
+      if (actualPaymentStatus === "Full") {
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          packageId: packageId,
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      } else if (actualPaymentStatus === "Partial") {
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          packageId: packageId,
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PARTIAL_PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+        dispatchNotifications({
+          clinicId: clinicId?.toString(),
+          patientId: patientId,
+          packageId: packageId,
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_DUE,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      }
     }
 
     return res.status(201).json({
@@ -321,6 +509,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Error creating package billing:", error);
-    return res.status(500).json({ success: false, message: error.message || "Failed to create package billing" });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to create package billing",
+    });
   }
 }
