@@ -384,9 +384,19 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               {item.icon}
                             </div>
                             <div className="flex-1">
-                              <div className="font-medium text-xs text-slate-800 dark:text-slate-200">
-                                {item.label}
-                              </div>
+                              {item.path ? (
+                                <Link
+                                  href={item.path}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="font-medium text-xs text-slate-800 dark:text-slate-200 hover:underline"
+                                >
+                                  {item.label}
+                                </Link>
+                              ) : (
+                                <div className="font-medium text-xs text-slate-800 dark:text-slate-200">
+                                  {item.label}
+                                </div>
+                              )}
                               {item.description && (
                                 <div className="text-[10px] text-slate-600 dark:text-slate-300">
                                   {item.description}
@@ -706,18 +716,35 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 {item.icon}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div
-                                  className={clsx(
-                                    "font-medium text-sm transition-colors duration-200",
-                                    {
-                                      "text-white": isDropdownOpen,
-                                      "text-slate-900 dark:text-slate-100":
-                                        !isDropdownOpen,
-                                    },
-                                  )}
-                                >
-                                  {item.label}
-                                </div>
+                                {item.path ? (
+                                  <Link
+                                    href={item.path}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className={clsx(
+                                      "font-medium text-sm transition-colors duration-200 hover:underline block",
+                                      {
+                                        "text-white": isDropdownOpen,
+                                        "text-slate-900 dark:text-slate-100":
+                                          !isDropdownOpen,
+                                      },
+                                    )}
+                                  >
+                                    {item.label}
+                                  </Link>
+                                ) : (
+                                  <div
+                                    className={clsx(
+                                      "font-medium text-sm transition-colors duration-200",
+                                      {
+                                        "text-white": isDropdownOpen,
+                                        "text-slate-900 dark:text-slate-100":
+                                          !isDropdownOpen,
+                                      },
+                                    )}
+                                  >
+                                    {item.label}
+                                  </div>
+                                )}
                                 {item.description && (
                                   <div
                                     className={clsx(

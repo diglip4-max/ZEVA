@@ -2536,14 +2536,13 @@ export default async function handler(req, res) {
 
     // Update insurance claim pendingClaim when pendingClaimUsedNum > 0
     // This mirrors the pending invoice update logic above - reduces claim's pendingClaim field
-    // so the patient profile correctly reflects paid status
+    // and adds the paid amount to advanceAmount (treating it as advance payment)
     if (pendingClaimUsedNum > 0) {
       try {
-        // Find Released insurance claims with pending claim for this patient (oldest first)
+        // Find insurance claims with pending claim for this patient (any status, oldest first)
         const pendingClaims = await InsuranceClaim.find({
           clinicId: clinic._id,
           patientId: patientRegistration._id,
-          status: "Released",
           pendingClaim: { $gt: 0 },
         }).sort({ createdAt: 1 });
 
@@ -2553,29 +2552,34 @@ export default async function handler(req, res) {
           if (remainingPendingClaimUsed <= 0) break;
 
           const currentPending = Number(claim.pendingClaim || 0);
+          const currentAdvance = Number(claim.advanceAmount || 0);
           const paymentForClaim = Math.min(
             remainingPendingClaimUsed,
             currentPending,
           );
           const newPendingClaim = Math.max(0, currentPending - paymentForClaim);
+          const newAdvanceAmount = currentAdvance + paymentForClaim;
 
-          claim.pendingClaim = newPendingClaim;
+          // Use findOneAndUpdate to bypass pre-save hook
+          // (pre-save forces advanceAmount=0 for Advance type, which we don't want here)
+          await InsuranceClaim.findOneAndUpdate(
+            { _id: claim._id },
+            {
+              $set: {
+                pendingClaim: newPendingClaim,
+                advanceAmount: newAdvanceAmount,
+              },
+            },
+          );
 
           // If pending claim is fully paid, update advanceStatus to Full Pay
-          // and set advanceAmount to finalClaimAmount (full payment completed)
           if (newPendingClaim === 0) {
-            claim.advanceStatus = "Full Pay";
-            // For "Paid" type claims, manually set advanceAmount to finalClaimAmount
-            // (pre-save hook only handles "Advance" type automatically)
-            if (claim.claimType === "Paid") {
-              claim.advanceAmount = Number(
-                claim.finalClaimAmount || claim.claimAmount || 0,
-              );
-            }
-            // For "Advance" type, the pre-save hook sets advanceAmount = claimAmount
+            await InsuranceClaim.findOneAndUpdate(
+              { _id: claim._id },
+              { $set: { advanceStatus: "Full Pay" } },
+            );
           }
 
-          await claim.save();
           remainingPendingClaimUsed -= paymentForClaim;
         }
       } catch (claimUpdateError) {

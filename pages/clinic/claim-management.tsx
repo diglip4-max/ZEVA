@@ -5,7 +5,7 @@ import {
   FileText, CheckCircle, Wallet, Activity, BadgeCheck, Hourglass,
   ShieldAlert, X, RefreshCw, Search, Users, AlertCircle, Eye, Trash2,
   ChevronDown, Loader2, FileImage, CalendarClock, User, Clock, Shield, Stethoscope,
-  ArrowLeftRight, MoveRight, ChevronLeft, ChevronRight, AlertTriangle
+  ArrowLeftRight, MoveRight, ChevronLeft, ChevronRight, AlertTriangle, Send, Calendar, XCircle
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -269,6 +269,15 @@ function ClaimManagementPage() {
   // Available Amount column — reflects billing usage AND credit transfers.
   const [availableByPatient, setAvailableByPatient] = useState<Record<string, number>>({});
 
+  // ===== Release verification state (ported from release-requested-claims) =====
+  const [releaseModal, setReleaseModal] = useState<any>(null);
+  const [releaseVerificationLoading, setReleaseVerificationLoading] = useState(false);
+  const [releaseActionLoading, setReleaseActionLoading] = useState(false);
+  const [existingAppointments, setExistingAppointments] = useState<any[]>([]);
+  const [progressStatus, setProgressStatus] = useState<any>(null);
+  const [consentStatus, setConsentStatus] = useState<any>(null);
+  const [releaseSuccessMsg, setReleaseSuccessMsg] = useState("");
+
   // Role from the stored token — used to gate the delete action
   const getTokenRole = () => {
     try {
@@ -479,7 +488,7 @@ function ClaimManagementPage() {
             permissionToken = userToken || staffToken || agentStaffToken;
           }
           const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: CLAIM_MGMT_MODULE_KEY },
+            params: { moduleKey: "claims" },
             headers: { Authorization: `Bearer ${permissionToken}` },
           });
 
@@ -607,6 +616,107 @@ function ClaimManagementPage() {
       fetchDashboard(true);
     } catch (err: any) {
       window.alert(err?.response?.data?.message || "Failed to delete claim");
+    }
+  };
+
+  // ===== Release verification & handlers (ported from release-requested-claims) =====
+  const fetchReleaseVerificationData = async (claim: any) => {
+    setReleaseVerificationLoading(true);
+    setReleaseModal(claim);
+    setExistingAppointments([]);
+    setProgressStatus(null);
+    setConsentStatus(null);
+    try {
+      const headers = getAuthHeaders();
+      if (claim.patientId) {
+        const aptRes = await axios.get(`/api/clinic/patient-appointment-history/${claim.patientId}`, { headers });
+        if (aptRes.data.success && aptRes.data.appointments) {
+          const claimCreatedAt = new Date(claim.createdAt);
+          const postClaimAppointments = aptRes.data.appointments
+            .filter((apt: any) => new Date(apt.createdAt) > claimCreatedAt)
+            .sort((a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+          setExistingAppointments(postClaimAppointments);
+
+          if (postClaimAppointments.length > 0) {
+            const notesRes = await axios.get(`/api/clinic/progress-notes?patientId=${claim.patientId}`, { headers });
+            if (notesRes.data.success) {
+              const allNotes = notesRes.data.notes || [];
+              const postClaimAptIds = postClaimAppointments.map((a: any) => a._id);
+              const relevantNotes = allNotes.filter((n: any) => postClaimAptIds.includes(n.appointmentId?.toString() || n.appointmentId));
+              setProgressStatus({
+                hasProgress: relevantNotes.length > 0,
+                count: relevantNotes.length,
+                notes: relevantNotes,
+                appointments: postClaimAppointments,
+              });
+            }
+
+            const [logRes, statusRes] = await Promise.all([
+              axios.get(`/api/clinic/consent-log?patientId=${claim.patientId}`, { headers }),
+              axios.get(`/api/clinic/consent-status?patientId=${claim.patientId}`, { headers }),
+            ]);
+            const consentLogs = logRes.data.success ? (logRes.data.consentLogs || []) : [];
+            const consentStatuses = statusRes.data.success ? (statusRes.data.consentStatuses || []) : [];
+
+            const consentByAppointment = postClaimAppointments.map((apt: any) => {
+              const aptId = apt._id;
+              const aptLogs = consentLogs.filter((l: any) => l.appointmentId === aptId);
+              const aptConsentFormIds = aptLogs.map((l: any) => l.consentFormId?.toString() || l.consentFormId);
+              const aptSignatures = consentStatuses.filter((s: any) => aptConsentFormIds.includes(s.consentFormId?.toString() || s.consentFormId));
+              const hasSigned = aptSignatures.some((s: any) => s.status === "signed" || s.hasSignature);
+              const hasSent = aptLogs.length > 0;
+              return {
+                appointmentId: aptId,
+                appointmentDate: apt.startDate,
+                appointmentStatus: apt.status,
+                hasConsent: hasSent || aptSignatures.length > 0,
+                isSigned: hasSigned,
+                logs: aptLogs,
+                signatures: aptSignatures,
+                consentFormName: aptLogs[0]?.consentFormName || aptSignatures[0]?.consentFormName || null,
+              };
+            });
+
+            const allSigned = consentByAppointment.every((c: any) => c.isSigned);
+            const allHaveConsent = consentByAppointment.every((c: any) => c.hasConsent);
+            setConsentStatus({
+              status: allSigned ? "signed" : allHaveConsent ? "sent" : "not_sent",
+              consentByAppointment,
+              allSigned,
+              allHaveConsent,
+              count: consentByAppointment.filter((c: any) => c.hasConsent).length,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching release verification data:", err);
+    } finally {
+      setReleaseVerificationLoading(false);
+    }
+  };
+
+  const handleReleaseClaim = async () => {
+    if (!permissions.canUpdate) return;
+    setReleaseActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.patch(
+        "/api/clinic/insurance-claims/release-request",
+        { claimId: releaseModal._id, action: "release" },
+        { headers }
+      );
+      if (res.data.success) {
+        setReleaseModal(null);
+        setReleaseSuccessMsg("Claim released successfully!");
+        setTimeout(() => setReleaseSuccessMsg(""), 3000);
+        runSearch();
+        fetchDashboard(true);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || "Failed to release claim");
+    } finally {
+      setReleaseActionLoading(false);
     }
   };
 
@@ -1514,6 +1624,23 @@ function ClaimManagementPage() {
                                         <p className="text-sm font-bold text-violet-900">{getCurrencySymbol(currency)} {fmt(row.finalClaimAmount)}</p>
                                       </div>
                                     )}
+                                    {activeStat === 'advance' && permissions.canUpdate && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); if (row.status !== 'Released') fetchReleaseVerificationData(row); }}
+                                        disabled={row.status === 'Released' || releaseVerificationLoading}
+                                        className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-lg transition-all shadow-sm uppercase tracking-tight ${
+                                          row.status === 'Released'
+                                            ? 'bg-green-600 text-white cursor-default opacity-80'
+                                            : 'bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50'
+                                        }`}
+                                      >
+                                        {row.status === 'Released' ? (
+                                          <><CheckCircle className="w-3.5 h-3.5" /> Released</>
+                                        ) : (
+                                          <><Send className="w-3.5 h-3.5" /> Release</>
+                                        )}
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </td>
@@ -2214,6 +2341,160 @@ function ClaimManagementPage() {
           <div className="absolute top-4 right-4 z-20"><button onClick={() => setDocViewerUrl(null)} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white"><X className="w-6 h-6" /></button></div>
           <div className="w-full max-w-5xl h-[85vh] flex items-center justify-center">
             {docViewerUrl.toLowerCase().endsWith('.pdf') ? <iframe src={docViewerUrl} className="w-full h-full rounded-lg shadow-2xl bg-white" title="Document Preview" /> : <img src={docViewerUrl} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />}
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Release Success Message */}
+      {releaseSuccessMsg && createPortal(
+        <div className="fixed top-4 right-4 z-[10000] animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg">
+            <CheckCircle className="w-4 h-4" />
+            <span className="text-sm font-semibold">{releaseSuccessMsg}</span>
+            <button onClick={() => setReleaseSuccessMsg("")} className="ml-2 p-0.5 hover:bg-white/20 rounded">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Release Verification Modal */}
+      {releaseModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[10000] p-3 sm:p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-200">
+            <div className="px-4 sm:px-5 py-3 border-b border-teal-100 bg-teal-50/50 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h2 className="text-base font-bold text-teal-900 flex items-center gap-2">
+                <Send className="w-5 h-5" /> Release Claim Verification
+              </h2>
+              <button onClick={() => setReleaseModal(null)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-4">
+              {releaseVerificationLoading ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mb-4"></div>
+                  <p className="text-sm text-gray-500 font-medium">Fetching verification data...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Claim Summary */}
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Patient</p>
+                        <p className="text-sm font-bold text-gray-900">{releaseModal.patientName}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Amount</p>
+                        <p className="text-sm font-bold text-teal-600">{getCurrencySymbol(currency)}{Number(releaseModal.claimAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Insurance</p>
+                        <p className="text-xs font-semibold text-gray-900">{releaseModal.insuranceProvider}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Policy #</p>
+                        <p className="text-xs font-semibold text-gray-900">{releaseModal.policyNumber || '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Appointments with Progress Notes & Consent */}
+                  {existingAppointments.length === 0 ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-xs font-bold text-yellow-800 flex items-center gap-1.5">
+                        <AlertCircle className="w-4 h-4" /> No appointments found after claim creation
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {existingAppointments.map((apt: any, idx: number) => {
+                        const aptNotes = (progressStatus?.notes || []).filter(
+                          (n: any) => (n.appointmentId?.toString() || n.appointmentId) === apt._id
+                        );
+                        const aptConsent = consentStatus?.consentByAppointment?.find((c: any) => c.appointmentId === apt._id);
+
+                        return (
+                          <div key={apt._id || idx} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <p className="text-[11px] font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                              Appointment: {new Date(apt.startDate).toLocaleDateString()} ({apt.status})
+                            </p>
+                            {/* Progress Notes */}
+                            <div className="ml-2 mb-2">
+                              <p className="text-[10px] font-semibold text-gray-700 mb-1">Progress Notes:</p>
+                              {aptNotes.length > 0 ? (
+                                aptNotes.map((note: any, nIdx: number) => (
+                                  <p key={nIdx} className="text-[10px] text-gray-600 ml-2">
+                                    ✓ {note.note || note.description || "Progress note recorded"}
+                                  </p>
+                                ))
+                              ) : (
+                                <p className="text-[10px] text-yellow-700 ml-2 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" /> No progress note
+                                </p>
+                              )}
+                            </div>
+                            {/* Consent Form */}
+                            <div className="ml-2">
+                              <p className="text-[10px] font-semibold text-gray-700 mb-1">Consent Form:</p>
+                              {aptConsent ? (
+                                <div className="flex items-center justify-between ml-2">
+                                  <p className="text-[10px] text-gray-600">{aptConsent.consentFormName || "Consent Form"}</p>
+                                  {aptConsent.isSigned ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-800">
+                                      <CheckCircle className="w-3 h-3" /> Signed
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-800">
+                                      <XCircle className="w-3 h-3" /> Missing
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-[10px] text-red-700 ml-2 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" /> No consent form
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Warnings */}
+                  {existingAppointments.length > 0 && (
+                    <div className="space-y-2">
+                      {progressStatus && !progressStatus.hasProgress && (
+                        <div className="p-2 rounded-lg bg-yellow-50 border border-yellow-200">
+                          <p className="text-[11px] font-medium text-yellow-800 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5" /> Progress note missing for some appointments
+                          </p>
+                        </div>
+                      )}
+                      {consentStatus && !consentStatus.allSigned && (
+                        <div className="p-2 rounded-lg bg-red-50 border border-red-200">
+                          <p className="text-[11px] font-medium text-red-800 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5" /> Consent form missing or not signed for some appointments
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => setReleaseModal(null)} className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors">Cancel</button>
+                    <button onClick={handleReleaseClaim} disabled={releaseActionLoading} className="flex-1 px-4 py-2 text-xs font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50">
+                      {releaseActionLoading ? "Processing..." : "Confirm Release"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       , document.body)}
