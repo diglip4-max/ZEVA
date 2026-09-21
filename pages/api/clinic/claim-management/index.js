@@ -36,8 +36,22 @@ const toRow = (claim, amount) => ({
   patientId: String(claim.patientId || ""),
   patientName:
     `${claim.patientFirstName || ""} ${claim.patientLastName || ""}`.trim() || "—",
+  patientGender: claim.patientGender || "",
+  patientPhone: claim.patientPhone || "",
   emrNumber: "",
   insuranceProvider: claim.insuranceProvider || "—",
+  policyNumber: claim.policyNumber || "",
+  doctorName: claim.doctorName || "—",
+  departmentName: claim.departmentName || "—",
+  claimType: claim.claimType || "",
+  status: claim.status || "",
+  createdByName: claim.createdByName || "—",
+  createdByRole: claim.createdByRole || "",
+  coPayPercent: claim.coPayPercent || 0,
+  claimAmount: round2(claim.claimAmount || 0),
+  advanceAmount: round2(claim.advanceAmount || 0),
+  finalClaimAmount: claim.finalClaimAmount != null ? round2(claim.finalClaimAmount) : null,
+  createdAt: claim.createdAt ? new Date(claim.createdAt).toLocaleDateString() : "",
   amount: round2(amount),
 });
 

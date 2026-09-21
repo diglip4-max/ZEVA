@@ -282,7 +282,7 @@ export default async function handler(req, res) {
           0,
         )
       : 0;
-    console.log("totalUnpaidPackagesAmount:", totalUnpaidPackagesAmount);
+    // console.log("totalUnpaidPackagesAmount:", totalUnpaidPackagesAmount);
 
     // Validate required fields
     if (
@@ -304,7 +304,7 @@ export default async function handler(req, res) {
       Array.isArray(multiplePayments) && multiplePayments.length > 0
         ? multiplePayments
         : [];
-    console.log("multiPayArr created as:", multiPayArr);
+    // console.log("multiPayArr created as:", multiPayArr);
 
     if (multiPayArr.length === 0 && !paymentMethod) {
       return res.status(400).json({

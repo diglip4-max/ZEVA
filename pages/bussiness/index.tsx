@@ -7,6 +7,7 @@ import LandingContent from "./LandingContent";
 import MarketplaceSection from "../../components/bussiness/MarketplaceSection";
 import TeamSection from "../../components/bussiness/TeamSection";
 import FinanceSection from "../../components/bussiness/FinanceSection";
+import Footer from "../../components/Footer";
 
 /* ================= PAGE ================= */
 
@@ -159,6 +160,8 @@ export default function BussinessLandingPage(): ReactElement {
       <MarketplaceSection />
       <TeamSection />
       <FinanceSection />
+
+      <Footer />
     </>
   );
 }

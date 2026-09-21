@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from "react";
 import { useState } from "react";
 import Head from "next/head";
 import Header from "../../components/Header";
+import Footer from "../../components/Footer";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function JobDashboardPage(): ReactElement {
@@ -387,6 +388,7 @@ export default function JobDashboardPage(): ReactElement {
           </div>
         </div>
       </div>
+      <Footer />
     </>
   );
 }
