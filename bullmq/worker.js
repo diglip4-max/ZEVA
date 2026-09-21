@@ -3753,6 +3753,10 @@ export const notificationWorker = new Worker(
         notificationLog.status = "queued";
         notificationLog.error = "";
       }
+
+      // update notification log id in message
+      newMessage.notificationLogId = notificationLog._id;
+
       await Promise.all([
         newMessage.save(),
         conversation.save(),

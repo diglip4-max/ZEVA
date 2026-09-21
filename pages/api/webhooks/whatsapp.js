@@ -19,6 +19,7 @@ import Campaign from "../../../models/Campaign";
 import { scheduleAIReply } from "../whatsapp/aiAutoReply";
 import { classifyAndCreateOpportunity } from "../../../lib/intentClassifier";
 import PatientRegistration from "../../../models/PatientRegistration";
+import { NotificationLog } from "../../../models/notification/NotificationLog";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
 const getWithoutPlusNumber = (num) => {
@@ -153,6 +154,33 @@ const processWhatsAppWebhook = async (req) => {
           }
 
           await campaign.save();
+        }
+
+        // if notification log then update it status
+        if (message?.notificationLogId) {
+          const notificationLog = await NotificationLog.findById(
+            message.notificationLogId,
+          );
+          if (notificationLog) {
+            notificationLog.status = status;
+            notificationLog.error = errorMessage;
+            if (status === "sent") {
+              notificationLog.sentAt = new Date();
+            }
+            if (status === "delivered") {
+              notificationLog.deliveredAt = new Date();
+            }
+            if (status === "read") {
+              notificationLog.readAt = new Date();
+            }
+            if (status === "opened") {
+              notificationLog.openedAt = new Date();
+            }
+            if (status === "clicked") {
+              notificationLog.clickedAt = new Date();
+            }
+            await notificationLog.save();
+          }
         }
       }
     }
@@ -537,8 +565,12 @@ const processWhatsAppWebhook = async (req) => {
           //   io.to(receiverSocketId).emit("incomingMessage", findMessage);
 
           // Classify message intent and create Opportunity (async, non-blocking)
-          classifyAndCreateOpportunity(newMessage, conversation, findLead).catch(
-            (err) => console.error("[Opportunity] Classification error:", err.message)
+          classifyAndCreateOpportunity(
+            newMessage,
+            conversation,
+            findLead,
+          ).catch((err) =>
+            console.error("[Opportunity] Classification error:", err.message),
           );
 
           //   // send notification to client side in real time using socket

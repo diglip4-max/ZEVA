@@ -43,7 +43,8 @@ export default function EmailListItem({
   // in this codebase doesn't fully describe the populated shape.
   const lead = message.recipientId as any;
   const recent = message as any;
-  const unread = message.status !== "sent" && message.direction === "incoming";
+  // @ts-ignore
+  const unread = message.direction === "incoming" && !message?.isIncomingRead;
   const tags = lead?.tags || [];
 
   return (
