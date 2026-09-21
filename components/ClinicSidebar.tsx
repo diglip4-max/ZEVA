@@ -935,6 +935,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
     "Pass By Doctor": "pass_by_doctor",
     "Release Requested": "release_requested",
     "Doctor's Claim": "doctor_claim",
+    "Create Claim": "create_claim",
+    "Clinic Management": "clinic_management",
     "Assigned Leads": "assignedLead",
     Referral: "clinic_referal",
     Referal: "clinic_referal",
@@ -1398,11 +1400,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               return localHasModulePermission(moduleKey || "", item.label);
             }
 
-            // Check claims submodules (pass_by_doctor, release_requested, doctor_claim)
+            // Check claims submodules (pass_by_doctor, release_requested, doctor_claim, create_claim, clinic_management)
             const claimsSubmodules = [
               "pass_by_doctor",
               "release_requested",
               "doctor_claim",
+              "create_claim",
+              "clinic_management",
             ];
             if (claimsSubmodules.includes(moduleKey || "")) {
               // First check if parent claims module has any permission
@@ -1601,12 +1605,24 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               label: "Claims",
               icon: "file-text",
               children: nonNull(
+                pickTop("Clinic Management"),
+                pickChild("Clinic Management"),
+                createItem("Clinic Management", "/clinic/claim-management", "🏥"),
+                pickTop("Create Claim"),
+                pickChild("Create Claim"),
+                createItem("Create Claim", "/clinic/create-claim", "➕"),
+                pickTop("Pass By Doctor"),
+                pickChild("Pass By Doctor"),
                 createItem("Pass By Doctor", "/clinic/pass-claims", "✅"),
+                pickTop("Release Requested"),
+                pickChild("Release Requested"),
                 createItem(
                   "Release Requested",
                   "/clinic/release-requested-claims",
                   "🚀",
                 ),
+                pickTop("Doctor's Claim"),
+                pickChild("Doctor's Claim"),
                 createItem("Doctor's Claim", "/clinic/all-claims", "👨‍⚕️"),
               ),
               order: 125,

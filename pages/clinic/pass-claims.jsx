@@ -4,7 +4,7 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import Loader from "../../components/Loader";
-import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip } from "lucide-react";
+import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Wallet, CalendarClock, BadgeCheck, History } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
@@ -107,6 +107,11 @@ function PassClaimsPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [previewFile, setPreviewFile] = useState(null);
+  // Full-text popup for diagnosis / treatment plan links
+  const [textPreview, setTextPreview] = useState(null);
+  // Previous claims of the patient (for the View modal history section)
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [patientHistoryLoading, setPatientHistoryLoading] = useState(false);
   const [approvedNotifications, setApprovedNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [userRole, setUserRole] = useState(null);
@@ -437,10 +442,31 @@ function PassClaimsPage() {
     }
   };
 
+  // Fetch all claims belonging to a patient, excluding the currently viewed one
+  const fetchPatientHistory = async (patientId, excludeId) => {
+    setPatientHistoryLoading(true);
+    setPatientHistory([]);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.get(`/api/clinic/insurance-claims?patientId=${patientId}`, { headers });
+      if (res.data.success) {
+        setPatientHistory((res.data.data || []).filter((c) => c._id !== excludeId));
+      }
+    } catch (err) {
+      console.error("Error fetching patient claim history:", err);
+      setPatientHistory([]);
+    } finally {
+      setPatientHistoryLoading(false);
+    }
+  };
+
   const handleViewClaim = (claim) => {
     setViewModal(claim);
     setShowTracking(false);
+    // Reset stale detail/history so values from a previously opened claim never bleed through
+    setClaimDetails(null);
     fetchClaimDetails(claim._id);
+    if (claim.patientId) fetchPatientHistory(claim.patientId, claim._id);
   };
 
   const handleReady = async (claimId) => {
@@ -504,6 +530,28 @@ function PassClaimsPage() {
       Ready: "bg-indigo-100 text-indigo-800 border-indigo-300",
     };
     return styles[displayStatus] || "bg-gray-100 text-gray-800 border-gray-300";
+  };
+
+  // Expected release date tag — SLA state machine rendered as a standard
+  // outlined tag (colored border + text, no heavy background) on every card.
+  const getExpectedReleaseTag = (claim) => {
+    if (!claim.expectedReleaseDate) return null;
+    const isReleased =
+      claim.status === "Released" ||
+      claim.status === "Completed" ||
+      !!claim.releasedAt;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expected = new Date(claim.expectedReleaseDate);
+    expected.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((expected - today) / 86400000);
+    const dateStr = expected.toLocaleDateString();
+    if (isReleased) return { label: `Achieved Expected Release · ${dateStr}`, cls: "border-green-300 text-green-700", Icon: CheckCircle };
+    if (diffDays < 0) return { label: `Overdue Expected Release · ${dateStr}`, cls: "border-red-300 text-red-600", Icon: CalendarClock };
+    if (diffDays === 0) return { label: "Expected Release Today", cls: "border-orange-300 text-orange-600", Icon: CalendarClock };
+    if (diffDays === 1) return { label: "Expected Release Tomorrow", cls: "border-red-300 text-red-600", Icon: CalendarClock };
+    if (diffDays <= 5) return { label: `Expected in ${diffDays} Days · ${dateStr}`, cls: "border-amber-300 text-amber-700", Icon: CalendarClock };
+    return { label: `Ongoing Release · ${dateStr}`, cls: "border-blue-300 text-blue-600", Icon: CalendarClock };
   };
 
   // Helper to get display status for a claim
@@ -699,21 +747,21 @@ function PassClaimsPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
               {paginatedClaims.map((claim) => {
                 const displayStatus = getDisplayStatus(claim);
                 return (
                   <div
                     key={claim._id}
-                    className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col"
+                    className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col min-w-0"
                   >
                     {/* Card Header - Status Badge */}
-                    <div className={`px-4 py-2.5 border-b rounded-t-xl ${getStatusBadge(claim.status, claim.rejectedFromPassClaims)}`}>
+                    <div className={`px-3 py-1.5 border-b rounded-t-xl ${getStatusBadge(claim.status, claim.rejectedFromPassClaims)}`}>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider">
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
                           {displayStatus}
                         </span>
-                        <span className="text-[10px] font-medium opacity-80">
+                        <span className="text-[9px] font-medium opacity-80">
                           {displayStatus === "Approved"
                             ? formatDate(claim.approvedAt)
                             : displayStatus === "Rejected"
@@ -725,29 +773,52 @@ function PassClaimsPage() {
                     </div>
 
                     {/* Card Body */}
-                    <div className="p-4 space-y-4 flex-1">
+                    <div className="p-2.5 space-y-2 flex-1 min-w-0">
+                      {/* Expected Release Tag — top of card, above patient name */}
+                      {(() => {
+                        const tag = getExpectedReleaseTag(claim);
+                        if (!tag) return null;
+                        const TagIcon = tag.Icon;
+                        return (
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-semibold border bg-white self-start ${tag.cls}`}>
+                            <TagIcon className="w-3 h-3 shrink-0" />
+                            {tag.label}
+                          </span>
+                        );
+                      })()}
                       {/* Patient Info */}
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-gray-600 font-bold text-sm">
+                      <div className="flex items-start gap-2">
+                        <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-gray-600 font-bold text-[9px]">
                             {claim.patientFirstName?.[0]}{claim.patientLastName?.[0]}
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">Patient</p>
-                          <p className="text-sm font-bold text-gray-900 truncate">
+                          <p className="text-[9px] text-gray-500 uppercase font-bold tracking-tight">Patient</p>
+                          <p className="text-xs font-bold text-gray-900 truncate">
                             {claim.patientFirstName} {claim.patientLastName}
                           </p>
+                          {claim.patientEmrNumber && (
+                            <p className="text-[9px] font-mono text-teal-600 font-semibold truncate mt-0.5">{claim.patientEmrNumber}</p>
+                          )}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3">
+                      {/* EMIR + Invoice reference */}
+                      {(claim.emirNumber || claim.invoiceNumber) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] font-mono text-gray-400">
+                          {claim.emirNumber && <span className="truncate">EMIR: {claim.emirNumber}</span>}
+                          {claim.invoiceNumber && <span className="truncate">INV: {claim.invoiceNumber}</span>}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 gap-2">
                         {/* Doctor Info */}
-                        <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">
+                        <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
+                          <p className="text-[9px] text-gray-500 uppercase font-bold tracking-tight">
                             {displayStatus === "Released" ? "Released By" : "Reviewed By"}
                           </p>
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-xs font-semibold text-gray-900 truncate">
                             {displayStatus === "Approved"
                               ? claim.approvedByName || claim.doctorName
                               : displayStatus === "Rejected"
@@ -755,7 +826,7 @@ function PassClaimsPage() {
                                 : claim.releasedByName || claim.doctorName
                             }
                           </p>
-                          <p className="text-[10px] text-teal-600 font-medium capitalize">
+                          <p className="text-[9px] text-teal-600 font-medium capitalize">
                             {displayStatus === "Approved"
                               ? (claim.approvedByRole || "Doctor")
                               : displayStatus === "Rejected"
@@ -766,41 +837,51 @@ function PassClaimsPage() {
                         </div>
 
                         {/* Insurance Info */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                            <p className="text-[10px] text-blue-600 dark:text-teal-100 font-bold uppercase tracking-tighter">Provider</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.insuranceProvider}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                          <div className="bg-blue-50 rounded-md p-1.5 border border-blue-100">
+                            <p className="text-[8px] sm:text-[9px] text-blue-600 dark:text-teal-100 font-bold uppercase tracking-tighter">Provider</p>
+                            <p className="text-[9px] sm:text-[10px] font-semibold text-gray-900 truncate">{claim.insuranceProvider}</p>
                           </div>
-                          <div className="bg-blue-50 rounded-lg p-2 border border-blue-100">
-                            <p className="text-[10px] text-blue-600 font-bold dark:text-teal-100  uppercase tracking-tighter">Policy #</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.policyNumber}</p>
+                          <div className="bg-blue-50 rounded-md p-1.5 border border-blue-100">
+                            <p className="text-[8px] sm:text-[9px] text-blue-600 font-bold dark:text-teal-100  uppercase tracking-tighter">Policy #</p>
+                            <p className="text-[9px] sm:text-[10px] font-semibold text-gray-900 truncate">{claim.policyNumber}</p>
                           </div>
                         </div>
 
                         {/* Claim Details */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600  dark:text-teal-100  font-bold uppercase tracking-tighter">Amount</p>
-                            <p className="text-sm font-bold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                          <div className="bg-emerald-50 rounded-md p-1.5 border border-emerald-100">
+                            <p className="text-[8px] sm:text-[9px] text-emerald-600  dark:text-teal-100  font-bold uppercase tracking-tighter">Amount</p>
+                            <p className="text-[10px] sm:text-xs font-bold text-gray-900">{getCurrencySymbol(currency)}{claim.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                           </div>
-                          <div className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-600 dark:text-teal-100  font-bold uppercase tracking-tighter">Department</p>
-                            <p className="text-xs font-semibold text-gray-900 truncate">{claim.departmentName || "N/A"}</p>
+                          <div className="bg-emerald-50 rounded-md p-1.5 border border-emerald-100">
+                            <p className="text-[8px] sm:text-[9px] text-emerald-600 dark:text-teal-100  font-bold uppercase tracking-tighter">Department</p>
+                            <p className="text-[9px] sm:text-[10px] font-semibold text-gray-900 truncate">{claim.departmentName || "N/A"}</p>
                           </div>
                         </div>
 
+                        {/* Doctor Added Extra Amount */}
+                        {claim.doctorAddedClaimAmount != null && (
+                          <div className="flex items-center gap-2 bg-white border border-teal-200 rounded-md px-2 py-1.5">
+                            <Wallet className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                            <p className="text-[10px] font-semibold text-teal-800">
+                              Extra Amount Added: {getCurrencySymbol(currency)}{claim.doctorAddedClaimAmount?.toLocaleString()}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Services */}
-                        <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-                          <p className="text-[10px] text-gray-500 uppercase font-bold tracking-tight mb-1">Services</p>
+                        <div className="bg-gray-50 rounded-md p-2 border border-gray-100">
+                          <p className="text-[9px] text-gray-500 uppercase font-bold tracking-tight mb-0.5">Services</p>
                           <div className="flex flex-wrap gap-1">
                             {claim.services && claim.services.length > 0 ? (
                               claim.services.map((svc, idx) => (
-                                <span key={idx} className="inline-flex px-1 py-0.5 rounded-full text-[8px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
+                                <span key={idx} className="inline-flex px-1 py-0.5 rounded-full text-[7px] font-bold bg-teal-100 text-teal-800 border border-teal-200">
                                   {svc.serviceName}
                                 </span>
                               ))
                             ) : (
-                              <p className="text-xs font-semibold text-gray-900 truncate">{claim.serviceName || "N/A"}</p>
+                              <p className="text-[10px] font-semibold text-gray-900 truncate">{claim.serviceName || "N/A"}</p>
                             )}
                           </div>
                         </div>
@@ -808,25 +889,25 @@ function PassClaimsPage() {
 
                       {/* Rejection Reason (if rejected) */}
                       {displayStatus === "Rejected" && claim.rejectionReason && (
-                        <div className="bg-red-50 border border-red-100 rounded-lg p-2.5">
-                          <p className="text-[10px] text-red-600 font-bold flex items-center gap-1 uppercase">
+                        <div className="bg-red-50 border border-red-100 rounded-md p-2">
+                          <p className="text-[9px] text-red-600 font-bold flex items-center gap-1 uppercase">
                             <AlertCircle className="w-3 h-3" />
                             Rejection Reason
                           </p>
-                          <p className="text-[11px] text-red-700 mt-1 line-clamp-2 leading-relaxed">{claim.rejectionReason}</p>
+                          <p className="text-[10px] text-red-700 mt-0.5 line-clamp-2 leading-relaxed">{claim.rejectionReason}</p>
                         </div>
                       )}
                     </div>
 
                     {/* Card Footer */}
-                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/80 rounded-b-xl flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    <div className="px-3 py-1.5 border-t border-gray-100 bg-gray-50/80 rounded-b-xl flex items-center justify-between gap-2">
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
                         #{claim._id?.slice(-6)}
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleViewClaim(claim)}
-                          className="p-2 bg-white text-gray-600 hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm"
+                          className="p-1 text-gray-500 hover:text-teal-600 transition-colors"
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
@@ -837,7 +918,7 @@ function PassClaimsPage() {
                               <button
                                 onClick={() => handleReady(claim._id)}
                                 disabled={actionLoading}
-                                className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-[11px] font-bold rounded-lg hover:bg-teal-700 transition-all shadow-sm disabled:opacity-50 uppercase tracking-tight"
+                                className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white text-[10px] font-bold rounded-lg hover:bg-teal-700 transition-all shadow-sm disabled:opacity-50 uppercase tracking-tight"
                               >
                                 <CheckCircle className="w-3.5 h-3.5" />
                                 Ready
@@ -847,7 +928,7 @@ function PassClaimsPage() {
                               <button
                                 onClick={() => setRejectModal(claim)}
                                 disabled={actionLoading}
-                                className="p-2 bg-white text-red-600 hover:bg-red-50 border border-red-100 rounded-lg transition-all shadow-sm disabled:opacity-50"
+                                className="p-1 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50"
                                 title="Reject Back to Doctor"
                               >
                                 <XCircle className="w-4 h-4" />
@@ -992,6 +1073,7 @@ function PassClaimsPage() {
                 onClick={() => {
                   setViewModal(null);
                   setClaimDetails(null);
+                  setTextPreview(null);
                 }}
                 className="p-2 hover:bg-black/5 rounded-xl transition-colors"
               >
@@ -1113,6 +1195,12 @@ function PassClaimsPage() {
                               : (viewModal.patientMobileNumber || "-")}
                           </span>
                         </div>
+                        {(claimDetails?.emirNumber || viewModal.emirNumber) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-500 flex items-center gap-1.5"><BadgeCheck className="w-3.5 h-3.5 text-teal-500" /> EMIR #:</span>
+                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.emirNumber || viewModal.emirNumber}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -1132,8 +1220,67 @@ function PassClaimsPage() {
                           <span className="text-gray-500">Expiry Date:</span>
                           <span className="font-medium text-gray-900">{viewModal.expiryDate ? new Date(viewModal.expiryDate).toLocaleDateString() : "-"}</span>
                         </div>
+                        {(claimDetails?.invoiceNumber || viewModal.invoiceNumber) && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-500 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-teal-500" /> Invoice #:</span>
+                            <span className="font-semibold font-mono text-gray-900">{claimDetails?.invoiceNumber || viewModal.invoiceNumber}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Previous Claims — all prior claims belonging to this patient */}
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4 text-teal-500" /> Previous Claims
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        {patientHistoryLoading ? "Loading…" : `${patientHistory.length} previous claim${patientHistory.length === 1 ? "" : "s"} found for this patient`}
+                      </span>
+                    </h3>
+                    {patientHistoryLoading ? (
+                      <div className="flex items-center justify-center py-6">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-teal-600" />
+                      </div>
+                    ) : patientHistory.length === 0 ? (
+                      <div className="flex items-center gap-3 py-0.5">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                          <FileText className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-600 leading-tight">No previous claims</p>
+                          <p className="text-[11px] text-gray-400 leading-snug">This is the first claim for this patient</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                        {patientHistory.map((prev) => (
+                          <div key={prev._id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              prev.status === "Approved" ? "bg-green-500" :
+                              prev.status === "Rejected" || (prev.status === "Under Review" && prev.rejectedFromPassClaims) ? "bg-red-500" :
+                              prev.status === "Released" ? "bg-blue-500" :
+                              prev.status === "Ready" ? "bg-indigo-500" :
+                              prev.status === "Completed" ? "bg-purple-500" :
+                              "bg-yellow-400"
+                            }`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusBadge(prev.status, prev.rejectedFromPassClaims)}`}>
+                                  {getDisplayStatus(prev)}
+                                </span>
+                                <span className="text-[10px] font-medium text-gray-400 uppercase">{prev.claimType}</span>
+                              </div>
+                              <p className="text-xs font-medium text-gray-700 mt-0.5 truncate">{prev.insuranceProvider || "—"}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                                {prev.doctorName || "—"} · {prev.departmentName || "—"} · {getCurrencySymbol(currency)}{prev.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <p className="text-[11px] text-gray-400 shrink-0">{new Date(prev.createdAt).toLocaleDateString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Uploaded Insurance Files */}
@@ -1202,6 +1349,20 @@ function PassClaimsPage() {
                         <p className="text-sm font-semibold text-gray-900">{viewModal.claimType}</p>
                       </div>
                       <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-xs text-gray-500">Urgency</p>
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-50 text-red-700" :
+                          (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-50 text-amber-700" :
+                          "bg-teal-50 text-teal-700"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-500" :
+                            (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-500" : "bg-teal-500"
+                          }`} />
+                          {claimDetails?.urgency || viewModal.urgency || "Normal"}
+                        </span>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3">
                         <p className="text-xs text-gray-500">Claim Amount</p>
                         <p className="text-sm font-semibold text-teal-600 font-bold">{getCurrencySymbol(currency)}{viewModal.claimAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                       </div>
@@ -1259,6 +1420,46 @@ function PassClaimsPage() {
                         </span>
                       </div>
                     </div>
+                    {/* Diagnosis / Treatment Plan — clickable links opening the full-text popup */}
+                    {(claimDetails?.diagnosis || viewModal.diagnosis || claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {(claimDetails?.diagnosis || viewModal.diagnosis) && (
+                          <button
+                            onClick={() => setTextPreview({ title: "Diagnosis", text: claimDetails?.diagnosis || viewModal.diagnosis })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> View Diagnosis
+                          </button>
+                        )}
+                        {(claimDetails?.treatmentPlan || viewModal.treatmentPlan) && (
+                          <button
+                            onClick={() => setTextPreview({ title: "Treatment Plan", text: claimDetails?.treatmentPlan || viewModal.treatmentPlan })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors"
+                          >
+                            <Activity className="w-3.5 h-3.5" /> View Treatment Plan
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {/* Doctor Added Extra Amount + Notes — fresh detail data takes precedence over the cached list object */}
+                    {(claimDetails?.doctorAddedClaimAmount != null || viewModal.doctorAddedClaimAmount != null) && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Wallet className="w-4 h-4 text-teal-600" />
+                          <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider">Doctor Added Claim Amount</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Extra Amount Added</p>
+                            <p className="text-sm font-semibold text-teal-700 mt-1">{getCurrencySymbol(currency)}{(claimDetails?.doctorAddedClaimAmount ?? viewModal.doctorAddedClaimAmount)?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Doctor Added Claim Notes</p>
+                            <p className="text-sm text-gray-800 mt-1 leading-relaxed">{claimDetails?.doctorAddedClaimNotes || viewModal.doctorAddedClaimNotes || "—"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Review History */}
@@ -1433,6 +1634,26 @@ function PassClaimsPage() {
               >
                 Open in New Tab
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Text Preview Modal — full diagnosis / treatment plan text from modal links */}
+      {textPreview && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">{textPreview.title}</h2>
+                <p className="text-xs text-gray-500">Claim Text Preview</p>
+              </div>
+              <button onClick={() => setTextPreview(null)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{textPreview.text || "—"}</p>
             </div>
           </div>
         </div>

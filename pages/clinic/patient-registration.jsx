@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
-import PatientRegistration from "../staff/patient-registration";
+import PatientRegistration from "@/components/patient/PatientRegistrationForm";
 import { PatientInformation } from "../staff/patient-information";
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -61,20 +61,34 @@ const getAuthHeaders = (routeContext) => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
-// URL-based role detection — no cross-role token scanning
+// URL-based role detection — checks all token types for accurate role resolution
 const getUserInfo = () => {
   if (typeof window === "undefined") return { role: null, id: null };
-  // This file is inside /clinic/ — always clinic context
-  try {
-    const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
-    if (token) {
-      const base64Url = token.split(".")[1];
-      if (!base64Url) return { role: 'clinic', id: null };
-      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-      const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-      return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
-    }
-  } catch (e) { /* ignore */ }
+  // Check all token types in priority order to find the actual user role
+  const tokensToCheck = [
+    { key: 'clinicToken', storage: 'clinicToken' },
+    { key: 'doctorToken', storage: 'doctorToken' },
+    { key: 'agentToken', storage: 'agentToken' },
+    { key: 'staffToken', storage: 'staffToken' },
+    { key: 'userToken', storage: 'userToken' },
+    { key: 'adminToken', storage: 'adminToken' },
+  ];
+
+  for (const { key } of tokensToCheck) {
+    try {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) {
+        const base64Url = token.split(".")[1];
+        if (!base64Url) continue;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+        const role = decoded.role || decoded.userRole || null;
+        if (role) {
+          return { role, id: decoded.userId || decoded.id || null };
+        }
+      }
+    } catch (e) { /* ignore decode errors, try next token */ }
+  }
   return { role: 'clinic', id: null };
 };
 
@@ -331,6 +345,7 @@ function ClinicPatientRegistration({
       return;
     }
 
+    // For agent/doctorStaff roles (when not on agent route), fetch permissions from agent endpoint
     const agentStaffToken = getStoredToken();
     if (!agentStaffToken) {
       setPermissions({
@@ -343,79 +358,77 @@ function ClinicPatientRegistration({
       return;
     }
 
-    if (agentToken || staffToken || userToken) {
-      const fetchPermissions = async () => {
-        try {
+    // Fetch permissions for agent/doctorStaff/any non-clinic-non-doctor role
+    const fetchPermissions = async () => {
+      try {
+        console.log(
+          "Fetching Agent/Staff Permissions for clinic_patient_registration...",
+        );
+        setPermissionsLoaded(false);
+        const res = await axios.get("/api/agent/get-module-permissions", {
+          params: { moduleKey: "clinic_patient_registration" },
+          headers: { Authorization: `Bearer ${agentStaffToken}` },
+        });
+        const data = res.data;
+        console.log("Agent Permissions API Response:", data);
+
+        if (!isMounted) return;
+
+        // Default to true if module not found in permissions (matches backend logic)
+        if (
+          !data?.permissions &&
+          data?.error?.includes("not found in agent permissions")
+        ) {
           console.log(
-            "Fetching Agent/Staff Permissions for clinic_patient_registration...",
+            "Module not found in permissions, granting full access by default",
           );
-          setPermissionsLoaded(false);
-          const res = await axios.get("/api/agent/get-module-permissions", {
-            params: { moduleKey: "clinic_patient_registration" },
-            headers: { Authorization: `Bearer ${agentStaffToken}` },
-          });
-          const data = res.data;
-          console.log("Agent Permissions API Response:", data);
-
-          if (!isMounted) return;
-
-          if (
-            !data?.permissions &&
-            data?.error?.includes("not found in agent permissions")
-          ) {
-            console.log(
-              "Module not found in permissions, granting full access by default",
-            );
-            setPermissions({
-              canRead: true,
-              canCreate: true,
-              canUpdate: true,
-              canDelete: true,
-            });
-            setPermissionsLoaded(true);
-            return;
-          }
-
-          const actions =
-            data?.permissions?.actions || data?.data?.moduleActions || {};
-          const isTrue = (val) =>
-            val === true ||
-            val === "true" ||
-            String(val || "").toLowerCase() === "true";
-
-          const canAll = isTrue(actions.all);
-
-          const newPerms = {
-            canRead: canAll || isTrue(actions.read),
-            canCreate: canAll || isTrue(actions.create),
-            canUpdate: canAll || isTrue(actions.update),
-            canDelete: canAll || isTrue(actions.delete),
-          };
-          setPermissions(newPerms);
-        } catch (err) {
-          console.error("Error fetching agent permissions:", err);
           setPermissions({
+            canRead: true,
+            canCreate: true,
+            canUpdate: true,
+            canDelete: true,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        const actions =
+          data?.permissions?.actions || data?.data?.moduleActions || {};
+        const isTrue = (val) =>
+          val === true ||
+          val === "true" ||
+          String(val || "").toLowerCase() === "true";
+
+        const canAll = isTrue(actions.all);
+
+        const newPerms = {
+          canRead: canAll || isTrue(actions.read),
+          canCreate: canAll || isTrue(actions.create),
+          canUpdate: canAll || isTrue(actions.update),
+          canDelete: canAll || isTrue(actions.delete),
+        };
+
+        console.log("Final Agent/Staff Permissions:", newPerms);
+        setPermissions(newPerms);
+      } catch (err) {
+        console.error("Error fetching agent permissions:", err);
+        // On error, deny all access (secure default)
+        if (isMounted) {
+          setPermissions({
+            canRead: false,
             canCreate: false,
             canUpdate: false,
             canDelete: false,
-            canRead: false,
           });
-        } finally {
+        }
+      } finally {
+        if (isMounted) {
           setPermissionsLoaded(true);
         }
-      };
+      }
+    };
 
-      fetchPermissions();
-      return;
-    }
-
-    setPermissions({
-      canRead: false,
-      canUpdate: false,
-      canDelete: false,
-      canCreate: false,
-    });
-    setPermissionsLoaded(true);
+    fetchPermissions();
   }, [isAgentRoute, routeContext]);
 
   useEffect(() => {

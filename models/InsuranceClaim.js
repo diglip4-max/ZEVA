@@ -51,6 +51,51 @@ const InsuranceClaimSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    emriFrontPhoto: {
+      type: String,
+      default: "",
+    },
+    emriBackPhoto: {
+      type: String,
+      default: "",
+    },
+    urgency: {
+      type: String,
+      enum: ["High", "Normal", "Priority"],
+      default: "Normal",
+    },
+    invoiceNumber: {
+      type: String,
+      default: "",
+      unique: true,
+    },
+    transactionId: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    attachment: {
+      type: String,
+      default: "",
+    },
+    // EMIR number recorded during the create-plan flow
+    emirNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    // Payment method chosen during the create-plan flow
+    paymentMethod: {
+      type: String,
+      enum: ["Cash", "Card", "UPI", "Bank Transfer", "Cheque", ""],
+      default: "",
+    },
+    // Diagnosis text recorded during the create-plan flow
+    diagnosis: {
+      type: String,
+      default: "",
+      trim: true,
+    },
 
     // Claim Source
     departmentId: {
@@ -132,6 +177,19 @@ const InsuranceClaimSchema = new mongoose.Schema(
       },
     ],
 
+    // Doctor added extra claim amount (recorded by doctor while reviewing the claim in all-claims)
+    doctorAddedClaimAmount: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
+    // Compulsory notes justifying the doctor added extra claim amount
+    doctorAddedClaimNotes: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     // Advance-specific fields
     advanceStatus: {
       type: String,
@@ -209,6 +267,11 @@ const InsuranceClaimSchema = new mongoose.Schema(
       default: "",
     },
     approvedAt: {
+      type: Date,
+      default: null,
+    },
+    // Expected release date chosen by the doctor when approving the claim
+    expectedReleaseDate: {
       type: Date,
       default: null,
     },

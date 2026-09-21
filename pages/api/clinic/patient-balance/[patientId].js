@@ -1,6 +1,8 @@
 import dbConnect from "../../../../lib/database";
+import mongoose from "mongoose";
 import Billing from "../../../../models/Billing";
 import InsuranceClaim from "../../../../models/InsuranceClaim";
+import ClaimCreditTransfer from "../../../../models/ClaimCreditTransfer";
 import { getUserFromReq } from "../../lead-ms/auth";
 import {
   aggregatePatientPending,
@@ -224,10 +226,42 @@ export default async function handler(req, res) {
     const totalClaimAmountUsed = billings.reduce(
       (sum, b) => sum + Number(b.claimAmountUsed || 0), 0
     );
-    
-    
+
+    // Claim credit transfers (ClaimCreditTransfer ledger, additive layer):
+    //   transfers OUT reduce the source patient's usable credit,
+    //   transfers IN increase the destination patient's usable credit.
+    // InsuranceClaim and Billing stay untouched — the ledger is the
+    // source of truth for transfers, exactly like the pending ledger below.
+    let claimTransferOut = 0;
+    let claimTransferIn = 0;
+    if (mongoose.Types.ObjectId.isValid(patientId)) {
+      const pid = new mongoose.Types.ObjectId(patientId);
+      const tMatch = { status: "Completed" };
+      if (clinicId) tMatch.clinicId = clinicId;
+      const [outAgg] = await ClaimCreditTransfer.aggregate([
+        { $match: { ...tMatch, sourcePatientId: pid } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]);
+      const [inAgg] = await ClaimCreditTransfer.aggregate([
+        { $match: { ...tMatch, destPatientId: pid } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]);
+      claimTransferOut = Number(outAgg?.total || 0);
+      claimTransferIn = Number(inAgg?.total || 0);
+    }
+
     // Calculate remaining claim amount
-    const claimAmount = Math.max(0, Number((totalClaimAmount - totalClaimAmountUsed).toFixed(2)));
+    const claimAmount = Math.max(
+      0,
+      Number(
+        (
+          totalClaimAmount -
+          totalClaimAmountUsed -
+          claimTransferOut +
+          claimTransferIn
+        ).toFixed(2)
+      )
+    );
     
     // Calculate total pending claim amount from released claims
     // The claim's pendingClaim field is the authoritative source - it is directly updated
