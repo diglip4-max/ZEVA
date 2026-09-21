@@ -7,7 +7,7 @@ import {
   Calculator, Info, CheckCircle, Eye, Activity, Trash2,
   User, Clock, AlertCircle, ClipboardList, ChevronRight, ChevronLeft,
   Search, Upload, AlertTriangle, Plus, ArrowLeftRight, Wallet, MoveRight,
-  CalendarClock
+  CalendarClock, Filter
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -187,6 +187,12 @@ function CreateClaimPage() {
   const [patientHistory, setPatientHistory] = useState<any[]>([]);
   const [patientHistoryLoading, setPatientHistoryLoading] = useState(false);
 
+  // Agent claim filter
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [loggedInUserId, setLoggedInUserId] = useState<string>("");
+  const [agentClaimFilter, setAgentClaimFilter] = useState<"all" | "my">("all");
+  const [claimsSearchQuery, setClaimsSearchQuery] = useState("");
+
   // Expected-release SLA tag (same state machine as the claims pages)
   const getExpectedReleaseTag = (claim: any) => {
     if (!claim.expectedReleaseDate) return null;
@@ -291,6 +297,21 @@ function CreateClaimPage() {
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
         : null;
+
+    // Extract logged-in user ID from token payload
+    let currentUserId = "";
+    try {
+      const tokenForPayload = authToken || agentToken || clinicToken || doctorToken || staffToken || userToken;
+      if (tokenForPayload) {
+        const payload = JSON.parse(atob(tokenForPayload.split('.')[1]));
+        currentUserId = payload?._id || payload?.id || payload?.userId || "";
+      }
+    } catch (e) { /* ignore */ }
+
+    if (isMounted) {
+      setUserRole(userRole);
+      setLoggedInUserId(currentUserId);
+    }
 
     // Admin gets full permissions
     if (userRole === "admin") {
@@ -605,12 +626,17 @@ function CreateClaimPage() {
   };
 
   // Co-pay calculation
-  const calculateCoPay = (claimAmount: number, coPayPercent: number, coPayType: string, advanceStatus: string, paidAmount: number) => {
+  const calculateCoPay = (claimAmount: number, coPayPercent: number, coPayType: string, advanceStatus: string, paidAmount: number, claimType?: string) => {
     const coPayAmount = claimAmount * (coPayPercent / 100);
     let total = claimAmount;
     if (coPayType === 'Patient Pays') total = claimAmount + coPayAmount;
     let pending = 0;
-    if (advanceStatus === 'Partial Pay') pending = total - paidAmount;
+    if (claimType === "Advance") {
+      // Advance claim: full amount is pending (service given now, paid later)
+      pending = total;
+    } else if (advanceStatus === 'Partial Pay') {
+      pending = total - paidAmount;
+    }
     return { coPayAmount: Math.round(coPayAmount * 100) / 100, totalClaimAmount: Math.round(total * 100) / 100, pendingClaimAmount: Math.round(Math.max(0, pending) * 100) / 100 };
   };
 
@@ -625,11 +651,15 @@ function CreateClaimPage() {
       const copType = name === "coPayType" ? value : updated.coPayType;
       const advStatus = name === "advanceStatus" ? value : updated.advanceStatus;
       let advAmt = name === "advanceAmount" ? parseFloat(value) || 0 : (updated.advanceAmount || 0);
-      if (name === "advanceStatus") {
-        if (value === "Partial Pay") { const c = calculateCoPay(claimAmt, copPct, copType, "Partial Pay", 0); advAmt = c.totalClaimAmount / 2; updated.advanceAmount = Math.round(advAmt * 100) / 100; }
-        else if (value === "Full Pay") { const c = calculateCoPay(claimAmt, copPct, copType, "Full Pay", 0); advAmt = c.totalClaimAmount; updated.advanceAmount = Math.round(advAmt * 100) / 100; }
+      if (name === "advanceStatus" && updated.claimType === "Paid") {
+        if (value === "Partial Pay") { const c = calculateCoPay(claimAmt, copPct, copType, "Partial Pay", 0, updated.claimType); advAmt = c.totalClaimAmount / 2; updated.advanceAmount = Math.round(advAmt * 100) / 100; }
+        else if (value === "Full Pay") { const c = calculateCoPay(claimAmt, copPct, copType, "Full Pay", 0, updated.claimType); advAmt = c.totalClaimAmount; updated.advanceAmount = Math.round(advAmt * 100) / 100; }
       }
-      const calc = calculateCoPay(claimAmt, copPct, copType, advStatus, advAmt);
+      // For Advance claims: advanceAmount always stays 0 (no payment made yet)
+      if (updated.claimType === "Advance") {
+        updated.advanceAmount = 0;
+      }
+      const calc = calculateCoPay(claimAmt, copPct, copType, advStatus, advAmt, updated.claimType);
       updated.totalClaimAmount = calc.totalClaimAmount;
       updated.pendingClaimAmount = calc.pendingClaimAmount;
       updated.coPayAmount = calc.coPayAmount;
@@ -929,6 +959,27 @@ function CreateClaimPage() {
     } catch (err: any) { alert(err.response?.data?.message || "Failed to delete"); }
   };
 
+  // Filter claims for agent role and search query
+  const filteredClaims = React.useMemo(() => {
+    let result = insuranceClaims;
+    // Agent role filter
+    if (userRole === "agent" && agentClaimFilter === "my") {
+      result = result.filter((c: any) => String(c.createdBy || "") === loggedInUserId);
+    }
+    // Search filter
+    if (claimsSearchQuery.trim()) {
+      const q = claimsSearchQuery.toLowerCase().trim();
+      result = result.filter((c: any) => {
+        const patientName = `${c.patientFirstName || ''} ${c.patientLastName || ''}`.toLowerCase();
+        const emr = (c.emrNumber || '').toLowerCase();
+        const insurance = (c.insuranceProvider || '').toLowerCase();
+        const invoice = (c.invoiceNumber || '').toLowerCase();
+        return patientName.includes(q) || emr.includes(q) || insurance.includes(q) || invoice.includes(q);
+      });
+    }
+    return result;
+  }, [insuranceClaims, userRole, agentClaimFilter, loggedInUserId, claimsSearchQuery]);
+
   // ==================== RENDER ====================
 
   // Access Denied screen — only when both read and create are denied
@@ -981,16 +1032,65 @@ function CreateClaimPage() {
         </div>
       ) : (
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center"><Shield className="w-4 h-4 text-teal-600" /></div>
-          <h3 className="text-base font-semibold text-gray-900">All Claims</h3>
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{insuranceClaims.length} total</span>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center"><Shield className="w-4 h-4 text-teal-600" /></div>
+            <h3 className="text-base font-semibold text-gray-900">All Claims</h3>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{filteredClaims.length} total</span>
+          </div>
+          {/* Agent claim filter */}
+          {userRole === "agent" && (
+            <div className="flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <button
+                onClick={() => setAgentClaimFilter("all")}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  agentClaimFilter === "all"
+                    ? "bg-teal-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                All Claims
+              </button>
+              <button
+                onClick={() => setAgentClaimFilter("my")}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  agentClaimFilter === "my"
+                    ? "bg-teal-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                My Claims
+              </button>
+            </div>
+          )}
+        </div>
+        {/* Search bar */}
+        <div className="px-6 py-3 border-b border-gray-50 bg-gray-50/50">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={claimsSearchQuery}
+              onChange={(e) => setClaimsSearchQuery(e.target.value)}
+              placeholder="Search by patient name, EMR, insurance, invoice..."
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-gray-900 bg-white"
+            />
+            {claimsSearchQuery && (
+              <button
+                onClick={() => setClaimsSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="px-6 pb-6">
           {claimsLoading ? (
             <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-teal-600"></div></div>
-          ) : insuranceClaims.length === 0 ? (
-            <div className="text-center py-8"><Shield className="w-10 h-10 text-gray-300 mx-auto mb-2" /><p className="text-gray-500 text-sm">No claims created yet</p></div>
+          ) : filteredClaims.length === 0 ? (
+            <div className="text-center py-8"><Shield className="w-10 h-10 text-gray-300 mx-auto mb-2" /><p className="text-gray-500 text-sm">{agentClaimFilter === "my" ? "No claims found created by you" : "No claims created yet"}</p></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-100">
@@ -1013,7 +1113,7 @@ function CreateClaimPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {insuranceClaims.map((claim: any) => (
+                  {filteredClaims.map((claim: any) => (
                     <tr key={claim._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-500">{claim.invoiceNumber || '-'}</td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">

@@ -503,7 +503,7 @@ function AllClaimsPage() {
         const recentlyRejected = allClaims
           .filter(
             (c) =>
-              c.status === "Under Review" ||
+              (c.status === "Under Review" && c.claimType === "Paid") ||
               c.status === "Rejected"
           )
           // Deduplicate by _id to prevent same claim appearing multiple times
@@ -612,6 +612,8 @@ function AllClaimsPage() {
         if (activeTab === "Finance Checked Claims") return c.status === "Ready";
         if (activeTab === "Completed") return c.status === "Completed";
         if (activeTab === "Rejected") return c.status === "Rejected" || (c.status === "Under Review" && c.rejectedFromReleaseRequested === true);
+        // "Under Review" tab: only show Paid claims (Advance claims stay Under Review but hidden from approve slider)
+        if (activeTab === "Under Review") return c.status === "Under Review" && c.claimType === "Paid";
         return c.status === activeTab;
       })
       .filter((c) => {
@@ -1053,7 +1055,7 @@ function AllClaimsPage() {
 
   const tabs = ["Under Review", "Approved", "Rejected", "Released", "Finance Checked Claims", "Completed"];
   const tabCounts = {
-    "Under Review": claims.filter((c) => c.status === "Under Review").length,
+    "Under Review": claims.filter((c) => c.status === "Under Review" && c.claimType === "Paid").length,
     "Approved": claims.filter((c) => c.status === "Approved").length,
     "Rejected": claims.filter((c) => c.status === "Rejected" || (c.status === "Under Review" && c.rejectedFromReleaseRequested === true)).length,
     "Released": claims.filter((c) => c.status === "Released").length,

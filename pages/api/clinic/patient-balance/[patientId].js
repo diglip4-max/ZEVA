@@ -200,8 +200,10 @@ export default async function handler(req, res) {
       ),
     );
 
-    // Aggregate insurance claim amounts - ONLY include "Released" claims
-    const claimMatch = { patientId, status: "Released" };
+    // Aggregate insurance claim amounts - include ALL claims (any status)
+    // advanceAmount is updated when pendingClaimUsed payments are made,
+    // so we need all claims to reflect the latest available amount
+    const claimMatch = { patientId };
     // Don't filter by clinicId for now to see all claims
     const claims = await InsuranceClaim.find(claimMatch)
       .select("claimAmount advanceAmount claimType status pendingClaim")
@@ -211,14 +213,10 @@ export default async function handler(req, res) {
     
     let totalClaimAmount = 0;
     for (const c of claims) {
-     
-      // For Advance type: use claimAmount, for Paid type: use advanceAmount
-      if (c.claimType === "Advance") {
-        totalClaimAmount += Number(c.claimAmount || 0);
-      } else if (c.claimType === "Paid") {
-        totalClaimAmount += Number(c.advanceAmount || 0);
-      } else {
-      }
+      // Available claim balance is based on advanceAmount for all claim types
+      // For Paid type: advanceAmount is set at creation or increased by pendingClaimUsed payments
+      // For Advance type: advanceAmount increases as pendingClaimUsed payments are made
+      totalClaimAmount += Number(c.advanceAmount || 0);
     }
     
     
@@ -263,12 +261,15 @@ export default async function handler(req, res) {
       )
     );
     
-    // Calculate total pending claim amount from released claims
+    // Calculate total pending claim amount from ALL claims (any status)
     // The claim's pendingClaim field is the authoritative source - it is directly updated
     // by create-patient-registration and pay-pending-claim APIs when payments are made.
     // No need to subtract pendingClaimUsed from billings (that would cause double-deduction
     // since the claim record is already reduced).
-    const totalPendingClaim = claims.reduce(
+    const allClaimsForPending = await InsuranceClaim.find({ patientId })
+      .select("pendingClaim")
+      .lean();
+    const totalPendingClaim = allClaimsForPending.reduce(
       (sum, c) => sum + Number(c.pendingClaim || 0), 0
     );
     

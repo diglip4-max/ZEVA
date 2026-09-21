@@ -2768,8 +2768,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
             });
           }
 
-          // Calculate total paid including both cash/card and advance balance from billing history
-          // This ensures packages paid entirely with advance balance are marked as "Full" paid
+          // Calculate total paid including cash/card, advance balance, and claim amount from billing history
+          // This ensures packages paid entirely with advance/claim balance are marked as "Full" paid
           const packageBillingsForPkg = billings.filter((billing: any) =>
             billing.service === "Package" && billing.package === pkg.name
           );
@@ -2779,9 +2779,12 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
           const totalCashPaidFromBillings = packageBillingsForPkg.reduce(
             (sum: number, billing: any) => sum + (Number(billing.paid) || 0), 0
           );
-          const totalPaidIncludingAdvance = (usage?.paidAmount || patientPackage?.paidAmount || pkg.paidAmount || 0) + totalAdvanceUsedFromBillings;
+          const totalClaimUsedFromBillings = packageBillingsForPkg.reduce(
+            (sum: number, billing: any) => sum + (Number(billing.claimAmountUsed) || 0), 0
+          );
+          const totalPaidIncludingAdvance = (usage?.paidAmount || patientPackage?.paidAmount || pkg.paidAmount || 0) + totalAdvanceUsedFromBillings + totalClaimUsedFromBillings;
           const packagePrice = pkg.totalPrice || 0;
-          // Determine payment status based on total paid (cash/card + advance)
+          // Determine payment status based on total paid (cash/card + advance + claim)
           let calculatedPaymentStatus = usage?.paymentStatus || patientPackage?.paymentStatus || pkg.paymentStatus || 'Unpaid';
           if (packagePrice > 0 && totalPaidIncludingAdvance >= packagePrice) {
             calculatedPaymentStatus = 'Full';
@@ -5429,6 +5432,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
                                 (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
                               );
+                              const totalClaimUsedFromBillings = packageBillingsForPkg.reduce(
+                                (sum: number, billing: any) => sum + (Number(billing.claimAmountUsed) || 0), 0
+                              );
 
                               // Also include payments from Treatment invoices that paid for this package via unpaidPackagesPaid
                               const treatmentPackagePayments = billingHistory?.filter((billing: any) =>
@@ -5445,11 +5451,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const totalAdvanceUsedFromTreatments = treatmentPackagePayments.reduce(
                                 (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
                               );
+                              const totalClaimUsedFromTreatments = treatmentPackagePayments.reduce(
+                                (sum: number, billing: any) => sum + (Number(billing.claimAmountUsed) || 0), 0
+                              );
 
                               // Fall back to package's own payment data when billing history has no matching records
-                              const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments) > 0
-                                ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments
-                                : (p.paidAmount || 0) + (p.advanceBalanceUsed || 0);
+                              const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalClaimUsedFromBillings + totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments + totalClaimUsedFromTreatments) > 0
+                                ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalClaimUsedFromBillings + totalCashPaidFromTreatments + totalAdvanceUsedFromTreatments + totalClaimUsedFromTreatments
+                                : (p.paidAmount || 0) + (p.advanceBalanceUsed || 0) + (p.claimAmountUsed || 0);
 
                               // Determine correct payment status based on total paid (cash + advance) vs price
                               let calculatedPaymentStatus = p.paymentStatus || 'Unpaid';
@@ -5857,7 +5866,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 onClick={() => {
                                   // Respect the user's payment type selection (Full or Partial)
                                   // The pkgPaymentType state holds what user selected
-                                  const status = pkgPaymentType === 'Partial' ? 'Partial' : (pkgPaidAmount > 0 ? 'Full' : 'Unpaid');
+                                  // Total paid = cash (pkgPaidAmount) + advance used + claim used
+                                  const totalPaidForStatus = pkgPaidAmount + pkgAdvanceUsedAmount + pkgClaimUsedAmount;
+                                  const status = pkgPaymentType === 'Partial' ? 'Partial' : (totalPaidForStatus >= pkgTotalAmount ? 'Full' : (totalPaidForStatus > 0 ? 'Partial' : 'Unpaid'));
 
                                   finalizePmAddPackage(pkgPaidAmount, status, pkgPaymentMethod);
                                 }}
@@ -6001,10 +6012,13 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     const totalAdvanceUsedFromBillings = packageBillingsForPkg.reduce(
                       (sum: number, billing: any) => sum + (Number(billing.advanceUsed) || 0), 0
                     );
+                    const totalClaimUsedFromBillings = packageBillingsForPkg.reduce(
+                      (sum: number, billing: any) => sum + (Number(billing.claimAmountUsed) || 0), 0
+                    );
                     // Fall back to package's own payment data when billing history has no matching records
-                    const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings) > 0
-                      ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings
-                      : (pkg.totalPaid || (pkg.paidAmount || 0) + (pkg.advanceUsed || 0));
+                    const totalPaidFromBillings = (totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalClaimUsedFromBillings) > 0
+                      ? totalCashPaidFromBillings + totalAdvanceUsedFromBillings + totalClaimUsedFromBillings
+                      : (pkg.totalPaid || (pkg.paidAmount || 0) + (pkg.advanceUsed || 0) + (pkg.claimAmountUsed || 0));
 
                     // Determine correct payment status based on total paid (cash + advance) vs price
                     let calculatedPaymentStatus = pkg.paymentStatus || 'Unpaid';
@@ -6083,6 +6097,12 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                     <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold uppercase text-[7px] border border-emerald-100 flex items-center gap-1 shadow-sm">
                                       <Wallet className="w-2 h-2" />
                                       Advance Used
+                                    </span>
+                                  )}
+                                  {(pkg.claimAmountUsed > 0 || totalClaimUsedFromBillings > 0) && (
+                                    <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold uppercase text-[7px] border border-blue-100 flex items-center gap-1 shadow-sm">
+                                      <Shield className="w-2 h-2" />
+                                      Claim Used
                                     </span>
                                   )}
                                   {assignedDate && (
@@ -6706,7 +6726,11 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   Transferred In Packages
                 </h3>
                 <div className="space-y-4">
-                  {transferredInPackages.map((pkg: any, idx: number) => (
+                  {transferredInPackages.map((pkg: any, idx: number) => {
+                    // Calculate payment status including claim amount
+                    const transferredInTotalPaid = (pkg.paidAmount || 0) + (pkg.advanceUsed || 0) + (pkg.claimAmountUsed || 0);
+                    const transferredInStatus = pkg.totalPrice > 0 && transferredInTotalPaid >= pkg.totalPrice ? 'Full' : (transferredInTotalPaid > 0 ? 'Partial' : (pkg.paymentStatus || 'Unpaid'));
+                    return (
                     <div key={idx} className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-4">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
@@ -6722,19 +6746,19 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             </span>
 
                             {/* Payment Status & Method Tags for Transferred Packages */}
-                            {pkg.paymentStatus === 'Full' && (
+                            {transferredInStatus === 'Full' && (
                               <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                 <CheckCircle className="w-2.5 h-2.5" />
                                 Full Paid
                               </span>
                             )}
-                            {pkg.paymentStatus === 'Partial' && (
+                            {transferredInStatus === 'Partial' && (
                               <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                 <Activity className="w-2.5 h-2.5" />
-                                Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
+                                Partial ({getCurrencySymbol(currency)}{transferredInTotalPaid})
                               </span>
                             )}
-                            {pkg.paymentStatus === 'Unpaid' && (
+                            {transferredInStatus === 'Unpaid' && (
                               <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                 <XCircle className="w-2.5 h-2.5" />
                                 Unpaid
@@ -6801,7 +6825,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
             )}
@@ -6814,7 +6838,11 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   Transferred Out Packages
                 </h3>
                 <div className="space-y-4">
-                  {transferredOutPackages.map((pkg: any, idx: number) => (
+                  {transferredOutPackages.map((pkg: any, idx: number) => {
+                    // Calculate payment status including claim amount
+                    const transferredOutTotalPaid = (pkg.paidAmount || 0) + (pkg.advanceUsed || 0) + (pkg.claimAmountUsed || 0);
+                    const transferredOutStatus = pkg.totalPrice > 0 && transferredOutTotalPaid >= pkg.totalPrice ? 'Full' : (transferredOutTotalPaid > 0 ? 'Partial' : (pkg.paymentStatus || 'Unpaid'));
+                    return (
                     <div key={idx} className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4">
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -6829,19 +6857,19 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               Transferred Out
                             </span>
                             {/* Payment Status & Method Tags for Transferred Out Packages */}
-                            {pkg.paymentStatus === 'Full' && (
+                            {transferredOutStatus === 'Full' && (
                               <span className="px-2 py-0.5 rounded-lg bg-green-100 text-green-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                 <CheckCircle className="w-2.5 h-2.5" />
                                 Full Paid
                               </span>
                             )}
-                            {pkg.paymentStatus === 'Partial' && (
+                            {transferredOutStatus === 'Partial' && (
                               <span className="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                 <Activity className="w-2.5 h-2.5" />
-                                Partial ({getCurrencySymbol(currency)}{pkg.paidAmount})
+                                Partial ({getCurrencySymbol(currency)}{transferredOutTotalPaid})
                               </span>
                             )}
-                            {pkg.paymentStatus === 'Unpaid' && (
+                            {transferredOutStatus === 'Unpaid' && (
                               <span className="px-2 py-0.5 rounded-lg bg-red-100 text-red-700 font-black uppercase text-[9px] shadow-sm flex items-center gap-1">
                                 <XCircle className="w-2.5 h-2.5" />
                                 Unpaid
@@ -6892,7 +6920,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
             )}
@@ -8117,7 +8145,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   <Shield className="w-4 h-4 text-teal-600" />
                 </div>
                 <h3 className="text-base font-semibold text-gray-900">Insurance & Claims</h3>
-                {(patientData?.insurance === 'Yes' || insuranceClaims.length > 0) ? (
+                {(patientData?.insurance === 'Yes' || insuranceClaims.length > 0 || balance.claimAmount > 0) ? (
                   <div className="flex items-center gap-1.5">
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Active</span>
                     {isRiskyPatient ? (
@@ -8623,12 +8651,12 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                 </div>
               )}
 
-              {(patientData?.insurance === 'Yes' || insuranceClaims.length > 0) ? (
+              {(patientData?.insurance === 'Yes' || insuranceClaims.length > 0 || balance.claimAmount > 0) ? (
                 <div className="p-6">
                   {/* Insurance Info */}
                   {insuranceClaims.length > 0 && (
                     <div className="mb-6">
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                         <div className="bg-blue-50 rounded-lg p-3">
                           <p className="text-xs text-blue-600">Provider</p>
                           <p className="text-sm font-semibold text-blue-900">{insuranceClaims[0]?.insuranceProvider || patientData?.insuranceType || '-'}</p>
@@ -8645,13 +8673,35 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                           <p className="text-xs text-orange-600">Total Claims</p>
                           <p className="text-sm font-semibold text-orange-900">{insuranceClaims.length}</p>
                         </div>
-                        <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
-                          <p className="text-xs text-teal-600">Available Claim Balance</p>
-                          <p className="text-sm font-bold text-teal-900">{getCurrencySymbol(currency)} {Number(balance.claimAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        </div>
                       </div>
                     </div>
                   )}
+
+                  {/* Available Claim Balance & Pending Claim Summary */}
+                  {(() => {
+                    // Sum pending claim from all insurance claims (includes Under Review, Approved, etc.)
+                    const totalPendingFromClaims = insuranceClaims.reduce((sum: number, c: any) => sum + Number(c.pendingClaim || 0), 0);
+                    const displayPendingClaim = totalPendingFromClaims > 0 ? totalPendingFromClaims : Number(balance.pendingClaim || 0);
+                    if (balance.claimAmount <= 0 && displayPendingClaim <= 0) return null;
+                    return (
+                      <div className="mb-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          {balance.claimAmount > 0 && (
+                            <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
+                              <p className="text-xs text-teal-600 mb-1">Available Claim Balance</p>
+                              <p className="text-lg font-bold text-teal-900">{getCurrencySymbol(currency)} {Number(balance.claimAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                          )}
+                          {displayPendingClaim > 0 && (
+                            <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
+                              <p className="text-[10px] text-orange-600 mb-0.5">Total Pending Claim Amount</p>
+                              <p className="text-base font-bold text-orange-900">{getCurrencySymbol(currency)} {Number(displayPendingClaim).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Claims Table */}
                   <div>

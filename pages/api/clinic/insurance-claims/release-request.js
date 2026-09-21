@@ -49,7 +49,11 @@ export default async function handler(req, res) {
     const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
 
     // Support both legacy Completed claims and current Ready claims in release-requested-claims.
-    if (!["Ready", "Completed"].includes(claim.status)) {
+    // Advance claim type can be released directly from "Under Review" without going through Ready/Completed.
+    const allowedStatuses = claim.claimType === "Advance"
+      ? ["Ready", "Completed", "Under Review"]
+      : ["Ready", "Completed"];
+    if (!allowedStatuses.includes(claim.status)) {
       return res.status(400).json({
         success: false,
         message: `Cannot perform action on claim with status "${claim.status}". Only "Ready" or "Completed" claims can be processed.`,
@@ -70,6 +74,10 @@ export default async function handler(req, res) {
       claim.releasedByName = user.name || user.firstName || "";
       claim.releasedByRole = user.role;
       claim.releasedAt = new Date();
+      // For Advance claims, clear the pending debt on release
+      if (claim.claimType === "Advance") {
+        claim.pendingClaim = 0;
+      }
     } else if (action === "reject") {
       // Reject claim - reset to Under Review
       claim.status = "Under Review";
