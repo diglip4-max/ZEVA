@@ -494,6 +494,30 @@ export default function useEmailInbox() {
     [token, fetchEmailMessages],
   );
 
+  const handleReadMessage = async (id: string) => {
+    try {
+      const { data } = await axios.put(
+        `/api/messages/${id}`,
+        {
+          isIncomingRead: true,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data?.success) {
+        setMessages((prev) =>
+          prev?.map((p) => ({
+            ...p,
+            messages: p.messages?.map((m) =>
+              m._id === id ? { ...m, isIncomingRead: true } : m,
+            ),
+          })),
+        );
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
   const archiveMessage = (id: string) => {
     updateMessageStatus(id, "archived");
     showToast("Archived");
@@ -1050,5 +1074,7 @@ export default function useEmailInbox() {
 
     // refresh
     handleRefreshConversations,
+
+    handleReadMessage,
   };
 }

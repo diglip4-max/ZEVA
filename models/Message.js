@@ -157,6 +157,17 @@ const MessageSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+    isIncomingRead: {
+      type: Boolean,
+      default: false,
+    },
+
+    // for notification log
+    notificationLogId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "NotificationLog",
+      default: null,
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}, // Default an empty object

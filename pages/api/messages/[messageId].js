@@ -110,7 +110,7 @@ export default async function handler(req, res) {
       // For Update Messages Permissions
       try {
         const { messageId } = req.query;
-        const { isStarred, isArchived, isTrashed } = req.body;
+        const { isStarred, isArchived, isTrashed, isIncomingRead } = req.body;
 
         const updateData = {};
 
@@ -124,6 +124,9 @@ export default async function handler(req, res) {
 
         if (isTrashed !== undefined) {
           updateData.isTrashed = isTrashed;
+        }
+        if (isIncomingRead !== undefined) {
+          updateData.isIncomingRead = isIncomingRead;
         }
 
         // Start Mongoose transaction

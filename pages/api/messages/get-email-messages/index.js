@@ -106,6 +106,10 @@ export default async function handler(req, res) {
         query.isArchived = true;
       } else if (status === "trashed") {
         query.isTrashed = true;
+      } else if (status === "unread") {
+        query.status = "received";
+        query.direction = "incoming";
+        query.isIncomingRead = { $ne: true };
       }
 
       // 🚀 OPTIMIZED: Handle search and lead filtering in the most efficient way
@@ -202,6 +206,8 @@ export default async function handler(req, res) {
         counts.unread = await Message.countDocuments({
           ...baseQuery,
           status: "received",
+          direction: "incoming",
+          isIncomingRead: { $ne: true },
         });
 
         // Opened
@@ -329,6 +335,7 @@ export default async function handler(req, res) {
           hasMore,
         },
         folderCounts,
+        query,
       });
     } catch (error) {
       console.error("Error fetching messages of conversation:", error);
