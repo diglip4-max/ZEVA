@@ -165,7 +165,7 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", countryCode: "+91", gender: "", patientType: "New", referredBy: "No", city: ""
+  mobileNumber: "", countryCode: "+91", gender: "", dateOfBirth: "", patientType: "New", referredBy: "No", city: ""
 };
 
 const PatientRegistrationForm = ({ onSuccess, isCompact = false, onCancel, routeContext }) => {
@@ -725,6 +725,7 @@ const PatientRegistrationForm = ({ onSuccess, isCompact = false, onCancel, route
                     {(() => {
                       const secondRowFields = [
                         { name: "gender", label: "Gender", type: "select", options: ["Male", "Female", "Other"], required: false },
+                        { name: "dateOfBirth", label: "Date of Birth", type: "date" },
                         { name: "referredBy", label: "Referred By" }
                       ];
                       return secondRowFields;
@@ -760,6 +761,14 @@ const PatientRegistrationForm = ({ onSuccess, isCompact = false, onCancel, route
                             <option value="">Select</option>
                             {field.options.filter(opt => opt !== "").map(opt => <option key={opt} value={opt}>{opt}</option>)}
                           </select>
+                        ) : field.type === "date" ? (
+                          <input
+                            type="date"
+                            name={field.name}
+                            value={formData[field.name] || ""}
+                            onChange={handleInputChange}
+                            className={`text-gray-900 w-full px-2 py-1.5 text-sm border rounded-md focus:ring-1 focus:ring-teal-600 focus:border-teal-600 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                          />
                         ) : null}
                         {errors[field.name] && (
                           <p className="text-red-500 text-[9px] mt-1 flex items-center gap-0.5">

@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 
 import Head from "next/head";
+import Footer from "../../components/Footer";
 
 import InteractivePricingSection from "../../components/bussiness/InteractivePricingSection";
 
@@ -16,6 +17,7 @@ export default function PricingPage(): ReactElement {
       </Head>
 
       <InteractivePricingSection />
+      <Footer />
     </>
   );
 }

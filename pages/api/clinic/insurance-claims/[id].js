@@ -110,6 +110,7 @@ export default async function handler(req, res) {
         advanceStatus,
         doctorAddedClaimAmount,
         doctorAddedClaimNotes,
+        planNotes,
         emirNumber,
         paymentMethod,
         diagnosis,
@@ -190,11 +191,20 @@ export default async function handler(req, res) {
           }
           claim.doctorAddedClaimAmount = parsedAmount;
           claim.doctorAddedClaimNotes = String(doctorAddedClaimNotes).trim();
+          // Auto-calculate finalClaimAmount = claimAmount + doctorAddedClaimAmount
+          const baseClaimAmount = Number(claim.claimAmount || 0);
+          claim.finalClaimAmount = Math.round((baseClaimAmount + parsedAmount) * 100) / 100;
         } else {
           // "Same Amount" selection — clear any previously stored adjustment
           claim.doctorAddedClaimAmount = null;
           claim.doctorAddedClaimNotes = "";
+          claim.finalClaimAmount = claim.claimAmount || 0;
         }
+      }
+
+      // Handle plan notes from confirmation step
+      if (planNotes !== undefined) {
+        claim.planNotes = String(planNotes).trim();
       }
 
       // Handle advance-specific fields

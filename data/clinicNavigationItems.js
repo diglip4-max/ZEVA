@@ -169,9 +169,10 @@ export const clinicNavigationItems = [
     ],
   },
   {
-    label: "Claims",
-    icon: "file-text",
-    description: "Claims Management",
+    label: "Claim Management",
+    path: "/clinic/claim-management",
+    icon: "🏥",
+    description: "Claim Management",
     moduleKey: "claims",
     order: 14,
     children: [

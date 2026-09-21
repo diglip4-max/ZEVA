@@ -105,8 +105,22 @@ interface ClaimRow {
   _id: string;
   patientId: string;
   patientName: string;
+  patientGender: string;
+  patientPhone: string;
   emrNumber: string;
   insuranceProvider: string;
+  policyNumber: string;
+  doctorName: string;
+  departmentName: string;
+  claimType: string;
+  status: string;
+  createdByName: string;
+  createdByRole: string;
+  coPayPercent: number;
+  claimAmount: number;
+  advanceAmount: number;
+  finalClaimAmount: number | null;
+  createdAt: string;
   amount: number;
 }
 
@@ -212,6 +226,7 @@ function ClaimManagementPage() {
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeStat, setActiveStat] = useState<StatKey | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   // ===== Search & filter (mirrors create-claim All Claims behaviour) =====
@@ -1338,26 +1353,175 @@ function ClaimManagementPage() {
                       <th className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-2 pr-3">EMR</th>
                       <th className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-2 pr-3">Insurance provider</th>
                       <th className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-2 text-right">{activeCard.amountLabel}</th>
+                      <th className="text-[10px] font-bold text-gray-400 uppercase tracking-wider pb-2 pl-2 text-right w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filteredRows.map((row, idx) => (
-                      <tr key={row._id} className="hover:bg-gray-50/70 transition-colors">
-                        <td className="py-2.5 pr-3 text-[10px] text-gray-400">{idx + 1}</td>
-                        <td className="py-2.5 pr-3 text-xs font-semibold text-gray-900">{row.patientName}</td>
-                        <td className="py-2.5 pr-3">
-                          {row.emrNumber ? (
-                            <span className="text-[11px] font-mono font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">{row.emrNumber}</span>
-                          ) : (
-                            <span className="text-[11px] text-gray-300">—</span>
+                    {filteredRows.map((row, idx) => {
+                      const isExpanded = expandedRow === row._id;
+                      return (
+                        <React.Fragment key={row._id}>
+                          <tr className="hover:bg-gray-50/70 transition-colors cursor-pointer" onClick={() => setExpandedRow(isExpanded ? null : row._id)}>
+                            <td className="py-2.5 pr-3 text-[10px] text-gray-400">{idx + 1}</td>
+                            <td className="py-2.5 pr-3 text-xs font-semibold text-gray-900">{row.patientName}</td>
+                            <td className="py-2.5 pr-3">
+                              {row.emrNumber ? (
+                                <span className="text-[11px] font-mono font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">{row.emrNumber}</span>
+                              ) : (
+                                <span className="text-[11px] text-gray-300">—</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 pr-3 text-[11px] text-gray-600">{row.insuranceProvider}</td>
+                            <td className="py-2.5 pr-3 text-right text-xs font-bold text-gray-900 whitespace-nowrap">
+                              {getCurrencySymbol(currency)} {fmt(row.amount)}
+                            </td>
+                            <td className="py-2.5 pl-2 text-right">
+                              <div className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all ${isExpanded ? 'bg-teal-100 text-teal-700 rotate-90' : 'bg-gray-100 text-gray-400'}`}>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={6} className="p-0">
+                                <div className="bg-gradient-to-br from-gray-50 to-white border-t border-b border-gray-100 px-5 py-4">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    {/* Patient Info */}
+                                    <div className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center">
+                                          <User className="w-3.5 h-3.5 text-teal-600" />
+                                        </div>
+                                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Patient Information</h4>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Full Name</p>
+                                          <p className="text-xs font-semibold text-gray-900">{row.patientName}</p>
+                                        </div>
+                                        {row.patientGender && (
+                                          <div>
+                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Gender</p>
+                                            <p className="text-xs font-medium text-gray-700">{row.patientGender}</p>
+                                          </div>
+                                        )}
+                                        {row.patientPhone && (
+                                          <div>
+                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Phone</p>
+                                            <p className="text-xs font-medium text-gray-700">{row.patientPhone}</p>
+                                          </div>
+                                        )}
+                                        {row.emrNumber && (
+                                          <div>
+                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">EMR Number</p>
+                                            <p className="text-xs font-mono font-semibold text-teal-700">{row.emrNumber}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Insurance Info */}
+                                    <div className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                                          <Shield className="w-3.5 h-3.5 text-blue-600" />
+                                        </div>
+                                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Insurance Details</h4>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Provider</p>
+                                          <p className="text-xs font-semibold text-gray-900">{row.insuranceProvider}</p>
+                                        </div>
+                                        {row.policyNumber && (
+                                          <div>
+                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Policy Number</p>
+                                            <p className="text-xs font-mono font-medium text-gray-700">{row.policyNumber}</p>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Co-Pay</p>
+                                          <p className="text-xs font-medium text-gray-700">{row.coPayPercent}%</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Claim Type</p>
+                                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${row.claimType === 'Advance' ? 'bg-amber-100 text-amber-800' : 'bg-teal-100 text-teal-800'}`}>
+                                            {row.claimType}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Claim Info */}
+                                    <div className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+                                          <FileText className="w-3.5 h-3.5 text-violet-600" />
+                                        </div>
+                                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Claim Details</h4>
+                                      </div>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Doctor</p>
+                                          <p className="text-xs font-medium text-gray-700">{row.doctorName}</p>
+                                        </div>
+                                        {row.departmentName && (
+                                          <div>
+                                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Department</p>
+                                            <p className="text-xs font-medium text-gray-700">{row.departmentName}</p>
+                                          </div>
+                                        )}
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Status</p>
+                                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                            row.status === 'Released' ? 'bg-green-100 text-green-800' :
+                                            row.status === 'Completed' ? 'bg-teal-100 text-teal-800' :
+                                            row.status === 'Under Review' ? 'bg-amber-100 text-amber-800' :
+                                            row.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                                            row.status === 'Ready' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-gray-100 text-gray-700'
+                                          }`}>
+                                            {row.status}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Created By</p>
+                                          <p className="text-xs font-medium text-gray-700">{row.createdByName} {row.createdByRole && <span className="text-gray-400 text-[10px]">· {row.createdByRole}</span>}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-[9px] text-gray-400 uppercase tracking-wider">Created</p>
+                                          <p className="text-xs font-medium text-gray-700">{row.createdAt}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Amount Summary Bar */}
+                                  <div className="mt-4 flex items-center gap-3 flex-wrap">
+                                    <div className="bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                                      <p className="text-[9px] text-teal-600 uppercase font-bold tracking-wider">Claim Amount</p>
+                                      <p className="text-sm font-bold text-teal-900">{getCurrencySymbol(currency)} {fmt(row.claimAmount)}</p>
+                                    </div>
+                                    {row.claimType === 'Paid' && (
+                                      <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+                                        <p className="text-[9px] text-green-600 uppercase font-bold tracking-wider">Paid Amount</p>
+                                        <p className="text-sm font-bold text-green-900">{getCurrencySymbol(currency)} {fmt(row.advanceAmount)}</p>
+                                      </div>
+                                    )}
+                                    {row.finalClaimAmount != null && (
+                                      <div className="bg-violet-50 border border-violet-100 rounded-lg px-3 py-2">
+                                        <p className="text-[9px] text-violet-600 uppercase font-bold tracking-wider">Final Amount</p>
+                                        <p className="text-sm font-bold text-violet-900">{getCurrencySymbol(currency)} {fmt(row.finalClaimAmount)}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                        <td className="py-2.5 pr-3 text-[11px] text-gray-600">{row.insuranceProvider}</td>
-                        <td className="py-2.5 text-right text-xs font-bold text-gray-900 whitespace-nowrap">
-                          {getCurrencySymbol(currency)} {fmt(row.amount)}
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
