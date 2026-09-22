@@ -49,6 +49,12 @@ export interface PaymentData {
   notes?: string;
   reversed: boolean;
   createdAt: string;
+  createdBy?: {
+    _id: string;
+    name: string;
+    role: string;
+    photo?: string;
+  };
 }
 
 export interface PaymentSummary {

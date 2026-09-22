@@ -23,6 +23,7 @@ import {
   Image as ImageIcon,
   Info,
   CalendarDays,
+  Users,
 } from "lucide-react";
 import useBillsPayable, {
   BillData,
@@ -208,6 +209,37 @@ function BillDetailsView({
       icon: <Clock className="w-3.5 h-3.5" />,
       accent: "from-rose-50 to-white dark:from-rose-950/30 dark:to-[#111d19]",
     },
+    {
+      label: "Created by",
+      value: bill?.createdBy ? (
+        <span className="inline-flex items-center gap-2">
+          {bill?.createdBy.photo ? (
+            <img
+              src={bill?.createdBy.photo}
+              alt={bill?.createdBy.name}
+              className="w-5 h-5 rounded-full object-cover"
+            />
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[10px] font-bold flex items-center justify-center">
+              {bill?.createdBy.name?.[0]?.toUpperCase() ?? "?"}
+            </span>
+          )}
+          <span className="font-medium text-stone-700 dark:text-stone-200">
+            {bill?.createdBy.name}
+          </span>
+          {bill?.createdBy.role && (
+            <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              {bill?.createdBy.role}
+            </span>
+          )}
+        </span>
+      ) : (
+        <span className="text-stone-300 dark:text-stone-600">—</span>
+      ),
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent:
+        "from-indigo-50 to-white dark:from-indigo-950/30 dark:to-[#111d19]",
+    },
   ];
 
   return (
@@ -271,7 +303,7 @@ function BillDetailsView({
           </div>
         ))}
 
-        <div className="sm:col-span-2 rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19] p-3.5">
+        <div className="sm:col-span-1 rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19] p-3.5">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
               <Receipt className="w-3.5 h-3.5" />
@@ -404,6 +436,12 @@ function BillRow({
                 <Paperclip className="w-3 h-3" />
                 {attachmentCount}
               </span>
+            )}
+            {bill.createdBy?.name && (
+              <>
+                <span>·</span>
+                <span className="truncate">by {bill.createdBy.name}</span>
+              </>
             )}
           </div>
         </div>

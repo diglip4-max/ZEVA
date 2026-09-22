@@ -26,6 +26,7 @@ import {
   Globe,
   Wallet,
   Info,
+  Users,
 } from "lucide-react";
 import useFinancePayments, {
   PaymentData,
@@ -224,7 +225,38 @@ function PaymentDetailsView({
       value: supplierName,
       icon: <Receipt className="w-3.5 h-3.5" />,
       accent: "from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19]",
-      span: 2,
+      span: 1,
+    },
+    {
+      label: "Payment by",
+      value: payment?.createdBy ? (
+        <span className="inline-flex items-center gap-2">
+          {payment?.createdBy.photo ? (
+            <img
+              src={payment?.createdBy.photo}
+              alt={payment.createdBy.name}
+              className="w-5 h-5 rounded-full object-cover"
+            />
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[10px] font-bold flex items-center justify-center">
+              {payment.createdBy.name?.[0]?.toUpperCase() ?? "?"}
+            </span>
+          )}
+          <span className="font-medium text-stone-700 dark:text-stone-200">
+            {payment.createdBy.name}
+          </span>
+          {payment.createdBy.role && (
+            <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              {payment.createdBy.role}
+            </span>
+          )}
+        </span>
+      ) : (
+        <span className="text-stone-300 dark:text-stone-600">—</span>
+      ),
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent:
+        "from-indigo-50 to-white dark:from-indigo-950/30 dark:to-[#111d19]",
     },
   ];
 
@@ -418,6 +450,12 @@ function PaymentRow({
             <span className="font-mono">{invoiceNumber}</span>
             <span>·</span>
             <span>{formatDate(payment.date)}</span>
+            {payment.createdBy?.name && (
+              <>
+                <span>·</span>
+                <span className="truncate">by {payment.createdBy.name}</span>
+              </>
+            )}
           </div>
         </div>
         <MethodPill method={payment.method} />

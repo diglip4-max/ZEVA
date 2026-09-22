@@ -102,16 +102,30 @@ const InboxPage: NextPageWithLayout = () => {
     if (typeof window === "undefined") return { role: null, id: null };
     // This file is inside /clinic/ — always clinic context
     try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+      const token =
+        localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken");
       if (token) {
         const base64Url = token.split(".")[1];
-        if (!base64Url) return { role: 'clinic', id: null };
+        if (!base64Url) return { role: "clinic", id: null };
         const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const decoded = JSON.parse(decodeURIComponent(atob(base64).split("").map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-        return { role: decoded.role || 'clinic', id: decoded.userId || decoded.id || null };
+        const decoded = JSON.parse(
+          decodeURIComponent(
+            atob(base64)
+              .split("")
+              .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+              .join(""),
+          ),
+        );
+        return {
+          role: decoded.role || "clinic",
+          id: decoded.userId || decoded.id || null,
+        };
       }
-    } catch (e) { /* ignore */ }
-    return { role: 'clinic', id: null };
+    } catch (e) {
+      /* ignore */
+    }
+    return { role: "clinic", id: null };
   };
 
   // Helper function to get user role from token
@@ -177,15 +191,20 @@ const InboxPage: NextPageWithLayout = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const agentPath =
-      router?.pathname?.startsWith("/agent/") || router?.pathname?.startsWith("/staff/") ||
-      window.location.pathname?.startsWith("/agent/") || window.location.pathname?.startsWith("/staff/");
+      router?.pathname?.startsWith("/agent/") ||
+      router?.pathname?.startsWith("/staff/") ||
+      window.location.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/staff/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const currentPath = window.location.pathname || "";
-    if (currentPath.startsWith("/agent/") || currentPath.startsWith("/staff/")) {
+    if (
+      currentPath.startsWith("/agent/") ||
+      currentPath.startsWith("/staff/")
+    ) {
       setRouteContext("agent");
     } else {
       setRouteContext("clinic");
@@ -230,27 +249,27 @@ const InboxPage: NextPageWithLayout = () => {
     const clinicToken =
       typeof window !== "undefined"
         ? localStorage.getItem("clinicToken") ||
-        sessionStorage.getItem("clinicToken")
+          sessionStorage.getItem("clinicToken")
         : null;
     const doctorToken =
       typeof window !== "undefined"
         ? localStorage.getItem("doctorToken") ||
-        sessionStorage.getItem("doctorToken")
+          sessionStorage.getItem("doctorToken")
         : null;
     const agentToken =
       typeof window !== "undefined"
         ? localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken")
+          sessionStorage.getItem("agentToken")
         : null;
     const staffToken =
       typeof window !== "undefined"
         ? localStorage.getItem("staffToken") ||
-        sessionStorage.getItem("staffToken")
+          sessionStorage.getItem("staffToken")
         : null;
     const userToken =
       typeof window !== "undefined"
         ? localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken")
+          sessionStorage.getItem("userToken")
         : null;
 
     const userRole = getUserRole();
@@ -602,6 +621,8 @@ const InboxPage: NextPageWithLayout = () => {
     editingField,
     editValue,
     isUpdatingLead,
+
+    isCreatingConversation,
   } = state;
 
   // Auto-expand textarea as user types
@@ -640,10 +661,11 @@ const InboxPage: NextPageWithLayout = () => {
     <div className="flex h-[92vh] bg-gray-50 dark:bg-slate-900 text-gray-800 dark:text-slate-100">
       {/* Left Sidebar - Conversations List */}
       <div
-        className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-sm ${(isMobileView && selectedConversation) || isProfileView
-          ? "hidden"
-          : ""
-          }`}
+        className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-sm ${
+          (isMobileView && selectedConversation) || isProfileView
+            ? "hidden"
+            : ""
+        }`}
       >
         {/* Header */}
         <div className="p-4 border-b border-gray-200 dark:border-slate-700">
@@ -686,10 +708,11 @@ const InboxPage: NextPageWithLayout = () => {
             </div>
             <button
               onClick={() => setIsFilterModalOpen(true)}
-              className={`relative p-2.5 border ${filters?.agentId
-                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-500 border-blue-500"
-                : "bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-300 dark:border-slate-600"
-                } rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer transition-colors shadow-sm`}
+              className={`relative p-2.5 border ${
+                filters?.agentId
+                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-500 border-blue-500"
+                  : "bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 border-gray-300 dark:border-slate-600"
+              } rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer transition-colors shadow-sm`}
             >
               <Filter className="h-5 w-5" />
 
@@ -711,10 +734,11 @@ const InboxPage: NextPageWithLayout = () => {
                     onClick={() =>
                       setFilters((prev) => ({ ...prev, status: option.value }))
                     }
-                    className={`px-3 py-1.5 mr-2 mb-2 flex items-center gap-1 rounded-full text-sm font-medium transition-all ${filters.status === option.value
-                      ? "bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900"
-                      : "bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
-                      }`}
+                    className={`px-3 py-1.5 mr-2 mb-2 flex items-center gap-1 rounded-full text-sm font-medium transition-all ${
+                      filters.status === option.value
+                        ? "bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900"
+                        : "bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                    }`}
                   >
                     <span>{option.label}</span>
                     <span className="">({option.count})</span>
@@ -727,10 +751,11 @@ const InboxPage: NextPageWithLayout = () => {
                   ref={statusBtnRef}
                   onClick={() => setShowStatusDropdown((s) => !s)}
                   aria-expanded={showStatusDropdown}
-                  className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${showStatusDropdown
-                    ? "bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900"
-                    : "bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
-                    }`}
+                  className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${
+                    showStatusDropdown
+                      ? "bg-gray-800 dark:bg-slate-200 text-white dark:text-slate-900"
+                      : "bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+                  }`}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </button>
@@ -846,12 +871,17 @@ const InboxPage: NextPageWithLayout = () => {
 
       {/* Main Chat Area */}
       <div
-        className={`${(!selectedConversation && isMobileView) || isProfileView
-          ? "hidden"
-          : "flex-1 flex"
-          } flex-col bg-white dark:bg-slate-800 relative`}
+        className={`${
+          (!selectedConversation && isMobileView) || isProfileView
+            ? "hidden"
+            : "flex-1 flex"
+        } flex-col bg-white dark:bg-slate-800 relative`}
       >
-        {!selectedConversation ? (
+        {isCreatingConversation ? (
+          <div className="h-full flex items-center justify-center bg-white">
+            <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-800 rounded-full animate-spin" />
+          </div>
+        ) : !selectedConversation ? (
           <NoSelectedConversation canCreate={permissions.canCreate} />
         ) : (
           <>
@@ -937,7 +967,9 @@ const InboxPage: NextPageWithLayout = () => {
                   <div key={parentIndex?.toString()}>
                     <div className="flex items-center my-5">
                       <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
-                      <p className="mx-3 text-sm text-gray-600 dark:text-slate-400">{item?.date}</p>
+                      <p className="mx-3 text-sm text-gray-600 dark:text-slate-400">
+                        {item?.date}
+                      </p>
                       <div className="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
                     </div>
                     {item?.messages?.map((msg, childIndex: number) => {
@@ -988,11 +1020,11 @@ const InboxPage: NextPageWithLayout = () => {
                         {selectedMessage?.direction === "incoming"
                           ? selectedMessage?.recipientId?.name
                           : selectedMessage?.senderId?.name ||
-                          "Customer Support"}
+                            "Customer Support"}
                       </div>
                       <div className="text-sm text-gray-800 dark:text-slate-200">
                         {selectedMessage?.content &&
-                          selectedMessage?.content?.length > 90
+                        selectedMessage?.content?.length > 90
                           ? selectedMessage?.content?.substring(0, 90) + "..."
                           : selectedMessage?.content || "Media message"}
                       </div>
@@ -1046,12 +1078,12 @@ const InboxPage: NextPageWithLayout = () => {
                                 {selectedProvider?.type?.includes("sms") ? (
                                   <Phone className="h-5 w-5 text-blue-500" />
                                 ) : selectedProvider?.type?.includes(
-                                  "whatsapp",
-                                ) ? (
+                                    "whatsapp",
+                                  ) ? (
                                   <FaWhatsapp className="h-5 w-5 text-green-600" />
                                 ) : selectedProvider?.type?.includes(
-                                  "email",
-                                ) ? (
+                                    "email",
+                                  ) ? (
                                   <Mail className="h-5 w-5 text-red-500" />
                                 ) : (
                                   <User className="h-5 w-5" />
@@ -1177,10 +1209,11 @@ const InboxPage: NextPageWithLayout = () => {
                                     e.key === "Enter" &&
                                     setSelectedProvider(provider)
                                   }
-                                  className={`mx-2 my-1 px-3 py-3 cursor-pointer rounded-xl transition-all duration-200 ${isSelected
-                                    ? "bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-200 shadow-sm"
-                                    : "hover:bg-gray-50 active:bg-gray-100 border border-transparent hover:border-gray-200"
-                                    }`}
+                                  className={`mx-2 my-1 px-3 py-3 cursor-pointer rounded-xl transition-all duration-200 ${
+                                    isSelected
+                                      ? "bg-gradient-to-r from-blue-50 to-blue-50/50 border border-blue-200 shadow-sm"
+                                      : "hover:bg-gray-50 active:bg-gray-100 border border-transparent hover:border-gray-200"
+                                  }`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -1229,10 +1262,11 @@ const InboxPage: NextPageWithLayout = () => {
                                     {/* Selection indicator */}
                                     <div className="flex items-center">
                                       <div
-                                        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected
-                                          ? "border-blue-500 bg-blue-500"
-                                          : "border-gray-300"
-                                          }`}
+                                        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                          isSelected
+                                            ? "border-blue-500 bg-blue-500"
+                                            : "border-gray-300"
+                                        }`}
                                       >
                                         {isSelected && (
                                           <svg
@@ -1467,12 +1501,12 @@ const InboxPage: NextPageWithLayout = () => {
                   >
                     {user?.role === "agent"
                       ? maskSensitiveInfo(
-                        selectedConversation?.leadId?.phone ||
-                        selectedConversation?.leadId?.email ||
-                        "",
-                      )
+                          selectedConversation?.leadId?.phone ||
+                            selectedConversation?.leadId?.email ||
+                            "",
+                        )
                       : selectedConversation?.leadId?.phone ||
-                      selectedConversation?.leadId?.email}
+                        selectedConversation?.leadId?.email}
                   </div>
                 </div>
               </div>
@@ -1593,9 +1627,9 @@ const InboxPage: NextPageWithLayout = () => {
                     >
                       {user?.role === "agent"
                         ? maskEmail(
-                          selectedConversation?.leadId?.email ||
-                          "bajuddinkhan0786@gmail.com",
-                        )
+                            selectedConversation?.leadId?.email ||
+                              "bajuddinkhan0786@gmail.com",
+                          )
                         : selectedConversation?.leadId?.email || "—"}
                     </div>
                   )}
@@ -1825,7 +1859,7 @@ const InboxPage: NextPageWithLayout = () => {
       <AppointmentBookingModal
         isOpen={isOpenBookAppointmentModal}
         onClose={() => setIsOpenBookAppointmentModal(false)}
-        onSuccess={() => { }}
+        onSuccess={() => {}}
         doctorId={""}
         doctorName={""}
         defaultRoomId={""}
