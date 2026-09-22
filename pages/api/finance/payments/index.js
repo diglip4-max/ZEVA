@@ -90,8 +90,9 @@ export default async function handler(req, res) {
         FinancePayment.find(query)
           .populate("supplierId", "name")
           .populate("transactionId", "invoiceNumber category")
-          // .populate("bankAccountId", "bankName accountNumber")
+          .populate("bankAccountId", "bankName accountNumber")
           .populate("chequeId", "chequeNumber status")
+          .populate("createdBy", "name email phone photo role")
           .sort({ date: -1 })
           .skip((pageNum - 1) * limitNum)
           .limit(limitNum),
@@ -212,6 +213,7 @@ export default async function handler(req, res) {
         bankAccountId,
         attachment,
         notes,
+        createdBy,
       });
 
       if (method === "cheque") {
@@ -228,6 +230,7 @@ export default async function handler(req, res) {
           transactionId,
           supplierId: supplierId || txn.supplierId,
           amount,
+          createdBy,
           ...chequeDetails,
         });
 

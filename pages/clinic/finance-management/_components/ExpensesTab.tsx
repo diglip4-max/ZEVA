@@ -27,6 +27,7 @@ import {
   Clock,
   Receipt,
   Sparkles,
+  Users,
 } from "lucide-react";
 import useExpenses, { ExpenseData, ExpenseMethod } from "../_hooks/useExpenses";
 import SearchableSelect from "@/components/shared/SearchableSelect";
@@ -175,6 +176,37 @@ function ExpenseDetailsView({
       icon: <Wallet className="w-3.5 h-3.5" />,
       accent: "from-rose-50 to-white dark:from-rose-950/30 dark:to-[#111d19]",
     },
+    {
+      label: "Created by",
+      value: expense.createdBy ? (
+        <span className="inline-flex items-center gap-2">
+          {expense.createdBy.photo ? (
+            <img
+              src={expense.createdBy.photo}
+              alt={expense.createdBy.name}
+              className="w-5 h-5 rounded-full object-cover"
+            />
+          ) : (
+            <span className="w-5 h-5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[10px] font-bold flex items-center justify-center">
+              {expense.createdBy.name?.[0]?.toUpperCase() ?? "?"}
+            </span>
+          )}
+          <span className="font-medium text-stone-700 dark:text-stone-200">
+            {expense.createdBy.name}
+          </span>
+          {expense.createdBy.role && (
+            <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500">
+              {expense.createdBy.role}
+            </span>
+          )}
+        </span>
+      ) : (
+        <span className="text-stone-300 dark:text-stone-600">—</span>
+      ),
+      icon: <Users className="w-3.5 h-3.5" />,
+      accent:
+        "from-indigo-50 to-white dark:from-indigo-950/30 dark:to-[#111d19]",
+    },
   ];
 
   return (
@@ -230,7 +262,7 @@ function ExpenseDetailsView({
           </div>
         ))}
 
-        <div className="sm:col-span-2 rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19] p-3.5">
+        <div className="sm:col-span-1 rounded-xl border border-[#EDE7DA] dark:border-[#1f2e29]/60 bg-gradient-to-br from-teal-50 to-white dark:from-teal-950/20 dark:to-[#111d19] p-3.5">
           <div className="flex items-center gap-1.5 mb-1.5">
             <div className="w-5 h-5 rounded-md bg-white dark:bg-[#1c2a25] flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-sm">
               <Clock className="w-3.5 h-3.5" />
@@ -357,10 +389,20 @@ function ExpenseRow({
           </div>
           <div className="text-xs text-stone-400 dark:text-stone-500 truncate flex items-center gap-2">
             <span>{formatDate(expense.invoiceDate)}</span>
+            {expense.createdBy?.name && (
+              <>
+                <span>·</span>
+                <span className="truncate">by {expense.createdBy.name}</span>
+              </>
+            )}
             {expense.notes && (
               <>
                 <span>·</span>
-                <span className="truncate">{expense.notes}</span>
+                <span className="truncate">
+                  {expense.notes?.length > 20
+                    ? expense.notes.slice(0, 20) + "..."
+                    : expense.notes}
+                </span>
               </>
             )}
             {attachmentCount > 0 && (

@@ -133,7 +133,12 @@ interface CountryPhoneInputProps {
   onPhoneChange: (phone: string) => void;
 }
 
-const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange }: CountryPhoneInputProps) => {
+const CountryPhoneInput = ({
+  countryCode,
+  phone,
+  onCountryChange,
+  onPhoneChange,
+}: CountryPhoneInputProps) => {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const options = React.useMemo(() => {
@@ -141,49 +146,63 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
     if (!q) return COUNTRY_CODES;
     return COUNTRY_CODES.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.code.replace("+", "").includes(q)
+        c.name.toLowerCase().includes(q) || c.code.replace("+", "").includes(q),
     );
   }, [query]);
-  const selected = React.useMemo(() => COUNTRY_CODES.find((c) => c.code === countryCode) || COUNTRY_CODES.find((c) => c.code === "+91"), [countryCode]);
-  
+  const selected = React.useMemo(
+    () =>
+      COUNTRY_CODES.find((c) => c.code === countryCode) ||
+      COUNTRY_CODES.find((c) => c.code === "+91"),
+    [countryCode],
+  );
+
   // Extract local number (without country code) for display
   const localNumber = React.useMemo(() => {
-    if (!phone) return '';
+    if (!phone) return "";
     if (phone.startsWith(countryCode)) {
       return phone.slice(countryCode.length);
     }
     // If it doesn't start with country code, return as is
-    return phone.replace(/^\+\d+/, '');
+    return phone.replace(/^\+\d+/, "");
   }, [phone, countryCode]);
-  
+
   return (
     <div className="relative w-full">
-      <div className={`flex items-center border border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-teal-600`}>
+      <div
+        className={`flex items-center border border-gray-300 rounded-md overflow-hidden focus-within:ring-1 focus-within:ring-teal-600`}
+      >
         <button
           type="button"
-          onClick={() => setOpen(v => !v)}
+          onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-2 px-2 py-1 bg-gray-50 hover:bg-gray-100 focus:outline-none"
           aria-haspopup="listbox"
           aria-expanded={open}
         >
           <span className="text-lg leading-none">{selected?.flag || "🏳️"}</span>
-          <span className="text-[10px] text-gray-800">{selected?.code || "+91"}</span>
-          <svg className="w-3 h-3 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"/></svg>
+          <span className="text-[10px] text-gray-800">
+            {selected?.code || "+91"}
+          </span>
+          <svg
+            className="w-3 h-3 text-gray-600"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z" />
+          </svg>
         </button>
         <input
-  type="tel"
-  value={localNumber}
-  onChange={(e) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 10);
-    onPhoneChange(value);
-  }}
-  maxLength={10}
-  inputMode="numeric"
-  pattern="[0-9]{10}"
-  className="flex-1 px-2 py-1 text-[7px] focus:outline-none"
-  placeholder="Enter 10-digit number"
-/>
+          type="tel"
+          value={localNumber}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+            onPhoneChange(value);
+          }}
+          maxLength={10}
+          inputMode="numeric"
+          pattern="[0-9]{10}"
+          className="flex-1 px-2 py-1 text-[7px] focus:outline-none"
+          placeholder="Enter 10-digit number"
+        />
       </div>
       {open && (
         <div className="absolute z-[10000] mt-1 w-full max-h-56 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg">
@@ -191,7 +210,7 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
             <input
               type="text"
               value={query}
-              onChange={e => setQuery(e.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search country or code"
               className="w-full px-2 py-1 text-[10px] border border-gray-300 rounded-md focus:ring-1 focus:ring-teal-600"
               autoFocus
@@ -206,10 +225,12 @@ const CountryPhoneInput = ({ countryCode, phone, onCountryChange, onPhoneChange 
                   onCountryChange(c.code);
                   setOpen(false);
                 }}
-                className={`flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-50 ${c.code === selected?.code ? 'bg-teal-50' : ''}`}
+                className={`flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-gray-50 ${c.code === selected?.code ? "bg-teal-50" : ""}`}
               >
                 <span className="text-lg leading-none">{c.flag}</span>
-                <span className="text-[11px] text-gray-800 flex-1">{c.name}</span>
+                <span className="text-[11px] text-gray-800 flex-1">
+                  {c.name}
+                </span>
                 <span className="text-[11px] text-gray-600">{c.code}</span>
               </li>
             ))}
@@ -250,13 +271,13 @@ export default function AppointmentBookingModal({
   preSelectedPatient,
 }: AppointmentBookingModalProps) {
   // Debug: Log when component receives props
-  console.log("AppointmentBookingModal - Received props:", {
-    bookedFrom,
-    doctorId,
-    defaultRoomId,
-    isOpen,
-    preSelectedPatient: preSelectedPatient ? preSelectedPatient.fullName : null,
-  });
+  // console.log("AppointmentBookingModal - Received props:", {
+  //   bookedFrom,
+  //   doctorId,
+  //   defaultRoomId,
+  //   isOpen,
+  //   preSelectedPatient: preSelectedPatient ? preSelectedPatient.fullName : null,
+  // });
 
   const [roomId, setRoomId] = useState<string>("");
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
@@ -270,7 +291,7 @@ export default function AppointmentBookingModal({
       // Use the prop value if available, otherwise default based on whether roomId or doctorId is set
       console.log(
         "Initializing currentBookedFrom - bookedFrom prop:",
-        bookedFrom
+        bookedFrom,
       );
       if (bookedFrom === "room" || bookedFrom === "doctor") {
         bookedFromRef.current = bookedFrom;
@@ -282,7 +303,7 @@ export default function AppointmentBookingModal({
       }
       bookedFromRef.current = "doctor";
       return "doctor";
-    }
+    },
   );
   const [patientSearch, setPatientSearch] = useState<string>("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
@@ -301,18 +322,18 @@ export default function AppointmentBookingModal({
   });
   const [followType, setFollowType] = useState<string>("first time");
   const [startDate, setStartDate] = useState<string>(
-    defaultDate || new Date().toISOString().split("T")[0]
+    defaultDate || new Date().toISOString().split("T")[0],
   );
 
   const SLOT_INTERVAL_MINUTES = 15;
 
   const getCurrentDate = () => {
-    return new Date().toISOString().split('T')[0];
+    return new Date().toISOString().split("T")[0];
   };
 
   const getCurrentTime = () => {
     const now = new Date();
-    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
   };
 
   const calculateEndTime = (time: string) => {
@@ -323,13 +344,13 @@ export default function AppointmentBookingModal({
     const newMin = totalMinutes % 60;
     return `${String(newHour).padStart(2, "0")}:${String(newMin).padStart(
       2,
-      "0"
+      "0",
     )}`;
   };
 
   const [fromTime, setFromTime] = useState<string>(slotTime || "09:00");
   const [toTime, setToTime] = useState<string>(
-    slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00")
+    slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00"),
   );
   const [referral, setReferral] = useState<string>("No");
   const [emergency, setEmergency] = useState<string>("no");
@@ -345,7 +366,9 @@ export default function AppointmentBookingModal({
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
   const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [services, setServices] = useState<Array<{ _id: string; name: string }>>([]);
+  const [services, setServices] = useState<
+    Array<{ _id: string; name: string }>
+  >([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [isServicesOpen, setIsServicesOpen] = useState(false);
@@ -360,19 +383,19 @@ export default function AppointmentBookingModal({
     referralPercent: 0,
     addExpense: false,
   });
-  const [referralErrors, setReferralErrors] = useState<Record<string, string>>({});
+  const [referralErrors, setReferralErrors] = useState<Record<string, string>>(
+    {},
+  );
   const [savingReferral, setSavingReferral] = useState(false);
   const servicesSearchRef = React.useRef<HTMLInputElement>(null);
- 
+
   // Filter services based on search
   const filteredServices = React.useMemo(() => {
     if (!servicesSearch.trim()) return services;
     const query = servicesSearch.toLowerCase();
-    return services.filter(svc =>
-      svc.name.toLowerCase().includes(query)
-    );
+    return services.filter((svc) => svc.name.toLowerCase().includes(query));
   }, [services, servicesSearch]);
- 
+
   // Auto-focus search input when dropdown opens
   React.useEffect(() => {
     if (isServicesOpen && servicesSearchRef.current) {
@@ -400,7 +423,10 @@ export default function AppointmentBookingModal({
       setRoomId("");
       setStatus("");
 
-      console.log("Modal opened - doctor pre-selected:", doctorId || "(none - dropdown will show placeholder)");
+      console.log(
+        "Modal opened - doctor pre-selected:",
+        doctorId || "(none - dropdown will show placeholder)",
+      );
       // Always update bookedFrom from prop when modal opens - this ensures it's correct
       // CRITICAL: Use the prop value directly if it's explicitly "room" or "doctor"
       let newBookedFrom: "doctor" | "room";
@@ -478,11 +504,11 @@ export default function AppointmentBookingModal({
       setSearching(true);
       const res = await axios.get(
         `/api/clinic/search-patients?search=${encodeURIComponent(
-          patientSearch
+          patientSearch,
         )}`,
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
       if (res.data.success) {
         setSearchResults(res.data.patients || []);
@@ -510,7 +536,9 @@ export default function AppointmentBookingModal({
       const selectedMinutes = timeStringToMinutes(value);
       const endMinutes = timeStringToMinutes(customTimeSlots.endTime);
       if (selectedMinutes >= endMinutes) {
-        toast.error(`Booking is not allowed after ${formatTime(customTimeSlots.endTime)}. Slots are available only until ${formatTime(customTimeSlots.endTime)}.`);
+        toast.error(
+          `Booking is not allowed after ${formatTime(customTimeSlots.endTime)}. Slots are available only until ${formatTime(customTimeSlots.endTime)}.`,
+        );
         return;
       }
     }
@@ -535,7 +563,9 @@ export default function AppointmentBookingModal({
       const selectedMinutes = timeStringToMinutes(value);
       const endMinutes = timeStringToMinutes(customTimeSlots.endTime);
       if (selectedMinutes > endMinutes) {
-        toast.error(`Booking is not allowed after ${formatTime(customTimeSlots.endTime)}. Slots are available only until ${formatTime(customTimeSlots.endTime)}.`);
+        toast.error(
+          `Booking is not allowed after ${formatTime(customTimeSlots.endTime)}. Slots are available only until ${formatTime(customTimeSlots.endTime)}.`,
+        );
         return;
       }
     }
@@ -567,7 +597,7 @@ export default function AppointmentBookingModal({
     if (localNum.startsWith(addPatientForm.countryCode)) {
       localNum = localNum.slice(addPatientForm.countryCode.length);
     } else {
-      localNum = localNum.replace(/^\+\d+/, '');
+      localNum = localNum.replace(/^\+\d+/, "");
     }
     if (localNum.length !== 10) {
       setError("Mobile Number must be exactly 10 digits");
@@ -616,7 +646,7 @@ export default function AppointmentBookingModal({
         `/api/clinic/doctor-departments?doctorStaffId=${targetDoctorId}`,
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
       if (res.data.success) {
         setDoctorDepartments(res.data.departments || []);
@@ -627,7 +657,7 @@ export default function AppointmentBookingModal({
     } catch (err: any) {
       console.error("Error loading doctor departments", err);
       setDoctorDeptError(
-        err.response?.data?.message || "Failed to load departments"
+        err.response?.data?.message || "Failed to load departments",
       );
       setDoctorDepartments([]);
     } finally {
@@ -672,7 +702,9 @@ export default function AppointmentBookingModal({
     resetReferralForm();
   };
 
-  const handleReferralFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReferralFieldChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const { name, value, type, checked } = e.target;
     setReferralForm((prev) => ({
       ...prev,
@@ -787,12 +819,20 @@ export default function AppointmentBookingModal({
 
     // Validate that appointment date/time is not in the past
     const now = new Date();
-    const [year, month, day] = startDate.split('-').map(Number);
-    const [fromHour, fromMinute] = fromTime.split(':').map(Number);
-    const appointmentDateTime = new Date(year, month - 1, day, fromHour, fromMinute);
-    
+    const [year, month, day] = startDate.split("-").map(Number);
+    const [fromHour, fromMinute] = fromTime.split(":").map(Number);
+    const appointmentDateTime = new Date(
+      year,
+      month - 1,
+      day,
+      fromHour,
+      fromMinute,
+    );
+
     if (appointmentDateTime < now) {
-      setError("Cannot book an appointment in the past. Please select a future date and time.");
+      setError(
+        "Cannot book an appointment in the past. Please select a future date and time.",
+      );
       toast.error("Cannot book an appointment in the past");
       return;
     }
@@ -802,21 +842,27 @@ export default function AppointmentBookingModal({
     if (!selectedPatient) {
       clientErrors.patientId = "Please select a patient";
     }
-   
+
     // REQUIRE both room AND doctor as per user request
     if (!roomId) {
       clientErrors.roomId = "Room is not filled";
-      toast.error("Please select the room, it is mandatory", { id: "room-mandatory-toast" });
+      toast.error("Please select the room, it is mandatory", {
+        id: "room-mandatory-toast",
+      });
     }
     if (!selectedDoctorId) {
       clientErrors.doctorId = "Doctor is not filled";
-      toast.error("Please select a doctor, it is mandatory", { id: "doctor-mandatory-toast" });
+      toast.error("Please select a doctor, it is mandatory", {
+        id: "doctor-mandatory-toast",
+      });
     }
     if (!status) {
       clientErrors.status = "Status is not filled";
-      toast.error("Please select a status, it is mandatory", { id: "status-mandatory-toast" });
+      toast.error("Please select a status, it is mandatory", {
+        id: "status-mandatory-toast",
+      });
     }
-   
+
     if (!followType) {
       clientErrors.followType = "Please select a follow type";
     }
@@ -832,7 +878,9 @@ export default function AppointmentBookingModal({
 
     if (Object.keys(clientErrors).length > 0) {
       setFieldErrors(clientErrors);
-      setError("Mandatory sections are not filled: Room, Doctor, and Status are required");
+      setError(
+        "Mandatory sections are not filled: Room, Doctor, and Status are required",
+      );
       return;
     }
 
@@ -905,7 +953,8 @@ export default function AppointmentBookingModal({
           referral,
           emergency,
           notes,
-          serviceId: selectedServiceIds.length > 0 ? selectedServiceIds[0] : undefined,
+          serviceId:
+            selectedServiceIds.length > 0 ? selectedServiceIds[0] : undefined,
           serviceIds: selectedServiceIds,
           bookedFrom: valueToSend, // Use the determined value - ensure it's "room" or "doctor"
           customTimeSlots: customTimeSlots
@@ -917,7 +966,7 @@ export default function AppointmentBookingModal({
         },
         {
           headers: getAuthHeaders(),
-        }
+        },
       );
 
       if (res.data.success) {
@@ -932,7 +981,8 @@ export default function AppointmentBookingModal({
         // Reset form
         resetForm();
       } else {
-        const fallbackMessage = res.data.message || "Failed to book appointment";
+        const fallbackMessage =
+          res.data.message || "Failed to book appointment";
         // Blocked-slot errors should surface as a toast (not inline)
         const isBlockedSlotError =
           typeof fallbackMessage === "string" &&
@@ -950,13 +1000,13 @@ export default function AppointmentBookingModal({
             id: TOAST_IDS.blockedBooking,
             duration: 4000,
             style: {
-              background: '#fef2f2',
-              color: '#991b1b',
-              border: '1px solid #fecaca',
-              fontSize: '13px',
-              fontWeight: '500',
+              background: "#fef2f2",
+              color: "#991b1b",
+              border: "1px solid #fecaca",
+              fontSize: "13px",
+              fontWeight: "500",
             },
-            icon: '🚫',
+            icon: "🚫",
           });
         } else {
           setError(fallbackMessage);
@@ -976,11 +1026,11 @@ export default function AppointmentBookingModal({
           id: "auth-expired",
           duration: 4000,
           style: {
-            background: '#fef2f2',
-            color: '#991b1b',
-            border: '1px solid #fecaca',
-            fontSize: '13px',
-            fontWeight: '500',
+            background: "#fef2f2",
+            color: "#991b1b",
+            border: "1px solid #fecaca",
+            fontSize: "13px",
+            fontWeight: "500",
           },
         });
         setError("Authentication failed. Please login again.");
@@ -1007,13 +1057,13 @@ export default function AppointmentBookingModal({
           id: TOAST_IDS.blockedBooking,
           duration: 4000,
           style: {
-            background: '#fef2f2',
-            color: '#991b1b',
-            border: '1px solid #fecaca',
-            fontSize: '13px',
-            fontWeight: '500',
+            background: "#fef2f2",
+            color: "#991b1b",
+            border: "1px solid #fecaca",
+            fontSize: "13px",
+            fontWeight: "500",
           },
-          icon: '🚫',
+          icon: "🚫",
         });
         return;
       }
@@ -1083,7 +1133,7 @@ export default function AppointmentBookingModal({
 
   if (!isOpen) return null;
   const selectedDoctor = doctorStaff.find(
-    (doc) => doc._id === selectedDoctorId
+    (doc) => doc._id === selectedDoctorId,
   );
   const departmentNames =
     doctorDepartments.length > 0
@@ -1094,14 +1144,14 @@ export default function AppointmentBookingModal({
   // Note: BOTH doctorId AND roomId are required as per user request
   const isFormValid = Boolean(
     selectedPatient &&
-      roomId &&
-      selectedDoctorId &&
-      status &&
-      followType &&
-      startDate &&
-      fromTime &&
-      toTime &&
-      !loading
+    roomId &&
+    selectedDoctorId &&
+    status &&
+    followType &&
+    startDate &&
+    fromTime &&
+    toTime &&
+    !loading,
   );
 
   return (
@@ -1361,11 +1411,13 @@ export default function AppointmentBookingModal({
             {/* Treatment Selection (Optional) */}
             <div className="relative">
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Treatments 
+                Treatments
               </label>
               <div
                 className={`w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 cursor-pointer flex justify-between items-center transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
-                  isServicesOpen ? "ring-2 ring-gray-500 dark:ring-gray-600 border-gray-500 dark:border-gray-600" : ""
+                  isServicesOpen
+                    ? "ring-2 ring-gray-500 dark:ring-gray-600 border-gray-500 dark:border-gray-600"
+                    : ""
                 }`}
                 onClick={() => {
                   if (!isServicesOpen) {
@@ -1388,7 +1440,9 @@ export default function AppointmentBookingModal({
                             className="w-2.5 h-2.5 cursor-pointer hover:text-red-500"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedServiceIds(selectedServiceIds.filter((sid) => sid !== id));
+                              setSelectedServiceIds(
+                                selectedServiceIds.filter((sid) => sid !== id),
+                              );
                             }}
                           />
                         </span>
@@ -1396,7 +1450,7 @@ export default function AppointmentBookingModal({
                     })
                   ) : (
                     <span className="text-gray-400 dark:text-gray-500">
-                      Select treatments 
+                      Select treatments
                     </span>
                   )}
                 </div>
@@ -1408,8 +1462,18 @@ export default function AppointmentBookingModal({
                   {/* Search Input */}
                   <div className="p-2 border-b border-gray-200 dark:border-gray-300 flex-shrink-0">
                     <div className="relative">
-                      <svg className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      <svg
+                        className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
                       </svg>
                       <input
                         type="text"
@@ -1422,7 +1486,7 @@ export default function AppointmentBookingModal({
                       />
                     </div>
                   </div>
-                 
+
                   {/* Services List */}
                   <div className="overflow-y-auto flex-1 max-h-[200px]">
                     {servicesLoading ? (
@@ -1433,30 +1497,45 @@ export default function AppointmentBookingModal({
                     ) : filteredServices.length > 0 ? (
                       <div className="py-1">
                         {filteredServices.map((svc) => {
-                          const isSelected = selectedServiceIds.includes(svc._id);
+                          const isSelected = selectedServiceIds.includes(
+                            svc._id,
+                          );
                           return (
                             <div
                               key={svc._id}
                               className={`px-3 py-2 text-xs cursor-pointer flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-200 ${
-                                isSelected ? "bg-gray-50 dark:bg-gray-100 text-gray-900 font-medium" : "text-gray-700 dark:text-gray-800"
+                                isSelected
+                                  ? "bg-gray-50 dark:bg-gray-100 text-gray-900 font-medium"
+                                  : "text-gray-700 dark:text-gray-800"
                               }`}
                               onClick={() => {
                                 if (isSelected) {
-                                  setSelectedServiceIds(selectedServiceIds.filter((id) => id !== svc._id));
+                                  setSelectedServiceIds(
+                                    selectedServiceIds.filter(
+                                      (id) => id !== svc._id,
+                                    ),
+                                  );
                                 } else {
-                                  setSelectedServiceIds([...selectedServiceIds, svc._id]);
+                                  setSelectedServiceIds([
+                                    ...selectedServiceIds,
+                                    svc._id,
+                                  ]);
                                 }
                               }}
                             >
                               <span>{svc.name}</span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-green-600" />}
+                              {isSelected && (
+                                <Check className="w-3.5 h-3.5 text-green-600" />
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     ) : (
                       <div className="p-3 text-center text-xs text-gray-500 italic">
-                        {servicesSearch ? 'No treatments match your search' : 'No treatments found'}
+                        {servicesSearch
+                          ? "No treatments match your search"
+                          : "No treatments found"}
                       </div>
                     )}
                   </div>
@@ -1524,7 +1603,7 @@ export default function AppointmentBookingModal({
                   {searchResults
                     .filter(
                       (patient) =>
-                        !selectedPatient || patient._id !== selectedPatient._id
+                        !selectedPatient || patient._id !== selectedPatient._id,
                     )
                     .map((patient, idx) => (
                       <div
@@ -1629,7 +1708,7 @@ export default function AppointmentBookingModal({
                         "/api/clinic/next-emr-number",
                         {
                           headers: getAuthHeaders(),
-                        }
+                        },
                       );
                       if (res.data.success && res.data.emrNumber) {
                         setAddPatientForm((prev) => ({
@@ -1755,16 +1834,26 @@ export default function AppointmentBookingModal({
                           if (localNum.startsWith(prev.countryCode)) {
                             localNum = localNum.slice(prev.countryCode.length);
                           } else {
-                            localNum = localNum.replace(/^\+\d+/, '');
+                            localNum = localNum.replace(/^\+\d+/, "");
                           }
                           const newMobile = newCode + localNum;
-                          return { ...prev, countryCode: newCode, mobileNumber: newMobile };
+                          return {
+                            ...prev,
+                            countryCode: newCode,
+                            mobileNumber: newMobile,
+                          };
                         });
                       }}
                       onPhoneChange={(val) => {
-                        const sanitized = val.replace(/[^\d]/g, "").slice(0, 15);
-                        const fullNumber = addPatientForm.countryCode + sanitized;
-                        setAddPatientForm((prev) => ({ ...prev, mobileNumber: fullNumber }));
+                        const sanitized = val
+                          .replace(/[^\d]/g, "")
+                          .slice(0, 15);
+                        const fullNumber =
+                          addPatientForm.countryCode + sanitized;
+                        setAddPatientForm((prev) => ({
+                          ...prev,
+                          mobileNumber: fullNumber,
+                        }));
                       }}
                     />
                   </div>
@@ -1921,7 +2010,11 @@ export default function AppointmentBookingModal({
                 </label>
                 <input
                   type="time"
-                  min={startDate === getCurrentDate() ? getCurrentTime() : undefined}
+                  min={
+                    startDate === getCurrentDate()
+                      ? getCurrentTime()
+                      : undefined
+                  }
                   value={fromTime}
                   onChange={(e) => handleFromTimeChange(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
@@ -1942,7 +2035,11 @@ export default function AppointmentBookingModal({
                 </label>
                 <input
                   type="time"
-                  min={startDate === getCurrentDate() ? getCurrentTime() : undefined}
+                  min={
+                    startDate === getCurrentDate()
+                      ? getCurrentTime()
+                      : undefined
+                  }
                   value={toTime}
                   onChange={(e) => handleToTimeChange(e.target.value)}
                   className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
@@ -2186,7 +2283,9 @@ export default function AppointmentBookingModal({
                       : "bg-teal-600 hover:bg-teal-700 text-white hover:scale-105 active:scale-95 hover:shadow-lg focus:ring-teal-500"
                   }`}
                 >
-                  {savingReferral && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  {savingReferral && (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  )}
                   {savingReferral ? "Creating..." : "Create"}
                 </button>
               </div>

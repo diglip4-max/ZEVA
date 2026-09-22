@@ -6,6 +6,8 @@ import ClinicLayout from "../../components/ClinicLayout";
 import Loader from "../../components/Loader";
 import { Search, CheckCircle, XCircle, Eye, FileText, AlertCircle, Shield, X, Activity, Clock, User, Paperclip, Calendar, Send, Wallet, CalendarClock, BadgeCheck, History, ArrowRight } from "lucide-react";
 import { getCurrencySymbol } from "@/lib/currencyHelper";
+import SendClaimModal from "@/components/claim/SendClaimModa";
+import { useRouter } from "next/router";
 
 const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
 const CLAIM_MODULE_KEY = "release_requested";
@@ -142,6 +144,7 @@ const getClaimModalTitle = (claim) => {
 };
 
 function ReleaseRequestedClaimsPage() {
+  const router = useRouter()
   const [permissions, setPermissions] = useState({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [claims, setClaims] = useState([]);
@@ -174,6 +177,17 @@ function ReleaseRequestedClaimsPage() {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [currency, setCurrency] = useState("INR");
+
+  // Send Claim Modal
+  const [sendClaimModalOpen, setSendClaimModalOpen] = useState(false);
+  const [sendClaimLoading, setSendClaimLoading] = useState(false);
+  const [selectedClaim, setSelectedClaim] = useState(null);
+
+  // Send Claim Modal
+  const handleSendClaim = (data) => {
+    setSendClaimLoading(true);
+    router.push(`/clinic/inbox/?patientId=${selectedClaim?.patientId}`)
+  };
 
   // Set user role on mount
   useEffect(() => {
@@ -905,6 +919,13 @@ function ReleaseRequestedClaimsPage() {
                     <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50/80 rounded-b-xl flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-white uppercase tracking-widest">#{claim._id?.slice(-6)}</span>
                       <div className="flex items-center gap-1.5">
+                        <button onClick={() => {
+                          setSendClaimModalOpen(true)
+                          setSelectedClaim(claim)
+                          console.log({ claim })
+                        }} className="p-2 flex items-center gap-1.5 text-xs bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
+                          <Send className="w-3 h-3" /> Send
+                        </button>
                         <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
                           <Eye className="w-4 h-4" />
                         </button>
@@ -1251,14 +1272,13 @@ function ReleaseRequestedClaimsPage() {
                       <div className="divide-y divide-gray-100 max-h-[130px] overflow-y-auto scrollbar-thin">
                         {patientHistory.map((prev) => (
                           <div key={prev._id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${
-                              prev.status === "Approved" ? "bg-green-500" :
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${prev.status === "Approved" ? "bg-green-500" :
                               prev.status === "Rejected" || (prev.status === "Under Review" && prev.rejectedFromReleaseRequested) ? "bg-red-500" :
-                              prev.status === "Released" ? "bg-blue-500" :
-                              prev.status === "Ready" ? "bg-indigo-500" :
-                              prev.status === "Completed" ? "bg-purple-500" :
-                              "bg-yellow-400"
-                            }`} />
+                                prev.status === "Released" ? "bg-blue-500" :
+                                  prev.status === "Ready" ? "bg-indigo-500" :
+                                    prev.status === "Completed" ? "bg-purple-500" :
+                                      "bg-yellow-400"
+                              }`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${getStatusBadge(prev.status, prev.rejectedFromReleaseRequested)}`}>
@@ -1332,15 +1352,13 @@ function ReleaseRequestedClaimsPage() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Urgency</p>
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-50 text-red-700" :
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${(claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-50 text-red-700" :
                           (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-50 text-amber-700" :
-                          "bg-teal-50 text-teal-700"
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            (claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-500" :
+                            "bg-teal-50 text-teal-700"
+                          }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${(claimDetails?.urgency || viewModal.urgency) === "High" ? "bg-red-500" :
                             (claimDetails?.urgency || viewModal.urgency) === "Priority" ? "bg-amber-500" : "bg-teal-500"
-                          }`} />
+                            }`} />
                           {claimDetails?.urgency || viewModal.urgency || "Normal"}
                         </span>
                       </div>
@@ -1753,6 +1771,14 @@ function ReleaseRequestedClaimsPage() {
           </div>
         </div>
       )}
+
+      {/* Send Claim Modal */}
+      <SendClaimModal
+        isOpen={sendClaimModalOpen}
+        onClose={() => setSendClaimModalOpen(false)}
+        onSend={handleSendClaim}
+        isLoading={sendClaimLoading}
+      />
     </div>
   );
 }

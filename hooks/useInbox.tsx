@@ -26,6 +26,7 @@ import { useAuth } from "@/context/AuthContext";
 import useRooms from "./useRooms";
 import useLeadPatient from "./useLeadPatient";
 import useTags from "./useTags";
+import { useSearchParams } from "next/navigation";
 
 export type VariableType = {
   type: "text";
@@ -74,6 +75,9 @@ export const tags = ["Important", "Follow-up", "Urgent", "Review", "Personal"];
 
 const useInbox = () => {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const patientId = searchParams.get("patientId");
+  console.log({ patientId });
   const { providers: providersData } = useProvider();
   const providers = React.useMemo(
     () => (providersData || []).filter((p) => !p.type.includes("email")),
@@ -287,6 +291,8 @@ const useInbox = () => {
   const previousScrollTopRef = React.useRef<number | null>(0); // Track previous scroll position for messages to stop fetching when scroll top to bottom
   const messageRef = React.useRef<HTMLDivElement | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const [isCreatingConversation, setIsCreatingConversation] =
+    useState<boolean>(false);
 
   // fetch lead patient details
   const { state: leadPatient } = useLeadPatient({
@@ -455,10 +461,6 @@ const useInbox = () => {
   };
 
   const handleSendMessage = async (location?: null) => {
-    console.log({
-      selectedConversation,
-      location,
-    });
     if (!selectedConversation) return;
     if (
       !textAreaRef?.current?.value &&
@@ -501,15 +503,14 @@ const useInbox = () => {
             mediaUrl: resData?.url,
             mediaType: getMediaTypeFromMime(file?.type),
           });
-
-          // For legacy compatibility/single file logic
-          if (!mediaFileUrl) {
-            mediaFileUrl = resData?.url;
-            mediaFileType = getMediaTypeFromMime(file?.type);
-            setMediaUrl(resData?.url);
-          }
         }
       }
+    }
+
+    // For legacy compatibility/single file logic
+    if (attachments?.length > 0) {
+      mediaFileUrl = attachments[0]?.mediaUrl;
+      mediaFileType = attachments[0]?.mediaType;
     }
 
     const tempMessageId = Date.now()?.toString(); // Ensure a unique identifier
@@ -763,15 +764,14 @@ const useInbox = () => {
             mediaUrl: resData?.url,
             mediaType: getMediaTypeFromMime(file?.type),
           });
-
-          // For legacy compatibility/single file logic
-          if (!mediaFileUrl) {
-            mediaFileUrl = resData?.url;
-            mediaFileType = getMediaTypeFromMime(file?.type);
-            setMediaUrl(resData?.url);
-          }
         }
       }
+    }
+
+    // For legacy compatibility/single file logic
+    if (attachments?.length > 0) {
+      mediaFileUrl = attachments[0]?.mediaUrl;
+      mediaFileType = attachments[0]?.mediaType;
     }
 
     const tempMessageId = Date.now()?.toString(); // Ensure a unique identifier
@@ -1256,6 +1256,31 @@ const useInbox = () => {
     }
   };
 
+  const handleCreateConversationByPatient = async (patientId: string) => {
+    if (!token) return;
+    try {
+      setIsCreatingConversation(true);
+      const { data } = await axios.post(
+        `/api/conversations/create-conversation`,
+        { patientId },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data && data?.success && data?.conversation) {
+        setSelectedConversation(data?.conversation);
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsCreatingConversation(false);
+    }
+  };
+
+  useEffect(() => {
+    if (patientId && !selectedConversation) {
+      handleCreateConversationByPatient(patientId);
+    }
+  }, [patientId, selectedConversation]);
+
   // select agents by default based on selected conversation
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
@@ -1607,6 +1632,8 @@ const useInbox = () => {
     editingField,
     editValue,
     isUpdatingLead,
+
+    isCreatingConversation,
   };
 
   return {

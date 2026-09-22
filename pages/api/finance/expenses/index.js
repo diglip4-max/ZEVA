@@ -7,6 +7,7 @@ import {
   FinanceCheque,
 } from "../../../../models/finance";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
+import Users from "../../../../models/Users";
 
 export default async function handler(req, res) {
   if (!["GET", "POST"].includes(req.method)) {
@@ -87,6 +88,7 @@ export default async function handler(req, res) {
 
       const [expenses, total] = await Promise.all([
         FinanceTransaction.find(query)
+          .populate("createdBy", "name email phone photo role")
           .sort({ invoiceDate: -1, createdAt: -1 })
           .skip((pageNum - 1) * limitNum)
           .limit(limitNum)
