@@ -416,22 +416,26 @@ InsuranceClaimSchema.index({ patientId: 1, createdAt: -1 });
 
 // Pre-save hook: auto-calculate advanceAmount and pendingClaim
 InsuranceClaimSchema.pre("save", function (next) {
-  // Auto-calculate advanceAmount for Advance type claims
-  if (this.claimType === "Advance" && this.advanceStatus) {
-    if (this.advanceStatus === "Full Pay") {
-      this.advanceAmount = this.claimAmount;
-    } else if (this.advanceStatus === "Partial Pay") {
-      this.advanceAmount = this.claimAmount * 0.5;
-    }
+  // For Advance type claims: advanceAmount stays 0 (no payment made yet)
+  // Only claimAmount and pendingClaim store values
+  if (this.claimType === "Advance") {
+    this.advanceAmount = 0;
   }
 
   // Auto-calculate pendingClaim on new claims only.
   // We skip this on existing docs to avoid overwriting payment reductions
   // made by pay-pending-claim and create-patient-registration APIs.
   if (this.isNew) {
-    const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
-    const paidAmount = Number(this.advanceAmount || 0);
-    this.pendingClaim = Math.max(0, baseAmount - paidAmount);
+    if (this.claimType === "Advance") {
+      // Advance claim: full claim amount is pending (service given now, paid later)
+      const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
+      this.pendingClaim = baseAmount;
+    } else {
+      // Paid claim: pending = base - advance already paid
+      const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
+      const paidAmount = Number(this.advanceAmount || 0);
+      this.pendingClaim = Math.max(0, baseAmount - paidAmount);
+    }
   }
 
   next();

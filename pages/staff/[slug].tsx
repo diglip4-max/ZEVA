@@ -154,6 +154,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "clinic-pending-claims": () => import("../staff/pending-claims"),
   "clinic-cancelled-claims": () => import("../staff/cancelled-claims"),
   "clinic-all-claims": () => import("../clinic/all-claims"),
+  "clinic-claim-management": () => import("../clinic/claim-management"),
   "clinic-booked-appointments": () => import("../staff/booked-appointments"),
   "clinic-staff-add-treatment": () => import("../staff/add-treatment"),
 

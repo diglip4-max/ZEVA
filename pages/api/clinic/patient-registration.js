@@ -205,11 +205,16 @@ export default async function handler(req, res) {
         const { hasPermission: agentHasPermission, error: agentError } =
           await checkAgentPermission(user._id, "patient_registration", "read");
         if (!agentHasPermission) {
-          return res.status(403).json({
-            success: false,
-            message:
-              agentError || "You do not have permission to view patients",
-          });
+          // Fallback: Allow if agent has create_claim permission (needs patient search for claims)
+          const { hasPermission: hasCreateClaim } =
+            await checkAgentPermission(user._id, "create_claim", "read");
+          if (!hasCreateClaim) {
+            return res.status(403).json({
+              success: false,
+              message:
+                agentError || "You do not have permission to view patients",
+            });
+          }
         }
       }
       // For doctorStaff role (userToken): Check agent permissions
@@ -217,11 +222,16 @@ export default async function handler(req, res) {
         const { hasPermission: agentHasPermission, error: agentError } =
           await checkAgentPermission(user._id, "patient_registration", "read");
         if (!agentHasPermission) {
-          return res.status(403).json({
-            success: false,
-            message:
-              agentError || "You do not have permission to view patients",
-          });
+          // Fallback: Allow if doctorStaff has create_claim permission (needs patient search for claims)
+          const { hasPermission: hasCreateClaim } =
+            await checkAgentPermission(user._id, "create_claim", "read");
+          if (!hasCreateClaim) {
+            return res.status(403).json({
+              success: false,
+              message:
+                agentError || "You do not have permission to view patients",
+            });
+          }
         }
       }
     }
