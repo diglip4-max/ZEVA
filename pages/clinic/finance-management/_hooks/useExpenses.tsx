@@ -28,6 +28,13 @@ export interface ExpenseData {
   notes?: string;
   attachments?: string[];
   createdAt: string;
+  createdBy?: {
+    name: string;
+    email: string;
+    phone: string;
+    photo: string;
+    role: string;
+  };
   payment: ExpensePaymentInfo | null;
 }
 

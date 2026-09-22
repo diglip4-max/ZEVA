@@ -26,6 +26,8 @@ const FinancePaymentSchema = new Schema(
     attachment: String,
     notes: String,
     reversed: { type: Boolean, default: false },
+
+    createdBy: { type: Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
 );

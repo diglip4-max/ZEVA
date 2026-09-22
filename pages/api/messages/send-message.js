@@ -93,6 +93,7 @@ export default async function handler(req, res) {
     providerId,
     replyToMessageId,
     quotedMessageId,
+    attachments,
     headerParameters = [],
     bodyParameters = [],
     isWhatsappCallRequest = false,
@@ -249,6 +250,7 @@ export default async function handler(req, res) {
       status: "sending",
       provider: providerId,
       replyToMessageId, // it can be null or message id in case of whatsapp reply
+      attachments,
       metadata: location
         ? {
             type: "location",
@@ -361,7 +363,15 @@ export default async function handler(req, res) {
                         parameters: [
                           {
                             type: template.headerType,
-                            [template.headerType]: { link: mediaUrl },
+                            [template.headerType]: {
+                              link: mediaUrl, // ✅ filename add karo (sirf document type ke liye)
+                              ...(template.headerType === "document" && {
+                                filename:
+                                  attachments?.[0]?.fileName ||
+                                  mediaUrl.split("/").pop()?.split("?")[0] ||
+                                  "document.pdf",
+                              }),
+                            },
                           },
                         ],
                       }),
@@ -445,7 +455,7 @@ export default async function handler(req, res) {
       data: findMessage,
     });
   } catch (err) {
-    // console.error("Error in send message:", err);
+    console.error("Error in send message:", err);
 
     return res.status(500).json({
       success: false,

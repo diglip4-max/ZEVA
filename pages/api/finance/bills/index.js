@@ -2,6 +2,7 @@ import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
 import { FinanceTransaction } from "../../../../models/finance";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
+import Users from "../../../../models/Users";
 
 export default async function handler(req, res) {
   if (!["GET", "POST"].includes(req.method)) {
@@ -116,6 +117,7 @@ export default async function handler(req, res) {
       const [bills, total] = await Promise.all([
         FinanceTransaction.find(query)
           .populate("supplierId", "name")
+          .populate("createdBy", "name email phone photo role")
           .sort({ createdAt: -1 })
           .skip((pageNum - 1) * limitNum)
           .limit(limitNum),

@@ -2,6 +2,8 @@ import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import Clinic from "../../../models/Clinic";
 import Conversation from "../../../models/Conversation";
 import dbConnect from "../../../lib/database";
+import PatientRegistration from "../../../models/PatientRegistration";
+import Lead from "../../../models/Lead";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -63,7 +65,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { leadId } = req.body;
+    let { leadId, patientId } = req.body;
+
+    if (!leadId && patientId) {
+      const patient = await PatientRegistration.findById(patientId);
+      if (patient?.leadId) {
+        leadId = patient.leadId;
+        await Lead.findByIdAndUpdate(leadId, {
+          name: `${patient.firstName} ${patient.lastName}`.trim(),
+          email: patient.email,
+        });
+      } else if (patient) {
+        let lead = new Lead({
+          clinicId,
+          name: `${patient.firstName} ${patient.lastName}`.trim(),
+          phone: patient.mobileNumber,
+          email: patient.email,
+          gender: patient.gender,
+          source: "Other",
+          patientId: patient._id,
+        });
+        leadId = lead._id;
+        patient.leadId = leadId;
+        await Promise.all([lead.save(), patient.save()]);
+      }
+    }
 
     // Check if a conversation already exists for the given lead in this clinic
     const existingConversation = await Conversation.findOne({

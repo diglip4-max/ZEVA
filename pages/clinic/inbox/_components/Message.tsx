@@ -47,14 +47,6 @@ const getAttachmentIcon = (mimeType?: string, mediaType?: string) => {
   return <File size={20} className="text-gray-600" />;
 };
 
-const formatFileSize = (fileSize?: string | number) => {
-  if (!fileSize) return "Document";
-  const size = Number(fileSize);
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(2)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(2)} MB`;
-};
-
 const getAttachments = (message: MessageType) => {
   const attachments: Array<{
     fileName?: string;
@@ -218,15 +210,18 @@ const Message: React.FC<IProps> = ({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 truncate">
-                    {attachment.fileName ||
-                      (attachment.mediaUrl || "file")
-                        .split("/")
-                        .pop()
-                        ?.split("?")[0]
-                        ?.slice(0, 60)}
+                    {(() => {
+                      const name =
+                        attachment.fileName || attachment.mediaUrl || "file";
+                      const fileName =
+                        name.split("/").pop()?.split("?")[0] || "file";
+                      return fileName.length > 20
+                        ? `${fileName.slice(0, 20)}...`
+                        : fileName;
+                    })()}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {formatFileSize(attachment.fileSize)}
+                    {attachment.fileSize || "Document"}
                   </div>
                 </div>
                 <div className="flex-shrink-0 ml-3">
