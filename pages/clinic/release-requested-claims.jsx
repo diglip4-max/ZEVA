@@ -1453,6 +1453,40 @@ function ReleaseRequestedClaimsPage() {
                     </div>
                   )}
 
+                  {/* Payment Details - Multiple Payment Methods */}
+                  {(claimDetails?.paymentMethods || viewModal.paymentMethods) && (claimDetails?.paymentMethods || viewModal.paymentMethods).length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <Wallet className="w-4 h-4 text-purple-600" />
+                        Payment Details
+                      </h3>
+                      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200 p-4 space-y-3">
+                        {(claimDetails?.paymentMethods || viewModal.paymentMethods).map((pm, idx) => {
+                          const methodIcons = { Cash: "", Card: "💳", UPI: "📱", "Bank Transfer": "🏦", Cheque: "📝" };
+                          const methodColors = { Cash: "from-green-400 to-emerald-500", Card: "from-blue-400 to-indigo-500", UPI: "from-orange-400 to-amber-500", "Bank Transfer": "from-cyan-400 to-teal-500", Cheque: "from-purple-400 to-violet-500" };
+                          return (
+                            <div key={idx} className="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-purple-100">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${methodColors[pm.method] || "from-gray-400 to-gray-500"} flex items-center justify-center text-lg shadow-sm`}>
+                                  {methodIcons[pm.method] || "💰"}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-800">{pm.method}</p>
+                                  <p className="text-[10px] text-gray-400 uppercase tracking-wider">Payment {idx + 1}</p>
+                                </div>
+                              </div>
+                              <p className="text-base font-bold text-gray-900">{getCurrencySymbol(currency)}{(pm.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center justify-between pt-2 border-t border-purple-200">
+                          <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">Total Paid</span>
+                          <span className="text-lg font-bold text-purple-800">{getCurrencySymbol(currency)}{(claimDetails?.paymentMethods || viewModal.paymentMethods).reduce((sum, pm) => sum + (pm.amount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Review Tracking */}
                   {(viewModal.readyByName || viewModal.completedByName || viewModal.releasedByName || viewModal.rejectedFromReleaseRequestedByName) && (
                     <div>
