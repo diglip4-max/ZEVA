@@ -138,10 +138,14 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date
+    // 3. Parse date (legacy single `date` or `startDate`/`endDate` range;
+    //    a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
     // 4. In Clinic: count of doctorStaff + agent for the clinic
     const inClinicCount = await User.countDocuments({
@@ -199,13 +203,22 @@ export default async function handler(req, res) {
       }
     }
 
-    // Get clinic timings to calculate total slots per doctor
-    const dateStr = req.query.date || new Date().toISOString().split("T")[0];
+    // Get clinic timings to calculate total slots per doctor — summed
+    // across every day of the selected range (a single-day range keeps
+    // the legacy one-day slot count)
     const clinicDoc = await Clinic.findById(clinicObjectId).select("timings").lean();
-    const dayTiming = parseTimingsForDay(clinicDoc?.timings, dateStr);
-    const slotsPerDoctor = dayTiming
-      ? generateTimeSlots(dayTiming.startTime, dayTiming.endTime).length
-      : 0;
+    let slotsPerDoctor = 0;
+    for (
+      let d = new Date(dayStart);
+      d.getTime() <= dayEnd.getTime();
+      d = new Date(d.getTime() + 24 * 60 * 60 * 1000)
+    ) {
+      const rangeDateStr = d.toISOString().slice(0, 10);
+      const dayTiming = parseTimingsForDay(clinicDoc?.timings, rangeDateStr);
+      if (dayTiming) {
+        slotsPerDoctor += generateTimeSlots(dayTiming.startTime, dayTiming.endTime).length;
+      }
+    }
 
     // Sort doctors by appointment count descending and take top 3
     const sortedDoctors = Object.entries(doctorAppointmentCount)

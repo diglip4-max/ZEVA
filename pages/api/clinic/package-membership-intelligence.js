@@ -69,10 +69,14 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date filter (for renewal opportunity)
+    // 3. Parse date filter (for renewal opportunity) — legacy single `date`
+    //    or `startDate`/`endDate` range; a one-sided input collapses to that day
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
     // Today's date for active/expiring calculations (NOT date filter)
     const now = new Date();

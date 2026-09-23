@@ -14,11 +14,27 @@ interface Props {
     statusBreakdown: Record<string, number>;
     currency: string;
   };
+  startDate?: string;
+  endDate?: string;
+  onStartDateChange?: (date: string) => void;
+  onEndDateChange?: (date: string) => void;
+  // Legacy single-date props kept for backward compatibility
   selectedDate?: string;
   onDateChange?: (date: string) => void;
 }
 
-const DashboardGreeting = ({ clinicInfo, revenueData, opportunityData, revenueAtRiskData, selectedDate, onDateChange }: Props) => {
+const DashboardGreeting = ({
+  clinicInfo,
+  revenueData,
+  opportunityData,
+  revenueAtRiskData,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  selectedDate,
+  onDateChange,
+}: Props) => {
   const { currency } = useCurrency();
   const currencySymbol = getCurrencySymbol(currency || 'AED');
   const [userName, setUserName] = useState('Clinic Owner');
@@ -26,7 +42,27 @@ const DashboardGreeting = ({ clinicInfo, revenueData, opportunityData, revenueAt
   const [currentTimeStr, setCurrentTimeStr] = useState('');
 
   const today = new Date().toISOString().split('T')[0];
-  const dateValue = selectedDate || today;
+  // Date range values: new range props take precedence, legacy single-date prop acts as fallback.
+  // An empty "To" mirrors the "From" date so the range stays coherent (mirrored again inside the data hook).
+  const fromValue = startDate || selectedDate || today;
+  const toValue = endDate || fromValue;
+
+  // Route changes through the range handlers when available, otherwise fall back to the legacy single-date handler.
+  const handleFromDateChange = (value: string) => {
+    if (onStartDateChange) {
+      onStartDateChange(value);
+    } else {
+      onDateChange?.(value);
+    }
+  };
+
+  const handleToDateChange = (value: string) => {
+    if (onEndDateChange) {
+      onEndDateChange(value);
+    } else {
+      onDateChange?.(value);
+    }
+  };
 
   // Compute percentages dynamically from data
   const totalRevenue = revenueData?.totalRevenue || 0;
@@ -131,12 +167,26 @@ const DashboardGreeting = ({ clinicInfo, revenueData, opportunityData, revenueAt
           {greeting}, {userName}.
         </h1>
         <div className="flex flex-wrap items-center gap-2 mb-3 sm:mb-4 lg:mb-6">
-          <input
-            type="date"
-            value={dateValue}
-            onChange={(e) => onDateChange?.(e.target.value)}
-            className="text-xs sm:text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1 outline-none focus:border-emerald-600 shadow-sm cursor-pointer"
-          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs sm:text-sm text-gray-500">From</span>
+            <input
+              type="date"
+              aria-label="From date"
+              value={fromValue}
+              max={toValue}
+              onChange={(e) => handleFromDateChange(e.target.value)}
+              className="text-xs sm:text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1 outline-none focus:border-emerald-600 shadow-sm cursor-pointer"
+            />
+            <span className="text-xs sm:text-sm text-gray-500">To</span>
+            <input
+              type="date"
+              aria-label="To date"
+              value={toValue}
+              min={fromValue}
+              onChange={(e) => handleToDateChange(e.target.value)}
+              className="text-xs sm:text-sm text-gray-700 bg-white border border-gray-200 rounded-md px-2 py-1 outline-none focus:border-emerald-600 shadow-sm cursor-pointer"
+            />
+          </div>
           <span className="text-xs sm:text-sm text-gray-500">
             · {currentTimeStr} {clinicAddress ? `· ${clinicAddress}` : ''}
           </span>

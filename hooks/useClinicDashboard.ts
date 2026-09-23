@@ -48,6 +48,14 @@ interface OutstandingBalanceData {
     pendingAmount: number;
     treatment: string;
   }[];
+  pendingClaimAmount: number;
+  pendingClaimCount: number;
+  pendingClaimList: {
+    patientName: string;
+    insuranceProvider: string;
+    claimType: string;
+    pendingAmount: number;
+  }[];
 }
 
 interface WinBackData {
@@ -287,7 +295,17 @@ interface RevenueLeakageData {
   };
 }
 
-export function useClinicDashboard(selectedDate: string) {
+export function useClinicDashboard(startDate: string, endDate: string) {
+  // Normalize the range: an empty side mirrors the other; both empty default to today.
+  // The dashboard page always supplies both values, but this keeps the hook resilient
+  // for any caller that clears one side of the From/To inputs.
+  const effectiveStartDate = startDate || endDate || new Date().toISOString().split('T')[0];
+  const effectiveEndDate = endDate || startDate || new Date().toISOString().split('T')[0];
+  // Keep "From" <= "To" regardless of caller input ordering.
+  const normalizedStartDate = effectiveStartDate <= effectiveEndDate ? effectiveStartDate : effectiveEndDate;
+  const normalizedEndDate = effectiveStartDate <= effectiveEndDate ? effectiveEndDate : effectiveStartDate;
+  const selectedDate = normalizedStartDate;
+
   const [loading, setLoading] = useState(true);
   const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [revenueData, setRevenueData] = useState<RevenueData>({ totalRevenue: 0, cashCollection: 0 });
@@ -306,6 +324,9 @@ export function useClinicDashboard(selectedDate: string) {
     billingCount: 0,
     patients: [],
     billingList: [],
+    pendingClaimAmount: 0,
+    pendingClaimCount: 0,
+    pendingClaimList: [],
   });
   const [winBackData, setWinBackData] = useState<WinBackData>({ stats: [], patients: [] });
   const [tomorrowBusinessData, setTomorrowBusinessData] = useState<TomorrowBusinessData>({
@@ -480,10 +501,10 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 2. Fetch Revenue Data (same logic as RevenueReport)
-      // Since it works date wise, we pass selectedDate as both start and end to match today or selected day.
+      // The report endpoint already supports a startDate/endDate range.
       const revenueParams = new URLSearchParams({
-        startDate: selectedDate,
-        endDate: selectedDate
+        startDate: normalizedStartDate,
+        endDate: normalizedEndDate
       });
       const revenueRes = await axios.get(`/api/clinic/reports/revenue?${revenueParams.toString()}`, { headers }).catch(() => null);
       if (revenueRes?.data?.success) {
@@ -504,7 +525,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 3. Fetch Revenue Opportunity
-      const oppParams = { date: selectedDate };
+      const oppParams = { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate };
       const oppRes = await axios.get('/api/agent/revenue-opportunity', { headers, params: oppParams }).catch(() => null);
       if (oppRes?.data?.success && oppRes.data.data) {
         setOpportunityData({
@@ -515,8 +536,8 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 4. Fetch Priorities Data
-      const morningParams = { timePeriod: 'morning', date: selectedDate };
-      const afternoonParams = { timePeriod: 'afternoon', date: selectedDate };
+      const morningParams = { timePeriod: 'morning', date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate };
+      const afternoonParams = { timePeriod: 'afternoon', date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate };
 
       const [morningRes, afternoonRes] = await Promise.all([
         axios.get('/api/agent/priorities', { headers, params: morningParams }).catch(() => null),
@@ -539,7 +560,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 5. Fetch Revenue At Risk (Cancelled, No Show, booked appointments with services)
       const riskRes = await axios.get('/api/clinic/revenue-at-risk', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (riskRes?.data?.success && riskRes.data.data) {
         setRevenueAtRiskData({
@@ -554,7 +575,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 6. Fetch Outstanding Balance (billing pending > 0 for selected date appointments)
       const outstandingRes = await axios.get('/api/clinic/outstanding-balance', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (outstandingRes?.data?.success && outstandingRes.data.data) {
         setOutstandingBalanceData({
@@ -563,13 +584,16 @@ export function useClinicDashboard(selectedDate: string) {
           billingCount: outstandingRes.data.data.billingCount || 0,
           patients: outstandingRes.data.data.patients || [],
           billingList: outstandingRes.data.data.billingList || [],
+          pendingClaimAmount: outstandingRes.data.data.pendingClaimAmount || 0,
+          pendingClaimCount: outstandingRes.data.data.pendingClaimCount || 0,
+          pendingClaimList: outstandingRes.data.data.pendingClaimList || [],
         });
       }
 
       // 7. Fetch Win Back Data (from appointment-timeline)
       const winBackRes = await axios.get('/api/agent/appointment-timeline', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (winBackRes?.data?.success && winBackRes.data.data?.winBack) {
         setWinBackData(winBackRes.data.data.winBack);
@@ -578,7 +602,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 8. Fetch Tomorrow's Business Data
       const tomorrowRes = await axios.get('/api/clinic/tomorrow-business', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (tomorrowRes?.data?.success && tomorrowRes.data.data) {
         setTomorrowBusinessData({
@@ -595,7 +619,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 9. Fetch Clinic Capacity Data
       const capacityRes = await axios.get('/api/clinic/clinic-capacity', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (capacityRes?.data?.success && capacityRes.data.data) {
         setClinicCapacityData({
@@ -610,7 +634,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 9b. Fetch Live Clinic Data
       const liveClinicRes = await axios.get('/api/clinic/live-clinic', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (liveClinicRes?.data?.success && liveClinicRes.data.data) {
         setLiveClinicData({
@@ -627,7 +651,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 10. Fetch Business Intelligence Data (new vs returning patients + revenue)
       const biRes = await axios.get('/api/clinic/business-intelligence', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (biRes?.data?.success && biRes.data.data) {
         setBusinessIntelligenceData({
@@ -658,7 +682,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 11. Fetch Patient Retention Data
       const retentionRes = await axios.get('/api/clinic/patient-retention', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (retentionRes?.data?.success && retentionRes.data.data) {
         setPatientRetentionData({
@@ -677,7 +701,7 @@ export function useClinicDashboard(selectedDate: string) {
       // 12. Fetch Staff Intelligence Data
       const staffRes = await axios.get('/api/clinic/staff-intelligence', {
         headers,
-        params: { date: selectedDate },
+        params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate },
       }).catch(() => null);
       if (staffRes?.data?.success && staffRes.data.data) {
         setStaffIntelligenceData({
@@ -706,7 +730,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 15. Fetch Revenue Leakage Data
-      const leakageRes = await axios.get('/api/clinic/revenue-leakage', { headers, params: { date: selectedDate } }).catch(() => null);
+      const leakageRes = await axios.get('/api/clinic/revenue-leakage', { headers, params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate } }).catch(() => null);
       if (leakageRes?.data?.success && leakageRes.data.data) {
         const ld = leakageRes.data.data;
         setRevenueLeakageData({
@@ -742,7 +766,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 16. Fetch Package & Membership Intelligence
-      const pkgRes = await axios.get('/api/clinic/package-membership-intelligence', { headers, params: { date: selectedDate } }).catch(() => null);
+      const pkgRes = await axios.get('/api/clinic/package-membership-intelligence', { headers, params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate } }).catch(() => null);
       if (pkgRes?.data?.success && pkgRes.data.data) {
         const pd = pkgRes.data.data;
         setPackageMembershipData({
@@ -766,7 +790,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 17. Fetch Control & Exceptions Data
-      const ctrlRes = await axios.get('/api/clinic/control-exceptions', { headers, params: { date: selectedDate } }).catch(() => null);
+      const ctrlRes = await axios.get('/api/clinic/control-exceptions', { headers, params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate } }).catch(() => null);
       if (ctrlRes?.data?.success && ctrlRes.data.data) {
         setControlExceptionsData({
           collectedRevenue: ctrlRes.data.data.collectedRevenue || 0,
@@ -787,7 +811,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 18. Fetch Zeva Intelligence Data
-      const ziRes = await axios.get('/api/clinic/zeva-intelligence', { headers, params: { date: selectedDate } }).catch(() => null);
+      const ziRes = await axios.get('/api/clinic/zeva-intelligence', { headers, params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate } }).catch(() => null);
       if (ziRes?.data?.success && ziRes.data.data) {
         const zd = ziRes.data.data;
         setZevaIntelligenceData({
@@ -802,7 +826,7 @@ export function useClinicDashboard(selectedDate: string) {
       }
 
       // 19. Fetch Zeva Recommends (evening service + high-value patients)
-      const zrRes = await axios.get('/api/agent/zeva-recommends', { headers, params: { date: selectedDate } }).catch(() => null);
+      const zrRes = await axios.get('/api/agent/zeva-recommends', { headers, params: { date: selectedDate, startDate: normalizedStartDate, endDate: normalizedEndDate } }).catch(() => null);
       if (zrRes?.data?.success && zrRes.data.data) {
         const zd = zrRes.data.data;
         setRecommendationData({
@@ -819,7 +843,7 @@ export function useClinicDashboard(selectedDate: string) {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [normalizedStartDate, normalizedEndDate]);
 
   useEffect(() => {
     fetchDashboardData();

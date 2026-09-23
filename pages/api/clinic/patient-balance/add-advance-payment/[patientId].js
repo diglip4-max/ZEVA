@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Patient ID is required" });
     }
 
-    const { amount, paymentMethod, notes, invoicedBy, multiplePayments } =
+    const { amount, paymentMethod, notes, invoicedBy, multiplePayments, transactionId, attachment } =
       req.body;
     if (!amount || isNaN(amount) || Number(amount) <= 0) {
       return res
@@ -55,6 +55,16 @@ export default async function handler(req, res) {
       return res
         .status(400)
         .json({ success: false, message: "Payment method is required" });
+    }
+    if (!transactionId || !transactionId.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Transaction ID is required" });
+    }
+    if (!attachment) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Payment Attachment is required" });
     }
 
     // Verify patient
@@ -108,6 +118,8 @@ export default async function handler(req, res) {
       originalAmount: Number(amount),
       pending: 0, // Explicitly set to 0 to satisfy potentially cached schema requirements
       paymentMethod: paymentMethod || initialMultiplePayments[0].paymentMethod,
+      transactionId: transactionId,
+      attachment: attachment,
       status: "Completed",
       isAdvanceOnly: false, // Set to false so advance amount is included in balance calculation
       multiplePayments: initialMultiplePayments,

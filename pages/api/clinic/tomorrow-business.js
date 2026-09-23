@@ -93,9 +93,13 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date and calculate tomorrow
+    // 3. Parse date and calculate tomorrow — with a `startDate`/`endDate`
+    //    range, "tomorrow" is the day after the range END (legacy single
+    //    `date` behaviour is unchanged)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
     const { start: dayStart, end: dayEnd } = getTomorrowRange(targetDate);
 
     // 4. Find appointments for tomorrow (booked + Cancelled)

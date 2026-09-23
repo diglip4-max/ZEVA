@@ -163,10 +163,15 @@ export default async function handler(req, res) {
     }
     const clinicObjectId = resolvedClinicId;
 
-    // 4. Resolve date — use exact single-day UTC range (no timezone expansion)
+    // 4. Resolve date — legacy single `date` or `startDate`/`endDate` range
+    //    (a one-sided or `date`-only input collapses to that single day).
+    //    Uses the exact UTC day boundaries with no timezone expansion.
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
     // Use the exact UTC day boundaries — do NOT expand with getTimezoneSafeDayRange
     // as it pulls in appointments from adjacent days (±18h = ~36h window).
     const safeStart = dayStart;

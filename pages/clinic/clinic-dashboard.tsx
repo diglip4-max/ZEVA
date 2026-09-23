@@ -21,8 +21,29 @@ import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
 
 const ClinicDashboard: NextPageWithLayout = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const { clinicInfo, revenueData, opportunityData, priorityData, revenueAtRiskData, outstandingBalanceData, winBackData, tomorrowBusinessData, clinicCapacityData, liveClinicData, businessIntelligenceData, patientRetentionData, staffIntelligenceData, recentOffers, referralData, revenueLeakageData, packageMembershipData, controlExceptionsData, zevaIntelligenceData, recommendationData } = useClinicDashboard(selectedDate);
+  const today = new Date().toISOString().split('T')[0];
+  // Date-range filter: both sides default to today (single-day behaviour).
+  // Invariant kept here: "From" never exceeds "To".
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
+
+  const handleStartDateChange = (value: string) => {
+    setStartDate(value);
+    // If the new "From" is after the current "To", push "To" forward to keep the range valid.
+    if (value && endDate && value > endDate) {
+      setEndDate(value);
+    }
+  };
+
+  const handleEndDateChange = (value: string) => {
+    setEndDate(value);
+    // If the new "To" is before the current "From", pull "From" back to keep the range valid.
+    if (value && startDate && value < startDate) {
+      setStartDate(value);
+    }
+  };
+
+  const { clinicInfo, revenueData, opportunityData, priorityData, revenueAtRiskData, outstandingBalanceData, winBackData, tomorrowBusinessData, clinicCapacityData, liveClinicData, businessIntelligenceData, patientRetentionData, staffIntelligenceData, recentOffers, referralData, revenueLeakageData, packageMembershipData, controlExceptionsData, zevaIntelligenceData, recommendationData } = useClinicDashboard(startDate, endDate);
 
   return (
     <>
@@ -35,8 +56,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
           revenueData={revenueData}
           opportunityData={opportunityData}
           revenueAtRiskData={revenueAtRiskData}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
         />
         <WhatNeedsYourAttention priorityData={priorityData} outstandingBalanceData={outstandingBalanceData} />
         <DashboardInsights priorityData={priorityData} winBackData={winBackData} tomorrowBusinessData={tomorrowBusinessData} />

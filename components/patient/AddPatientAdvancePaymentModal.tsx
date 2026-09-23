@@ -9,6 +9,8 @@ import {
   Zap,
   Plus,
   Wallet,
+  Upload,
+  Hash,
 } from "lucide-react";
 import axios from "axios";
 import { getTokenByPath } from "@/lib/helper";
@@ -70,6 +72,8 @@ const AddPatientAdvancePaymentModal: React.FC<
 > = ({ isOpen, onClose, patientId, patientName, onSuccess }) => {
   const [amount, setAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("Cash");
+  const [transactionId, setTransactionId] = useState<string>("");
+  const [attachment, setAttachment] = useState<string>("");
   const [useMultiplePayment, setUseMultiplePayment] = useState(false);
   const [multiplePaymentMethods, setMultiplePaymentMethods] = useState<Array<{ paymentMethod: string; amount: number }>>([]);
   const [notes, setNotes] = useState<string>("");
@@ -116,6 +120,16 @@ const AddPatientAdvancePaymentModal: React.FC<
       return;
     }
 
+    if (!transactionId || !transactionId.trim()) {
+      setError("Transaction ID is required.");
+      return;
+    }
+
+    if (!attachment) {
+      setError("Payment Attachment is required.");
+      return;
+    }
+
     if (useMultiplePayment && multiplePaymentMethods.length === 0) {
       setError("Please add at least one payment method.");
       return;
@@ -135,6 +149,8 @@ const AddPatientAdvancePaymentModal: React.FC<
       const payload: any = {
         amount: Number(amount),
         paymentMethod: useMultiplePayment ? "Multiple" : paymentMethod,
+        transactionId,
+        attachment,
         notes,
       };
       if (useMultiplePayment) {
@@ -169,6 +185,8 @@ const AddPatientAdvancePaymentModal: React.FC<
   const handleClose = () => {
     setAmount("");
     setPaymentMethod("Cash");
+    setTransactionId("");
+    setAttachment("");
     setUseMultiplePayment(false);
     setMultiplePaymentMethods([]);
     setNotes("");
@@ -343,6 +361,69 @@ const AddPatientAdvancePaymentModal: React.FC<
                   </div>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Transaction ID */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              <Hash className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+              Transaction ID
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+              placeholder="Enter transaction ID"
+              className={cn(
+                "w-full px-4 py-3 bg-gray-50 border rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-xs sm:text-sm text-gray-700 placeholder:text-gray-400 font-medium",
+                !transactionId || !transactionId.trim()
+                  ? "border-red-300 bg-red-50"
+                  : "border-gray-200"
+              )}
+              required
+            />
+          </div>
+
+          {/* Payment Attachment */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-bold text-gray-700">
+              <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500" />
+              Payment Attachment
+              <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const token = getTokenByPath();
+                    if (!token) return;
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    const res = await axios.post("/api/upload", formData, {
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (res.data.success) {
+                      setAttachment(res.data.url || res.data.filePath);
+                    }
+                  } catch (err) {
+                    console.error("Upload error:", err);
+                    setError("Failed to upload attachment");
+                  }
+                }}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all text-xs sm:text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+              />
+              {/* {attachment && (
+                <p className="mt-1 text-[10px] text-emerald-600 font-medium truncate">Attached: {attachment}</p>
+              )} */}
+            </div>
+            {!attachment && (
+              <p className="text-[10px] text-red-500 font-medium">Payment attachment is required</p>
             )}
           </div>
 

@@ -517,10 +517,12 @@ async function fetchFollowUpsSection({ clinicObjectId, dayStart, dayEnd, isDocto
   // `getTimezoneSafeDayRange`) so the index scan stays wide enough
   // to catch any follow-up whose UTC date matches the target even
   // when the user is in a non-UTC timezone.
+  //
+  // No status filter: a follow-up can be scheduled on a lead in any
+  // status (New, Contacted, etc.), so we match purely on the date.
   const range = getTimezoneSafeDayRange(dayStart, dayEnd);
   const match = {
     clinicId: clinicObjectId,
-    status: "Follow-up",
     $or: [
       { "followUps.0.date": { $gte: range.start, $lte: range.end } },
       { "nextFollowUps.0.date": { $gte: range.start, $lte: range.end } },
@@ -543,9 +545,11 @@ async function fetchFollowUpsSection({ clinicObjectId, dayStart, dayEnd, isDocto
     `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(
       d.getUTCDate(),
     ).padStart(2, "0")}`;
-  // The target key is the raw YYYY-MM-DD the caller passed in
-  // (already a clean YYYY-MM-DD string, validated upstream).
-  const targetKey = String(dateStr).slice(0, 10);
+  // The target key set is the raw YYYY-MM-DD range the caller selected.
+  // dayStart / dayEnd are clean UTC day boundaries, so key comparison is
+  // exact — a single-day range reproduces the legacy exact-key match.
+  const fromKey = dayStart.toISOString().slice(0, 10);
+  const toKey = dayEnd.toISOString().slice(0, 10);
 
   const list = leads
     .map((l) => {
@@ -556,7 +560,8 @@ async function fetchFollowUpsSection({ clinicObjectId, dayStart, dayEnd, isDocto
       if (!followAt) return false;
       const d = new Date(followAt);
       if (Number.isNaN(d.getTime())) return false;
-      return utcDateKey(d) === targetKey;
+      const key = utcDateKey(d);
+      return key >= fromKey && key <= toKey;
     })
     .map(({ l, followAt }) => ({
       _id: l._id.toString(),
@@ -718,20 +723,24 @@ async function fetchOpenSlotsSection({ clinicObjectId, dayStart, dayEnd, dateStr
     return { count: 0, list: [] };
   }
 
-  // 2. Fetch clinic timings to get operating hours for the target date
+  // 2. Fetch clinic timings to get operating hours (single fetch, reused
+  //    for every day in the selected range)
   const clinicDoc = await Clinic.findById(clinicObjectId).select("timings").lean();
-  const dayTiming = parseTimingsForDay(clinicDoc?.timings, dateStr);
-  
-  // If clinic is closed on this day, return 0 slots
-  if (!dayTiming) {
-    return { count: 0, list: [] };
-  }
 
-  // 3. Generate 15-minute slots based on clinic operating hours
-  const timeSlots = generateTimeSlots(dayTiming.startTime, dayTiming.endTime);
-  if (timeSlots.length === 0) {
-    return { count: 0, list: [] };
+  // Enumerate every day in the selected range so each day's own clinic
+  // hours (per weekday) drive its slot list. A single-day range behaves
+  // exactly like the legacy single-date flow.
+  const rangeDates = [];
+  for (
+    let d = new Date(dayStart);
+    d.getTime() <= dayEnd.getTime();
+    d = new Date(d.getTime() + 24 * 60 * 60 * 1000)
+  ) {
+    rangeDates.push(d.toISOString().slice(0, 10));
   }
+  
+  // (Per-day timing lookups now happen in step 6 below — days the clinic
+  // is closed simply contribute no open slots.)
 
   // 4. Fetch booked appointments AND blocked slots in parallel
   //    Only count appointments with status NOT in ["Cancelled", "Rescheduled"]
@@ -744,7 +753,7 @@ async function fetchOpenSlotsSection({ clinicObjectId, dayStart, dayEnd, dateStr
       fromTime: { $ne: null },
       status: { $nin: ["Cancelled", "Rescheduled"] },
     })
-      .select("doctorId fromTime")
+      .select("doctorId fromTime startDate")
       .lean(),
     BlockedSlot.find({
       clinicId: clinicObjectId,
@@ -752,38 +761,55 @@ async function fetchOpenSlotsSection({ clinicObjectId, dayStart, dayEnd, dateStr
       isActive: { $ne: false },
       ...(isDoctorScoped ? { doctorId: me._id } : {}),
     })
-      .select("doctorId fromTime")
+      .select("doctorId fromTime startDate")
       .lean(),
   ]);
 
-  // 5. Build sets for booked and blocked slots per doctor
+  // 5. Build sets for booked and blocked slots per doctor — keys are
+  //    date-scoped so the same (doctor, time) on different days never collides
   const bookedSet = new Set();
   for (const apt of bookedAppointments) {
     if (apt && apt.doctorId && apt.fromTime) {
-      bookedSet.add(`${apt.doctorId.toString()}|${apt.fromTime}`);
+      const aptDate = apt.startDate
+        ? new Date(apt.startDate).toISOString().slice(0, 10)
+        : String(dateStr).slice(0, 10);
+      bookedSet.add(`${aptDate}|${apt.doctorId.toString()}|${apt.fromTime}`);
     }
   }
   
   const blockedSet = new Set();
   for (const blk of blockedSlots) {
     if (blk && blk.doctorId && blk.fromTime) {
-      blockedSet.add(`${blk.doctorId.toString()}|${blk.fromTime}`);
+      const blkDate = blk.startDate
+        ? new Date(blk.startDate).toISOString().slice(0, 10)
+        : String(dateStr).slice(0, 10);
+      blockedSet.add(`${blkDate}|${blk.doctorId.toString()}|${blk.fromTime}`);
     }
   }
 
-  // 6. Count unfilled slots for each doctor (exclude booked AND blocked)
+  // 6. Count unfilled slots for each doctor across every day of the
+  //    selected range (closed days contribute nothing). Excludes booked
+  //    AND blocked.
   const unfilled = [];
-  for (const docId of doctorIdsToCheck) {
-    for (const slot of timeSlots) {
-      const key = `${docId}|${slot}`;
-      if (!bookedSet.has(key) && !blockedSet.has(key)) {
-        unfilled.push({
-          scope: "doctor",
-          doctorId: docId,
-          roomId: null,
-          fromTime: slot,
-          fromTimeDisplay: formatTime12(slot),
-        });
+  for (const rangeDateStr of rangeDates) {
+    const dayTiming = parseTimingsForDay(clinicDoc?.timings, rangeDateStr);
+    if (!dayTiming) continue;
+
+    const timeSlots = generateTimeSlots(dayTiming.startTime, dayTiming.endTime);
+    if (timeSlots.length === 0) continue;
+
+    for (const docId of doctorIdsToCheck) {
+      for (const slot of timeSlots) {
+        const key = `${rangeDateStr}|${docId}|${slot}`;
+        if (!bookedSet.has(key) && !blockedSet.has(key)) {
+          unfilled.push({
+            scope: "doctor",
+            doctorId: docId,
+            roomId: null,
+            fromTime: slot,
+            fromTimeDisplay: formatTime12(slot),
+          });
+        }
       }
     }
   }
@@ -938,11 +964,13 @@ async function fetchFollowUpsRespondedSection({ clinicObjectId, dayStart, dayEnd
 
   const utcDateKey = (d) =>
     `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-  const targetKey = String(dateStr).slice(0, 10);
+  // Match follow-ups against the caller's day range (a single-day range
+  // reproduces the legacy exact-key match exactly).
   const todaysFollowUps = leads.filter((l) => {
     const fu = l.followUps?.[0]?.date || l.nextFollowUps?.[0]?.date;
     if (!fu) return false;
-    return utcDateKey(new Date(fu)) === targetKey;
+    const key = utcDateKey(new Date(fu));
+    return key >= dayStart.toISOString().slice(0, 10) && key <= dayEnd.toISOString().slice(0, 10);
   });
 
   if (todaysFollowUps.length === 0) {
@@ -1292,10 +1320,17 @@ export default async function handler(req, res) {
         .status(400)
         .json({ success: false, message: "Invalid timePeriod (morning|afternoon|evening)" });
     }
+    // Resolve the date: legacy single `date` or a `startDate`/`endDate`
+    // range (a one-sided or `date`-only input collapses to that single
+    // day). `dateStr` — used for day-of-week timing lookups — anchors on
+    // the range END, matching the single-date behaviour.
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
     const dateStr = targetDate.toISOString().slice(0, 10);
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
     // 5. Role scoping
     const doctorScopedRoles = ["doctorStaff", "doctor"];

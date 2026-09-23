@@ -9,7 +9,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check, Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift,
+  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift, Hash,
   ArrowLeftRight, Download, MoveRight
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -11861,6 +11861,40 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <p className="text-black dark:text-white">{selectedPaymentHistoryBilling.invoicedBy || 'N/A'}</p>
                   </div>
                 </div>
+
+                {/* Transaction ID & Payment Attachment */}
+                {(selectedPaymentHistoryBilling.transactionId || selectedPaymentHistoryBilling.attachment) && (
+                  <div className="mt-4 p-3 rounded-lg border" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 mb-2 flex items-center gap-1">
+                      <Wallet className="w-3 h-3" /> Payment Details
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedPaymentHistoryBilling.transactionId && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+                            <Hash className="w-3 h-3" /> Transaction ID
+                          </p>
+                          <p className="text-xs font-mono font-bold text-gray-800 mt-0.5">{selectedPaymentHistoryBilling.transactionId}</p>
+                        </div>
+                      )}
+                      {selectedPaymentHistoryBilling.attachment && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+                            <Paperclip className="w-3 h-3" /> Payment Attachment
+                          </p>
+                          <a
+                            href={selectedPaymentHistoryBilling.attachment}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 mt-0.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 underline underline-offset-2"
+                          >
+                            <Paperclip className="w-3 h-3" /> View Attachment
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Package/Treatment Info */}
                 {(selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment) && (

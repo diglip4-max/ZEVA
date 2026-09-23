@@ -24,12 +24,11 @@ const DashboardInsights = ({ priorityData, winBackData, tomorrowBusinessData }: 
     return formatCurrency(amount);
   };
 
-  const reactivateCount = winBackData?.stats?.find((s: any) => s.label === "30 days")?.count || 0;
+  const winBackPatients = winBackData?.patients || [];
+  const reactivateCount = winBackPatients.length;
   const openSlotsCount = priorityData?.openSlots?.count || 0;
   const renewPackagesCount = priorityData?.packageRenewalsWeek?.count || 0;
   const warmLeadsCount = priorityData?.hotLeads?.count || 0;
-
-  const winBackPatients = winBackData?.patients || [];
   const openSlotsList = priorityData?.openSlots?.list || [];
   const renewPackagesList = priorityData?.packageRenewalsWeek?.list || [];
   const hotLeadsList = priorityData?.hotLeads?.list || [];

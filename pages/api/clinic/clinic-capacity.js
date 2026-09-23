@@ -146,26 +146,36 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date
+    // 3. Parse date (legacy single `date` or `startDate`/`endDate` range;
+    //    a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const dateStr = req.query.date || new Date().toISOString().split("T")[0];
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
-    // 4. Get clinic timings for the selected day
+    // 4. Get clinic timings (fetched once, reused for every day in the range)
     const clinicDoc = await Clinic.findById(clinicObjectId).select("timings").lean();
-    const dayTiming = parseTimingsForDay(clinicDoc?.timings, dateStr);
 
-    if (!dayTiming) {
-      return res.status(200).json({
-        success: true,
-        data: { available: 0, booked: 0, utilized: 0, unused: 0, primeTime: [] },
-      });
+    // 5. Generate 15-minute time slots for EVERY day in the selected range
+    //    (days the clinic is closed contribute no slots). A single-day
+    //    range behaves exactly like the old single-date flow.
+    const daySlotLists = [];
+    for (
+      let d = new Date(dayStart);
+      d.getTime() <= dayEnd.getTime();
+      d = new Date(d.getTime() + 24 * 60 * 60 * 1000)
+    ) {
+      const rangeDateStr = d.toISOString().slice(0, 10);
+      const dayTiming = parseTimingsForDay(clinicDoc?.timings, rangeDateStr);
+      if (!dayTiming) continue;
+      const timeSlots = generateTimeSlots(dayTiming.startTime, dayTiming.endTime);
+      if (timeSlots.length === 0) continue;
+      daySlotLists.push({ dateStr: rangeDateStr, dayTiming, timeSlots });
     }
 
-    // 5. Generate 15-minute time slots
-    const timeSlots = generateTimeSlots(dayTiming.startTime, dayTiming.endTime);
-    if (timeSlots.length === 0) {
+    if (daySlotLists.length === 0) {
       return res.status(200).json({
         success: true,
         data: { available: 0, booked: 0, utilized: 0, unused: 0, primeTime: [] },
@@ -190,8 +200,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // 7. Total available slots = timeSlots × doctors
-    const totalAvailable = timeSlots.length * doctorIds.length;
+    // 7. Total available slots = Σ (daily slots × doctors)
+    const totalAvailable =
+      daySlotLists.reduce((sum, day) => sum + day.timeSlots.length, 0) * doctorIds.length;
 
     // 8. Fetch booked appointments AND blocked slots in parallel
     const [allAppointments, blockedSlots] = await Promise.all([
@@ -201,29 +212,36 @@ export default async function handler(req, res) {
         doctorId: { $in: doctorIds.map((id) => new mongoose.Types.ObjectId(id)) },
         fromTime: { $ne: null },
       })
-        .select("doctorId fromTime status")
+        .select("doctorId fromTime status startDate")
         .lean(),
       BlockedSlot.find({
         clinicId: clinicObjectId,
         startDate: { $gte: dayStart, $lte: dayEnd },
         isActive: { $ne: false },
       })
-        .select("doctorId fromTime")
+        .select("doctorId fromTime startDate")
         .lean(),
     ]);
 
-    // 9. Build sets for booked and blocked
+    // 9. Build sets for booked and blocked — keys are date-scoped so the
+    //    same (doctor, time) pair on different days never collides
     const bookedSet = new Set();
     for (const apt of allAppointments) {
       if (apt && apt.doctorId && apt.fromTime) {
-        bookedSet.add(`${apt.doctorId.toString()}|${apt.fromTime}`);
+        const aptDate = apt.startDate
+          ? new Date(apt.startDate).toISOString().slice(0, 10)
+          : daySlotLists[0].dateStr;
+        bookedSet.add(`${aptDate}|${apt.doctorId.toString()}|${apt.fromTime}`);
       }
     }
 
     const blockedSet = new Set();
     for (const blk of blockedSlots) {
       if (blk && blk.doctorId && blk.fromTime) {
-        blockedSet.add(`${blk.doctorId.toString()}|${blk.fromTime}`);
+        const blkDate = blk.startDate
+          ? new Date(blk.startDate).toISOString().slice(0, 10)
+          : daySlotLists[0].dateStr;
+        blockedSet.add(`${blkDate}|${blk.doctorId.toString()}|${blk.fromTime}`);
       }
     }
 
@@ -231,11 +249,13 @@ export default async function handler(req, res) {
 
     // 10. Unused = total available - booked - blocked (that aren't also booked)
     let unusedCount = 0;
-    for (const docId of doctorIds) {
-      for (const slot of timeSlots) {
-        const key = `${docId}|${slot}`;
-        if (!bookedSet.has(key) && !blockedSet.has(key)) {
-          unusedCount++;
+    for (const day of daySlotLists) {
+      for (const docId of doctorIds) {
+        for (const slot of day.timeSlots) {
+          const key = `${day.dateStr}|${docId}|${slot}`;
+          if (!bookedSet.has(key) && !blockedSet.has(key)) {
+            unusedCount++;
+          }
         }
       }
     }
@@ -245,52 +265,77 @@ export default async function handler(req, res) {
       ? Math.round((bookedCount / totalAvailable) * 1000) / 10
       : 0;
 
-    // 12. Prime-time breakdown — clamped to actual clinic hours so every slot
-    //     falls into exactly one bucket and the open counts sum to `unused`.
-    const clinicStartMins = timeStringToMinutes(dayTiming.startTime);
-    const clinicEndMins = timeStringToMinutes(dayTiming.endTime);
+    // 12. Prime-time breakdown — clamped to each day's actual clinic hours
+    //     so every slot falls into exactly one bucket and the open counts
+    //     sum to `unused`. Buckets accumulate across all days in the range;
+    //     labels use the widest open/close hours seen in the range.
+    let labelStartMins = null;
+    let labelEndMins = null;
+    const bucketTotals = { morning: 0, afternoon: 0, evening: 0 };
+    const bucketBooked = { morning: 0, afternoon: 0, evening: 0 };
 
-    // Bucket boundaries — morning always starts at clinic open so every slot is covered
-    const morningStart = clinicStartMins;
-    const morningEnd = Math.min(timeStringToMinutes("12:00"), clinicEndMins);
-    const afternoonStart = Math.max(timeStringToMinutes("12:00"), clinicStartMins);
-    const afternoonEnd = Math.min(timeStringToMinutes("17:00"), clinicEndMins);
-    const eveningStart = Math.max(timeStringToMinutes("17:00"), clinicStartMins);
-    const eveningEnd = Math.min(timeStringToMinutes("22:00"), clinicEndMins);
-
-    const filterByRange = (startMins, endMins) =>
-      timeSlots.filter((t) => {
-        const mins = timeStringToMinutes(t);
-        return mins >= startMins && mins < endMins;
-      });
-
-    const morningSlotList = morningStart < morningEnd ? filterByRange(morningStart, morningEnd) : [];
-    const afternoonSlotList = afternoonStart < afternoonEnd ? filterByRange(afternoonStart, afternoonEnd) : [];
-    const eveningSlotList = eveningStart < eveningEnd ? filterByRange(eveningStart, eveningEnd) : [];
-
-    const countBooked = (slotList) =>
+    const countBookedForDay = (dateStr, slotList) =>
       slotList.reduce((count, slot) => {
-        return count + doctorIds.filter((docId) => bookedSet.has(`${docId}|${slot}`)).length;
+        return count + doctorIds.filter((docId) => bookedSet.has(`${dateStr}|${docId}|${slot}`)).length;
       }, 0);
+
+    for (const day of daySlotLists) {
+      const clinicStartMins = timeStringToMinutes(day.dayTiming.startTime);
+      const clinicEndMins = timeStringToMinutes(day.dayTiming.endTime);
+      if (labelStartMins === null || clinicStartMins < labelStartMins) labelStartMins = clinicStartMins;
+      if (labelEndMins === null || clinicEndMins > labelEndMins) labelEndMins = clinicEndMins;
+
+      // Bucket boundaries — morning always starts at clinic open so every slot is covered
+      const morningStart = clinicStartMins;
+      const morningEnd = Math.min(timeStringToMinutes("12:00"), clinicEndMins);
+      const afternoonStart = Math.max(timeStringToMinutes("12:00"), clinicStartMins);
+      const afternoonEnd = Math.min(timeStringToMinutes("17:00"), clinicEndMins);
+      const eveningStart = Math.max(timeStringToMinutes("17:00"), clinicStartMins);
+      const eveningEnd = Math.min(timeStringToMinutes("22:00"), clinicEndMins);
+
+      const filterByRange = (startMins, endMins) =>
+        day.timeSlots.filter((t) => {
+          const mins = timeStringToMinutes(t);
+          return mins >= startMins && mins < endMins;
+        });
+
+      const morningSlotList = morningStart < morningEnd ? filterByRange(morningStart, morningEnd) : [];
+      const afternoonSlotList = afternoonStart < afternoonEnd ? filterByRange(afternoonStart, afternoonEnd) : [];
+      const eveningSlotList = eveningStart < eveningEnd ? filterByRange(eveningStart, eveningEnd) : [];
+
+      bucketTotals.morning += morningSlotList.length * doctorIds.length;
+      bucketBooked.morning += countBookedForDay(day.dateStr, morningSlotList);
+      bucketTotals.afternoon += afternoonSlotList.length * doctorIds.length;
+      bucketBooked.afternoon += countBookedForDay(day.dateStr, afternoonSlotList);
+      bucketTotals.evening += eveningSlotList.length * doctorIds.length;
+      bucketBooked.evening += countBookedForDay(day.dateStr, eveningSlotList);
+    }
+
+    const morningStart = labelStartMins;
+    const morningEnd = Math.min(timeStringToMinutes("12:00"), labelEndMins);
+    const afternoonStart = Math.max(timeStringToMinutes("12:00"), labelStartMins);
+    const afternoonEnd = Math.min(timeStringToMinutes("17:00"), labelEndMins);
+    const eveningStart = Math.max(timeStringToMinutes("17:00"), labelStartMins);
+    const eveningEnd = Math.min(timeStringToMinutes("22:00"), labelEndMins);
 
     const primeTime = [
       {
         label: "Morning",
         range: `${formatTime12h(minutesToTime24(morningStart))} - ${formatTime12h(minutesToTime24(morningEnd))}`,
-        totalSlots: morningSlotList.length * doctorIds.length,
-        booked: countBooked(morningSlotList),
+        totalSlots: bucketTotals.morning,
+        booked: bucketBooked.morning,
       },
       {
         label: "Afternoon",
         range: `${formatTime12h(minutesToTime24(afternoonStart))} - ${formatTime12h(minutesToTime24(afternoonEnd))}`,
-        totalSlots: afternoonSlotList.length * doctorIds.length,
-        booked: countBooked(afternoonSlotList),
+        totalSlots: bucketTotals.afternoon,
+        booked: bucketBooked.afternoon,
       },
       {
         label: "Evening",
         range: `${formatTime12h(minutesToTime24(eveningStart))} - ${formatTime12h(minutesToTime24(eveningEnd))}`,
-        totalSlots: eveningSlotList.length * doctorIds.length,
-        booked: countBooked(eveningSlotList),
+        totalSlots: bucketTotals.evening,
+        booked: bucketBooked.evening,
       },
     ]
       .filter((period) => period.totalSlots > 0)
