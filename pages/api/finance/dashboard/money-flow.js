@@ -49,8 +49,14 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
   ]);
 
   const [spent] = await FinanceTransaction.aggregate([
-    { $match: { ...expenseMatch, type: "expense", entryType: "bill" } },
-    { $group: { _id: null, total: { $sum: "$amount" } } },
+    {
+      $match: {
+        ...expenseMatch,
+        type: "expense",
+        entryType: { $in: ["bill", "expense"] },
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$paidAmount" } } },
   ]);
 
   // Fold in manual petty cash movement for the same window so "Received"/

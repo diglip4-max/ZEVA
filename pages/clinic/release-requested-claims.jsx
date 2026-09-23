@@ -522,6 +522,8 @@ function ReleaseRequestedClaimsPage() {
         { headers }
       );
       if (res.data.success) {
+        setSelectedClaim(releaseModal)
+        setSendClaimModalOpen(true)
         setReleaseModal(null);
         setSuccessMsg("Claim released successfully!");
         setTimeout(() => setSuccessMsg(""), 3000);
@@ -919,13 +921,15 @@ function ReleaseRequestedClaimsPage() {
                     <div className="px-3 sm:px-4 py-3 border-t border-gray-100 bg-gray-50/80 rounded-b-xl flex items-center justify-between gap-2">
                       <span className="text-[10px] font-bold text-gray-400 dark:text-white uppercase tracking-widest">#{claim._id?.slice(-6)}</span>
                       <div className="flex items-center gap-1.5">
-                        <button onClick={() => {
-                          setSendClaimModalOpen(true)
-                          setSelectedClaim(claim)
-                          console.log({ claim })
-                        }} className="p-2 flex items-center gap-1.5 text-xs bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
-                          <Send className="w-3 h-3" /> Send
-                        </button>
+                        {
+                          !isRequestClaim(claim) &&
+                          <button onClick={() => {
+                            setSendClaimModalOpen(true)
+                            setSelectedClaim(claim)
+                          }} className="p-2 flex items-center gap-1.5 text-xs bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
+                            <Send className="w-3 h-3" /> Send
+                          </button>
+                        }
                         <button onClick={() => handleViewClaim(claim)} className="p-2 bg-white text-gray-600 dark:text-white hover:text-teal-600 border border-gray-200 rounded-lg hover:border-teal-200 transition-all shadow-sm" title="View Details">
                           <Eye className="w-4 h-4" />
                         </button>
