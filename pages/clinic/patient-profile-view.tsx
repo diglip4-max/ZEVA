@@ -7300,8 +7300,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 : [];
                               const phMethods = billing.paymentHistory && billing.paymentHistory.length > 0
                                 ? billing.paymentHistory.flatMap((ph: any) => {
-                                  // Top-level paymentMethod
-                                  const top = ph.paymentMethod ? [ph.paymentMethod] : [];
+                                  // Top-level paymentMethod — skip "Multiple" when sub-payments already exist
+                                  const top = (ph.paymentMethod && ph.paymentMethod !== 'Multiple') ? [ph.paymentMethod] : [];
                                   // Sub-payments inside paymentHistory entry
                                   const sub = (ph.multiplePayments || []).map((mp: any) => mp.paymentMethod);
                                   return [...top, ...sub];
@@ -7726,7 +7726,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                 : [];
                               const phMethods2 = billing.paymentHistory && billing.paymentHistory.length > 0
                                 ? billing.paymentHistory.flatMap((ph: any) => {
-                                  const top = ph.paymentMethod ? [ph.paymentMethod] : [];
+                                  const top = (ph.paymentMethod && ph.paymentMethod !== 'Multiple') ? [ph.paymentMethod] : [];
                                   const sub = (ph.multiplePayments || []).map((mp: any) => mp.paymentMethod);
                                   return [...top, ...sub];
                                 }).filter(Boolean)
@@ -7898,7 +7898,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               : [];
                             const phMethodsM = billing.paymentHistory && billing.paymentHistory.length > 0
                               ? billing.paymentHistory.flatMap((ph: any) => {
-                                const top = ph.paymentMethod ? [ph.paymentMethod] : [];
+                                const top = (ph.paymentMethod && ph.paymentMethod !== 'Multiple') ? [ph.paymentMethod] : [];
                                 const sub = (ph.multiplePayments || []).map((mp: any) => mp.paymentMethod);
                                 return [...top, ...sub];
                               }).filter(Boolean)
@@ -12021,8 +12021,9 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     }
 
                     // Check if the primary payment is missing from subPayments
-                    if (paymentAmount > 0) {
-                      const primaryMethod = entry.paymentMethod || 'Cash';
+                    // Skip when paymentMethod is "Multiple" and subPayments already cover the full amount
+                    const primaryMethod = entry.paymentMethod || 'Cash';
+                    if (paymentAmount > 0 && primaryMethod !== 'Multiple') {
                       const hasPrimary = subPayments.some((sub: any) => sub.paymentMethod === primaryMethod);
                       if (!hasPrimary) {
                         entryPayments.push({
@@ -12045,8 +12046,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                   if (paymentsToShow.length === 0) {
                     const fallbackMulti = billing.multiplePayments || [];
                     const fallbackPayments = [...fallbackMulti];
-                    if (Number(billing.paid || 0) > 0) {
-                      const primaryMethod = billing.paymentMethod || 'Cash';
+                    const primaryMethod = billing.paymentMethod || 'Cash';
+                    if (Number(billing.paid || 0) > 0 && primaryMethod !== 'Multiple') {
                       const hasPrimary = fallbackMulti.some((mp: any) => mp.paymentMethod === primaryMethod);
                       if (!hasPrimary) {
                         fallbackPayments.push({

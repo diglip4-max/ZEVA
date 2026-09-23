@@ -87,9 +87,14 @@ const InsuranceClaimSchema = new mongoose.Schema(
     // Payment method chosen during the create-plan flow
     paymentMethod: {
       type: String,
-      enum: ["Cash", "Card", "UPI", "Bank Transfer", "Cheque", ""],
+      enum: ["Cash", "Card", "UPI", "Bank Transfer", "Cheque", "Multiple", ""],
       default: "",
     },
+    // Multiple payment methods with amounts (used when paymentMethod is "Multiple")
+    paymentMethods: [{
+      method: { type: String, enum: ["Cash", "Card", "UPI", "Bank Transfer", "Cheque"], required: true },
+      amount: { type: Number, required: true, min: 0 },
+    }],
     // Diagnosis text recorded during the create-plan flow
     diagnosis: {
       type: String,
@@ -431,7 +436,7 @@ InsuranceClaimSchema.pre("save", function (next) {
       const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
       this.pendingClaim = baseAmount;
     } else {
-      // Paid claim: pending = base - advance already paid
+      // Paid claim: pending = base - advance already paid (no co-pay deduction)
       const baseAmount = Number(this.finalClaimAmount || this.claimAmount || 0);
       const paidAmount = Number(this.advanceAmount || 0);
       this.pendingClaim = Math.max(0, baseAmount - paidAmount);

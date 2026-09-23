@@ -147,6 +147,7 @@ export default async function handler(req, res) {
         transactionId,
         attachment,
         paymentMethod,
+        paymentMethods,
         emirNumber,
         diagnosis,
       } = req.body;
@@ -248,6 +249,7 @@ export default async function handler(req, res) {
         transactionId: transactionId || "",
         attachment: attachment || "",
         paymentMethod: paymentMethod || "",
+        paymentMethods: paymentMethods || [],
         emirNumber: emirNumber || "",
         diagnosis: diagnosis || "",
         status: "Under Review",

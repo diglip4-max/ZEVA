@@ -164,6 +164,7 @@ function CreateClaimPage() {
     transactionId: "",
     attachment: "",
     paymentMethod: "",
+    paymentMethods: [] as Array<{ method: string; amount: number }>,
   });
 
   // Dropdowns
@@ -585,6 +586,20 @@ function CreateClaimPage() {
     fetchBalance();
   }, [selectedPatient]);
 
+  // Sync multiple payment methods total to Paid Amount
+  useEffect(() => {
+    if (paymentForm.paymentMethod === "Multiple" && paymentForm.paymentMethods && paymentForm.paymentMethods.length > 0) {
+      const total = paymentForm.paymentMethods.reduce((sum: number, pm: { method: string; amount: number }) => sum + (pm.amount || 0), 0);
+      const roundedTotal = Math.round(total * 100) / 100;
+      setPaymentForm((prev: any) => {
+        if (prev.advanceAmount !== roundedTotal) {
+          return { ...prev, advanceAmount: roundedTotal };
+        }
+        return prev;
+      });
+    }
+  }, [paymentForm.paymentMethod, paymentForm.paymentMethods]);
+
   // Search patients
   const searchPatients = async (query: string) => {
     setSearchQuery(query);
@@ -738,6 +753,7 @@ function CreateClaimPage() {
           transactionId: paymentForm.transactionId,
           attachment: paymentForm.attachment,
           paymentMethod: paymentForm.paymentMethod,
+          paymentMethods: paymentForm.paymentMethods || [],
           emirNumber: insuranceForm.emirNumber,
           diagnosis: insuranceForm.diagnosis,
           finalClaimAmount: paymentForm.totalClaimAmount || parseFloat(paymentForm.claimAmount) || 0,
@@ -763,7 +779,7 @@ function CreateClaimPage() {
     setSearchResults([]);
     setInsuranceForm({ insuranceProvider: "", policyNumber: "", expiryDate: "", insuranceCardFile: "", tableOfBenefitsFile: "", emriFrontPhoto: "", emriBackPhoto: "", urgency: "Normal", emirNumber: "", diagnosis: "" });
     setClaimSourceForm({ departmentId: "", departmentName: "", serviceId: "", serviceName: "", services: [], doctorId: "", doctorName: "" });
-    setPaymentForm({ claimAmount: "", claimType: "Paid", coPayPercent: "", coPayType: "Patient Pays", notes: "", documentFiles: [], advanceStatus: "Full Pay", advanceAmount: 0, transactionId: "", attachment: "", paymentMethod: "" });
+    setPaymentForm({ claimAmount: "", claimType: "Paid", coPayPercent: "", coPayType: "Patient Pays", notes: "", documentFiles: [], advanceStatus: "Full Pay", advanceAmount: 0, transactionId: "", attachment: "", paymentMethod: "", paymentMethods: [] });
   };
 
   const openModal = () => { setModalOpen(true); setCurrentStep(1); resetForm(); };
@@ -1516,17 +1532,6 @@ function CreateClaimPage() {
                         <option value="Clinic Adjusts">Clinic Adjusts</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
-                      <select value={paymentForm.paymentMethod} onChange={(e) => setPaymentForm((p: any) => ({ ...p, paymentMethod: e.target.value }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900 bg-white">
-                        <option value="">Select Method</option>
-                        <option value="Cash">Cash</option>
-                        <option value="Card">Card</option>
-                        <option value="UPI">UPI</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="Cheque">Cheque</option>
-                      </select>
-                    </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
                       <input type="text" name="notes" value={paymentForm.notes} onChange={handlePaymentChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 text-gray-900" placeholder="Notes..." />
@@ -1567,6 +1572,18 @@ function CreateClaimPage() {
                           </select>
                         </div>
                         <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
+                          <select value={paymentForm.paymentMethod} onChange={(e) => setPaymentForm((p: any) => ({ ...p, paymentMethod: e.target.value, paymentMethods: e.target.value !== "Multiple" ? [] : p.paymentMethods }))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white">
+                            <option value="">Select Method</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Card">Card</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                            <option value="Cheque">Cheque</option>
+                            <option value="Multiple">Multiple</option>
+                          </select>
+                        </div>
+                        <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Paid Amount</label>
                           <input type="number" name="advanceAmount" value={paymentForm.advanceAmount} onChange={handlePaymentChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-semibold" placeholder="0.00" min="0" step="0.01" />
                         </div>
@@ -1587,6 +1604,73 @@ function CreateClaimPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Multiple Payment Methods */}
+                      {paymentForm.paymentMethod === "Multiple" && (
+                        <div className="bg-white rounded-lg p-4 border border-purple-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-xs font-semibold text-purple-800">Multiple Payment Methods</h5>
+                            <button
+                              type="button"
+                              onClick={() => setPaymentForm((p: any) => ({ ...p, paymentMethods: [...(p.paymentMethods || []), { method: "Cash", amount: 0 }] }))}
+                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-700 bg-purple-100 rounded hover:bg-purple-200 transition-colors"
+                            >
+                              <Plus className="w-3 h-3" /> Add Method
+                            </button>
+                          </div>
+                          {(paymentForm.paymentMethods || []).length === 0 && (
+                            <p className="text-xs text-gray-500 text-center py-2">No payment methods added. Click "Add Method" to add one.</p>
+                          )}
+                          <div className="space-y-2">
+                            {(paymentForm.paymentMethods || []).map((pm: { method: string; amount: number }, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <select
+                                  value={pm.method}
+                                  onChange={(e) => setPaymentForm((p: any) => {
+                                    const updated = [...(p.paymentMethods || [])];
+                                    updated[idx] = { ...updated[idx], method: e.target.value };
+                                    return { ...p, paymentMethods: updated };
+                                  })}
+                                  className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 text-gray-900 bg-white"
+                                >
+                                  <option value="Cash">Cash</option>
+                                  <option value="Card">Card</option>
+                                  <option value="UPI">UPI</option>
+                                  <option value="Bank Transfer">Bank Transfer</option>
+                                  <option value="Cheque">Cheque</option>
+                                </select>
+                                <input
+                                  type="number"
+                                  value={pm.amount}
+                                  onChange={(e) => setPaymentForm((p: any) => {
+                                    const updated = [...(p.paymentMethods || [])];
+                                    updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                                    return { ...p, paymentMethods: updated };
+                                  })}
+                                  className="w-28 px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 text-gray-900"
+                                  placeholder="Amount"
+                                  min="0"
+                                  step="0.01"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentForm((p: any) => ({ ...p, paymentMethods: (p.paymentMethods || []).filter((_: any, i: number) => i !== idx) }))}
+                                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          {(paymentForm.paymentMethods || []).length > 0 && (
+                            <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                              <span className="text-xs font-medium text-gray-600">Total:</span>
+                              <span className="text-sm font-bold text-purple-800">{formatAED((paymentForm.paymentMethods || []).reduce((sum: number, pm: { method: string; amount: number }) => sum + (pm.amount || 0), 0))}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Co-Pay Summary */}
                       {paymentForm.claimAmount && parseFloat(paymentForm.claimAmount) > 0 && paymentForm.coPayPercent && (
                         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-200">

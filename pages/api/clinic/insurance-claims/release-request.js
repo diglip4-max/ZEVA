@@ -74,10 +74,6 @@ export default async function handler(req, res) {
       claim.releasedByName = user.name || user.firstName || "";
       claim.releasedByRole = user.role;
       claim.releasedAt = new Date();
-      // For Advance claims, clear the pending debt on release
-      if (claim.claimType === "Advance") {
-        claim.pendingClaim = 0;
-      }
     } else if (action === "reject") {
       // Reject claim - reset to Under Review
       claim.status = "Under Review";
