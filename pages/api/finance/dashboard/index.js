@@ -52,8 +52,14 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
   ]);
 
   const [spentAgg] = await FinanceTransaction.aggregate([
-    { $match: { ...createdMatch(true), type: "expense", entryType: "bill" } },
-    { $group: { _id: null, total: { $sum: "$amount" } } },
+    {
+      $match: {
+        ...createdMatch(true),
+        type: "expense",
+        entryType: { $in: ["bill", "expense"] },
+      },
+    },
+    { $group: { _id: null, total: { $sum: "$paidAmount" } } },
   ]);
 
   const [outstandingAgg] = await FinanceTransaction.aggregate([
@@ -123,7 +129,11 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
     0,
   );
 
-  const pettyCash = await getPettyCashBreakdown({ clinicId });
+  const pettyCash = await getPettyCashBreakdown({
+    clinicId,
+    dateRange:
+      rangeStart || rangeEnd ? { $gte: rangeStart, $lte: rangeEnd } : null,
+  });
   const pettyCashBalance = pettyCash.balance;
 
   // Period-scoped petty cash movement, so "Money Received" / "Money Spent"
@@ -134,6 +144,42 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
       rangeStart || rangeEnd ? { $gte: rangeStart, $lte: rangeEnd } : null,
   });
 
+  // Calculate Finance Payment expense that i have paid billed
+  // rangeStart / rangeEnd ke beech ke payments ka total
+  const paymentDateMatch = {};
+  if (rangeStart || rangeEnd) {
+    paymentDateMatch.date = {};
+    if (rangeStart) paymentDateMatch.date.$gte = rangeStart;
+    if (rangeEnd) paymentDateMatch.date.$lte = rangeEnd;
+  }
+
+  const [paidInRangeAgg] = await FinancePayment.aggregate([
+    {
+      $match: {
+        clinicId,
+        reversed: { $ne: true }, // reversed payments ko exclude karo
+        ...paymentDateMatch,
+        // agar method filter bhi respect karna ho:
+        // ...(req.query.method && req.query.method !== "all"
+        //   ? { method: req.query.method }
+        //   : {}),
+        // agar supplier filter bhi respect karna ho:
+        // ...(req.query.supplierId && req.query.supplierId !== "all"
+        //   ? { supplierId: new Types.ObjectId(req.query.supplierId) }
+        //   : {}),
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: "$amount" },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const totalPaidInRange = parseNumber(paidInRangeAgg?.total || 0);
+
   const moneyReceived =
     parseNumber(incomeAgg?.total || 0) + pettyCashPeriod.receivedIntoPettyCash;
   const moneySpent =
@@ -143,7 +189,7 @@ export default withDashboardAuth(async (req, res, { clinicId, currency }) => {
   const overdueCount = overdueAgg?.count || 0;
   const upcomingAmount = parseNumber(upcomingAgg?.total || 0);
   const upcomingCount = upcomingAgg?.count || 0;
-  const availableCash = totalBankBalance + pettyCashBalance;
+  const availableCash = totalBankBalance + pettyCashBalance - totalPaidInRange;
 
   // --- Trends (previous month vs current filtered period) ---
   const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
