@@ -1,5 +1,6 @@
 import dbConnect from "../../../../../lib/database";
 import Billing from "../../../../../models/Billing";
+import InsuranceClaim from "../../../../../models/InsuranceClaim";
 import Clinic from "../../../../../models/Clinic";
 import PatientRegistration from "../../../../../models/PatientRegistration";
 import { getUserFromReq } from "../../../lead-ms/auth";
@@ -94,6 +95,18 @@ export default async function handler(req, res) {
           .status(403)
           .json({ success: false, message: "User not linked to a clinic" });
       }
+    }
+
+    // Check for duplicate transactionId within the same clinic (across both Billing and InsuranceClaim)
+    const trimmedTxnId = transactionId.trim();
+    const [existingBilling, existingClaim] = await Promise.all([
+      Billing.findOne({ clinicId, transactionId: trimmedTxnId }).select("_id transactionId").lean(),
+      InsuranceClaim.findOne({ clinicId, transactionId: trimmedTxnId }).select("_id transactionId").lean(),
+    ]);
+    if (existingBilling || existingClaim) {
+      return res
+        .status(400)
+        .json({ success: false, message: `Transaction ID "${trimmedTxnId}" is already used. Please enter a unique Transaction ID.` });
     }
 
     // Create billing record for advance payment

@@ -7311,6 +7311,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const paymentMethods = allMethods.length > 0
                                 ? allMethods.join(" + ")
                                 : (billing.paymentMethod || "–");
+                              // When claim amount fully covers the payment, show "Claim Amount" as the method
+                              const displayPaymentMethods = (Number(billing.claimAmountUsed || 0) > 0 && Number(billing.claimAmountUsed || 0) >= (billing.paid || 0)) ? "Claim Amount" : paymentMethods;
 
                               // Offer type
                               const offerType = billing.offerType || null;
@@ -7604,7 +7606,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   </td>
                                   {/* Payment Method */}
                                   <td className="px-2 py-2 whitespace-nowrap">
-                                    <span className="text-[10px] text-gray-700">{paymentMethods}</span>
+                                    <span className="text-[10px] text-gray-700">{displayPaymentMethods}</span>
                                   </td>
                                   {/* Refund Details */}
                                   <td className="px-2 py-2">
@@ -7735,6 +7737,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const paymentMethods = allMethods2.length > 0
                                 ? allMethods2.join(" + ")
                                 : (billing.paymentMethod || "–");
+                              // When claim amount fully covers the payment, show "Claim Amount" as the method
+                              const displayPaymentMethods = (Number(billing.claimAmountUsed || 0) > 0 && Number(billing.claimAmountUsed || 0) >= (billing.paid || 0)) ? "Claim Amount" : paymentMethods;
 
                               // Offer type
                               const offerType = billing.offerType || null;
@@ -7849,7 +7853,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   {/* Qty */}
                                   <td className="px-2 py-2 text-center"><span className="text-[9px] text-gray-600">{billing.quantity || 1}</span></td>
                                   {/* Method */}
-                                  <td className="px-2 py-2 whitespace-nowrap"><span className="text-[9px] text-gray-700">{paymentMethods}</span></td>
+                                  <td className="px-2 py-2 whitespace-nowrap"><span className="text-[9px] text-gray-700">{displayPaymentMethods}</span></td>
                                   {/* Refund */}
                                   <td className="px-2 py-2">
                                     {isRefunded ? (
@@ -7907,6 +7911,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             const paymentMethods = allMethodsM.length > 0
                               ? allMethodsM.join(" + ")
                               : (billing.paymentMethod || "–");
+                            // When claim amount fully covers the payment, show "Claim Amount" as the method
+                            const displayPaymentMethods = (Number(billing.claimAmountUsed || 0) > 0 && Number(billing.claimAmountUsed || 0) >= (billing.paid || 0)) ? "Claim Amount" : paymentMethods;
                             const offerType = billing.offerType || null;
                             const cashbackEarnedAmt = billing.cashbackEarned || 0;
                             const cashbackEarnedFromOffer = billing.cashbackAmount || 0;
@@ -8066,7 +8072,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
                                 {/* Payment Method */}
                                 <div className="text-[10px] text-gray-500 mb-3">
-                                  <span className="font-medium">Payment:</span> {paymentMethods}
+                                  <span className="font-medium">Payment:</span> {displayPaymentMethods}
                                 </div>
 
                                 {/* View Button */}
@@ -11893,6 +11899,14 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Paid via Insurance Claim banner */}
+                {Number(selectedPaymentHistoryBilling.claimAmountUsed || 0) > 0 && Number(selectedPaymentHistoryBilling.claimAmountUsed || 0) >= Number(selectedPaymentHistoryBilling.paid || 0) && (
+                  <div className="mt-3 p-3 rounded-lg border flex items-center gap-2" style={{ backgroundColor: '#eff6ff', borderColor: '#93c5fd' }}>
+                    <span className="text-sm">🏥</span>
+                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af' }}>Paid using Insurance Claim Amount</p>
                   </div>
                 )}
 

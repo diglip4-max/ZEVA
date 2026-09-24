@@ -122,6 +122,8 @@ interface ClaimRow {
   finalClaimAmount: number | null;
   createdAt: string;
   amount: number;
+  rejectionReason?: string;
+  rejectedFromReleaseRequested?: boolean;
 }
 
 interface StatBucket {
@@ -277,6 +279,11 @@ function ClaimManagementPage() {
   const [progressStatus, setProgressStatus] = useState<any>(null);
   const [consentStatus, setConsentStatus] = useState<any>(null);
   const [releaseSuccessMsg, setReleaseSuccessMsg] = useState("");
+
+  // Reject state
+  const [rejectModal, setRejectModal] = useState<any>(null);
+  const [rejectionNote, setRejectionNote] = useState("");
+  const [rejectActionLoading, setRejectActionLoading] = useState(false);
 
   // Role from the stored token — used to gate the delete action
   const getTokenRole = () => {
@@ -717,6 +724,32 @@ function ClaimManagementPage() {
       window.alert(err.response?.data?.message || "Failed to release claim");
     } finally {
       setReleaseActionLoading(false);
+    }
+  };
+
+  const handleRejectClaim = async () => {
+    if (!permissions.canDelete) return;
+    if (!rejectionNote.trim()) { alert("Please provide a rejection note"); return; }
+    setRejectActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await axios.patch(
+        "/api/clinic/insurance-claims/release-request",
+        { claimId: rejectModal._id, action: "reject", rejectionNote },
+        { headers }
+      );
+      if (res.data.success) {
+        setRejectModal(null);
+        setRejectionNote("");
+        setReleaseSuccessMsg("Claim rejected successfully!");
+        setTimeout(() => setReleaseSuccessMsg(""), 3000);
+        runSearch();
+        fetchDashboard(true);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || "Failed to reject claim");
+    } finally {
+      setRejectActionLoading(false);
     }
   };
 
@@ -1306,9 +1339,11 @@ function ClaimManagementPage() {
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Claim Type</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Department</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Doctor</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Claim Amount</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Final Claim Amount</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Paid</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pending</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Co-Pay %</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Available Amount</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
@@ -1325,9 +1360,11 @@ function ClaimManagementPage() {
                         <td className="px-3 py-2 whitespace-nowrap"><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${claim.claimType === 'Advance' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{claim.claimType}</span></td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{claim.departmentName || '-'}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">{claim.doctorName || '-'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)} {Number(claim.claimAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{getCurrencySymbol(currency)} {(claim.finalClaimAmount || claim.claimAmount)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-green-700">{claim.advanceAmount ? `${getCurrencySymbol(currency)} ${claim.advanceAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-orange-700">{claim.pendingClaim > 0 ? `${getCurrencySymbol(currency)} ${claim.pendingClaim.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-purple-700">{claim.coPayPercent ? `${claim.coPayPercent}%` : '-'}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-teal-700">{claim.patientId && availableByPatient[String(claim.patientId)] !== undefined ? `${getCurrencySymbol(currency)} ${Number(availableByPatient[String(claim.patientId)]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}</td>
                         <td className="px-3 py-2 whitespace-nowrap">{(() => { const events: { date: string; status: string }[] = []; if (claim.rejectedFromReleaseRequestedAt) events.push({ date: claim.rejectedFromReleaseRequestedAt, status: 'Rejected' }); if (claim.rejectedFromPassClaimsAt) events.push({ date: claim.rejectedFromPassClaimsAt, status: 'Rejected' }); if (claim.approvedAt) events.push({ date: claim.approvedAt, status: 'Approved' }); if (claim.rejectedAt) events.push({ date: claim.rejectedAt, status: 'Rejected' }); if (claim.releasedAt) events.push({ date: claim.releasedAt, status: 'Released' }); if (claim.completedAt) events.push({ date: claim.completedAt, status: 'Completed' }); if (claim.readyAt) events.push({ date: claim.readyAt, status: 'Ready' }); events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); const s = events.length > 0 ? events[0].status : (claim.status || 'Under Review'); return <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${s === 'Under Review' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : s === 'Approved' ? 'bg-green-100 text-green-800 border-green-300' : s === 'Rejected' ? 'bg-red-100 text-red-800 border-red-300' : s === 'Ready' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : s === 'Completed' ? 'bg-purple-100 text-purple-800 border-purple-300' : s === 'Released' ? 'bg-blue-100 text-blue-800 border-blue-300' : 'bg-gray-100 text-gray-800 border-gray-300'}`}>{s}</span>; })()}</td>
                         <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{new Date(claim.createdAt).toLocaleDateString()}</td>
@@ -1471,7 +1508,7 @@ function ClaimManagementPage() {
                       const isExpanded = expandedRow === row._id;
                       return (
                         <React.Fragment key={row._id}>
-                          <tr className="hover:bg-gray-50/70 transition-colors cursor-pointer" onClick={() => setExpandedRow(isExpanded ? null : row._id)}>
+                          <tr className={`hover:bg-gray-50/70 transition-colors cursor-pointer ${(row.rejectionReason || row.rejectedFromReleaseRequested) ? 'border-2 border-red-500 bg-red-100/60' : ''}`} onClick={() => setExpandedRow(isExpanded ? null : row._id)}>
                             <td className="py-2.5 pr-3 text-[10px] text-gray-400">{idx + 1}</td>
                             <td className="py-2.5 pr-3 text-xs font-semibold text-gray-900">{row.patientName}</td>
                             <td className="py-2.5 pr-3">
@@ -1492,9 +1529,9 @@ function ClaimManagementPage() {
                             </td>
                           </tr>
                           {isExpanded && (
-                            <tr>
+                            <tr className={(row.rejectionReason || row.rejectedFromReleaseRequested) ? 'bg-red-50' : ''}>
                               <td colSpan={6} className="p-0">
-                                <div className="bg-gradient-to-br from-gray-50 to-white border-t border-b border-gray-100 px-5 py-4">
+                                <div className={`border-t border-b px-5 py-4 ${(row.rejectionReason || row.rejectedFromReleaseRequested) ? 'bg-red-50/80 border-red-200' : 'bg-gradient-to-br from-gray-50 to-white border-gray-100'}`}>
                                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                     {/* Patient Info */}
                                     <div className="bg-white rounded-xl border border-gray-100 p-3.5 shadow-sm">
@@ -1584,6 +1621,7 @@ function ClaimManagementPage() {
                                         <div>
                                           <p className="text-[9px] text-gray-400 uppercase tracking-wider">Status</p>
                                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                            (row.rejectionReason || row.rejectedFromReleaseRequested) ? 'bg-red-100 text-red-800' :
                                             row.status === 'Released' ? 'bg-green-100 text-green-800' :
                                             row.status === 'Completed' ? 'bg-teal-100 text-teal-800' :
                                             row.status === 'Under Review' ? 'bg-amber-100 text-amber-800' :
@@ -1591,7 +1629,7 @@ function ClaimManagementPage() {
                                             row.status === 'Ready' ? 'bg-blue-100 text-blue-800' :
                                             'bg-gray-100 text-gray-700'
                                           }`}>
-                                            {row.status}
+                                            {(row.rejectionReason || row.rejectedFromReleaseRequested) ? 'Rejected' : row.status}
                                           </span>
                                         </div>
                                         <div>
@@ -1638,6 +1676,23 @@ function ClaimManagementPage() {
                                           <><CheckCircle className="w-3.5 h-3.5" /> Released</>
                                         ) : (
                                           <><Send className="w-3.5 h-3.5" /> Release</>
+                                        )}
+                                      </button>
+                                    )}
+                                    {activeStat === 'advance' && permissions.canDelete && row.status !== 'Released' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); if (!(row.rejectionReason || row.rejectedFromReleaseRequested)) setRejectModal(row); }}
+                                        disabled={!!(row.rejectionReason || row.rejectedFromReleaseRequested)}
+                                        className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-lg transition-all shadow-sm uppercase tracking-tight ${
+                                          (row.rejectionReason || row.rejectedFromReleaseRequested)
+                                            ? 'bg-red-400 text-white cursor-default opacity-80'
+                                            : 'bg-red-600 text-white hover:bg-red-700'
+                                        }`}
+                                      >
+                                        {(row.rejectionReason || row.rejectedFromReleaseRequested) ? (
+                                          <><XCircle className="w-3.5 h-3.5" /> Rejected</>
+                                        ) : (
+                                          <><XCircle className="w-3.5 h-3.5" /> Reject</>
                                         )}
                                       </button>
                                     )}
@@ -2494,6 +2549,51 @@ function ClaimManagementPage() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Reject Claim Modal */}
+      {rejectModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[10000] p-3 sm:p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-red-100 bg-red-50 flex items-center justify-between">
+              <h2 className="text-base sm:text-lg font-bold text-red-900 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" /> Reject Claim
+              </h2>
+              <button onClick={() => { setRejectModal(null); setRejectionNote(""); }} className="p-2 hover:bg-red-100/50 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-red-600" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50 rounded-xl p-3 sm:p-4 border border-gray-100">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Patient</p>
+                  <p className="text-sm font-bold text-gray-900">{rejectModal.patientName}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">Doctor</p>
+                  <p className="text-sm font-bold text-gray-900">{rejectModal.doctorName || '—'}</p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-900 mb-2">Rejection Note <span className="text-red-600">*</span></label>
+                <textarea
+                  value={rejectionNote}
+                  onChange={(e) => setRejectionNote(e.target.value)}
+                  placeholder="Explain why this claim is being rejected..."
+                  rows={4}
+                  className="w-full px-4 py-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all resize-none bg-gray-50/50"
+                  required
+                />
+              </div>
+              <div className="flex items-center gap-3 pt-2">
+                <button onClick={() => { setRejectModal(null); setRejectionNote(""); }} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+                <button onClick={handleRejectClaim} disabled={rejectActionLoading || !rejectionNote.trim()} className="flex-[2] px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 disabled:opacity-50">
+                  {rejectActionLoading ? "Processing..." : "Confirm Rejection"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

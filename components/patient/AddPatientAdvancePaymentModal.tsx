@@ -173,7 +173,6 @@ const AddPatientAdvancePaymentModal: React.FC<
         setError(data.message || "Failed to add advance payment.");
       }
     } catch (err: any) {
-      console.error("Error adding advance payment:", err);
       setError(
         err.response?.data?.message || "An error occurred. Please try again.",
       );

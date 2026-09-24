@@ -48,16 +48,24 @@ export default async function handler(req, res) {
     // Get clinicId for access control
     const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
 
-    // Support both legacy Completed claims and current Ready claims in release-requested-claims.
-    // Advance claim type can be released directly from "Under Review" without going through Ready/Completed.
-    const allowedStatuses = claim.claimType === "Advance"
-      ? ["Ready", "Completed", "Under Review"]
-      : ["Ready", "Completed"];
-    if (!allowedStatuses.includes(claim.status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot perform action on claim with status "${claim.status}". Only "Ready" or "Completed" claims can be processed.`,
-      });
+    // Advance claim type can be released or rejected from any status — no Ready/Completed requirement.
+    // Paid claim type still requires Ready or Completed status for both actions.
+    if (claim.claimType === "Advance") {
+      // Advance claims can be released/rejected from any status except Cancelled
+      if (claim.status === "Cancelled") {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot perform action on claim with status "${claim.status}".`,
+        });
+      }
+    } else {
+      const allowedStatuses = ["Ready", "Completed"];
+      if (!allowedStatuses.includes(claim.status)) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot perform action on claim with status "${claim.status}". Only "Ready" or "Completed" claims can be processed.`,
+        });
+      }
     }
 
     // Clinic/agent/staff/doctorStaff can only process claims from their clinic
