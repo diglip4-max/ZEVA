@@ -48,6 +48,18 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+// Uploaded files are saved under public/uploads and must be fetched through
+// the /api/uploads/... route (pages/api/uploads/[[...path]].js) so they are
+// served in production as well; direct /uploads/... static paths only work locally.
+// Absolute URLs (e.g. Cloudinary) are kept as-is.
+const resolveUploadUrl = (url) => {
+  if (!url) return url || "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/api/uploads/")) return url;
+  if (url.startsWith("/uploads/")) return `/api/uploads/${url.slice("/uploads/".length)}`;
+  return url;
+};
+
 // Determine access level based on current route AND token
 // Route takes precedence - if route is /clinic/* use clinic logic, if /staff/* or /agent/* use staff logic
 const getAccessLevel = () => {
@@ -1966,7 +1978,7 @@ function AllClaimsPage() {
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-semibold font-mono text-gray-900">{claimDetails?.transactionId || viewModal.transactionId}</span>
                                 {(claimDetails?.attachment || viewModal.attachment) && (
-                                  <button onClick={() => setPreviewFile({ url: claimDetails?.attachment || viewModal.attachment, name: "Payment Attachment", field: "attachment" })} className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
+                                  <button onClick={() => setPreviewFile({ url: resolveUploadUrl(claimDetails?.attachment || viewModal.attachment), name: "Payment Attachment", field: "attachment" })} className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-600 hover:text-teal-700">
                                     <Paperclip className="w-3 h-3" /> Attachment
                                   </button>
                                 )}
@@ -2039,10 +2051,10 @@ function AllClaimsPage() {
                       <div>
                         <h3 className="text-sm font-semibold text-gray-900 mb-4">Insurance Files</h3>
                         <div className="flex flex-wrap gap-2.5">
-                          {viewModal.insuranceCardFile && <button onClick={() => setPreviewFile({ url: viewModal.insuranceCardFile, name: "Insurance Card", field: "insuranceCardFile" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> Insurance Card</button>}
-                          {viewModal.tableOfBenefitsFile && <button onClick={() => setPreviewFile({ url: viewModal.tableOfBenefitsFile, name: "Table of Benefits", field: "tableOfBenefitsFile" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> Table of Benefits</button>}
-                          {viewModal.emriFrontPhoto && <button onClick={() => setPreviewFile({ url: viewModal.emriFrontPhoto, name: "EMRI Front", field: "emriFrontPhoto" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> EMRI Front</button>}
-                          {viewModal.emriBackPhoto && <button onClick={() => setPreviewFile({ url: viewModal.emriBackPhoto, name: "EMRI Back", field: "emriBackPhoto" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> EMRI Back</button>}
+                          {viewModal.insuranceCardFile && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.insuranceCardFile), name: "Insurance Card", field: "insuranceCardFile" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> Insurance Card</button>}
+                          {viewModal.tableOfBenefitsFile && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.tableOfBenefitsFile), name: "Table of Benefits", field: "tableOfBenefitsFile" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> Table of Benefits</button>}
+                          {viewModal.emriFrontPhoto && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.emriFrontPhoto), name: "EMRI Front", field: "emriFrontPhoto" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> EMRI Front</button>}
+                          {viewModal.emriBackPhoto && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.emriBackPhoto), name: "EMRI Back", field: "emriBackPhoto" })} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-50 rounded-lg text-xs font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3.5 h-3.5" /> EMRI Back</button>}
                         </div>
                       </div>
                     )}
@@ -2051,7 +2063,7 @@ function AllClaimsPage() {
                         <h3 className="text-sm font-semibold text-gray-900 mb-4">Claim Documents</h3>
                         <div className="flex flex-wrap gap-2">
                           {viewModal.documentFiles.map((file, idx) => (
-                            <button key={idx} onClick={() => setPreviewFile({ url: file, name: `Document ${idx + 1}`, field: "documentFiles" })} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 rounded-lg text-xs font-medium text-teal-700 hover:bg-teal-100">
+                            <button key={idx} onClick={() => setPreviewFile({ url: resolveUploadUrl(file), name: `Document ${idx + 1}`, field: "documentFiles" })} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 rounded-lg text-xs font-medium text-teal-700 hover:bg-teal-100">
                               <FileText className="w-3.5 h-3.5" /> Document {idx + 1}
                             </button>
                           ))}
@@ -2439,10 +2451,10 @@ function AllClaimsPage() {
                         <div className="col-span-2 py-1.5">
                           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Uploaded Documents</p>
                           <div className="flex flex-wrap gap-2">
-                            {approvalModal.insuranceCardFile && <button onClick={() => setPreviewFile({ url: approvalModal.insuranceCardFile, name: "Insurance Card", field: "insuranceCardFile" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />Insurance Card</button>}
-                            {approvalModal.tableOfBenefitsFile && <button onClick={() => setPreviewFile({ url: approvalModal.tableOfBenefitsFile, name: "Table of Benefits", field: "tableOfBenefitsFile" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />Table of Benefits</button>}
-                            {approvalModal.emriFrontPhoto && <button onClick={() => setPreviewFile({ url: approvalModal.emriFrontPhoto, name: "EMRI Front", field: "emriFrontPhoto" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />EMRI Front</button>}
-                            {approvalModal.emriBackPhoto && <button onClick={() => setPreviewFile({ url: approvalModal.emriBackPhoto, name: "EMRI Back", field: "emriBackPhoto" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />EMRI Back</button>}
+                            {approvalModal.insuranceCardFile && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(approvalModal.insuranceCardFile), name: "Insurance Card", field: "insuranceCardFile" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />Insurance Card</button>}
+                            {approvalModal.tableOfBenefitsFile && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(approvalModal.tableOfBenefitsFile), name: "Table of Benefits", field: "tableOfBenefitsFile" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />Table of Benefits</button>}
+                            {approvalModal.emriFrontPhoto && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(approvalModal.emriFrontPhoto), name: "EMRI Front", field: "emriFrontPhoto" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />EMRI Front</button>}
+                            {approvalModal.emriBackPhoto && <button onClick={() => setPreviewFile({ url: resolveUploadUrl(approvalModal.emriBackPhoto), name: "EMRI Back", field: "emriBackPhoto" })} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-50 rounded-lg text-[11px] font-semibold text-teal-700 hover:bg-teal-100"><FileText className="w-3 h-3" />EMRI Back</button>}
                           </div>
                         </div>
                       )}

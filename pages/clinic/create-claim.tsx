@@ -52,6 +52,18 @@ const getStoredToken = () => {
   return null;
 };
 
+// Uploaded files are saved under public/uploads and must be fetched through
+// the /api/uploads/... route (pages/api/uploads/[[...path]].js) so they are
+// served in production as well; direct /uploads/... static paths only work locally.
+// Absolute URLs (e.g. Cloudinary) are kept as-is.
+const resolveUploadUrl = (url?: string) => {
+  if (!url) return url || "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/api/uploads/")) return url;
+  if (url.startsWith("/uploads/")) return `/api/uploads/${url.slice("/uploads/".length)}`;
+  return url;
+};
+
 // Permission helper functions
 const isTruthy = (val: any) =>
   val === true || val === "true" || String(val || "").toLowerCase() === "true";
@@ -630,12 +642,12 @@ function CreateClaimPage() {
       });
       const data = await res.json();
       if (data.success) {
-        if (field === "insuranceCard") setInsuranceForm((p: any) => ({ ...p, insuranceCardFile: data.data.insuranceCardFile }));
-        else if (field === "tableOfBenefits") setInsuranceForm((p: any) => ({ ...p, tableOfBenefitsFile: data.data.tableOfBenefitsFile }));
-        else if (field === "emriFront") setInsuranceForm((p: any) => ({ ...p, emriFrontPhoto: data.data.emriFrontPhoto }));
-        else if (field === "emriBack") setInsuranceForm((p: any) => ({ ...p, emriBackPhoto: data.data.emriBackPhoto }));
-        else if (field === "documents") setPaymentForm((p: any) => ({ ...p, documentFiles: [...p.documentFiles, ...data.data.documentFiles] }));
-        else if (field === "attachment") setPaymentForm((p: any) => ({ ...p, attachment: data.data.attachment }));
+        if (field === "insuranceCard") setInsuranceForm((p: any) => ({ ...p, insuranceCardFile: resolveUploadUrl(data.data.insuranceCardFile) }));
+        else if (field === "tableOfBenefits") setInsuranceForm((p: any) => ({ ...p, tableOfBenefitsFile: resolveUploadUrl(data.data.tableOfBenefitsFile) }));
+        else if (field === "emriFront") setInsuranceForm((p: any) => ({ ...p, emriFrontPhoto: resolveUploadUrl(data.data.emriFrontPhoto) }));
+        else if (field === "emriBack") setInsuranceForm((p: any) => ({ ...p, emriBackPhoto: resolveUploadUrl(data.data.emriBackPhoto) }));
+        else if (field === "documents") setPaymentForm((p: any) => ({ ...p, documentFiles: [...p.documentFiles, ...(data.data.documentFiles || []).map((u: string) => resolveUploadUrl(u))] }));
+        else if (field === "attachment") setPaymentForm((p: any) => ({ ...p, attachment: resolveUploadUrl(data.data.attachment) }));
       }
     } catch (err) { console.error("File upload error:", err); }
     finally { setUploadingFiles(false); }
@@ -1437,22 +1449,22 @@ function CreateClaimPage() {
                         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Attached Documents</p>
                         <div className="flex flex-wrap gap-2">
                           {insuranceForm.insuranceCardFile && (
-                            <button onClick={() => setDocViewerUrl(insuranceForm.insuranceCardFile)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                            <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.insuranceCardFile))} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
                               <Shield className="w-3.5 h-3.5" /> Insurance Card
                             </button>
                           )}
                           {insuranceForm.tableOfBenefitsFile && (
-                            <button onClick={() => setDocViewerUrl(insuranceForm.tableOfBenefitsFile)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                            <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.tableOfBenefitsFile))} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
                               <FileText className="w-3.5 h-3.5" /> Benefits Table
                             </button>
                           )}
                           {insuranceForm.emriFrontPhoto && (
-                            <button onClick={() => setDocViewerUrl(insuranceForm.emriFrontPhoto)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                            <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.emriFrontPhoto))} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
                               <FileText className="w-3.5 h-3.5" /> EMRI Front
                             </button>
                           )}
                           {insuranceForm.emriBackPhoto && (
-                            <button onClick={() => setDocViewerUrl(insuranceForm.emriBackPhoto)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
+                            <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.emriBackPhoto))} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors">
                               <FileText className="w-3.5 h-3.5" /> EMRI Back
                             </button>
                           )}
@@ -1850,7 +1862,7 @@ function CreateClaimPage() {
                           </div>
                         </div>
                         {insuranceForm.insuranceCardFile && (
-                          <button onClick={() => setDocViewerUrl(insuranceForm.insuranceCardFile)} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
+                          <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.insuranceCardFile))} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -1866,7 +1878,7 @@ function CreateClaimPage() {
                           </div>
                         </div>
                         {insuranceForm.tableOfBenefitsFile && (
-                          <button onClick={() => setDocViewerUrl(insuranceForm.tableOfBenefitsFile)} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
+                          <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.tableOfBenefitsFile))} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -1882,7 +1894,7 @@ function CreateClaimPage() {
                           </div>
                         </div>
                         {insuranceForm.emriFrontPhoto && (
-                          <button onClick={() => setDocViewerUrl(insuranceForm.emriFrontPhoto)} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
+                          <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.emriFrontPhoto))} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -1898,7 +1910,7 @@ function CreateClaimPage() {
                           </div>
                         </div>
                         {insuranceForm.emriBackPhoto && (
-                          <button onClick={() => setDocViewerUrl(insuranceForm.emriBackPhoto)} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
+                          <button onClick={() => setDocViewerUrl(resolveUploadUrl(insuranceForm.emriBackPhoto))} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
                             <Eye className="w-3.5 h-3.5" />
                           </button>
                         )}
@@ -1916,7 +1928,7 @@ function CreateClaimPage() {
                         {paymentForm.documentFiles.length > 0 && (
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {paymentForm.documentFiles.map((f: string, i: number) => (
-                              <button key={i} onClick={() => setDocViewerUrl(f)} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title={`View doc ${i + 1}`}>
+                              <button key={i} onClick={() => setDocViewerUrl(resolveUploadUrl(f))} className="p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title={`View doc ${i + 1}`}>
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
                             ))}
@@ -1935,7 +1947,7 @@ function CreateClaimPage() {
                             </div>
                           </div>
                           {paymentForm.attachment && (
-                            <button onClick={() => setDocViewerUrl(paymentForm.attachment)} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
+                            <button onClick={() => setDocViewerUrl(resolveUploadUrl(paymentForm.attachment))} className="flex-shrink-0 p-1.5 text-teal-600 hover:bg-teal-50 rounded-md transition-colors" title="View">
                               <Eye className="w-3.5 h-3.5" />
                             </button>
                           )}
@@ -2141,12 +2153,12 @@ function CreateClaimPage() {
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Attachments</h4>
                   {(() => {
                     const rows: { label: string; url: string }[] = [];
-                    if (claimViewModal.insuranceCardFile) rows.push({ label: "Insurance card", url: claimViewModal.insuranceCardFile });
-                    if (claimViewModal.tableOfBenefitsFile) rows.push({ label: "Benefits table", url: claimViewModal.tableOfBenefitsFile });
-                    if (claimViewModal.emriFrontPhoto) rows.push({ label: "EMIR front", url: claimViewModal.emriFrontPhoto });
-                    if (claimViewModal.emriBackPhoto) rows.push({ label: "EMIR back", url: claimViewModal.emriBackPhoto });
-                    if (claimViewModal.attachment) rows.push({ label: "Payment attachment", url: claimViewModal.attachment });
-                    (claimViewModal.documentFiles || []).forEach((f: string, i: number) => rows.push({ label: `Doc ${i + 1}`, url: f }));
+                    if (claimViewModal.insuranceCardFile) rows.push({ label: "Insurance card", url: resolveUploadUrl(claimViewModal.insuranceCardFile) });
+                    if (claimViewModal.tableOfBenefitsFile) rows.push({ label: "Benefits table", url: resolveUploadUrl(claimViewModal.tableOfBenefitsFile) });
+                    if (claimViewModal.emriFrontPhoto) rows.push({ label: "EMIR front", url: resolveUploadUrl(claimViewModal.emriFrontPhoto) });
+                    if (claimViewModal.emriBackPhoto) rows.push({ label: "EMIR back", url: resolveUploadUrl(claimViewModal.emriBackPhoto) });
+                    if (claimViewModal.attachment) rows.push({ label: "Payment attachment", url: resolveUploadUrl(claimViewModal.attachment) });
+                    (claimViewModal.documentFiles || []).forEach((f: string, i: number) => rows.push({ label: `Doc ${i + 1}`, url: resolveUploadUrl(f) }));
                     if (rows.length === 0) return <p className="text-[11px] text-gray-400">No files uploaded</p>;
                     const isImg = (url: string) => ["jpg", "jpeg", "png", "webp", "gif"].includes((url.split("?")[0].split(".").pop() || "").toLowerCase());
                     const uploaded = new Date(claimViewModal.createdAt).toLocaleDateString();

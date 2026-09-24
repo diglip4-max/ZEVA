@@ -64,6 +64,18 @@ const getStoredToken = () => {
   return null;
 };
 
+// Uploaded files are saved under public/uploads and must be fetched through
+// the /api/uploads/... route (pages/api/uploads/[[...path]].js) so they are
+// served in production as well; direct /uploads/... static paths only work locally.
+// Absolute URLs (e.g. Cloudinary) are kept as-is.
+const resolveUploadUrl = (url?: string) => {
+  if (!url) return url || "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/api/uploads/")) return url;
+  if (url.startsWith("/uploads/")) return `/api/uploads/${url.slice("/uploads/".length)}`;
+  return url;
+};
+
 // Permission helper functions
 const isTruthy = (val: any) =>
   val === true || val === "true" || String(val || "").toLowerCase() === "true";
@@ -1871,12 +1883,12 @@ function ClaimManagementPage() {
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Attachments</h4>
                   {(() => {
                     const rows: { label: string; url: string }[] = [];
-                    if (claimViewModal.insuranceCardFile) rows.push({ label: "Insurance card", url: claimViewModal.insuranceCardFile });
-                    if (claimViewModal.tableOfBenefitsFile) rows.push({ label: "Benefits table", url: claimViewModal.tableOfBenefitsFile });
-                    if (claimViewModal.emriFrontPhoto) rows.push({ label: "EMIR front", url: claimViewModal.emriFrontPhoto });
-                    if (claimViewModal.emriBackPhoto) rows.push({ label: "EMIR back", url: claimViewModal.emriBackPhoto });
-                    if (claimViewModal.attachment) rows.push({ label: "Payment attachment", url: claimViewModal.attachment });
-                    (claimViewModal.documentFiles || []).forEach((f: string, i: number) => rows.push({ label: `Doc ${i + 1}`, url: f }));
+                    if (claimViewModal.insuranceCardFile) rows.push({ label: "Insurance card", url: resolveUploadUrl(claimViewModal.insuranceCardFile) });
+                    if (claimViewModal.tableOfBenefitsFile) rows.push({ label: "Benefits table", url: resolveUploadUrl(claimViewModal.tableOfBenefitsFile) });
+                    if (claimViewModal.emriFrontPhoto) rows.push({ label: "EMIR front", url: resolveUploadUrl(claimViewModal.emriFrontPhoto) });
+                    if (claimViewModal.emriBackPhoto) rows.push({ label: "EMIR back", url: resolveUploadUrl(claimViewModal.emriBackPhoto) });
+                    if (claimViewModal.attachment) rows.push({ label: "Payment attachment", url: resolveUploadUrl(claimViewModal.attachment) });
+                    (claimViewModal.documentFiles || []).forEach((f: string, i: number) => rows.push({ label: `Doc ${i + 1}`, url: resolveUploadUrl(f) }));
                     if (rows.length === 0) return <p className="text-[11px] text-gray-400">No files uploaded</p>;
                     const isImg = (url: string) => ["jpg", "jpeg", "png", "webp", "gif"].includes((url.split("?")[0].split(".").pop() || "").toLowerCase());
                     const uploaded = new Date(claimViewModal.createdAt).toLocaleDateString();
