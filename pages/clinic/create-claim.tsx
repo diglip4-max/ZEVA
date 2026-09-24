@@ -1575,6 +1575,18 @@ function CreateClaimPage() {
                           <label className="block text-xs font-medium text-gray-700 mb-1">Transaction ID <span className="text-red-500">*</span></label>
                           <input type="text" value={paymentForm.transactionId} onChange={(e) => setPaymentForm((p: any) => ({ ...p, transactionId: e.target.value }))} className={`w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 ${!paymentForm.transactionId?.trim() ? 'border-red-300 bg-red-50/40' : 'border-gray-300'}`} placeholder="Enter transaction ID" />
                         </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Payment Attachment <span className="text-red-500">*</span></label>
+                          <div className="relative">
+                            <input id="payment-attach" type="file" accept="image/*,.pdf" onChange={(e) => handleFileUpload(e, 'attachment')} className="hidden" disabled={uploadingFiles} />
+                            <label htmlFor="payment-attach" className={`w-full flex items-center gap-2 px-3 py-2 text-xs border rounded-lg cursor-pointer transition-all ${paymentForm.attachment ? 'bg-purple-50 border-purple-400' : !paymentForm.attachment ? 'border-red-300 bg-red-50/40 hover:border-red-400' : 'border-gray-300 bg-white hover:border-purple-400'}`}>
+                              {paymentForm.attachment ? <FileText className="w-4 h-4 text-purple-600" /> : <Upload className="w-4 h-4 text-gray-400" />}
+                              <span className={`truncate flex-1 ${paymentForm.attachment ? 'text-purple-700 font-semibold' : 'text-gray-400'}`}>{paymentForm.attachment ? 'File attached' : 'Upload receipt'}</span>
+                              {paymentForm.attachment && <button type="button" onClick={(e) => { e.preventDefault(); setPaymentForm((p: any) => ({ ...p, attachment: "" })); }} className="text-purple-600"><X className="w-3 h-3" /></button>}
+                              {uploadingFiles && <Loader2 className="w-3 h-3 animate-spin text-purple-600" />}
+                            </label>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Multiple Payment Methods */}
