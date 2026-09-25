@@ -3,6 +3,7 @@ import PatientRegistration from "../../../models/PatientRegistration";
 import Clinic from "../../../models/Clinic";
 import Users from "../../../models/Users";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
+import mongoose from "mongoose";
 
 // ── Text & compound indexes (run once per process) ──
 let indexesEnsured = false;
@@ -72,6 +73,7 @@ const getCachedClinicUserIds = async (clinicId, ownerUserId) => {
   const clinicUsers = await Users.find({
     $or: [{ _id: ownerUserId }, { clinicId: clinicId }],
   }).select("_id").lean();
+  // Keep as ObjectIds for proper MongoDB type matching
   const ids = clinicUsers.map((u) => u._id);
   clinicUserCache.set(cacheKey, { ids, ts: Date.now() });
   return ids;
@@ -84,6 +86,9 @@ const countCache = new Map();
 const COUNT_CACHE_TTL = 30 * 1000; // 30 seconds
 const buildCountCacheKey = (userId, query) =>
   `${userId?.toString?.() || userId}|${JSON.stringify(query)}`;
+
+// arched Escape user input before embedding it in a regex (prevents regex injection / crashes)
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -123,7 +128,7 @@ export default async function handler(req, res) {
 
       // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
       if (user.role === "clinic") {
-        const clinic = await Clinic.findOne({ owner: user._id }).select("_id").lean();
+        const clinic = await Clinic.findOne({ owner: user._id }).select("_id name").lean();
         if (clinic) {
           // Use cached clinic user IDs to avoid repeated DB lookups
           const clinicUserIds = await getCachedClinicUserIds(clinic._id, user._id);
@@ -167,80 +172,92 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, patient });
       }
 
-      // Build unified $and array combining userId + all filters
-      const andClauses = [];
-      andClauses.push({ userId: query.userId });
+      // Build query: put userId at top level (avoids $and wrapper that causes optimizer issues with $or)
+      query = { userId: query.userId };
 
-      // ── Flexible search logic ──
-      // Uses CONTAINS regex for ALL fields (NO $text inside $or — MongoDB forbids that mix)
-      // NO prefix restrictions: searching "1234" matches EMR1234, INV-1234, etc.
-      // Search works across: firstName, lastName, email, emrNumber, invoiceNumber, mobileNumber
+      // ── Robust omnibar search ──
+      // The trimmed term is classified into one of three modes:
+      //   digits     "99" | "9" | "0552730991"
+      //              -> emrNumber / mobileNumber matched by CONSECUTIVE digit substring.
+      //                 Digits are never split per-character, so "99" only returns records
+      //                 that actually contain "99". invoiceNumber is deliberately EXCLUDED
+      //                 here: invoice numbers embed 13-digit millisecond timestamps
+      //                 (INV-1789109131836-781), so any 3+ digit query matches piles of
+      //                 invoices that are invisible in the patient list and look like
+      //                 false positives to the user.
+      //   identifier "EMR-99" | "inv-12" (term starts with EMR/INV)
+      //              -> emrNumber / invoiceNumber only. Kept narrow on purpose so an
+      //                 identifier hit is not flooded by unrelated phone matches.
+      //   text       "carolina" | "+971 55" (anything else)
+      //              -> firstName / lastName / email + emrNumber / invoiceNumber /
+      //                 mobileNumber substring match, newest first.
+      // Digit & identifier modes run through an aggregation that assigns matchPriority
+      // (0 = exact id match, 1 = id contains term, 2 = phone only) so the strongest
+      // matches always land on page 1 regardless of createdAt.
+      let searchMode = null; // "digits" | "identifier" | "text"
+      let rankPatterns = []; // regex-escaped terms (raw digits need no escaping) used by the ranking stage
+
       if (name) {
         const trimmed = name.trim();
-        const escRegex = trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const orClauses = [];
-
-        // ALWAYS use CONTAINS regex for all fields (no ^ prefix restriction)
-        // This ensures searching "1234" finds EMR1234, INV1234, etc.
-        orClauses.push(
-          { firstName: { $regex: escRegex, $options: "i" } },
-          { lastName: { $regex: escRegex, $options: "i" } },
-          { email: { $regex: escRegex, $options: "i" } },
-          { emrNumber: { $regex: escRegex, $options: "i" } },
-          { invoiceNumber: { $regex: escRegex, $options: "i" } },
-        );
-
-        // Concatenated full-name match (firstName + " " + lastName) using $expr
-        orClauses.push({
-          $expr: {
-            $regexMatch: {
-              input: { $concat: ["$firstName", " ", "$lastName"] },
-              regex: escRegex,
-              options: "i",
-            },
-          },
-        });
-
-        // Phone number flexible matching (handles +91 98765-43210 etc.)
-        // AND digits-only contains match for mobile, EMR, and invoice fields
-        const digitsOnly = trimmed.replace(/[^\d]/g, "");
-        if (digitsOnly) {
-          const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
-          orClauses.push({ mobileNumber: { $regex: flexiblePattern, $options: "i" } });
-          // Extra: match consecutive digits appearing anywhere inside identifier fields
-          // e.g., searching "5432" finds "EMR-AB-5432-01" or "INV/2024/5432"
-          orClauses.push({ emrNumber: { $regex: digitsOnly, $options: "i" } });
-          orClauses.push({ invoiceNumber: { $regex: digitsOnly, $options: "i" } });
-        } else {
-          // No digits — still do flexible contains match on mobileNumber field
-          orClauses.push({ mobileNumber: { $regex: escRegex, $options: "i" } });
-        }
-
-        andClauses.push({ $or: orClauses });
-      } else {
-        // Dedicated filters when `name` is not used as omnibar
-        if (emrNumber)
-          andClauses.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
-        if (invoiceNumber)
-          andClauses.push({
-            invoiceNumber: { $regex: invoiceNumber, $options: "i" },
-          });
-        if (email) andClauses.push({ email: { $regex: email, $options: "i" } });
-        if (phone) {
-          const digitsOnly = phone.replace(/[^\d]/g, "");
-          if (digitsOnly) {
-            const flexiblePattern = digitsOnly.split("").join("[\\s\\-+()]*");
-            andClauses.push(
-              { mobileNumber: { $regex: flexiblePattern, $options: "i" } },
+        if (/^\d+$/.test(trimmed)) {
+          searchMode = "digits";
+          rankPatterns = [trimmed]; // plain digits need no regex escaping
+          query.$or = [
+            { emrNumber: { $regex: trimmed, $options: "i" } },
+            { mobileNumber: { $regex: trimmed, $options: "i" } },
+          ];
+        } else if (/^(EMR|INV)/i.test(trimmed)) {
+          searchMode = "identifier";
+          rankPatterns = [escapeRegExp(trimmed)];
+          const orClauses = [
+            { emrNumber: { $regex: rankPatterns[0], $options: "i" } },
+            { invoiceNumber: { $regex: rankPatterns[0], $options: "i" } },
+          ];
+          const idDigits = trimmed.replace(/[^\d]/g, "");
+          if (idDigits) {
+            // tolerate "EMR 99" as well as "EMR-99" by also matching the bare digits
+            orClauses.push(
+              { emrNumber: { $regex: idDigits, $options: "i" } },
+              { invoiceNumber: { $regex: idDigits, $options: "i" } }
+            );
+            rankPatterns.push(idDigits); // keep ranking consistent with the fallback clause
+          }
+          query.$or = orClauses;
+        } else if (trimmed) {
+          searchMode = "text";
+          rankPatterns = [escapeRegExp(trimmed)]; // unused: text mode sorts by createdAt
+          const orClauses = [
+            { firstName: { $regex: rankPatterns[0], $options: "i" } },
+            { lastName: { $regex: rankPatterns[0], $options: "i" } },
+            { email: { $regex: rankPatterns[0], $options: "i" } },
+            { emrNumber: { $regex: rankPatterns[0], $options: "i" } },
+            { invoiceNumber: { $regex: rankPatterns[0], $options: "i" } },
+            { mobileNumber: { $regex: rankPatterns[0], $options: "i" } },
+          ];
+          const textDigits = trimmed.replace(/[^\d]/g, "");
+          if (textDigits) {
+            // mixed input like "+971 55" still matches id/phone digit runs
+            orClauses.push(
+              { emrNumber: { $regex: textDigits, $options: "i" } },
+              { invoiceNumber: { $regex: textDigits, $options: "i" } },
+              { mobileNumber: { $regex: textDigits, $options: "i" } }
             );
           }
+          query.$or = orClauses;
+        }
+      } else {
+        // Dedicated filters when `name` is not used as omnibar
+        if (emrNumber) query.emrNumber = { $regex: escapeRegExp(emrNumber), $options: "i" };
+        if (invoiceNumber) query.invoiceNumber = { $regex: escapeRegExp(invoiceNumber), $options: "i" };
+        if (email) query.email = { $regex: escapeRegExp(email), $options: "i" };
+        if (phone) {
+          const phoneDigits = phone.replace(/[^\d]/g, "");
+          if (phoneDigits) query.mobileNumber = { $regex: phoneDigits, $options: "i" };
         }
       }
 
-      if (claimStatus) andClauses.push({ advanceClaimStatus: claimStatus });
-      if (applicationStatus) andClauses.push({ status: applicationStatus });
-
-      query = { $and: andClauses };
+      if (claimStatus) query.advanceClaimStatus = claimStatus;
+      if (applicationStatus) query.status = applicationStatus;
 
       // Pagination
       const pageNum = parseInt(page, 10) || 1;
@@ -262,7 +279,7 @@ export default async function handler(req, res) {
 
       // 🔹 Try to serve the count from cache (only when no extra filters applied
       // beyond the userId scope, which is the most common case on the list view).
-      const noExtraFilters = andClauses.length === 1; // only { userId: ... }
+      const noExtraFilters = Object.keys(query).length === 1 && query.userId; // only { userId: ... }
       const countCacheKey = buildCountCacheKey(user._id, query);
       let totalCount = null;
       if (noExtraFilters) {
@@ -273,30 +290,87 @@ export default async function handler(req, res) {
       }
 
       // Build the data query:
-      //   - select() => small payload (skip heavy fields like selectedTreatments)
-      //   - lean()   => plain JS objects, no Mongoose overhead
+      //   - select()/project => small payload (skip heavy fields like selectedTreatments)
+      //   - lean() / aggregation => plain JS objects, no Mongoose overhead
       //   - allowDiskUse() => fallback for sorts that exceed RAM on huge collections
-      //   - sort by createdAt desc (uses the new compound index)
-      const patientsQuery = PatientRegistration.find(query)
-        .select(LIST_PROJECTION)
-        .sort({ createdAt: -1 })
-        .lean({ getters: false })
-        .allowDiskUse(true);
-      if (effectiveSkip > 0) patientsQuery.skip(effectiveSkip);
-      if (limit > 0) patientsQuery.limit(limit);
+      //   - digit & identifier searches are relevance-ranked through an aggregation
+      //     (matchPriority 0/1/2) so exact id matches always surface on page 1
+      let patients;
+      if (searchMode === "digits" || searchMode === "identifier") {
+        // Fields that count as "identifier" hits for ranking. Digits mode excludes
+        // invoiceNumber because invoices never match in that mode (see search build above).
+        const idFields = searchMode === "digits" ? ["emrNumber"] : ["emrNumber", "invoiceNumber"];
+        const exactCheck = (field) => ({
+          $or: rankPatterns.map((p) => ({
+            $regexMatch: {
+              input: { $ifNull: ["$" + field, ""] },
+              regex: "^" + p + "$",
+              options: "i",
+            },
+          })),
+        });
+        const containsCheck = (field) => ({
+          $or: rankPatterns.map((p) => ({
+            $regexMatch: {
+              input: { $ifNull: ["$" + field, ""] },
+              regex: p,
+              options: "i",
+            },
+          })),
+        });
+        const pipeline = [
+          { $match: query },
+          {
+            $addFields: {
+              __mp: {
+                $cond: [
+                  { $or: idFields.map((f) => exactCheck(f)) },
+                  0,
+                  {
+                    $cond: [
+                      { $or: idFields.map((f) => containsCheck(f)) },
+                      1,
+                      2,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          { $sort: { __mp: 1, createdAt: -1 } },
+          ...(effectiveSkip > 0 ? [{ $skip: effectiveSkip }] : []),
+          ...(limit > 0 ? [{ $limit: limit }] : []),
+          { $project: LIST_PROJECTION },
+        ];
+        // Ranked page + accurate total in parallel; count cache only serves filter-free lists
+        const [rankedPatients, matchCount] = await Promise.all([
+          PatientRegistration.aggregate(pipeline).allowDiskUse(true),
+          PatientRegistration.countDocuments(query).allowDiskUse(true),
+        ]);
+        patients = rankedPatients;
+        totalCount = matchCount;
+      } else {
+        // Standard find query for text searches and unfiltered lists (sort by createdAt desc)
+        const patientsQuery = PatientRegistration.find(query)
+          .select(LIST_PROJECTION)
+          .sort({ createdAt: -1 })
+          .lean({ getters: false })
+          .allowDiskUse(true);
+        if (effectiveSkip > 0) patientsQuery.skip(effectiveSkip);
+        if (limit > 0) patientsQuery.limit(limit);
 
-      // Run count and data fetch in parallel (only fetch count if not cached)
-      const dbCalls = [patientsQuery];
-      if (totalCount === null) {
-        dbCalls.push(PatientRegistration.countDocuments(query).allowDiskUse(true));
-      }
-
-      const results = await Promise.all(dbCalls);
-      const patients = results[0];
-      if (totalCount === null) {
-        totalCount = results[1];
-        if (noExtraFilters) {
-          countCache.set(countCacheKey, { count: totalCount, ts: Date.now() });
+        // Run count and data fetch in parallel (only fetch count if not cached)
+        const dbCalls = [patientsQuery];
+        if (totalCount === null) {
+          dbCalls.push(PatientRegistration.countDocuments(query).allowDiskUse(true));
+        }
+        const results = await Promise.all(dbCalls);
+        patients = results[0];
+        if (totalCount === null) {
+          totalCount = results[1];
+          if (noExtraFilters) {
+            countCache.set(countCacheKey, { count: totalCount, ts: Date.now() });
+          }
         }
       }
 
