@@ -54,9 +54,13 @@ const LeadSchema = new mongoose.Schema(
       enum: [
         "New",
         "Contacted",
+        "Engaged", // ✅ add
+        "Qualified", // ✅ add
         "Booked",
+        "Confirmed", // ✅ add
         "Visited",
         "Follow-up",
+        "No-show", // ✅ add
         "Not Interested",
         "Other",
       ],

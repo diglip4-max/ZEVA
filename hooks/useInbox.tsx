@@ -77,7 +77,7 @@ const useInbox = () => {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const patientId = searchParams.get("patientId");
-  console.log({ patientId });
+  const leadId = searchParams.get("leadId");
   const { providers: providersData } = useProvider();
   const providers = React.useMemo(
     () => (providersData || []).filter((p) => !p.type.includes("email")),
@@ -166,6 +166,37 @@ const useInbox = () => {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [isUpdatingLead, setIsUpdatingLead] = useState<boolean>(false);
+  const [leadStatus, setLeadStatus] = useState<string>("");
+
+  const handleLeadStatusChange = async (status: string) => {
+    setLeadStatus(status);
+    try {
+      const { data } = await axios.patch(
+        `/api/lead-ms/update-lead/${selectedConversation?.leadId?._id}`,
+        { status },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data.success) {
+        // Update local state
+        const updatedConversation = {
+          ...selectedConversation,
+          leadId: {
+            ...(selectedConversation?.leadId || {}),
+            status,
+          },
+        };
+        setSelectedConversation(updatedConversation as any);
+      }
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    if (selectedConversation?.leadId?.status) {
+      setLeadStatus(selectedConversation.leadId.status);
+    } else {
+      setLeadStatus("");
+    }
+  }, [selectedConversation?.leadId?.status]);
 
   const handleEditLead = (field: string, value: string) => {
     setEditingField(field);
@@ -1256,13 +1287,19 @@ const useInbox = () => {
     }
   };
 
-  const handleCreateConversationByPatient = async (patientId: string) => {
+  const handleCreateConversationByLeadOrPatient = async ({
+    leadId,
+    patientId,
+  }: {
+    leadId: string;
+    patientId: string;
+  }) => {
     if (!token) return;
     try {
       setIsCreatingConversation(true);
       const { data } = await axios.post(
         `/api/conversations/create-conversation`,
-        { patientId },
+        { leadId, patientId },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (data && data?.success && data?.conversation) {
@@ -1276,10 +1313,13 @@ const useInbox = () => {
   };
 
   useEffect(() => {
-    if (patientId && !selectedConversation) {
-      handleCreateConversationByPatient(patientId);
+    if ((leadId || patientId) && !selectedConversation) {
+      handleCreateConversationByLeadOrPatient({
+        leadId: leadId || "",
+        patientId: patientId || "",
+      });
     }
-  }, [patientId, selectedConversation]);
+  }, [leadId, patientId, selectedConversation]);
 
   // select agents by default based on selected conversation
   useEffect(() => {
@@ -1634,6 +1674,8 @@ const useInbox = () => {
     isUpdatingLead,
 
     isCreatingConversation,
+
+    leadStatus,
   };
 
   return {
@@ -1690,6 +1732,7 @@ const useInbox = () => {
     cancelEditLead,
     handleUpdateLead,
     handleRefreshConversations,
+    handleLeadStatusChange,
   };
 };
 

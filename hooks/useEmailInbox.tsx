@@ -14,6 +14,8 @@ import useAgents from "@/hooks/useAgents";
 import { User } from "@/types/users";
 import useTags from "@/hooks/useTags";
 import toast from "react-hot-toast";
+import { useSearchParams } from "next/navigation";
+import useLead from "./useLead";
 
 export type EmailFolderKey =
   | "all"
@@ -117,6 +119,11 @@ export type Attachment = {
 
 export default function useEmailInbox() {
   const token = getTokenByPath();
+  const searchParams = useSearchParams();
+  const patientId = searchParams.get("patientId");
+  const queryLeadId = searchParams.get("leadId");
+  const leadDetail =
+    useLead({ leadId: queryLeadId || "" })?.state?.lead || null;
   const { emailProviders } = useProvider();
   const { state: agentsState } = useAgents({ role: "" });
   const { agents, loading: agentFetchLoading } = agentsState;
@@ -169,7 +176,7 @@ export default function useEmailInbox() {
     body: "",
     providerId: "",
     conversationId: undefined,
-    leadId: undefined,
+    leadId: queryLeadId || undefined,
   });
   const [drafts, setDrafts] = useState<ComposeDraft[]>([]); // local-only, see notes above
   const [sending, setSending] = useState(false);
@@ -203,15 +210,17 @@ export default function useEmailInbox() {
     [emailProviders, compose.providerId],
   );
 
-  const leadId = useMemo(() => {
-    if (selectedConversation?.leadId?._id)
-      return selectedConversation.leadId._id;
-    if (selectedMessage) {
-      const msg = selectedMessage as any;
-      return msg?.recipientId?._id;
-    }
-    return "";
-  }, [selectedConversation, selectedMessage]);
+  const leadId =
+    useMemo(() => {
+      if (queryLeadId) return queryLeadId;
+      if (selectedConversation?.leadId?._id)
+        return selectedConversation.leadId._id;
+      if (selectedMessage) {
+        const msg = selectedMessage as any;
+        return msg?.recipientId?._id;
+      }
+      return "";
+    }, [selectedConversation, selectedMessage, queryLeadId]) || "";
 
   const { tags, setTags } = useTags({ leadId });
 
@@ -694,11 +703,11 @@ export default function useEmailInbox() {
     } else {
       setCompose({
         from: selectedProvider?.email || "",
-        to: "",
+        to: (leadDetail?.email as string) || "",
         subject: "",
         body: "",
         conversationId: undefined,
-        leadId: undefined,
+        leadId: queryLeadId || undefined,
         providerId: selectedProvider?._id || "",
       });
     }
@@ -942,6 +951,45 @@ export default function useEmailInbox() {
   // Effects
   // --------------------------------------------------------------------------
 
+  const handleCreateConversationByLeadOrPatient = async ({
+    leadId,
+    patientId,
+  }: {
+    leadId: string;
+    patientId: string;
+  }) => {
+    if (!token) return;
+    try {
+      // setIsCreatingConversation(true);
+      const { data } = await axios.post(
+        `/api/conversations/create-conversation`,
+        { leadId, patientId },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      console.log({ data });
+      if (data && data?.success && data?.conversation) {
+        setSelectedConversation(data?.conversation);
+        setCompose((prev) => ({
+          ...prev,
+          conversationId: data?.conversation?._id || "",
+        }));
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      // setIsCreatingConversation(false);
+    }
+  };
+
+  useEffect(() => {
+    if ((queryLeadId || patientId) && !selectedConversation) {
+      handleCreateConversationByLeadOrPatient({
+        leadId: queryLeadId || "",
+        patientId: patientId || "",
+      });
+    }
+  }, [queryLeadId, patientId, selectedConversation]);
+
   useEffect(() => {
     currentPageRef.current = 1;
     setHasMoreMessages(true);
@@ -957,6 +1005,12 @@ export default function useEmailInbox() {
     filterProviderId,
     fetchEmailMessagesImmediate,
   ]);
+
+  useEffect(() => {
+    if (leadDetail && leadDetail?.email) {
+      startCompose("new");
+    }
+  }, [leadDetail]);
 
   const loadMoreEmailMessages = () => {
     if (!hasMoreMessages || fetchMsgsLoading) return;
