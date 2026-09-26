@@ -49,6 +49,14 @@ const ZevaIntelligence = ({ zevaIntelligenceData }: Props) => {
     return { text: `${arrow} ${Math.abs(changePercent)}%`, color };
   };
 
+  // When previousWeek is 0, use currentWeek count as the percentage
+  // instead of the API's inflated changePercent (100/133/etc.)
+  const getEffectivePercent = (metric: WeekMetric | undefined): number => {
+    if (!metric) return 0;
+    if (metric.previousWeek === 0 && metric.currentWeek > 0) return metric.currentWeek;
+    return metric.changePercent;
+  };
+
   // For metrics where value > 0 = green ↑, value = 0 = red ↓
   const renderValueIndicator = (currentValue: number) => {
     if (currentValue > 0) {
@@ -57,10 +65,10 @@ const ZevaIntelligence = ({ zevaIntelligenceData }: Props) => {
     return { text: '↓ 0%', color: 'text-red-600' };
   };
 
-  const revenueChange = renderChange(revenue?.changePercent || 0);
-  const newPatientsChange = renderChange(newPatients?.changePercent || 0);
-  const repeatVisitsChange = renderChange(repeatVisits?.changePercent || 0);
-  const noShowsChange = renderChange(noShows?.changePercent || 0, true); // invert: up=bad, down=good
+  const revenueChange = renderChange(getEffectivePercent(revenue));
+  const newPatientsChange = renderChange(getEffectivePercent(newPatients));
+  const repeatVisitsChange = renderChange(getEffectivePercent(repeatVisits));
+  const noShowsChange = renderChange(getEffectivePercent(noShows), true); // invert: up=bad, down=good
   const appointmentBookedIndicator = renderValueIndicator(appointmentBooked?.currentWeek || 0);
   const demandExceedingIndicator = renderValueIndicator(demandExceeding?.currentWeek || 0);
   return (

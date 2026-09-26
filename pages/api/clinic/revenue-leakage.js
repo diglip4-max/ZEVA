@@ -72,10 +72,14 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date
+    // 3. Parse date (legacy single `date` or `startDate`/`endDate` range;
+    //    a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
     // ── Load service price map for unbilled valuation ──
     const allServices = await Service.find({ clinicId: clinicObjectId }).select("_id price clinicPrice name").lean();
@@ -87,7 +91,7 @@ export default async function handler(req, res) {
       serviceNameMap[sid] = svc.name;
     }
 
-    // ── Get all appointments for selected date ──
+    // ── Get all appointments for the selected date range ──
     const todayAppointments = await Appointment.find({
       clinicId: clinicObjectId,
       startDate: { $gte: dayStart, $lte: dayEnd },
@@ -204,11 +208,14 @@ export default async function handler(req, res) {
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // 3. MISSED REBOOKING: rescheduled yesterday, not booked today
+    // 3. MISSED REBOOKING: rescheduled in the previous period (same
+    //    duration as the selected range, immediately before it), not
+    //    booked in the current period. A single-day range reproduces
+    //    the legacy "rescheduled yesterday, not booked today" exactly.
     // ════════════════════════════════════════════════════════════════════
-    const prevDate = new Date(targetDate);
-    prevDate.setUTCDate(prevDate.getUTCDate() - 1);
-    const { start: prevDayStart, end: prevDayEnd } = getDayRange(prevDate);
+    const prevRangeMs = dayEnd.getTime() - dayStart.getTime();
+    const prevDayEnd = new Date(dayStart.getTime() - 1);
+    const prevDayStart = new Date(prevDayEnd.getTime() - prevRangeMs);
 
     const yesterdayRescheduled = await Appointment.find({
       clinicId: clinicObjectId,
@@ -218,7 +225,7 @@ export default async function handler(req, res) {
 
     const rescheduledPatientIds = new Set(yesterdayRescheduled.map((a) => a.patientId?.toString()));
 
-    // Check which rescheduled patients have appointments today
+    // Check which rescheduled patients have appointments in the selected range
     const todayPatientIds = new Set(todayAppointments.map((a) => a.patientId?.toString()));
 
     const missedRebookingPatients = [];
@@ -381,7 +388,10 @@ export default async function handler(req, res) {
     // Calculate percentages relative to the highest funnel step value
     const allCounts = [leadCount, bookingCount, visitCount, treatmentCount, packageCount, repeatVisitCount];
     const maxCount = Math.max(...allCounts, 1); // at least 1 to avoid division by zero
-    const getPercent = (value) => Math.round((value / maxCount) * 100);
+    const getPercent = (value) => {
+      if (maxCount <= 1) return value; // avoid showing 100% for a single item
+      return Math.round((value / maxCount) * 100);
+    };
 
     // Status breakdown for booking
     const statusCounts = {};

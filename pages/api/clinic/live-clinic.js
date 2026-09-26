@@ -59,20 +59,27 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // Parse date filter — use selected date or today
-    const dateStr = req.query.date;
-    let filterDate;
-    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      filterDate = new Date(`${dateStr}T00:00:00.000Z`);
-    } else {
-      filterDate = new Date();
-    }
+    // Parse date filter — legacy single `date` or a `startDate`/`endDate`
+    // range (defaults to today; a one-sided input collapses to that day)
+    const parseDateInput = (dateStr) => {
+      if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const d = new Date(`${dateStr}T00:00:00.000Z`);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      return null;
+    };
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const requestedDate = parseDateInput(req.query.date);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const rangeStartDate = fromDate || targetDate;
+    const rangeEndDate = toDate || targetDate;
 
     const dayStart = new Date(
-      Date.UTC(filterDate.getUTCFullYear(), filterDate.getUTCMonth(), filterDate.getUTCDate(), 0, 0, 0, 0)
+      Date.UTC(rangeStartDate.getUTCFullYear(), rangeStartDate.getUTCMonth(), rangeStartDate.getUTCDate(), 0, 0, 0, 0)
     );
     const dayEnd = new Date(
-      Date.UTC(filterDate.getUTCFullYear(), filterDate.getUTCMonth(), filterDate.getUTCDate(), 23, 59, 59, 999)
+      Date.UTC(rangeEndDate.getUTCFullYear(), rangeEndDate.getUTCMonth(), rangeEndDate.getUTCDate(), 23, 59, 59, 999)
     );
 
     // Current time in HH:MM 24-hour format for delayed appointment comparison

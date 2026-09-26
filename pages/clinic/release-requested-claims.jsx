@@ -31,6 +31,18 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+// Uploaded files are saved under public/uploads and must be fetched through
+// the /api/uploads/... route (pages/api/uploads/[[...path]].js) so they are
+// served in production as well; direct /uploads/... static paths only work locally.
+// Absolute URLs (e.g. Cloudinary) are kept as-is.
+const resolveUploadUrl = (url) => {
+  if (!url) return url || "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/api/uploads/")) return url;
+  if (url.startsWith("/uploads/")) return `/api/uploads/${url.slice("/uploads/".length)}`;
+  return url;
+};
+
 // URL-based role detection — no cross-role token scanning
 const getUserInfo = () => {
   if (typeof window === "undefined") return { role: null, id: null };
@@ -1557,13 +1569,13 @@ function ReleaseRequestedClaimsPage() {
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-gray-500">Insurance Card</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
-                              {viewModal.insuranceCardFile.toLowerCase().endsWith(".pdf") ? (
+                              {resolveUploadUrl(viewModal.insuranceCardFile).toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.insuranceCardFile} alt="Card" className="w-full h-full object-contain" />
+                                <img src={resolveUploadUrl(viewModal.insuranceCardFile)} alt="Card" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.insuranceCardFile, name: "Insurance Card" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.insuranceCardFile), name: "Insurance Card" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
@@ -1572,13 +1584,13 @@ function ReleaseRequestedClaimsPage() {
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-gray-500">Table of Benefits</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
-                              {viewModal.tableOfBenefitsFile.toLowerCase().endsWith(".pdf") ? (
+                              {resolveUploadUrl(viewModal.tableOfBenefitsFile).toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.tableOfBenefitsFile} alt="Benefits" className="w-full h-full object-contain" />
+                                <img src={resolveUploadUrl(viewModal.tableOfBenefitsFile)} alt="Benefits" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.tableOfBenefitsFile, name: "Table of Benefits" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.tableOfBenefitsFile), name: "Table of Benefits" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
@@ -1587,13 +1599,13 @@ function ReleaseRequestedClaimsPage() {
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-gray-500">EMRI Front</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
-                              {viewModal.emriFrontPhoto.toLowerCase().endsWith(".pdf") ? (
+                              {resolveUploadUrl(viewModal.emriFrontPhoto).toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.emriFrontPhoto} alt="EMRI Front" className="w-full h-full object-contain" />
+                                <img src={resolveUploadUrl(viewModal.emriFrontPhoto)} alt="EMRI Front" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.emriFrontPhoto, name: "EMRI Front" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.emriFrontPhoto), name: "EMRI Front" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
@@ -1602,13 +1614,13 @@ function ReleaseRequestedClaimsPage() {
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-gray-500">EMRI Back</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
-                              {viewModal.emriBackPhoto.toLowerCase().endsWith(".pdf") ? (
+                              {resolveUploadUrl(viewModal.emriBackPhoto).toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.emriBackPhoto} alt="EMRI Back" className="w-full h-full object-contain" />
+                                <img src={resolveUploadUrl(viewModal.emriBackPhoto)} alt="EMRI Back" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.emriBackPhoto, name: "EMRI Back" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.emriBackPhoto), name: "EMRI Back" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
@@ -1617,13 +1629,13 @@ function ReleaseRequestedClaimsPage() {
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-gray-500">Attachment</p>
                             <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-32 group">
-                              {viewModal.attachment.toLowerCase().endsWith(".pdf") ? (
+                              {resolveUploadUrl(viewModal.attachment).toLowerCase().endsWith(".pdf") ? (
                                 <div className="flex items-center justify-center h-full"><FileText className="w-8 h-8 text-gray-400" /></div>
                               ) : (
-                                <img src={viewModal.attachment} alt="Attachment" className="w-full h-full object-contain" />
+                                <img src={resolveUploadUrl(viewModal.attachment)} alt="Attachment" className="w-full h-full object-contain" />
                               )}
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <button onClick={() => setPreviewFile({ url: viewModal.attachment, name: "Attachment" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
+                                <button onClick={() => setPreviewFile({ url: resolveUploadUrl(viewModal.attachment), name: "Attachment" })} className="px-3 py-1.5 bg-white text-gray-900 text-xs font-bold rounded-lg shadow-lg hover:scale-105 transition-transform">View Full</button>
                               </div>
                             </div>
                           </div>
@@ -1637,13 +1649,13 @@ function ReleaseRequestedClaimsPage() {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {viewModal.documentFiles.map((file, idx) => (
                           <div key={idx} className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50 h-24 group">
-                            {file.toLowerCase().endsWith(".pdf") ? (
+                            {resolveUploadUrl(file).toLowerCase().endsWith(".pdf") ? (
                               <div className="flex items-center justify-center h-full"><FileText className="w-6 h-6 text-gray-400" /></div>
                             ) : (
-                              <img src={file} alt={`Doc ${idx + 1}`} className="w-full h-full object-contain" />
+                              <img src={resolveUploadUrl(file)} alt={`Doc ${idx + 1}`} className="w-full h-full object-contain" />
                             )}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <button onClick={() => setPreviewFile({ url: file, name: `Document ${idx + 1}` })} className="px-2 py-1 bg-white text-gray-900 text-[10px] font-bold rounded shadow-lg hover:scale-105 transition-transform">View</button>
+                              <button onClick={() => setPreviewFile({ url: resolveUploadUrl(file), name: `Document ${idx + 1}` })} className="px-2 py-1 bg-white text-gray-900 text-[10px] font-bold rounded shadow-lg hover:scale-105 transition-transform">View</button>
                             </div>
                           </div>
                         ))}

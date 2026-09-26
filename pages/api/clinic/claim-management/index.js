@@ -53,6 +53,8 @@ const toRow = (claim, amount) => ({
   finalClaimAmount: claim.finalClaimAmount != null ? round2(claim.finalClaimAmount) : null,
   createdAt: claim.createdAt ? new Date(claim.createdAt).toLocaleDateString() : "",
   amount: round2(amount),
+  rejectionReason: claim.rejectionReason || "",
+  rejectedFromReleaseRequested: !!claim.rejectedFromReleaseRequested,
 });
 
 const emptyBucket = () => ({ count: 0, amount: 0, claims: [] });

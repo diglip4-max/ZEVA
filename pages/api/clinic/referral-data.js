@@ -57,13 +57,20 @@ export default async function handler(req, res) {
     //    Exclude empty, null, and "No" — only count patients with a real referral person name
     const referredPatients = await PatientRegistration.find({
       clinicId: clinicObjectId,
-      referredBy: { $exists: true, $ne: "", $ne: null, $ne: "No" },
+      referredBy: { $exists: true, $nin: ["", null, "No"] },
     })
-      .select("_id")
+      .select("_id firstName lastName referredBy")
       .lean();
+
+    console.log("[ReferralData] Referred patients matching query:", referredPatients.map((p) => ({
+      id: p._id.toString(),
+      name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+      referredBy: p.referredBy,
+    })));
 
     const referralPatientCount = referredPatients.length;
     const referredPatientIds = referredPatients.map((p) => p._id);
+
 
     // 4. Sum Billing.paid for those referred patients
     let referralRevenue = 0;

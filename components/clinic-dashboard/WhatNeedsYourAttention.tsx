@@ -18,6 +18,14 @@ interface Props {
       pendingAmount: number;
       treatment: string;
     }[];
+    pendingClaimAmount: number;
+    pendingClaimCount: number;
+    pendingClaimList: {
+      patientName: string;
+      insuranceProvider: string;
+      claimType: string;
+      pendingAmount: number;
+    }[];
   };
 }
 
@@ -112,10 +120,15 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
             <div className="w-2 h-2 rounded-full bg-red-600 mt-2 shrink-0"></div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg font-semibold text-gray-900">{formatCurrency(outstandingBalanceData?.totalPending || 0)} outstanding</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{formatCurrency((outstandingBalanceData?.totalPending || 0) + (outstandingBalanceData?.pendingClaimAmount || 0))} outstanding</h3>
               </div>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold text-gray-900">{outstandingBalanceData?.patientCount || 0} patient{(outstandingBalanceData?.patientCount || 0) === 1 ? "" : "s"}</span> have unpaid balances.
+                {(outstandingBalanceData?.pendingClaimAmount || 0) > 0 && (
+                  <span className="ml-2 text-orange-600 dark:text-orange-400">
+                    + {formatCurrency(outstandingBalanceData?.pendingClaimAmount || 0)} pending claims ({outstandingBalanceData?.pendingClaimCount || 0})
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -447,10 +460,18 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
             <p className="text-sm text-gray-500 mb-6">
               {outstandingBalanceData?.patientCount || 0} patient{(outstandingBalanceData?.patientCount || 0) === 1 ? "" : "s"} with unpaid balances totaling{" "}
               <span className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(outstandingBalanceData?.totalPending || 0)}</span>
+              {(outstandingBalanceData?.pendingClaimAmount || 0) > 0 && (
+                <>
+                  {" "}+ <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCurrency(outstandingBalanceData?.pendingClaimAmount || 0)}</span> pending claims ({outstandingBalanceData?.pendingClaimCount || 0})
+                </>
+              )}
             </p>
             <div className="overflow-y-auto flex-1 pr-2 custom-scrollbar">
+              {/* Billing Outstanding Table */}
               {outstandingBalanceData?.billingList && outstandingBalanceData.billingList.length > 0 ? (
-                <table className="w-full">
+                <>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Unpaid Billing</h3>
+                <table className="w-full mb-8">
                   <thead className="sticky top-0 bg-white dark:bg-bg-surface">
                     <tr className="border-b border-gray-200 dark:border-border-default">
                       <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Patient</th>
@@ -486,20 +507,85 @@ const WhatNeedsYourAttention = ({ priorityData, outstandingBalanceData }: Props)
                   </tbody>
                   <tfoot className="sticky bottom-0 bg-white dark:bg-bg-surface border-t-2 border-gray-200 dark:border-border-default">
                     <tr>
-                      <td colSpan={5} className="py-3 px-2 text-sm font-semibold text-gray-900">Total Outstanding</td>
+                      <td colSpan={5} className="py-3 px-2 text-sm font-semibold text-gray-900">Total Billing Outstanding</td>
                       <td className="py-3 px-2 text-right">
                         <span className="font-bold text-red-600 dark:text-red-400 text-base">{formatCurrency(outstandingBalanceData?.totalPending || 0)}</span>
                       </td>
                     </tr>
                   </tfoot>
                 </table>
-              ) : (
+                </>
+              ) : null}
+
+              {/* Pending Insurance Claims Table */}
+              {outstandingBalanceData?.pendingClaimList && outstandingBalanceData.pendingClaimList.length > 0 ? (
+                <>
+                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Pending Insurance Claims</h3>
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-white dark:bg-bg-surface">
+                    <tr className="border-b border-gray-200 dark:border-border-default">
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Patient</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Insurance</th>
+                      <th className="text-left py-3 px-2 text-sm font-semibold text-gray-600">Type</th>
+                      <th className="text-right py-3 px-2 text-sm font-semibold text-gray-600">Pending Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outstandingBalanceData.pendingClaimList.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-100 dark:border-border-default hover:bg-gray-50 dark:hover:bg-bg-hover transition-colors">
+                        <td className="py-3 px-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center text-orange-700 dark:text-orange-400 font-bold text-xs shrink-0">
+                              {item.patientName?.charAt(0) || "P"}
+                            </div>
+                            <span className="font-medium text-gray-900 text-sm">{item.patientName}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-2 text-sm text-gray-700">{item.insuranceProvider || "-"}</td>
+                        <td className="py-3 px-2">
+                          <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                            item.claimType === "Advance"
+                              ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400"
+                              : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400"
+                          }`}>
+                            {item.claimType || "-"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <span className="font-semibold text-orange-600 dark:text-orange-400 text-sm">{formatCurrency(item.pendingAmount)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="sticky bottom-0 bg-white dark:bg-bg-surface border-t-2 border-gray-200 dark:border-border-default">
+                    <tr>
+                      <td colSpan={3} className="py-3 px-2 text-sm font-semibold text-gray-900">Total Pending Claims</td>
+                      <td className="py-3 px-2 text-right">
+                        <span className="font-bold text-orange-600 dark:text-orange-400 text-base">{formatCurrency(outstandingBalanceData?.pendingClaimAmount || 0)}</span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+                </>
+              ) : null}
+
+              {/* Empty state when both lists are empty */}
+              {(!outstandingBalanceData?.billingList || outstandingBalanceData.billingList.length === 0) &&
+               (!outstandingBalanceData?.pendingClaimList || outstandingBalanceData.pendingClaimList.length === 0) && (
                 <div className="text-center py-12">
                   <div className={emptyStateIconClass}>
                     <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   </div>
                   <p className="text-lg font-medium text-gray-900">All clear!</p>
                   <p className="text-gray-500 mt-1">No outstanding collections for this date.</p>
+                </div>
+              )}
+
+              {/* Grand Total */}
+              {((outstandingBalanceData?.billingList?.length || 0) > 0 || (outstandingBalanceData?.pendingClaimList?.length || 0) > 0) && (
+                <div className="mt-6 pt-4 border-t-2 border-gray-200 dark:border-border-default flex justify-between items-center">
+                  <span className="text-base font-bold text-gray-900">Grand Total Outstanding</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency((outstandingBalanceData?.totalPending || 0) + (outstandingBalanceData?.pendingClaimAmount || 0))}</span>
                 </div>
               )}
             </div>

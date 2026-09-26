@@ -30,7 +30,8 @@ export default function handler(req, res) {
       '.png': 'image/png',
       '.gif': 'image/gif',
       '.webp': 'image/webp',
-      '.svg': 'image/svg+xml'
+      '.svg': 'image/svg+xml',
+      '.pdf': 'application/pdf'
     };
     
     const contentType = mimeTypes[ext] || 'application/octet-stream';

@@ -38,6 +38,7 @@ export default async function handler(req, res) {
 
     const payAmount = Number(amount);
     const currentPending = Number(claim.pendingClaim || 0);
+    const currentAdvance = Number(claim.advanceAmount || 0);
 
     if (payAmount > currentPending) {
       return res.status(400).json({
@@ -46,20 +47,29 @@ export default async function handler(req, res) {
       });
     }
 
-    // Reduce pendingClaim by paid amount
+    // Reduce pendingClaim and increase advanceAmount (mirrors create-patient-registration logic)
     const newPendingClaim = Math.max(0, currentPending - payAmount);
-    claim.pendingClaim = newPendingClaim;
+    const newAdvanceAmount = currentAdvance + payAmount;
 
-    // If fully paid, update advanceStatus to Full Pay
-    // and set advanceAmount to finalClaimAmount for Paid type claims
+    // Use findOneAndUpdate to bypass pre-save hook
+    // (pre-save forces advanceAmount=0 for Advance type, which we don't want here)
+    await InsuranceClaim.findOneAndUpdate(
+      { _id: claim._id },
+      {
+        $set: {
+          pendingClaim: newPendingClaim,
+          advanceAmount: newAdvanceAmount,
+        },
+      },
+    );
+
+    // If pending claim is fully paid, update advanceStatus to Full Pay
     if (newPendingClaim === 0) {
-      claim.advanceStatus = "Full Pay";
-      if (claim.claimType === "Paid") {
-        claim.advanceAmount = Number(claim.finalClaimAmount || claim.claimAmount || 0);
-      }
+      await InsuranceClaim.findOneAndUpdate(
+        { _id: claim._id },
+        { $set: { advanceStatus: "Full Pay" } },
+      );
     }
-
-    await claim.save();
 
     // Generate invoice number
     const now = new Date();
@@ -97,9 +107,11 @@ export default async function handler(req, res) {
       data: {
         claimId: claim._id,
         previousPendingClaim: currentPending,
+        previousAdvanceAmount: currentAdvance,
         amountPaid: payAmount,
         newPendingClaim,
-        advanceStatus: claim.advanceStatus,
+        newAdvanceAmount,
+        advanceStatus: newPendingClaim === 0 ? "Full Pay" : claim.advanceStatus,
       },
     });
   } catch (error) {

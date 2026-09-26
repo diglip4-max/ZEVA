@@ -433,10 +433,14 @@ export default async function handler(req, res) {
     }
     const clinicObjectId = resolvedClinicId;
 
-    // 4. Resolve date
+    // 4. Resolve date — legacy single `date` or `startDate`/`endDate` range
+    //    (a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
     // 5. Role scoping
     const doctorScopedRoles = ["doctorStaff", "doctor"];

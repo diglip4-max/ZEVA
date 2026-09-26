@@ -91,12 +91,16 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date
+    // 3. Parse date (legacy single `date` or `startDate`/`endDate` range;
+    //    a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
-    // 4. Get appointments for selected date FIRST (needed for new patients query)
+    // 4. Get appointments for the selected date range FIRST (needed for new patients query)
     const dayAppointments = await Appointment.find({
       clinicId: clinicObjectId,
       startDate: { $gte: dayStart, $lte: dayEnd },

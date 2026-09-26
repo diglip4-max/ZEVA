@@ -3,6 +3,7 @@ import dbConnect from "../../../lib/database";
 import Appointment from "../../../models/Appointment";
 import Billing from "../../../models/Billing";
 import PatientRegistration from "../../../models/PatientRegistration";
+import InsuranceClaim from "../../../models/InsuranceClaim";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
@@ -21,7 +22,10 @@ import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
  *       patientCount: 8,
  *       billingCount: 10,
  *       patients: [{ patientId, pendingAmount }],
- *       billingList: [{ patientName, doctorName, appointmentTime, invoiceNumber, pendingAmount, treatment }]
+ *       billingList: [{ patientName, doctorName, appointmentTime, invoiceNumber, pendingAmount, treatment }],
+ *       pendingClaimAmount: 2500,
+ *       pendingClaimCount: 3,
+ *       pendingClaimList: [{ patientName, insuranceProvider, claimType, pendingAmount }]
  *     }
  *   }
  */
@@ -98,12 +102,16 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date
+    // 3. Parse date (legacy single `date` or `startDate`/`endDate` range;
+    //    a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
-    // 4. Find all appointments for the selected date
+    // 4. Find all appointments for the selected date range
     const appointments = await Appointment.find({
       clinicId: clinicObjectId,
       startDate: { $gte: dayStart, $lte: dayEnd },
@@ -112,9 +120,34 @@ export default async function handler(req, res) {
       .lean();
 
     if (appointments.length === 0) {
+      // Still check for pending insurance claims even when no appointments exist
+      const pendingClaims = await InsuranceClaim.find({
+        clinicId: clinicObjectId,
+        pendingClaim: { $gt: 0 },
+      })
+        .select("pendingClaim patientFirstName patientLastName insuranceProvider claimType")
+        .lean();
+
+      const pendingClaimAmount = pendingClaims.reduce((sum, c) => sum + (c.pendingClaim || 0), 0);
+      const pendingClaimList = pendingClaims.map((c) => ({
+        patientName: `${c.patientFirstName || ""} ${c.patientLastName || ""}`.trim() || "Unknown Patient",
+        insuranceProvider: c.insuranceProvider || "",
+        claimType: c.claimType || "",
+        pendingAmount: c.pendingClaim || 0,
+      }));
+
       return res.status(200).json({
         success: true,
-        data: { totalPending: 0, patientCount: 0, billingCount: 0, patients: [], billingList: [] },
+        data: {
+          totalPending: 0,
+          patientCount: 0,
+          billingCount: 0,
+          patients: [],
+          billingList: [],
+          pendingClaimAmount,
+          pendingClaimCount: pendingClaims.length,
+          pendingClaimList,
+        },
       });
     }
 
@@ -189,6 +222,23 @@ export default async function handler(req, res) {
       };
     });
 
+    // 10. Aggregate all pending insurance claims for the clinic (not date-filtered;
+    //     pendingClaim is a cumulative outstanding balance)
+    const pendingClaims = await InsuranceClaim.find({
+      clinicId: clinicObjectId,
+      pendingClaim: { $gt: 0 },
+    })
+      .select("pendingClaim patientFirstName patientLastName insuranceProvider claimType")
+      .lean();
+
+    const pendingClaimAmount = pendingClaims.reduce((sum, c) => sum + (c.pendingClaim || 0), 0);
+    const pendingClaimList = pendingClaims.map((c) => ({
+      patientName: `${c.patientFirstName || ""} ${c.patientLastName || ""}`.trim() || "Unknown Patient",
+      insuranceProvider: c.insuranceProvider || "",
+      claimType: c.claimType || "",
+      pendingAmount: c.pendingClaim || 0,
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
@@ -197,6 +247,9 @@ export default async function handler(req, res) {
         billingCount: pendingBillings.length,
         patients,
         billingList,
+        pendingClaimAmount,
+        pendingClaimCount: pendingClaims.length,
+        pendingClaimList,
       },
     });
   } catch (err) {

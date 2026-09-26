@@ -240,17 +240,27 @@ export default async function handler(req, res) {
     }
     const clinicObjectId = new mongoose.Types.ObjectId(resolved.clinicId);
 
-    // 4. Resolve the target date (from query param, default to today)
+    // 4. Resolve the target date — legacy single `date` or a
+    //    `startDate`/`endDate` range (a one-sided or `date`-only input
+    //    collapses to that single day, defaulting to today)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
     const today = new Date();
     const isToday =
       targetDate.getUTCFullYear() === today.getUTCFullYear() &&
       targetDate.getUTCMonth() === today.getUTCMonth() &&
       targetDate.getUTCDate() === today.getUTCDate();
 
-    const { start: startOfTarget, end: endOfTarget } = getDayRange(targetDate);
-    const { start: startOfPrev, end: endOfPrev } = getPreviousDayRange(targetDate);
+    const startOfTarget = getDayRange(fromDate || targetDate).start;
+    const endOfTarget = getDayRange(toDate || targetDate).end;
+    // Previous comparison window: same duration as the selected range,
+    // immediately before its start (a single-day range reproduces the
+    // legacy previous-day window exactly).
+    const targetRangeMs = endOfTarget.getTime() - startOfTarget.getTime();
+    const endOfPrev = new Date(startOfTarget.getTime() - 1);
+    const startOfPrev = new Date(endOfPrev.getTime() - targetRangeMs);
 
     // 4b. Role-based scope for appointment revenue.
     // `doctorStaff` and `doctor` see only appointments booked under their own
@@ -467,7 +477,7 @@ export default async function handler(req, res) {
         ...(isDoctorScoped ? { doctorId: me._id } : {}),
         status: { $nin: SLOT_OPEN_STATUSES },
       })
-        .select("doctorId fromTime")
+        .select("doctorId fromTime startDate")
         .lean(),
 
       // 5g-3. Blocked slots for the target date. BlockedSlot records
@@ -479,7 +489,7 @@ export default async function handler(req, res) {
         isActive: { $ne: false },
         ...(isDoctorScoped ? { doctorId: me._id } : {}),
       })
-        .select("doctorId fromTime")
+        .select("doctorId fromTime startDate")
         .lean(),
 
       // 5g-4. Doctor roster (only needed when not doctor-scoped).
@@ -509,15 +519,28 @@ export default async function handler(req, res) {
     const followUpsCountFinal = Number(followUpsResult || 0);
 
     // Slot-recovery: number of (doctor, fromTime) tuples inside the
-    // clinic's operating hours on the target date that are NOT booked
-    // and NOT blocked. See the 5g block above for the full algorithm.
-    const slotRecoveryCount = computeSlotRecovery({
-      clinic: clinicDoc,
-      dateStr: startOfTarget.toISOString().slice(0, 10),
-      doctors: isDoctorScoped ? [{ _id: me._id }] : (clinicDoctors || []),
-      appointments: Array.isArray(allDayAppointments) ? allDayAppointments : [],
-      blockedSlots: Array.isArray(blockedSlots) ? blockedSlots : [],
-    });
+    // clinic's operating hours that are NOT booked and NOT blocked,
+    // summed across every day of the selected range (a single-day range
+    // reproduces the legacy single-day count). See the 5g block above
+    // for the full algorithm.
+    const slotRecoveryDates = [];
+    for (
+      let d = new Date(startOfTarget);
+      d.getTime() <= endOfTarget.getTime();
+      d = new Date(d.getTime() + 24 * 60 * 60 * 1000)
+    ) {
+      slotRecoveryDates.push(d.toISOString().slice(0, 10));
+    }
+    let slotRecoveryCount = 0;
+    for (const slotDateStr of slotRecoveryDates) {
+      slotRecoveryCount += computeSlotRecovery({
+        clinic: clinicDoc,
+        dateStr: slotDateStr,
+        doctors: isDoctorScoped ? [{ _id: me._id }] : (clinicDoctors || []),
+        appointments: Array.isArray(allDayAppointments) ? allDayAppointments : [],
+        blockedSlots: Array.isArray(blockedSlots) ? blockedSlots : [],
+      });
+    }
 
     // 7. Build a single price-lookup map (one Service query)
     const allAppointments = [...targetAppointments, ...prevAppointments];
@@ -683,17 +706,20 @@ function computeSlotRecovery({ clinic, dateStr, doctors, appointments, blockedSl
   const timeSlots = generateTimeSlots(dayTiming.startTime, dayTiming.endTime);
   if (timeSlots.length === 0) return 0;
 
-  // Build (doctorId|fromTime) sets for fast membership tests.
+  // Build (date|doctorId|fromTime) sets for fast membership tests —
+  // date-scoped so the same (doctor, time) on different days never collides.
   const bookedSet = new Set();
   for (const a of appointments) {
     if (a && a.doctorId && a.fromTime) {
-      bookedSet.add(`${a.doctorId.toString()}|${a.fromTime}`);
+      const aptDate = a.startDate ? new Date(a.startDate).toISOString().slice(0, 10) : dateStr;
+      bookedSet.add(`${aptDate}|${a.doctorId.toString()}|${a.fromTime}`);
     }
   }
   const blockedSet = new Set();
   for (const b of blockedSlots) {
     if (b && b.doctorId && b.fromTime) {
-      blockedSet.add(`${b.doctorId.toString()}|${b.fromTime}`);
+      const blkDate = b.startDate ? new Date(b.startDate).toISOString().slice(0, 10) : dateStr;
+      blockedSet.add(`${blkDate}|${b.doctorId.toString()}|${b.fromTime}`);
     }
   }
 
@@ -702,7 +728,7 @@ function computeSlotRecovery({ clinic, dateStr, doctors, appointments, blockedSl
     if (!doc || !doc._id) continue;
     const docId = doc._id.toString();
     for (const slot of timeSlots) {
-      const key = `${docId}|${slot}`;
+      const key = `${dateStr}|${docId}|${slot}`;
       if (!bookedSet.has(key) && !blockedSet.has(key)) {
         count += 1;
       }

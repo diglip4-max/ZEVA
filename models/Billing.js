@@ -308,6 +308,16 @@ const billingSchema = new mongoose.Schema(
       type: String,
       required: false,
     },
+    // Transaction ID for advance payments
+    transactionId: {
+      type: String,
+      trim: true,
+    },
+    // Payment attachment file path
+    attachment: {
+      type: String,
+      trim: true,
+    },
     // Multiple payment methods for split payments
     multiplePayments: [multiplePaymentSchema],
     paymentHistory: [paymentHistorySchema],

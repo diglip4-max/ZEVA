@@ -111,10 +111,14 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date
+    // 3. Parse date (legacy single `date` or `startDate`/`endDate` range;
+    //    a one-sided or `date`-only input collapses to that single day)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
-    const { start: dayStart, end: dayEnd } = getDayRange(targetDate);
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
+    const dayStart = getDayRange(fromDate || targetDate).start;
+    const dayEnd = getDayRange(toDate || targetDate).end;
 
     // 4. Get ALL appointments for the selected date
     const allAppointments = await Appointment.find({
@@ -203,10 +207,12 @@ export default async function handler(req, res) {
     // ── Referrals: patients with referredBy who have appointments on selected date ──
     const referredPatients = await PatientRegistration.find({
       clinicId: clinicObjectId,
-      referredBy: { $exists: true, $ne: "", $ne: null },
+      referredBy: { $exists: true, $nin: ["", null, "No"] },
     })
-      .select("_id")
+      .select("_id firstName lastName referredBy")
       .lean();
+
+   
 
     const referredPatientIds = new Set(referredPatients.map((p) => p._id.toString()));
 
@@ -216,8 +222,11 @@ export default async function handler(req, res) {
       return pid && referredPatientIds.has(pid);
     });
 
+    
+
     const referralCount = new Set(referralAppointments.map((apt) => apt.patientId?.toString())).size;
     const referralRevenue = sumBillingForAppointments(referralAppointments, billingMap);
+
 
     // ── Why Revenue Changed metrics (current day) ──
     const completedAppointments = allAppointments.filter((apt) => apt.status === "Completed");
@@ -267,10 +276,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Previous day data for comparison ──
-    const prevDate = new Date(targetDate);
-    prevDate.setUTCDate(prevDate.getUTCDate() - 1);
-    const { start: prevDayStart, end: prevDayEnd } = getDayRange(prevDate);
+    // ── Previous period for comparison: same duration as the selected
+    //    range, immediately before its start (single-day range = legacy
+    //    previous-day window exactly) ──
+    const prevRangeMs = dayEnd.getTime() - dayStart.getTime();
+    const prevDayEnd = new Date(dayStart.getTime() - 1);
+    const prevDayStart = new Date(prevDayEnd.getTime() - prevRangeMs);
 
     const prevAppointments = await Appointment.find({
       clinicId: clinicObjectId,
@@ -331,7 +342,7 @@ export default async function handler(req, res) {
     // Calculate percentage changes
     function calcChange(current, previous) {
       if (previous === 0 && current === 0) return 0;
-      if (previous === 0) return 100;
+      if (previous === 0) return current;
       return Math.round(((current - previous) / previous) * 100);
     }
 

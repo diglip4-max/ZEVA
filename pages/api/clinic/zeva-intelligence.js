@@ -81,9 +81,12 @@ export default async function handler(req, res) {
 
     const clinicObjectId = new mongoose.Types.ObjectId(clinicId.toString());
 
-    // 3. Parse date & calculate week ranges
+    // 3. Parse date & calculate week ranges — the week anchors on the
+    //    END of a `startDate`/`endDate` range (legacy single `date` unchanged)
     const requestedDate = parseDateInput(req.query.date);
-    const targetDate = requestedDate || new Date();
+    const fromDate = parseDateInput(req.query.startDate);
+    const toDate = parseDateInput(req.query.endDate);
+    const targetDate = toDate || fromDate || requestedDate || new Date();
 
     const { monday: currentMonday, sunday: currentSunday } = getWeekRange(targetDate);
     const prevMonday = new Date(currentMonday);
@@ -244,13 +247,17 @@ export default async function handler(req, res) {
     const demandExceedingChange = getPercentChange(currentCancelledPercent, previousCancelledPercent);
 
     // ════════════════════════════════════════════════════════════════════
-    // ANOMALY 1: No-show rate — compare today vs same day last week
+    // ANOMALY 1: No-show rate — the selected range vs the same window
+    // shifted 7 days earlier (a single-day selection reproduces the
+    // legacy "today vs same day last week" exactly)
     // ════════════════════════════════════════════════════════════════════
+    const anomalyStartDate = fromDate || targetDate;
+    const anomalyEndDate = toDate || targetDate;
     const dayStart = new Date(
-      Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate(), 0, 0, 0, 0)
+      Date.UTC(anomalyStartDate.getUTCFullYear(), anomalyStartDate.getUTCMonth(), anomalyStartDate.getUTCDate(), 0, 0, 0, 0)
     );
     const dayEnd = new Date(
-      Date.UTC(targetDate.getUTCFullYear(), targetDate.getUTCMonth(), targetDate.getUTCDate(), 23, 59, 59, 999)
+      Date.UTC(anomalyEndDate.getUTCFullYear(), anomalyEndDate.getUTCMonth(), anomalyEndDate.getUTCDate(), 23, 59, 59, 999)
     );
     const prevDayStart = new Date(dayStart);
     prevDayStart.setUTCDate(prevDayStart.getUTCDate() - 7);

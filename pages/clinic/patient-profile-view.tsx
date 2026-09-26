@@ -9,7 +9,7 @@ import {
   ExternalLink,
   AlertTriangle, Plus, FileImage, Wallet, ClipboardList, Send, Pill, ClipboardCheck,
   ChevronDown, Search, Loader2, Check, Camera, Image as ImageIcon, Eye, Edit2, Trash2, Paperclip,
-  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift,
+  Filter, AlertCircle as UserPlus, Calculator, Info, MapPin, Gift, Hash,
   ArrowLeftRight, Download, MoveRight
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -7311,6 +7311,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const paymentMethods = allMethods.length > 0
                                 ? allMethods.join(" + ")
                                 : (billing.paymentMethod || "–");
+                              // When claim amount fully covers the payment, show "Claim Amount" as the method
+                              const displayPaymentMethods = (Number(billing.claimAmountUsed || 0) > 0 && Number(billing.claimAmountUsed || 0) >= (billing.paid || 0)) ? "Claim Amount" : paymentMethods;
 
                               // Offer type
                               const offerType = billing.offerType || null;
@@ -7604,7 +7606,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   </td>
                                   {/* Payment Method */}
                                   <td className="px-2 py-2 whitespace-nowrap">
-                                    <span className="text-[10px] text-gray-700">{paymentMethods}</span>
+                                    <span className="text-[10px] text-gray-700">{displayPaymentMethods}</span>
                                   </td>
                                   {/* Refund Details */}
                                   <td className="px-2 py-2">
@@ -7735,6 +7737,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                               const paymentMethods = allMethods2.length > 0
                                 ? allMethods2.join(" + ")
                                 : (billing.paymentMethod || "–");
+                              // When claim amount fully covers the payment, show "Claim Amount" as the method
+                              const displayPaymentMethods = (Number(billing.claimAmountUsed || 0) > 0 && Number(billing.claimAmountUsed || 0) >= (billing.paid || 0)) ? "Claim Amount" : paymentMethods;
 
                               // Offer type
                               const offerType = billing.offerType || null;
@@ -7849,7 +7853,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                                   {/* Qty */}
                                   <td className="px-2 py-2 text-center"><span className="text-[9px] text-gray-600">{billing.quantity || 1}</span></td>
                                   {/* Method */}
-                                  <td className="px-2 py-2 whitespace-nowrap"><span className="text-[9px] text-gray-700">{paymentMethods}</span></td>
+                                  <td className="px-2 py-2 whitespace-nowrap"><span className="text-[9px] text-gray-700">{displayPaymentMethods}</span></td>
                                   {/* Refund */}
                                   <td className="px-2 py-2">
                                     {isRefunded ? (
@@ -7907,6 +7911,8 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                             const paymentMethods = allMethodsM.length > 0
                               ? allMethodsM.join(" + ")
                               : (billing.paymentMethod || "–");
+                            // When claim amount fully covers the payment, show "Claim Amount" as the method
+                            const displayPaymentMethods = (Number(billing.claimAmountUsed || 0) > 0 && Number(billing.claimAmountUsed || 0) >= (billing.paid || 0)) ? "Claim Amount" : paymentMethods;
                             const offerType = billing.offerType || null;
                             const cashbackEarnedAmt = billing.cashbackEarned || 0;
                             const cashbackEarnedFromOffer = billing.cashbackAmount || 0;
@@ -8066,7 +8072,7 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
 
                                 {/* Payment Method */}
                                 <div className="text-[10px] text-gray-500 mb-3">
-                                  <span className="font-medium">Payment:</span> {paymentMethods}
+                                  <span className="font-medium">Payment:</span> {displayPaymentMethods}
                                 </div>
 
                                 {/* View Button */}
@@ -11861,6 +11867,48 @@ const PatientProfileDashboard = ({ patientData, onClose, onPatientUpdated, permi
                     <p className="text-black dark:text-white">{selectedPaymentHistoryBilling.invoicedBy || 'N/A'}</p>
                   </div>
                 </div>
+
+                {/* Transaction ID & Payment Attachment */}
+                {(selectedPaymentHistoryBilling.transactionId || selectedPaymentHistoryBilling.attachment) && (
+                  <div className="mt-4 p-3 rounded-lg border" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 mb-2 flex items-center gap-1">
+                      <Wallet className="w-3 h-3" /> Payment Details
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedPaymentHistoryBilling.transactionId && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+                            <Hash className="w-3 h-3" /> Transaction ID
+                          </p>
+                          <p className="text-xs font-mono font-bold text-gray-800 mt-0.5">{selectedPaymentHistoryBilling.transactionId}</p>
+                        </div>
+                      )}
+                      {selectedPaymentHistoryBilling.attachment && (
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+                            <Paperclip className="w-3 h-3" /> Payment Attachment
+                          </p>
+                          <a
+                            href={selectedPaymentHistoryBilling.attachment}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 mt-0.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 underline underline-offset-2"
+                          >
+                            <Paperclip className="w-3 h-3" /> View Attachment
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Paid via Insurance Claim banner */}
+                {Number(selectedPaymentHistoryBilling.claimAmountUsed || 0) > 0 && Number(selectedPaymentHistoryBilling.claimAmountUsed || 0) >= Number(selectedPaymentHistoryBilling.paid || 0) && (
+                  <div className="mt-3 p-3 rounded-lg border flex items-center gap-2" style={{ backgroundColor: '#eff6ff', borderColor: '#93c5fd' }}>
+                    <span className="text-sm">🏥</span>
+                    <p style={{ fontSize: '11px', fontWeight: 700, color: '#1e40af' }}>Paid using Insurance Claim Amount</p>
+                  </div>
+                )}
 
                 {/* Package/Treatment Info */}
                 {(selectedPaymentHistoryBilling.package || selectedPaymentHistoryBilling.treatment) && (

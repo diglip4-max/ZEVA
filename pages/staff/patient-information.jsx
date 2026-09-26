@@ -1196,6 +1196,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [isClinicContext, setIsClinicContext] = useState(false);
   const pageSize = 12;
   const skipPageEffectRef = useRef(false);
+  // Monotonic request counter guarding against out-of-order responses:
+  // typing "9" then "99" fires two requests, and the slower "9" response must
+  // never overwrite the fresher "99" results.
+  const latestFetchRef = useRef(0);
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -1501,6 +1505,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       return;
     }
     setLoading(true);
+    const requestId = ++latestFetchRef.current;
     try {
       // Build query params - search + pagination
       const params = new URLSearchParams();
@@ -1512,6 +1517,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 
       const apiEndpoint = `/api/clinic/patient-information?${params.toString()}`;
       const { data } = await axios.get(apiEndpoint, { headers });
+      // Ignore stale responses: a newer search/page request has superseded this one
+      if (requestId !== latestFetchRef.current) return;
       setPatients(data.success ? data.data : []);
       if (data.pagination) {
         setPaginationMeta({
@@ -1646,11 +1653,12 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 
   useEffect(() => { fetchPatients(); }, [routeContext]);
 
-  // Debounce search query (reduced from 300ms for faster perceived response)
+  // Debounce search query: long enough that intermediate keystroke states
+  // ("9" while typing "99") don't fire requests, short enough to feel instant
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 150);
+    }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
@@ -1829,9 +1837,12 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           return;
         }
         setLoading(true);
+        const refreshRequestId = ++latestFetchRef.current;
         try {
           const apiEndpoint = `/api/clinic/patient-information?${refreshParams.toString()}`;
           const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
+          // Ignore stale responses: a newer search/page request has superseded this one
+          if (refreshRequestId !== latestFetchRef.current) return;
           setPatients(data.success ? data.data : []);
           if (data.pagination) {
             setPaginationMeta({
@@ -1848,6 +1859,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               corrParams.set("page", String(newTotalPages));
               corrParams.set("pageSize", String(pageSize));
               const corrRes = await axios.get(`/api/clinic/patient-information?${corrParams.toString()}`, { headers: refreshHeaders });
+              if (refreshRequestId !== latestFetchRef.current) return;
               if (corrRes.data?.success) {
                 setPatients(corrRes.data.data);
                 if (corrRes.data.pagination) {

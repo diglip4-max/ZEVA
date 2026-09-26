@@ -225,10 +225,11 @@ export default async function handler(req, res) {
       // Co-pay deduction only applies when Patient Pays
       let effectiveAmount;
       if (pendingAmt === 0) {
-        // Fully paid: use finalClaimAmount as base to avoid double-applying co-pay
-        const totalAmount = Number(c.finalClaimAmount || c.claimAmount || 0);
-        const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(totalAmount * coPayPct / 100) : 0;
-        effectiveAmount = Math.round(totalAmount - coPayDeduction);
+        // Fully paid: co-pay is based on claimAmount (original claim), not finalClaimAmount
+        // finalClaimAmount already includes the co-pay amount (claimAmount + coPay)
+        const baseClaimAmount = Number(c.claimAmount || 0);
+        const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(baseClaimAmount * coPayPct / 100) : 0;
+        effectiveAmount = Math.round(advanceAmt - coPayDeduction);
       } else {
         // Partially paid: deduct co-pay from advanceAmount
         const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(advanceAmt * coPayPct / 100) : 0;
