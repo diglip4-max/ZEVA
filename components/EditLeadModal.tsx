@@ -1,12 +1,9 @@
-// components/CreateLeadModal.tsx
+// components/EditLeadModal.tsx
 import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import {
   X,
   User,
-  Phone,
-  Mail,
-  Cake,
   Stethoscope,
   Globe,
   Tag,
@@ -14,9 +11,8 @@ import {
   CalendarClock,
   Users,
   Layers,
-  Sparkles,
+  Pencil,
   Loader2,
-  CheckCircle2,
 } from "lucide-react";
 import CustomAsyncSelect, { OptionType } from "./shared/CustomAsyncSelect";
 import { loadSegmentOptions } from "@/lib/helper";
@@ -75,15 +71,42 @@ const COUNTRY_CODES = [
   { code: "+996", name: "Kyrgyzstan", flag: "🇰🇬" },
 ];
 
-// ============ SHARED CLASSES (match LeadViewModal aesthetic) ============
+// ============ SHARED STYLES (identical to LeadViewModal) ============
 const CARD =
   "rounded-xl border border-slate-200/80 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900/60";
 
 const CONTROL =
-  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/10 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200 dark:placeholder:text-slate-500 dark:hover:border-slate-600 dark:focus:border-teal-400 dark:focus:ring-teal-400/10";
+  "w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-800 transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:border-slate-600 dark:focus:border-teal-400 dark:focus:ring-teal-400/20";
 
 const LABEL =
-  "mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400";
+  "mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-300";
+
+// ============ SECTION TITLE (same as LeadViewModal) ============
+function SectionTitle({
+  icon,
+  title,
+  count,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count?: number;
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300">
+        {icon}
+      </span>
+      <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+        {title}
+      </h4>
+      {typeof count === "number" && count > 0 && (
+        <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ============ COUNTRY PHONE INPUT ============
 const CountryPhoneInput = ({
@@ -122,13 +145,11 @@ const CountryPhoneInput = ({
 
   return (
     <div className="relative w-full">
-      <div
-        className={`flex items-stretch overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-all focus-within:border-teal-500 focus-within:ring-4 focus-within:ring-teal-500/10 dark:border-slate-700 dark:bg-slate-800/60 dark:focus-within:border-teal-400 dark:focus-within:ring-teal-400/10`}
-      >
+      <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-200 bg-white transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800/60 dark:focus-within:border-teal-400 dark:focus-within:ring-teal-400/20">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1.5 border-r border-slate-200 bg-slate-50 px-2.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          className="flex items-center gap-1.5 border-r border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
           aria-haspopup="listbox"
           aria-expanded={open}
         >
@@ -152,7 +173,7 @@ const CountryPhoneInput = ({
             onPhoneChange(sanitized);
           }}
           inputMode="numeric"
-          className="flex-1 bg-transparent px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100 dark:placeholder:text-slate-500"
+          className="flex-1 bg-transparent px-2.5 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none dark:text-slate-100 dark:placeholder:text-slate-500"
           placeholder="Enter phone number"
         />
       </div>
@@ -160,17 +181,17 @@ const CountryPhoneInput = ({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 mt-2 max-h-64 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40">
+          <div className="absolute z-20 mt-1 max-h-60 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-900/10 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/40">
             <div className="border-b border-slate-100 p-2 dark:border-slate-800">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search country or code"
-                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               />
             </div>
-            <ul role="listbox" className="max-h-52 overflow-y-auto py-1">
+            <ul role="listbox" className="max-h-48 overflow-y-auto py-1">
               {options.map((c, idx) => (
                 <li
                   key={`${c.code}-${c.name}-${idx}`}
@@ -180,9 +201,9 @@ const CountryPhoneInput = ({
                     setOpen(false);
                     setQuery("");
                   }}
-                  className={`flex cursor-pointer items-center gap-2.5 px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                  className={`flex cursor-pointer items-center gap-2.5 px-3 py-1.5 text-xs hover:bg-slate-50 dark:hover:bg-slate-800 ${
                     c.code === selected?.code
-                      ? "bg-teal-50 font-semibold text-teal-700 dark:bg-teal-500/10 dark:text-teal-300"
+                      ? "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300"
                       : "text-slate-700 dark:text-slate-300"
                   }`}
                 >
@@ -201,51 +222,24 @@ const CountryPhoneInput = ({
   );
 };
 
-// ============ SECTION TITLE ============
-function SectionTitle({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="mb-3 flex items-start gap-2">
-      <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20">
-        {icon}
-      </span>
-      <div>
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            {subtitle}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ============ PROPS ============
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onUpdated: () => void;
   token: string;
-  canCreate?: boolean;
+  lead: any; // lead object from table/grid
+  canUpdate?: boolean;
 }
 
 // ============ MAIN COMPONENT ============
-export default function CreateLeadModal({
+export default function EditLeadModal({
   isOpen,
   onClose,
-  onCreated,
+  onUpdated,
   token,
-  canCreate: propCanCreate,
+  lead,
+  canUpdate = true,
 }: Props) {
   const [formData, setFormData] = useState({
     name: "",
@@ -272,83 +266,118 @@ export default function CreateLeadModal({
   const [noteType, setNoteType] = useState("");
   const [customNote, setCustomNote] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
-  const [internalCanCreate, setInternalCanCreate] = useState(false);
-  const canCreate =
-    propCanCreate !== undefined ? propCanCreate : internalCanCreate;
   const [selectedSegment, setSelectedSegment] = useState<OptionType | null>(
     null,
   );
 
-  useEffect(() => {
-    if (!isOpen) return;
+  // ============ SPLIT PHONE ============
+  const splitPhone = (fullPhone: string): { code: string; local: string } => {
+    if (!fullPhone) return { code: "+91", local: "" };
+    const cleaned = String(fullPhone).replace(/[^\d+]/g, "");
+    const sorted = [...COUNTRY_CODES].sort(
+      (a, b) => b.code.length - a.code.length,
+    );
+    for (const c of sorted) {
+      if (cleaned.startsWith(c.code)) {
+        return { code: c.code, local: cleaned.slice(c.code.length) };
+      }
+    }
+    const digits = cleaned.replace(/[^\d]/g, "");
+    return { code: "+91", local: digits };
+  };
 
-    const isTrue = (value: any) => {
-      if (value === true) return true;
-      if (value === "true") return true;
-      if (String(value).toLowerCase() === "true") return true;
-      return false;
-    };
+  // ============ HYDRATE FORM ============
+  useEffect(() => {
+    if (!isOpen || !lead) return;
+
+    const { code, local } = splitPhone(lead.phone || "");
+
+    const mappedTreatments = (lead.treatments || [])
+      .map((t: any) => {
+        const treatmentName = t?.treatment?.name || t?.treatment || "";
+        if (!treatmentName) return null;
+        return {
+          treatment: String(treatmentName),
+          subTreatment: t?.subTreatment || null,
+        };
+      })
+      .filter(Boolean);
+
+    const mappedAssigned = (lead.assignedTo || [])
+      .map((a: any) => {
+        if (!a) return null;
+        if (typeof a === "string") return a;
+        if (a?.user?._id) return String(a.user._id);
+        if (a?.user) return String(a.user);
+        return null;
+      })
+      .filter(Boolean);
+
+    const latestFollowUp = (lead.followUps || [])[0]?.date;
+    if (latestFollowUp) {
+      const d = new Date(latestFollowUp);
+      if (!Number.isNaN(d.getTime())) {
+        const iso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+          .toISOString()
+          .slice(0, 16);
+        setFollowUpDate(iso);
+      }
+    } else {
+      setFollowUpDate("");
+    }
+
+    const lastNote = (lead.notes || [])[lead.notes?.length - 1];
+    if (lastNote?.text) {
+      setNoteType("Custom");
+      setCustomNote(lastNote.text);
+    } else {
+      setNoteType("");
+      setCustomNote("");
+    }
+
+    const seg = lead.segments?.[0];
+    if (seg && typeof seg === "object" && seg._id && seg.name) {
+      setSelectedSegment({ label: seg.name, value: String(seg._id) });
+    } else {
+      setSelectedSegment(null);
+    }
+
+    setFormData({
+      name: lead.name || "",
+      phone: local,
+      countryCode: code,
+      email: lead.email || "",
+      gender: lead.gender || "Male",
+      age: lead.age ? String(lead.age) : "",
+      treatments: mappedTreatments as any,
+      source: lead.source || "Instagram",
+      offerTag: lead.offerTag || "",
+      status: lead.status || "New",
+      notes: [],
+      customSource: lead.customSource || "",
+      customStatus: lead.customStatus || "",
+      followUps: [],
+      assignedTo: mappedAssigned as string[],
+    });
+  }, [isOpen, lead]);
+
+  // ============ FETCH DROPDOWNS ============
+  useEffect(() => {
+    if (!isOpen || !token) return;
 
     const fetchData = async () => {
       try {
-        const [permissionsRes, treatmentsRes, agentsRes, offersRes] =
-          await Promise.all([
-            axios.get("/api/clinic/permissions", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            axios.get("/api/lead-ms/get-clinic-treatment", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            axios.get("/api/lead-ms/assign-lead", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-            axios.get("/api/lead-ms/get-create-offer", {
-              headers: { Authorization: `Bearer ${token}` },
-            }),
-          ]);
-
-        const permissionsData = permissionsRes.data;
-        if (permissionsData.success && permissionsData.data) {
-          const modulePermission = permissionsData.data.permissions?.find(
-            (p: any) => {
-              if (!p?.module) return false;
-              const moduleKey = p.module || "";
-              const normalizedModule = moduleKey.replace(
-                /^(admin|clinic|doctor|agent)_/,
-                "",
-              );
-              return (
-                normalizedModule === "lead" ||
-                normalizedModule === "create_lead" ||
-                moduleKey === "clinic_lead" ||
-                moduleKey === "clinic_create_lead" ||
-                moduleKey === "create_lead" ||
-                moduleKey === "lead"
-              );
-            },
-          );
-          if (modulePermission) {
-            const actions = modulePermission.actions || {};
-            const createLeadSubModule = modulePermission.subModules?.find(
-              (sm: any) =>
-                sm.name === "Create Lead" ||
-                sm.name?.toLowerCase() === "create lead",
-            );
-            const moduleAll = isTrue(actions.all);
-            const moduleCreate = isTrue(actions.create);
-            const createLeadAll = isTrue(createLeadSubModule?.actions?.all);
-            const createLeadCreate = isTrue(
-              createLeadSubModule?.actions?.create,
-            );
-            setInternalCanCreate(
-              moduleAll || moduleCreate || createLeadAll || createLeadCreate,
-            );
-          } else {
-            setInternalCanCreate(false);
-          }
-        } else {
-          setInternalCanCreate(false);
-        }
+        const [treatmentsRes, agentsRes, offersRes] = await Promise.all([
+          axios.get("/api/lead-ms/get-clinic-treatment", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get("/api/lead-ms/assign-lead", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get("/api/lead-ms/get-create-offer", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
         setTreatments(
           Array.isArray(treatmentsRes.data?.treatments)
@@ -361,41 +390,14 @@ export default function CreateLeadModal({
           : [];
         setActiveOffers(list.filter((o: any) => o.status === "active"));
       } catch (err) {
-        console.error("Error fetching data:", err);
-        setInternalCanCreate(false);
+        console.error("Error fetching edit modal data:", err);
       }
     };
 
     fetchData();
   }, [isOpen, token]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        countryCode: "+91",
-        gender: "Male",
-        age: "",
-        treatments: [],
-        source: "Instagram",
-        offerTag: "",
-        status: "New",
-        notes: [],
-        customSource: "",
-        customStatus: "",
-        followUps: [],
-        assignedTo: [],
-      });
-      setNoteType("");
-      setCustomNote("");
-      setFollowUpDate("");
-      setSelectedSegment(null);
-    }
-  }, [isOpen]);
-
-  // Escape + body lock
+  // ============ ESC + BODY LOCK ============
   useEffect(() => {
     if (!isOpen) return undefined;
     const onKey = (e: KeyboardEvent) => {
@@ -410,6 +412,7 @@ export default function CreateLeadModal({
     };
   }, [isOpen, onClose]);
 
+  // ============ HANDLERS ============
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
@@ -470,8 +473,12 @@ export default function CreateLeadModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!canCreate) {
-      alert("You do not have permission to create leads");
+    if (!canUpdate) {
+      alert("You do not have permission to update leads");
+      return;
+    }
+    if (!lead?._id) {
+      alert("Lead id missing");
       return;
     }
 
@@ -490,40 +497,34 @@ export default function CreateLeadModal({
     try {
       const selectedNote = noteType === "Custom" ? customNote.trim() : noteType;
       const notesToSend = selectedNote ? [{ text: selectedNote }] : [];
-      const followUpsToSend = followUpDate
-        ? [...formData.followUps, { date: followUpDate, addedBy: null }]
-        : formData.followUps;
 
-      await axios.post(
-        "/api/lead-ms/create-lead",
+      // ✅ leadId is now in URL, NOT in body
+      await axios.put(
+        `/api/lead-ms/update-lead/${lead._id}`,
         {
           ...formData,
           phone: `${formData.countryCode}${formData.phone.replace(/^0+/, "")}`,
           notes: notesToSend,
-          followUps: followUpsToSend,
-          mode: "manual",
+          followUps: followUpDate ? [{ date: followUpDate }] : [],
           segmentId: selectedSegment?.value,
         },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
-      alert("Lead added successfully!");
-      onCreated();
+      alert("Lead updated successfully!");
+      onUpdated();
       onClose();
     } catch (err) {
       console.error(err);
       const errorMessage =
-        (err as any)?.response?.data?.message || "Error adding lead";
+        (err as any)?.response?.data?.message || "Error updating lead";
       alert(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
-
-  const phoneValid = formData.phone.replace(/\D/g, "").length >= 5;
-  const emailValid = !formData.email || isValidEmail(formData.email);
+  if (!isOpen || !lead) return null;
 
   return (
     <div
@@ -531,7 +532,7 @@ export default function CreateLeadModal({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Create lead"
+      aria-label="Edit lead"
     >
       <div
         className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl shadow-slate-900/25 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/60"
@@ -541,18 +542,18 @@ export default function CreateLeadModal({
         <div className="h-1 flex-shrink-0 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
 
         {/* ============ HEADER ============ */}
-        <div className="relative flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="relative flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white px-5 py-5 dark:border-slate-800 dark:bg-slate-900">
           <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-teal-300/25 blur-3xl dark:bg-teal-500/15" />
           <div className="relative flex items-start gap-4">
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-lg shadow-teal-700/25 ring-4 ring-white dark:ring-slate-900">
-              <Sparkles className="h-5 w-5" />
+            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-teal-700 text-white shadow-lg shadow-slate-900/15 ring-4 ring-white dark:ring-slate-900">
+              <Pencil className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                Create New Lead
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Fill in the details below to add a new lead to your pipeline
+              <h3 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                Edit Lead
+              </h3>
+              <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+                {lead.name ? `Updating ${lead.name}` : "Update lead details"}
               </p>
             </div>
             <button
@@ -570,7 +571,7 @@ export default function CreateLeadModal({
         <form
           onSubmit={handleSubmit}
           className="flex min-h-0 flex-1 flex-col"
-          id="create-lead-form"
+          id="edit-lead-form"
         >
           <div className="flex-1 space-y-4 overflow-y-auto p-5">
             {/* ---------- BASIC INFORMATION ---------- */}
@@ -578,13 +579,12 @@ export default function CreateLeadModal({
               <SectionTitle
                 icon={<User className="h-3.5 w-3.5" />}
                 title="Basic Information"
-                subtitle="Name, contact and demographics"
               />
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <div>
                   <label className={LABEL}>
-                    Name <span className="text-rose-500">*</span>
+                    Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -598,7 +598,7 @@ export default function CreateLeadModal({
                 </div>
                 <div>
                   <label className={LABEL}>
-                    Phone <span className="text-rose-500">*</span>
+                    Phone <span className="text-red-500">*</span>
                   </label>
                   <CountryPhoneInput
                     countryCode={formData.countryCode}
@@ -619,14 +619,14 @@ export default function CreateLeadModal({
                       setFormData((prev) => ({ ...prev, phone: sanitized }));
                     }}
                   />
-                  {formData.phone.length > 0 && !phoneValid && (
-                    <p className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                      Phone number seems too short
-                    </p>
-                  )}
-                  {phoneValid && (
-                    <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
+                  {formData.phone.length > 0 &&
+                    formData.phone.replace(/\D/g, "").length < 5 && (
+                      <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
+                        Phone number seems too short
+                      </p>
+                    )}
+                  {formData.phone.replace(/\D/g, "").length >= 5 && (
+                    <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">
                       Valid phone number
                     </p>
                   )}
@@ -641,26 +641,24 @@ export default function CreateLeadModal({
                     className={CONTROL}
                     placeholder="Enter email address"
                   />
-                  {formData.email.length > 0 && !emailValid && (
-                    <p className="mt-1 text-[10px] font-medium text-rose-500">
-                      Invalid email format
-                    </p>
-                  )}
-                  {formData.email.length > 0 && emailValid && (
-                    <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Valid email
-                    </p>
-                  )}
+                  {formData.email.length > 0 &&
+                    !isValidEmail(formData.email) && (
+                      <p className="mt-1 text-[10px] text-rose-500">
+                        Invalid email format
+                      </p>
+                    )}
+                  {formData.email.length > 0 &&
+                    isValidEmail(formData.email) && (
+                      <p className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                        Valid email
+                      </p>
+                    )}
                 </div>
               </div>
 
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div>
-                  <label className={LABEL}>
-                    <Cake className="mr-1 inline h-3 w-3" />
-                    Gender
-                  </label>
+                  <label className={LABEL}>Gender</label>
                   <select
                     name="gender"
                     value={formData.gender}
@@ -681,8 +679,6 @@ export default function CreateLeadModal({
                     onChange={handleChange}
                     className={CONTROL}
                     placeholder="e.g. 32"
-                    min={0}
-                    max={150}
                   />
                 </div>
               </div>
@@ -693,15 +689,11 @@ export default function CreateLeadModal({
               <SectionTitle
                 icon={<Stethoscope className="h-3.5 w-3.5" />}
                 title="Treatments"
-                subtitle={
-                  formData.treatments.length > 0
-                    ? `${formData.treatments.length} selected`
-                    : "Select treatments of interest"
-                }
+                count={formData.treatments.length}
               />
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 dark:border-slate-700 dark:bg-slate-800/30">
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/70 p-2.5 dark:border-slate-700 dark:bg-slate-800/30">
                 {treatments.length === 0 ? (
-                  <p className="py-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                  <p className="py-2 text-center text-xs text-slate-500 dark:text-slate-400">
                     No treatments available
                   </p>
                 ) : (
@@ -765,7 +757,6 @@ export default function CreateLeadModal({
               <SectionTitle
                 icon={<Globe className="h-3.5 w-3.5" />}
                 title="Lead Details"
-                subtitle="Source, status and offer"
               />
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -782,6 +773,7 @@ export default function CreateLeadModal({
                     <option value="Google">Google</option>
                     <option value="WhatsApp">WhatsApp</option>
                     <option value="Walk-in">Walk-in</option>
+                    <option value="Website">Website</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -811,9 +803,13 @@ export default function CreateLeadModal({
                   >
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
+                    <option value="Engaged">Engaged</option>
+                    <option value="Qualified">Qualified</option>
                     <option value="Booked">Booked</option>
+                    <option value="Confirmed">Confirmed</option>
                     <option value="Visited">Visited</option>
                     <option value="Follow-up">Follow-up</option>
+                    <option value="No-show">No-show</option>
                     <option value="Not Interested">Not Interested</option>
                     <option value="Other">Other</option>
                   </select>
@@ -855,12 +851,11 @@ export default function CreateLeadModal({
               </div>
             </div>
 
-            {/* ---------- ADDITIONAL INFO ---------- */}
+            {/* ---------- ADDITIONAL INFORMATION ---------- */}
             <div className={CARD}>
               <SectionTitle
                 icon={<StickyNote className="h-3.5 w-3.5" />}
                 title="Additional Information"
-                subtitle="Notes, follow-up and assignment"
               />
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -951,40 +946,34 @@ export default function CreateLeadModal({
           </div>
 
           {/* ============ FOOTER ============ */}
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900">
-            <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="text-rose-500">*</span>
-              Required fields
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !canCreate}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-teal-500 to-teal-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/25 ring-1 ring-inset ring-white/10 transition-all hover:from-teal-500 hover:to-teal-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                title={
-                  !canCreate ? "You do not have permission to create leads" : ""
-                }
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Create Lead
-                  </>
-                )}
-              </button>
-            </div>
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading || !canUpdate}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-teal-500 to-teal-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/25 ring-1 ring-inset ring-white/10 transition-all hover:from-teal-500 hover:to-teal-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              title={
+                !canUpdate ? "You do not have permission to edit leads" : ""
+              }
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Pencil className="h-3.5 w-3.5" />
+                  Update Lead
+                </>
+              )}
+            </button>
           </div>
         </form>
       </div>
