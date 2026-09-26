@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import EditLeadModal from "@/components/EditLeadModal";
+import { ModalPortal } from "@/lib/modalPortal";
 
 // ============ TYPES ============
 interface Treatment {
@@ -2145,103 +2146,105 @@ const LeadsPage: NextPageWithLayout = () => {
 
         {/* Reassign Modal */}
         {selectedLead && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md"
-            onClick={closeReassign}
-          >
+          <ModalPortal>
             <div
-              className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/50"
-              onClick={(e) => e.stopPropagation()}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md"
+              onClick={closeReassign}
             >
-              <div className="h-1 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
-              <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-md shadow-teal-700/30">
-                    <RefreshCw className="h-5 w-5" />
+              <div
+                className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/50"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="h-1 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-md shadow-teal-700/30">
+                      <RefreshCw className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                        Reassign lead
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {reassignTarget
+                          ? reassignTarget.name
+                          : "Choose an agent and follow-up"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeReassign}
+                    aria-label="Close"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-5 p-6">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Agent <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={selectedAgent}
+                      onChange={(e) => setSelectedAgent(e.target.value)}
+                      className={`${CONTROL} w-full cursor-pointer px-3 py-2.5 text-sm`}
+                    >
+                      <option value="" disabled>
+                        Choose an agent...
+                      </option>
+                      {agents.map((a) => (
+                        <option key={a._id} value={a._id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedAgent && (
+                      <div className="mt-2 flex items-center gap-2 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {agents.find((a) => a._id === selectedAgent)?.name}
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                      Reassign lead
-                    </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {reassignTarget
-                        ? reassignTarget.name
-                        : "Choose an agent and follow-up"}
-                    </p>
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Follow-up date{" "}
+                      <span className="font-normal text-slate-400">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={followUpDate}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      className={`${CONTROL} w-full px-3 py-2.5 text-sm dark:[color-scheme:dark]`}
+                    />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={closeReassign}
-                  aria-label="Close"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
 
-              <div className="space-y-5 p-6">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Agent <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={selectedAgent}
-                    onChange={(e) => setSelectedAgent(e.target.value)}
-                    className={`${CONTROL} w-full cursor-pointer px-3 py-2.5 text-sm`}
+                <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/30">
+                  <button
+                    type="button"
+                    onClick={closeReassign}
+                    className={BTN_SECONDARY}
                   >
-                    <option value="" disabled>
-                      Choose an agent...
-                    </option>
-                    {agents.map((a) => (
-                      <option key={a._id} value={a._id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedAgent && (
-                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {agents.find((a) => a._id === selectedAgent)?.name}
-                    </div>
-                  )}
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void assignLead()}
+                    disabled={!selectedAgent}
+                    className={BTN_PRIMARY}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Reassign
+                  </button>
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Follow-up date{" "}
-                    <span className="font-normal text-slate-400">
-                      (optional)
-                    </span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={followUpDate}
-                    onChange={(e) => setFollowUpDate(e.target.value)}
-                    className={`${CONTROL} w-full px-3 py-2.5 text-sm dark:[color-scheme:dark]`}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/30">
-                <button
-                  type="button"
-                  onClick={closeReassign}
-                  className={BTN_SECONDARY}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void assignLead()}
-                  disabled={!selectedAgent}
-                  className={BTN_PRIMARY}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Reassign
-                </button>
               </div>
             </div>
-          </div>
+          </ModalPortal>
         )}
 
         {viewLead && (

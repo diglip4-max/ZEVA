@@ -16,6 +16,8 @@ import {
   Hourglass,
   Cake,
 } from "lucide-react";
+import { useRouter } from "next/router";
+import { ModalPortal } from "@/lib/modalPortal";
 
 const STATUS_STYLES = {
   New: "bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:ring-slate-500/20",
@@ -122,6 +124,7 @@ function SectionTitle({ icon, title, count }) {
 }
 
 export default function LeadViewModal({ lead, onClose }) {
+  const router = useRouter()
   // Close on Escape + lock body scroll while open
   useEffect(() => {
     if (!lead) return undefined;
@@ -188,315 +191,346 @@ export default function LeadViewModal({ lead, onClose }) {
   const waNumber = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-md sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Lead details"
-    >
+    <ModalPortal>
       <div
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl shadow-slate-900/25 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/60"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-md sm:p-4"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Lead details"
       >
-        <div className="h-1 flex-shrink-0 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
+        <div
+          className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl shadow-slate-900/25 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/60"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="h-1 flex-shrink-0 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
 
-        {/* Header */}
-        <div className="relative flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white px-5 py-5 dark:border-slate-800 dark:bg-slate-900">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-teal-300/25 blur-3xl dark:bg-teal-500/15" />
-          <div className="relative flex items-start gap-4">
-            <div
-              className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${getAvatarColor(lead.name)} text-lg font-bold text-white shadow-lg shadow-slate-900/15 ring-4 ring-white dark:ring-slate-900`}
-            >
-              {getInitials(lead.name)}
+          {/* Header */}
+          <div className="relative flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white px-5 py-5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-teal-300/25 blur-3xl dark:bg-teal-500/15" />
+            <div className="relative flex items-start gap-4">
+              <div
+                className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${getAvatarColor(lead.name)} text-lg font-bold text-white shadow-lg shadow-slate-900/15 ring-4 ring-white dark:ring-slate-900`}
+              >
+                {getInitials(lead.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                    {lead.name || "Unnamed lead"}
+                  </h3>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusClass}`}
+                  >
+                    {lead.status || "New"}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+                  {lead.phone && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5" />
+                      {lead.phone}
+                    </span>
+                  )}
+                  {lead.email && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5" />
+                      {lead.email}
+                    </span>
+                  )}
+                  {lead.createdAt && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Added {formatDate(lead.createdAt, { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="truncate text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                  {lead.name || "Unnamed lead"}
-                </h3>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ring-inset ${statusClass}`}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 space-y-4 overflow-y-auto p-5">
+            {/* Facts */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <Field icon={<User className="h-3.5 w-3.5" />} label="Gender">
+                {lead.gender || "—"}
+              </Field>
+              <Field icon={<Cake className="h-3.5 w-3.5" />} label="Age">
+                {lead.age || "—"}
+              </Field>
+              <Field icon={<Globe className="h-3.5 w-3.5" />} label="Source">
+                {lead.source ? (
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    {lead.source}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Field>
+              <Field icon={<Tag className="h-3.5 w-3.5" />} label="Offer tag">
+                {lead.offerTag ? (
+                  <span className="inline-flex items-center rounded-md bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20">
+                    {lead.offerTag}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Field>
+            </div>
+
+            {/* Treatments + Assigned */}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className={CARD}>
+                <SectionTitle
+                  icon={<Stethoscope className="h-3.5 w-3.5" />}
+                  title="Treatments"
+                  count={treatments.length}
+                />
+                {treatments.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {treatments.map((t, i) => (
+                      <span
+                        key={`${t.main}-${i}`}
+                        className="inline-flex flex-col rounded-lg bg-slate-100 px-2.5 py-1.5 dark:bg-slate-800"
+                      >
+                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                          {t.main}
+                        </span>
+                        {t.parent && (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {t.parent}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    No treatment selected
+                  </p>
+                )}
+              </div>
+
+              <div className={CARD}>
+                <SectionTitle
+                  icon={<Users className="h-3.5 w-3.5" />}
+                  title="Assigned to"
+                  count={assigned.length}
+                />
+                {assigned.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {assigned.map((name, i) => (
+                      <span
+                        key={`${name}-${i}`}
+                        className="inline-flex items-center gap-2 rounded-full bg-slate-100 py-1 pl-1 pr-3 dark:bg-slate-800"
+                      >
+                        <span
+                          className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${getAvatarColor(name)} text-[9px] font-bold text-white`}
+                        >
+                          {getInitials(name)}
+                        </span>
+                        <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                          {name}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-slate-400 dark:text-slate-500">
+                    Unassigned
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className={CARD}>
+              <SectionTitle
+                icon={<StickyNote className="h-3.5 w-3.5" />}
+                title="Notes"
+                count={notes.length}
+              />
+              {notes.length > 0 ? (
+                <ul className="space-y-2">
+                  {notes.map((n, i) => {
+                    const by = getAddedBy(n.addedBy);
+                    return (
+                      <li
+                        key={i}
+                        className="rounded-lg border-l-2 border-teal-500 bg-slate-50 px-3 py-2 dark:bg-slate-800/50"
+                      >
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                          {n.text}
+                        </p>
+                        {(by || n.createdAt) && (
+                          <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                            {by}
+                            {by && n.createdAt ? " · " : ""}
+                            {n.createdAt &&
+                              formatDate(n.createdAt, {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400 dark:text-slate-500">No notes yet</p>
+              )}
+            </div>
+
+            {/* Follow-ups */}
+            <div className={CARD}>
+              <SectionTitle
+                icon={<CalendarClock className="h-3.5 w-3.5" />}
+                title="Follow-ups"
+                count={followUps.length}
+              />
+              {followUps.length > 0 ? (
+                <div className="space-y-2">
+                  {followUps.map((f, i) => {
+                    const tone = f.isToday
+                      ? {
+                        wrap: "border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-500/10",
+                        icon: "text-sky-600 dark:text-sky-300",
+                        title: "text-sky-900 dark:text-sky-100",
+                        pill: "bg-sky-200 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200",
+                        label: "Today",
+                      }
+                      : f.isPast
+                        ? {
+                          wrap: "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40",
+                          icon: "text-slate-400 dark:text-slate-500",
+                          title: "text-slate-600 dark:text-slate-300",
+                          pill: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
+                          label: "Past",
+                        }
+                        : {
+                          wrap: "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10",
+                          icon: "text-emerald-600 dark:text-emerald-300",
+                          title: "text-emerald-900 dark:text-emerald-100",
+                          pill: "bg-emerald-200 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
+                          label: "Upcoming",
+                        };
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-start gap-3 rounded-xl border p-3 ${tone.wrap}`}
+                      >
+                        <span className={`mt-0.5 flex-shrink-0 ${tone.icon}`}>
+                          {f.isPast ? (
+                            <CheckCircle2 className="h-5 w-5" />
+                          ) : (
+                            <Hourglass className="h-5 w-5" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className={`text-sm font-semibold ${tone.title}`}>
+                              {f.dateStr}
+                            </p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.pill}`}
+                            >
+                              {tone.label}
+                            </span>
+                          </div>
+                          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {f.timeStr}
+                            </span>
+                            {f.addedBy && <span>· Added by {f.addedBy}</span>}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  No follow-ups scheduled
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              {phoneDigits && (
+                <>
+                  <button
+                    onClick={() => {
+                      if (
+                        router.pathname?.includes("/clinic/")
+                      ) {
+                        router.push(
+                          `/clinic/inbox?leadId=${lead._id}`,
+                        );
+                      } else if (
+                        router.pathname?.includes("/staff/")
+                      ) {
+                        router.push(
+                          `/staff/clinic_inbox?leadId=${lead._id}`,
+                        );
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Send WhatsApp
+                  </button>
+                </>
+              )}
+              {
+                lead?.email &&
+                <button
+                  onClick={() => {
+                    if (
+                      router.pathname?.includes("/clinic/")
+                    ) {
+                      router.push(
+                        `/clinic/email-inbox?leadId=${lead._id}`,
+                      );
+                    } else if (
+                      router.pathname?.includes("/staff/")
+                    ) {
+                      router.push(
+                        `/staff/clinic_email_inbox?leadId=${lead._id}`,
+                      );
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 shadow-sm transition-all hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300 dark:hover:bg-red-500/20"
                 >
-                  {lead.status || "New"}
-                </span>
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                {lead.phone && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Phone className="h-3.5 w-3.5" />
-                    {lead.phone}
-                  </span>
-                )}
-                {lead.email && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5" />
-                    {lead.email}
-                  </span>
-                )}
-                {lead.createdAt && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    Added {formatDate(lead.createdAt, { day: "numeric", month: "short", year: "numeric" })}
-                  </span>
-                )}
-              </div>
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  Send Email
+                </button>
+              }
             </div>
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-teal-500 to-teal-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/25 ring-1 ring-inset ring-white/10 transition-all hover:from-teal-500 hover:to-teal-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/30"
             >
-              <X className="h-4 w-4" />
+              Close
             </button>
           </div>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {/* Facts */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Field icon={<User className="h-3.5 w-3.5" />} label="Gender">
-              {lead.gender || "—"}
-            </Field>
-            <Field icon={<Cake className="h-3.5 w-3.5" />} label="Age">
-              {lead.age || "—"}
-            </Field>
-            <Field icon={<Globe className="h-3.5 w-3.5" />} label="Source">
-              {lead.source ? (
-                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  {lead.source}
-                </span>
-              ) : (
-                "—"
-              )}
-            </Field>
-            <Field icon={<Tag className="h-3.5 w-3.5" />} label="Offer tag">
-              {lead.offerTag ? (
-                <span className="inline-flex items-center rounded-md bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-500/20">
-                  {lead.offerTag}
-                </span>
-              ) : (
-                "—"
-              )}
-            </Field>
-          </div>
-
-          {/* Treatments + Assigned */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className={CARD}>
-              <SectionTitle
-                icon={<Stethoscope className="h-3.5 w-3.5" />}
-                title="Treatments"
-                count={treatments.length}
-              />
-              {treatments.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {treatments.map((t, i) => (
-                    <span
-                      key={`${t.main}-${i}`}
-                      className="inline-flex flex-col rounded-lg bg-slate-100 px-2.5 py-1.5 dark:bg-slate-800"
-                    >
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                        {t.main}
-                      </span>
-                      {t.parent && (
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {t.parent}
-                        </span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 dark:text-slate-500">
-                  No treatment selected
-                </p>
-              )}
-            </div>
-
-            <div className={CARD}>
-              <SectionTitle
-                icon={<Users className="h-3.5 w-3.5" />}
-                title="Assigned to"
-                count={assigned.length}
-              />
-              {assigned.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {assigned.map((name, i) => (
-                    <span
-                      key={`${name}-${i}`}
-                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 py-1 pl-1 pr-3 dark:bg-slate-800"
-                    >
-                      <span
-                        className={`flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br ${getAvatarColor(name)} text-[9px] font-bold text-white`}
-                      >
-                        {getInitials(name)}
-                      </span>
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
-                        {name}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs italic text-slate-400 dark:text-slate-500">
-                  Unassigned
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div className={CARD}>
-            <SectionTitle
-              icon={<StickyNote className="h-3.5 w-3.5" />}
-              title="Notes"
-              count={notes.length}
-            />
-            {notes.length > 0 ? (
-              <ul className="space-y-2">
-                {notes.map((n, i) => {
-                  const by = getAddedBy(n.addedBy);
-                  return (
-                    <li
-                      key={i}
-                      className="rounded-lg border-l-2 border-teal-500 bg-slate-50 px-3 py-2 dark:bg-slate-800/50"
-                    >
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                        {n.text}
-                      </p>
-                      {(by || n.createdAt) && (
-                        <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                          {by}
-                          {by && n.createdAt ? " · " : ""}
-                          {n.createdAt &&
-                            formatDate(n.createdAt, {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                        </p>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-xs text-slate-400 dark:text-slate-500">No notes yet</p>
-            )}
-          </div>
-
-          {/* Follow-ups */}
-          <div className={CARD}>
-            <SectionTitle
-              icon={<CalendarClock className="h-3.5 w-3.5" />}
-              title="Follow-ups"
-              count={followUps.length}
-            />
-            {followUps.length > 0 ? (
-              <div className="space-y-2">
-                {followUps.map((f, i) => {
-                  const tone = f.isToday
-                    ? {
-                      wrap: "border-sky-200 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-500/10",
-                      icon: "text-sky-600 dark:text-sky-300",
-                      title: "text-sky-900 dark:text-sky-100",
-                      pill: "bg-sky-200 text-sky-800 dark:bg-sky-500/20 dark:text-sky-200",
-                      label: "Today",
-                    }
-                    : f.isPast
-                      ? {
-                        wrap: "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40",
-                        icon: "text-slate-400 dark:text-slate-500",
-                        title: "text-slate-600 dark:text-slate-300",
-                        pill: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
-                        label: "Past",
-                      }
-                      : {
-                        wrap: "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10",
-                        icon: "text-emerald-600 dark:text-emerald-300",
-                        title: "text-emerald-900 dark:text-emerald-100",
-                        pill: "bg-emerald-200 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
-                        label: "Upcoming",
-                      };
-                  return (
-                    <div
-                      key={i}
-                      className={`flex items-start gap-3 rounded-xl border p-3 ${tone.wrap}`}
-                    >
-                      <span className={`mt-0.5 flex-shrink-0 ${tone.icon}`}>
-                        {f.isPast ? (
-                          <CheckCircle2 className="h-5 w-5" />
-                        ) : (
-                          <Hourglass className="h-5 w-5" />
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className={`text-sm font-semibold ${tone.title}`}>
-                            {f.dateStr}
-                          </p>
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tone.pill}`}
-                          >
-                            {tone.label}
-                          </span>
-                        </div>
-                        <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {f.timeStr}
-                          </span>
-                          {f.addedBy && <span>· Added by {f.addedBy}</span>}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                No follow-ups scheduled
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-2">
-            {phoneDigits && (
-              <>
-                <a
-                  href={`tel:${lead.phone}`}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                >
-                  <Phone className="h-3.5 w-3.5" />
-                  Call
-                </a>
-                <a
-                  href={`https://wa.me/${waNumber}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-semibold text-emerald-700 shadow-sm transition-all hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  WhatsApp
-                </a>
-              </>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-teal-500 to-teal-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/25 ring-1 ring-inset ring-white/10 transition-all hover:from-teal-500 hover:to-teal-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/30"
-          >
-            Close
-          </button>
-        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

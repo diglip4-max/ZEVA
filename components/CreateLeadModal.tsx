@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import CustomAsyncSelect, { OptionType } from "./shared/CustomAsyncSelect";
 import { loadSegmentOptions } from "@/lib/helper";
+import { ModalPortal } from "@/lib/modalPortal";
 
 // ============ COUNTRY CODES ============
 const COUNTRY_CODES = [
@@ -526,468 +527,478 @@ export default function CreateLeadModal({
   const emailValid = !formData.email || isValidEmail(formData.email);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-md sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Create lead"
-    >
+    <ModalPortal>
       <div
-        className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl shadow-slate-900/25 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/60"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-md sm:p-4"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create lead"
       >
-        {/* Top gradient bar */}
-        <div className="h-1 flex-shrink-0 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
-
-        {/* ============ HEADER ============ */}
-        <div className="relative flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-teal-300/25 blur-3xl dark:bg-teal-500/15" />
-          <div className="relative flex items-start gap-4">
-            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-lg shadow-teal-700/25 ring-4 ring-white dark:ring-slate-900">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                Create New Lead
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Fill in the details below to add a new lead to your pipeline
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* ============ BODY ============ */}
-        <form
-          onSubmit={handleSubmit}
-          className="flex min-h-0 flex-1 flex-col"
-          id="create-lead-form"
+        <div
+          className="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl shadow-slate-900/25 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/60"
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex-1 space-y-4 overflow-y-auto p-5">
-            {/* ---------- BASIC INFORMATION ---------- */}
-            <div className={CARD}>
-              <SectionTitle
-                icon={<User className="h-3.5 w-3.5" />}
-                title="Basic Information"
-                subtitle="Name, contact and demographics"
-              />
+          {/* Top gradient bar */}
+          <div className="h-1 flex-shrink-0 bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500" />
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <div>
-                  <label className={LABEL}>
-                    Name <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className={CONTROL}
-                    placeholder="Enter full name"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>
-                    Phone <span className="text-rose-500">*</span>
-                  </label>
-                  <CountryPhoneInput
-                    countryCode={formData.countryCode}
-                    phone={formData.phone}
-                    onCountryChange={(code) => {
-                      setFormData((prev) => {
-                        let localNum = prev.phone;
-                        if (localNum.startsWith(prev.countryCode)) {
-                          localNum = localNum.slice(prev.countryCode.length);
-                        } else {
-                          localNum = localNum.replace(/^\+\d+/, "");
-                        }
-                        return { ...prev, countryCode: code, phone: localNum };
-                      });
-                    }}
-                    onPhoneChange={(val) => {
-                      const sanitized = val.replace(/[^\d]/g, "");
-                      setFormData((prev) => ({ ...prev, phone: sanitized }));
-                    }}
-                  />
-                  {formData.phone.length > 0 && !phoneValid && (
-                    <p className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                      Phone number seems too short
-                    </p>
-                  )}
-                  {phoneValid && (
-                    <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Valid phone number
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className={LABEL}>Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={CONTROL}
-                    placeholder="Enter email address"
-                  />
-                  {formData.email.length > 0 && !emailValid && (
-                    <p className="mt-1 text-[10px] font-medium text-rose-500">
-                      Invalid email format
-                    </p>
-                  )}
-                  {formData.email.length > 0 && emailValid && (
-                    <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Valid email
-                    </p>
-                  )}
-                </div>
+          {/* ============ HEADER ============ */}
+          <div className="relative flex-shrink-0 overflow-hidden border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-teal-300/25 blur-3xl dark:bg-teal-500/15" />
+            <div className="relative flex items-start gap-4">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white shadow-lg shadow-teal-700/25 ring-4 ring-white dark:ring-slate-900">
+                <Sparkles className="h-5 w-5" />
               </div>
-
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className={LABEL}>
-                    <Cake className="mr-1 inline h-3 w-3" />
-                    Gender
-                  </label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleChange}
-                    className={CONTROL}
-                  >
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL}>Age</label>
-                  <input
-                    type="number"
-                    name="age"
-                    value={formData.age}
-                    onChange={handleChange}
-                    className={CONTROL}
-                    placeholder="e.g. 32"
-                    min={0}
-                    max={150}
-                  />
-                </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                  Create New Lead
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Fill in the details below to add a new lead to your pipeline
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
+          </div>
 
-            {/* ---------- TREATMENTS ---------- */}
-            <div className={CARD}>
-              <SectionTitle
-                icon={<Stethoscope className="h-3.5 w-3.5" />}
-                title="Treatments"
-                subtitle={
-                  formData.treatments.length > 0
-                    ? `${formData.treatments.length} selected`
-                    : "Select treatments of interest"
-                }
-              />
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 dark:border-slate-700 dark:bg-slate-800/30">
-                {treatments.length === 0 ? (
-                  <p className="py-3 text-center text-xs text-slate-400 dark:text-slate-500">
-                    No treatments available
-                  </p>
-                ) : (
-                  treatments.map((t: any, i: number) => (
-                    <div
-                      key={i}
-                      className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
+          {/* ============ BODY ============ */}
+          <form
+            onSubmit={handleSubmit}
+            className="flex min-h-0 flex-1 flex-col"
+            id="create-lead-form"
+          >
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              {/* ---------- BASIC INFORMATION ---------- */}
+              <div className={CARD}>
+                <SectionTitle
+                  icon={<User className="h-3.5 w-3.5" />}
+                  title="Basic Information"
+                  subtitle="Name, contact and demographics"
+                />
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div>
+                    <label className={LABEL}>
+                      Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className={CONTROL}
+                      placeholder="Enter full name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL}>
+                      Phone <span className="text-rose-500">*</span>
+                    </label>
+                    <CountryPhoneInput
+                      countryCode={formData.countryCode}
+                      phone={formData.phone}
+                      onCountryChange={(code) => {
+                        setFormData((prev) => {
+                          let localNum = prev.phone;
+                          if (localNum.startsWith(prev.countryCode)) {
+                            localNum = localNum.slice(prev.countryCode.length);
+                          } else {
+                            localNum = localNum.replace(/^\+\d+/, "");
+                          }
+                          return {
+                            ...prev,
+                            countryCode: code,
+                            phone: localNum,
+                          };
+                        });
+                      }}
+                      onPhoneChange={(val) => {
+                        const sanitized = val.replace(/[^\d]/g, "");
+                        setFormData((prev) => ({ ...prev, phone: sanitized }));
+                      }}
+                    />
+                    {formData.phone.length > 0 && !phoneValid && (
+                      <p className="mt-1 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        Phone number seems too short
+                      </p>
+                    )}
+                    {phoneValid && (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Valid phone number
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={LABEL}>Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className={CONTROL}
+                      placeholder="Enter email address"
+                    />
+                    {formData.email.length > 0 && !emailValid && (
+                      <p className="mt-1 text-[10px] font-medium text-rose-500">
+                        Invalid email format
+                      </p>
+                    )}
+                    {formData.email.length > 0 && emailValid && (
+                      <p className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Valid email
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className={LABEL}>
+                      <Cake className="mr-1 inline h-3 w-3" />
+                      Gender
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleChange}
+                      className={CONTROL}
                     >
-                      <label className="flex cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          value={t.mainTreatment}
-                          checked={formData.treatments.some(
-                            (tr) =>
-                              tr.treatment === t.mainTreatment &&
-                              !tr.subTreatment,
-                          )}
-                          onChange={handleTreatmentChange}
-                          className="h-3.5 w-3.5 cursor-pointer rounded border-slate-300 accent-teal-600 dark:border-slate-600"
-                        />
-                        <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                          {t.mainTreatment}
-                        </span>
-                      </label>
-                      {t.subTreatments?.length > 0 && (
-                        <div className="ml-5 mt-1.5 space-y-1">
-                          {t.subTreatments.map((sub: any, j: number) => {
-                            const val = `${t.mainTreatment}::${sub.name}`;
-                            return (
-                              <label
-                                key={j}
-                                className="flex cursor-pointer items-center gap-2"
-                              >
-                                <input
-                                  type="checkbox"
-                                  value={val}
-                                  checked={formData.treatments.some(
-                                    (tr) =>
-                                      tr.treatment === t.mainTreatment &&
-                                      tr.subTreatment === sub.name,
-                                  )}
-                                  onChange={handleTreatmentChange}
-                                  className="h-3 w-3 cursor-pointer rounded border-slate-300 accent-teal-600 dark:border-slate-600"
-                                />
-                                <span className="text-[11px] text-slate-600 dark:text-slate-400">
-                                  {sub.name}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
+                      <option>Male</option>
+                      <option>Female</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={LABEL}>Age</label>
+                    <input
+                      type="number"
+                      name="age"
+                      value={formData.age}
+                      onChange={handleChange}
+                      className={CONTROL}
+                      placeholder="e.g. 32"
+                      min={0}
+                      max={150}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ---------- TREATMENTS ---------- */}
+              <div className={CARD}>
+                <SectionTitle
+                  icon={<Stethoscope className="h-3.5 w-3.5" />}
+                  title="Treatments"
+                  subtitle={
+                    formData.treatments.length > 0
+                      ? `${formData.treatments.length} selected`
+                      : "Select treatments of interest"
+                  }
+                />
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 dark:border-slate-700 dark:bg-slate-800/30">
+                  {treatments.length === 0 ? (
+                    <p className="py-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                      No treatments available
+                    </p>
+                  ) : (
+                    treatments.map((t: any, i: number) => (
+                      <div
+                        key={i}
+                        className="rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
+                      >
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            value={t.mainTreatment}
+                            checked={formData.treatments.some(
+                              (tr) =>
+                                tr.treatment === t.mainTreatment &&
+                                !tr.subTreatment,
+                            )}
+                            onChange={handleTreatmentChange}
+                            className="h-3.5 w-3.5 cursor-pointer rounded border-slate-300 accent-teal-600 dark:border-slate-600"
+                          />
+                          <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                            {t.mainTreatment}
+                          </span>
+                        </label>
+                        {t.subTreatments?.length > 0 && (
+                          <div className="ml-5 mt-1.5 space-y-1">
+                            {t.subTreatments.map((sub: any, j: number) => {
+                              const val = `${t.mainTreatment}::${sub.name}`;
+                              return (
+                                <label
+                                  key={j}
+                                  className="flex cursor-pointer items-center gap-2"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    value={val}
+                                    checked={formData.treatments.some(
+                                      (tr) =>
+                                        tr.treatment === t.mainTreatment &&
+                                        tr.subTreatment === sub.name,
+                                    )}
+                                    onChange={handleTreatmentChange}
+                                    className="h-3 w-3 cursor-pointer rounded border-slate-300 accent-teal-600 dark:border-slate-600"
+                                  />
+                                  <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                                    {sub.name}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* ---------- LEAD DETAILS ---------- */}
+              <div className={CARD}>
+                <SectionTitle
+                  icon={<Globe className="h-3.5 w-3.5" />}
+                  title="Lead Details"
+                  subtitle="Source, status and offer"
+                />
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className={LABEL}>Source</label>
+                    <select
+                      name="source"
+                      value={formData.source}
+                      onChange={handleChange}
+                      className={CONTROL}
+                    >
+                      <option value="Instagram">Instagram</option>
+                      <option value="Facebook">Facebook</option>
+                      <option value="Google">Google</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Walk-in">Walk-in</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {formData.source === "Other" && (
+                    <div>
+                      <label className={LABEL}>Custom Source</label>
+                      <input
+                        type="text"
+                        name="customSource"
+                        value={formData.customSource}
+                        onChange={handleChange}
+                        className={CONTROL}
+                        placeholder="Enter source"
+                      />
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
+                  )}
+                </div>
 
-            {/* ---------- LEAD DETAILS ---------- */}
-            <div className={CARD}>
-              <SectionTitle
-                icon={<Globe className="h-3.5 w-3.5" />}
-                title="Lead Details"
-                subtitle="Source, status and offer"
-              />
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className={LABEL}>Status</label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className={CONTROL}
+                    >
+                      <option value="New">New</option>
+                      <option value="Contacted">Contacted</option>
+                      <option value="Booked">Booked</option>
+                      <option value="Visited">Visited</option>
+                      <option value="Follow-up">Follow-up</option>
+                      <option value="Not Interested">Not Interested</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {formData.status === "Other" && (
+                    <div>
+                      <label className={LABEL}>Custom Status</label>
+                      <input
+                        type="text"
+                        name="customStatus"
+                        value={formData.customStatus}
+                        onChange={handleChange}
+                        className={CONTROL}
+                        placeholder="Enter status"
+                      />
+                    </div>
+                  )}
+                </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className={LABEL}>Source</label>
+                <div className="mt-3">
+                  <label className={LABEL}>
+                    <Tag className="mr-1 inline h-3 w-3" />
+                    Offer Tag
+                  </label>
                   <select
-                    name="source"
-                    value={formData.source}
+                    name="offerTag"
+                    value={formData.offerTag}
                     onChange={handleChange}
                     className={CONTROL}
                   >
-                    <option value="Instagram">Instagram</option>
-                    <option value="Facebook">Facebook</option>
-                    <option value="Google">Google</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Walk-in">Walk-in</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                {formData.source === "Other" && (
-                  <div>
-                    <label className={LABEL}>Custom Source</label>
-                    <input
-                      type="text"
-                      name="customSource"
-                      value={formData.customSource}
-                      onChange={handleChange}
-                      className={CONTROL}
-                      placeholder="Enter source"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className={LABEL}>Status</label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className={CONTROL}
-                  >
-                    <option value="New">New</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Booked">Booked</option>
-                    <option value="Visited">Visited</option>
-                    <option value="Follow-up">Follow-up</option>
-                    <option value="Not Interested">Not Interested</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                {formData.status === "Other" && (
-                  <div>
-                    <label className={LABEL}>Custom Status</label>
-                    <input
-                      type="text"
-                      name="customStatus"
-                      value={formData.customStatus}
-                      onChange={handleChange}
-                      className={CONTROL}
-                      placeholder="Enter status"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3">
-                <label className={LABEL}>
-                  <Tag className="mr-1 inline h-3 w-3" />
-                  Offer Tag
-                </label>
-                <select
-                  name="offerTag"
-                  value={formData.offerTag}
-                  onChange={handleChange}
-                  className={CONTROL}
-                >
-                  <option value="">No offer</option>
-                  {activeOffers.map((o) => (
-                    <option key={o._id} value={o.title}>
-                      {o.title} —{" "}
-                      {o.type === "percentage" ? `${o.value}%` : `₹${o.value}`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* ---------- ADDITIONAL INFO ---------- */}
-            <div className={CARD}>
-              <SectionTitle
-                icon={<StickyNote className="h-3.5 w-3.5" />}
-                title="Additional Information"
-                subtitle="Notes, follow-up and assignment"
-              />
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className={LABEL}>Note</label>
-                  <select
-                    value={noteType}
-                    onChange={(e) => setNoteType(e.target.value)}
-                    className={CONTROL}
-                  >
-                    <option value="">Select Note</option>
-                    <option value="Interested">Interested</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Custom">Custom</option>
-                  </select>
-                </div>
-                {noteType === "Custom" && (
-                  <div>
-                    <label className={LABEL}>Custom Note</label>
-                    <input
-                      type="text"
-                      value={customNote}
-                      onChange={(e) => setCustomNote(e.target.value)}
-                      className={CONTROL}
-                      placeholder="Type a note"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div>
-                  <label className={LABEL}>
-                    <CalendarClock className="mr-1 inline h-3 w-3" />
-                    Follow-up Date
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={followUpDate}
-                    onChange={(e) => setFollowUpDate(e.target.value)}
-                    className={`${CONTROL} dark:[color-scheme:dark]`}
-                  />
-                </div>
-                <div>
-                  <label className={LABEL}>
-                    <Users className="mr-1 inline h-3 w-3" />
-                    Assign To
-                  </label>
-                  <select
-                    value={formData.assignedTo[0] || ""}
-                    onChange={(e) => {
-                      const selectedId = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        assignedTo: selectedId ? [selectedId] : [],
-                      }));
-                    }}
-                    className={CONTROL}
-                  >
-                    <option value="">Select agent</option>
-                    {agents.map((agent) => (
-                      <option key={agent._id} value={agent._id}>
-                        {agent.name}
+                    <option value="">No offer</option>
+                    {activeOffers.map((o) => (
+                      <option key={o._id} value={o.title}>
+                        {o.title} —{" "}
+                        {o.type === "percentage"
+                          ? `${o.value}%`
+                          : `₹${o.value}`}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div className="mt-3">
-                <label className={LABEL}>
-                  <Layers className="mr-1 inline h-3 w-3" />
-                  Segment
-                </label>
-                <CustomAsyncSelect
-                  label=""
-                  name="chooseSegment"
-                  loadOptions={(inputValue) =>
-                    loadSegmentOptions(inputValue, token)
-                  }
-                  value={selectedSegment}
-                  onChange={(value) => setSelectedSegment(value as any)}
-                  placeholder="Select a segment..."
+              {/* ---------- ADDITIONAL INFO ---------- */}
+              <div className={CARD}>
+                <SectionTitle
+                  icon={<StickyNote className="h-3.5 w-3.5" />}
+                  title="Additional Information"
+                  subtitle="Notes, follow-up and assignment"
                 />
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className={LABEL}>Note</label>
+                    <select
+                      value={noteType}
+                      onChange={(e) => setNoteType(e.target.value)}
+                      className={CONTROL}
+                    >
+                      <option value="">Select Note</option>
+                      <option value="Interested">Interested</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Custom">Custom</option>
+                    </select>
+                  </div>
+                  {noteType === "Custom" && (
+                    <div>
+                      <label className={LABEL}>Custom Note</label>
+                      <input
+                        type="text"
+                        value={customNote}
+                        onChange={(e) => setCustomNote(e.target.value)}
+                        className={CONTROL}
+                        placeholder="Type a note"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div>
+                    <label className={LABEL}>
+                      <CalendarClock className="mr-1 inline h-3 w-3" />
+                      Follow-up Date
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={followUpDate}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      className={`${CONTROL} dark:[color-scheme:dark]`}
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL}>
+                      <Users className="mr-1 inline h-3 w-3" />
+                      Assign To
+                    </label>
+                    <select
+                      value={formData.assignedTo[0] || ""}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          assignedTo: selectedId ? [selectedId] : [],
+                        }));
+                      }}
+                      className={CONTROL}
+                    >
+                      <option value="">Select agent</option>
+                      {agents.map((agent) => (
+                        <option key={agent._id} value={agent._id}>
+                          {agent.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <label className={LABEL}>
+                    <Layers className="mr-1 inline h-3 w-3" />
+                    Segment
+                  </label>
+                  <CustomAsyncSelect
+                    label=""
+                    name="chooseSegment"
+                    loadOptions={(inputValue) =>
+                      loadSegmentOptions(inputValue, token)
+                    }
+                    value={selectedSegment}
+                    onChange={(value) => setSelectedSegment(value as any)}
+                    placeholder="Select a segment..."
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* ============ FOOTER ============ */}
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900">
-            <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-              <span className="text-rose-500">*</span>
-              Required fields
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !canCreate}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-teal-500 to-teal-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/25 ring-1 ring-inset ring-white/10 transition-all hover:from-teal-500 hover:to-teal-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                title={
-                  !canCreate ? "You do not have permission to create leads" : ""
-                }
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Create Lead
-                  </>
-                )}
-              </button>
+            {/* ============ FOOTER ============ */}
+            <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+              <p className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="text-rose-500">*</span>
+                Required fields
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !canCreate}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-teal-500 to-teal-700 px-5 py-2 text-xs font-semibold text-white shadow-md shadow-teal-700/25 ring-1 ring-inset ring-white/10 transition-all hover:from-teal-500 hover:to-teal-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                  title={
+                    !canCreate
+                      ? "You do not have permission to create leads"
+                      : ""
+                  }
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Create Lead
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }
