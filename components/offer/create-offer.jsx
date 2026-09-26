@@ -554,7 +554,7 @@ function OffersPage({ dateFilter = 'Today', setActiveTab, pageLevelPermissions }
           revenueBillingList: billingRecords,
           mostUsedOffers,
           underperformingOffers,
-          topPatientsList: [],
+          topPatientsList: apiData.topPatientsList || [],
           allOffersStats: apiData.allOffersStats || {},
         };
         setOfferAnalytics(transformedData);
@@ -2528,6 +2528,9 @@ function OffersPage({ dateFilter = 'Today', setActiveTab, pageLevelPermissions }
                         <span className="text-lg">{medals[idx] || `#${idx + 1}`}</span>
                         <div>
                           <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{patient.patientName}</p>
+                          {patient.emrNumber && (
+                            <p className="text-[9px] text-gray-400 dark:text-gray-500 font-medium">{patient.emrNumber}</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
