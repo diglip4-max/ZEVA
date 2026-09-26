@@ -673,7 +673,7 @@ function CreateClaimPage() {
     setPaymentForm((prev: any) => {
       let updated = { ...prev, [name]: value };
       if (name === "advanceAmount") updated.advanceAmount = parseFloat(value) || 0;
-      if (name === "claimType") { updated.advanceStatus = "Full Pay"; updated.advanceAmount = 0; updated.transactionId = ""; updated.attachment = ""; }
+      if (name === "claimType") { updated.advanceStatus = value === "Advance" ? "Partial Pay" : "Full Pay"; updated.advanceAmount = 0; updated.transactionId = ""; updated.attachment = ""; }
       const claimAmt = name === "claimAmount" ? parseFloat(value) || 0 : parseFloat(updated.claimAmount) || 0;
       const copPct = name === "coPayPercent" ? parseFloat(value) || 0 : parseFloat(updated.coPayPercent) || 0;
       const copType = name === "coPayType" ? value : updated.coPayType;
@@ -683,10 +683,8 @@ function CreateClaimPage() {
         if (value === "Partial Pay") { const c = calculateCoPay(claimAmt, copPct, copType, "Partial Pay", 0, updated.claimType); advAmt = c.totalClaimAmount / 2; updated.advanceAmount = Math.round(advAmt * 100) / 100; }
         else if (value === "Full Pay") { const c = calculateCoPay(claimAmt, copPct, copType, "Full Pay", 0, updated.claimType); advAmt = c.totalClaimAmount; updated.advanceAmount = Math.round(advAmt * 100) / 100; }
       }
-      // For Advance claims: advanceAmount always stays 0 (no payment made yet)
-      if (updated.claimType === "Advance") {
-        updated.advanceAmount = 0;
-      }
+      // Advance claims: advanceAmount is user-editable (advance collected now, rest paid later).
+      // pendingClaimAmount intentionally stays the FULL total — see calculateCoPay Advance branch.
       const calc = calculateCoPay(claimAmt, copPct, copType, advStatus, advAmt, updated.claimType);
       updated.totalClaimAmount = calc.totalClaimAmount;
       updated.pendingClaimAmount = calc.pendingClaimAmount;
@@ -1690,7 +1688,7 @@ function CreateClaimPage() {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Advance Status</label>
                           <select name="advanceStatus" value={paymentForm.advanceStatus} onChange={handlePaymentChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-gray-900 bg-white">
-                            <option value="Full Pay">Full Pay</option>
+                            {/* Full Pay hidden for Advance claims — uncomment to re-enable: <option value="Full Pay">Full Pay</option> */}
                             <option value="Partial Pay">Partial Pay</option>
                           </select>
                         </div>

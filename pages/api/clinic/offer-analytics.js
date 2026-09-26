@@ -109,7 +109,21 @@ export default async function handler(req, res) {
           totalDiscount: { $sum: { $ifNull: ["$offerDiscountAmount", 0] } },
           totalDiscountPercentage: { $sum: { $ifNull: ["$discountPercent", 0] } },
           totalRevenue: { $sum: { $ifNull: ["$amount", 0] } },
-          totalPaid: { $sum: { $ifNull: ["$paid", 0] } },
+          totalPaid: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$paid", 0] },
+                {
+                  $add: [
+                    { $ifNull: ["$advance", 0] },
+                    { $ifNull: ["$claimAmountUsed", 0] },
+                    { $ifNull: ["$pendingUsed", 0] },
+                    { $ifNull: ["$pendingClaimUsed", 0] },
+                  ],
+                },
+              ],
+            },
+          },
           totalOriginalAmount: { $sum: { $ifNull: ["$originalAmount", 0] } },
         },
       },
@@ -130,7 +144,21 @@ export default async function handler(req, res) {
           _id: null,
           count: { $sum: 1 },
           totalRevenue: { $sum: "$amount" },
-          totalPaid: { $sum: "$paid" },
+          totalPaid: {
+            $sum: {
+              $subtract: [
+                "$paid",
+                {
+                  $add: [
+                    { $ifNull: ["$advance", 0] },
+                    { $ifNull: ["$claimAmountUsed", 0] },
+                    { $ifNull: ["$pendingUsed", 0] },
+                    { $ifNull: ["$pendingClaimUsed", 0] },
+                  ],
+                },
+              ],
+            },
+          },
           totalOriginalAmount: { $sum: "$originalAmount" },
           totalFreeSessions: {
             $sum: {
@@ -161,7 +189,7 @@ export default async function handler(req, res) {
           isAdvanceOnly: { $ne: true },
           $or: [
             { offerApplied: true, offerType: "cashback" },
-            { isCashbackApplied: true },
+            { isCashbackApplied: true, offerType: { $nin: ["bundle", "instant_discount"] } },
           ],
           ...dateFilter,
         },
@@ -173,7 +201,21 @@ export default async function handler(req, res) {
           totalCashbackEarned: { $sum: "$cashbackAmount" },
           totalWalletUsed: { $sum: "$cashbackWalletUsed" },
           totalRevenue: { $sum: "$amount" },
-          totalPaid: { $sum: "$paid" },
+          totalPaid: {
+            $sum: {
+              $subtract: [
+                "$paid",
+                {
+                  $add: [
+                    { $ifNull: ["$advance", 0] },
+                    { $ifNull: ["$claimAmountUsed", 0] },
+                    { $ifNull: ["$pendingUsed", 0] },
+                    { $ifNull: ["$pendingClaimUsed", 0] },
+                  ],
+                },
+              ],
+            },
+          },
           totalOriginalAmount: { $sum: "$originalAmount" },
         },
       },
@@ -628,7 +670,7 @@ export default async function handler(req, res) {
     const patientIdsForBilling = [...new Set(offerBillingRecords.map(r => r.patientId).filter(Boolean))];
     const billingPatients = patientIdsForBilling.length > 0
       ? await PatientRegistration.find({ _id: { $in: patientIdsForBilling } })
-        .select('firstName lastName')
+        .select('firstName lastName emrNumber')
         .lean()
       : [];
     const patientNameMap = new Map(
@@ -636,6 +678,9 @@ export default async function handler(req, res) {
         p._id.toString(),
         [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Unknown patient'
       ])
+    );
+    const patientEmrMap = new Map(
+      billingPatients.map(p => [p._id.toString(), p.emrNumber || null])
     );
 
     const attentionOfferIds = offersRequiringAttentionResult.map((offer) => offer._id);
@@ -2048,6 +2093,32 @@ export default async function handler(req, res) {
     };
 
     // ═══════════════════════════════════════════════════════
+    // TOP PATIENTS — by offer usage frequency
+    // ═══════════════════════════════════════════════════════
+
+    const patientOfferMap = {};
+    offerBillingRecords.forEach((billing) => {
+      if (!billing.patientId) return;
+      const pid = billing.patientId.toString();
+      if (!patientOfferMap[pid]) {
+        patientOfferMap[pid] = { patientId: pid, count: 0, offerNames: new Set() };
+      }
+      patientOfferMap[pid].count += 1;
+      if (billing.offerName) patientOfferMap[pid].offerNames.add(billing.offerName);
+    });
+
+    const topPatientsList = Object.values(patientOfferMap)
+      .map((p) => ({
+        patientId: p.patientId,
+        patientName: patientNameMap.get(p.patientId) || 'Unknown patient',
+        emrNumber: patientEmrMap.get(p.patientId) || null,
+        count: p.count,
+        offerNames: Array.from(p.offerNames),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // ═══════════════════════════════════════════════════════
     // BUILD RESPONSE
     // ═══════════════════════════════════════════════════════
 
@@ -2231,6 +2302,9 @@ export default async function handler(req, res) {
 
         // All Offers Stats (for offers table)
         allOffersStats: Object.fromEntries(allOffersStatsMap),
+
+        // Top Patients by offer usage frequency
+        topPatientsList,
 
         // Percentage Changes vs Previous Period
         percentChanges,
