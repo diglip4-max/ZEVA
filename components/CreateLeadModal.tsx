@@ -4,8 +4,6 @@ import axios from "axios";
 import {
   X,
   User,
-  Phone,
-  Mail,
   Cake,
   Stethoscope,
   Globe,
