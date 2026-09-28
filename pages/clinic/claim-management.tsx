@@ -5,7 +5,7 @@ import {
   FileText, CheckCircle, Wallet, Activity, BadgeCheck, Hourglass,
   ShieldAlert, X, RefreshCw, Search, Users, AlertCircle, Eye, Trash2,
   ChevronDown, Loader2, FileImage, CalendarClock, User, Clock, Shield, Stethoscope,
-  ArrowLeftRight, MoveRight, ChevronLeft, ChevronRight, AlertTriangle, Send, Calendar, XCircle
+  ArrowLeftRight, MoveRight, ChevronLeft, ChevronRight, AlertTriangle, Send, Calendar, XCircle, Plus
 } from 'lucide-react';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -136,6 +136,7 @@ interface ClaimRow {
   amount: number;
   rejectionReason?: string;
   rejectedFromReleaseRequested?: boolean;
+  pendingClaim?: number;
 }
 
 interface StatBucket {
@@ -296,6 +297,14 @@ function ClaimManagementPage() {
   const [rejectModal, setRejectModal] = useState<any>(null);
   const [rejectionNote, setRejectionNote] = useState("");
   const [rejectActionLoading, setRejectActionLoading] = useState(false);
+
+  // Approve claim state (ported from all-claims)
+  const [approveClaimModal, setApproveClaimModal] = useState<any>(null);
+  const [expectedReleaseDate, setExpectedReleaseDate] = useState("");
+  const [approveActionLoading, setApproveActionLoading] = useState(false);
+  // Payment terms state
+  const [advancePendingAmountAdded, setAdvancePendingAmountAdded] = useState("");
+  const [showExtraAmountInput, setShowExtraAmountInput] = useState(false);
 
   // Role from the stored token — used to gate the delete action
   const getTokenRole = () => {
@@ -746,8 +755,8 @@ function ClaimManagementPage() {
     try {
       const headers = getAuthHeaders();
       const res = await axios.patch(
-        "/api/clinic/insurance-claims/release-request",
-        { claimId: rejectModal._id, action: "reject", rejectionNote },
+        "/api/clinic/insurance-claims/review",
+        { claimId: rejectModal._id, action: "reject", rejectionReason: rejectionNote.trim() },
         { headers }
       );
       if (res.data.success) {
@@ -762,6 +771,59 @@ function ClaimManagementPage() {
       window.alert(err.response?.data?.message || "Failed to reject claim");
     } finally {
       setRejectActionLoading(false);
+    }
+  };
+
+  // ===== Approve claim handlers (ported from all-claims) =====
+  const openApproveClaimModal = (claim: any) => {
+    if (!permissions.canUpdate) {
+      alert("You don't have permission to approve claims");
+      return;
+    }
+    setApproveClaimModal(claim);
+    setExpectedReleaseDate("");
+    setAdvancePendingAmountAdded("");
+    setShowExtraAmountInput(false);
+  };
+
+  const confirmApproveClaim = async () => {
+    if (!approveClaimModal) return;
+    if (!expectedReleaseDate) {
+      alert("Please select the expected release date");
+      return;
+    }
+    setApproveActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const payload: any = {
+        claimId: approveClaimModal._id,
+        action: "approve",
+        expectedReleaseDate,
+      };
+      // Send advancePendingAmountAdded if any amount was entered
+      const extraAmount = Number(advancePendingAmountAdded || 0);
+      if (extraAmount > 0) {
+        payload.advancePendingAmountAdded = extraAmount;
+      }
+      const res = await axios.patch(
+        "/api/clinic/insurance-claims/review",
+        payload,
+        { headers }
+      );
+      if (res.data.success) {
+        setApproveClaimModal(null);
+        setExpectedReleaseDate("");
+        setAdvancePendingAmountAdded("");
+        setShowExtraAmountInput(false);
+        setReleaseSuccessMsg("Claim approved successfully!");
+        setTimeout(() => setReleaseSuccessMsg(""), 3000);
+        runSearch();
+        fetchDashboard(true);
+      }
+    } catch (err: any) {
+      window.alert(err.response?.data?.message || "Failed to approve claim");
+    } finally {
+      setApproveActionLoading(false);
     }
   };
 
@@ -1674,7 +1736,28 @@ function ClaimManagementPage() {
                                         <p className="text-sm font-bold text-violet-900">{getCurrencySymbol(currency)} {fmt(row.finalClaimAmount)}</p>
                                       </div>
                                     )}
-                                    {activeStat === 'advance' && permissions.canUpdate && (
+                                    {row.pendingClaim != null && row.pendingClaim > 0 && (
+                                      <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+                                        <p className="text-[9px] text-orange-600 uppercase font-bold tracking-wider">Pending Amount</p>
+                                        <p className="text-sm font-bold text-orange-900">{getCurrencySymbol(currency)} {fmt(row.pendingClaim)}</p>
+                                      </div>
+                                    )}
+                                    {activeStat === 'advance' && availableByPatient[row.patientId] != null && (
+                                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                                        <p className="text-[9px] text-emerald-600 uppercase font-bold tracking-wider">Available Amount</p>
+                                        <p className="text-sm font-bold text-emerald-900">{getCurrencySymbol(currency)} {fmt(availableByPatient[row.patientId])}</p>
+                                      </div>
+                                    )}
+                                    {activeStat === 'advance' && permissions.canUpdate && row.status === 'Under Review' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); openApproveClaimModal(row); }}
+                                        disabled={approveActionLoading}
+                                        className="flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold rounded-lg transition-all shadow-sm uppercase tracking-tight bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+                                      >
+                                        <><CheckCircle className="w-3.5 h-3.5" /> Approve</>
+                                      </button>
+                                    )}
+                                    {activeStat === 'advance' && permissions.canUpdate && row.status !== 'Under Review' && row.status !== 'Released' && row.status !== 'Approved' && (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); if (row.status !== 'Released') fetchReleaseVerificationData(row); }}
                                         disabled={row.status === 'Released' || releaseVerificationLoading}
@@ -1691,7 +1774,7 @@ function ClaimManagementPage() {
                                         )}
                                       </button>
                                     )}
-                                    {activeStat === 'advance' && permissions.canDelete && row.status !== 'Released' && (
+                                    {activeStat === 'advance' && permissions.canDelete && row.status !== 'Released' && row.status !== 'Approved' && (
                                       <button
                                         onClick={(e) => { e.stopPropagation(); if (!(row.rejectionReason || row.rejectedFromReleaseRequested)) setRejectModal(row); }}
                                         disabled={!!(row.rejectionReason || row.rejectedFromReleaseRequested)}
@@ -2604,6 +2687,156 @@ function ClaimManagementPage() {
                 <button onClick={() => { setRejectModal(null); setRejectionNote(""); }} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
                 <button onClick={handleRejectClaim} disabled={rejectActionLoading || !rejectionNote.trim()} className="flex-[2] px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 disabled:opacity-50">
                   {rejectActionLoading ? "Processing..." : "Confirm Rejection"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      , document.body)}
+
+      {/* Approve Claim Modal — Expected Release Date is compulsory */}
+      {approveClaimModal && createPortal(
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center shrink-0">
+                <BadgeCheck className="w-5 h-5 text-teal-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-bold text-gray-900 leading-tight">Approve Claim</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Confirm approval and set the expected release date</p>
+              </div>
+              <button onClick={() => { setApproveClaimModal(null); setExpectedReleaseDate(""); }} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Claim summary */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                    {approveClaimModal.patientName?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'P'}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{approveClaimModal.patientName}</p>
+                    <p className="text-[11px] text-gray-500 truncate">{approveClaimModal.insuranceProvider} · {approveClaimModal.claimType} Claim</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white border border-gray-100 rounded-lg p-2.5">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Claim Amount</p>
+                    <p className="text-sm font-bold text-gray-900 mt-0.5">{getCurrencySymbol(currency)}{approveClaimModal.claimAmount?.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded-lg p-2.5">
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Current Status</p>
+                    <p className="text-sm font-bold text-gray-900 mt-0.5">{approveClaimModal.status}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Terms */}
+              {approveClaimModal.pendingClaim > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-teal-600" />
+                    Payment Terms
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-center">
+                      <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider">Amount to Pay</p>
+                      <p className="text-sm font-bold text-amber-900 mt-0.5">{getCurrencySymbol(currency)}{Number(approveClaimModal.pendingClaim || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-center">
+                      <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider">Pending Amount</p>
+                      <p className="text-sm font-bold text-blue-900 mt-0.5">{getCurrencySymbol(currency)}{Number(approveClaimModal.pendingClaim || 0).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-green-50 border border-green-100 rounded-lg p-2.5 text-center">
+                      <p className="text-[10px] font-semibold text-green-600 uppercase tracking-wider">Partial Amount</p>
+                      <p className="text-sm font-bold text-green-900 mt-0.5">{getCurrencySymbol(currency)}{Number(approveClaimModal.advanceAmount || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Add Extra Amount */}
+                  <div className="border-t border-gray-100 pt-3">
+                    {!showExtraAmountInput ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowExtraAmountInput(true)}
+                        className="w-full px-3 py-2 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add Extra Amount
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-gray-700">Extra Amount to Add to Pending Claim</label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">{getCurrencySymbol(currency)}</span>
+                            <input
+                              type="number"
+                              value={advancePendingAmountAdded}
+                              onChange={(e) => setAdvancePendingAmountAdded(e.target.value)}
+                              placeholder="0.00"
+                              min="0"
+                              step="0.01"
+                              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setShowExtraAmountInput(false); setAdvancePendingAmountAdded(""); }}
+                            className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {advancePendingAmountAdded && Number(advancePendingAmountAdded) > 0 && (
+                          <p className="text-[11px] text-teal-600 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            {getCurrencySymbol(currency)}{Number(advancePendingAmountAdded).toLocaleString()} will be added to pending claim (new total: {getCurrencySymbol(currency)}{(Number(approveClaimModal.pendingClaim || 0) + Number(advancePendingAmountAdded)).toLocaleString()})
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Expected Release Date */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-800 mb-1.5">
+                  Expected Release Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={expectedReleaseDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setExpectedReleaseDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-[11px] text-gray-400 mt-1.5 flex items-center gap-1">
+                  <CalendarClock className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                  This date will be shown as the expected release date for this claim
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => { setApproveClaimModal(null); setExpectedReleaseDate(""); }}
+                  className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmApproveClaim}
+                  disabled={approveActionLoading || !expectedReleaseDate}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {approveActionLoading ? "Approving..." : "Approve Claim"}
                 </button>
               </div>
             </div>

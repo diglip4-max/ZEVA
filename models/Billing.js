@@ -144,7 +144,7 @@ const billingSchema = new mongoose.Schema(
     // Service details
     service: {
       type: String,
-      enum: ["Package", "Treatment", "Service", "Product"],
+      enum: ["Package", "Treatment", "Service", "Product", "claim"],
       required: true,
     },
     treatment: {

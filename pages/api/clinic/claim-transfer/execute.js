@@ -19,21 +19,29 @@ import { getUserFromReq } from "../../lead-ms/auth";
 const ALLOWED_ROLES = ["clinic", "agent", "doctorStaff", "staff", "admin"];
 
 // Mirrors the patient-balance formula plus the transfer ledger:
-//   remaining = released(Advance→claimAmount, Paid→advanceAmount)
+//   remaining = effectiveAmount(advanceAmount - coPayDeduction)
 //             - SUM(Billing.claimAmountUsed, clinic scoped)
 //             - transfersOut + transfersIn        (Completed only)
 async function computeClaimUsage(patientId, clinicId) {
-  const claims = await InsuranceClaim.find({
-    patientId,
-    status: "Released",
-  })
-    .select("claimAmount advanceAmount claimType")
+  const claims = await InsuranceClaim.find({ patientId })
+    .select("claimAmount advanceAmount claimType pendingClaim coPayPercent coPayType")
     .lean();
 
   let released = 0;
   for (const c of claims) {
-    if (c.claimType === "Advance") released += Number(c.claimAmount || 0);
-    else if (c.claimType === "Paid") released += Number(c.advanceAmount || 0);
+    const advanceAmt = Number(c.advanceAmount || 0);
+    const coPayPct = Number(c.coPayPercent || 0);
+    const pendingAmt = Number(c.pendingClaim || 0);
+    let effectiveAmount;
+    if (pendingAmt === 0) {
+      const baseClaimAmount = Number(c.claimAmount || 0);
+      const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(baseClaimAmount * coPayPct / 100) : 0;
+      effectiveAmount = Math.round(advanceAmt - coPayDeduction);
+    } else {
+      const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(advanceAmt * coPayPct / 100) : 0;
+      effectiveAmount = Math.round(advanceAmt - coPayDeduction);
+    }
+    released += effectiveAmount;
   }
 
   const billingMatch = { patientId, isAdvanceOnly: { $ne: true } };

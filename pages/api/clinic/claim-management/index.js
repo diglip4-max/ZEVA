@@ -55,6 +55,7 @@ const toRow = (claim, amount) => ({
   amount: round2(amount),
   rejectionReason: claim.rejectionReason || "",
   rejectedFromReleaseRequested: !!claim.rejectedFromReleaseRequested,
+  pendingClaim: round2(claim.pendingClaim || 0),
 });
 
 const emptyBucket = () => ({ count: 0, amount: 0, claims: [] });

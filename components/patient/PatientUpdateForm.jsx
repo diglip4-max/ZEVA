@@ -195,7 +195,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     // Handle mobileNumber - only allow digits and limit to 10 digits
     if (name === "mobileNumber") {
       const numericValue = value.replace(/\D/g, '');
-      if (numericValue.length <= 10) {
+      // Allow backspace/deletion freely; only cap at 10 when adding new digits
+      if (numericValue.length <= 10 || numericValue.length < (formData.mobileNumber || '').replace(/\D/g, '').length) {
         setFormData((prev) => ({ ...prev, [name]: numericValue }));
       }
       return;
@@ -1285,10 +1286,9 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         label="Mobile Number"
                         name="mobileNumber"
                         type="tel"
-                        value={canViewMobileNumber ? formData.mobileNumber : ""}
+                        value={formData.mobileNumber}
                         onChange={handleFieldChange}
                         required
-                        disabled={!canViewMobileNumber}
                         maxLength={10}
                       />
                       <EditableField

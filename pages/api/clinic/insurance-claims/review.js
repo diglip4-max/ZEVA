@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { claimId, action, rejectionReason, reviewNotes, expectedReleaseDate } = req.body;
+    const { claimId, action, rejectionReason, reviewNotes, expectedReleaseDate, advancePendingAmountAdded } = req.body;
 
     if (!claimId || !action) {
       return res.status(400).json({ success: false, message: "claimId and action are required" });
@@ -95,6 +95,12 @@ export default async function handler(req, res) {
       claim.rejectedByRole = "";
       claim.rejectedAt = null;
       claim.rejectionReason = "";
+      // Handle advancePendingAmountAdded: if provided, add it to pendingClaim
+      const extraAmount = Number(advancePendingAmountAdded || 0);
+      if (extraAmount > 0) {
+        claim.advancePendingAmountAdded = extraAmount;
+        claim.pendingClaim = Number(claim.pendingClaim || 0) + extraAmount;
+      }
     } else {
       claim.status = "Rejected";
       claim.rejectionReason = rejectionReason?.trim() || "";

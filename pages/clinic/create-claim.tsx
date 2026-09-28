@@ -660,8 +660,12 @@ function CreateClaimPage() {
     if (coPayType === 'Patient Pays') total = claimAmount + coPayAmount;
     let pending = 0;
     if (claimType === "Advance") {
-      // Advance claim: full amount is pending (service given now, paid later)
-      pending = total;
+      // Advance claim: full amount is pending unless Partial Pay with some amount paid
+      if (advanceStatus === 'Partial Pay' && paidAmount > 0) {
+        pending = total - paidAmount;
+      } else {
+        pending = total;
+      }
     } else if (advanceStatus === 'Partial Pay') {
       pending = total - paidAmount;
     }
@@ -840,7 +844,7 @@ function CreateClaimPage() {
     if (res.data.success) {
       const d = res.data.data;
       console.log("===== CLAIM USAGE API RESPONSE =====");
-      console.log("totalReleasedClaimAmount:", d.totalReleasedClaimAmount);
+      console.log("totalClaimAmount:", d.totalClaimAmount);
       console.log("totalClaimAmountUsed:", d.totalClaimAmountUsed);
       console.log("remainingClaimAmount:", d.remainingClaimAmount);
       console.log("pendingClaim:", d.pendingClaim);
@@ -2392,25 +2396,20 @@ function CreateClaimPage() {
                                   <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Doctor</p><p className="text-xs font-semibold text-gray-900">{c.doctorName || '-'}</p></div>
                                   <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Claim Amount</p><p className="text-xs font-bold text-teal-700">{formatAED(c.claimAmount || 0)}</p></div>
                                   <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Type</p><p className="text-xs font-semibold text-gray-900">{c.claimType || '-'}</p></div>
-                                  <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Released</p><p className="text-xs font-semibold text-gray-900">{c.releasedAt ? new Date(c.releasedAt).toLocaleDateString() : '-'}</p></div>
+                                  <div><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Status</p><p className="text-xs font-semibold text-gray-900">{c.status || '-'}</p></div>
                                 </div>
                               </div>
                             ))}
                           </div>
                         </div>
-                      ) : (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                          <p className="text-sm text-amber-800">No released insurance claims found for this patient.</p>
-                        </div>
-                      )}
+                      ) : null}
 
                       {/* Claim usage — from Billing model */}
                       {sourceUsage && (
                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                           <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2"><Wallet className="w-4 h-4 text-teal-600" /> Claim Credit Usage</h4>
                           <div className="grid grid-cols-3 gap-3">
-                            <div className="bg-white rounded-lg p-3 border border-gray-100 text-center"><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Total Released</p><p className="text-sm font-bold text-gray-900">{formatAED(sourceUsage.totalReleasedClaimAmount || 0)}</p></div>
+                            <div className="bg-white rounded-lg p-3 border border-gray-100 text-center"><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Total Claim Amount</p><p className="text-sm font-bold text-gray-900">{formatAED(sourceUsage.totalClaimAmount || 0)}</p></div>
                             <div className="bg-white rounded-lg p-3 border border-gray-100 text-center"><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Used (Billings)</p><p className="text-sm font-bold text-orange-600">{formatAED(sourceUsage.totalClaimAmountUsed || 0)}</p></div>
                             <div className="bg-white rounded-lg p-3 border border-teal-200 text-center"><p className="text-[10px] font-bold text-teal-600 uppercase mb-1">Remaining</p><p className="text-sm font-bold text-teal-700">{formatAED(sourceUsage.remainingClaimAmount || 0)}</p></div>
                           </div>
@@ -2436,7 +2435,7 @@ function CreateClaimPage() {
                       <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-teal-600"></div></div>
                     ) : sourceUsage ? (
                       <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center"><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Current Paid</p><p className="text-sm font-bold text-gray-900">{formatAED(sourceUsage.totalReleasedClaimAmount || 0)}</p></div>
+                        <div className="bg-white rounded-lg p-3 border border-gray-100 text-center"><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Total Claim Amount</p><p className="text-sm font-bold text-gray-900">{formatAED(sourceUsage.totalClaimAmount || 0)}</p></div>
                         <div className="bg-white rounded-lg p-3 border border-gray-100 text-center"><p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Used</p><p className="text-sm font-bold text-orange-600">{formatAED(sourceUsage.totalClaimAmountUsed || 0)}</p></div>
                         <div className="bg-white rounded-lg p-3 border border-teal-200 text-center"><p className="text-[10px] font-bold text-teal-600 uppercase mb-1">Remaining</p><p className="text-sm font-bold text-teal-700">{formatAED(sourceUsage.remainingClaimAmount || 0)}</p></div>
                       </div>
@@ -2462,11 +2461,12 @@ function CreateClaimPage() {
                             <span className="text-xs font-semibold text-gray-900">{c.insuranceProvider || '-'}</span>
                             <span className="text-xs text-gray-500">Dept: <span className="font-medium text-gray-800">{c.departmentName || '-'}</span></span>
                             <span className="text-xs text-gray-500">Doctor: <span className="font-medium text-gray-800">{c.doctorName || '-'}</span></span>
+                            <span className="text-xs text-gray-500">Status: <span className="font-medium text-gray-800">{c.status || '-'}</span></span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-500 mb-3">No released insurance claims found for the destination patient.</p>
+                      <p className="text-xs text-gray-500 mb-3">No insurance claims found for the destination patient.</p>
                     )}
                     {destUsage && (
                       <div className="bg-white rounded-lg p-3 border border-teal-200 inline-block">

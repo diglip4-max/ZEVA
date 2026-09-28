@@ -64,48 +64,52 @@ export default async function handler(req, res) {
       }
     }
 
-    // Released claims for the patient (same matching as patient-balance:
-    // intentionally NOT clinic-scoped so numbers match the billing credit)
-    const claims = await InsuranceClaim.find({
-      patientId,
-      status: "Released",
-    })
+    // All claims for the patient (no status filter — includes Under Review, Approved, Released, etc.)
+    // Formula mirrors pages/api/clinic/patient-balance/[patientId].js so the numbers
+    // always match the "Use Insurance Claim Amount" credit shown in billing.
+    const claims = await InsuranceClaim.find({ patientId })
       .select(
-        "claimAmount advanceAmount claimType status pendingClaim insuranceProvider departmentName doctorName releasedAt invoiceNumber",
+        "claimAmount advanceAmount claimType status pendingClaim coPayPercent coPayType insuranceProvider departmentName doctorName releasedAt invoiceNumber finalClaimAmount",
       )
-      .sort({ releasedAt: -1 })
+      .sort({ createdAt: -1 })
       .lean();
 
-    let totalReleasedClaimAmount = 0;
+    let totalClaimAmount = 0;
     let totalPendingClaim = 0;
 
     console.log("\n========== CLAIM USAGE CALCULATION ==========");
     console.log("patientId:", patientId, "| clinicId:", String(clinicId));
-    console.log("Found", claims.length, "Released claim(s)\n");
+    console.log("Found", claims.length, "claim(s)\n");
 
     for (const c of claims) {
-      let added = 0;
-      let rule = "";
-      if (c.claimType === "Advance") {
-        added = Number(c.claimAmount || 0);
-        rule = "claimType='Advance' -> use claimAmount";
-      } else if (c.claimType === "Paid") {
-        added = Number(c.advanceAmount || 0);
-        rule = "claimType='Paid' -> use advanceAmount (NOT claimAmount)";
+      const advanceAmt = Number(c.advanceAmount || 0);
+      const coPayPct = Number(c.coPayPercent || 0);
+      const pendingAmt = Number(c.pendingClaim || 0);
+      // Co-pay deduction only applies when Patient Pays
+      let effectiveAmount;
+      if (pendingAmt === 0) {
+        // Fully paid: co-pay is based on claimAmount (original claim), not finalClaimAmount
+        const baseClaimAmount = Number(c.claimAmount || 0);
+        const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(baseClaimAmount * coPayPct / 100) : 0;
+        effectiveAmount = Math.round(advanceAmt - coPayDeduction);
       } else {
-        rule = `claimType='${c.claimType}' -> no rule, adds 0`;
+        // Partially paid: deduct co-pay from advanceAmount
+        const coPayDeduction = c.coPayType === "Patient Pays" ? Math.round(advanceAmt * coPayPct / 100) : 0;
+        effectiveAmount = Math.round(advanceAmt - coPayDeduction);
       }
-      totalReleasedClaimAmount += added;
-      totalPendingClaim += Number(c.pendingClaim || 0);
+      totalClaimAmount += effectiveAmount;
+      totalPendingClaim += pendingAmt;
 
       console.log(`Claim ${c._id}`);
       console.log(`  claimType      : ${c.claimType}`);
+      console.log(`  status         : ${c.status}`);
       console.log(`  claimAmount    : ${c.claimAmount}`);
       console.log(`  advanceAmount  : ${c.advanceAmount}`);
       console.log(`  pendingClaim   : ${c.pendingClaim || 0}`);
-      console.log(`  rule applied   : ${rule}`);
-      console.log(`  value added    : +${added}`);
-      console.log(`  running total  : ${totalReleasedClaimAmount}\n`);
+      console.log(`  coPayType      : ${c.coPayType}`);
+      console.log(`  coPayPercent   : ${c.coPayPercent}`);
+      console.log(`  effectiveAmount: ${effectiveAmount}`);
+      console.log(`  running total  : ${totalClaimAmount}\n`);
     }
 
     // Billings for this patient scoped to the clinic (same as patient-balance)
@@ -159,7 +163,7 @@ export default async function handler(req, res) {
       0,
       Number(
         (
-          totalReleasedClaimAmount -
+          totalClaimAmount -
           totalClaimAmountUsed -
           transferredOut +
           transferredIn
@@ -168,19 +172,19 @@ export default async function handler(req, res) {
     );
 
     console.log("========== FINAL CALCULATION ==========");
-    console.log("  totalReleasedClaimAmount =", totalReleasedClaimAmount);
-    console.log("  totalClaimAmountUsed     =", totalClaimAmountUsed);
-    console.log("  transferredOut           =", transferredOut);
-    console.log("  transferredIn            =", transferredIn);
-    console.log("  remainingClaimAmount     = max(0,", totalReleasedClaimAmount, "-", totalClaimAmountUsed, "-", transferredOut, "+", transferredIn, ") =", remainingClaimAmount);
-    console.log("  pendingClaim             =", totalPendingClaim);
+    console.log("  totalClaimAmount           =", totalClaimAmount);
+    console.log("  totalClaimAmountUsed       =", totalClaimAmountUsed);
+    console.log("  transferredOut             =", transferredOut);
+    console.log("  transferredIn              =", transferredIn);
+    console.log("  remainingClaimAmount       = max(0,", totalClaimAmount, "-", totalClaimAmountUsed, "-", transferredOut, "+", transferredIn, ") =", remainingClaimAmount);
+    console.log("  pendingClaim               =", totalPendingClaim);
     console.log("======================================\n");
 
     return res.status(200).json({
       success: true,
       data: {
         patientId,
-        totalReleasedClaimAmount: Number(totalReleasedClaimAmount.toFixed(2)),
+        totalClaimAmount: Number(totalClaimAmount.toFixed(2)),
         totalClaimAmountUsed: Number(totalClaimAmountUsed.toFixed(2)),
         transferredOut: Number(transferredOut.toFixed(2)),
         transferredIn: Number(transferredIn.toFixed(2)),
@@ -194,6 +198,7 @@ export default async function handler(req, res) {
           claimAmount: Number(c.claimAmount || 0),
           advanceAmount: Number(c.advanceAmount || 0),
           claimType: c.claimType || "",
+          status: c.status || "",
           invoiceNumber: c.invoiceNumber || "",
           releasedAt: c.releasedAt || null,
         })),
