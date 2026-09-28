@@ -178,20 +178,21 @@ export default async function handler(req, res) {
           permissionMap[item.moduleKey.replace(`${navigationRole}_`, '')];
 
         // Check if module has ANY permission at module level
+        const isActionTrue = (action) => action === true || action === "true" || String(action).toLowerCase() === "true";
         const hasModulePermission = modulePerm && (
-          modulePerm.moduleActions.all === true ||
-          modulePerm.moduleActions.create === true ||
-          modulePerm.moduleActions.read === true ||
-          modulePerm.moduleActions.update === true ||
-          modulePerm.moduleActions.delete === true ||
-          modulePerm.moduleActions.approve === true ||
-          modulePerm.moduleActions.print === true ||
-          modulePerm.moduleActions.import === true ||
-          modulePerm.moduleActions.export === true
+          isActionTrue(modulePerm.moduleActions.all) ||
+          isActionTrue(modulePerm.moduleActions.create) ||
+          isActionTrue(modulePerm.moduleActions.read) ||
+          isActionTrue(modulePerm.moduleActions.update) ||
+          isActionTrue(modulePerm.moduleActions.delete) ||
+          isActionTrue(modulePerm.moduleActions.approve) ||
+          isActionTrue(modulePerm.moduleActions.print) ||
+          isActionTrue(modulePerm.moduleActions.import) ||
+          isActionTrue(modulePerm.moduleActions.export)
         );
 
         // Check if module-level "all" is enabled
-        const moduleAllEnabled = modulePerm && modulePerm.moduleActions.all === true;
+        const moduleAllEnabled = modulePerm && isActionTrue(modulePerm.moduleActions.all);
 
         // Filter submodules based on permissions
         // Only show submodules that the agent has explicit permission for
@@ -215,16 +216,17 @@ export default async function handler(req, res) {
 
               // Otherwise, check if submodule has ANY permission
               const subModulePerm = modulePerm?.subModules[subModuleName];
+              const isActionTrue = (action) => action === true || action === "true" || String(action).toLowerCase() === "true";
               return subModulePerm && (
-                subModulePerm.all === true ||
-                subModulePerm.create === true ||
-                subModulePerm.read === true ||
-                subModulePerm.update === true ||
-                subModulePerm.delete === true ||
-                subModulePerm.approve === true ||
-                subModulePerm.print === true ||
-                subModulePerm.import === true ||
-                subModulePerm.export === true
+                isActionTrue(subModulePerm.all) ||
+                isActionTrue(subModulePerm.create) ||
+                isActionTrue(subModulePerm.read) ||
+                isActionTrue(subModulePerm.update) ||
+                isActionTrue(subModulePerm.delete) ||
+                isActionTrue(subModulePerm.approve) ||
+                isActionTrue(subModulePerm.print) ||
+                isActionTrue(subModulePerm.import) ||
+                isActionTrue(subModulePerm.export)
               );
             });
         }
