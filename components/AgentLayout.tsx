@@ -38,8 +38,8 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
       return { marginLeft: '0', width: '100%' };
     }
     return {
-      marginLeft: isDesktopHidden ? '0' : '256px',
-      width: isDesktopHidden ? '100%' : 'calc(100% - 256px)'
+      marginLeft: isDesktopHidden ? '0' : '288px',
+      width: isDesktopHidden ? '100%' : 'calc(100% - 288px)'
     };
   };
 

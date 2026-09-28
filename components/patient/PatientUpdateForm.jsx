@@ -192,13 +192,20 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const handleFieldChange = useCallback((e) => {
     const { name, value, type } = e.target;
 
-    // Handle mobileNumber - only allow digits and limit to 10 digits
+    // Handle mobileNumber - preserve + prefix, allow digit-by-digit editing
     if (name === "mobileNumber") {
-      const numericValue = value.replace(/\D/g, '');
-      // Allow backspace/deletion freely; only cap at 10 when adding new digits
-      if (numericValue.length <= 10 || numericValue.length < (formData.mobileNumber || '').replace(/\D/g, '').length) {
-        setFormData((prev) => ({ ...prev, [name]: numericValue }));
-      }
+      // Keep only digits and leading +
+      let sanitized = value.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+      setFormData((prev) => {
+        const prevVal = prev.mobileNumber || '';
+        // Auto-restore + if previous value had it and user deleted it
+        if (prevVal.startsWith('+') && !sanitized.startsWith('+') && sanitized.length > 0) {
+          sanitized = '+' + sanitized;
+        }
+        // Allow all edits freely (deletions, replacements, additions);
+        // upper bound enforced by HTML maxLength on the input
+        return { ...prev, [name]: sanitized };
+      });
       return;
     }
 
@@ -1289,7 +1296,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         value={formData.mobileNumber}
                         onChange={handleFieldChange}
                         required
-                        maxLength={10}
+                        maxLength={15}
                       />
                       <EditableField
                         label="Gender"
