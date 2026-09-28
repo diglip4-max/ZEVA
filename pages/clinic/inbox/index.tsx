@@ -558,6 +558,7 @@ const InboxPage: NextPageWithLayout = () => {
     cancelEditLead,
     handleUpdateLead,
     handleRefreshConversations,
+    handleLeadStatusChange,
   } = useInbox();
   const {
     user,
@@ -623,7 +624,10 @@ const InboxPage: NextPageWithLayout = () => {
     isUpdatingLead,
 
     isCreatingConversation,
+    leadStatus,
   } = state;
+
+  console.log({ leadStatus, selectedConversation });
 
   // Auto-expand textarea as user types
   React.useEffect(() => {
@@ -1419,7 +1423,7 @@ const InboxPage: NextPageWithLayout = () => {
 
       {/* Right Sidebar - Conversation Info */}
       {selectedConversation && (!isMobileView || isProfileView) && (
-        <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col">
+        <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col h-full overflow-y-auto">
           <div className="p-4 flex items-center space-x-3 border-b border-gray-200 dark:border-slate-700">
             {isMobileView && (
               <button
@@ -1649,6 +1653,50 @@ const InboxPage: NextPageWithLayout = () => {
                   <li>Status: {selectedConversation?.status || "open"}</li>
                 </ul>
               </div> */}
+            </div>
+          </CollapsibleWrapper>
+
+          {/* Lead Status */}
+          <CollapsibleWrapper headerTitle="Stage" loading={false}>
+            <div className="w-full p-1">
+              <select
+                value={leadStatus}
+                onChange={(e) => {
+                  handleLeadStatusChange(e.target.value);
+                }}
+                className="
+      w-full
+      px-3 py-2
+      text-sm
+      border border-gray-300
+      rounded-lg
+      bg-white
+      text-gray-700
+      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+      cursor-pointer
+    "
+              >
+                <option value="" disabled>
+                  Select status...
+                </option>
+                {[
+                  "New",
+                  "Contacted",
+                  "Engaged",
+                  "Qualified",
+                  "Booked",
+                  "Confirmed",
+                  "Visited",
+                  "Follow-up",
+                  "No-show",
+                  "Not Interested",
+                  "Other",
+                ].map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
           </CollapsibleWrapper>
 

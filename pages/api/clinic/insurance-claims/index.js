@@ -5,6 +5,13 @@ import User from "../../../../models/Users";
 import { getUserFromReq } from "../../lead-ms/auth";
 import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
+// Import notification dispatch service
+import { dispatchNotifications } from "../../../../services/notification";
+import {
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_TYPES,
+} from "../../../../lib/notifications";
+
 // Compute age in full years from a date of birth (null when missing/invalid)
 function getPatientAge(dob) {
   if (!dob) return null;
@@ -13,7 +20,8 @@ function getPatientAge(dob) {
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age -= 1;
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate()))
+    age -= 1;
   return age >= 0 && age < 150 ? age : null;
 }
 
@@ -27,7 +35,11 @@ export default async function handler(req, res) {
     if (!user) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (!["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(user.role)) {
+    if (
+      !["clinic", "doctor", "agent", "doctorStaff", "staff", "admin"].includes(
+        user.role,
+      )
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
   } catch (error) {
@@ -40,10 +52,10 @@ export default async function handler(req, res) {
       const { patientId, doctorId, clinicId, status, accessLevel } = req.query;
       const query = {};
 
-
       // Determine clinicId for filtering
-      const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
-      
+      const { clinicId: userClinicId, isAdmin } =
+        await getClinicIdFromUser(user);
+
       if (isAdmin) {
         // Admin can see all, optionally filter by clinicId
         if (clinicId) query.clinicId = clinicId;
@@ -54,8 +66,8 @@ export default async function handler(req, res) {
       // Determine what claims to show based on accessLevel (route-based priority)
       // accessLevel is determined by route: /clinic/* = clinic, /staff/* or /agent/* = staff
       // This ensures that even if multiple tokens exist, the route determines the behavior
-      
-      if (accessLevel === 'doctorStaff' || user.role === 'doctorStaff') {
+
+      if (accessLevel === "doctorStaff" || user.role === "doctorStaff") {
         // doctorStaff always sees only their own claims (token takes precedence for doctorStaff role)
         query.doctorId = user._id;
       } else if (doctorId) {
@@ -72,18 +84,34 @@ export default async function handler(req, res) {
         .lean();
 
       // Enrich with patient EMR numbers and gender/age for card display (display-only denormalization)
-      const patientIds = [...new Set(claims.map((c) => c.patientId).filter(Boolean).map(String))];
+      const patientIds = [
+        ...new Set(
+          claims
+            .map((c) => c.patientId)
+            .filter(Boolean)
+            .map(String),
+        ),
+      ];
       if (patientIds.length > 0) {
-        const patients = await PatientRegistration.find({ _id: { $in: patientIds } }).select("_id emrNumber gender dateOfBirth").lean();
+        const patients = await PatientRegistration.find({
+          _id: { $in: patientIds },
+        })
+          .select("_id emrNumber gender dateOfBirth")
+          .lean();
         const patientMap = {};
         for (const p of patients) {
-          const genderLetter = p.gender ? String(p.gender).charAt(0).toUpperCase() : "";
+          const genderLetter = p.gender
+            ? String(p.gender).charAt(0).toUpperCase()
+            : "";
           const age = getPatientAge(p.dateOfBirth);
           patientMap[String(p._id)] = {
             emrNumber: p.emrNumber || "",
             gender: p.gender || "",
             age,
-            genderAge: genderLetter && age !== null ? `${genderLetter}-${age}` : genderLetter,
+            genderAge:
+              genderLetter && age !== null
+                ? `${genderLetter}-${age}`
+                : genderLetter,
           };
         }
         for (const c of claims) {
@@ -98,23 +126,28 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data: claims });
     } catch (error) {
       console.error("Error fetching insurance claims:", error);
-      return res.status(500).json({ success: false, message: "Failed to fetch claims" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to fetch claims" });
     }
   }
 
   // POST: Create a new claim
   if (req.method === "POST") {
     try {
-      const { clinicId: userClinicId, isAdmin } = await getClinicIdFromUser(user);
-      
+      const { clinicId: userClinicId, isAdmin } =
+        await getClinicIdFromUser(user);
+
       let clinicIdToUse = userClinicId;
       // Admin must provide clinicId
       if (isAdmin && req.body.clinicId) {
         clinicIdToUse = req.body.clinicId;
       }
-      
+
       if (!clinicIdToUse) {
-        return res.status(400).json({ success: false, message: "Unable to determine clinic" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Unable to determine clinic" });
       }
 
       const {
@@ -154,54 +187,84 @@ export default async function handler(req, res) {
 
       // Validate required fields
       if (!patientId) {
-        return res.status(400).json({ success: false, message: "Patient ID is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Patient ID is required" });
       }
       if (!insuranceProvider) {
-        return res.status(400).json({ success: false, message: "Insurance Provider is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Insurance Provider is required" });
       }
       if (!policyNumber) {
-        return res.status(400).json({ success: false, message: "Policy Number is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Policy Number is required" });
       }
       if (!expiryDate) {
-        return res.status(400).json({ success: false, message: "Expiry Date is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Expiry Date is required" });
       }
       if (!doctorId) {
-        return res.status(400).json({ success: false, message: "Doctor is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Doctor is required" });
       }
       if (!claimAmount || claimAmount <= 0) {
-        return res.status(400).json({ success: false, message: "Claim Amount must be greater than 0" });
+        return res.status(400).json({
+          success: false,
+          message: "Claim Amount must be greater than 0",
+        });
       }
       if (!claimType) {
-        return res.status(400).json({ success: false, message: "Claim Type is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Claim Type is required" });
       }
       if (claimType === "Paid") {
         if (!transactionId || !transactionId.trim()) {
-          return res.status(400).json({ success: false, message: "Transaction ID is required for Paid claims" });
+          return res.status(400).json({
+            success: false,
+            message: "Transaction ID is required for Paid claims",
+          });
         }
         if (!attachment) {
-          return res.status(400).json({ success: false, message: "Payment Attachment is required for Paid claims" });
+          return res.status(400).json({
+            success: false,
+            message: "Payment Attachment is required for Paid claims",
+          });
         }
       }
 
       // Validate doctor exists and is doctorStaff role
       const doctor = await User.findById(doctorId);
       if (!doctor || doctor.role !== "doctorStaff") {
-        return res.status(400).json({ success: false, message: "Selected doctor is not a valid doctor staff" });
+        return res.status(400).json({
+          success: false,
+          message: "Selected doctor is not a valid doctor staff",
+        });
       }
 
       // Get patient info for denormalization
-      const patient = await PatientRegistration.findById(patientId).select("firstName lastName mobileNumber");
+      const patient = await PatientRegistration.findById(patientId).select(
+        "firstName lastName mobileNumber",
+      );
       if (!patient) {
-        return res.status(400).json({ success: false, message: "Patient not found" });
+        return res
+          .status(400)
+          .json({ success: false, message: "Patient not found" });
       }
 
       // Use frontend-calculated values if provided
       let advanceAmount = parseFloat(frontendAdvanceAmount) || 0;
       let pendingClaim = parseFloat(frontendPendingClaim) || 0;
-      const amountToStore = parseFloat(finalClaimAmount) || parseFloat(claimAmount);
+      const amountToStore =
+        parseFloat(finalClaimAmount) || parseFloat(claimAmount);
 
       // Get doctor name
-      const resolvedDoctorName = doctorName || `${doctor.name || ''}`.trim() || doctor.email;
+      const resolvedDoctorName =
+        doctorName || `${doctor.name || ""}`.trim() || doctor.email;
 
       // Build services array - support both old format (serviceId/serviceName) and new format (services array)
       let servicesArray = [];
@@ -210,11 +273,17 @@ export default async function handler(req, res) {
         servicesArray = services;
       } else if (serviceId) {
         // Old format: single serviceId/serviceName (backward compatibility)
-        servicesArray = [{ serviceId: serviceId, serviceName: serviceName || "" }];
+        servicesArray = [
+          { serviceId: serviceId, serviceName: serviceName || "" },
+        ];
       }
 
       // Resolve creator name
-      const creatorName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || "";
+      const creatorName =
+        user.name ||
+        `${user.firstName || ""} ${user.lastName || ""}`.trim() ||
+        user.email ||
+        "";
 
       const newClaim = await InsuranceClaim.create({
         clinicId: clinicIdToUse,
@@ -258,6 +327,19 @@ export default async function handler(req, res) {
         patientMobileNumber: patient.mobileNumber || "",
       });
 
+      // if (newClaim.advanceStatus === "Full Pay") {
+      //   // Send Pay Received Notification
+      //   dispatchNotifications({
+      //     clinicId: billing.clinicId?.toString(),
+      //     patientId: billing.patientId?.toString(),
+      //     packageId: billing.packageId?.toString(),
+      //     billingId: billing._id,
+      //     notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+      //     notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+      //   });
+      // } else if (newClaim.advanceStatus === "Partial Pay") {
+      // }
+
       return res.status(201).json({
         success: true,
         message: "Insurance claim created successfully",
@@ -265,10 +347,14 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error("Error creating insurance claim:", error);
-      return res.status(500).json({ success: false, message: "Failed to create claim" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to create claim" });
     }
   }
 
   res.setHeader("Allow", ["GET", "POST"]);
-  return res.status(405).json({ success: false, message: `Method ${req.method} Not Allowed` });
+  return res
+    .status(405)
+    .json({ success: false, message: `Method ${req.method} Not Allowed` });
 }
