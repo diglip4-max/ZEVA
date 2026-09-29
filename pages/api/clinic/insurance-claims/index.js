@@ -328,19 +328,6 @@ export default async function handler(req, res) {
         patientMobileNumber: patient.mobileNumber || "",
       });
 
-      // if (newClaim.advanceStatus === "Full Pay") {
-      //   // Send Pay Received Notification
-      //   dispatchNotifications({
-      //     clinicId: billing.clinicId?.toString(),
-      //     patientId: billing.patientId?.toString(),
-      //     packageId: billing.packageId?.toString(),
-      //     billingId: billing._id,
-      //     notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
-      //     notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
-      //   });
-      // } else if (newClaim.advanceStatus === "Partial Pay") {
-      // }
-
       // ============================================================
       // Create a Billing record for this insurance claim
       // Follows the same pattern as create-patient-registration.js:
@@ -398,6 +385,29 @@ export default async function handler(req, res) {
       // and displayed via the "Pending Claim" card in the patient profile.
       // Creating a ledger entry would double-count it as "Pending Payment".
       // ============================================================
+
+      // =================================== DISPATCH NOTIFICATION ========================================
+      // ======================== PAYMENT RECEIVED & PARTIAL PAYMENT RECEIVED =============================
+      if (newClaim.advanceStatus === "Full Pay" && billingRecord) {
+        // Send Pay Received Notification
+        dispatchNotifications({
+          clinicId: billingRecord.clinicId?.toString(),
+          patientId: billingRecord.patientId?.toString(),
+          packageId: billingRecord.packageId?.toString(),
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      } else if (newClaim.advanceStatus === "Partial Pay" && billingRecord) {
+        dispatchNotifications({
+          clinicId: billingRecord.clinicId?.toString(),
+          patientId: billingRecord.patientId?.toString(),
+          packageId: billingRecord.packageId?.toString(),
+          billingId: billingRecord._id,
+          notificationTypeKey: NOTIFICATION_TYPES.PARTIAL_PAYMENT_RECEIVED,
+          notificationCategory: NOTIFICATION_CATEGORIES.PAYMENT,
+        });
+      }
 
       return res.status(201).json({
         success: true,
